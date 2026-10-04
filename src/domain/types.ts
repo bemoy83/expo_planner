@@ -182,6 +182,8 @@ export interface Workspace {
   demand: DemandLine[]
   allocations: AllocationRow[]
   capacity: CapacityLine[]
+  /** Hall bookings left out of the Kalender, keyed by `venueKey`. They stay in the hall ledger. */
+  hiddenVenue?: Record<string, true>
   /** The latest Venyou export read into the app, and the dates it covers. */
   venueImport?: VenueImportInfo
   /** Latest Visma export per project number. */

@@ -6,6 +6,7 @@ import { importWorkbookFile } from './import/importWorkbook'
 import { parseBackup, toBackup } from './store/backup'
 import { useWorkspace, WorkspaceProvider } from './store/workspaceStore'
 import { Behov } from './ui/behov/Behov'
+import { Haller } from './ui/haller/Haller'
 import { Kalender } from './ui/kalender/Kalender'
 import { SettingsDialog } from './ui/SettingsDialog'
 
@@ -29,7 +30,7 @@ function Shell() {
   const [error, setError] = useState<string | null>(null)
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [view, setView] = useState<'kalender' | 'behov'>('kalender')
+  const [view, setView] = useState<'kalender' | 'behov' | 'haller'>('kalender')
   const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
@@ -68,7 +69,8 @@ function Shell() {
       if (workspace && !confirm('Dette erstatter all planlegging i nettleseren med innholdet i arbeidsboken. Fortsette?')) return
       const imported = await importWorkbookFile(file)
       // Visma and Venyou exports, KPI data and decisions made in the app outlive a new workbook import.
-      await replaceWorkspace(workspace ? withVenueImport(withVismaImports(imported, workspace), workspace) : imported)
+      // Which hall bookings to show is decided in the app once a workbook has been read; the workbook's «Exclude» column only seeds it.
+      await replaceWorkspace(workspace ? { ...withVenueImport(withVismaImports(imported, workspace), workspace), hiddenVenue: Object.keys(workspace.hiddenVenue ?? {}).length ? workspace.hiddenVenue : imported.hiddenVenue } : imported)
     })
 
   const importVenyou = (file: File) =>
@@ -105,6 +107,9 @@ function Shell() {
             </button>
             <button className={view === 'behov' ? 'active' : ''} onClick={() => setView('behov')}>
               Behov
+            </button>
+            <button className={view === 'haller' ? 'active' : ''} onClick={() => setView('haller')}>
+              Haller
             </button>
           </nav>
         )}
@@ -173,6 +178,7 @@ function Shell() {
         </div>
       )}
       {status === 'ready' && workspace && view === 'kalender' && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} />}
+      {status === 'ready' && workspace && view === 'haller' && <Haller />}
       {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>

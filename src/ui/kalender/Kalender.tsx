@@ -4,6 +4,7 @@ import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, 
 import { dayType, holidayName } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
 import { buildHallCalendar, dominantEntry, hallNames, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
@@ -90,16 +91,18 @@ export function Kalender() {
   const topRef = useRef<HTMLDivElement>(null)
 
   // ---- derived data -------------------------------------------------------------------------
-  const hallCalendar = useMemo(() => buildHallCalendar(ws.venue), [ws.venue])
+  const shownVenue = useMemo(() => visibleVenue(ws.venue, ws.hiddenVenue), [ws.venue, ws.hiddenVenue])
+  const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
   const halls = useMemo(() => {
     const names = hallNames(ws.venue)
     if (allHalls) return names
     // Exhibition halls: most of their bookings have build-up or tear-down periods.
     return names.filter((hall) => {
-      const bookings = ws.venue.filter((b) => b.hall === hall)
+      const bookings = shownVenue.filter((b) => b.hall === hall)
+      if (!bookings.length) return false
       return bookings.filter((b) => b.phases.assembly || b.phases.dismantle).length / bookings.length >= 0.5
     })
-  }, [ws.venue, allHalls])
+  }, [ws.venue, shownVenue, allHalls])
   const hallCount = useMemo(() => hallNames(ws.venue).length, [ws.venue])
 
   const need = useMemo(() => dailyNeed(ws.allocations), [ws.allocations])

@@ -19,6 +19,8 @@ export interface Change {
   kpi?: Delta<KpiConfig | undefined>
   /** Hall bookings as a whole, with the note of which Venyou export they came from. */
   venue?: Delta<{ bookings: VenueBooking[]; info: VenueImportInfo | undefined }>
+  /** Which hall bookings are left out of the Kalender. */
+  hiddenVenue?: Delta<Record<string, true>>
 }
 
 export const emptyChange = (): Change => ({ allocations: new Map(), capacity: new Map(), demand: new Map(), visma: new Map() })
@@ -69,11 +71,16 @@ export const recordVenue = (change: Change, before: Workspace, after: Workspace)
   }
 }
 
+export const recordHiddenVenue = (change: Change, before: Record<string, true>, after: Record<string, true>) => {
+  change.hiddenVenue = { before: change.hiddenVenue ? change.hiddenVenue.before : before, after }
+}
+
 export const isEmptyChange = (change: Change): boolean =>
   !change.settings &&
   !change.overrides &&
   !change.kpi &&
   !change.venue &&
+  !change.hiddenVenue &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
   [...change.visma.values()].every((d) => d.before === d.after) &&
   [...change.allocations.values()].every((d) => d.before === d.after) &&
@@ -107,7 +114,7 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
   const overrides = change.overrides ? target(change.overrides, direction) : workspace.overrides
   const kpi = change.kpi ? target(change.kpi, direction) : workspace.kpi
   const venue = change.venue ? target(change.venue, direction) : { bookings: workspace.venue, info: workspace.venueImport }
-  return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info }
+  return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue }
 }
 
 /** What has to be written to storage after applying a change in the given direction. */
@@ -124,4 +131,5 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   /** `undefined` means the KPI data is unchanged; `null` means it should be removed. */
   kpi: change.kpi ? (target(change.kpi, direction) ?? null) : undefined,
   venue: change.venue ? target(change.venue, direction) : null,
+  hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : null,
 })

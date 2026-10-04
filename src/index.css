@@ -772,3 +772,24 @@ input.inline:focus {
 .orphans li span {
   margin-right: 10px;
 }
+
+/* ---- haller (hall ledger) ---- */
+table.ledger.halls {
+  width: auto;
+  min-width: 760px;
+}
+table.ledger tr.event-row td {
+  background: var(--bg);
+  border-top: 2px solid var(--line-strong);
+}
+table.ledger tr.hidden-row td {
+  color: var(--muted);
+  background: #fafafa;
+}
+table.ledger tr.hidden-row td.hall-name {
+  text-decoration: line-through;
+}
+table.ledger td.hall-name {
+  padding-left: 20px;
+  font-weight: 600;
+}

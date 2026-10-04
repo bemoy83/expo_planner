@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, ProjectRef, Settings, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface MetaRecord {
-  key: 'settings' | 'importedFrom' | 'kpi' | 'overrides' | 'venueImport'
+  key: 'settings' | 'importedFrom' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue'
   value: unknown
 }
 
@@ -39,8 +39,9 @@ const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations,
 export const loadWorkspace = async (): Promise<Workspace | null> => {
   const settings = await db.meta.get('settings')
   if (!settings) return null
-  const [importedFrom, venueImport, kpi, overrides, visma, venue, projects, demand, allocations, capacity] = await Promise.all([
+  const [importedFrom, hiddenVenue, venueImport, kpi, overrides, visma, venue, projects, demand, allocations, capacity] = await Promise.all([
     db.meta.get('importedFrom'),
+    db.meta.get('hiddenVenue'),
     db.meta.get('venueImport'),
     db.meta.get('kpi'),
     db.meta.get('overrides'),
@@ -55,6 +56,7 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     settings: settings.value as Settings,
     importedFrom: importedFrom?.value as Workspace['importedFrom'],
     venueImport: venueImport?.value as VenueImportInfo | undefined,
+    hiddenVenue: (hiddenVenue?.value as Record<string, true> | undefined) ?? {},
     kpi: kpi?.value as KpiConfig | undefined,
     overrides: (overrides?.value as Record<string, LineOverride> | undefined) ?? {},
     visma,
@@ -76,6 +78,7 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
       ...(workspace.kpi ? [{ key: 'kpi' as const, value: workspace.kpi }] : []),
       ...(workspace.venueImport ? [{ key: 'venueImport' as const, value: workspace.venueImport }] : []),
       { key: 'overrides' as const, value: workspace.overrides ?? {} },
+      { key: 'hiddenVenue' as const, value: workspace.hiddenVenue ?? {} },
     ])
     await db.visma.bulkPut(workspace.visma ?? [])
     await db.venue.bulkPut(workspace.venue)
@@ -117,3 +120,5 @@ export const writeVenue = (venue: VenueBooking[], info: VenueImportInfo | undefi
     if (info) await db.meta.put({ key: 'venueImport', value: info })
     else await db.meta.delete('venueImport')
   })
+
+export const putHiddenVenue = (hidden: Record<string, true>) => db.meta.put({ key: 'hiddenVenue', value: hidden })

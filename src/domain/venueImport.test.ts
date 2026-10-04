@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VenueBooking } from './types'
-import { diffVenue, exportWindow, mergeVenue } from './venueImport'
+import { diffVenue, exportWindow, mergeVenue, venueKey, visibleVenue, withHidden } from './venueImport'
 
 const booking = (id: string, eventName: string, hall: string, eventStart: string, extra: VenueBooking['phases'] = {}): VenueBooking => ({
   id,
@@ -24,6 +24,28 @@ const incoming = [
   booking('n4', 'NY MESSE 2026', 'B2', '2026-11-01'),
 ]
 const window = { from: '2026-01-01', to: '2026-12-31' }
+
+describe('hidden hall bookings', () => {
+  it('identifies a booking by hall, event and start, whatever export it came from', () => {
+    expect(venueKey(existing[0])).toBe('c|vvs dagene 2026|2026-10-14')
+    expect(venueKey(incoming[0])).toBe(venueKey(existing[0]))
+    expect(venueKey(existing[1])).not.toBe(venueKey(existing[0]))
+  })
+
+  it('hides one hall of an event and keeps the choice after a new export', () => {
+    const hidden = withHidden({}, [venueKey(existing[0])], true)
+    expect(visibleVenue(existing, hidden).map((b) => b.id)).toEqual(['b', 'c', 'd', 'e'])
+    const merged = mergeVenue(existing, incoming, window)
+    expect(visibleVenue(merged, hidden).map((b) => b.id)).not.toContain('n1')
+    expect(visibleVenue(merged, hidden).map((b) => b.id)).toContain('n2')
+  })
+
+  it('shows a booking again', () => {
+    const key = venueKey(existing[0])
+    expect(withHidden({ [key]: true }, [key], false)).toEqual({})
+    expect(visibleVenue(existing, undefined)).toBe(existing)
+  })
+})
 
 describe('Venyou export', () => {
   it('takes its period from the file name, or from its dates', () => {

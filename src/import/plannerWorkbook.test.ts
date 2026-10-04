@@ -63,6 +63,11 @@ describe.skipIf(!available)('planner workbook import (local data)', () => {
     }
   })
 
+  it('reads the «Exclude» column as hidden hall bookings', () => {
+    expect(Object.keys(workspace.hiddenVenue ?? {}).length).toBeGreaterThan(20)
+    expect(workspace.venue.every((booking) => !('excluded' in booking))).toBe(true)
+  })
+
   it('keeps cell notes', () => {
     const notes = workspace.capacity.flatMap((line) => Object.values(line.notes))
     expect(notes.length).toBeGreaterThan(50)

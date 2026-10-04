@@ -14,6 +14,7 @@ import {
   type WorkPhase,
   type Workspace,
 } from '../domain/types'
+import { venueKey } from '../domain/venueImport'
 import { cellAt, num, readXlsx, splitRef, text, type CellValue, type Sheet } from './xlsx'
 
 /** Reads the current planner workbook (`Bemanning_Behov_24 måneder.xlsx`) into a workspace. */
@@ -67,7 +68,7 @@ const columnGetter = (sheet: Sheet, headers: Map<string, number>, sheetName: str
 const sortedRows = (sheet: Sheet, after: number) => [...sheet.rows.keys()].filter((r) => r > after).sort((a, b) => a - b)
 
 /** Reads hall bookings in the Venyou layout: one row per hall and event, with start and end dates for each phase. */
-export const readVenue = (sheet: Sheet, headerRow = 1, sheetName = 'tabell_venyou'): VenueBooking[] => {
+export const readVenue = (sheet: Sheet, headerRow = 1, sheetName = 'tabell_venyou'): (VenueBooking & { excluded?: boolean })[] => {
   const get = columnGetter(sheet, headerColumns(sheet, headerRow), sheetName)
   const phaseColumns: [VenuePhase, string][] = [
     ['assembly', 'assembly'],
@@ -76,7 +77,7 @@ export const readVenue = (sheet: Sheet, headerRow = 1, sheetName = 'tabell_venyo
     ['movingOut', 'moving out'],
     ['dismantle', 'dismantle'],
   ]
-  const bookings: VenueBooking[] = []
+  const bookings: (VenueBooking & { excluded?: boolean })[] = []
   for (const row of sortedRows(sheet, headerRow)) {
     const hall = text(get(row, 'Locations'))
     const eventName = text(get(row, 'Event name'))
@@ -87,7 +88,9 @@ export const readVenue = (sheet: Sheet, headerRow = 1, sheetName = 'tabell_venyo
       const end = normalizeDate(get(row, `${label} end date`))
       if (start && end) phases[phase] = start <= end ? { start, end } : { start: end, end: start }
     }
-    bookings.push({ id: `venue-${row}`, hall, eventName, status: text(get(row, 'Status', false)), phases })
+    // The workbook's hand-set «Exclude» column marks bookings that should not show in the Kalender.
+    const excluded = text(get(row, 'Exclude', false)) !== ''
+    bookings.push({ id: `venue-${row}`, hall, eventName, status: text(get(row, 'Status', false)), phases, ...(excluded ? { excluded } : {}) })
   }
   return bookings
 }
@@ -272,9 +275,11 @@ export const readPlannerWorkbook = (bytes: Uint8Array, fileName: string): Worksp
   const kalender = sheet('Kalender')
   const axis = readDateAxis(kalender)
   const notes = indexNotes(kalender)
+  const venue = readVenue(sheet('tabell_venyou'))
   return {
     settings: readSettings(sheets, axis),
-    venue: readVenue(sheet('tabell_venyou')),
+    venue: venue.map(({ excluded: _excluded, ...booking }) => booking),
+    hiddenVenue: Object.fromEntries(venue.filter((booking) => booking.excluded).map((booking) => [venueKey(booking), true as const])),
     projects: readProjects(sheet('Prosjekt')),
     demand: readDemand(sheet('Tabell_oppgaver')),
     allocations: readAllocations(kalender, axis, notes),

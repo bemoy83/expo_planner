@@ -2,10 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
 import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
-import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, type VenueDiff } from '../domain/venueImport'
+import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, saveWorkspace, writeDemand, writeVenue, type DemandWrite } from './db'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings, recordVenue, type Change, type Direction } from './history'
+import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putHiddenVenue, saveWorkspace, writeDemand, writeVenue, type DemandWrite } from './db'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordHiddenVenue, recordLedger, recordSettings, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -26,6 +26,8 @@ interface WorkspaceStore {
   updateSettings: (settings: Settings) => void
   /** Takes in a Venyou export: hall bookings in the export's period are replaced, the rest are kept. */
   importVenue: (bookings: VenueBooking[], fileName: string) => VenueDiff & { from: string; to: string }
+  /** Shows or hides hall bookings in the Kalender; keys come from `venueKey`. */
+  setVenueHidden: (keys: string[], hidden: boolean) => void
   /** Merges mapping and/or rates into the KPI reference data and recalculates all Visma lines. */
   setKpi: (kpi: Partial<KpiConfig>) => void
   /** Takes in a Visma export; each project in it replaces that project's earlier Visma lines. Returns the project numbers. */
@@ -155,7 +157,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           if (writes.overrides) await db.meta.put({ key: 'overrides', value: writes.overrides })
           if (writes.kpi === null) await db.meta.delete('kpi')
           else if (writes.kpi) await db.meta.put({ key: 'kpi', value: writes.kpi })
-        }).then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined)),
+        })
+          .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
+          .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined)),
       )
     },
     [closeStep, track],
@@ -284,6 +288,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
+  const setVenueHidden = useCallback(
+    (keys: string[], hidden: boolean) => {
+      const ws = current.current
+      if (!ws) return
+      const before = ws.hiddenVenue ?? {}
+      const after = withHidden(before, keys, hidden)
+      commit({ ...ws, hiddenVenue: after }, () => putHiddenVenue(after), (step) => recordHiddenVenue(step, before, after))
+    },
+    [commit],
+  )
+
   const setKpi = useCallback(
     (partial: Partial<KpiConfig>) => {
       const ws = current.current
@@ -379,6 +394,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setCapacityValue,
     updateSettings,
     importVenue,
+    setVenueHidden,
     setKpi,
     importVisma,
     setLineOverride,

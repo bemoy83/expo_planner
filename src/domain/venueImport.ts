@@ -14,6 +14,25 @@ const allDates = (booking: VenueBooking): ISODate[] => VENUE_PHASES.flatMap((pha
 /** The date that decides which export a booking belongs to: the event start, or its earliest date. */
 export const anchorDate = (booking: VenueBooking): ISODate | null => booking.phases.event?.start ?? allDates(booking).sort()[0] ?? null
 
+/**
+ * Identifies a booking across exports: hall, event name and anchor date.
+ * The planner's choice to leave a booking out of the Kalender is stored under this key, so it survives a new export.
+ */
+export const venueKey = (booking: VenueBooking): string => [booking.hall, booking.eventName, anchorDate(booking) ?? ''].map((part) => part.trim().toLowerCase()).join('|')
+
+export const visibleVenue = (bookings: VenueBooking[], hidden: Record<string, true> | undefined): VenueBooking[] =>
+  hidden && Object.keys(hidden).length ? bookings.filter((booking) => !hidden[venueKey(booking)]) : bookings
+
+/** Returns the hidden set with the given bookings shown or hidden. */
+export const withHidden = (hidden: Record<string, true> | undefined, keys: string[], hide: boolean): Record<string, true> => {
+  const next = { ...hidden }
+  for (const key of keys) {
+    if (hide) next[key] = true
+    else delete next[key]
+  }
+  return next
+}
+
 const inWindow = (booking: VenueBooking, window: DateWindow): boolean => {
   const anchor = anchorDate(booking)
   return anchor !== null && anchor >= window.from && anchor <= window.to
