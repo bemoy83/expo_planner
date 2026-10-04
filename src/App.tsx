@@ -7,6 +7,7 @@ import { parseBackup, toBackup } from './store/backup'
 import { useWorkspace, WorkspaceProvider } from './store/workspaceStore'
 import { Behov } from './ui/behov/Behov'
 import { Haller } from './ui/haller/Haller'
+import { Kpi } from './ui/kpi/Kpi'
 import { Kalender } from './ui/kalender/Kalender'
 import { SettingsDialog } from './ui/SettingsDialog'
 
@@ -30,7 +31,7 @@ function Shell() {
   const [error, setError] = useState<string | null>(null)
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [view, setView] = useState<'kalender' | 'behov' | 'haller'>('kalender')
+  const [view, setView] = useState<'kalender' | 'behov' | 'haller' | 'kpi'>('kalender')
   const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
@@ -111,6 +112,9 @@ function Shell() {
             <button className={view === 'haller' ? 'active' : ''} onClick={() => setView('haller')}>
               Haller
             </button>
+            <button className={view === 'kpi' ? 'active' : ''} onClick={() => setView('kpi')}>
+              KPI
+            </button>
           </nav>
         )}
         {workspace?.importedFrom && (
@@ -179,7 +183,8 @@ function Shell() {
       )}
       {status === 'ready' && workspace && view === 'kalender' && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
-      {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} />}
+      {status === 'ready' && workspace && view === 'kpi' && <Kpi />}
+      {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenKpi={() => setView('kpi')} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )

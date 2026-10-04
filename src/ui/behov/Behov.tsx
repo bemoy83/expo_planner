@@ -2,8 +2,9 @@ import { useMemo, useRef, useState } from 'react'
 import { formatFte } from '../../domain/calc'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
-import { readKpiWorkbook, readVismaExport } from '../../import/vismaExport'
+import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { NumberField, TextField } from '../fields'
 import { DemandLineDialog } from './DemandLineDialog'
 
 const hours = (value: number) => formatFte(value, 1)
@@ -24,16 +25,16 @@ const takeFiles = (e: React.ChangeEvent<HTMLInputElement>, handle: (files: File[
 interface Props {
   projectNo: string
   onProjectChange: (projectNo: string) => void
+  onOpenKpi: () => void
 }
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
-export function Behov({ projectNo, onProjectChange }: Props) {
-  const { workspace, setKpi, importVisma, setLineOverride, removeLineOverride, removeDemandLine, undo, redo, canUndo, canRedo } = useWorkspace()
+export function Behov({ projectNo, onProjectChange, onOpenKpi }: Props) {
+  const { workspace, importVisma, setLineOverride, removeLineOverride, removeDemandLine, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
   const vismaInput = useRef<HTMLInputElement>(null)
-  const kpiInput = useRef<HTMLInputElement>(null)
 
   const projects = useMemo(() => {
     const names = new Map<string, string>()
@@ -96,13 +97,6 @@ export function Behov({ projectNo, onProjectChange }: Props) {
       return `Visma-linjene for ${imported.join(', ')} er erstattet med ${name}. Kan angres med Ctrl/Cmd+Z.`
     })
 
-  const onKpiFiles = (files: File[]) =>
-    readFiles(files, (bytes, name) => {
-      const kpi = readKpiWorkbook(bytes)
-      setKpi(kpi)
-      return `${name}: ${[kpi.workTypes && `${kpi.workTypes.length} produkttyper`, kpi.rates && `${kpi.rates.length} satser`].filter(Boolean).join(' og ')} lest inn.`
-    })
-
   const kpiReady = !!ws.kpi?.workTypes.length && !!ws.kpi.rates.length
   const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) =>
     setLineOverride(line.projectNo, line.key, { ...patch, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
@@ -133,11 +127,10 @@ export function Behov({ projectNo, onProjectChange }: Props) {
         <span className={`muted small ${kpiReady ? '' : 'warn'}`}>
           {kpiReady ? `KPI: ${ws.kpi!.workTypes.length} produkttyper, ${ws.kpi!.rates.length} satser` : 'KPI-oppsett mangler'}
         </span>
-        <button onClick={() => kpiInput.current?.click()}>Importer KPI-filer</button>
-        <button className="primary" onClick={() => vismaInput.current?.click()} disabled={!kpiReady} title={kpiReady ? '' : 'Importer KPI-filene først'}>
+        <button onClick={onOpenKpi}>Åpne KPI</button>
+        <button className="primary" onClick={() => vismaInput.current?.click()} disabled={!kpiReady} title={kpiReady ? '' : 'Sett opp KPI først'}>
           Importer Visma-utskrift
         </button>
-        <input ref={kpiInput} type="file" accept=".xlsx" multiple hidden onChange={(e) => takeFiles(e, onKpiFiles)} />
         <input ref={vismaInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFiles(e, onVismaFiles)} />
       </div>
 
@@ -152,9 +145,11 @@ export function Behov({ projectNo, onProjectChange }: Props) {
 
       <div className="behov-body">
         {!kpiReady && (
-          <p className="notice">
-            For å regne om Visma-linjer til timer trengs to filer: produkttypene med enhet og nøkkelområde (<code>Nøkkeltall Visma</code>) og satsene (
-            <code>Kpier.xlsx</code>). Velg begge med «Importer KPI-filer».
+<p className="notice">
+            For å regne om Visma-linjer til timer trengs KPI-oppsettet: arbeidstyper med enhet, kompetanse og satser.{' '}
+            <button className="link" onClick={onOpenKpi}>
+              Åpne KPI
+            </button>
           </p>
         )}
         {!projectNo && <p className="muted">Velg et prosjekt, eller importer en Visma-utskrift.</p>}
@@ -381,41 +376,5 @@ export function Behov({ projectNo, onProjectChange }: Props) {
 
       {dialog && projectNo && <DemandLineDialog line={dialog.line} projectNo={projectNo} projectName={projectName} onClose={() => setDialog(null)} />}
     </div>
-  )
-}
-
-function NumberField({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
-  const shown = value ? String(value).replace('.', ',') : ''
-  const [draft, setDraft] = useState<string | null>(null)
-  return (
-    <input
-      className="inline num"
-      inputMode="decimal"
-      value={draft ?? shown}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        if (draft === null) return
-        const n = draft.trim() === '' ? 0 : Number(draft.replace(',', '.'))
-        if (Number.isFinite(n) && n !== value) onCommit(n)
-        setDraft(null)
-      }}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-    />
-  )
-}
-
-function TextField({ value, onCommit }: { value: string; onCommit: (value: string) => void }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  return (
-    <input
-      className="inline"
-      value={draft ?? value}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        if (draft !== null && draft.trim() !== value) onCommit(draft.trim())
-        setDraft(null)
-      }}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-    />
   )
 }

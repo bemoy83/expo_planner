@@ -793,3 +793,18 @@ table.ledger td.hall-name {
   padding-left: 20px;
   font-weight: 600;
 }
+
+/* ---- kpi table ---- */
+table.ledger.kpi {
+  width: auto;
+  min-width: 760px;
+}
+table.ledger.kpi tr.first-of-type td {
+  border-top: 1px solid var(--line-strong);
+}
+table.ledger.kpi tr.alt-unit td {
+  color: var(--muted);
+}
+.issue {
+  color: var(--over);
+}

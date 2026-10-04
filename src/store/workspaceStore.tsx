@@ -28,8 +28,8 @@ interface WorkspaceStore {
   importVenue: (bookings: VenueBooking[], fileName: string) => VenueDiff & { from: string; to: string }
   /** Shows or hides hall bookings in the Kalender; keys come from `venueKey`. */
   setVenueHidden: (keys: string[], hidden: boolean) => void
-  /** Merges mapping and/or rates into the KPI reference data and recalculates all Visma lines. */
-  setKpi: (kpi: Partial<KpiConfig>) => void
+  /** Replaces the KPI setup and recalculates all Visma lines. */
+  setKpi: (kpi: KpiConfig) => void
   /** Takes in a Visma export; each project in it replaces that project's earlier Visma lines. Returns the project numbers. */
   importVisma: (rows: VismaRow[], fileName: string) => string[]
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
@@ -300,10 +300,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   )
 
   const setKpi = useCallback(
-    (partial: Partial<KpiConfig>) => {
+    (kpi: KpiConfig) => {
       const ws = current.current
       if (!ws) return
-      const kpi: KpiConfig = { workTypes: partial.workTypes ?? ws.kpi?.workTypes ?? [], rates: partial.rates ?? ws.kpi?.rates ?? [] }
       const visma = ws.visma ?? []
       const { demand, write } = withVismaLines(ws, visma.map((v) => v.projectNo), kpi, ws.overrides ?? {}, visma)
       commitDemand({ ...ws, kpi, demand }, { ...write, kpi })
@@ -316,7 +315,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const ws = current.current
       if (!ws) return []
       const kpi = ws.kpi
-      if (!kpi?.workTypes.length || !kpi.rates.length) throw new Error('Importer KPI-filene (produkttyper og satser) før Visma-utskriften.')
+      if (!kpi?.workTypes.length || !kpi.rates.length) throw new Error('Sett opp KPI (arbeidstyper og satser) før Visma-utskriften leses inn.')
       const byProject = new Map<string, VismaRow[]>()
       for (const row of rows) byProject.set(row.projectNo, [...(byProject.get(row.projectNo) ?? []), row])
       const importedAt = new Date().toISOString()
