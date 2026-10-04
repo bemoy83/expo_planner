@@ -6,6 +6,10 @@ import { useWorkspace } from '../store/workspaceStore'
 interface Props {
   row?: AllocationRow
   projectName?: string
+  /** The project's number where the caller knows it (a Venyou event may not be in the project list). */
+  projectNo?: string
+  /** Projects to choose from: the Venyou events and any other projects with rows. */
+  projects?: { name: string; projectNo: string }[]
   onClose: () => void
   onSaved?: (row: AllocationRow) => void
 }
@@ -14,7 +18,7 @@ interface Props {
  * Adds or edits an allocation row. The choices cascade like the workbook's dropdowns:
  * project → year whose demand to use → competence → data basis, and the hours follow automatically.
  */
-export function AllocationDialog({ row, projectName, onClose, onSaved }: Props) {
+export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, projects, onClose, onSaved }: Props) {
   const { workspace, demandIndex, addAllocation, updateAllocation } = useWorkspace()
   const ws = workspace!
   const [project, setProject] = useState(row?.projectName ?? projectName ?? '')
@@ -24,18 +28,30 @@ export function AllocationDialog({ row, projectName, onClose, onSaved }: Props) 
   const [basis, setBasis] = useState(row?.basis ?? '')
 
   const projectNames = useMemo(() => {
-    const names = new Set([...ws.projects.map((p) => p.name), ...ws.allocations.map((r) => r.projectName)])
+    const names = new Set([...(projects ?? []).map((p) => p.name), ...ws.projects.map((p) => p.name), ...ws.allocations.map((r) => r.projectName)])
     return [...names].filter(Boolean).sort((a, b) => a.localeCompare(b, 'nb'))
-  }, [ws.projects, ws.allocations])
+  }, [projects, ws.projects, ws.allocations])
 
   const projectNo = useMemo(() => {
     const key = project.trim().toLowerCase()
-    return ws.projects.find((p) => p.name.trim().toLowerCase() === key)?.projectNo ?? ws.allocations.find((r) => r.projectName === project)?.projectNo ?? ''
-  }, [project, ws.projects, ws.allocations])
+    if (row && key === row.projectName.trim().toLowerCase()) return row.projectNo
+    if (knownProjectNo !== undefined && key === (projectName ?? '').trim().toLowerCase()) return knownProjectNo
+    return (
+      projects?.find((p) => p.name.trim().toLowerCase() === key)?.projectNo ??
+      ws.projects.find((p) => p.name.trim().toLowerCase() === key)?.projectNo ??
+      ws.allocations.find((r) => r.projectName === project)?.projectNo ??
+      ''
+    )
+  }, [project, row, knownProjectNo, projectName, projects, ws.projects, ws.allocations])
 
   const years = useMemo(() => (projectNo ? availableYears(demandIndex, projectNo) : []), [demandIndex, projectNo])
   const ref = referenceProjectNo(projectNo, refYear)
-  const competences = useMemo(() => [...(demandIndex.options.get(ref)?.keys() ?? [])].sort((a, b) => a.localeCompare(b, 'nb')), [demandIndex, ref])
+  // Competences with demand for the chosen year come first; without demand, any known competence can be planned.
+  const competences = useMemo(() => {
+    const withDemand = [...(demandIndex.options.get(ref)?.keys() ?? [])]
+    const known = withDemand.length ? withDemand : [...(ws.kpi?.workTypes ?? []).map((t) => t.competence), ...ws.allocations.map((r) => r.competence)]
+    return [...new Set(known)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'nb'))
+  }, [demandIndex, ref, ws.kpi, ws.allocations])
   const bases = useMemo(() => {
     const byCompetence = demandIndex.options.get(ref)
     const match = [...(byCompetence?.entries() ?? [])].find(([c]) => c.toLowerCase() === competence.trim().toLowerCase())
@@ -43,7 +59,8 @@ export function AllocationDialog({ row, projectName, onClose, onSaved }: Props) 
   }, [demandIndex, ref, competence])
 
   const hours = requiredHours(demandIndex, { projectNo, refYear, competence, basis, phase })
-  const valid = project.trim() !== '' && competence.trim() !== '' && refYear !== ''
+  // A row can be planned before any demand exists, so the year is only required when there is demand to pick from.
+  const valid = project.trim() !== '' && competence.trim() !== '' && (refYear !== '' || years.length === 0)
 
   const save = () => {
     const fields = { projectName: project.trim(), projectNo, refYear, competence: competence.trim(), phase, basis: basis.trim() }
@@ -72,7 +89,7 @@ export function AllocationDialog({ row, projectName, onClose, onSaved }: Props) 
               <option key={name} value={name} />
             ))}
           </datalist>
-          <span className="hint">{projectNo ? `Prosjektnummer ${projectNo}` : project ? 'Fant ikke prosjektnummer i prosjektlisten' : ''}</span>
+          <span className="hint">{projectNo ? `Prosjektnummer ${projectNo}` : project ? 'Uten prosjektnummer. Sett nummeret på Haller-fanen for å hente behov fra Visma og tidligere år.' : ''}</span>
         </label>
 
         <label>
@@ -84,7 +101,7 @@ export function AllocationDialog({ row, projectName, onClose, onSaved }: Props) 
             ))}
             {refYear && !years.includes(refYear) && <option>{refYear}</option>}
           </select>
-          <span className="hint">{projectNo && !years.length ? 'Ingen behovsdata registrert for denne prosjektserien' : ref ? `Henter behov fra ${ref}` : ''}</span>
+          <span className="hint">{!years.length ? 'Ingen behov registrert ennå. Raden kan planlegges nå og få behov senere.' : ref ? `Henter behov fra ${ref}` : ''}</span>
         </label>
 
         <label>

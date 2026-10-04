@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
-import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
+import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
+import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putHiddenVenue, saveWorkspace, writeDemand, writeVenue, type DemandWrite } from './db'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordHiddenVenue, recordLedger, recordSettings, recordVenue, type Change, type Direction } from './history'
+import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -26,6 +27,10 @@ interface WorkspaceStore {
   updateSettings: (settings: Settings) => void
   /** Takes in a Venyou export: hall bookings in the export's period are replaced, the rest are kept. */
   importVenue: (bookings: VenueBooking[], fileName: string) => VenueDiff & { from: string; to: string }
+  /** Sets the project number of a Venyou event by hand; an empty number goes back to the project list's match. */
+  setEventProject: (event: VenueEvent, projectNo: string) => void
+  /** Adds names and numbers from a project list file; the file wins where a name is in both. Returns the number of entries read. */
+  importProjects: (projects: ProjectRef[]) => number
   /** Shows or hides hall bookings in the Kalender; keys come from `venueKey`. */
   setVenueHidden: (keys: string[], hidden: boolean) => void
   /** Replaces the KPI setup and recalculates all Visma lines. */
@@ -159,7 +164,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           else if (writes.kpi) await db.meta.put({ key: 'kpi', value: writes.kpi })
         })
           .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
-          .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined)),
+          .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined))
+          .then(() => (writes.eventLinks ? putEventLinks(writes.eventLinks) : undefined))
+          .then(() => (writes.projects ? writeProjects(writes.projects) : undefined)),
       )
     },
     [closeStep, track],
@@ -288,6 +295,46 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
+  const setEventProject = useCallback(
+    (event: VenueEvent, projectNo: string) => {
+      const ws = current.current
+      if (!ws) return
+      const before = ws.eventLinks ?? {}
+      const after = { ...before }
+      const manual = projectNo.trim()
+      if (manual) after[event.key] = manual
+      else delete after[event.key]
+      const listed = projectListIndex(ws.projects).get(normalizeName(event.name))
+      const resolved = manual || (listed?.size === 1 ? [...listed][0] : '')
+      // Rows already planned for the event follow it to the new number, so their demand is looked up there.
+      const moved = ws.allocations.filter(
+        (row) => normalizeName(row.projectName) === normalizeName(event.name) && (row.projectNo === '' || row.projectNo === event.projectNo) && row.projectNo !== resolved,
+      )
+      const updated = new Map(moved.map((row) => [row.id, { ...row, projectNo: resolved }]))
+      const next = { ...ws, eventLinks: after, allocations: updated.size ? ws.allocations.map((row) => updated.get(row.id) ?? row) : ws.allocations }
+      commit(
+        next,
+        () => db.allocations.bulkPut([...updated.values()]).then(() => putEventLinks(after)),
+        (step) => {
+          recordEventLinks(step, before, after)
+          for (const row of moved) recordAllocation(step, row.id, row, updated.get(row.id)!)
+        },
+      )
+    },
+    [commit],
+  )
+
+  const importProjects = useCallback(
+    (incoming: ProjectRef[]) => {
+      const ws = current.current
+      if (!ws) return 0
+      const projects = mergeProjectList(ws.projects, incoming)
+      commit({ ...ws, projects }, () => writeProjects(projects), (step) => recordProjects(step, ws.projects, projects))
+      return incoming.length
+    },
+    [commit],
+  )
+
   const setVenueHidden = useCallback(
     (keys: string[], hidden: boolean) => {
       const ws = current.current
@@ -393,6 +440,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setCapacityValue,
     updateSettings,
     importVenue,
+    setEventProject,
+    importProjects,
     setVenueHidden,
     setKpi,
     importVisma,

@@ -5,11 +5,12 @@ import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, 
 import { dayType, holidayName } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
 import { buildHallCalendar, dominantEntry, hallNames, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { venueEvents } from '../../domain/projects'
 import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
-import { buildItems, EMPTY_FILTER, projectKey, type GridItem, type RowFilter } from './rows'
+import { buildGroups, buildItems, EMPTY_FILTER, projectKey, type GridItem, type RowFilter } from './rows'
 
 type Section = 'alloc' | 'cap'
 interface Cell {
@@ -71,7 +72,7 @@ export function Kalender() {
   const [onlyInView, setOnlyInView] = useState(() => loadPref('onlyInView', true))
   const [selection, setSelection] = useState<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string } | null>(null)
+  const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
   const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200, height: 800 })
   const [topHeight, setTopHeight] = useState(0)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
@@ -112,9 +113,11 @@ export function Kalender() {
   const winFrom = dates[Math.max(0, Math.floor(viewport.left / colW))]
   const winTo = dates[Math.max(0, Math.min(dates.length - 1, Math.floor((viewport.left + viewport.width - LEFT_W) / colW)))]
   const inViewOnly = onlyInView && !filter.project && !filter.search
+  // Projects are the events in the Venyou calendar that have at least one hall booking shown.
+  const events = useMemo(() => venueEvents(shownVenue, ws.eventLinks, ws.projects), [shownVenue, ws.eventLinks, ws.projects])
   const items = useMemo(
-    () => buildItems(ws.allocations, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined),
-    [ws.allocations, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo],
+    () => buildItems(ws.allocations, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined),
+    [ws.allocations, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo],
   )
   const allocLanes = useMemo(() => items.flatMap((item, index) => (item.kind === 'row' ? [{ row: item.row, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row.id, i])), [allocLanes])
@@ -130,11 +133,12 @@ export function Kalender() {
       ),
     [ws.capacity],
   )
-  const projects = useMemo(() => {
-    const byKey = new Map<string, string>()
-    for (const r of ws.allocations) if (r.projectName && !byKey.has(projectKey(r))) byKey.set(projectKey(r), r.projectName)
-    return [...byKey].sort((a, b) => a[1].localeCompare(b[1], 'nb'))
-  }, [ws.allocations])
+  const allGroups = useMemo(() => buildGroups(ws.allocations, events, demandIndex, settings), [ws.allocations, events, demandIndex, settings])
+  const projects = useMemo(
+    () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
+    [allGroups],
+  )
+  const projectOptions = useMemo(() => allGroups.map((group) => ({ name: group.projectName, projectNo: group.projectNo })), [allGroups])
   const competences = useMemo(() => [...new Set(ws.allocations.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [ws.allocations])
 
   // ---- viewport and virtualization -----------------------------------------------------------
@@ -445,18 +449,24 @@ export function Kalender() {
           <button className="twisty" onClick={() => toggleGroup(group.key)} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
             {item.collapsed ? '▸' : '▾'}
           </button>
-          <span className="lbl-project" title={group.projectName}>
-            {group.projectName} <span className="muted">{group.projectNo}</span>
+          <span className="lbl-project" title={`${group.projectName}${group.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}`}>
+            {group.projectName} <span className="muted">{group.projectNo || 'uten nr.'}</span>
           </span>
-          <span className="lbl-num">{formatFte(group.totals.requiredFte)}</span>
-          <span className="lbl-num">{formatFte(group.totals.plannedFte)}</span>
-          <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
-          <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: group.projectName })}>
+          {group.rows.length ? (
+            <>
+              <span className="lbl-num">{formatFte(group.totals.requiredFte)}</span>
+              <span className="lbl-num">{formatFte(group.totals.plannedFte)}</span>
+              <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
+            </>
+          ) : (
+            <span className="muted small no-rows">ingen rader</span>
+          )}
+          <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: group.projectName, projectNo: group.projectNo })}>
             +
           </button>
         </>,
-        (date) => readCell(date, group.daily.get(date), 'group-cell'),
-        'group-row',
+        (date) => readCell(date, group.daily.get(date), `group-cell ${group.venue && date >= group.venue.start && date <= group.venue.end ? 'in-span' : ''}`),
+        `group-row ${group.rows.length ? '' : 'empty-group'}`,
       )
     }
     const { row: r, totals } = item
@@ -551,7 +561,11 @@ export function Kalender() {
             Nullstill
           </button>
         )}
-        <label className="check" title="Vis bare prosjekter som har planlagte dager i datoene som vises">
+        <label className="check" title="Skjul prosjekter som ikke har noen planleggingsrader ennå">
+          <input type="checkbox" checked={!!filter.onlyWithRows} onChange={(e) => setFilter({ ...filter, onlyWithRows: e.target.checked })} />
+          Bare med rader
+        </label>
+        <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
           <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
           Bare prosjekter i visningen
         </label>
@@ -577,7 +591,7 @@ export function Kalender() {
           <option value="normal">Normal</option>
           <option value="wide">Bred</option>
         </select>
-        <button className="primary" onClick={() => setDialog({ projectName: projects.find(([key]) => key === filter.project)?.[1] })}>
+        <button className="primary" onClick={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}>
           + Ny rad
         </button>
       </div>
@@ -746,10 +760,13 @@ export function Kalender() {
         <AllocationDialog
           row={dialog.row}
           projectName={dialog.projectName}
+          projectNo={dialog.projectNo}
+          projects={projectOptions}
           onClose={() => setDialog(null)}
           onSaved={(saved) => {
-            // A project without planned days would be hidden by the in-view filter; show it instead.
-            if (inViewOnly || (filter.project && filter.project !== projectKey(saved))) setFilter({ ...EMPTY_FILTER, project: projectKey(saved) })
+            // If the row's project is not in the list as filtered now, switch to showing that project.
+            const shown = items.some((item) => item.kind === 'group' && item.group.rows.length >= 0 && (item.group.key === projectKey(saved) || item.group.projectName === saved.projectName))
+            if (!shown) setFilter({ ...EMPTY_FILTER, project: projectKey(saved) })
             setCollapsed((prev) => {
               const next = new Set(prev)
               next.delete(projectKey(saved))

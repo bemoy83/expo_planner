@@ -22,8 +22,9 @@ all on one continuous date axis, without Excel's limits.
    - Tick **I plan** on the Visma lines you want to plan with; they then count under «Planlagt». Effekt, comments and work types you choose are kept when a newer export is read.
    - **Ny linje** adds your own counts or hours, for example walls the venue provides that nobody ordered.
 6. Use **Oppdater haller (Venyou)** to read a new `location_format` export. It replaces the hall bookings in the export's period that have a status found in the export (for example confirmed events), and keeps everything else.
-7. On the **Haller** tab, untick hall bookings that should not show in the Kalender, per hall or for a whole event. The choice is kept when a new Venyou export is read.
-8. Use **Last ned sikkerhetskopi** regularly. Browser storage is tied to this browser and computer.
+7. Every Venyou event is a project in the Kalender, with or without demand. Its project number connects it to Visma: **Importer prosjektliste** on the **Haller** tab reads `Prosjekt.xlsx` and fills in the number where the name matches, and the rest are typed in per event.
+8. On the **Haller** tab, untick hall bookings that should not show in the Kalender, per hall or for a whole event. The choice is kept when a new Venyou export is read.
+9. Use **Last ned sikkerhetskopi** regularly. Browser storage is tied to this browser and computer.
 
 ## Development
 

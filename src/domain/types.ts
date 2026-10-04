@@ -178,6 +178,8 @@ export interface Workspace {
   demand: DemandLine[]
   allocations: AllocationRow[]
   capacity: CapacityLine[]
+  /** Project numbers set by hand for Venyou events, keyed by `eventKey`. */
+  eventLinks?: Record<string, string>
   /** Hall bookings left out of the Kalender, keyed by `venueKey`. They stay in the hall ledger. */
   hiddenVenue?: Record<string, true>
   /** The latest Venyou export read into the app, and the dates it covers. */

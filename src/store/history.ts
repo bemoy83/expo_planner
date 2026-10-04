@@ -1,4 +1,4 @@
-import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, Settings, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
+import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, ProjectRef, Settings, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface Delta<T> {
   before: T
@@ -21,6 +21,10 @@ export interface Change {
   venue?: Delta<{ bookings: VenueBooking[]; info: VenueImportInfo | undefined }>
   /** Which hall bookings are left out of the Kalender. */
   hiddenVenue?: Delta<Record<string, true>>
+  /** Project numbers set by hand for Venyou events. */
+  eventLinks?: Delta<Record<string, string>>
+  /** The project list (event name → project number). */
+  projects?: Delta<ProjectRef[]>
 }
 
 export const emptyChange = (): Change => ({ allocations: new Map(), capacity: new Map(), demand: new Map(), visma: new Map() })
@@ -75,12 +79,22 @@ export const recordHiddenVenue = (change: Change, before: Record<string, true>, 
   change.hiddenVenue = { before: change.hiddenVenue ? change.hiddenVenue.before : before, after }
 }
 
+export const recordEventLinks = (change: Change, before: Record<string, string>, after: Record<string, string>) => {
+  change.eventLinks = { before: change.eventLinks ? change.eventLinks.before : before, after }
+}
+
+export const recordProjects = (change: Change, before: ProjectRef[], after: ProjectRef[]) => {
+  change.projects = { before: change.projects ? change.projects.before : before, after }
+}
+
 export const isEmptyChange = (change: Change): boolean =>
   !change.settings &&
   !change.overrides &&
   !change.kpi &&
   !change.venue &&
   !change.hiddenVenue &&
+  !change.eventLinks &&
+  !change.projects &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
   [...change.visma.values()].every((d) => d.before === d.after) &&
   [...change.allocations.values()].every((d) => d.before === d.after) &&
@@ -114,7 +128,10 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
   const overrides = change.overrides ? target(change.overrides, direction) : workspace.overrides
   const kpi = change.kpi ? target(change.kpi, direction) : workspace.kpi
   const venue = change.venue ? target(change.venue, direction) : { bookings: workspace.venue, info: workspace.venueImport }
-  return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue }
+  return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue,
+    eventLinks: change.eventLinks ? target(change.eventLinks, direction) : workspace.eventLinks,
+    projects: change.projects ? target(change.projects, direction) : workspace.projects,
+  }
 }
 
 /** What has to be written to storage after applying a change in the given direction. */
@@ -132,4 +149,6 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   kpi: change.kpi ? (target(change.kpi, direction) ?? null) : undefined,
   venue: change.venue ? target(change.venue, direction) : null,
   hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : null,
+  eventLinks: change.eventLinks ? target(change.eventLinks, direction) : null,
+  projects: change.projects ? target(change.projects, direction) : null,
 })

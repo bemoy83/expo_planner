@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from '../../domain/types'
+import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
 import { anchorDate, VENYOU_ID_PREFIX, venueKey } from '../../domain/venueImport'
+import { readProjectList } from '../../import/venyouExport'
 import { useWorkspace } from '../../store/workspaceStore'
 
 const PHASE_HEADERS: Record<VenuePhase, string> = { assembly: 'Montering', movingIn: 'Innflytting', event: 'Arrangement', movingOut: 'Utflytting', dismantle: 'Demontering' }
@@ -14,13 +16,15 @@ interface EventGroup {
   name: string
   anchor: ISODate
   bookings: VenueBooking[]
+  /** The event as a project: its key and project number. */
+  event?: VenueEvent
 }
 
 type Visibility = 'all' | 'shown' | 'hidden'
 
 /** The hall ledger: every hall booking, with a tick for whether it shows in the Kalender. */
 export function Haller() {
-  const { workspace, setVenueHidden, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, setVenueHidden, setEventProject, importProjects, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const hidden = useMemo(() => ws.hiddenVenue ?? {}, [ws.hiddenVenue])
   const [search, setSearch] = useState('')
@@ -28,10 +32,26 @@ export function Haller() {
   const [status, setStatus] = useState('')
   const [visibility, setVisibility] = useState<Visibility>('all')
   const [includePast, setIncludePast] = useState(false)
+  const [onlyUnlinked, setOnlyUnlinked] = useState(false)
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const listInput = useRef<HTMLInputElement>(null)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
 
   const halls = useMemo(() => [...new Set(ws.venue.map((b) => b.hall))].sort((a, b) => a.localeCompare(b, 'nb')), [ws.venue])
   const statuses = useMemo(() => [...new Set(ws.venue.map((b) => b.status).filter(Boolean))].sort(), [ws.venue])
+
+  const events = useMemo(() => new Map(venueEvents(ws.venue, ws.eventLinks, ws.projects).map((event) => [event.key, event])), [ws.venue, ws.eventLinks, ws.projects])
+  const unlinkedCount = useMemo(() => [...events.values()].filter((event) => !event.projectNo).length, [events])
+
+  const onProjectList = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const count = importProjects(readProjectList(new Uint8Array(await file.arrayBuffer())))
+      setMessage({ kind: 'ok', text: `${file.name}: ${count} navn med prosjektnummer lest inn. Arrangementer med likt navn har fått nummer.` })
+    } catch (e) {
+      setMessage({ kind: 'error', text: e instanceof Error ? e.message : String(e) })
+    }
+  }
 
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -46,8 +66,10 @@ export function Haller() {
       if (visibility === 'hidden' && !isHidden) continue
       const anchor = anchorDate(booking) ?? ''
       // Events with the same name in different periods (two years, two editions) are separate entries.
+      const event = events.get(eventKey(booking.eventName, anchor))
+      if (onlyUnlinked && event?.projectNo) continue
       const key = `${booking.eventName}|${anchor.slice(0, 7)}`
-      const group = byEvent.get(key) ?? { name: booking.eventName, anchor, bookings: [] }
+      const group = byEvent.get(key) ?? { name: booking.eventName, anchor, bookings: [], event }
       group.bookings.push(booking)
       if (anchor < group.anchor) group.anchor = anchor
       byEvent.set(key, group)
@@ -55,7 +77,7 @@ export function Haller() {
     const list = [...byEvent.values()].sort((a, b) => a.anchor.localeCompare(b.anchor) || a.name.localeCompare(b.name, 'nb'))
     for (const group of list) group.bookings.sort((a, b) => a.hall.localeCompare(b.hall, 'nb'))
     return list
-  }, [ws.venue, hidden, search, hall, status, visibility, includePast, today])
+  }, [ws.venue, hidden, search, hall, status, visibility, includePast, today, events, onlyUnlinked])
 
   const rowCount = groups.reduce((n, g) => n + g.bookings.length, 0)
   const hiddenCount = useMemo(() => ws.venue.filter((b) => hidden[venueKey(b)]).length, [ws.venue, hidden])
@@ -95,7 +117,25 @@ export function Haller() {
           <input type="checkbox" checked={includePast} onChange={(e) => setIncludePast(e.target.checked)} />
           Ta med tidligere
         </label>
+        <label className="check" title="Vis bare arrangementer som mangler prosjektnummer">
+          <input type="checkbox" checked={onlyUnlinked} onChange={(e) => setOnlyUnlinked(e.target.checked)} />
+          Uten prosjektnr.
+        </label>
         <span className="toolbar-gap" />
+        <button onClick={() => listInput.current?.click()} title="Les inn Prosjekt.xlsx: navn og prosjektnummer">
+          Importer prosjektliste
+        </button>
+        <input
+          ref={listInput}
+          type="file"
+          accept=".xlsx"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            onProjectList(file)
+          }}
+        />
         <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
           ↶ Angre
         </button>
@@ -110,8 +150,19 @@ export function Haller() {
         </button>
       </div>
 
+      {message && (
+        <div className={message.kind === 'ok' ? 'info-banner' : 'error-banner'} role="status">
+          {message.text}{' '}
+          <button className="link" onClick={() => setMessage(null)}>
+            Lukk
+          </button>
+        </div>
+      )}
+
       <div className="behov-body">
         <p className="hint">
+          Hvert arrangement er et prosjekt i Kalender. Prosjektnummeret kobler det til Visma; det hentes fra prosjektlisten når navnet er likt, ellers skriver du det inn her.{' '}
+          {unlinkedCount > 0 && `${unlinkedCount} arrangementer mangler nummer. `}
           Haken bestemmer om bookingen vises i hallkalenderen. Skjulte bookinger blir liggende her, og valget beholdes når du leser inn en ny Venyou-fil.{' '}
           {ws.venue.length} bookinger totalt, {hiddenCount} skjult.
           {ws.venueImport && ` Sist oppdatert fra ${ws.venueImport.fileName} (${ws.venueImport.from} til ${ws.venueImport.to}).`}
@@ -143,11 +194,21 @@ export function Haller() {
                         onChange={(show) => setVenueHidden(keys, !show)}
                       />
                     </td>
-                    <td colSpan={8}>
+                    <td colSpan={6}>
                       <strong>{group.name}</strong>{' '}
                       <span className="muted">
                         {group.anchor ? `${day(group.anchor)}.${group.anchor.slice(0, 4)}` : ''} · {shown} av {keys.length} {keys.length === 1 ? 'hall' : 'haller'} vises
                       </span>
+                    </td>
+                    <td colSpan={2} className="project-no">
+                      {group.event && (
+                        <>
+                          <ProjectNoField event={group.event} onCommit={(value) => setEventProject(group.event!, value)} />
+                          <span className="muted small">
+                            {group.event.linkSource === 'list' ? ' fra listen' : group.event.ambiguous ? ' flere treff i listen' : group.event.linkSource === 'none' ? '' : ' satt for hånd'}
+                          </span>
+                        </>
+                      )}
                     </td>
                   </tr>,
                   ...group.bookings.map((booking) => {
@@ -175,6 +236,25 @@ export function Haller() {
         )}
       </div>
     </div>
+  )
+}
+
+/** The event's project number. Clearing a hand-set number goes back to the match from the project list. */
+function ProjectNoField({ event, onCommit }: { event: VenueEvent; onCommit: (projectNo: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <input
+      className={`inline project-no-input ${event.projectNo ? '' : 'missing'}`}
+      placeholder="Prosjektnr."
+      aria-label={`Prosjektnummer for ${event.name}`}
+      value={draft ?? event.projectNo}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== null && draft.trim() !== event.projectNo) onCommit(draft.trim())
+        setDraft(null)
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
   )
 }
 

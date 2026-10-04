@@ -35,6 +35,7 @@ const emptyWorkspace = (): Workspace => ({
   capacity: [],
   overrides: {},
   hiddenVenue: {},
+  eventLinks: {},
   visma: [],
 })
 
@@ -84,7 +85,7 @@ function Shell() {
       const imported = await importWorkbookFile(file)
       // Visma and Venyou exports, KPI data and decisions made in the app outlive a new workbook import.
       // Which hall bookings to show is decided in the app once a workbook has been read; the workbook's «Exclude» column only seeds it.
-      await replaceWorkspace(workspace ? { ...withVenueImport(withVismaImports(imported, workspace), workspace), hiddenVenue: Object.keys(workspace.hiddenVenue ?? {}).length ? workspace.hiddenVenue : imported.hiddenVenue } : imported)
+      await replaceWorkspace(workspace ? { ...withVenueImport(withVismaImports(imported, workspace), workspace), hiddenVenue: Object.keys(workspace.hiddenVenue ?? {}).length ? workspace.hiddenVenue : imported.hiddenVenue, eventLinks: workspace.eventLinks } : imported)
     })
 
   const importVenyou = (file: File) =>

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
+import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildItems, EMPTY_FILTER } from './rows'
+import { buildItems, EMPTY_FILTER, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -18,6 +19,17 @@ const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   ...overrides,
 })
 
+const event = (name: string, projectNo: string, start: string, end: string): VenueEvent => ({
+  key: `${name.toLowerCase()}|${start.slice(0, 4)}`,
+  name,
+  projectNo,
+  linkSource: projectNo ? 'list' : 'none',
+  ambiguous: false,
+  start,
+  end,
+  halls: ['C'],
+})
+
 const rows = [
   row('a', { fte: { '2026-10-05': 2 } }),
   row('b', { projectName: 'vvs 2026', competence: 'Banner', fte: { '2026-10-06': 1 } }),
@@ -25,30 +37,55 @@ const rows = [
   row('d', { projectName: 'Ny messe', projectNo: '' }),
 ]
 const index = buildDemandIndex([])
+const build = (events: VenueEvent[], filter = EMPTY_FILTER, collapsed = new Set<string>(), window?: { from: string; to: string }) =>
+  buildItems(rows, events, index, DEFAULT_SETTINGS, filter, collapsed, window)
+const groupsOf = (items: GridItem[]) => items.flatMap((i) => (i.kind === 'group' ? [i.group] : []))
+const rowIds = (items: GridItem[]) => items.flatMap((i) => (i.kind === 'row' ? [i.row.id] : []))
 
-describe('grid rows', () => {
+describe('grid rows without Venyou events', () => {
   it('groups by project number, ordered by first planned day', () => {
-    const items = buildItems(rows, index, DEFAULT_SETTINGS, EMPTY_FILTER, new Set())
-    const groups = items.flatMap((i) => (i.kind === 'group' ? [i.group] : []))
+    const groups = groupsOf(build([]))
     expect(groups.map((g) => g.key)).toEqual(['26100', '26970', 'navn:ny messe'])
     expect(groups[1].rows).toHaveLength(2)
     expect(groups[1].daily.get('2026-10-05')).toBe(2)
   })
 
   it('hides rows of collapsed groups', () => {
-    const items = buildItems(rows, index, DEFAULT_SETTINGS, EMPTY_FILTER, new Set(['26970']))
-    expect(items.filter((i) => i.kind === 'row').map((i) => (i.kind === 'row' ? i.row.id : ''))).toEqual(['c', 'd'])
-  })
-
-  it('keeps only projects with planned days in the visible window', () => {
-    const items = buildItems(rows, index, DEFAULT_SETTINGS, EMPTY_FILTER, new Set(), { from: '2026-10-01', to: '2026-10-31' })
-    expect(items.filter((i) => i.kind === 'group')).toHaveLength(1)
+    expect(rowIds(build([], EMPTY_FILTER, new Set(['26970'])))).toEqual(['c', 'd'])
   })
 
   it('filters by competence and search text', () => {
-    const items = buildItems(rows, index, DEFAULT_SETTINGS, { ...EMPTY_FILTER, competence: 'banner' }, new Set())
-    expect(items.filter((i) => i.kind === 'row').map((i) => (i.kind === 'row' ? i.row.id : ''))).toEqual(['b'])
-    const search = buildItems(rows, index, DEFAULT_SETTINGS, { ...EMPTY_FILTER, search: 'hage' }, new Set())
-    expect(search.filter((i) => i.kind === 'row')).toHaveLength(1)
+    expect(rowIds(build([], { ...EMPTY_FILTER, competence: 'banner' }))).toEqual(['b'])
+    expect(rowIds(build([], { ...EMPTY_FILTER, search: 'hage' }))).toEqual(['c'])
+  })
+})
+
+describe('projects from the Venyou calendar', () => {
+  const events = [
+    event('VVS DAGENE 2026', '26970', '2026-09-28', '2026-10-21'),
+    event('OSLO MOTOR SHOW 2026', '', '2026-10-20', '2026-11-02'),
+    event('Ny messe', '', '2027-02-01', '2027-02-05'),
+  ]
+
+  it('lists every event as a project, with or without rows, in calendar order', () => {
+    const groups = groupsOf(build(events))
+    expect(groups.map((g) => `${g.projectName}:${g.rows.length}`)).toEqual(['Hage 2026:1', 'VVS DAGENE 2026:2', 'OSLO MOTOR SHOW 2026:0', 'Ny messe:1'])
+    expect(groups[1]).toMatchObject({ key: '26970', projectNo: '26970', venue: { start: '2026-09-28', end: '2026-10-21' } })
+    expect(groups[2].key).toBe('navn:oslo motor show 2026')
+  })
+
+  it('shows projects that take place in the visible dates even when nothing is planned', () => {
+    const groups = groupsOf(build(events, EMPTY_FILTER, new Set(), { from: '2026-10-25', to: '2026-11-10' }))
+    expect(groups.map((g) => g.projectName)).toEqual(['OSLO MOTOR SHOW 2026'])
+  })
+
+  it('can leave out projects without rows', () => {
+    const groups = groupsOf(build(events, { ...EMPTY_FILTER, onlyWithRows: true }))
+    expect(groups.map((g) => g.projectName)).not.toContain('OSLO MOTOR SHOW 2026')
+  })
+
+  it('finds a project by name even when it has no rows', () => {
+    expect(groupsOf(build(events, { ...EMPTY_FILTER, search: 'motor' })).map((g) => g.projectName)).toEqual(['OSLO MOTOR SHOW 2026'])
+    expect(groupsOf(build(events, { ...EMPTY_FILTER, competence: 'FOGA' })).map((g) => g.projectName)).toEqual(['Hage 2026', 'VVS DAGENE 2026', 'Ny messe'])
   })
 })

@@ -823,3 +823,25 @@ table.ledger.kpi tr.alt-unit td {
   white-space: nowrap;
   overflow: visible;
 }
+
+/* projects from the Venyou calendar */
+.cell.group-cell.in-span {
+  box-shadow: inset 0 -3px 0 #b9c4d6;
+}
+.empty-group .lbl-project {
+  font-weight: 500;
+}
+.no-rows {
+  width: 120px;
+  text-align: right;
+}
+
+input.inline.project-no-input {
+  width: 90px;
+  min-width: 0;
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+input.inline.project-no-input.missing {
+  border-color: #e0a800;
+}
