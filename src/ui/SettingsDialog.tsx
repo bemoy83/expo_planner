@@ -33,7 +33,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <span className="hint">Brukes til å regne behov i timer om til FTE-dager.</span>
         </label>
         <p className="hint">
-          Kalenderen går fra {settings.calendarStart} til {settings.calendarEnd}. Helger, helligdager og julaften regnes som fridager.
+          Kalenderens periode følger hallbookingene fra Venyou. Helger, helligdager og julaften regnes som fridager.
         </p>
         <div className="dialog-actions">
           <button type="button" onClick={onClose}>

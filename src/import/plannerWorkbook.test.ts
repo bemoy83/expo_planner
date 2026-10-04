@@ -29,8 +29,8 @@ describe.skipIf(!available)('planner workbook import (local data)', () => {
     return out
   }
 
-  it('reads settings and the calendar range', () => {
-    expect(workspace.settings).toMatchObject({ baseCrew: 21, hoursPerDay: 7.5, calendarStart: '2026-01-01', calendarEnd: '2027-12-31' })
+  it('reads settings', () => {
+    expect(workspace.settings).toMatchObject({ baseCrew: 21, hoursPerDay: 7.5 })
   })
 
   it('reads the source tables', () => {

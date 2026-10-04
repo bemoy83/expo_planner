@@ -10,8 +10,6 @@ export interface Settings {
   hoursPerDay: number
   absenceRate: number
   overheadRate: number
-  calendarStart: ISODate
-  calendarEnd: ISODate
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -19,8 +17,6 @@ export const DEFAULT_SETTINGS: Settings = {
   hoursPerDay: 7.5,
   absenceRate: 0.05,
   overheadRate: 0.1,
-  calendarStart: '2026-01-01',
-  calendarEnd: '2027-12-31',
 }
 
 export type VenuePhase = 'assembly' | 'movingIn' | 'event' | 'movingOut' | 'dismantle'

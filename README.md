@@ -11,7 +11,7 @@ all on one continuous date axis, without Excel's limits.
 ## Using it
 
 1. Run `npm run dev` and open the page.
-2. Click **Importer arbeidsbok** and pick the planner workbook. Everything is read in the browser and saved there (IndexedDB).
+2. Click **Start uten arbeidsbok** to begin empty and read in the sources one by one, or **Importer arbeidsbok** to bring everything over from the planner workbook once. Everything is read in the browser and saved there (IndexedDB). The Kalender's period follows the hall bookings from Venyou.
 3. Plan in the Kalender:
    - Type FTE into day cells. Enter moves down, Tab moves right.
    - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes, for this session. This also covers the Behov tab, including a Visma import.

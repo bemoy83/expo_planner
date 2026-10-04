@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEFAULT_SETTINGS, type Workspace } from './domain/types'
 import { withVenueImport } from './domain/venueImport'
 import { withVismaImports } from './domain/visma'
 import { readVenyouExport } from './import/venyouExport'
@@ -24,6 +25,18 @@ const pickFile = (e: React.ChangeEvent<HTMLInputElement>, handle: (file: File) =
   e.target.value = ''
   if (file) handle(file)
 }
+
+const emptyWorkspace = (): Workspace => ({
+  settings: DEFAULT_SETTINGS,
+  venue: [],
+  projects: [],
+  demand: [],
+  allocations: [],
+  capacity: [],
+  overrides: {},
+  hiddenVenue: {},
+  visma: [],
+})
 
 function Shell() {
   const { status, workspace, saveState, replaceWorkspace, importVenue, undo, redo } = useWorkspace()
@@ -173,12 +186,23 @@ function Shell() {
         <div className="empty-state">
           <h2>Kom i gang</h2>
           <p>
-            Importer planleggingsarbeidsboken (<code>Bemanning_Behov_24 måneder.xlsx</code>). Haller, prosjekter, behovstabellen, bemanning og all planlegging i
-            Kalender-arket hentes inn. Arbeidsboken leses bare i nettleseren og sendes ingen steder.
+            Start med blanke ark og les inn kildene hver for seg: hallbookinger fra Venyou (<code>location_format</code>), KPI-oppsettet og Visma-utskrifter. Kalenderen følger perioden i
+            hallbookingene.
           </p>
-          <button className="primary" onClick={() => workbookInput.current?.click()} disabled={!!busy}>
-            Velg arbeidsbok …
-          </button>
+          <p className="muted">
+            Du kan også hente alt fra planleggingsarbeidsboken (<code>Bemanning_Behov_24 måneder.xlsx</code>) én gang. Filer leses bare i nettleseren og sendes ingen steder.
+          </p>
+          <div className="empty-actions">
+            <button className="primary" onClick={() => run('Oppretter …', () => replaceWorkspace(emptyWorkspace()))} disabled={!!busy}>
+              Start uten arbeidsbok
+            </button>
+            <button onClick={() => workbookInput.current?.click()} disabled={!!busy}>
+              Importer arbeidsbok …
+            </button>
+            <button onClick={() => backupInput.current?.click()} disabled={!!busy}>
+              Gjenopprett sikkerhetskopi …
+            </button>
+          </div>
         </div>
       )}
       {status === 'ready' && workspace && view === 'kalender' && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} />}

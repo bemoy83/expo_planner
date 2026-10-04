@@ -808,3 +808,18 @@ table.ledger.kpi tr.alt-unit td {
 .issue {
   color: var(--over);
 }
+
+.empty-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.section-hint {
+  position: sticky;
+  left: 0;
+  padding: 4px 24px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: visible;
+}

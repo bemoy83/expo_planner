@@ -256,16 +256,13 @@ const readAllocations = (sheet: Sheet, axis: DateAxis, notes: Map<number, Map<nu
   return rows
 }
 
-const readSettings = (sheets: Map<string, Sheet>, axis: DateAxis): Settings => {
+const readSettings = (sheets: Map<string, Sheet>): Settings => {
   const validation = sheets.get('datavalidering')
-  const dates = [...axis.columns.values()].sort()
   return {
     baseCrew: valueBelowLabel(validation, 'fte fulltid') ?? DEFAULT_SETTINGS.baseCrew,
     hoursPerDay: valueBelowLabel(validation, 'normaltid') ?? DEFAULT_SETTINGS.hoursPerDay,
     absenceRate: valueBelowLabel(validation, 'fravær') ?? DEFAULT_SETTINGS.absenceRate,
     overheadRate: valueBelowLabel(sheets.get('variabler'), 'overhead') ?? DEFAULT_SETTINGS.overheadRate,
-    calendarStart: dates[0],
-    calendarEnd: dates.at(-1)!,
   }
 }
 
@@ -277,7 +274,7 @@ export const readPlannerWorkbook = (bytes: Uint8Array, fileName: string): Worksp
   const notes = indexNotes(kalender)
   const venue = readVenue(sheet('tabell_venyou'))
   return {
-    settings: readSettings(sheets, axis),
+    settings: readSettings(sheets),
     venue: venue.map(({ excluded: _excluded, ...booking }) => booking),
     hiddenVenue: Object.fromEntries(venue.filter((booking) => booking.excluded).map((booking) => [venueKey(booking), true as const])),
     projects: readProjects(sheet('Prosjekt')),

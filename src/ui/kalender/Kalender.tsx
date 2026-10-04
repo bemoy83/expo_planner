@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { capacityForDate, dailyNeed, formatFte } from '../../domain/calc'
+import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
@@ -84,7 +85,9 @@ export function Kalender() {
   useEffect(() => savePref('onlyInView', onlyInView), [onlyInView])
 
   const colW = ZOOM_WIDTHS[zoom]
-  const dates = useMemo(() => dateRange(settings.calendarStart, settings.calendarEnd), [settings.calendarStart, settings.calendarEnd])
+  // The period follows the hall bookings, see `calendarRange`.
+  const range = useMemo(() => calendarRange({ venue: ws.venue, allocations: ws.allocations, capacity: ws.capacity }, todayIso()), [ws.venue, ws.allocations, ws.capacity])
+  const dates = useMemo(() => dateRange(range.start, range.end), [range.start, range.end])
   const today = todayIso()
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -158,10 +161,10 @@ export function Kalender() {
     (date: ISODate, offsetDays = 7) => {
       const el = scrollRef.current
       if (!el) return
-      el.scrollLeft = Math.max(0, (daysBetween(settings.calendarStart, date) - offsetDays) * colW)
+      el.scrollLeft = Math.max(0, (daysBetween(range.start, date) - offsetDays) * colW)
       onScroll()
     },
-    [settings.calendarStart, colW, onScroll],
+    [range.start, colW, onScroll],
   )
 
   // Start near today, once.
@@ -169,8 +172,20 @@ export function Kalender() {
   useLayoutEffect(() => {
     if (didInitialScroll.current) return
     didInitialScroll.current = true
-    scrollToDate(today >= settings.calendarStart && today <= settings.calendarEnd ? today : settings.calendarStart)
-  }, [scrollToDate, today, settings.calendarStart, settings.calendarEnd])
+    scrollToDate(today >= range.start && today <= range.end ? today : range.start)
+  }, [scrollToDate, today, range.start, range.end])
+
+  // When the period grows at the start (new hall bookings, for example), stay on the same dates.
+  const prevStart = useRef(range.start)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el && prevStart.current !== range.start) {
+      el.scrollLeft = Math.max(0, el.scrollLeft + daysBetween(range.start, prevStart.current) * colW)
+      setSelection(null)
+      onScroll()
+    }
+    prevStart.current = range.start
+  }, [range.start, colW, onScroll])
 
   // Keep the same date at the left edge when zooming.
   const prevColW = useRef(colW)
@@ -553,8 +568,8 @@ export function Kalender() {
         <input
           type="date"
           aria-label="Gå til dato"
-          min={settings.calendarStart}
-          max={settings.calendarEnd}
+          min={range.start}
+          max={range.end}
           onChange={(e) => e.target.value && scrollToDate(e.target.value, 2)}
         />
         <select value={zoom} aria-label="Kolonnebredde" onChange={(e) => setZoom(e.target.value as Zoom)}>
@@ -607,6 +622,11 @@ export function Kalender() {
                 <i className="ph-assembly" /> Montering <i className="ph-movingIn" /> Inn/utflytting <i className="ph-event" /> Arrangement <i className="ph-dismantle" /> Demontering
               </span>
             </div>
+            {hallsOpen && ws.venue.length === 0 && (
+              <div className="section-hint" style={{ width: LEFT_W }}>
+                Ingen hallbookinger. Les inn <code>location_format</code> med «Oppdater haller (Venyou)».
+              </div>
+            )}
             {hallsOpen &&
               halls.map((hall) => {
                 const days = hallCalendar.get(hall)
@@ -696,7 +716,11 @@ export function Kalender() {
             {items.slice(r0, r1).map(renderItem)}
           </div>
           {items.length === 0 && (
-            <p className="empty-rows">{inViewOnly ? 'Ingen prosjekter har planlagte dager i denne perioden. Slå av «Bare prosjekter i visningen» for å se alle.' : 'Ingen rader passer filteret.'}</p>
+            <p className="empty-rows">{ws.allocations.length === 0
+                ? 'Ingen planleggingsrader ennå. Bruk «+ Ny rad» for å legge til en rad for et prosjekt.'
+                : inViewOnly
+                  ? 'Ingen prosjekter har planlagte dager i denne perioden. Slå av «Bare prosjekter i visningen» for å se alle.'
+                  : 'Ingen rader passer filteret.'}</p>
           )}
         </div>
       </div>
