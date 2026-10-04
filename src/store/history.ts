@@ -23,6 +23,8 @@ export interface Change {
   hiddenVenue?: Delta<Record<string, true>>
   /** Project numbers set by hand for Venyou events. */
   eventLinks?: Delta<Record<string, string>>
+  /** Halls chosen by hand for Hall/Sted texts. */
+  hallAliases?: Delta<Record<string, string>>
   /** The project list (event name → project number). */
   projects?: Delta<ProjectRef[]>
 }
@@ -75,6 +77,10 @@ export const recordVenue = (change: Change, before: Workspace, after: Workspace)
   }
 }
 
+export const recordHallAliases = (change: Change, before: Record<string, string>, after: Record<string, string>) => {
+  change.hallAliases = { before: change.hallAliases ? change.hallAliases.before : before, after }
+}
+
 export const recordHiddenVenue = (change: Change, before: Record<string, true>, after: Record<string, true>) => {
   change.hiddenVenue = { before: change.hiddenVenue ? change.hiddenVenue.before : before, after }
 }
@@ -94,6 +100,7 @@ export const isEmptyChange = (change: Change): boolean =>
   !change.venue &&
   !change.hiddenVenue &&
   !change.eventLinks &&
+  !change.hallAliases &&
   !change.projects &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
   [...change.visma.values()].every((d) => d.before === d.after) &&
@@ -130,6 +137,7 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
   const venue = change.venue ? target(change.venue, direction) : { bookings: workspace.venue, info: workspace.venueImport }
   return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue,
     eventLinks: change.eventLinks ? target(change.eventLinks, direction) : workspace.eventLinks,
+    hallAliases: change.hallAliases ? target(change.hallAliases, direction) : workspace.hallAliases,
     projects: change.projects ? target(change.projects, direction) : workspace.projects,
   }
 }
@@ -150,5 +158,6 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   venue: change.venue ? target(change.venue, direction) : null,
   hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : null,
   eventLinks: change.eventLinks ? target(change.eventLinks, direction) : null,
+  hallAliases: change.hallAliases ? target(change.hallAliases, direction) : null,
   projects: change.projects ? target(change.projects, direction) : null,
 })

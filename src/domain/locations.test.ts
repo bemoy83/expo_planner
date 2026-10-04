@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { locateDemand, locateRows, placeOf, resolveHall, UNRESOLVED_HALL } from './locations'
+import { locateDemand, locateRows, placeOf, resolveHall, UNRESOLVED_HALL, withAlias } from './locations'
 import type { AllocationRow, DemandLine } from './types'
 
 const halls = ['A1', 'B1', 'B2', 'C', 'D1', 'E', 'MEZ']
@@ -28,12 +28,18 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(located.reduce((sum, l) => sum + l.assemblyHours, 0)).toBe(15)
   })
 
-  it('lets the planner place a line by hand, as long as that hall is in the ledger', () => {
-    expect(placeOf({ hall: 'sceneomr hall C', location: 'C' }, halls)).toEqual({ hall: 'C', chosen: true })
-    expect(placeOf({ hall: 'Hall C', location: 'd1' }, halls)).toEqual({ hall: 'D1', chosen: true })
-    expect(placeOf({ hall: 'Hall C', location: UNRESOLVED_HALL }, halls)).toEqual({ hall: UNRESOLVED_HALL, chosen: true })
-    expect(placeOf({ hall: 'Hall C', location: 'F' }, halls)).toEqual({ hall: 'C', chosen: false })
-    expect(locateDemand([{ id: 'a', hall: 'cafe hall D', location: 'D1' } as DemandLine], halls)[0].hall).toBe('D1')
+  it('lets the planner give a text a hall, which places every line with that text', () => {
+    const aliases = withAlias(withAlias({}, ' Sceneomr hall C', 'C'), 'Hall C', UNRESOLVED_HALL)
+    expect(placeOf('sceneomr hall c', halls, aliases)).toEqual({ hall: 'C', chosen: true })
+    expect(placeOf('Hall C', halls, aliases)).toEqual({ hall: UNRESOLVED_HALL, chosen: true })
+    expect(placeOf('Hall D', halls, aliases)).toEqual({ hall: 'D1', chosen: false })
+    const line = (id: string, hall: string) => ({ id, hall }) as DemandLine
+    expect(locateDemand([line('a', 'sceneomr hall C'), line('b', 'Sceneomr hall C'), line('c', 'cafe hall D')], halls, aliases).map((l) => l.hall)).toEqual(['C', 'C', UNRESOLVED_HALL])
+  })
+
+  it('goes back to reading the text when the choice is removed or its hall is gone', () => {
+    expect(withAlias({ 'hall c': 'E' }, 'Hall C', undefined)).toEqual({})
+    expect(placeOf('Hall C', halls, { 'hall c': 'F' })).toEqual({ hall: 'C', chosen: false })
   })
 
   it('places planning rows the same way, and leaves rows for all halls alone', () => {

@@ -5,12 +5,12 @@ import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig,
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
 import { rowScope } from '../domain/plannedRows'
-import { locateDemand } from '../domain/locations'
+import { locateDemand, withAlias } from '../domain/locations'
 import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordVenue, type Change, type Direction } from './history'
+import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHallAliases, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -49,6 +49,8 @@ interface WorkspaceStore {
   importVisma: (rows: VismaRow[], fileName: string) => string[]
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
   setLineOverride: (projectNo: string, key: string, patch: LineOverride) => void
+  /** Places every demand line with this Hall/Sted text in a hall; without a hall, the text is read automatically again. */
+  setHallAlias: (text: string, hall: string | undefined) => void
   /** Forgets the decisions made for a Visma line, typically one that has left the export. */
   removeLineOverride: (projectNo: string, key: string) => void
   /** Adds or changes a ledger line that does not come from Visma. */
@@ -176,6 +178,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
           .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined))
           .then(() => (writes.eventLinks ? putEventLinks(writes.eventLinks) : undefined))
+          .then(() => (writes.hallAliases ? putHallAliases(writes.hallAliases) : undefined))
           .then(() => (writes.projects ? writeProjects(writes.projects) : undefined)),
       )
     },
@@ -374,6 +377,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
+  const setHallAlias = useCallback(
+    (text: string, hall: string | undefined) => {
+      const ws = current.current
+      if (!ws) return
+      const before = ws.hallAliases ?? {}
+      const after = withAlias(before, text, hall)
+      commit({ ...ws, hallAliases: after }, () => putHallAliases(after), (step) => recordHallAliases(step, before, after))
+    },
+    [commit],
+  )
+
   const setVenueHidden = useCallback(
     (keys: string[], hidden: boolean) => {
       const ws = current.current
@@ -465,7 +479,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const demand = workspace?.demand
   const venue = workspace?.venue
   // Hours are counted per hall of the hall ledger; demand whose Hall/Sted names none of them is gathered as unresolved.
-  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? [])) : EMPTY_DEMAND), [demand, venue])
+  const hallAliases = workspace?.hallAliases
+  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallAliases) : EMPTY_DEMAND), [demand, venue, hallAliases])
   const demandIndex = useMemo(() => buildDemandIndex(locatedDemand), [locatedDemand])
 
   const value: WorkspaceStore = {
@@ -491,6 +506,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setKpi,
     importVisma,
     setLineOverride,
+    setHallAlias,
     removeLineOverride,
     saveDemandLine,
     removeDemandLine,

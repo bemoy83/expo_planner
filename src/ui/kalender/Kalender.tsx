@@ -129,9 +129,9 @@ export function Kalender() {
   const events = useMemo(() => venueEvents(shownVenue, ws.eventLinks, ws.projects), [shownVenue, ws.eventLinks, ws.projects])
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
   const rows = useMemo(() => {
-    const placed = locateRows(ws.allocations, hallNames(ws.venue))
+    const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases)
     return [...placed, ...suggestedRows(locatedDemand, placed)]
-  }, [ws.allocations, ws.venue, locatedDemand])
+  }, [ws.allocations, ws.venue, ws.hallAliases, locatedDemand])
   const items = useMemo(
     () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined, grouping),
     [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo, grouping],

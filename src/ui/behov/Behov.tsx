@@ -33,7 +33,7 @@ interface Props {
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
 export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
-  const { workspace, importVisma, setLineOverride, removeLineOverride, removeDemandLine, saveDemandLine, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, importVisma, setLineOverride, removeLineOverride, removeDemandLine, setHallAlias, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
@@ -51,17 +51,21 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const kpi = ws.kpi ?? EMPTY_KPI
   // The Kalender places demand in the halls of the hall ledger; show where each line's Hall/Sted ends up.
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
-  /** The hall a line counts under in the Kalender, with the planner's own choice where Hall/Sted does not say it. */
-  const locationCell = (line: Pick<DemandLine, 'hall' | 'location'>, onChange: (location: string | undefined) => void) => {
-    const place = placeOf(line, halls)
-    const auto = resolveHall(line.hall, halls) ?? UNRESOLVED_HALL
+  /**
+   * The hall a line counts under in the Kalender. The planner's choice is for the Hall/Sted text,
+   * so one choice places every line with that text, in every project.
+   */
+  const locationCell = (text: string) => {
+    const place = placeOf(text, halls, ws.hallAliases)
+    const auto = resolveHall(text, halls) ?? UNRESOLVED_HALL
+    if (!text.trim()) return <span className="muted">{UNRESOLVED_HALL}</span>
     return (
       <select
         className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
         value={place.chosen ? place.hall : ''}
-        aria-label="Plassering"
-        title={place.chosen ? 'Plassering valgt for hånd' : place.hall === UNRESOLVED_HALL ? 'Hall/sted finnes ikke blant hallene på Haller-fanen. Behovet teller med under «Uavklart» til du velger en hall.' : 'Lest fra Hall/sted'}
-        onChange={(e) => onChange(e.target.value || undefined)}
+        aria-label={`Plassering for ${text}`}
+        title={`${place.chosen ? 'Valgt for hånd.' : place.hall === UNRESOLVED_HALL ? 'Hall/sted finnes ikke blant hallene på Haller-fanen. Behovet teller med under «Uavklart» til du velger en hall.' : 'Lest fra Hall/sted.'} Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`}
+        onChange={(e) => setHallAlias(text, e.target.value || undefined)}
       >
         <option value="">{auto} (auto)</option>
         {halls.map((hall) => (
@@ -260,7 +264,6 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                             o.override.inPlan && 'i plan',
                             o.override.effekt ? `Effekt ${String(o.override.effekt).replace('.', ',')}` : '',
                             o.override.workType && `arbeidstype ${o.override.workType}`,
-                            o.override.location && `plassering ${o.override.location}`,
                             o.override.comment && `«${o.override.comment}»`,
                           ]
                             .filter(Boolean)
@@ -317,7 +320,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                           {line.issue && line.issue !== 'no-product-type' && <span className="issue"> {ISSUE_TEXT[line.issue]}</span>}
                         </td>
                         <td>{line.hall}</td>
-                        <td>{locationCell(line, (location) => override(line, { location }))}</td>
+                        <td>{locationCell(line.hall)}</td>
                         <td>{line.avdeling}</td>
                         <td className="num" title={`${line.rowCount} ordrelinjer`}>
                           {formatFte(line.quantity, 1)}
@@ -379,7 +382,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                         <td>{line.competence}</td>
                         <td>{line.workType}</td>
                         <td>{line.hall}</td>
-                        <td>{locationCell(line, (location) => saveDemandLine({ ...line, location }))}</td>
+                        <td>{locationCell(line.hall)}</td>
                         <td>{line.source}</td>
                         <td className="num">{line.quantity === null ? '' : formatFte(line.quantity, 1)}</td>
                         <td>{line.unit}</td>
