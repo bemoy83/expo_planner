@@ -134,3 +134,6 @@ export const writeProjects = (projects: ProjectRef[]) =>
     await db.projects.clear()
     await db.projects.bulkAdd(projects.map((p) => ({ ...p })))
   })
+
+/** Removes everything stored in the browser for the app. */
+export const clearAll = () => db.transaction('rw', TABLES(), () => Promise.all(TABLES().map((table) => table.clear())))

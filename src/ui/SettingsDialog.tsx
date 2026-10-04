@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
-  const { workspace, updateSettings } = useWorkspace()
+  const { workspace, updateSettings, resetWorkspace } = useWorkspace()
   const settings = workspace!.settings
   const [baseCrew, setBaseCrew] = useState(String(settings.baseCrew))
   const [hoursPerDay, setHoursPerDay] = useState(String(settings.hoursPerDay).replace('.', ','))
@@ -35,6 +35,21 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <p className="hint">
           Kalenderens periode følger hallbookingene fra Venyou. Helger, helligdager og julaften regnes som fridager.
         </p>
+        <fieldset className="danger-zone">
+          <legend>Nullstill</legend>
+          <span className="hint">Sletter alt som er lagret i nettleseren: haller, prosjekter, behov, KPI og planlegging. Last ned en sikkerhetskopi først hvis du vil kunne gå tilbake.</span>
+          <button
+            type="button"
+            className="danger"
+            onClick={async () => {
+              if (!confirm('Slette alt som er lagret i Expo Planner i denne nettleseren? Dette kan ikke angres.')) return
+              onClose()
+              await resetWorkspace()
+            }}
+          >
+            Slett alt og start på nytt
+          </button>
+        </fieldset>
         <div className="dialog-actions">
           <button type="button" onClick={onClose}>
             Avbryt

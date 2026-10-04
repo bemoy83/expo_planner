@@ -210,7 +210,7 @@ function Shell() {
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi />}
       {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenKpi={() => setView('kpi')} />}
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && workspace && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

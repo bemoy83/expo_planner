@@ -5,7 +5,7 @@ import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig,
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
@@ -18,6 +18,8 @@ interface WorkspaceStore {
   demandIndex: DemandIndex
   saveState: SaveState
   replaceWorkspace: (workspace: Workspace) => Promise<void>
+  /** Deletes everything stored in the browser and returns to the start screen. Cannot be undone. */
+  resetWorkspace: () => Promise<void>
   setAllocationFte: (rowId: string, date: ISODate, value: number | null) => void
   setAllocationNote: (rowId: string, date: ISODate, note: string) => void
   addAllocation: (row: Omit<AllocationRow, 'id' | 'order' | 'fte' | 'notes' | 'importedHours'>) => AllocationRow
@@ -182,6 +184,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setWorkspace(next)
     clearHistory()
     setStatus('ready')
+    setSaveState('saved')
+  }, [clearHistory])
+
+  const resetWorkspace = useCallback(async () => {
+    await clearAll()
+    // View preferences (filters, zoom, collapsed projects) belong to the data that is gone.
+    try {
+      for (const key of Object.keys(localStorage)) if (key.startsWith('expo-planner:')) localStorage.removeItem(key)
+    } catch {
+      // preferences are a convenience only
+    }
+    current.current = null
+    setWorkspace(null)
+    clearHistory()
+    setStatus('empty')
     setSaveState('saved')
   }, [clearHistory])
 
@@ -432,6 +449,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     demandIndex,
     saveState,
     replaceWorkspace,
+    resetWorkspace,
     setAllocationFte,
     setAllocationNote,
     addAllocation,
