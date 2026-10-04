@@ -411,6 +411,104 @@ input[type='text'] {
   text-overflow: ellipsis;
   font-weight: 600;
 }
+.lbl-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.col-head .lbl-desc {
+  padding-left: 0;
+}
+.lbl-level {
+  font-weight: 500;
+}
+.lbl-level.mon {
+  color: var(--mon-strong);
+}
+.lbl-level.dem {
+  color: var(--dem-strong);
+}
+.lbl-level .count {
+  font-weight: 400;
+  font-size: 11px;
+}
+.group-row.depth-0 .lbl-project {
+  font-weight: 600;
+}
+.group-row.depth-1,
+.group-row.depth-1 .grid-label {
+  background: #fafbfc;
+}
+.group-row.depth-2,
+.group-row.depth-2 .grid-label,
+.group-row.depth-3,
+.group-row.depth-3 .grid-label {
+  background: #fcfcfd;
+}
+/* The same width on every line, so the figures stay in their columns. */
+.row-slot {
+  display: inline-flex;
+  justify-content: flex-end;
+  width: 38px;
+  flex: none;
+}
+.grouping-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--line-strong);
+  font-size: 12px;
+}
+.grouping-title {
+  color: var(--muted);
+}
+.grouping-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.grouping-sep {
+  color: var(--muted);
+}
+.grouping-unused {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 10px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #fff;
+  cursor: grab;
+  user-select: none;
+}
+.chip.dragging {
+  opacity: 0.5;
+}
+.chip.unused {
+  padding: 1px 8px;
+  border-style: dashed;
+  color: var(--muted);
+  cursor: pointer;
+}
+.chip-move,
+.chip-remove {
+  border: none;
+  background: none;
+  padding: 0 3px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.chip-move:disabled {
+  visibility: hidden;
+}
 .lbl-competence {
   width: 150px;
   overflow: hidden;
@@ -456,9 +554,7 @@ input[type='text'] {
   color: var(--pos);
 }
 .row-actions {
-  display: inline-flex;
   gap: 2px;
-  margin-left: auto;
   visibility: hidden;
 }
 .grid-row:hover .row-actions,

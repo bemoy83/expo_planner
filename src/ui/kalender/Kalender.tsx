@@ -11,7 +11,8 @@ import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
-import { buildGroups, buildItems, EMPTY_FILTER, projectKey, type GridItem, type RowFilter } from './rows'
+import { GroupingBar } from './GroupingBar'
+import { buildGroups, buildItems, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, dimensionValue, EMPTY_FILTER, pathKeys, projectKey, type Dimension, type GridItem, type RowFilter } from './rows'
 
 type Section = 'alloc' | 'cap'
 interface Cell {
@@ -54,6 +55,13 @@ const rangeOf = (sel: Selection) => ({
   col1: Math.max(sel.anchor.col, sel.focus.col),
 })
 
+/** How far each level of the hierarchy is indented in the label column. */
+const INDENT = 14
+
+/** A row described by the given properties, e.g. «Hall C · Avd. 64». */
+const describeRow = (row: AllocationRow, dimensions: Dimension[]): string =>
+  dimensions.map((d) => (d === 'project' ? row.projectName : dimensionValue(row, d).label)).join(' · ')
+
 const fmtDate = (date: ISODate) => {
   const [y, m, d] = date.split('-')
   return `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${d}.${m}.${y}`
@@ -66,7 +74,8 @@ export function Kalender() {
 
   const [zoom, setZoom] = useState<Zoom>(() => loadPref('zoom', 'normal'))
   const [filter, setFilter] = useState<RowFilter>(() => loadPref('filter', EMPTY_FILTER))
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadPref<string[]>('collapsed', [])))
+  const [grouping, setGrouping] = useState<Dimension[]>(() => cleanGrouping(loadPref<unknown>('grouping', DEFAULT_GROUPING)))
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadPref<string[]>('collapsedLevels', [])))
   const [hallsOpen, setHallsOpen] = useState(() => loadPref('hallsOpen', true))
   const [allHalls, setAllHalls] = useState(() => loadPref('allHalls', false))
   const [capacityOpen, setCapacityOpen] = useState(() => loadPref('capacityOpen', false))
@@ -80,7 +89,8 @@ export function Kalender() {
 
   useEffect(() => savePref('zoom', zoom), [zoom])
   useEffect(() => savePref('filter', filter), [filter])
-  useEffect(() => savePref('collapsed', [...collapsed]), [collapsed])
+  useEffect(() => savePref('grouping', grouping), [grouping])
+  useEffect(() => savePref('collapsedLevels', [...collapsed]), [collapsed])
   useEffect(() => savePref('hallsOpen', hallsOpen), [hallsOpen])
   useEffect(() => savePref('allHalls', allHalls), [allHalls])
   useEffect(() => savePref('capacityOpen', capacityOpen), [capacityOpen])
@@ -119,8 +129,8 @@ export function Kalender() {
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
   const rows = useMemo(() => [...ws.allocations, ...suggestedRows(ws.demand, ws.allocations)], [ws.allocations, ws.demand])
   const items = useMemo(
-    () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined),
-    [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo],
+    () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined, grouping),
+    [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo, grouping],
   )
   const allocLanes = useMemo(() => items.flatMap((item, index) => (item.kind === 'row' ? [{ row: item.row, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row.id, i])), [allocLanes])
@@ -142,6 +152,8 @@ export function Kalender() {
     [allGroups],
   )
   const projectOptions = useMemo(() => allGroups.map((group) => ({ name: group.projectName, projectNo: group.projectNo })), [allGroups])
+  // What a row's own line says: the properties that are not a level above it. The phase always shows as a badge.
+  const rowDimensions = useMemo(() => (['project', 'competence', 'hall', 'avdeling'] as Dimension[]).filter((d) => !grouping.includes(d)), [grouping])
   const competences = useMemo(() => [...new Set(rows.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [rows])
 
   // ---- viewport and virtualization -----------------------------------------------------------
@@ -445,45 +457,57 @@ export function Kalender() {
 
   const renderItem = (item: GridItem) => {
     if (item.kind === 'group') {
-      const { group } = item
-      const delta = group.totals.plannedFte - group.totals.requiredFte
+      const { node } = item
+      const project = node.project
+      const delta = node.totals.plannedFte - node.totals.requiredFte
       return row(
-        `g:${group.key}`,
+        `g:${node.key}`,
         <>
-          <button className="twisty" onClick={() => toggleGroup(group.key)} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
+          <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => toggleGroup(node.key)} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
             {item.collapsed ? '▸' : '▾'}
           </button>
-          <span
-            className="lbl-project"
-            title={`${group.projectName}${group.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}${group.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Sett prosjektnummeret på arrangementet på Haller-fanen.'}`}
-          >
-            {group.projectName} <span className="muted">{group.projectNo || 'uten nr.'}</span>
-            {!group.venue && <span className="unlinked"> ikke i hallkalenderen</span>}
-          </span>
-          {group.rows.length ? (
+          {project ? (
+            <span
+              className="lbl-project"
+              title={`${project.projectName}${project.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}${project.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Sett prosjektnummeret på arrangementet på Haller-fanen.'}`}
+            >
+              {project.projectName} <span className="muted">{project.projectNo || 'uten nr.'}</span>
+              {!project.venue && <span className="unlinked"> ikke i hallkalenderen</span>}
+            </span>
+          ) : (
+            <span className={`lbl-project lbl-level ${node.dimension === 'phase' ? (node.label === 'Demontering' ? 'dem' : node.label === 'Montering' ? 'mon' : '') : ''}`} title={`${DIMENSION_LABELS[node.dimension]}: ${node.label}`}>
+              {node.label} <span className="muted count">{node.rows.length}</span>
+            </span>
+          )}
+          {node.rows.length ? (
             <>
-              <span className="lbl-num">{formatFte(group.totals.requiredFte)}</span>
-              <span className="lbl-num">{formatFte(group.totals.plannedFte)}</span>
+              <span className="lbl-num">{formatFte(node.totals.requiredFte)}</span>
+              <span className="lbl-num">{formatFte(node.totals.plannedFte)}</span>
               <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
             </>
           ) : (
             <span className="muted small no-rows">ingen rader</span>
           )}
-          <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: group.projectName, projectNo: group.projectNo })}>
-            +
-          </button>
+          <span className="row-slot">
+            {project && (
+              <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: project.projectName, projectNo: project.projectNo })}>
+                +
+              </button>
+            )}
+          </span>
         </>,
-        (date) => readCell(date, group.daily.get(date), `group-cell ${group.venue && date >= group.venue.start && date <= group.venue.end ? 'in-span' : ''}`),
-        `group-row ${group.rows.length ? '' : 'empty-group'}`,
+        (date) => readCell(date, node.daily.get(date), `group-cell ${project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : ''}`),
+        `group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'}`,
       )
     }
     const { row: r, totals } = item
     const lane = laneOfRow.get(r.id)!
+    const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
     return row(
       r.id,
       <>
-        <span className="lbl-competence" title={r.competence}>
-          {r.competence || <em className="muted">uten kompetanse</em>}
+        <span className="lbl-desc" style={{ paddingLeft: 18 + item.depth * INDENT }} title={describeRow(r, ['project', 'competence', 'hall', 'avdeling'])}>
+          {description || <em className="muted">rad</em>}
         </span>
         <span className={`lbl-phase ${r.phase === 'Demontering' ? 'dem' : 'mon'}`} title={r.phase}>
           {r.phase === 'Montering' ? 'M' : r.phase === 'Demontering' ? 'D' : '–'}
@@ -497,19 +521,24 @@ export function Kalender() {
         </span>
         <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
         <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
-        <span className="row-actions" hidden={isSuggestedRow(r)}>
-          <button className="row-action" title="Endre rad" onClick={() => setDialog({ row: r })}>
-            ✎
-          </button>
-          <button
-            className="row-action"
-            title="Slett rad"
-            onClick={() => {
-              if (confirm(`Slette raden ${r.projectName} · ${r.competence} · ${r.phase}?`)) removeAllocation(r.id)
-            }}
-          >
-            ×
-          </button>
+        <span className="row-slot row-actions">
+          {/* A suggested row is not stored yet, so there is nothing to edit or delete. */}
+          {!isSuggestedRow(r) && (
+            <>
+              <button className="row-action" title="Endre rad" onClick={() => setDialog({ row: r })}>
+                ✎
+              </button>
+              <button
+                className="row-action"
+                title="Slett rad"
+                onClick={() => {
+                  if (confirm(`Slette raden ${rowTitle(r)}?`)) removeAllocation(r.id)
+                }}
+              >
+                ×
+              </button>
+            </>
+          )}
         </span>
       </>,
       (date, col) => valueCell('alloc', lane, date, col, r.fte[date], r.notes[date], r.phase === 'Demontering' ? 'dem' : 'mon'),
@@ -524,7 +553,7 @@ export function Kalender() {
     if (selection.section === 'alloc') {
       const r = allocLanes[selection.focus.lane]?.row
       if (!r) return null
-      return { title: `${r.projectName} · ${r.competence} · ${r.phase}`, date, value: r.fte[date], note: r.notes[date] ?? '', rowId: isSuggestedRow(r) ? null : r.id }
+      return { title: rowTitle(r), date, value: r.fte[date], note: r.notes[date] ?? '', rowId: isSuggestedRow(r) ? null : r.id }
     }
     const cap = capLanes[selection.focus.lane]
     if (!cap) return null
@@ -585,7 +614,9 @@ export function Kalender() {
           ↷ Gjør om
         </button>
         <button onClick={() => setCollapsed(new Set())}>Utvid alle</button>
-        <button onClick={() => setCollapsed(new Set(items.filter((i) => i.kind === 'group').map((i) => (i.kind === 'group' ? i.group.key : ''))))}>Fold alle</button>
+        <button title="Fold sammen til øverste nivå" onClick={() => setCollapsed(new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}>
+          Fold alle
+        </button>
         <button onClick={() => scrollToDate(today)}>I dag</button>
         <input
           type="date"
@@ -603,6 +634,15 @@ export function Kalender() {
           + Ny rad
         </button>
       </div>
+
+      <GroupingBar
+        grouping={grouping}
+        onChange={(next) => {
+          // Lanes are positions in the list, so a selection would land on other rows after regrouping.
+          setSelection(null)
+          setGrouping(next)
+        }}
+      />
 
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
@@ -716,7 +756,9 @@ export function Kalender() {
             )}
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
-                <span className="lbl-competence">Prosjekt / kompetanse</span>
+                <span className="lbl-desc" title="Nivåene radene er gruppert etter">
+                  {[...grouping, ...rowDimensions].map((d) => DIMENSION_LABELS[d]).join(' / ')}
+                </span>
                 <span className="lbl-phase">Fase</span>
                 <span className="lbl-year">År</span>
                 <span className="lbl-basis">Grunnlag</span>
@@ -773,11 +815,13 @@ export function Kalender() {
           onClose={() => setDialog(null)}
           onSaved={(saved) => {
             // If the row's project is not in the list as filtered now, switch to showing that project.
-            const shown = items.some((item) => item.kind === 'group' && item.group.rows.length >= 0 && (item.group.key === projectKey(saved) || item.group.projectName === saved.projectName))
-            if (!shown) setFilter({ ...EMPTY_FILTER, project: projectKey(saved) })
+            const key = allGroups.find((group) => group.key === projectKey(saved) || group.projectName === saved.projectName)?.key ?? projectKey(saved)
+            const shown = items.some((item) => (item.kind === 'group' ? item.node.project?.key : item.project.key) === key)
+            if (!shown) setFilter({ ...EMPTY_FILTER, project: key })
+            // Open every level above the row.
             setCollapsed((prev) => {
               const next = new Set(prev)
-              next.delete(projectKey(saved))
+              for (const level of pathKeys(saved, key, grouping)) next.delete(level)
               return next
             })
             setPendingFocus(saved.id)
@@ -787,6 +831,8 @@ export function Kalender() {
     </div>
   )
 }
+
+const rowTitle = (row: AllocationRow) => `${describeRow(row, ['project', 'competence', 'hall', 'avdeling'])} · ${row.phase}`
 
 const deltaClass = (delta: number | null) => (delta === null ? '' : delta < -0.05 ? 'under' : delta > 0.05 ? 'over' : 'ok')
 

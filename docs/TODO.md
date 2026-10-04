@@ -9,7 +9,7 @@ Works from an empty workspace, without the planner workbook:
 1. Venyou export → halls, the Kalender's period, and one project per event.
 2. `Prosjekt.xlsx` (optional) → project numbers for events with a matching name; the rest are typed in on Haller.
 3. Visma export → demand lines; its product types appear on Produkttyper to be given unit and competence; rates go on KPI.
-4. "I plan" on Behov → rows in the Kalender per competence and phase.
+4. "I plan" on Behov → rows in the Kalender per phase, hall, competence and Avd., grouped as the planner chooses.
 
 ## Deferred by the user
 
@@ -42,6 +42,10 @@ Projects and halls
 
 Kalender
 
+- A planning row made before rows had Hall and Avd. covers all halls and departments, and keeps the demand from being split into rows per hall. To split it, delete the row; its FTE is not moved.
+- "Fold alle" folds to the top level only; there is no "fold to level N".
+- The grouping and the folded levels are kept per browser (localStorage), not in the workspace or the backup.
+- The Hall/Sted and Avd. of a row come from the demand line as it reads; if Visma moves a line to another hall, the planned row stays on the old hall with no demand behind it.
 - After filling a range and pressing Enter, the selection collapses to one cell. Excel keeps the range.
 - No drag-fill, and no selecting by dragging; only Shift+click and Shift+arrows.
 - Notes can be written on planning cells but not on staffing cells; staffing notes from the workbook are shown only.

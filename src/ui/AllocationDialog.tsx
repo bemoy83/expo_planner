@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { availableYears, formatFte, referenceProjectNo, requiredHours } from '../domain/calc'
+import { availableYears, demandScopes, formatFte, referenceProjectNo, requiredHours } from '../domain/calc'
 import type { AllocationRow, WorkPhase } from '../domain/types'
 import { useWorkspace } from '../store/workspaceStore'
 
@@ -17,7 +17,12 @@ interface Props {
 /**
  * Adds or edits an allocation row. The choices cascade like the workbook's dropdowns:
  * project → year whose demand to use → competence → data basis, and the hours follow automatically.
+ * Hall and department narrow the row to part of that demand; left open, the row covers all of it.
  */
+
+/** Select value for «all»; an empty value is demand that has no hall or department. */
+const ALL = '*'
+const fromChoice = (choice: string): string | undefined => (choice === ALL ? undefined : choice)
 export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, projects, onClose, onSaved }: Props) {
   const { workspace, demandIndex, addAllocation, updateAllocation } = useWorkspace()
   const ws = workspace!
@@ -26,6 +31,8 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
   const [competence, setCompetence] = useState(row?.competence ?? '')
   const [phase, setPhase] = useState<WorkPhase>(row?.phase || 'Montering')
   const [basis, setBasis] = useState(row?.basis ?? '')
+  const [hall, setHall] = useState(row?.hall ?? ALL)
+  const [avdeling, setAvdeling] = useState(row?.avdeling ?? ALL)
 
   const projectNames = useMemo(() => {
     const names = new Set([...(projects ?? []).map((p) => p.name), ...ws.projects.map((p) => p.name), ...ws.allocations.map((r) => r.projectName)])
@@ -58,12 +65,15 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
     return [...(match?.[1] ?? [])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'nb'))
   }, [demandIndex, ref, competence])
 
-  const hours = requiredHours(demandIndex, { projectNo, refYear, competence, basis, phase })
+  const scopes = useMemo(() => demandScopes(demandIndex, { projectNo, refYear, competence, basis }), [demandIndex, projectNo, refYear, competence, basis])
+  const withCurrent = (values: string[], current: string) => (current === ALL || values.includes(current) ? values : [...values, current])
+
+  const hours = requiredHours(demandIndex, { projectNo, refYear, competence, basis, phase, hall: fromChoice(hall), avdeling: fromChoice(avdeling) })
   // A row can be planned before any demand exists, so the year is only required when there is demand to pick from.
   const valid = project.trim() !== '' && competence.trim() !== '' && (refYear !== '' || years.length === 0)
 
   const save = () => {
-    const fields = { projectName: project.trim(), projectNo, refYear, competence: competence.trim(), phase, basis: basis.trim() }
+    const fields = { projectName: project.trim(), projectNo, refYear, competence: competence.trim(), phase, basis: basis.trim(), hall: fromChoice(hall), avdeling: fromChoice(avdeling) }
     const saved = row ? { ...row, ...fields } : addAllocation(fields)
     if (row) updateAllocation(saved)
     onSaved?.(saved)
@@ -131,6 +141,31 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
               <option key={b} value={b} />
             ))}
           </datalist>
+        </label>
+
+        <label>
+          Hall/Sted
+          <select value={hall} onChange={(e) => setHall(e.target.value)}>
+            <option value={ALL}>Alle haller</option>
+            {withCurrent(scopes.halls, hall).map((h) => (
+              <option key={h} value={h}>
+                {h || 'Uten hall'}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Avd.
+          <select value={avdeling} onChange={(e) => setAvdeling(e.target.value)}>
+            <option value={ALL}>Alle avdelinger</option>
+            {withCurrent(scopes.avdelinger, avdeling).map((a) => (
+              <option key={a} value={a}>
+                {a || 'Uten avd.'}
+              </option>
+            ))}
+          </select>
+          <span className="hint">Uten valg her gjelder raden hele behovet for kompetansen i prosjektet.</span>
         </label>
 
         <p className="dialog-result">

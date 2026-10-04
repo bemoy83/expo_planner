@@ -37,9 +37,18 @@ const realRow = (overrides: Partial<AllocationRow>): AllocationRow => ({
 })
 
 describe('rows suggested from planned demand', () => {
-  it('gives one row per competence and phase that has planned hours', () => {
-    const rows = suggestedRows([line({}), line({ id: 'd2', hall: 'Hall D' }), line({ id: 'd3', competence: 'Print', workType: 'Print', dismantleHours: 0 })], [])
-    expect(rows.map((r) => `${r.competence}/${r.phase}`)).toEqual(['Teppefliser/Montering', 'Teppefliser/Demontering', 'Print/Montering'])
+  it('gives one row per phase, hall, competence and department that has planned hours', () => {
+    const rows = suggestedRows(
+      [line({ avdeling: '64' }), line({ id: 'd2', hall: 'Hall D', avdeling: '64' }), line({ id: 'd3', avdeling: '64', workType: 'Nålefilt' }), line({ id: 'd4', competence: 'Print', workType: 'Print', dismantleHours: 0 })],
+      [],
+    )
+    expect(rows.map((r) => `${r.competence}/${r.phase}/${r.hall}/${r.avdeling}`)).toEqual([
+      'Teppefliser/Montering/Hall C/64',
+      'Teppefliser/Demontering/Hall C/64',
+      'Teppefliser/Montering/Hall D/64',
+      'Teppefliser/Demontering/Hall D/64',
+      'Print/Montering/Hall C/',
+    ])
     expect(rows[0]).toMatchObject({ projectNo: '26970', refYear: '2026', basis: 'Planlagt', fte: {} })
     expect(rows.every(isSuggestedRow)).toBe(true)
   })
@@ -51,5 +60,11 @@ describe('rows suggested from planned demand', () => {
   it('does not repeat a row that already exists', () => {
     const rows = suggestedRows([line({})], [realRow({}), realRow({ id: 'other', competence: 'teppefliser', phase: 'Demontering', basis: 'visma per reg. dato' })])
     expect(rows.map((r) => `${r.competence}/${r.phase}`)).toEqual(['Teppefliser/Demontering'])
+  })
+
+  it('does not split demand that a row for all halls already plans', () => {
+    const demand = [line({ avdeling: '64' }), line({ id: 'd2', hall: 'Hall D', avdeling: '65' })]
+    expect(suggestedRows(demand, [realRow({}), realRow({ id: 'dem', phase: 'Demontering', hall: 'Hall C' })]).map((r) => `${r.phase}/${r.hall}`)).toEqual(['Demontering/Hall D'])
+    expect(suggestedRows(demand, [realRow({ hall: 'Hall C', avdeling: '64' })]).map((r) => `${r.phase}/${r.hall}`)).toEqual(['Demontering/Hall C', 'Montering/Hall D', 'Demontering/Hall D'])
   })
 })

@@ -19,8 +19,15 @@ interface HourTotals {
   dismantle: number
 }
 
+/** The hours of one key, split by where the work is and which department ordered it. */
+interface HourPart extends HourTotals {
+  hall: string
+  avdeling: string
+}
+
 export interface DemandIndex {
   hours: Map<string, HourTotals>
+  parts: Map<string, HourPart[]>
   /** projectNo → competence → set of bases */
   options: Map<string, Map<string, Set<string>>>
 }
@@ -30,6 +37,7 @@ const key = (projectNo: string, competence: string, basis: string) =>
 
 export const buildDemandIndex = (demand: DemandLine[]): DemandIndex => {
   const hours = new Map<string, HourTotals>()
+  const parts = new Map<string, HourPart[]>()
   const options = new Map<string, Map<string, Set<string>>>()
   for (const line of demand) {
     const k = key(line.projectNo, line.competence, line.basis)
@@ -37,6 +45,9 @@ export const buildDemandIndex = (demand: DemandLine[]): DemandIndex => {
     totals.assembly += line.assemblyHours
     totals.dismantle += line.dismantleHours
     hours.set(k, totals)
+    const list = parts.get(k) ?? []
+    list.push({ hall: line.hall.trim(), avdeling: (line.avdeling ?? '').trim(), assembly: line.assemblyHours, dismantle: line.dismantleHours })
+    parts.set(k, list)
     if (!line.competence.trim()) continue
     const byCompetence = options.get(line.projectNo.trim()) ?? new Map<string, Set<string>>()
     const bases = byCompetence.get(line.competence.trim()) ?? new Set<string>()
@@ -44,16 +55,35 @@ export const buildDemandIndex = (demand: DemandLine[]): DemandIndex => {
     byCompetence.set(line.competence.trim(), bases)
     options.set(line.projectNo.trim(), byCompetence)
   }
-  return { hours, options }
+  return { hours, parts, options }
 }
 
-/** Required hours for a row, as the workbook's TIMER column computes them. */
-export const requiredHours = (index: DemandIndex, row: Pick<AllocationRow, 'projectNo' | 'refYear' | 'competence' | 'basis' | 'phase'>): number | null => {
+type RowScope = Pick<AllocationRow, 'projectNo' | 'refYear' | 'competence' | 'basis' | 'phase' | 'hall' | 'avdeling'>
+
+/**
+ * Required hours for a row, as the workbook's TIMER column computes them.
+ * A row with a hall or a department counts only the demand lines for that hall and department.
+ */
+export const requiredHours = (index: DemandIndex, row: RowScope): number | null => {
   const ref = referenceProjectNo(row.projectNo, row.refYear)
   if (!ref || !row.phase) return null
-  const totals = index.hours.get(key(ref, row.competence, row.basis))
-  if (!totals) return 0
-  return row.phase === 'Montering' ? totals.assembly : totals.dismantle
+  const k = key(ref, row.competence, row.basis)
+  const phase = row.phase === 'Montering' ? 'assembly' : 'dismantle'
+  if (row.hall === undefined && row.avdeling === undefined) return index.hours.get(k)?.[phase] ?? 0
+  let sum = 0
+  for (const part of index.parts.get(k) ?? []) {
+    if (row.hall !== undefined && norm(part.hall) !== norm(row.hall)) continue
+    if (row.avdeling !== undefined && norm(part.avdeling) !== norm(row.avdeling)) continue
+    sum += part[phase]
+  }
+  return sum
+}
+
+/** Halls and departments with demand for a project, competence and basis, for choosing a row's scope. */
+export const demandScopes = (index: DemandIndex, row: Pick<AllocationRow, 'projectNo' | 'refYear' | 'competence' | 'basis'>): { halls: string[]; avdelinger: string[] } => {
+  const list = index.parts.get(key(referenceProjectNo(row.projectNo, row.refYear), row.competence, row.basis)) ?? []
+  const sorted = (values: string[]) => [...new Set(values)].sort((a, b) => a.localeCompare(b, 'nb'))
+  return { halls: sorted(list.map((p) => p.hall)), avdelinger: sorted(list.map((p) => p.avdeling)) }
 }
 
 /** Years with demand recorded for the same project series. */

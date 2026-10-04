@@ -100,6 +100,21 @@ describe('required hours', () => {
     expect(requiredHours(index, row({ phase: '' }))).toBeNull()
   })
 
+  it('counts only the hall and department a row is for', () => {
+    const split = buildDemandIndex([
+      demandLine({ assemblyHours: 10, hall: 'Hall C', avdeling: '64' }),
+      demandLine({ assemblyHours: 20, hall: 'Hall C', avdeling: '65' }),
+      demandLine({ assemblyHours: 40, hall: 'Hall D', avdeling: '64' }),
+      demandLine({ assemblyHours: 80, hall: '' }),
+    ])
+    expect(requiredHours(split, row({}))).toBe(150)
+    expect(requiredHours(split, row({ hall: 'hall c' }))).toBe(30)
+    expect(requiredHours(split, row({ avdeling: '64' }))).toBe(50)
+    expect(requiredHours(split, row({ hall: 'Hall C', avdeling: '64' }))).toBe(10)
+    expect(requiredHours(split, row({ hall: '', avdeling: '' }))).toBe(80)
+    expect(requiredHours(split, row({ hall: 'Hall E' }))).toBe(0)
+  })
+
   it('totals planned FTE against the requirement', () => {
     const totals = rowTotals(index, row({ fte: { '2026-10-01': 1, '2026-09-28': 1 } }), DEFAULT_SETTINGS)
     expect(totals.requiredFte).toBe(2)

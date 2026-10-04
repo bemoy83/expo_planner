@@ -1,6 +1,6 @@
 export const ROW_H = 22
 export const HEADER_ROW_H = 18
-export const LEFT_W = 460
+export const LEFT_W = 520
 export const OVERSCAN_COLS = 6
 export const OVERSCAN_ROWS = 8
 

@@ -87,6 +87,10 @@ export interface AllocationRow {
   phase: WorkPhase | ''
   /** Kind of demand data used (`DATAGRUNNLAG`). */
   basis: string
+  /** The hall whose demand the row covers. Unset covers every hall; empty is demand without a hall. */
+  hall?: string
+  /** The Visma department whose demand the row covers. Unset covers every department; empty is demand without one. */
+  avdeling?: string
   /** Hours the workbook showed at import, kept for comparison. */
   importedHours: number | null
   fte: DayValues

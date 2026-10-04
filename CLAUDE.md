@@ -19,7 +19,7 @@ Run `npx tsc -b` after edits; tests are type-checked through `tsconfig.test.json
 
 Five tabs, all in Norwegian:
 
-- **Kalender** – the planning workspace. Date header, hall calendar and staffing totals are pinned above the planning rows. Rows are grouped by project; the planner types FTE per day.
+- **Kalender** – the planning workspace. Date header, hall calendar and staffing totals are pinned above the planning rows. The rows form a hierarchy the planner arranges («Grupper etter»: Prosjekt, Arbeidsfase, Hall/Sted, Kompetanse, Avd., in any order); FTE per day is typed on the rows and every level above sums.
 - **Behov** – the demand ledger per project: Visma lines, the planner's own lines and earlier years. "I plan" takes a Visma line into the demand that is planned with («Planlagt»).
 - **Haller** – every hall booking from Venyou, with a tick for whether it shows in the Kalender, and the project number per event.
 - **Produkttyper** – how each Visma product type is read: unit and competence.
@@ -35,12 +35,12 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
   - `kpi.ts` – the product-type table and the rate table, with merge/replace for imports.
   - `venue.ts`, `venueImport.ts` – the hall calendar, merging a Venyou export, hidden bookings.
   - `projects.ts` – projects are the Venyou events; the project list only matches an event name to a Visma project number.
-  - `plannedRows.ts` – demand under «Planlagt» shows as suggested Kalender rows.
+  - `plannedRows.ts` – demand under «Planlagt» shows as suggested Kalender rows, one per project × phase × hall × competence × Avd. A row with no hall or Avd. covers all of them.
   - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
   - `calendarRange.ts` – the Kalender's period follows the hall bookings.
 - `src/import/` – file readers. `xlsx.ts` is a small own reader (cached values and comments only); ExcelJS fails on the planner workbook's tables.
 - `src/store/` – `db.ts` (Dexie/IndexedDB), `workspaceStore.tsx` (all mutations, each persisted and recorded for undo), `history.ts` (undo steps), `backup.ts`.
-- `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the project groups.
+- `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the row hierarchy from the chosen grouping.
 
 Everything is stored in the browser (IndexedDB database `expo-planner`). There is no server.
 

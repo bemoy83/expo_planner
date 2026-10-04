@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildItems, EMPTY_FILTER, type GridItem } from './rows'
+import { buildItems, cleanGrouping, EMPTY_FILTER, pathKeys, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -39,7 +39,7 @@ const rows = [
 const index = buildDemandIndex([])
 const build = (events: VenueEvent[], filter = EMPTY_FILTER, collapsed = new Set<string>(), window?: { from: string; to: string }) =>
   buildItems(rows, events, index, DEFAULT_SETTINGS, filter, collapsed, window)
-const groupsOf = (items: GridItem[]) => items.flatMap((i) => (i.kind === 'group' ? [i.group] : []))
+const groupsOf = (items: GridItem[]) => items.flatMap((i) => (i.kind === 'group' ? [i.node.project!] : []))
 const rowIds = (items: GridItem[]) => items.flatMap((i) => (i.kind === 'row' ? [i.row.id] : []))
 
 describe('grid rows without Venyou events', () => {
@@ -51,7 +51,7 @@ describe('grid rows without Venyou events', () => {
   })
 
   it('hides rows of collapsed groups', () => {
-    expect(rowIds(build([], EMPTY_FILTER, new Set(['26970'])))).toEqual(['d', 'c'])
+    expect(rowIds(build([], EMPTY_FILTER, new Set(['project:26970'])))).toEqual(['d', 'c'])
   })
 
   it('filters by competence and search text', () => {
@@ -87,5 +87,91 @@ describe('projects from the Venyou calendar', () => {
   it('finds a project by name even when it has no rows', () => {
     expect(groupsOf(build(events, { ...EMPTY_FILTER, search: 'motor' })).map((g) => g.projectName)).toEqual(['OSLO MOTOR SHOW 2026'])
     expect(groupsOf(build(events, { ...EMPTY_FILTER, competence: 'FOGA' })).map((g) => g.projectName)).toEqual(['Hage 2026', 'VVS DAGENE 2026', 'Ny messe'])
+  })
+})
+
+describe('rows as a hierarchy', () => {
+  const demand = buildDemandIndex(
+    [
+      ['Hall C', '64', 15],
+      ['Hall C', '65', 30],
+      ['Hall D', '64', 45],
+    ].map(([hall, avdeling, hours], i) => ({
+      id: `d${i}`,
+      projectNo: '26970',
+      projectName: 'VVS 2026',
+      eventYear: '2026',
+      source: '',
+      workType: 'FOGA-vegger',
+      quantity: null,
+      unit: '',
+      stand: '',
+      hall: hall as string,
+      competence: 'FOGA',
+      basis: 'Planlagt',
+      assemblyHours: hours as number,
+      dismantleHours: 0,
+      comment: '',
+      avdeling: avdeling as string,
+    })),
+  )
+  const fine = [
+    row('c64', { hall: 'Hall C', avdeling: '64', fte: { '2026-10-05': 1 } }),
+    row('c65', { hall: 'Hall C', avdeling: '65', fte: { '2026-10-05': 2 } }),
+    row('d64', { hall: 'Hall D', avdeling: '64', fte: { '2026-10-06': 3 } }),
+    row('dem', { hall: 'Hall D', avdeling: '64', phase: 'Demontering' }),
+    row('hage', { projectName: 'Hage 2026', projectNo: '26100', competence: 'Banner', fte: { '2026-04-01': 1 } }),
+  ]
+  const tree = (grouping: Dimension[], collapsed = new Set<string>()) => buildItems(fine, [], demand, DEFAULT_SETTINGS, EMPTY_FILTER, collapsed, undefined, grouping)
+  const outline = (items: GridItem[]) => items.map((i) => (i.kind === 'group' ? `${'  '.repeat(i.node.depth)}${i.node.label}` : `${'  '.repeat(i.depth)}#${i.row.id}${i.lead ? ` ${i.lead}` : ''}`))
+
+  it('nests the levels in the chosen order', () => {
+    expect(outline(tree(['project', 'phase', 'hall']))).toEqual([
+      'Hage 2026',
+      '  Montering',
+      '    #hage Alle haller',
+      'VVS 2026',
+      '  Montering',
+      '    Hall C',
+      '      #c64',
+      '      #c65',
+      '    #d64 Hall D',
+      '  Demontering',
+      '    #dem Hall D',
+    ])
+  })
+
+  it('lets a row that is alone on the lowest level stand in for that level', () => {
+    expect(outline(tree(['hall', 'avdeling']))).toEqual(['Hall C', '  #c64 Avd. 64', '  #c65 Avd. 65', 'Hall D', '  Avd. 64', '    #d64', '    #dem', 'Alle haller', '  #hage Alle avd.'])
+    // A project keeps its own line: that is where rows are added to it.
+    expect(outline(tree(['project']))).toEqual(['Hage 2026', '  #hage', 'VVS 2026', '  #c64', '  #c65', '  #d64', '  #dem'])
+  })
+
+  it('lists the rows flat when nothing is grouped', () => {
+    expect(outline(tree([]))).toEqual(['#hage', '#c64', '#c65', '#d64', '#dem'])
+  })
+
+  it('sums required days, planned days and FTE per day on every level', () => {
+    const nodes = tree(['competence', 'hall']).flatMap((i) => (i.kind === 'group' ? [i.node] : []))
+    const foga = nodes.find((n) => n.label === 'FOGA')!
+    expect(foga.totals).toEqual({ requiredFte: 12, plannedFte: 6 })
+    expect(foga.daily.get('2026-10-05')).toBe(3)
+    const hallC = nodes.find((n) => n.label === 'Hall C')!
+    expect(hallC.totals).toEqual({ requiredFte: 6, plannedFte: 3 })
+    expect(hallC.key).toBe('competence:foga/hall:hall c')
+  })
+
+  it('collapses one branch without touching the same value elsewhere', () => {
+    const items = tree(['phase', 'hall'], new Set(['phase:montering/hall:hall c']))
+    expect(outline(items)).toEqual(['Montering', '  Hall C', '  #d64 Hall D', '  #hage Alle haller', 'Demontering', '  #dem Hall D'])
+  })
+
+  it('gives the levels above a row, for opening the way to it', () => {
+    expect(pathKeys(fine[2], '26970', ['project', 'hall'])).toEqual(['project:26970', 'project:26970/hall:hall d'])
+  })
+
+  it('keeps only known properties from a stored grouping', () => {
+    expect(cleanGrouping(['hall', 'nope', 'hall', 'project'])).toEqual(['hall', 'project'])
+    expect(cleanGrouping('x')).toEqual(['project', 'phase', 'competence'])
   })
 })

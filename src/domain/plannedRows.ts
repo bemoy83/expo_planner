@@ -2,7 +2,7 @@ import { PLANNED_BASIS, type AllocationRow, type DemandLine } from './types'
 
 /**
  * Demand the planner has taken into the plan («Planlagt») shows in the Kalender by itself: one row per
- * project, competence and phase that has hours. Such a row exists only as a suggestion until FTE is
+ * project, phase, hall, competence and department that has hours. Such a row exists only as a suggestion until FTE is
  * typed into it; then it becomes an ordinary planning row.
  */
 
@@ -12,12 +12,25 @@ export const isSuggestedRow = (row: Pick<AllocationRow, 'id'>): boolean => row.i
 
 const norm = (value: string) => value.trim().toLowerCase()
 
-/** What makes two rows the same line of work: project, year of the demand, competence, phase and basis. */
-export const rowScope = (row: Pick<AllocationRow, 'projectNo' | 'refYear' | 'competence' | 'phase' | 'basis'>): string =>
-  [row.projectNo, row.refYear, row.competence, row.phase, row.basis].map(norm).join('|')
+type Scope = Pick<AllocationRow, 'projectNo' | 'refYear' | 'competence' | 'phase' | 'basis' | 'hall' | 'avdeling'>
+
+/** A row without a hall or department covers all of them; that is not the same as demand that has none. */
+const ALL = '*'
+
+/** What makes two rows the same line of work: project, year of the demand, competence, phase, basis, hall and department. */
+export const rowScope = (row: Scope): string =>
+  [row.projectNo, row.refYear, row.competence, row.phase, row.basis, row.hall ?? ALL, row.avdeling ?? ALL].map(norm).join('|')
+
+/** The same line of work across every hall and department. */
+const wideScope = (row: Scope): string => rowScope({ ...row, hall: undefined, avdeling: undefined })
+
+/** Whether `row` already plans the demand of `other`: the same scope, or a wider one. */
+const covers = (row: Scope, other: Scope): boolean =>
+  (row.hall === undefined || norm(row.hall) === norm(other.hall ?? ALL)) && (row.avdeling === undefined || norm(row.avdeling) === norm(other.avdeling ?? ALL))
 
 export const suggestedRows = (demand: DemandLine[], allocations: AllocationRow[]): AllocationRow[] => {
-  const existing = new Set(allocations.map(rowScope))
+  const existing = new Map<string, AllocationRow[]>()
+  for (const row of allocations) existing.set(wideScope(row), [...(existing.get(wideScope(row)) ?? []), row])
   const found = new Map<string, AllocationRow>()
   for (const line of demand) {
     if (norm(line.basis) !== norm(PLANNED_BASIS) || !line.projectNo.trim() || !line.competence.trim()) continue
@@ -36,12 +49,15 @@ export const suggestedRows = (demand: DemandLine[], allocations: AllocationRow[]
         competence: line.competence.trim(),
         phase,
         basis: PLANNED_BASIS,
+        hall: line.hall.trim(),
+        avdeling: (line.avdeling ?? '').trim(),
         importedHours: null,
         fte: {},
         notes: {},
       }
       const scope = rowScope(row)
-      if (existing.has(scope) || found.has(scope)) continue
+      // A row for all halls already holds this demand; a second row would count the hours twice.
+      if (found.has(scope) || existing.get(wideScope(row))?.some((other) => covers(other, row))) continue
       found.set(scope, { ...row, id: `${SUGGESTED_ROW_PREFIX}${scope}` })
     }
   }
