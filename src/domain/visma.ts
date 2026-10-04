@@ -42,6 +42,8 @@ export interface VismaLine {
   /** Work type used for the calculation: the planner's choice when Visma has none. */
   workType: string
   hall: string
+  /** The hall the planner has placed the line in, if chosen by hand. */
+  location?: string
   unit: string
   competence: string
   quantity: number
@@ -110,6 +112,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
       sourceWorkType: group.workType,
       workType,
       hall: group.hall,
+      location: override.location,
       unit,
       competence: rule?.competence ?? 'Ukjent',
       quantity,
@@ -126,7 +129,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
   })
 }
 
-const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.inPlan || !!override.workType
+const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.inPlan || !!override.workType || !!override.location
 
 export interface OrphanedDecision {
   key: string
@@ -163,6 +166,7 @@ export const vismaDemandLines = (source: VismaImport, kpi: KpiConfig, overrides:
     unit: line.unit,
     stand: '',
     hall: line.hall,
+    location: line.location,
     competence: line.competence,
     basis: line.inPlan ? PLANNED_BASIS : VISMA_BASIS,
     assemblyHours: line.assemblyHours,

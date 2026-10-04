@@ -62,6 +62,8 @@ export interface DemandLine {
   unit: string
   stand: string
   hall: string
+  /** The hall the planner has placed the line in, where Hall/Sted does not say it. See `placeOf`. */
+  location?: string
   competence: string
   basis: string
   assemblyHours: number
@@ -167,6 +169,8 @@ export interface LineOverride {
   inPlan?: boolean
   /** Work type chosen by hand for a line Visma has no product type for. */
   workType?: string
+  /** Hall chosen by hand, for a Hall/Sted that names no hall in the hall ledger. */
+  location?: string
   /** The line as it read when the decision was made, for showing it after it has left the export. */
   ref?: { avdeling: string; workType: string; hall: string }
 }

@@ -25,18 +25,23 @@ export const resolveHall = (text: string, halls: string[]): string | null => {
   return numbered.length === 1 ? numbered[0] : null
 }
 
+/**
+ * Where a line counts: the hall the planner chose for it, else the hall its Hall/Sted names, else unresolved.
+ * A chosen hall that is no longer in the ledger does not count as chosen.
+ */
+export const placeOf = (line: Pick<DemandLine, 'hall' | 'location'>, halls: string[]): { hall: string; chosen: boolean } => {
+  const location = line.location?.trim().toLowerCase()
+  if (location === UNRESOLVED_HALL.toLowerCase()) return { hall: UNRESOLVED_HALL, chosen: true }
+  const chosen = location ? halls.find((hall) => hall.trim().toLowerCase() === location) : undefined
+  return chosen ? { hall: chosen, chosen: true } : { hall: resolveHall(line.hall, halls) ?? UNRESOLVED_HALL, chosen: false }
+}
+
 /** The demand with each line placed in a hall from the ledger, or in the unresolved location. The lines themselves keep their text. */
-export const locateDemand = (demand: DemandLine[], halls: string[]): DemandLine[] => {
-  const found = new Map<string, string>()
-  return demand.map((line) => {
-    let hall = found.get(line.hall)
-    if (hall === undefined) {
-      hall = resolveHall(line.hall, halls) ?? UNRESOLVED_HALL
-      found.set(line.hall, hall)
-    }
+export const locateDemand = (demand: DemandLine[], halls: string[]): DemandLine[] =>
+  demand.map((line) => {
+    const { hall } = placeOf(line, halls)
     return hall === line.hall ? line : { ...line, hall }
   })
-}
 
 /**
  * Planning rows placed the same way, so a row follows its demand when the hall it was made for is read

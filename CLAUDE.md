@@ -35,7 +35,7 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
   - `kpi.ts` – the product-type table and the rate table, with merge/replace for imports.
   - `venue.ts`, `venueImport.ts` – the hall calendar, merging a Venyou export, hidden bookings.
   - `projects.ts` – projects are the Venyou events; the project list only matches an event name to a Visma project number.
-  - `locations.ts` – reads a demand line's Hall/Sted as a hall of the hall ledger, or as «Uavklart» when it names none. The line keeps its own text.
+  - `locations.ts` – places a demand line in a hall of the hall ledger: the planner's choice (Plassering on Behov), else the hall its Hall/Sted names, else «Uavklart». The line keeps its own text.
   - `plannedRows.ts` – demand under «Planlagt» shows as suggested Kalender rows, one per project × phase × hall × competence × Avd. A row with no hall or Avd. covers all of them.
   - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
   - `calendarRange.ts` – the Kalender's period follows the hall bookings.
@@ -49,7 +49,7 @@ Everything is stored in the browser (IndexedDB database `expo-planner`). There i
 
 - UI text is Norwegian (bokmål). Code, comments, commit messages and docs are English.
 - The venue system is called **Venyou** (venue + you). "Venyoo" in `design_docs/` is a misspelling.
-- Keep source and status apart: a Visma line always stays a Visma line; the planner toggles it in or out of the plan. Decisions the planner makes (Effekt, in plan, chosen work type, hidden halls, project numbers) are stored separately from imported data, keyed so they survive the next import.
+- Keep source and status apart: a Visma line always stays a Visma line; the planner toggles it in or out of the plan. Decisions the planner makes (Effekt, in plan, chosen work type, chosen location, hidden halls, project numbers) are stored separately from imported data, keyed so they survive the next import.
 - Reference data lives in editable tables in the app. A file import is at most an optional shortcut and must offer merge or replace when the table already has content.
 - Every mutation goes through `workspaceStore.tsx`, is undoable, and is persisted. Edits made in one user action form one undo step.
 - New domain logic gets a test next to it. Tests ending in "(local data)" run against the real files in `example_data/` and are skipped when those are missing.

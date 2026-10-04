@@ -977,16 +977,22 @@ button.link.issue {
   display: none;
 }
 
-/* Where a demand line's Hall/Sted ends up in the Kalender. */
-.hall-tag {
-  padding: 0 5px;
-  border-radius: 8px;
-  background: var(--accent-soft);
+/* Where a demand line counts in the Kalender. */
+table.ledger select.location {
+  padding: 0 2px;
+  border-color: transparent;
+  background-color: transparent;
   color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
 }
-.hall-tag.unresolved {
-  background: var(--holiday);
+table.ledger select.location:hover,
+table.ledger select.location:focus {
+  border-color: var(--line-strong);
+}
+table.ledger select.location.chosen {
+  color: var(--text);
+  font-weight: 600;
+}
+table.ledger select.location.unresolved {
+  background-color: var(--holiday);
   color: var(--dem-strong);
 }

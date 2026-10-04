@@ -45,7 +45,7 @@ Kalender
 - A planning row made before rows had Hall and Avd. covers all halls and departments, and keeps the demand from being split into rows per hall. To split it, delete the row; its FTE is not moved.
 - "Fold alle" folds to the top level only; there is no "fold to level N".
 - The grouping and the folded levels are kept per browser (localStorage), not in the workspace or the backup.
-- Demand whose Hall/Sted names no hall on Haller is gathered under «Uavklart». There is no way to point such a text to a hall by hand (for example «sceneomr hall C» to C), and a hall letter with several numbered halls («Hall B» with B1–B4) is also left unresolved.
+- Demand whose Hall/Sted names no hall on Haller is gathered under «Uavklart» until the planner picks a hall under Plassering on Behov. The choice is per line; there is no rule that places every line with the same text (for example all «sceneomr hall C» in C), and a hall letter with several numbered halls («Hall B» with B1–B4) is left unresolved.
 - If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. Rows made for several texts that are now all «Uavklart» each show the whole unresolved demand.
 - After filling a range and pressing Enter, the selection collapses to one cell. Excel keeps the range.
 - No drag-fill, and no selecting by dragging; only Shift+click and Shift+arrows.

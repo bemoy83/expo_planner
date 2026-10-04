@@ -5,7 +5,7 @@ import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { placeOf, resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallNames } from '../../domain/venue'
 import { NumberField, TextField } from '../fields'
 import { DemandLineDialog } from './DemandLineDialog'
@@ -33,7 +33,7 @@ interface Props {
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
 export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
-  const { workspace, importVisma, setLineOverride, removeLineOverride, removeDemandLine, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, importVisma, setLineOverride, removeLineOverride, removeDemandLine, saveDemandLine, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
@@ -51,26 +51,26 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const kpi = ws.kpi ?? EMPTY_KPI
   // The Kalender places demand in the halls of the hall ledger; show where each line's Hall/Sted ends up.
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
-  const hallCell = (text: string) => {
-    const hall = resolveHall(text, halls)
-    if (hall === null)
-      return (
-        <>
-          {text}{' '}
-          <span className="hall-tag unresolved" title="Hall/sted finnes ikke blant hallene på Haller-fanen. Behovet teller med, og vises under «Uavklart» i Kalender.">
-            {UNRESOLVED_HALL.toLowerCase()}
-          </span>
-        </>
-      )
-    return hall.toLowerCase() === text.trim().toLowerCase() ? (
-      text
-    ) : (
-      <>
-        {text}{' '}
-        <span className="hall-tag" title={`Vises under hallen ${hall} i Kalender`}>
-          {hall}
-        </span>
-      </>
+  /** The hall a line counts under in the Kalender, with the planner's own choice where Hall/Sted does not say it. */
+  const locationCell = (line: Pick<DemandLine, 'hall' | 'location'>, onChange: (location: string | undefined) => void) => {
+    const place = placeOf(line, halls)
+    const auto = resolveHall(line.hall, halls) ?? UNRESOLVED_HALL
+    return (
+      <select
+        className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
+        value={place.chosen ? place.hall : ''}
+        aria-label="Plassering"
+        title={place.chosen ? 'Plassering valgt for hånd' : place.hall === UNRESOLVED_HALL ? 'Hall/sted finnes ikke blant hallene på Haller-fanen. Behovet teller med under «Uavklart» til du velger en hall.' : 'Lest fra Hall/sted'}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      >
+        <option value="">{auto} (auto)</option>
+        {halls.map((hall) => (
+          <option key={hall} value={hall}>
+            {hall}
+          </option>
+        ))}
+        <option value={UNRESOLVED_HALL}>{UNRESOLVED_HALL}</option>
+      </select>
     )
   }
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
@@ -260,6 +260,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                             o.override.inPlan && 'i plan',
                             o.override.effekt ? `Effekt ${String(o.override.effekt).replace('.', ',')}` : '',
                             o.override.workType && `arbeidstype ${o.override.workType}`,
+                            o.override.location && `plassering ${o.override.location}`,
                             o.override.comment && `«${o.override.comment}»`,
                           ]
                             .filter(Boolean)
@@ -281,6 +282,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                       <th>Kompetanse</th>
                       <th>Arbeidstype</th>
                       <th>Hall / sted</th>
+                      <th title="Hallen linjen teller under i Kalender">Plassering</th>
                       <th>Avd.</th>
                       <th className="num">Antall</th>
                       <th>Enhet</th>
@@ -314,7 +316,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                           )}
                           {line.issue && line.issue !== 'no-product-type' && <span className="issue"> {ISSUE_TEXT[line.issue]}</span>}
                         </td>
-                        <td>{hallCell(line.hall)}</td>
+                        <td>{line.hall}</td>
+                        <td>{locationCell(line, (location) => override(line, { location }))}</td>
                         <td>{line.avdeling}</td>
                         <td className="num" title={`${line.rowCount} ordrelinjer`}>
                           {formatFte(line.quantity, 1)}
@@ -359,6 +362,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                       <th>Kompetanse</th>
                       <th>Arbeidstype</th>
                       <th>Hall / sted</th>
+                      <th title="Hallen linjen teller under i Kalender">Plassering</th>
                       <th>Kilde</th>
                       <th className="num">Antall</th>
                       <th>Enhet</th>
@@ -374,7 +378,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                         <td>{line.basis}</td>
                         <td>{line.competence}</td>
                         <td>{line.workType}</td>
-                        <td>{hallCell(line.hall)}</td>
+                        <td>{line.hall}</td>
+                        <td>{locationCell(line, (location) => saveDemandLine({ ...line, location }))}</td>
                         <td>{line.source}</td>
                         <td className="num">{line.quantity === null ? '' : formatFte(line.quantity, 1)}</td>
                         <td>{line.unit}</td>
