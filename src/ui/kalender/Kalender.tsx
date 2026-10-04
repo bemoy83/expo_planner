@@ -1,0 +1,747 @@
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { capacityForDate, dailyNeed, formatFte } from '../../domain/calc'
+import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { dayType, holidayName } from '../../domain/holidays'
+import type { AllocationRow, CapacityLine } from '../../domain/types'
+import { buildHallCalendar, dominantEntry, hallNames, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { useWorkspace } from '../../store/workspaceStore'
+import { AllocationDialog } from '../AllocationDialog'
+import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
+import { buildItems, EMPTY_FILTER, projectKey, type GridItem, type RowFilter } from './rows'
+
+type Section = 'alloc' | 'cap'
+interface Cell {
+  lane: number
+  col: number
+}
+interface Selection {
+  section: Section
+  anchor: Cell
+  focus: Cell
+}
+interface CapLane {
+  line: CapacityLine
+  field: 'values' | 'hours'
+  label: string
+}
+
+const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
+
+const loadPref = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(`expo-planner:${key}`)
+    return raw ? (JSON.parse(raw) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+const savePref = (key: string, value: unknown) => {
+  try {
+    localStorage.setItem(`expo-planner:${key}`, JSON.stringify(value))
+  } catch {
+    // preferences are a convenience only
+  }
+}
+
+const rangeOf = (sel: Selection) => ({
+  lane0: Math.min(sel.anchor.lane, sel.focus.lane),
+  lane1: Math.max(sel.anchor.lane, sel.focus.lane),
+  col0: Math.min(sel.anchor.col, sel.focus.col),
+  col1: Math.max(sel.anchor.col, sel.focus.col),
+})
+
+const fmtDate = (date: ISODate) => {
+  const [y, m, d] = date.split('-')
+  return `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${d}.${m}.${y}`
+}
+
+export function Kalender() {
+  const { workspace, demandIndex, setAllocationFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
+  const ws = workspace!
+  const { settings } = ws
+
+  const [zoom, setZoom] = useState<Zoom>(() => loadPref('zoom', 'normal'))
+  const [filter, setFilter] = useState<RowFilter>(() => loadPref('filter', EMPTY_FILTER))
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadPref<string[]>('collapsed', [])))
+  const [hallsOpen, setHallsOpen] = useState(() => loadPref('hallsOpen', true))
+  const [allHalls, setAllHalls] = useState(() => loadPref('allHalls', false))
+  const [capacityOpen, setCapacityOpen] = useState(() => loadPref('capacityOpen', false))
+  const [onlyInView, setOnlyInView] = useState(() => loadPref('onlyInView', true))
+  const [selection, setSelection] = useState<Selection | null>(null)
+  const [draft, setDraft] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string } | null>(null)
+  const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200, height: 800 })
+  const [topHeight, setTopHeight] = useState(0)
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null)
+
+  useEffect(() => savePref('zoom', zoom), [zoom])
+  useEffect(() => savePref('filter', filter), [filter])
+  useEffect(() => savePref('collapsed', [...collapsed]), [collapsed])
+  useEffect(() => savePref('hallsOpen', hallsOpen), [hallsOpen])
+  useEffect(() => savePref('allHalls', allHalls), [allHalls])
+  useEffect(() => savePref('capacityOpen', capacityOpen), [capacityOpen])
+  useEffect(() => savePref('onlyInView', onlyInView), [onlyInView])
+
+  const colW = ZOOM_WIDTHS[zoom]
+  const dates = useMemo(() => dateRange(settings.calendarStart, settings.calendarEnd), [settings.calendarStart, settings.calendarEnd])
+  const today = todayIso()
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
+
+  // ---- derived data -------------------------------------------------------------------------
+  const hallCalendar = useMemo(() => buildHallCalendar(ws.venue), [ws.venue])
+  const halls = useMemo(() => {
+    const names = hallNames(ws.venue)
+    if (allHalls) return names
+    // Exhibition halls: most of their bookings have build-up or tear-down periods.
+    return names.filter((hall) => {
+      const bookings = ws.venue.filter((b) => b.hall === hall)
+      return bookings.filter((b) => b.phases.assembly || b.phases.dismantle).length / bookings.length >= 0.5
+    })
+  }, [ws.venue, allHalls])
+  const hallCount = useMemo(() => hallNames(ws.venue).length, [ws.venue])
+
+  const need = useMemo(() => dailyNeed(ws.allocations), [ws.allocations])
+  const winFrom = dates[Math.max(0, Math.floor(viewport.left / colW))]
+  const winTo = dates[Math.max(0, Math.min(dates.length - 1, Math.floor((viewport.left + viewport.width - LEFT_W) / colW)))]
+  const inViewOnly = onlyInView && !filter.project && !filter.search
+  const items = useMemo(
+    () => buildItems(ws.allocations, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined),
+    [ws.allocations, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo],
+  )
+  const allocLanes = useMemo(() => items.flatMap((item, index) => (item.kind === 'row' ? [{ row: item.row, index }] : [])), [items])
+  const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row.id, i])), [allocLanes])
+  const capLanes = useMemo<CapLane[]>(
+    () =>
+      ws.capacity.flatMap((line) =>
+        line.group === 'overtime'
+          ? [
+              { line, field: 'values' as const, label: `${line.label} (personer)` },
+              { line, field: 'hours' as const, label: `${line.label} (timer)` },
+            ]
+          : [{ line, field: 'values' as const, label: line.label }],
+      ),
+    [ws.capacity],
+  )
+  const projects = useMemo(() => {
+    const byKey = new Map<string, string>()
+    for (const r of ws.allocations) if (r.projectName && !byKey.has(projectKey(r))) byKey.set(projectKey(r), r.projectName)
+    return [...byKey].sort((a, b) => a[1].localeCompare(b[1], 'nb'))
+  }, [ws.allocations])
+  const competences = useMemo(() => [...new Set(ws.allocations.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [ws.allocations])
+
+  // ---- viewport and virtualization -----------------------------------------------------------
+  // Scroll events already arrive once per frame, so the viewport can be read directly.
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (el) setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const top = topRef.current
+    if (!el || !top) return
+    const observer = new ResizeObserver(() => {
+      setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
+      setTopHeight(top.offsetHeight)
+    })
+    observer.observe(el)
+    observer.observe(top)
+    return () => observer.disconnect()
+  }, [])
+
+  const scrollToDate = useCallback(
+    (date: ISODate, offsetDays = 7) => {
+      const el = scrollRef.current
+      if (!el) return
+      el.scrollLeft = Math.max(0, (daysBetween(settings.calendarStart, date) - offsetDays) * colW)
+      onScroll()
+    },
+    [settings.calendarStart, colW, onScroll],
+  )
+
+  // Start near today, once.
+  const didInitialScroll = useRef(false)
+  useLayoutEffect(() => {
+    if (didInitialScroll.current) return
+    didInitialScroll.current = true
+    scrollToDate(today >= settings.calendarStart && today <= settings.calendarEnd ? today : settings.calendarStart)
+  }, [scrollToDate, today, settings.calendarStart, settings.calendarEnd])
+
+  // Keep the same date at the left edge when zooming.
+  const prevColW = useRef(colW)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el && prevColW.current !== colW) el.scrollLeft = (el.scrollLeft / prevColW.current) * colW
+    prevColW.current = colW
+  }, [colW])
+
+  const c0 = Math.max(0, Math.floor(viewport.left / colW) - OVERSCAN_COLS)
+  const c1 = Math.min(dates.length - 1, Math.ceil((viewport.left + viewport.width - LEFT_W) / colW) + OVERSCAN_COLS)
+  const visibleDates = dates.slice(c0, c1 + 1)
+  const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
+  const topPinned = topHeight < viewport.height * 0.65
+  const r0 = Math.max(0, Math.floor((viewport.top - (topPinned ? 0 : topHeight)) / ROW_H) - OVERSCAN_ROWS)
+  const r1 = Math.min(items.length, Math.ceil((viewport.top + viewport.height - topHeight) / ROW_H) + OVERSCAN_ROWS)
+
+  const ensureVisible = useCallback(
+    (section: Section, cell: Cell) => {
+      const el = scrollRef.current
+      if (!el) return
+      const x = cell.col * colW
+      if (x < el.scrollLeft) el.scrollLeft = x
+      else if (x + colW > el.scrollLeft + el.clientWidth - LEFT_W) el.scrollLeft = x + colW - (el.clientWidth - LEFT_W)
+      if (section === 'alloc') {
+        const index = allocLanes[cell.lane]?.index ?? 0
+        const y = index * ROW_H
+        if (y < el.scrollTop) el.scrollTop = topPinned ? y : topHeight + y
+        else if (topHeight + y + ROW_H > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + y + ROW_H - el.clientHeight
+      }
+    },
+    [colW, allocLanes, topHeight, topPinned],
+  )
+
+  // Select the first visible day of a row that was just added or edited.
+  useEffect(() => {
+    if (!pendingFocus) return
+    const lane = laneOfRow.get(pendingFocus)
+    if (lane === undefined) return
+    const cell = { lane, col: firstVisibleCol }
+    setSelection({ section: 'alloc', anchor: cell, focus: cell })
+    ensureVisible('alloc', cell)
+    setPendingFocus(null)
+    scrollRef.current?.focus({ preventScroll: true })
+  }, [pendingFocus, laneOfRow, firstVisibleCol, ensureVisible])
+
+  // ---- cell values ----------------------------------------------------------------------------
+  const laneCount = (section: Section) => (section === 'alloc' ? allocLanes.length : capLanes.length)
+
+  const getValue = useCallback(
+    (section: Section, lane: number, date: ISODate): number | undefined => {
+      if (section === 'alloc') return allocLanes[lane]?.row.fte[date]
+      const cap = capLanes[lane]
+      return cap?.line[cap.field]?.[date]
+    },
+    [allocLanes, capLanes],
+  )
+
+  const setValue = useCallback(
+    (section: Section, lane: number, date: ISODate, value: number | null) => {
+      if (section === 'alloc') {
+        const row = allocLanes[lane]?.row
+        if (row) setAllocationFte(row.id, date, value)
+      } else {
+        const cap = capLanes[lane]
+        if (cap) setCapacityValue(cap.line.id, date, cap.field, value)
+      }
+    },
+    [allocLanes, capLanes, setAllocationFte, setCapacityValue],
+  )
+
+  const fillSelection = useCallback(
+    (value: number | null) => {
+      if (!selection) return
+      const { lane0, lane1, col0, col1 } = rangeOf(selection)
+      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) setValue(selection.section, lane, dates[col], value)
+    },
+    [selection, setValue, dates],
+  )
+
+  const move = useCallback(
+    (dLane: number, dCol: number, extend = false) => {
+      setSelection((sel) => {
+        if (!sel) return sel
+        const lanes = laneCount(sel.section)
+        const focus = {
+          lane: Math.min(lanes - 1, Math.max(0, sel.focus.lane + dLane)),
+          col: Math.min(dates.length - 1, Math.max(0, sel.focus.col + dCol)),
+        }
+        ensureVisible(sel.section, focus)
+        return { section: sel.section, anchor: extend ? sel.anchor : focus, focus }
+      })
+    },
+    [dates.length, ensureVisible], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  const commitDraft = useCallback(
+    (then?: () => void) => {
+      if (draft === null || !selection) return
+      const value = parseCellInput(draft)
+      setDraft(null)
+      if (value !== undefined) fillSelection(value)
+      then?.()
+      scrollRef.current?.focus({ preventScroll: true })
+    },
+    [draft, selection, fillSelection],
+  )
+
+  const select = (section: Section, cell: Cell, extend: boolean) => {
+    if (draft !== null) commitDraft()
+    setSelection((sel) => (extend && sel?.section === section ? { ...sel, focus: cell } : { section, anchor: cell, focus: cell }))
+    scrollRef.current?.focus({ preventScroll: true })
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (draft !== null || !selection) return
+    if (e.target !== scrollRef.current) return
+    const arrows: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }
+    if (arrows[e.key]) {
+      e.preventDefault()
+      move(...arrows[e.key], e.shiftKey)
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      move(0, e.shiftKey ? -1 : 1)
+    } else if (e.key === 'Enter' || e.key === 'F2') {
+      e.preventDefault()
+      const current = getValue(selection.section, selection.focus.lane, dates[selection.focus.col])
+      setDraft(current === undefined ? '' : String(current).replace('.', ','))
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      fillSelection(null)
+    } else if (e.key === 'Escape') {
+      setSelection(null)
+    } else if (/^[0-9,.-]$/.test(e.key) && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault()
+      setDraft(e.key)
+    }
+  }
+
+  const onCopy = (e: React.ClipboardEvent) => {
+    if (!selection || draft !== null) return
+    const { lane0, lane1, col0, col1 } = rangeOf(selection)
+    const lines: string[] = []
+    for (let lane = lane0; lane <= lane1; lane++) {
+      const cells: string[] = []
+      for (let col = col0; col <= col1; col++) cells.push(String(getValue(selection.section, lane, dates[col]) ?? '').replace('.', ','))
+      lines.push(cells.join('\t'))
+    }
+    e.clipboardData.setData('text/plain', lines.join('\n'))
+    e.preventDefault()
+  }
+
+  const onPaste = (e: React.ClipboardEvent) => {
+    if (!selection || draft !== null) return
+    const textData = e.clipboardData.getData('text/plain')
+    if (!textData) return
+    e.preventDefault()
+    const { lane0, col0 } = rangeOf(selection)
+    const grid = textData.replace(/\r/g, '').replace(/\n$/, '').split('\n').map((line) => line.split('\t'))
+    const lanes = laneCount(selection.section)
+    grid.forEach((cells, dl) =>
+      cells.forEach((raw, dc) => {
+        const lane = lane0 + dl
+        const col = col0 + dc
+        const value = parseCellInput(raw)
+        if (lane < lanes && col < dates.length && value !== undefined) setValue(selection.section, lane, dates[col], value)
+      }),
+    )
+  }
+
+  const isSelected = (section: Section, lane: number, col: number) => {
+    if (!selection || selection.section !== section) return false
+    const { lane0, lane1, col0, col1 } = rangeOf(selection)
+    return lane >= lane0 && lane <= lane1 && col >= col0 && col <= col1
+  }
+  const isFocus = (section: Section, lane: number, col: number) =>
+    selection?.section === section && selection.focus.lane === lane && selection.focus.col === col
+
+  // ---- rendering helpers --------------------------------------------------------------------
+  const dayClass = (date: ISODate) => {
+    const type = dayType(date)
+    return `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''}`
+  }
+
+  const row = (key: string, label: ReactNode, cells: (date: ISODate, col: number) => ReactNode, className = '') => (
+    <div className={`grid-row ${className}`} key={key} style={{ height: ROW_H }}>
+      <div className="grid-label" style={{ width: LEFT_W }}>
+        {label}
+      </div>
+      <div className="grid-spacer" style={{ width: c0 * colW }} />
+      {visibleDates.map((date, i) => cells(date, c0 + i))}
+    </div>
+  )
+
+  const valueCell = (section: Section, lane: number, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
+    const focus = isFocus(section, lane, col)
+    return (
+      <div
+        key={date}
+        className={`${dayClass(date)} cell editable ${isSelected(section, lane, col) ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''}`}
+        style={{ width: colW }}
+        title={note}
+        onMouseDown={(e) => {
+          e.preventDefault()
+          select(section, { lane, col }, e.shiftKey)
+        }}
+        onDoubleClick={() => setDraft(value === undefined ? '' : String(value).replace('.', ','))}
+      >
+        {focus && draft !== null ? (
+          <input
+            className="cell-input"
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => commitDraft()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitDraft(() => move(e.shiftKey ? -1 : 1, 0))
+              } else if (e.key === 'Tab') {
+                e.preventDefault()
+                commitDraft(() => move(0, e.shiftKey ? -1 : 1))
+              } else if (e.key === 'Escape') {
+                setDraft(null)
+                scrollRef.current?.focus({ preventScroll: true })
+              }
+            }}
+          />
+        ) : (
+          formatFte(value)
+        )}
+      </div>
+    )
+  }
+
+  const readCell = (date: ISODate, value: number | undefined, className = '', title?: string) => (
+    <div key={date} className={`${dayClass(date)} cell ${className}`} style={{ width: colW }} title={title}>
+      {formatFte(value)}
+    </div>
+  )
+
+  const toggleGroup = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
+  const renderItem = (item: GridItem) => {
+    if (item.kind === 'group') {
+      const { group } = item
+      const delta = group.totals.plannedFte - group.totals.requiredFte
+      return row(
+        `g:${group.key}`,
+        <>
+          <button className="twisty" onClick={() => toggleGroup(group.key)} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
+            {item.collapsed ? '▸' : '▾'}
+          </button>
+          <span className="lbl-project" title={group.projectName}>
+            {group.projectName} <span className="muted">{group.projectNo}</span>
+          </span>
+          <span className="lbl-num">{formatFte(group.totals.requiredFte)}</span>
+          <span className="lbl-num">{formatFte(group.totals.plannedFte)}</span>
+          <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
+          <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: group.projectName })}>
+            +
+          </button>
+        </>,
+        (date) => readCell(date, group.daily.get(date), 'group-cell'),
+        'group-row',
+      )
+    }
+    const { row: r, totals } = item
+    const lane = laneOfRow.get(r.id)!
+    return row(
+      r.id,
+      <>
+        <span className="lbl-competence" title={r.competence}>
+          {r.competence || <em className="muted">uten kompetanse</em>}
+        </span>
+        <span className={`lbl-phase ${r.phase === 'Demontering' ? 'dem' : 'mon'}`} title={r.phase}>
+          {r.phase === 'Montering' ? 'M' : r.phase === 'Demontering' ? 'D' : '–'}
+        </span>
+        <span className="lbl-year">{r.refYear}</span>
+        <span className="lbl-basis" title={r.basis}>
+          {r.basis}
+        </span>
+        <span className="lbl-num" title={totals.requiredHours === null ? '' : `${formatFte(totals.requiredHours, 2)} timer`}>
+          {formatFte(totals.requiredFte)}
+        </span>
+        <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
+        <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
+        <span className="row-actions">
+          <button className="row-action" title="Endre rad" onClick={() => setDialog({ row: r })}>
+            ✎
+          </button>
+          <button
+            className="row-action"
+            title="Slett rad"
+            onClick={() => {
+              if (confirm(`Slette raden ${r.projectName} · ${r.competence} · ${r.phase}?`)) removeAllocation(r.id)
+            }}
+          >
+            ×
+          </button>
+        </span>
+      </>,
+      (date, col) => valueCell('alloc', lane, date, col, r.fte[date], r.notes[date], r.phase === 'Demontering' ? 'dem' : 'mon'),
+      'alloc-row',
+    )
+  }
+
+  // ---- selection details for the status bar -------------------------------------------------
+  const focusInfo = (() => {
+    if (!selection) return null
+    const date = dates[selection.focus.col]
+    if (selection.section === 'alloc') {
+      const r = allocLanes[selection.focus.lane]?.row
+      if (!r) return null
+      return { title: `${r.projectName} · ${r.competence} · ${r.phase}`, date, value: r.fte[date], note: r.notes[date] ?? '', rowId: r.id }
+    }
+    const cap = capLanes[selection.focus.lane]
+    if (!cap) return null
+    return { title: cap.label, date, value: cap.line[cap.field]?.[date], note: cap.line.notes[date] ?? '', rowId: null }
+  })()
+  const selectionSum = (() => {
+    if (!selection) return null
+    const { lane0, lane1, col0, col1 } = rangeOf(selection)
+    if (lane0 === lane1 && col0 === col1) return null
+    let sum = 0
+    for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) sum += getValue(selection.section, lane, dates[col]) ?? 0
+    return sum
+  })()
+
+  // ---- render ---------------------------------------------------------------------------------
+  return (
+    <div className="kalender">
+      <div className="toolbar">
+        <label>
+          Prosjekt
+          <select value={filter.project} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
+            <option value="">Alle prosjekter ({projects.length})</option>
+            {projects.map(([key, name]) => (
+              <option key={key} value={key}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Kompetanse
+          <select value={filter.competence} onChange={(e) => setFilter({ ...filter, competence: e.target.value })}>
+            <option value="">Alle</option>
+            {competences.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </label>
+        <input className="search" type="search" placeholder="Søk i rader" value={filter.search} onChange={(e) => setFilter({ ...filter, search: e.target.value })} />
+        {(filter.project || filter.competence || filter.search) && (
+          <button className="link" onClick={() => setFilter(EMPTY_FILTER)}>
+            Nullstill
+          </button>
+        )}
+        <label className="check" title="Vis bare prosjekter som har planlagte dager i datoene som vises">
+          <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
+          Bare prosjekter i visningen
+        </label>
+        <span className="toolbar-gap" />
+        <button onClick={() => setCollapsed(new Set())}>Utvid alle</button>
+        <button onClick={() => setCollapsed(new Set(items.filter((i) => i.kind === 'group').map((i) => (i.kind === 'group' ? i.group.key : ''))))}>Fold alle</button>
+        <button onClick={() => scrollToDate(today)}>I dag</button>
+        <input
+          type="date"
+          aria-label="Gå til dato"
+          min={settings.calendarStart}
+          max={settings.calendarEnd}
+          onChange={(e) => e.target.value && scrollToDate(e.target.value, 2)}
+        />
+        <select value={zoom} aria-label="Kolonnebredde" onChange={(e) => setZoom(e.target.value as Zoom)}>
+          <option value="compact">Smal</option>
+          <option value="normal">Normal</option>
+          <option value="wide">Bred</option>
+        </select>
+        <button className="primary" onClick={() => setDialog({ projectName: projects.find(([key]) => key === filter.project)?.[1] })}>
+          + Ny rad
+        </button>
+      </div>
+
+      <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
+        <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
+          {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
+          <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
+            {row(
+              'months',
+              <span className="lbl-title">{zoom === 'compact' ? '' : 'Uke / måned'}</span>,
+              (date) => (
+                <div key={date} className={`${dayClass(date)} cell head`} style={{ width: colW }}>
+                  {date.endsWith('-01') ? <span className="month-label">{`${MONTHS_NB[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`}</span> : weekdayIndex(date) === 0 ? <span className="week-label">u{isoWeek(date)}</span> : null}
+                </div>
+              ),
+              'head-row',
+            )}
+            {row(
+              'days',
+              <span className="lbl-title">Dato</span>,
+              (date) => (
+                <div key={date} className={`${dayClass(date)} cell head day-head`} style={{ width: colW }} title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}`}>
+                  <span className="wd">{WEEKDAYS_NB[weekdayIndex(date)].slice(0, zoom === 'compact' ? 1 : 3).toLowerCase()}</span>
+                  <span className="dn">{Number(date.slice(8))}</span>
+                </div>
+              ),
+              'head-row tall',
+            )}
+
+            <div className="section-head" style={{ width: LEFT_W }}>
+              <button className="twisty" onClick={() => setHallsOpen(!hallsOpen)}>
+                {hallsOpen ? '▾' : '▸'}
+              </button>
+              Haller
+              {hallsOpen && (
+                <button className="link small" onClick={() => setAllHalls(!allHalls)}>
+                  {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
+                </button>
+              )}
+              <span className="legend">
+                <i className="ph-assembly" /> Montering <i className="ph-movingIn" /> Inn/utflytting <i className="ph-event" /> Arrangement <i className="ph-dismantle" /> Demontering
+              </span>
+            </div>
+            {hallsOpen &&
+              halls.map((hall) => {
+                const days = hallCalendar.get(hall)
+                return row(
+                  `hall:${hall}`,
+                  <span className="lbl-hall">{hall}</span>,
+                  (date, col) => {
+                    const entries = days?.get(date)
+                    if (!entries?.length) return <div key={date} className={`${dayClass(date)} cell hall`} style={{ width: colW }} />
+                    const main = dominantEntry(entries)
+                    const prev = days?.get(dates[col - 1])
+                    const startsHere = col === firstVisibleCol || (col > firstVisibleCol && !prev?.some((e) => e.eventName === main.eventName))
+                    const title = entries.map((e) => `${e.eventName} – ${PHASE_LABELS[e.phase]}`).join('\n')
+                    return (
+                      <div key={date} className={`${dayClass(date)} cell hall ph-${main.phase} ${entries.length > 1 ? 'multi' : ''}`} style={{ width: colW }} title={title}>
+                        {startsHere ? <span className="hall-label">{main.eventName}</span> : zoom !== 'compact' ? <span className="phase-code">{PHASE_CODES[main.phase]}</span> : null}
+                      </div>
+                    )
+                  },
+                  'hall-row',
+                )
+              })}
+
+            <div className="section-head" style={{ width: LEFT_W }}>
+              <button className="twisty" onClick={() => setCapacityOpen(!capacityOpen)}>
+                {capacityOpen ? '▾' : '▸'}
+              </button>
+              Bemanning <span className="muted">(FTE)</span>
+              <button className="link small" onClick={() => setCapacityOpen(!capacityOpen)}>
+                {capacityOpen ? 'Skjul detaljer' : 'Vis detaljer'}
+              </button>
+            </div>
+            {capacityOpen && (
+              <>
+                {row('base', <span className="lbl-cap">Faste (FTE)</span>, (date) => readCell(date, dayType(date) === 'arbeidsdag' ? settings.baseCrew : undefined, 'cap-cell'), 'cap-row')}
+                {capLanes.map((cap, lane) =>
+                  row(
+                    `cap:${cap.line.id}:${cap.field}`,
+                    <span className={`lbl-cap group-${cap.line.group}`}>{cap.label}</span>,
+                    (date, col) => valueCell('cap', lane, date, col, cap.line[cap.field]?.[date], cap.field === 'values' ? cap.line.notes[date] : undefined, 'cap-cell'),
+                    `cap-row group-${cap.line.group}`,
+                  ),
+                )}
+              </>
+            )}
+            {row('need', <span className="lbl-cap strong">Planlagt behov</span>, (date) => readCell(date, need.get(date), 'sum-cell'), 'sum-row')}
+            {row(
+              'available',
+              <span className="lbl-cap strong">Tilgjengelig</span>,
+              (date) => {
+                const cap = capacityForDate(date, ws.capacity, settings)
+                return readCell(date, cap.available || undefined, 'sum-cell', `Faste ${formatFte(cap.base)} + innleid/fag ${formatFte(cap.added)} + overtid ${formatFte(cap.overtime)} − utilgjengelig ${formatFte(cap.unavailable)}`)
+              },
+              'sum-row',
+            )}
+            {row(
+              'deviation',
+              <span className="lbl-cap strong">Avvik</span>,
+              (date) => {
+                const dev = capacityForDate(date, ws.capacity, settings).available - (need.get(date) ?? 0)
+                const n = need.get(date) ?? 0
+                return readCell(date, n || dev ? dev : undefined, `sum-cell dev ${dev < -0.05 ? 'neg' : dev > 0.05 && n ? 'pos' : ''}`)
+              },
+              'sum-row deviation-row',
+            )}
+            <div className="grid-row col-head" style={{ height: ROW_H }}>
+              <div className="grid-label" style={{ width: LEFT_W }}>
+                <span className="lbl-competence">Prosjekt / kompetanse</span>
+                <span className="lbl-phase">Fase</span>
+                <span className="lbl-year">År</span>
+                <span className="lbl-basis">Grunnlag</span>
+                <span className="lbl-num" title="Behov (FTE-dager)">
+                  Behov
+                </span>
+                <span className="lbl-num" title="Planlagt (FTE-dager)">
+                  Plan
+                </span>
+                <span className="lbl-num" title="Plan minus behov">
+                  Δ
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid-alloc" style={{ height: items.length * ROW_H }}>
+            <div style={{ height: r0 * ROW_H }} />
+            {items.slice(r0, r1).map(renderItem)}
+          </div>
+          {items.length === 0 && (
+            <p className="empty-rows">{inViewOnly ? 'Ingen prosjekter har planlagte dager i denne perioden. Slå av «Bare prosjekter i visningen» for å se alle.' : 'Ingen rader passer filteret.'}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="statusbar">
+        {focusInfo ? (
+          <>
+            <span className="status-title">{focusInfo.title}</span>
+            <span>{fmtDate(focusInfo.date)}</span>
+            <span>{focusInfo.value === undefined ? '–' : `${formatFte(focusInfo.value, 2)}`}</span>
+            {selectionSum !== null && <span>Sum markert: {formatFte(selectionSum, 2)}</span>}
+            {focusInfo.rowId && (
+              <NoteEditor key={`${focusInfo.rowId}:${focusInfo.date}`} note={focusInfo.note} onSave={(note) => setAllocationNote(focusInfo.rowId!, focusInfo.date, note)} />
+            )}
+            {!focusInfo.rowId && focusInfo.note && <span className="note-text">Notat: {focusInfo.note}</span>}
+          </>
+        ) : (
+          <span className="muted">Klikk en celle for å planlegge. Skriv tall (f.eks. 1,5), Enter for neste rad, Shift+klikk for å markere flere, Ctrl/Cmd+C/V for kopier og lim inn.</span>
+        )}
+      </div>
+
+      {dialog && (
+        <AllocationDialog
+          row={dialog.row}
+          projectName={dialog.projectName}
+          onClose={() => setDialog(null)}
+          onSaved={(saved) => {
+            // A project without planned days would be hidden by the in-view filter; show it instead.
+            if (inViewOnly || (filter.project && filter.project !== projectKey(saved))) setFilter({ ...EMPTY_FILTER, project: projectKey(saved) })
+            setCollapsed((prev) => {
+              const next = new Set(prev)
+              next.delete(projectKey(saved))
+              return next
+            })
+            setPendingFocus(saved.id)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+const deltaClass = (delta: number | null) => (delta === null ? '' : delta < -0.05 ? 'under' : delta > 0.05 ? 'over' : 'ok')
+
+function NoteEditor({ note, onSave }: { note: string; onSave: (note: string) => void }) {
+  const [value, setValue] = useState(note)
+  return (
+    <input
+      className="note-input"
+      placeholder="Notat for cellen"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => value !== note && onSave(value)}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
+  )
+}
