@@ -40,6 +40,13 @@ export interface VenueBooking {
   phases: Partial<Record<VenuePhase, DateSpan>>
 }
 
+export interface VenueImportInfo {
+  fileName: string
+  importedAt: string
+  from: ISODate
+  to: ISODate
+}
+
 export interface ProjectRef {
   name: string
   projectNo: string
@@ -175,6 +182,8 @@ export interface Workspace {
   demand: DemandLine[]
   allocations: AllocationRow[]
   capacity: CapacityLine[]
+  /** The latest Venyou export read into the app, and the dates it covers. */
+  venueImport?: VenueImportInfo
   /** Latest Visma export per project number. */
   visma?: VismaImport[]
   kpi?: KpiConfig

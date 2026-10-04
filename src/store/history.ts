@@ -1,4 +1,4 @@
-import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, Settings, VismaImport, Workspace } from '../domain/types'
+import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, Settings, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface Delta<T> {
   before: T
@@ -17,6 +17,8 @@ export interface Change {
   visma: Map<string, Delta<VismaImport | null>>
   overrides?: Delta<Record<string, LineOverride>>
   kpi?: Delta<KpiConfig | undefined>
+  /** Hall bookings as a whole, with the note of which Venyou export they came from. */
+  venue?: Delta<{ bookings: VenueBooking[]; info: VenueImportInfo | undefined }>
 }
 
 export const emptyChange = (): Change => ({ allocations: new Map(), capacity: new Map(), demand: new Map(), visma: new Map() })
@@ -60,10 +62,18 @@ export const recordLedger = (change: Change, before: Workspace, after: Workspace
   if (before.kpi !== after.kpi) change.kpi = { before: change.kpi ? change.kpi.before : before.kpi, after: after.kpi }
 }
 
+export const recordVenue = (change: Change, before: Workspace, after: Workspace) => {
+  change.venue = {
+    before: change.venue ? change.venue.before : { bookings: before.venue, info: before.venueImport },
+    after: { bookings: after.venue, info: after.venueImport },
+  }
+}
+
 export const isEmptyChange = (change: Change): boolean =>
   !change.settings &&
   !change.overrides &&
   !change.kpi &&
+  !change.venue &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
   [...change.visma.values()].every((d) => d.before === d.after) &&
   [...change.allocations.values()].every((d) => d.before === d.after) &&
@@ -96,7 +106,8 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
     : workspace.visma
   const overrides = change.overrides ? target(change.overrides, direction) : workspace.overrides
   const kpi = change.kpi ? target(change.kpi, direction) : workspace.kpi
-  return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi }
+  const venue = change.venue ? target(change.venue, direction) : { bookings: workspace.venue, info: workspace.venueImport }
+  return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info }
 }
 
 /** What has to be written to storage after applying a change in the given direction. */
@@ -112,4 +123,5 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   overrides: change.overrides ? target(change.overrides, direction) : null,
   /** `undefined` means the KPI data is unchanged; `null` means it should be removed. */
   kpi: change.kpi ? (target(change.kpi, direction) ?? null) : undefined,
+  venue: change.venue ? target(change.venue, direction) : null,
 })

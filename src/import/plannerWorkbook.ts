@@ -66,8 +66,9 @@ const columnGetter = (sheet: Sheet, headers: Map<string, number>, sheetName: str
 
 const sortedRows = (sheet: Sheet, after: number) => [...sheet.rows.keys()].filter((r) => r > after).sort((a, b) => a - b)
 
-const readVenue = (sheet: Sheet): VenueBooking[] => {
-  const get = columnGetter(sheet, headerColumns(sheet, 1), 'tabell_venyou')
+/** Reads hall bookings in the Venyou layout: one row per hall and event, with start and end dates for each phase. */
+export const readVenue = (sheet: Sheet, headerRow = 1, sheetName = 'tabell_venyou'): VenueBooking[] => {
+  const get = columnGetter(sheet, headerColumns(sheet, headerRow), sheetName)
   const phaseColumns: [VenuePhase, string][] = [
     ['assembly', 'assembly'],
     ['movingIn', 'moving in'],
@@ -76,7 +77,7 @@ const readVenue = (sheet: Sheet): VenueBooking[] => {
     ['dismantle', 'dismantle'],
   ]
   const bookings: VenueBooking[] = []
-  for (const row of sortedRows(sheet, 1)) {
+  for (const row of sortedRows(sheet, headerRow)) {
     const hall = text(get(row, 'Locations'))
     const eventName = text(get(row, 'Event name'))
     if (!hall || !eventName) continue

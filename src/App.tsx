@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { withVenueImport } from './domain/venueImport'
 import { withVismaImports } from './domain/visma'
+import { readVenyouExport } from './import/venyouExport'
 import { importWorkbookFile } from './import/importWorkbook'
 import { parseBackup, toBackup } from './store/backup'
 import { useWorkspace, WorkspaceProvider } from './store/workspaceStore'
@@ -22,14 +24,16 @@ const pickFile = (e: React.ChangeEvent<HTMLInputElement>, handle: (file: File) =
 }
 
 function Shell() {
-  const { status, workspace, saveState, replaceWorkspace, undo, redo } = useWorkspace()
+  const { status, workspace, saveState, replaceWorkspace, importVenue, undo, redo } = useWorkspace()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [view, setView] = useState<'kalender' | 'behov'>('kalender')
   const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
+  const venyouInput = useRef<HTMLInputElement>(null)
 
   // Undo and redo work anywhere on the page, except while typing in a field (which has its own undo).
   useEffect(() => {
@@ -63,8 +67,14 @@ function Shell() {
     run('Leser arbeidsboken …', async () => {
       if (workspace && !confirm('Dette erstatter all planlegging i nettleseren med innholdet i arbeidsboken. Fortsette?')) return
       const imported = await importWorkbookFile(file)
-      // Visma exports, KPI data and decisions made in the app outlive a new workbook import.
-      await replaceWorkspace(workspace ? withVismaImports(imported, workspace) : imported)
+      // Visma and Venyou exports, KPI data and decisions made in the app outlive a new workbook import.
+      await replaceWorkspace(workspace ? withVenueImport(withVismaImports(imported, workspace), workspace) : imported)
+    })
+
+  const importVenyou = (file: File) =>
+    run('Leser Venyou-filen …', async () => {
+      setVenueResult(importVenue(readVenyouExport(new Uint8Array(await file.arrayBuffer())), file.name))
+      setView('kalender')
     })
 
   const restoreBackup = (file: File) =>
@@ -106,17 +116,46 @@ function Shell() {
         <span className="toolbar-gap" />
         {busy && <span className="busy">{busy}</span>}
         {status === 'ready' && <span className={`save-state ${saveState}`}>{saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet' : 'Lagret i nettleseren'}</span>}
+        {workspace && (
+          <button onClick={() => venyouInput.current?.click()} title={workspace.venueImport ? `Sist: ${workspace.venueImport.fileName}, ${new Date(workspace.venueImport.importedAt).toLocaleString('nb-NO')}` : 'Les inn location_format fra Venyou'}>
+            Oppdater haller (Venyou)
+          </button>
+        )}
         <button onClick={() => workbookInput.current?.click()}>Importer arbeidsbok</button>
         {workspace && <button onClick={exportBackup}>Last ned sikkerhetskopi</button>}
         <button onClick={() => backupInput.current?.click()}>Gjenopprett</button>
         {workspace && <button onClick={() => setSettingsOpen(true)}>Innstillinger</button>}
         <input ref={workbookInput} type="file" accept=".xlsx" hidden onChange={(e) => pickFile(e, importWorkbook)} />
+        <input ref={venyouInput} type="file" accept=".xlsx" hidden onChange={(e) => pickFile(e, importVenyou)} />
         <input ref={backupInput} type="file" accept=".json,application/json" hidden onChange={(e) => pickFile(e, restoreBackup)} />
       </header>
 
       {error && (
         <div className="error-banner" role="alert">
           {error} <button className="link" onClick={() => setError(null)}>Lukk</button>
+        </div>
+      )}
+
+      {venueResult && (
+        <div className="info-banner" role="status">
+          <strong>Hallkalenderen er oppdatert</strong> for {venueResult.from} til {venueResult.to}: {venueResult.added.length} nye arrangementer, {venueResult.changed.length} endret,{' '}
+          {venueResult.removed.length} borte, {venueResult.unchanged} uendret. Kan angres med Ctrl/Cmd+Z.{' '}
+          <button className="link" onClick={() => setVenueResult(null)}>
+            Lukk
+          </button>
+          {venueResult.added.length + venueResult.changed.length + venueResult.removed.length > 0 && (
+            <details>
+              <summary>Vis hva som er endret</summary>
+              {(['added', 'changed', 'removed'] as const).map(
+                (kind) =>
+                  venueResult[kind].length > 0 && (
+                    <p key={kind}>
+                      <strong>{{ added: 'Nye', changed: 'Endret hall eller datoer', removed: 'Ikke lenger i Venyou' }[kind]}:</strong> {venueResult[kind].join(' · ')}
+                    </p>
+                  ),
+              )}
+            </details>
+          )}
         </div>
       )}
 

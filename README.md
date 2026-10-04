@@ -21,7 +21,8 @@ all on one continuous date axis, without Excel's limits.
    - **Importer Visma-utskrift** replaces the Visma lines of every project in the export. Other projects and your own lines are left alone.
    - Tick **I plan** on the Visma lines you want to plan with; they then count under «Planlagt». Effekt, comments and work types you choose are kept when a newer export is read.
    - **Ny linje** adds your own counts or hours, for example walls the venue provides that nobody ordered.
-5. Use **Last ned sikkerhetskopi** regularly. Browser storage is tied to this browser and computer.
+5. Use **Oppdater haller (Venyou)** to read a new `location_format` export. It replaces the hall bookings in the export's period that have a status found in the export (for example confirmed events), and keeps everything else.
+6. Use **Last ned sikkerhetskopi** regularly. Browser storage is tied to this browser and computer.
 
 ## Development
 

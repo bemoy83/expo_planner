@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
-import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type Settings, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
+import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
+import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, type VenueDiff } from '../domain/venueImport'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, saveWorkspace, writeDemand, type DemandWrite } from './db'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings, type Change, type Direction } from './history'
+import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, saveWorkspace, writeDemand, writeVenue, type DemandWrite } from './db'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -23,6 +24,8 @@ interface WorkspaceStore {
   removeAllocation: (rowId: string) => void
   setCapacityValue: (lineId: string, date: ISODate, field: 'values' | 'hours', value: number | null) => void
   updateSettings: (settings: Settings) => void
+  /** Takes in a Venyou export: hall bookings in the export's period are replaced, the rest are kept. */
+  importVenue: (bookings: VenueBooking[], fileName: string) => VenueDiff & { from: string; to: string }
   /** Merges mapping and/or rates into the KPI reference data and recalculates all Visma lines. */
   setKpi: (kpi: Partial<KpiConfig>) => void
   /** Takes in a Visma export; each project in it replaces that project's earlier Visma lines. Returns the project numbers. */
@@ -152,7 +155,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           if (writes.overrides) await db.meta.put({ key: 'overrides', value: writes.overrides })
           if (writes.kpi === null) await db.meta.delete('kpi')
           else if (writes.kpi) await db.meta.put({ key: 'kpi', value: writes.kpi })
-        }),
+        }).then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined)),
       )
     },
     [closeStep, track],
@@ -266,6 +269,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return { demand, write: { deleteIds: removed.map((line) => line.id), putLines: added } }
   }
 
+  const importVenue = useCallback<WorkspaceStore['importVenue']>(
+    (bookings, fileName) => {
+      const ws = current.current
+      const window = exportWindow(fileName, bookings)
+      if (!ws || !window) throw new Error('Fant ingen datoer i Venyou-filen.')
+      const importedAt = new Date().toISOString()
+      const incoming = bookings.map((booking, index) => ({ ...booking, id: `${VENYOU_ID_PREFIX}${importedAt}-${index}` }))
+      const diff = diffVenue(ws.venue, incoming, window)
+      const next: Workspace = { ...ws, venue: mergeVenue(ws.venue, incoming, window), venueImport: { fileName, importedAt, ...window } }
+      commit(next, () => writeVenue(next.venue, next.venueImport), (step) => recordVenue(step, ws, next))
+      return { ...diff, ...window }
+    },
+    [commit],
+  )
+
   const setKpi = useCallback(
     (partial: Partial<KpiConfig>) => {
       const ws = current.current
@@ -360,6 +378,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     removeAllocation,
     setCapacityValue,
     updateSettings,
+    importVenue,
     setKpi,
     importVisma,
     setLineOverride,

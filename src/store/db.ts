@@ -1,8 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, ProjectRef, Settings, VenueBooking, VismaImport, Workspace } from '../domain/types'
+import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, ProjectRef, Settings, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface MetaRecord {
-  key: 'settings' | 'importedFrom' | 'kpi' | 'overrides'
+  key: 'settings' | 'importedFrom' | 'kpi' | 'overrides' | 'venueImport'
   value: unknown
 }
 
@@ -39,8 +39,9 @@ const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations,
 export const loadWorkspace = async (): Promise<Workspace | null> => {
   const settings = await db.meta.get('settings')
   if (!settings) return null
-  const [importedFrom, kpi, overrides, visma, venue, projects, demand, allocations, capacity] = await Promise.all([
+  const [importedFrom, venueImport, kpi, overrides, visma, venue, projects, demand, allocations, capacity] = await Promise.all([
     db.meta.get('importedFrom'),
+    db.meta.get('venueImport'),
     db.meta.get('kpi'),
     db.meta.get('overrides'),
     db.visma.toArray(),
@@ -53,6 +54,7 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
   return {
     settings: settings.value as Settings,
     importedFrom: importedFrom?.value as Workspace['importedFrom'],
+    venueImport: venueImport?.value as VenueImportInfo | undefined,
     kpi: kpi?.value as KpiConfig | undefined,
     overrides: (overrides?.value as Record<string, LineOverride> | undefined) ?? {},
     visma,
@@ -72,6 +74,7 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
       { key: 'settings', value: workspace.settings },
       ...(workspace.importedFrom ? [{ key: 'importedFrom' as const, value: workspace.importedFrom }] : []),
       ...(workspace.kpi ? [{ key: 'kpi' as const, value: workspace.kpi }] : []),
+      ...(workspace.venueImport ? [{ key: 'venueImport' as const, value: workspace.venueImport }] : []),
       { key: 'overrides' as const, value: workspace.overrides ?? {} },
     ])
     await db.visma.bulkPut(workspace.visma ?? [])
@@ -104,4 +107,13 @@ export const writeDemand = (change: DemandWrite) =>
     if (change.overrides) await db.meta.put({ key: 'overrides', value: change.overrides })
     if (change.kpi) await db.meta.put({ key: 'kpi', value: change.kpi })
     if (change.visma?.length) await db.visma.bulkPut(change.visma)
+  })
+
+/** Replaces the hall bookings and the note of which Venyou export they came from. */
+export const writeVenue = (venue: VenueBooking[], info: VenueImportInfo | undefined) =>
+  db.transaction('rw', [db.venue, db.meta], async () => {
+    await db.venue.clear()
+    await db.venue.bulkPut(venue)
+    if (info) await db.meta.put({ key: 'venueImport', value: info })
+    else await db.meta.delete('venueImport')
   })
