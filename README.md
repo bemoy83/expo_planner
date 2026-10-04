@@ -14,6 +14,7 @@ all on one continuous date axis, without Excel's limits.
 2. Click **Importer arbeidsbok** and pick the planner workbook. Everything is read in the browser and saved there (IndexedDB).
 3. Plan in the Kalender:
    - Type FTE into day cells. Enter moves down, Tab moves right.
+   - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes, for this session.
    - Shift+click or Shift+arrows selects a range, which you can then fill or delete. Ctrl/Cmd+C/V copies and pastes, also to and from Excel.
 4. Use **Last ned sikkerhetskopi** regularly. Browser storage is tied to this browser and computer.
 

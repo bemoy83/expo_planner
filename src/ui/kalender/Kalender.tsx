@@ -56,7 +56,7 @@ const fmtDate = (date: ISODate) => {
 }
 
 export function Kalender() {
-  const { workspace, demandIndex, setAllocationFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
+  const { workspace, demandIndex, setAllocationFte, setCapacityValue, setAllocationNote, removeAllocation, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const { settings } = ws
 
@@ -213,6 +213,22 @@ export function Kalender() {
     setPendingFocus(null)
     scrollRef.current?.focus({ preventScroll: true })
   }, [pendingFocus, laneOfRow, firstVisibleCol, ensureVisible])
+
+  // Undo and redo work anywhere on the page, except while typing in a field (which has its own undo).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const key = e.key.toLowerCase()
+      if (key !== 'z' && key !== 'y') return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      e.preventDefault()
+      if (key === 'y' || e.shiftKey) redo()
+      else undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [undo, redo])
 
   // ---- cell values ----------------------------------------------------------------------------
   const laneCount = (section: Section) => (section === 'alloc' ? allocLanes.length : capLanes.length)
@@ -538,6 +554,12 @@ export function Kalender() {
           Bare prosjekter i visningen
         </label>
         <span className="toolbar-gap" />
+        <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
+          ↶ Angre
+        </button>
+        <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
+          ↷ Gjør om
+        </button>
         <button onClick={() => setCollapsed(new Set())}>Utvid alle</button>
         <button onClick={() => setCollapsed(new Set(items.filter((i) => i.kind === 'group').map((i) => (i.kind === 'group' ? i.group.key : ''))))}>Fold alle</button>
         <button onClick={() => scrollToDate(today)}>I dag</button>
