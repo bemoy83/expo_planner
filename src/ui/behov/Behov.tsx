@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { formatFte } from '../../domain/calc'
+import { EMPTY_KPI } from '../../domain/kpi'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
 import { readVismaExport } from '../../import/vismaExport'
@@ -25,11 +26,11 @@ const takeFiles = (e: React.ChangeEvent<HTMLInputElement>, handle: (files: File[
 interface Props {
   projectNo: string
   onProjectChange: (projectNo: string) => void
-  onOpenKpi: () => void
+  onOpenSetup: (tab: 'produkttyper' | 'kpi') => void
 }
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
-export function Behov({ projectNo, onProjectChange, onOpenKpi }: Props) {
+export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const { workspace, importVisma, setLineOverride, removeLineOverride, removeDemandLine, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -45,15 +46,16 @@ export function Behov({ projectNo, onProjectChange, onOpenKpi }: Props) {
     return [...names].filter(([no]) => withData.has(no)).sort((a, b) => a[1].localeCompare(b[1], 'nb'))
   }, [ws.projects, ws.allocations, ws.visma, ws.demand])
 
+  const kpi = ws.kpi ?? EMPTY_KPI
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
   const vismaLines = useMemo(
     () =>
-      vismaImport && ws.kpi
-        ? buildVismaLines(vismaImport.rows, ws.kpi, ws.overrides ?? {}).sort(
+      vismaImport
+        ? buildVismaLines(vismaImport.rows, kpi, ws.overrides ?? {}).sort(
             (a, b) => a.competence.localeCompare(b.competence, 'nb') || a.workType.localeCompare(b.workType, 'nb') || a.hall.localeCompare(b.hall, 'nb'),
           )
         : [],
-    [vismaImport, ws.kpi, ws.overrides],
+    [vismaImport, kpi, ws.overrides],
   )
   const orphans = useMemo(() => (vismaImport ? orphanedDecisions(projectNo, vismaLines, ws.overrides ?? {}) : []), [vismaImport, projectNo, vismaLines, ws.overrides])
   const projectLines = useMemo(() => ws.demand.filter((l) => l.projectNo === projectNo), [ws.demand, projectNo])
@@ -97,7 +99,7 @@ export function Behov({ projectNo, onProjectChange, onOpenKpi }: Props) {
       return `Visma-linjene for ${imported.join(', ')} er erstattet med ${name}. Kan angres med Ctrl/Cmd+Z.`
     })
 
-  const kpiReady = !!ws.kpi?.workTypes.length && !!ws.kpi.rates.length
+  const withIssue = vismaLines.filter((line) => line.issue && line.issue !== 'no-product-type').length
   const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) =>
     setLineOverride(line.projectNo, line.key, { ...patch, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
   const plannedCount = vismaLines.filter((l) => l.inPlan).length
@@ -124,11 +126,7 @@ export function Behov({ projectNo, onProjectChange, onOpenKpi }: Props) {
         <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
           ↷ Gjør om
         </button>
-        <span className={`muted small ${kpiReady ? '' : 'warn'}`}>
-          {kpiReady ? `KPI: ${ws.kpi!.workTypes.length} produkttyper, ${ws.kpi!.rates.length} satser` : 'KPI-oppsett mangler'}
-        </span>
-        <button onClick={onOpenKpi}>Åpne KPI</button>
-        <button className="primary" onClick={() => vismaInput.current?.click()} disabled={!kpiReady} title={kpiReady ? '' : 'Sett opp KPI først'}>
+        <button className="primary" onClick={() => vismaInput.current?.click()}>
           Importer Visma-utskrift
         </button>
         <input ref={vismaInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFiles(e, onVismaFiles)} />
@@ -144,10 +142,13 @@ export function Behov({ projectNo, onProjectChange, onOpenKpi }: Props) {
       )}
 
       <div className="behov-body">
-        {!kpiReady && (
-<p className="notice">
-            For å regne om Visma-linjer til timer trengs KPI-oppsettet: arbeidstyper med enhet, kompetanse og satser.{' '}
-            <button className="link" onClick={onOpenKpi}>
+        {withIssue > 0 && (
+          <p className="notice">
+            {withIssue === 1 ? '1 Visma-linje' : `${withIssue} Visma-linjer`} gir ingen timer ennå fordi produkttypen mangler enhet, kompetanse eller sats.{' '}
+            <button className="link" onClick={() => onOpenSetup('produkttyper')}>
+              Åpne Produkttyper
+            </button>{' '}
+            <button className="link" onClick={() => onOpenSetup('kpi')}>
               Åpne KPI
             </button>
           </p>
@@ -276,7 +277,7 @@ export function Behov({ projectNo, onProjectChange, onOpenKpi }: Props) {
                           {line.sourceWorkType === NO_PRODUCT_TYPE ? (
                             <select value={line.workType === NO_PRODUCT_TYPE ? '' : line.workType} onChange={(e) => override(line, { workType: e.target.value || undefined })}>
                               <option value="">Uten produkttype …</option>
-                              {ws.kpi!.workTypes.map((t) => (
+                              {kpi.workTypes.map((t) => (
                                 <option key={t.name} value={t.name}>
                                   {t.name} ({t.unit})
                                 </option>

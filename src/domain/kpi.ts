@@ -1,4 +1,5 @@
-import type { KpiConfig, KpiRate, WorkTypeRule } from './types'
+import type { KpiConfig, KpiRate, VismaImport, WorkTypeRule } from './types'
+import { NO_PRODUCT_TYPE, workTypeName } from './visma'
 
 /**
  * The KPI setup as one editable table: a row per work type and unit, with the rates for that unit.
@@ -135,3 +136,60 @@ export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): { wo
   workTypes: diffPart(existing.workTypes, incoming.workTypes, (rule) => rule.name.toLowerCase(), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
   rates: diffPart(existing.rates, incoming.rates, (rate) => rateKey(rate.name, rate.unit), (a, b) => a.assembly === b.assembly && a.dismantle === b.dismantle),
 })
+
+/**
+ * The product-type table: how each Visma product type is read. It is the planner's own parser setup,
+ * built up in the app. Product types that occur in the Visma exports are listed even before they are set up.
+ */
+export interface WorkTypeRow {
+  name: string
+  /** `Produkttype 2` as Visma writes it, where it has been seen or imported. */
+  productType: string
+  unit: string
+  competence: string
+  /** Booking lines of this type in the Visma exports held in the app. */
+  lines: number
+  /** False for a type that only occurs in an export and has not been given a unit or competence yet. */
+  configured: boolean
+  /** Rates exist for the unit in use. */
+  hasRate: boolean
+}
+
+export const workTypeRows = (kpi: KpiConfig, visma: VismaImport[]): WorkTypeRow[] => {
+  const seen = new Map<string, { name: string; productType: string; lines: number }>()
+  for (const source of visma) {
+    for (const row of source.rows) {
+      const name = workTypeName(row.productType)
+      if (name === NO_PRODUCT_TYPE) continue
+      const entry = seen.get(name.toLowerCase()) ?? { name, productType: row.productType, lines: 0 }
+      entry.lines += 1
+      seen.set(name.toLowerCase(), entry)
+    }
+  }
+  const rated = new Set(kpi.rates.map((rate) => rateKey(rate.name, rate.unit)))
+  const rows: WorkTypeRow[] = kpi.workTypes.map((rule) => {
+    const used = seen.get(rule.name.toLowerCase())
+    seen.delete(rule.name.toLowerCase())
+    return {
+      name: rule.name,
+      productType: used?.productType ?? rule.productType,
+      unit: rule.unit,
+      competence: rule.competence,
+      lines: used?.lines ?? 0,
+      configured: true,
+      hasRate: rated.has(rateKey(rule.name, rule.unit)),
+    }
+  })
+  for (const entry of seen.values()) rows.push({ name: entry.name, productType: entry.productType, unit: '', competence: '', lines: entry.lines, configured: false, hasRate: false })
+  return rows.sort((a, b) => Number(a.configured) - Number(b.configured) || a.name.localeCompare(b.name, 'nb'))
+}
+
+/** Booking lines in the held exports that Visma has no product type for. */
+export const linesWithoutProductType = (visma: VismaImport[]): number =>
+  visma.reduce((n, source) => n + source.rows.filter((row) => workTypeName(row.productType) === NO_PRODUCT_TYPE).length, 0)
+
+export const addWorkType = (kpi: KpiConfig, row: { name: string; unit: string; competence: string }): KpiConfig =>
+  kpi.workTypes.some((rule) => same(rule.name, row.name)) ? kpi : { ...kpi, workTypes: [...kpi.workTypes, ruleFor(row.name, row.unit, row.competence)] }
+
+/** Removes a product type from the setup. Its rates are kept, in case it is added again. */
+export const removeWorkType = (kpi: KpiConfig, name: string): KpiConfig => ({ ...kpi, workTypes: kpi.workTypes.filter((rule) => !same(rule.name, name)) })

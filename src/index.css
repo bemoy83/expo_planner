@@ -861,3 +861,13 @@ button.danger {
   color: var(--neg);
   border-color: var(--neg);
 }
+.badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--pos-bg);
+  color: var(--pos);
+}
+button.link.issue {
+  color: var(--over);
+}

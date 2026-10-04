@@ -16,7 +16,10 @@ all on one continuous date axis, without Excel's limits.
    - Type FTE into day cells. Enter moves down, Tab moves right.
    - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes, for this session. This also covers the Behov tab, including a Visma import.
    - Shift+click or Shift+arrows selects a range, which you can then fill or delete. Ctrl/Cmd+C/V copies and pastes, also to and from Excel.
-4. Set up KPI on the **KPI** tab. Work types, units, competences and rates are edited directly in the table. **Importer KPI-filer** can fill it from the mapping (`Nøkkeltall Visma`) and the rates (`Kpier.xlsx`); a later import asks whether to merge with or replace what is there.
+4. Set up how Visma is read, in two tables that are edited directly in the app:
+   - **Produkttyper**: the unit each Visma product type is counted in and the competence it belongs to. The table fills itself with the product types found in the Visma exports you read in.
+   - **KPI**: the rates, in units per person-hour, for montering and demontering.
+   Both can optionally be filled once from the old files (`Nøkkeltall Visma` and `Kpier.xlsx`); a later import asks whether to merge or replace.
 5. Keep demand up to date on the **Behov** tab:
    - **Importer Visma-utskrift** replaces the Visma lines of every project in the export. Other projects and your own lines are left alone.
    - Tick **I plan** on the Visma lines you want to plan with; they then count under «Planlagt». Effekt, comments and work types you choose are kept when a newer export is read.

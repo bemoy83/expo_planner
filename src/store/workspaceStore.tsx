@@ -3,6 +3,7 @@ import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
 import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
+import { EMPTY_KPI } from '../domain/kpi'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
 import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
@@ -378,8 +379,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (rows: VismaRow[], fileName: string) => {
       const ws = current.current
       if (!ws) return []
-      const kpi = ws.kpi
-      if (!kpi?.workTypes.length || !kpi.rates.length) throw new Error('Sett opp KPI (arbeidstyper og satser) før Visma-utskriften leses inn.')
+      // An export can be read before anything is set up; its product types then show up to be filled in.
+      const kpi = ws.kpi ?? EMPTY_KPI
       const byProject = new Map<string, VismaRow[]>()
       for (const row of rows) byProject.set(row.projectNo, [...(byProject.get(row.projectNo) ?? []), row])
       const importedAt = new Date().toISOString()
@@ -401,9 +402,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const setLineOverride = useCallback(
     (projectNo: string, key: string, patch: LineOverride) => {
       const ws = current.current
-      if (!ws?.kpi) return
+      if (!ws) return
       const overrides = { ...ws.overrides, [key]: { ...ws.overrides?.[key], ...patch } }
-      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi, overrides, ws.visma ?? [])
+      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi ?? EMPTY_KPI, overrides, ws.visma ?? [])
       commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
     },
     [commitDemand],
@@ -412,10 +413,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const removeLineOverride = useCallback(
     (projectNo: string, key: string) => {
       const ws = current.current
-      if (!ws?.kpi || !ws.overrides?.[key]) return
+      if (!ws?.overrides?.[key]) return
       const overrides = { ...ws.overrides }
       delete overrides[key]
-      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi, overrides, ws.visma ?? [])
+      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi ?? EMPTY_KPI, overrides, ws.visma ?? [])
       commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
     },
     [commitDemand],

@@ -214,13 +214,13 @@ export const harvestOverrides = (legacy: DemandLine[], rows: VismaRow[], kpi: Kp
 export const withVismaImports = (workspace: Workspace, kept: Pick<Workspace, 'kpi' | 'overrides' | 'visma'>): Workspace => {
   const visma = kept.visma ?? []
   const next = { ...workspace, kpi: kept.kpi, overrides: kept.overrides ?? {}, visma }
-  if (!kept.kpi || !visma.length) return next
+  if (!visma.length) return next
   const projects = new Set(visma.map((v) => v.projectNo))
   return {
     ...next,
     demand: [
       ...workspace.demand.filter((line) => !(projects.has(line.projectNo) && isVismaLine(line))),
-      ...visma.flatMap((v) => vismaDemandLines(v, kept.kpi!, next.overrides)),
+      ...visma.flatMap((v) => vismaDemandLines(v, kept.kpi ?? { workTypes: [], rates: [] }, next.overrides)),
     ],
   }
 }

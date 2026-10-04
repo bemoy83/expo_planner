@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, diffKpi, kpiRows, mergeKpi, removeKpiRow, replaceKpi, setActiveUnit, setCompetence, setRate } from './kpi'
-import type { KpiConfig } from './types'
+import { addKpiRow, addWorkType, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, removeWorkType, replaceKpi, setActiveUnit, setCompetence, setRate, workTypeRows } from './kpi'
+import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -76,5 +76,55 @@ describe('KPI import', () => {
     const replaced = replaceKpi(kpi, file)
     expect(replaced.rates).toEqual(file.rates)
     expect(replaced.workTypes).toBe(kpi.workTypes)
+  })
+})
+
+const vismaRow = (productType: string): VismaRow => ({
+  projectNo: '26970',
+  eventName: 'VVS 2026',
+  stand: 'C01-01',
+  transInfo: '',
+  customer: '',
+  avdeling: '65',
+  orderNo: '',
+  articleNo: '',
+  description: '',
+  quantity: 1,
+  productGroup: '',
+  productType,
+})
+const exportWith = (...types: string[]): VismaImport[] => [{ projectNo: '26970', eventName: 'VVS 2026', fileName: 'x', importedAt: '', rows: types.map(vismaRow) }]
+
+describe('product-type table', () => {
+  it('lists the product types of an export before anything is set up', () => {
+    const rows = workTypeRows(EMPTY_KPI, exportWith('14 [FOGA-vegger]', '14 [FOGA-vegger]', '23 [Print]', '0'))
+    expect(rows).toEqual([
+      { name: 'FOGA-vegger', productType: '14 [FOGA-vegger]', unit: '', competence: '', lines: 2, configured: false, hasRate: false },
+      { name: 'Print', productType: '23 [Print]', unit: '', competence: '', lines: 1, configured: false, hasRate: false },
+    ])
+    expect(linesWithoutProductType(exportWith('0', '14 [FOGA-vegger]', ''))).toBe(2)
+  })
+
+  it('sets a type up by giving it a unit or a competence', () => {
+    const withUnit = setActiveUnit(EMPTY_KPI, 'FOGA-vegger', 'lm')
+    const withBoth = setCompetence(withUnit, 'FOGA-vegger', 'lm', 'FOGA')
+    expect(withBoth.workTypes).toEqual([{ name: 'FOGA-vegger', productType: '[FOGA-vegger]', unit: 'lm', competence: 'FOGA' }])
+    const rows = workTypeRows(withBoth, exportWith('14 [FOGA-vegger]', '23 [Print]'))
+    expect(rows.map((r) => `${r.name}:${r.configured}`)).toEqual(['Print:false', 'FOGA-vegger:true'])
+    expect(rows[1]).toMatchObject({ productType: '14 [FOGA-vegger]', lines: 1, hasRate: false })
+  })
+
+  it('shows which types have a rate for the unit in use', () => {
+    const rows = workTypeRows(kpi, [])
+    expect(rows.map((r) => `${r.name}:${r.hasRate}`)).toEqual(['FOGA-dragere:true', 'Print:true', 'Skilt:false'])
+  })
+
+  it('adds and removes types without touching the rates', () => {
+    const added = addWorkType(kpi, { name: 'Gangtepper', unit: 'm²', competence: 'Gangtepper' })
+    expect(added.workTypes).toHaveLength(4)
+    expect(addWorkType(added, { name: 'gangtepper', unit: 'stk', competence: '' })).toBe(added)
+    const removed = removeWorkType(kpi, 'Print')
+    expect(removed.workTypes.map((t) => t.name)).toEqual(['FOGA-dragere', 'Skilt'])
+    expect(removed.rates).toBe(kpi.rates)
   })
 })

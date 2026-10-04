@@ -22,11 +22,12 @@ export function NumberField({ value, onCommit }: { value: number; onCommit: (val
 }
 
 /** Text edited in place, saved on blur or Enter. */
-export function TextField({ value, onCommit }: { value: string; onCommit: (value: string) => void }) {
+export function TextField({ value, onCommit, list }: { value: string; onCommit: (value: string) => void; list?: string }) {
   const [draft, setDraft] = useState<string | null>(null)
   return (
     <input
       className="inline"
+      list={list}
       value={draft ?? value}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
