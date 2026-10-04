@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
-import type { AllocationRow, CapacityLine, Settings, Workspace } from '../domain/types'
-import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, saveWorkspace } from './db'
+import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type Settings, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
+import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
+import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, saveWorkspace, writeDemand, type DemandWrite } from './db'
 import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordSettings, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
@@ -22,6 +23,15 @@ interface WorkspaceStore {
   removeAllocation: (rowId: string) => void
   setCapacityValue: (lineId: string, date: ISODate, field: 'values' | 'hours', value: number | null) => void
   updateSettings: (settings: Settings) => void
+  /** Merges mapping and/or rates into the KPI reference data and recalculates all Visma lines. */
+  setKpi: (kpi: Partial<KpiConfig>) => void
+  /** Takes in a Visma export; each project in it replaces that project's earlier Visma lines. Returns the project numbers. */
+  importVisma: (rows: VismaRow[], fileName: string) => string[]
+  /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
+  setLineOverride: (projectNo: string, key: string, patch: LineOverride) => void
+  /** Adds or changes a ledger line that does not come from Visma. */
+  saveDemandLine: (line: Omit<DemandLine, 'id'> & { id?: string }) => void
+  removeDemandLine: (id: string) => void
   canUndo: boolean
   canRedo: boolean
   undo: () => void
@@ -229,6 +239,91 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
+  /** Applies a ledger change in memory and writes it to storage. Ledger changes are not part of undo. */
+  const commitDemand = useCallback(
+    (next: Workspace, write: DemandWrite) => {
+      current.current = next
+      setWorkspace(next)
+      track(() => writeDemand(write))
+    },
+    [track],
+  )
+
+  /** Recalculates the Visma lines of the given projects and swaps them into the ledger. */
+  const withVismaLines = (ws: Workspace, projectNos: string[], kpi: KpiConfig, overrides: Record<string, LineOverride>, visma: VismaImport[]) => {
+    const affected = new Set(projectNos)
+    const removed = ws.demand.filter((line) => affected.has(line.projectNo) && isVismaLine(line))
+    const added = visma.filter((v) => affected.has(v.projectNo)).flatMap((v) => vismaDemandLines(v, kpi, overrides))
+    const demand = [...ws.demand.filter((line) => !(affected.has(line.projectNo) && isVismaLine(line))), ...added]
+    return { demand, write: { deleteIds: removed.map((line) => line.id), putLines: added } }
+  }
+
+  const setKpi = useCallback(
+    (partial: Partial<KpiConfig>) => {
+      const ws = current.current
+      if (!ws) return
+      const kpi: KpiConfig = { workTypes: partial.workTypes ?? ws.kpi?.workTypes ?? [], rates: partial.rates ?? ws.kpi?.rates ?? [] }
+      const visma = ws.visma ?? []
+      const { demand, write } = withVismaLines(ws, visma.map((v) => v.projectNo), kpi, ws.overrides ?? {}, visma)
+      commitDemand({ ...ws, kpi, demand }, { ...write, kpi })
+    },
+    [commitDemand],
+  )
+
+  const importVisma = useCallback(
+    (rows: VismaRow[], fileName: string) => {
+      const ws = current.current
+      if (!ws) return []
+      const kpi = ws.kpi
+      if (!kpi?.workTypes.length || !kpi.rates.length) throw new Error('Importer KPI-filene (produkttyper og satser) før Visma-utskriften.')
+      const byProject = new Map<string, VismaRow[]>()
+      for (const row of rows) byProject.set(row.projectNo, [...(byProject.get(row.projectNo) ?? []), row])
+      const importedAt = new Date().toISOString()
+      const imports: VismaImport[] = [...byProject].map(([projectNo, projectRows]) => ({ projectNo, eventName: projectRows[0].eventName, fileName, importedAt, rows: projectRows }))
+      let overrides = ws.overrides ?? {}
+      for (const item of imports) {
+        // First export for a project in the app: bring along the edits made to its Visma rows in the workbook.
+        const first = !(ws.visma ?? []).some((v) => v.projectNo === item.projectNo)
+        if (first) overrides = { ...harvestOverrides(ws.demand.filter((line) => line.projectNo === item.projectNo), item.rows, kpi), ...overrides }
+      }
+      const visma = [...(ws.visma ?? []).filter((v) => !byProject.has(v.projectNo)), ...imports]
+      const { demand, write } = withVismaLines(ws, [...byProject.keys()], kpi, overrides, visma)
+      commitDemand({ ...ws, visma, overrides, demand }, { ...write, overrides, visma: imports })
+      return [...byProject.keys()]
+    },
+    [commitDemand],
+  )
+
+  const setLineOverride = useCallback(
+    (projectNo: string, key: string, patch: LineOverride) => {
+      const ws = current.current
+      if (!ws?.kpi) return
+      const overrides = { ...ws.overrides, [key]: { ...ws.overrides?.[key], ...patch } }
+      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi, overrides, ws.visma ?? [])
+      commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
+    },
+    [commitDemand],
+  )
+
+  const saveDemandLine = useCallback<WorkspaceStore['saveDemandLine']>(
+    (fields) => {
+      const ws = current.current
+      if (!ws) return
+      const line: DemandLine = { ...fields, id: fields.id ?? `manual-${crypto.randomUUID()}`, origin: fields.origin ?? 'manual' }
+      const exists = ws.demand.some((l) => l.id === line.id)
+      commitDemand({ ...ws, demand: exists ? ws.demand.map((l) => (l.id === line.id ? line : l)) : [...ws.demand, line] }, { putLines: [line] })
+    },
+    [commitDemand],
+  )
+
+  const removeDemandLine = useCallback(
+    (id: string) => {
+      const ws = current.current
+      if (ws) commitDemand({ ...ws, demand: ws.demand.filter((l) => l.id !== id) }, { deleteIds: [id] })
+    },
+    [commitDemand],
+  )
+
   const demand = workspace?.demand
   const demandIndex = useMemo(() => (demand ? buildDemandIndex(demand) : EMPTY_INDEX), [demand])
 
@@ -245,6 +340,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     removeAllocation,
     setCapacityValue,
     updateSettings,
+    setKpi,
+    importVisma,
+    setLineOverride,
+    saveDemandLine,
+    removeDemandLine,
     canUndo: historySize.undo > 0,
     canRedo: historySize.redo > 0,
     undo,

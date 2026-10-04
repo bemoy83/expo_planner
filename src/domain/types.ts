@@ -64,6 +64,12 @@ export interface DemandLine {
   assemblyHours: number
   dismantleHours: number
   comment: string
+  /** Visma department (`Avdeling` / `FAKTURA-MOTTAKER`). */
+  avdeling?: string
+  /** Share of the calculated hours to leave out: 1 removes the line's hours, negative adds. */
+  effekt?: number
+  /** Where the line comes from. Unset for rows that came with the planner workbook. */
+  origin?: 'visma' | 'manual'
 }
 
 /** One planning row in the Kalender: required hours for a scope, and FTE typed per day. */
@@ -99,6 +105,67 @@ export interface CapacityLine {
   notes: Record<ISODate, string>
 }
 
+/** One booking line of a Visma export (`utskrift_visma`). */
+export interface VismaRow {
+  projectNo: string
+  eventName: string
+  stand: string
+  transInfo: string
+  customer: string
+  avdeling: string
+  orderNo: string
+  articleNo: string
+  description: string
+  quantity: number
+  productGroup: string
+  productType: string
+}
+
+/** The latest Visma export held for one project. A new export replaces it. */
+export interface VismaImport {
+  projectNo: string
+  eventName: string
+  fileName: string
+  importedAt: string
+  rows: VismaRow[]
+}
+
+/** How one Visma product type is counted and which competence it belongs to. */
+export interface WorkTypeRule {
+  /** Text inside the brackets of `Produkttype 2`, e.g. «FOGA-vegger». */
+  name: string
+  productType: string
+  unit: string
+  competence: string
+}
+
+/** Units of work done per person-hour for a work type and unit. */
+export interface KpiRate {
+  name: string
+  unit: string
+  assembly: number
+  dismantle: number
+}
+
+export interface KpiConfig {
+  workTypes: WorkTypeRule[]
+  rates: KpiRate[]
+}
+
+/** The planner's own decisions about one Visma line; they survive a new export. */
+export interface LineOverride {
+  effekt?: number
+  comment?: string
+  /** Counts in the demand the planner plans with («Planlagt»). */
+  inPlan?: boolean
+  /** Work type chosen by hand for a line Visma has no product type for. */
+  workType?: string
+}
+
+export const PLANNED_BASIS = 'Planlagt'
+export const VISMA_BASIS = 'visma per reg. dato'
+export const VISMA_SOURCE = 'visma per reg. dato'
+
 export interface Workspace {
   settings: Settings
   venue: VenueBooking[]
@@ -106,5 +173,10 @@ export interface Workspace {
   demand: DemandLine[]
   allocations: AllocationRow[]
   capacity: CapacityLine[]
+  /** Latest Visma export per project number. */
+  visma?: VismaImport[]
+  kpi?: KpiConfig
+  /** Keyed by Visma line key, see `vismaLineKey`. */
+  overrides?: Record<string, LineOverride>
   importedFrom?: { fileName: string; importedAt: string }
 }

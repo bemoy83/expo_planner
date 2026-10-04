@@ -130,6 +130,8 @@ const readDemand = (sheet: Sheet): DemandLine[] => {
       assemblyHours,
       dismantleHours,
       comment: text(get(row, 'KOMMENTAR', false)),
+      avdeling: text(get(row, 'FAKTURA-MOTTAKER', false)),
+      effekt: num(get(row, 'EFFEKT', false)) ?? 0,
     })
   }
   return lines

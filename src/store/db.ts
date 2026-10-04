@@ -1,8 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { AllocationRow, CapacityLine, DemandLine, ProjectRef, Settings, VenueBooking, Workspace } from '../domain/types'
+import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, ProjectRef, Settings, VenueBooking, VismaImport, Workspace } from '../domain/types'
 
 interface MetaRecord {
-  key: 'settings' | 'importedFrom'
+  key: 'settings' | 'importedFrom' | 'kpi' | 'overrides'
   value: unknown
 }
 
@@ -16,6 +16,7 @@ class PlannerDb extends Dexie {
   demand!: EntityTable<DemandLine, 'id'>
   allocations!: EntityTable<AllocationRow, 'id'>
   capacity!: EntityTable<CapacityLine, 'id'>
+  visma!: EntityTable<VismaImport, 'projectNo'>
 
   constructor(name = 'expo-planner') {
     super(name)
@@ -27,18 +28,22 @@ class PlannerDb extends Dexie {
       allocations: 'id, projectName',
       capacity: 'id',
     })
+    this.version(2).stores({ visma: 'projectNo' })
   }
 }
 
 export const db = new PlannerDb()
 
-const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations, db.capacity]
+const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations, db.capacity, db.visma]
 
 export const loadWorkspace = async (): Promise<Workspace | null> => {
   const settings = await db.meta.get('settings')
   if (!settings) return null
-  const [importedFrom, venue, projects, demand, allocations, capacity] = await Promise.all([
+  const [importedFrom, kpi, overrides, visma, venue, projects, demand, allocations, capacity] = await Promise.all([
     db.meta.get('importedFrom'),
+    db.meta.get('kpi'),
+    db.meta.get('overrides'),
+    db.visma.toArray(),
     db.venue.toArray(),
     db.projects.toArray(),
     db.demand.toArray(),
@@ -48,6 +53,9 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
   return {
     settings: settings.value as Settings,
     importedFrom: importedFrom?.value as Workspace['importedFrom'],
+    kpi: kpi?.value as KpiConfig | undefined,
+    overrides: (overrides?.value as Record<string, LineOverride> | undefined) ?? {},
+    visma,
     venue,
     projects: projects.map(({ name, projectNo }) => ({ name, projectNo })),
     demand,
@@ -63,7 +71,10 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
     await db.meta.bulkPut([
       { key: 'settings', value: workspace.settings },
       ...(workspace.importedFrom ? [{ key: 'importedFrom' as const, value: workspace.importedFrom }] : []),
+      ...(workspace.kpi ? [{ key: 'kpi' as const, value: workspace.kpi }] : []),
+      { key: 'overrides' as const, value: workspace.overrides ?? {} },
     ])
+    await db.visma.bulkPut(workspace.visma ?? [])
     await db.venue.bulkPut(workspace.venue)
     await db.projects.bulkAdd(workspace.projects.map((p) => ({ ...p })))
     await db.demand.bulkPut(workspace.demand)
@@ -76,3 +87,21 @@ export const putAllocation = (row: AllocationRow) => db.allocations.put(row)
 export const deleteAllocation = (id: string) => db.allocations.delete(id)
 export const putCapacityLine = (line: CapacityLine) => db.capacity.put(line)
 export const putSettings = (settings: Settings) => db.meta.put({ key: 'settings', value: settings })
+
+export interface DemandWrite {
+  deleteIds?: string[]
+  putLines?: DemandLine[]
+  overrides?: Record<string, LineOverride>
+  kpi?: KpiConfig
+  visma?: VismaImport[]
+}
+
+/** Writes one change to the demand ledger and its reference data in a single transaction. */
+export const writeDemand = (change: DemandWrite) =>
+  db.transaction('rw', [db.demand, db.meta, db.visma], async () => {
+    if (change.deleteIds?.length) await db.demand.bulkDelete(change.deleteIds)
+    if (change.putLines?.length) await db.demand.bulkPut(change.putLines)
+    if (change.overrides) await db.meta.put({ key: 'overrides', value: change.overrides })
+    if (change.kpi) await db.meta.put({ key: 'kpi', value: change.kpi })
+    if (change.visma?.length) await db.visma.bulkPut(change.visma)
+  })

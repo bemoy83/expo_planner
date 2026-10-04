@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
+import { withVismaImports } from './domain/visma'
 import { importWorkbookFile } from './import/importWorkbook'
 import { parseBackup, toBackup } from './store/backup'
 import { useWorkspace, WorkspaceProvider } from './store/workspaceStore'
+import { Behov } from './ui/behov/Behov'
 import { Kalender } from './ui/kalender/Kalender'
 import { SettingsDialog } from './ui/SettingsDialog'
 
@@ -24,6 +26,8 @@ function Shell() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [view, setView] = useState<'kalender' | 'behov'>('kalender')
+  const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
 
@@ -42,7 +46,9 @@ function Shell() {
   const importWorkbook = (file: File) =>
     run('Leser arbeidsboken …', async () => {
       if (workspace && !confirm('Dette erstatter all planlegging i nettleseren med innholdet i arbeidsboken. Fortsette?')) return
-      await replaceWorkspace(await importWorkbookFile(file))
+      const imported = await importWorkbookFile(file)
+      // Visma exports, KPI data and decisions made in the app outlive a new workbook import.
+      await replaceWorkspace(workspace ? withVismaImports(imported, workspace) : imported)
     })
 
   const restoreBackup = (file: File) =>
@@ -66,6 +72,16 @@ function Shell() {
     <div className="app">
       <header className="app-header">
         <h1>Expo Planner</h1>
+        {status === 'ready' && (
+          <nav className="tabs">
+            <button className={view === 'kalender' ? 'active' : ''} onClick={() => setView('kalender')}>
+              Kalender
+            </button>
+            <button className={view === 'behov' ? 'active' : ''} onClick={() => setView('behov')}>
+              Behov
+            </button>
+          </nav>
+        )}
         {workspace?.importedFrom && (
           <span className="muted small" title={`Importert ${new Date(workspace.importedFrom.importedAt).toLocaleString('nb-NO')}`}>
             fra {workspace.importedFrom.fileName}
@@ -101,7 +117,8 @@ function Shell() {
           </button>
         </div>
       )}
-      {status === 'ready' && workspace && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} />}
+      {status === 'ready' && workspace && view === 'kalender' && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} />}
+      {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )

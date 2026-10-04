@@ -16,7 +16,12 @@ all on one continuous date axis, without Excel's limits.
    - Type FTE into day cells. Enter moves down, Tab moves right.
    - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes, for this session.
    - Shift+click or Shift+arrows selects a range, which you can then fill or delete. Ctrl/Cmd+C/V copies and pastes, also to and from Excel.
-4. Use **Last ned sikkerhetskopi** regularly. Browser storage is tied to this browser and computer.
+4. Keep demand up to date on the **Behov** tab:
+   - **Importer KPI-filer** reads the product-type mapping (`Nøkkeltall Visma`) and the rates (`Kpier.xlsx`). It is needed once, and again when either file changes.
+   - **Importer Visma-utskrift** replaces the Visma lines of every project in the export. Other projects and your own lines are left alone.
+   - Tick **I plan** on the Visma lines you want to plan with; they then count under «Planlagt». Effekt, comments and work types you choose are kept when a newer export is read.
+   - **Ny linje** adds your own counts or hours, for example walls the venue provides that nobody ordered.
+5. Use **Last ned sikkerhetskopi** regularly. Browser storage is tied to this browser and computer.
 
 ## Development
 
