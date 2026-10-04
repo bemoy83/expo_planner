@@ -22,7 +22,7 @@ all on one continuous date axis, without Excel's limits.
    Both can optionally be filled once from the old files (`Nøkkeltall Visma` and `Kpier.xlsx`); a later import asks whether to merge or replace.
 5. Keep demand up to date on the **Behov** tab:
    - **Importer Visma-utskrift** replaces the Visma lines of every project in the export. Other projects and your own lines are left alone.
-   - Tick **I plan** on the Visma lines you want to plan with; they then count under «Planlagt». Effekt, comments and work types you choose are kept when a newer export is read.
+   - Tick **I plan** on the Visma lines you want to plan with; they then count under «Planlagt» and show in the Kalender as rows per competence and phase, ready for FTE. Effekt, comments and work types you choose are kept when a newer export is read.
    - **Ny linje** adds your own counts or hours, for example walls the venue provides that nobody ordered.
 6. Use **Oppdater haller (Venyou)** to read a new `location_format` export. It replaces the hall bookings in the export's period that have a status found in the export (for example confirmed events), and keeps everything else.
 7. Every Venyou event is a project in the Kalender, with or without demand. Its project number connects it to Visma: **Importer prosjektliste** on the **Haller** tab reads `Prosjekt.xlsx` and fills in the number where the name matches, and the rest are typed in per event.

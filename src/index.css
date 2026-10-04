@@ -871,3 +871,12 @@ button.danger {
 button.link.issue {
   color: var(--over);
 }
+
+.unlinked {
+  color: var(--over);
+  font-weight: 400;
+  font-size: 11px;
+}
+.row-actions[hidden] {
+  display: none;
+}

@@ -5,6 +5,7 @@ import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, 
 import { dayType, holidayName } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
 import { buildHallCalendar, dominantEntry, hallNames, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { venueEvents } from '../../domain/projects'
 import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -59,7 +60,7 @@ const fmtDate = (date: ISODate) => {
 }
 
 export function Kalender() {
-  const { workspace, demandIndex, setAllocationFte, setCapacityValue, setAllocationNote, removeAllocation, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, demandIndex, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const { settings } = ws
 
@@ -115,9 +116,11 @@ export function Kalender() {
   const inViewOnly = onlyInView && !filter.project && !filter.search
   // Projects are the events in the Venyou calendar that have at least one hall booking shown.
   const events = useMemo(() => venueEvents(shownVenue, ws.eventLinks, ws.projects), [shownVenue, ws.eventLinks, ws.projects])
+  // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
+  const rows = useMemo(() => [...ws.allocations, ...suggestedRows(ws.demand, ws.allocations)], [ws.allocations, ws.demand])
   const items = useMemo(
-    () => buildItems(ws.allocations, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined),
-    [ws.allocations, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo],
+    () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined),
+    [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo],
   )
   const allocLanes = useMemo(() => items.flatMap((item, index) => (item.kind === 'row' ? [{ row: item.row, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row.id, i])), [allocLanes])
@@ -133,13 +136,13 @@ export function Kalender() {
       ),
     [ws.capacity],
   )
-  const allGroups = useMemo(() => buildGroups(ws.allocations, events, demandIndex, settings), [ws.allocations, events, demandIndex, settings])
+  const allGroups = useMemo(() => buildGroups(rows, events, demandIndex, settings), [rows, events, demandIndex, settings])
   const projects = useMemo(
     () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
     [allGroups],
   )
   const projectOptions = useMemo(() => allGroups.map((group) => ({ name: group.projectName, projectNo: group.projectNo })), [allGroups])
-  const competences = useMemo(() => [...new Set(ws.allocations.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [ws.allocations])
+  const competences = useMemo(() => [...new Set(rows.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [rows])
 
   // ---- viewport and virtualization -----------------------------------------------------------
   // Scroll events already arrive once per frame, so the viewport can be read directly.
@@ -252,13 +255,14 @@ export function Kalender() {
     (section: Section, lane: number, date: ISODate, value: number | null) => {
       if (section === 'alloc') {
         const row = allocLanes[lane]?.row
-        if (row) setAllocationFte(row.id, date, value)
+        if (row && isSuggestedRow(row)) setSuggestedFte(row, date, value)
+        else if (row) setAllocationFte(row.id, date, value)
       } else {
         const cap = capLanes[lane]
         if (cap) setCapacityValue(cap.line.id, date, cap.field, value)
       }
     },
-    [allocLanes, capLanes, setAllocationFte, setCapacityValue],
+    [allocLanes, capLanes, setAllocationFte, setSuggestedFte, setCapacityValue],
   )
 
   const fillSelection = useCallback(
@@ -449,8 +453,12 @@ export function Kalender() {
           <button className="twisty" onClick={() => toggleGroup(group.key)} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
             {item.collapsed ? '▸' : '▾'}
           </button>
-          <span className="lbl-project" title={`${group.projectName}${group.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}`}>
+          <span
+            className="lbl-project"
+            title={`${group.projectName}${group.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}${group.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Sett prosjektnummeret på arrangementet på Haller-fanen.'}`}
+          >
             {group.projectName} <span className="muted">{group.projectNo || 'uten nr.'}</span>
+            {!group.venue && <span className="unlinked"> ikke i hallkalenderen</span>}
           </span>
           {group.rows.length ? (
             <>
@@ -489,7 +497,7 @@ export function Kalender() {
         </span>
         <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
         <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
-        <span className="row-actions">
+        <span className="row-actions" hidden={isSuggestedRow(r)}>
           <button className="row-action" title="Endre rad" onClick={() => setDialog({ row: r })}>
             ✎
           </button>
@@ -516,7 +524,7 @@ export function Kalender() {
     if (selection.section === 'alloc') {
       const r = allocLanes[selection.focus.lane]?.row
       if (!r) return null
-      return { title: `${r.projectName} · ${r.competence} · ${r.phase}`, date, value: r.fte[date], note: r.notes[date] ?? '', rowId: r.id }
+      return { title: `${r.projectName} · ${r.competence} · ${r.phase}`, date, value: r.fte[date], note: r.notes[date] ?? '', rowId: isSuggestedRow(r) ? null : r.id }
     }
     const cap = capLanes[selection.focus.lane]
     if (!cap) return null
@@ -730,7 +738,7 @@ export function Kalender() {
             {items.slice(r0, r1).map(renderItem)}
           </div>
           {items.length === 0 && (
-            <p className="empty-rows">{ws.allocations.length === 0
+            <p className="empty-rows">{rows.length === 0
                 ? 'Ingen planleggingsrader ennå. Bruk «+ Ny rad» for å legge til en rad for et prosjekt.'
                 : inViewOnly
                   ? 'Ingen prosjekter har planlagte dager i denne perioden. Slå av «Bare prosjekter i visningen» for å se alle.'

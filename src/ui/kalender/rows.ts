@@ -86,6 +86,13 @@ export const buildGroups = (rows: AllocationRow[], events: VenueEvent[], index: 
     if (t.firstDate && (!group.totals.firstDate || t.firstDate < group.totals.firstDate)) group.totals.firstDate = t.firstDate
     for (const [date, fte] of Object.entries(row.fte)) group.daily.set(date, (group.daily.get(date) ?? 0) + fte)
   }
+  // A fixed order within the project, so rows keep their place as they are added or filled in.
+  const phaseOrder = (row: AllocationRow) => (row.phase === 'Montering' ? 0 : row.phase === 'Demontering' ? 1 : 2)
+  for (const group of groups.values()) {
+    group.rows.sort(
+      (a, b) => a.competence.localeCompare(b.competence, 'nb') || phaseOrder(a) - phaseOrder(b) || a.basis.localeCompare(b.basis, 'nb') || a.refYear.localeCompare(b.refYear) || a.order - b.order,
+    )
+  }
   const startOf = (group: ProjectGroup): ISODate | null => {
     const dates = [group.venue?.start, group.totals.firstDate].filter((d): d is ISODate => !!d).sort()
     return dates[0] ?? null
@@ -94,14 +101,17 @@ export const buildGroups = (rows: AllocationRow[], events: VenueEvent[], index: 
     const sa = startOf(a)
     const sb = startOf(b)
     if (sa && sb) return sa.localeCompare(sb) || a.projectName.localeCompare(b.projectName, 'nb')
-    if (sa) return -1
-    if (sb) return 1
-    return a.projectName.localeCompare(b.projectName, 'nb')
+    // Projects with rows but no dates come first: they are not tied to an event yet and need attention.
+    if (!sa && !sb) return a.projectName.localeCompare(b.projectName, 'nb')
+    return sa ? 1 : -1
   })
 }
 
 const inWindow = (group: ProjectGroup, window: { from: ISODate; to: ISODate }): boolean =>
-  (!!group.venue && group.venue.start <= window.to && group.venue.end >= window.from) || [...group.daily.keys()].some((d) => d >= window.from && d <= window.to)
+  (!!group.venue && group.venue.start <= window.to && group.venue.end >= window.from) ||
+  [...group.daily.keys()].some((d) => d >= window.from && d <= window.to) ||
+  // Rows with no dates at all (no event in the calendar, nothing planned yet) would otherwise never be seen.
+  (!group.venue && group.daily.size === 0 && group.rows.length > 0)
 
 export const buildItems = (
   rows: AllocationRow[],

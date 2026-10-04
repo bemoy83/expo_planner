@@ -43,15 +43,15 @@ const groupsOf = (items: GridItem[]) => items.flatMap((i) => (i.kind === 'group'
 const rowIds = (items: GridItem[]) => items.flatMap((i) => (i.kind === 'row' ? [i.row.id] : []))
 
 describe('grid rows without Venyou events', () => {
-  it('groups by project number, ordered by first planned day', () => {
+  it('groups by project number, undated projects first, then by first planned day', () => {
     const groups = groupsOf(build([]))
-    expect(groups.map((g) => g.key)).toEqual(['26100', '26970', 'navn:ny messe'])
-    expect(groups[1].rows).toHaveLength(2)
-    expect(groups[1].daily.get('2026-10-05')).toBe(2)
+    expect(groups.map((g) => g.key)).toEqual(['navn:ny messe', '26100', '26970'])
+    expect(groups[2].rows).toHaveLength(2)
+    expect(groups[2].daily.get('2026-10-05')).toBe(2)
   })
 
   it('hides rows of collapsed groups', () => {
-    expect(rowIds(build([], EMPTY_FILTER, new Set(['26970'])))).toEqual(['c', 'd'])
+    expect(rowIds(build([], EMPTY_FILTER, new Set(['26970'])))).toEqual(['d', 'c'])
   })
 
   it('filters by competence and search text', () => {

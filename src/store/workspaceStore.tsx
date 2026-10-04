@@ -4,6 +4,7 @@ import type { ISODate } from '../domain/dates'
 import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
+import { rowScope } from '../domain/plannedRows'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
 import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
@@ -22,6 +23,8 @@ interface WorkspaceStore {
   /** Deletes everything stored in the browser and returns to the start screen. Cannot be undone. */
   resetWorkspace: () => Promise<void>
   setAllocationFte: (rowId: string, date: ISODate, value: number | null) => void
+  /** Types FTE into a row suggested from planned demand, which turns it into an ordinary planning row. */
+  setSuggestedFte: (suggested: AllocationRow, date: ISODate, value: number | null) => void
   setAllocationNote: (rowId: string, date: ISODate, note: string) => void
   addAllocation: (row: Omit<AllocationRow, 'id' | 'order' | 'fte' | 'notes' | 'importedHours'>) => AllocationRow
   updateAllocation: (row: AllocationRow) => void
@@ -218,6 +221,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const setAllocationFte = useCallback(
     (rowId: string, date: ISODate, value: number | null) => updateRow(rowId, (row) => (sameDay(row.fte, date, value) ? row : { ...row, fte: withDay(row.fte, date, value) })),
     [updateRow],
+  )
+
+  const setSuggestedFte = useCallback(
+    (suggested: AllocationRow, date: ISODate, value: number | null) => {
+      const ws = current.current
+      if (!ws) return
+      // Several cells filled in one go arrive one by one; after the first, the row already exists.
+      const existing = ws.allocations.find((row) => rowScope(row) === rowScope(suggested))
+      if (existing) return setAllocationFte(existing.id, date, value)
+      if (!value) return
+      const row: AllocationRow = { ...suggested, id: `row-${crypto.randomUUID()}`, order: Math.max(-1, ...ws.allocations.map((r) => r.order)) + 1, fte: { [date]: value }, notes: {} }
+      commit({ ...ws, allocations: [...ws.allocations, row] }, () => putAllocation(row), (step) => recordAllocation(step, row.id, null, row))
+    },
+    [commit, setAllocationFte],
   )
 
   const setAllocationNote = useCallback(
@@ -452,6 +469,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     replaceWorkspace,
     resetWorkspace,
     setAllocationFte,
+    setSuggestedFte,
     setAllocationNote,
     addAllocation,
     updateAllocation,

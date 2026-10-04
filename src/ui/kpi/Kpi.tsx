@@ -37,7 +37,9 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
       let incoming: Partial<KpiConfig> = {}
       for (const file of files) incoming = { ...incoming, ...readKpiWorkbook(new Uint8Array(await file.arrayBuffer())) }
       const names = files.map((file) => file.name)
-      if (!kpi.workTypes.length && !kpi.rates.length) {
+      // Nothing to merge with when the parts the files bring are still empty in the app.
+      const nothingToReplace = (!incoming.rates || !kpi.rates.length) && (!incoming.workTypes || !kpi.workTypes.length)
+      if (nothingToReplace) {
         setKpi(replaceKpi(kpi, incoming))
         setMessage({ kind: 'ok', text: `${names.join(' og ')} lest inn.` })
       } else setPending({ files: names, incoming })
