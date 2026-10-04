@@ -40,7 +40,9 @@ npm run build   # type check + production build
 
 ## Docs
 
-- [docs/kalender-workbook.md](docs/kalender-workbook.md) describes how the current workbook works and is the main reference for what to recreate.
+- [docs/TODO.md](docs/TODO.md) lists what is open: deferred items, gaps and technical debt.
+- [CLAUDE.md](CLAUDE.md) explains how the code fits together and the conventions to follow.
+- [docs/kalender-workbook.md](docs/kalender-workbook.md) describes how the old Excel workbook works.
 - `design_docs/` holds design notes from an earlier attempt. Treat them as background reading, not binding specs.
 
-The source workbooks in `example_data/` contain real customer data and are not committed.
+The source files in `example_data/` contain real customer data and are not committed.

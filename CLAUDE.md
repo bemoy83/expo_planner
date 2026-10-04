@@ -1,0 +1,68 @@
+# Expo Planner
+
+A browser app for planning crew for exhibition build-up (montering) and tear-down (demontering). It replaces the planner's Excel workbook (`Bemanning_Behov_24 måneder.xlsx`). The goal is that the workbook is never needed again: the app stands on the source exports alone.
+
+Open work is listed in [docs/TODO.md](docs/TODO.md). How the old workbook works is described in [docs/kalender-workbook.md](docs/kalender-workbook.md). The files in `design_docs/` come from an abandoned earlier attempt; read them for background only, they are not requirements.
+
+## Commands
+
+```bash
+npm run dev     # dev server
+npm test        # Vitest, all tests
+npm run build   # type check (tsc -b) + production build
+npm run lint    # oxlint
+```
+
+Run `npx tsc -b` after edits; tests are type-checked through `tsconfig.test.json`, not by Vitest.
+
+## What the app does
+
+Five tabs, all in Norwegian:
+
+- **Kalender** – the planning workspace. Date header, hall calendar and staffing totals are pinned above the planning rows. Rows are grouped by project; the planner types FTE per day.
+- **Behov** – the demand ledger per project: Visma lines, the planner's own lines and earlier years. "I plan" takes a Visma line into the demand that is planned with («Planlagt»).
+- **Haller** – every hall booking from Venyou, with a tick for whether it shows in the Kalender, and the project number per event.
+- **Produkttyper** – how each Visma product type is read: unit and competence.
+- **KPI** – rates (units per person-hour) for montering and demontering.
+
+Sources read from files: the Venyou export (`location_format_from-…_to-….xlsx`), Visma exports (`utskrift_visma_….xlsx`), and optionally `Prosjekt.xlsx`, `Kpier.xlsx`, `Nøkkeltall Visma …xlsx` and the planner workbook as one-time shortcuts.
+
+## How it fits together
+
+- `src/domain/` – pure logic, no React and no storage. Start here.
+  - `types.ts` – the `Workspace` and its records.
+  - `visma.ts` – Visma booking lines → demand lines. One line per project × Avdeling × work type × hall; hours = quantity ÷ rate × (1 − Effekt). Units `ordre` and `stands` count stands; other units sum `Totalt antall`.
+  - `kpi.ts` – the product-type table and the rate table, with merge/replace for imports.
+  - `venue.ts`, `venueImport.ts` – the hall calendar, merging a Venyou export, hidden bookings.
+  - `projects.ts` – projects are the Venyou events; the project list only matches an event name to a Visma project number.
+  - `plannedRows.ts` – demand under «Planlagt» shows as suggested Kalender rows.
+  - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
+  - `calendarRange.ts` – the Kalender's period follows the hall bookings.
+- `src/import/` – file readers. `xlsx.ts` is a small own reader (cached values and comments only); ExcelJS fails on the planner workbook's tables.
+- `src/store/` – `db.ts` (Dexie/IndexedDB), `workspaceStore.tsx` (all mutations, each persisted and recorded for undo), `history.ts` (undo steps), `backup.ts`.
+- `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the project groups.
+
+Everything is stored in the browser (IndexedDB database `expo-planner`). There is no server.
+
+## Conventions
+
+- UI text is Norwegian (bokmål). Code, comments, commit messages and docs are English.
+- The venue system is called **Venyou** (venue + you). "Venyoo" in `design_docs/` is a misspelling.
+- Keep source and status apart: a Visma line always stays a Visma line; the planner toggles it in or out of the plan. Decisions the planner makes (Effekt, in plan, chosen work type, hidden halls, project numbers) are stored separately from imported data, keyed so they survive the next import.
+- Reference data lives in editable tables in the app. A file import is at most an optional shortcut and must offer merge or replace when the table already has content.
+- Every mutation goes through `workspaceStore.tsx`, is undoable, and is persisted. Edits made in one user action form one undo step.
+- New domain logic gets a test next to it. Tests ending in "(local data)" run against the real files in `example_data/` and are skipped when those are missing.
+
+## Data and privacy
+
+`example_data/` and all `.xlsx` files are git-ignored: they contain real customer and booking data. Never commit them, and do not copy customer names from them into tests, docs or commit messages. Event and project names already used in tests (VVS, Hage, Oslo Motor Show) are fine.
+
+## Checking against the real files
+
+With `example_data/` present, the local-data tests verify the readers and that recalculated hours, daily need and available staffing match the workbook. To try the app in a browser without file dialogs, start the dev server and load a file through Vite's `/@fs/` path into the hidden file input (see the test notes in docs/TODO.md).
+
+## Working with the user
+
+- Work on a branch, push it, and report. The user says "merge to main"; then fast-forward main, run the tests, push, and delete the branch locally and on GitHub.
+- The user tests in a clean state: Innstillinger → "Slett alt og start på nytt", then reads the sources in one by one.
+- Staffing lines are deferred until the user asks for them.
