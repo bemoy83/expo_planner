@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { withVismaImports } from './domain/visma'
 import { importWorkbookFile } from './import/importWorkbook'
 import { parseBackup, toBackup } from './store/backup'
@@ -22,7 +22,7 @@ const pickFile = (e: React.ChangeEvent<HTMLInputElement>, handle: (file: File) =
 }
 
 function Shell() {
-  const { status, workspace, saveState, replaceWorkspace } = useWorkspace()
+  const { status, workspace, saveState, replaceWorkspace, undo, redo } = useWorkspace()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -30,6 +30,22 @@ function Shell() {
   const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
+
+  // Undo and redo work anywhere on the page, except while typing in a field (which has its own undo).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const key = e.key.toLowerCase()
+      if (key !== 'z' && key !== 'y') return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      e.preventDefault()
+      if (key === 'y' || e.shiftKey) redo()
+      else undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [undo, redo])
 
   const run = async (label: string, task: () => Promise<void>) => {
     setBusy(label)

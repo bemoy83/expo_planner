@@ -160,6 +160,8 @@ export interface LineOverride {
   inPlan?: boolean
   /** Work type chosen by hand for a line Visma has no product type for. */
   workType?: string
+  /** The line as it read when the decision was made, for showing it after it has left the export. */
+  ref?: { avdeling: string; workType: string; hall: string }
 }
 
 export const PLANNED_BASIS = 'Planlagt'

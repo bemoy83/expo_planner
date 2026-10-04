@@ -14,7 +14,7 @@ all on one continuous date axis, without Excel's limits.
 2. Click **Importer arbeidsbok** and pick the planner workbook. Everything is read in the browser and saved there (IndexedDB).
 3. Plan in the Kalender:
    - Type FTE into day cells. Enter moves down, Tab moves right.
-   - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes, for this session.
+   - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes, for this session. This also covers the Behov tab, including a Visma import.
    - Shift+click or Shift+arrows selects a range, which you can then fill or delete. Ctrl/Cmd+C/V copies and pastes, also to and from Excel.
 4. Keep demand up to date on the **Behov** tab:
    - **Importer KPI-filer** reads the product-type mapping (`Nøkkeltall Visma`) and the rates (`Kpier.xlsx`). It is needed once, and again when either file changes.

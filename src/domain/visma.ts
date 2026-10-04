@@ -126,6 +126,28 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
   })
 }
 
+const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.inPlan || !!override.workType
+
+export interface OrphanedDecision {
+  key: string
+  override: LineOverride
+  avdeling: string
+  workType: string
+  hall: string
+}
+
+/** Decisions the planner made on lines that are no longer in the project's latest export. */
+export const orphanedDecisions = (projectNo: string, lines: VismaLine[], overrides: Record<string, LineOverride>): OrphanedDecision[] => {
+  const present = new Set(lines.map((line) => line.key))
+  const prefix = `${projectNo.trim().toLowerCase()}|`
+  return Object.entries(overrides)
+    .filter(([key, override]) => key.startsWith(prefix) && !present.has(key) && hasDecision(override))
+    .map(([key, override]) => {
+      const [, avdeling, workType, hall] = key.split('|')
+      return { key, override, avdeling: override.ref?.avdeling ?? avdeling, workType: override.ref?.workType ?? workType, hall: override.ref?.hall ?? hall }
+    })
+}
+
 export const VISMA_LINE_PREFIX = 'visma|'
 
 /** Visma lines as ledger rows. Lines taken into the plan count under «Planlagt», the rest stay under the Visma basis. */
@@ -177,7 +199,10 @@ export const harvestOverrides = (legacy: DemandLine[], rows: VismaRow[], kpi: Kp
     if (line.effekt) override.effekt = line.effekt
     if (line.comment) override.comment = line.comment
     if (line.basis.trim().toLowerCase() === PLANNED_BASIS.toLowerCase()) override.inPlan = true
-    if (Object.keys(override).length) overrides[key] = { ...overrides[key], ...override }
+    if (Object.keys(override).length) {
+      const target = byKey.get(key)!
+      overrides[key] = { ...overrides[key], ...override, ref: { avdeling: target.avdeling, workType: target.sourceWorkType, hall: target.hall } }
+    }
   }
   return overrides
 }

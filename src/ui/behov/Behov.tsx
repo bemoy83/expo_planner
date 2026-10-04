@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { formatFte } from '../../domain/calc'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
-import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, type VismaLine } from '../../domain/visma'
+import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
 import { readKpiWorkbook, readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { DemandLineDialog } from './DemandLineDialog'
@@ -28,7 +28,7 @@ interface Props {
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
 export function Behov({ projectNo, onProjectChange }: Props) {
-  const { workspace, setKpi, importVisma, setLineOverride, removeDemandLine } = useWorkspace()
+  const { workspace, setKpi, importVisma, setLineOverride, removeLineOverride, removeDemandLine, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
@@ -54,6 +54,7 @@ export function Behov({ projectNo, onProjectChange }: Props) {
         : [],
     [vismaImport, ws.kpi, ws.overrides],
   )
+  const orphans = useMemo(() => (vismaImport ? orphanedDecisions(projectNo, vismaLines, ws.overrides ?? {}) : []), [vismaImport, projectNo, vismaLines, ws.overrides])
   const projectLines = useMemo(() => ws.demand.filter((l) => l.projectNo === projectNo), [ws.demand, projectNo])
   const legacyVisma = useMemo(() => (vismaImport ? [] : projectLines.filter(isVismaLine)), [projectLines, vismaImport])
   const ownLines = useMemo(
@@ -92,7 +93,7 @@ export function Behov({ projectNo, onProjectChange }: Props) {
     readFiles(files, (bytes, name) => {
       const imported = importVisma(readVismaExport(bytes), name)
       if (imported.length) onProjectChange(imported[0])
-      return `Visma-linjene for ${imported.join(', ')} er erstattet med ${name}.`
+      return `Visma-linjene for ${imported.join(', ')} er erstattet med ${name}. Kan angres med Ctrl/Cmd+Z.`
     })
 
   const onKpiFiles = (files: File[]) =>
@@ -103,7 +104,8 @@ export function Behov({ projectNo, onProjectChange }: Props) {
     })
 
   const kpiReady = !!ws.kpi?.workTypes.length && !!ws.kpi.rates.length
-  const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) => setLineOverride(line.projectNo, line.key, patch)
+  const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) =>
+    setLineOverride(line.projectNo, line.key, { ...patch, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
   const plannedCount = vismaLines.filter((l) => l.inPlan).length
   const projectName = projects.find(([no]) => no === projectNo)?.[1] ?? ''
 
@@ -122,6 +124,12 @@ export function Behov({ projectNo, onProjectChange }: Props) {
           </select>
         </label>
         <span className="toolbar-gap" />
+        <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
+          ↶ Angre
+        </button>
+        <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
+          ↷ Gjør om
+        </button>
         <span className={`muted small ${kpiReady ? '' : 'warn'}`}>
           {kpiReady ? `KPI: ${ws.kpi!.workTypes.length} produkttyper, ${ws.kpi!.rates.length} satser` : 'KPI-oppsett mangler'}
         </span>
@@ -213,6 +221,36 @@ export function Behov({ projectNo, onProjectChange }: Props) {
                   </>
                 )}
               </div>
+              {orphans.length > 0 && (
+                <div className="orphans" role="alert">
+                  <strong>
+                    {orphans.length === 1 ? '1 linje du har endret finnes' : `${orphans.length} linjer du har endret finnes`} ikke lenger i Visma-utskriften.
+                  </strong>{' '}
+                  Valgene er tatt vare på og gjelder igjen hvis linjen kommer tilbake. Timene deres teller ikke med nå.
+                  <ul>
+                    {orphans.map((o) => (
+                      <li key={o.key}>
+                        <span>
+                          {o.workType} · {o.hall} · avd. {o.avdeling}
+                        </span>
+                        <span className="muted">
+                          {[
+                            o.override.inPlan && 'i plan',
+                            o.override.effekt ? `Effekt ${String(o.override.effekt).replace('.', ',')}` : '',
+                            o.override.workType && `arbeidstype ${o.override.workType}`,
+                            o.override.comment && `«${o.override.comment}»`,
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
+                        <button className="link" onClick={() => removeLineOverride(projectNo, o.key)}>
+                          Glem valgene
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {vismaImport ? (
                 <table className="ledger">
                   <thead>

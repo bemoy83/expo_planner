@@ -757,3 +757,18 @@ input.inline:focus {
 .field-row input {
   width: 100%;
 }
+
+.orphans {
+  background: #fff6e0;
+  border: 1px solid #f0d58a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+.orphans ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.orphans li span {
+  margin-right: 10px;
+}

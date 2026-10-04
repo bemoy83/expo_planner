@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DemandLine, KpiConfig, VismaRow, Workspace } from './types'
 import { DEFAULT_SETTINGS } from './types'
-import { buildVismaLines, hallOf, harvestOverrides, vismaDemandLines, vismaLineKey, withVismaImports, workTypeName } from './visma'
+import { buildVismaLines, hallOf, harvestOverrides, orphanedDecisions, vismaDemandLines, vismaLineKey, withVismaImports, workTypeName } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -108,6 +108,29 @@ const legacyLine = (overrides: Partial<DemandLine>): DemandLine => ({
   ...overrides,
 })
 
+describe('decisions on lines that left the export', () => {
+  const gone = vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall E')
+  const present = vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')
+  const lines = buildVismaLines(rows, kpi, {})
+
+  it('lists them with the line as it read when the decision was made', () => {
+    const found = orphanedDecisions('26970', lines, {
+      [gone]: { effekt: 1, comment: 'egen opptelling', ref: { avdeling: '65', workType: 'FOGA-vegger', hall: 'Hall E' } },
+      [present]: { inPlan: true },
+    })
+    expect(found).toEqual([expect.objectContaining({ key: gone, workType: 'FOGA-vegger', hall: 'Hall E', avdeling: '65' })])
+  })
+
+  it('ignores other projects and decisions that have been reset', () => {
+    expect(
+      orphanedDecisions('26970', lines, {
+        [vismaLineKey('26100', '65', 'Print', 'Hall A')]: { inPlan: true },
+        [gone]: { effekt: 0, inPlan: false, comment: '' },
+      }),
+    ).toEqual([])
+  })
+})
+
 describe('workbook decisions', () => {
   it('carries Effekt, comments, «Planlagt» and hand-picked work types over', () => {
     const overrides = harvestOverrides(
@@ -120,9 +143,9 @@ describe('workbook decisions', () => {
       rows,
       kpi,
     )
-    expect(overrides[vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')]).toEqual({ effekt: 1, comment: 'egen opptelling' })
-    expect(overrides[vismaLineKey('26970', '65', 'Print', 'Hall C')]).toEqual({ inPlan: true })
-    expect(overrides[vismaLineKey('26970', '32', '01_ingen produkttype', 'Møterom hall E1')]).toEqual({ workType: 'Teppefliser' })
+    expect(overrides[vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')]).toEqual({ effekt: 1, comment: 'egen opptelling', ref: { avdeling: '65', workType: 'FOGA-vegger', hall: 'Hall C' } })
+    expect(overrides[vismaLineKey('26970', '65', 'Print', 'Hall C')]).toMatchObject({ inPlan: true })
+    expect(overrides[vismaLineKey('26970', '32', '01_ingen produkttype', 'Møterom hall E1')]).toMatchObject({ workType: 'Teppefliser', ref: { workType: '01_ingen produkttype' } })
     expect(Object.keys(overrides)).toHaveLength(3)
   })
 

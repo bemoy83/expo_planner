@@ -4,7 +4,7 @@ import type { ISODate } from '../domain/dates'
 import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type Settings, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
 import { db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, saveWorkspace, writeDemand, type DemandWrite } from './db'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordSettings, type Change, type Direction } from './history'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -29,6 +29,8 @@ interface WorkspaceStore {
   importVisma: (rows: VismaRow[], fileName: string) => string[]
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
   setLineOverride: (projectNo: string, key: string, patch: LineOverride) => void
+  /** Forgets the decisions made for a Visma line, typically one that has left the export. */
+  removeLineOverride: (projectNo: string, key: string) => void
   /** Adds or changes a ledger line that does not come from Visma. */
   saveDemandLine: (line: Omit<DemandLine, 'id'> & { id?: string }) => void
   removeDemandLine: (id: string) => void
@@ -138,11 +140,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       syncHistorySize()
       const writes = changeWrites(step, direction)
       track(() =>
-        db.transaction('rw', [db.allocations, db.capacity, db.meta], async () => {
+        db.transaction('rw', [db.allocations, db.capacity, db.meta, db.demand, db.visma], async () => {
           await db.allocations.bulkPut(writes.putAllocations)
           await db.allocations.bulkDelete(writes.deleteAllocations)
           await db.capacity.bulkPut(writes.putCapacity)
           if (writes.settings) await putSettings(writes.settings)
+          await db.demand.bulkDelete(writes.deleteDemand)
+          await db.demand.bulkPut(writes.putDemand)
+          await db.visma.bulkDelete(writes.deleteVisma)
+          await db.visma.bulkPut(writes.putVisma)
+          if (writes.overrides) await db.meta.put({ key: 'overrides', value: writes.overrides })
+          if (writes.kpi === null) await db.meta.delete('kpi')
+          else if (writes.kpi) await db.meta.put({ key: 'kpi', value: writes.kpi })
         }),
       )
     },
@@ -239,14 +248,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
-  /** Applies a ledger change in memory and writes it to storage. Ledger changes are not part of undo. */
+  /** Applies a ledger change in memory, notes it for undo and writes it to storage. */
   const commitDemand = useCallback(
     (next: Workspace, write: DemandWrite) => {
-      current.current = next
-      setWorkspace(next)
-      track(() => writeDemand(write))
+      const before = current.current!
+      commit(next, () => writeDemand(write), (step) => recordLedger(step, before, next))
     },
-    [track],
+    [commit],
   )
 
   /** Recalculates the Visma lines of the given projects and swaps them into the ledger. */
@@ -305,6 +313,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commitDemand],
   )
 
+  const removeLineOverride = useCallback(
+    (projectNo: string, key: string) => {
+      const ws = current.current
+      if (!ws?.kpi || !ws.overrides?.[key]) return
+      const overrides = { ...ws.overrides }
+      delete overrides[key]
+      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi, overrides, ws.visma ?? [])
+      commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
+    },
+    [commitDemand],
+  )
+
   const saveDemandLine = useCallback<WorkspaceStore['saveDemandLine']>(
     (fields) => {
       const ws = current.current
@@ -343,6 +363,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setKpi,
     importVisma,
     setLineOverride,
+    removeLineOverride,
     saveDemandLine,
     removeDemandLine,
     canUndo: historySize.undo > 0,

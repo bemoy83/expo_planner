@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, type AllocationRow, type CapacityLine, type Workspace } from '../domain/types'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordSettings } from './history'
+import type { DemandLine, VismaImport } from '../domain/types'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings } from './history'
 
 const row = (id: string, order: number, fte: Record<string, number> = {}): AllocationRow => ({
   id,
@@ -80,5 +81,50 @@ describe('undo history', () => {
     expect(isEmptyChange(step)).toBe(true)
     recordAllocation(step, 'a', base.allocations[0], row('a', 0))
     expect(isEmptyChange(step)).toBe(false)
+  })
+
+  const demandLine = (id: string, basis: string): DemandLine => ({
+    id,
+    projectNo: '26970',
+    projectName: 'VVS 2026',
+    eventYear: '2026',
+    source: 'visma per reg. dato',
+    workType: 'FOGA-vegger',
+    quantity: 10,
+    unit: 'lm',
+    stand: '',
+    hall: 'Hall C',
+    competence: 'FOGA',
+    basis,
+    assemblyHours: 1,
+    dismantleHours: 1,
+    comment: '',
+  })
+
+  it('undoes a Visma import together with the decisions and lines it changed', () => {
+    const own = demandLine('own', 'Planlagt')
+    const before: Workspace = { ...base, demand: [demandLine('old', 'visma per reg. dato'), own], overrides: {}, visma: [] }
+    const imported: VismaImport = { projectNo: '26970', eventName: 'VVS 2026', fileName: 'x.xlsx', importedAt: '', rows: [] }
+    const after: Workspace = { ...before, demand: [own, demandLine('new', 'Planlagt')], overrides: { k: { inPlan: true } }, visma: [imported] }
+    const step = emptyChange()
+    recordLedger(step, before, after)
+
+    expect(isEmptyChange(step)).toBe(false)
+    expect(step.demand.has('own')).toBe(false)
+    const undone = applyChange(after, step, 'undo')
+    expect(undone.demand.map((l) => l.id).sort()).toEqual(['old', 'own'])
+    expect(undone.overrides).toEqual({})
+    expect(undone.visma).toEqual([])
+    expect(changeWrites(step, 'undo')).toMatchObject({ deleteDemand: ['new'], deleteVisma: ['26970'], overrides: {} })
+    expect(applyChange(undone, step, 'redo').visma).toEqual([imported])
+  })
+
+  it('restores the KPI setup, or removes it when there was none', () => {
+    const kpi = { workTypes: [], rates: [] }
+    const step = emptyChange()
+    recordLedger(step, base, { ...base, kpi })
+    expect(applyChange({ ...base, kpi }, step, 'undo').kpi).toBeUndefined()
+    expect(changeWrites(step, 'undo').kpi).toBeNull()
+    expect(changeWrites(step, 'redo').kpi).toBe(kpi)
   })
 })

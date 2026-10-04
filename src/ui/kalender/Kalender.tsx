@@ -214,22 +214,6 @@ export function Kalender() {
     scrollRef.current?.focus({ preventScroll: true })
   }, [pendingFocus, laneOfRow, firstVisibleCol, ensureVisible])
 
-  // Undo and redo work anywhere on the page, except while typing in a field (which has its own undo).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
-      const key = e.key.toLowerCase()
-      if (key !== 'z' && key !== 'y') return
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
-      e.preventDefault()
-      if (key === 'y' || e.shiftKey) redo()
-      else undo()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [undo, redo])
-
   // ---- cell values ----------------------------------------------------------------------------
   const laneCount = (section: Section) => (section === 'alloc' ? allocLanes.length : capLanes.length)
 
