@@ -60,7 +60,7 @@ General
 
 - No component or end-to-end tests beyond a smoke test. The grid, dialogs and imports are verified by hand in a browser.
 - One lint warning: a `setState` inside an effect in `Kalender.tsx` (selecting a row that was just added).
-- `Kalender.tsx` is one large component (about 830 lines).
+- `Kalender.tsx` is one large component (about 800 lines).
 - Recalculating Visma lines runs once per toggled line; "Ta alle inn i plan" does it for every line in turn.
 - `design_docs/` is stale and uses the misspelling "Venyoo". `docs/kalender-workbook.md` describes the workbook, not the app.
 - `AllocationRow.importedHours` only has meaning for rows that came from the workbook.
