@@ -5,6 +5,7 @@ import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, 
 import { dayType, holidayName } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
 import { buildHallCalendar, dominantEntry, hallNames, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { venueEvents } from '../../domain/projects'
 import { visibleVenue } from '../../domain/venueImport'
@@ -68,7 +69,7 @@ const fmtDate = (date: ISODate) => {
 }
 
 export function Kalender() {
-  const { workspace, demandIndex, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation, undo, redo, canUndo, canRedo } = useWorkspace()
   const ws = workspace!
   const { settings } = ws
 
@@ -127,7 +128,10 @@ export function Kalender() {
   // Projects are the events in the Venyou calendar that have at least one hall booking shown.
   const events = useMemo(() => venueEvents(shownVenue, ws.eventLinks, ws.projects), [shownVenue, ws.eventLinks, ws.projects])
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
-  const rows = useMemo(() => [...ws.allocations, ...suggestedRows(ws.demand, ws.allocations)], [ws.allocations, ws.demand])
+  const rows = useMemo(() => {
+    const placed = locateRows(ws.allocations, hallNames(ws.venue))
+    return [...placed, ...suggestedRows(locatedDemand, placed)]
+  }, [ws.allocations, ws.venue, locatedDemand])
   const items = useMemo(
     () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined, grouping),
     [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo, grouping],

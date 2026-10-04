@@ -5,6 +5,8 @@ import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig,
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
 import { rowScope } from '../domain/plannedRows'
+import { locateDemand } from '../domain/locations'
+import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
 import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
@@ -18,6 +20,8 @@ interface WorkspaceStore {
   status: 'loading' | 'empty' | 'ready'
   workspace: Workspace | null
   demandIndex: DemandIndex
+  /** The demand with Hall/Sted read as a hall of the hall ledger, or as unresolved. See `locateDemand`. */
+  locatedDemand: DemandLine[]
   saveState: SaveState
   replaceWorkspace: (workspace: Workspace) => Promise<void>
   /** Deletes everything stored in the browser and returns to the start screen. Cannot be undone. */
@@ -58,7 +62,7 @@ interface WorkspaceStore {
 
 const Context = createContext<WorkspaceStore | null>(null)
 
-const EMPTY_INDEX = buildDemandIndex([])
+const EMPTY_DEMAND: DemandLine[] = []
 
 const withDay = (values: Record<ISODate, number>, date: ISODate, value: number | null) => {
   const next = { ...values }
@@ -459,12 +463,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   )
 
   const demand = workspace?.demand
-  const demandIndex = useMemo(() => (demand ? buildDemandIndex(demand) : EMPTY_INDEX), [demand])
+  const venue = workspace?.venue
+  // Hours are counted per hall of the hall ledger; demand whose Hall/Sted names none of them is gathered as unresolved.
+  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? [])) : EMPTY_DEMAND), [demand, venue])
+  const demandIndex = useMemo(() => buildDemandIndex(locatedDemand), [locatedDemand])
 
   const value: WorkspaceStore = {
     status,
     workspace,
     demandIndex,
+    locatedDemand,
     saveState,
     replaceWorkspace,
     resetWorkspace,

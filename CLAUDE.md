@@ -35,6 +35,7 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
   - `kpi.ts` – the product-type table and the rate table, with merge/replace for imports.
   - `venue.ts`, `venueImport.ts` – the hall calendar, merging a Venyou export, hidden bookings.
   - `projects.ts` – projects are the Venyou events; the project list only matches an event name to a Visma project number.
+  - `locations.ts` – reads a demand line's Hall/Sted as a hall of the hall ledger, or as «Uavklart» when it names none. The line keeps its own text.
   - `plannedRows.ts` – demand under «Planlagt» shows as suggested Kalender rows, one per project × phase × hall × competence × Avd. A row with no hall or Avd. covers all of them.
   - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
   - `calendarRange.ts` – the Kalender's period follows the hall bookings.

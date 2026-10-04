@@ -976,3 +976,17 @@ button.link.issue {
 .row-actions[hidden] {
   display: none;
 }
+
+/* Where a demand line's Hall/Sted ends up in the Kalender. */
+.hall-tag {
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.hall-tag.unresolved {
+  background: var(--holiday);
+  color: var(--dem-strong);
+}

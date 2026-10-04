@@ -1,5 +1,6 @@
 import { rowTotals, type DemandIndex, type RowTotals } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
+import { UNRESOLVED_HALL } from '../../domain/locations'
 import { normalizeName, type VenueEvent } from '../../domain/projects'
 import type { AllocationRow, Settings } from '../../domain/types'
 
@@ -215,8 +216,8 @@ export const buildItems = (
     const sorted = [...buckets].sort(([a, bucketA], [b, bucketB]) => {
       if (dimension === 'project') return projectOrder.get(a)! - projectOrder.get(b)!
       if (dimension === 'phase') return (PHASE_ORDER[a] ?? 2) - (PHASE_ORDER[b] ?? 2)
-      // Named values first, then rows for all halls or departments, then rows without one.
-      const rank = (value: string) => (value === '' ? 2 : value === '*' ? 1 : 0)
+      // Named values first, then rows for all halls or departments, then rows without one or with an unresolved one.
+      const rank = (value: string) => (value === '' || value === UNRESOLVED_HALL.toLowerCase() ? 2 : value === '*' ? 1 : 0)
       return rank(a) - rank(b) || bucketA.label.localeCompare(bucketB.label, 'nb', { numeric: true })
     })
     for (const [value, bucket] of sorted) {

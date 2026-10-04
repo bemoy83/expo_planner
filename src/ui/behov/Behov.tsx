@@ -5,6 +5,8 @@ import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { hallNames } from '../../domain/venue'
 import { NumberField, TextField } from '../fields'
 import { DemandLineDialog } from './DemandLineDialog'
 
@@ -47,6 +49,30 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   }, [ws.projects, ws.allocations, ws.visma, ws.demand])
 
   const kpi = ws.kpi ?? EMPTY_KPI
+  // The Kalender places demand in the halls of the hall ledger; show where each line's Hall/Sted ends up.
+  const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
+  const hallCell = (text: string) => {
+    const hall = resolveHall(text, halls)
+    if (hall === null)
+      return (
+        <>
+          {text}{' '}
+          <span className="hall-tag unresolved" title="Hall/sted finnes ikke blant hallene på Haller-fanen. Behovet teller med, og vises under «Uavklart» i Kalender.">
+            {UNRESOLVED_HALL.toLowerCase()}
+          </span>
+        </>
+      )
+    return hall.toLowerCase() === text.trim().toLowerCase() ? (
+      text
+    ) : (
+      <>
+        {text}{' '}
+        <span className="hall-tag" title={`Vises under hallen ${hall} i Kalender`}>
+          {hall}
+        </span>
+      </>
+    )
+  }
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
   const vismaLines = useMemo(
     () =>
@@ -288,7 +314,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                           )}
                           {line.issue && line.issue !== 'no-product-type' && <span className="issue"> {ISSUE_TEXT[line.issue]}</span>}
                         </td>
-                        <td>{line.hall}</td>
+                        <td>{hallCell(line.hall)}</td>
                         <td>{line.avdeling}</td>
                         <td className="num" title={`${line.rowCount} ordrelinjer`}>
                           {formatFte(line.quantity, 1)}
@@ -348,7 +374,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                         <td>{line.basis}</td>
                         <td>{line.competence}</td>
                         <td>{line.workType}</td>
-                        <td>{line.hall}</td>
+                        <td>{hallCell(line.hall)}</td>
                         <td>{line.source}</td>
                         <td className="num">{line.quantity === null ? '' : formatFte(line.quantity, 1)}</td>
                         <td>{line.unit}</td>
