@@ -43,7 +43,7 @@ export interface GroupNode {
 }
 
 export type GridItem =
-  | { kind: 'group'; node: GroupNode; collapsed: boolean }
+  | { kind: 'group'; node: GroupNode; collapsed: boolean; /** FTE is typed on this level and shared out to the rows below, which are folded away. */ entry: boolean }
   | { kind: 'row'; row: AllocationRow; totals: RowTotals; project: ProjectGroup; depth: number; /** The value of the lowest level, where the row is alone under it and stands in for that level. */ lead?: string }
 
 /** The value a row is grouped under, and how it reads. Rows without a hall or department cover all of them. */
@@ -163,6 +163,7 @@ const PHASE_ORDER: Record<string, number> = { montering: 0, demontering: 1 }
  * The rows as a hierarchy, like the row fields of a pivot table: one level per property in `grouping`,
  * in that order. FTE is typed on the rows; every level above sums what is below it.
  * Where a row is alone on the lowest level, the row itself takes that level's place.
+ * A level in `entry` is folded and takes FTE itself, see `spread`.
  * Projects without rows are listed only where the project is the top level.
  */
 export const buildItems = (
@@ -174,6 +175,7 @@ export const buildItems = (
   collapsed: Set<string>,
   window?: { from: ISODate; to: ISODate },
   grouping: Dimension[] = ['project'],
+  entry: Set<string> = new Set(),
 ): GridItem[] => {
   const narrowsRows = !!filter.competence || !!filter.search
   let groups = buildGroups(rows.filter((row) => rowMatches(row, filter)), events, index, settings)
@@ -233,8 +235,9 @@ export const buildItems = (
         node.totals.plannedFte += totals.plannedFte
         for (const [date, fte] of Object.entries(row.fte)) node.daily.set(date, (node.daily.get(date) ?? 0) + fte)
       }
-      const isCollapsed = collapsed.has(key)
-      items.push({ kind: 'group', node, collapsed: isCollapsed })
+      const isEntry = entry.has(key) && bucket.entries.length > 0
+      const isCollapsed = isEntry || collapsed.has(key)
+      items.push({ kind: 'group', node, collapsed: isCollapsed, entry: isEntry })
       if (!isCollapsed) walk(bucket.entries, depth + 1, `${key}/`, [])
     }
   }

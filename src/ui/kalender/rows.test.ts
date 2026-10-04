@@ -166,6 +166,12 @@ describe('rows as a hierarchy', () => {
     expect(outline(items)).toEqual(['Montering', '  Hall C', '  #d64 Hall D', '  #hage Alle haller', 'Demontering', '  #dem Hall D'])
   })
 
+  it('folds a level that takes FTE itself, and leaves a level without rows alone', () => {
+    const items = buildItems(fine, [], demand, DEFAULT_SETTINGS, EMPTY_FILTER, new Set(), undefined, ['phase', 'hall'], new Set(['phase:montering/hall:hall c', 'phase:demontering']))
+    expect(outline(items)).toEqual(['Montering', '  Hall C', '  #d64 Hall D', '  #hage Alle haller', 'Demontering'])
+    expect(items.flatMap((i) => (i.kind === 'group' && i.entry ? [i.node.label] : []))).toEqual(['Hall C', 'Demontering'])
+  })
+
   it('gives the levels above a row, for opening the way to it', () => {
     expect(pathKeys(fine[2], '26970', ['project', 'hall'])).toEqual(['project:26970', 'project:26970/hall:hall d'])
   })

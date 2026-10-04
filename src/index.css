@@ -996,3 +996,17 @@ table.ledger select.location.unresolved {
   background-color: var(--holiday);
   color: var(--dem-strong);
 }
+
+/* A level that takes FTE itself instead of only summing its rows. */
+.group-row .row-action.level-mode.entry {
+  visibility: visible;
+  color: var(--accent);
+  font-weight: 600;
+}
+.group-row.entry-level .grid-label {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.group-row.entry-level .cell.editable {
+  background-color: var(--surface);
+  color: var(--text);
+}

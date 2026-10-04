@@ -43,6 +43,7 @@ Projects and halls
 Kalender
 
 - A planning row made before rows had Hall and Avd. covers all halls and departments, and keeps the demand from being split into rows per hall. To split it, delete the row; its FTE is not moved.
+- A level in entry mode (✎) shares a typed number over the rows below by their required hours. It does not look at what is already planned or at the phase, so a level holding both montering and demontering shares one day's number across both. Which levels are in entry mode is kept per browser.
 - "Fold alle" folds to the top level only; there is no "fold to level N".
 - The grouping and the folded levels are kept per browser (localStorage), not in the workspace or the backup.
 - Demand whose Hall/Sted names no hall on Haller is gathered under «Uavklart» until the planner picks a hall under Plassering on Behov. The choice is for the text and applies in every project; there is no choice for one line or one project only, no table listing the choices, and lines with an empty Hall/Sted cannot be placed. A hall letter with several numbered halls («Hall B» with B1–B4) is left unresolved until chosen.

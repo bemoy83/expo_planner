@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { capacityForDate, dailyNeed, formatFte } from '../../domain/calc'
+import { capacityForDate, dailyNeed, formatFte, requiredHours } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
@@ -7,13 +7,14 @@ import type { AllocationRow, CapacityLine } from '../../domain/types'
 import { buildHallCalendar, dominantEntry, hallNames, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
+import { spread } from '../../domain/spread'
 import { venueEvents } from '../../domain/projects'
 import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { GroupingBar } from './GroupingBar'
-import { buildGroups, buildItems, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, dimensionValue, EMPTY_FILTER, pathKeys, projectKey, type Dimension, type GridItem, type RowFilter } from './rows'
+import { buildGroups, buildItems, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, dimensionValue, EMPTY_FILTER, pathKeys, projectKey, type Dimension, type GridItem, type GroupNode, type RowFilter } from './rows'
 
 type Section = 'alloc' | 'cap'
 interface Cell {
@@ -24,6 +25,13 @@ interface Selection {
   section: Section
   anchor: Cell
   focus: Cell
+}
+/** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
+interface AllocLane {
+  /** Position in the list of grid items. */
+  index: number
+  row?: AllocationRow
+  node?: GroupNode
 }
 interface CapLane {
   line: CapacityLine
@@ -77,6 +85,7 @@ export function Kalender() {
   const [filter, setFilter] = useState<RowFilter>(() => loadPref('filter', EMPTY_FILTER))
   const [grouping, setGrouping] = useState<Dimension[]>(() => cleanGrouping(loadPref<unknown>('grouping', DEFAULT_GROUPING)))
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadPref<string[]>('collapsedLevels', [])))
+  const [entry, setEntry] = useState<Set<string>>(() => new Set(loadPref<string[]>('entryLevels', [])))
   const [hallsOpen, setHallsOpen] = useState(() => loadPref('hallsOpen', true))
   const [allHalls, setAllHalls] = useState(() => loadPref('allHalls', false))
   const [capacityOpen, setCapacityOpen] = useState(() => loadPref('capacityOpen', false))
@@ -92,6 +101,7 @@ export function Kalender() {
   useEffect(() => savePref('filter', filter), [filter])
   useEffect(() => savePref('grouping', grouping), [grouping])
   useEffect(() => savePref('collapsedLevels', [...collapsed]), [collapsed])
+  useEffect(() => savePref('entryLevels', [...entry]), [entry])
   useEffect(() => savePref('hallsOpen', hallsOpen), [hallsOpen])
   useEffect(() => savePref('allHalls', allHalls), [allHalls])
   useEffect(() => savePref('capacityOpen', capacityOpen), [capacityOpen])
@@ -133,11 +143,11 @@ export function Kalender() {
     return [...placed, ...suggestedRows(locatedDemand, placed)]
   }, [ws.allocations, ws.venue, ws.hallAliases, locatedDemand])
   const items = useMemo(
-    () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined, grouping),
-    [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo, grouping],
+    () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined, grouping, entry),
+    [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo, grouping, entry],
   )
-  const allocLanes = useMemo(() => items.flatMap((item, index) => (item.kind === 'row' ? [{ row: item.row, index }] : [])), [items])
-  const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row.id, i])), [allocLanes])
+  const allocLanes = useMemo<AllocLane[]>(() => items.flatMap((item, index): AllocLane[] => (item.kind === 'row' ? [{ row: item.row, index }] : item.entry ? [{ node: item.node, index }] : [])), [items])
+  const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row?.id ?? `level:${lane.node!.key}`, i])), [allocLanes])
   const capLanes = useMemo<CapLane[]>(
     () =>
       ws.capacity.flatMap((line) =>
@@ -260,25 +270,42 @@ export function Kalender() {
 
   const getValue = useCallback(
     (section: Section, lane: number, date: ISODate): number | undefined => {
-      if (section === 'alloc') return allocLanes[lane]?.row.fte[date]
+      if (section === 'alloc') {
+        const { row, node } = allocLanes[lane] ?? {}
+        // A level's value is a sum of rounded parts; keep float noise out of the editor and the clipboard.
+        const sum = node?.daily.get(date)
+        return node ? (sum === undefined ? undefined : Math.round(sum * 100) / 100) : row?.fte[date]
+      }
       const cap = capLanes[lane]
       return cap?.line[cap.field]?.[date]
     },
     [allocLanes, capLanes],
   )
 
+  const setRowFte = useCallback(
+    (row: AllocationRow, date: ISODate, value: number | null) => (isSuggestedRow(row) ? setSuggestedFte(row, date, value) : setAllocationFte(row.id, date, value)),
+    [setSuggestedFte, setAllocationFte],
+  )
+
   const setValue = useCallback(
     (section: Section, lane: number, date: ISODate, value: number | null) => {
       if (section === 'alloc') {
-        const row = allocLanes[lane]?.row
-        if (row && isSuggestedRow(row)) setSuggestedFte(row, date, value)
-        else if (row) setAllocationFte(row.id, date, value)
+        const { row, node } = allocLanes[lane] ?? {}
+        if (row) setRowFte(row, date, value)
+        else if (node) {
+          // A number typed on a level replaces that day for every row below it, shared out by their required hours.
+          const parts = value === null ? [] : spread(value, node.rows.map((r) => requiredHours(demandIndex, r) ?? 0))
+          node.rows.forEach((r, i) => {
+            const part = parts[i] || null
+            if (part !== null || r.fte[date] !== undefined) setRowFte(r, date, part)
+          })
+        }
       } else {
         const cap = capLanes[lane]
         if (cap) setCapacityValue(cap.line.id, date, cap.field, value)
       }
     },
-    [allocLanes, capLanes, setAllocationFte, setSuggestedFte, setCapacityValue],
+    [allocLanes, capLanes, setRowFte, demandIndex, setCapacityValue],
   )
 
   const fillSelection = useCallback(
@@ -451,13 +478,21 @@ export function Kalender() {
     </div>
   )
 
-  const toggleGroup = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+  const toggled = (prev: Set<string>, key: string) => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
+  }
+  // Lanes are positions in the list, so a selection would land on other rows once levels fold or unfold.
+  const toggleGroup = (key: string) => {
+    setSelection(null)
+    setCollapsed((prev) => toggled(prev, key))
+  }
+  const toggleEntry = (key: string) => {
+    setSelection(null)
+    setEntry((prev) => toggled(prev, key))
+  }
 
   const renderItem = (item: GridItem) => {
     if (item.kind === 'group') {
@@ -467,7 +502,7 @@ export function Kalender() {
       return row(
         `g:${node.key}`,
         <>
-          <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => toggleGroup(node.key)} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
+          <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => (item.entry ? toggleEntry(node.key) : toggleGroup(node.key))} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
             {item.collapsed ? '▸' : '▾'}
           </button>
           {project ? (
@@ -493,6 +528,20 @@ export function Kalender() {
             <span className="muted small no-rows">ingen rader</span>
           )}
           <span className="row-slot">
+            {node.rows.length > 0 && (
+              <button
+                className={`row-action level-mode ${item.entry ? 'entry' : ''}`}
+                aria-pressed={item.entry}
+                title={
+                  item.entry
+                    ? 'Du skriver FTE på dette nivået; tallet fordeles på radene under etter behov. Klikk for å gå tilbake til sum.'
+                    : 'Nivået viser summen av radene under. Klikk for å skrive FTE her og få det fordelt på radene under etter behov.'
+                }
+                onClick={() => toggleEntry(node.key)}
+              >
+                {item.entry ? '✎' : 'Σ'}
+              </button>
+            )}
             {project && (
               <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: project.projectName, projectNo: project.projectNo })}>
                 +
@@ -500,8 +549,11 @@ export function Kalender() {
             )}
           </span>
         </>,
-        (date) => readCell(date, node.daily.get(date), `group-cell ${project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : ''}`),
-        `group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'}`,
+        (date, col) => {
+          const inSpan = project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : ''
+          return item.entry ? valueCell('alloc', laneOfRow.get(`level:${node.key}`)!, date, col, node.daily.get(date), undefined, `group-cell ${inSpan}`) : readCell(date, node.daily.get(date), `group-cell ${inSpan}`)
+        },
+        `group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`,
       )
     }
     const { row: r, totals } = item
@@ -555,7 +607,8 @@ export function Kalender() {
     if (!selection) return null
     const date = dates[selection.focus.col]
     if (selection.section === 'alloc') {
-      const r = allocLanes[selection.focus.lane]?.row
+      const { row: r, node } = allocLanes[selection.focus.lane] ?? {}
+      if (node) return { title: `${node.label} · fordeles på ${node.rows.length} ${node.rows.length === 1 ? 'rad' : 'rader'}`, date, value: node.daily.get(date), note: '', rowId: null }
       if (!r) return null
       return { title: rowTitle(r), date, value: r.fte[date], note: r.notes[date] ?? '', rowId: isSuggestedRow(r) ? null : r.id }
     }
