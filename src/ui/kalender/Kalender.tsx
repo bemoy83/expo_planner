@@ -395,7 +395,8 @@ export function Kalender() {
 
   /**
    * The pencil: for every line in the selection, what is left of its demand after the days outside the
-   * drawn span is shared over the working days in the span, in halves. Weekends and holidays inside the
+   * drawn span is shared over the working days in the span, in whole people with the decimals on the last
+   * day. Weekends and holidays inside the
    * span are left as they are, unless the span has no working day at all.
    */
   const strokeFor = useCallback(
@@ -906,7 +907,7 @@ export function Kalender() {
         <button
           className={tool === 'pencil' ? 'tool active' : 'tool'}
           aria-pressed={tool === 'pencil'}
-          title="Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i halve FTE. Klikk igjen for å slå av."
+          title="Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag. Klikk igjen for å slå av."
           onClick={() => setTool(tool === 'pencil' ? 'select' : 'pencil')}
         >
           ✏ Fordel behov
@@ -1165,16 +1166,17 @@ export function Kalender() {
 
 const rowTitle = (row: AllocationRow) => `${describeRow(row, ['project', 'competence', 'hall', 'avdeling'])} · ${row.phase}`
 
-/** Planned within this much of the demand counts as covered; halves seldom land exactly. */
+/** Planned within this much of the demand counts as covered; a plan in tenths seldom lands exactly. */
 const COVERED_WITHIN = 0.05
-/** Planned this far above the demand counts as clearly over. Rounding rows up to halves stays below it. */
+/** Planned this far above the demand counts as clearly over. */
 const OVER_FROM = 1.15
 
 /** A thin line under a line's figures: how much of its demand is planned. Nothing where there is no demand. */
 const coverageBar = (required: number | null, planned: number) => {
   if (!required || required <= 0) return null
   const share = planned / required
-  const state = planned >= required - COVERED_WITHIN ? (share > OVER_FROM ? 'over' : 'covered') : 'partly'
+  // A small row rounded up to the next tenth is far over in per cent but not in people.
+  const state = planned >= required - COVERED_WITHIN ? (share > OVER_FROM && planned - required > 0.25 ? 'over' : 'covered') : 'partly'
   return (
     <span className={`coverage ${state}`} aria-hidden>
       <i style={{ width: `${Math.min(1, share) * 100}%` }} />

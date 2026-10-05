@@ -38,29 +38,37 @@ describe('sharing a number typed on a level out over its rows', () => {
 })
 
 describe('sharing demand over drawn days', () => {
-  it('shares evenly in halves', () => {
-    expect(shareOverDays(6, 4)).toEqual([1.5, 1.5, 1.5, 1.5])
+  it('shares whole people evenly, the ones that do not divide on the first days', () => {
+    expect(shareOverDays(6, 3)).toEqual([2, 2, 2])
     expect(shareOverDays(8, 2)).toEqual([4, 4])
+    expect(shareOverDays(7, 5)).toEqual([2, 2, 1, 1, 1])
   })
 
-  it('puts what does not divide evenly on the first days', () => {
-    expect(shareOverDays(5, 4)).toEqual([1.5, 1.5, 1, 1])
-    expect(shareOverDays(1, 4)).toEqual([0.5, 0.5, 0, 0])
+  it('keeps the decimals for the last day', () => {
+    expect(shareOverDays(7.7, 5)).toEqual([2, 2, 1, 1, 1.7])
+    expect(shareOverDays(6.5, 3)).toEqual([2, 2, 2.5])
+    expect(shareOverDays(3.1, 2)).toEqual([2, 1.1])
   })
 
-  it('rounds the total up to the next half so the demand is covered', () => {
-    expect(shareOverDays(3.1, 2)).toEqual([2, 1.5])
-    expect(shareOverDays(0.2, 3)).toEqual([0.5, 0, 0])
-    expect(shareOverDays(2.9999999999, 2)).toEqual([1.5, 1.5])
+  it('puts the decimals right after the last whole person when there are more days than people', () => {
+    expect(shareOverDays(1.2, 5)).toEqual([1, 0.2, 0, 0, 0])
+    expect(shareOverDays(3, 5)).toEqual([1, 1, 1, 0, 0])
+    expect(shareOverDays(4.5, 5)).toEqual([1, 1, 1, 1, 0.5])
+    expect(shareOverDays(0.4, 3)).toEqual([0.4, 0, 0])
+    expect(shareOverDays(2.5, 1)).toEqual([2.5])
+  })
+
+  it('rounds the total up to one decimal so the demand is covered', () => {
+    expect(shareOverDays(1.23, 2)).toEqual([1, 0.3])
+    expect(shareOverDays(0.01, 2)).toEqual([0.1, 0])
+    expect(shareOverDays(2.9999999999, 2)).toEqual([2, 1])
+    const parts = shareOverDays(43.47, 8)
+    expect(Math.round(parts.reduce((a, b) => a + b, 0) * 10) / 10).toBe(43.5)
   })
 
   it('gives nothing when nothing is left or no days are drawn', () => {
     expect(shareOverDays(0, 3)).toEqual([])
     expect(shareOverDays(-2, 3)).toEqual([])
     expect(shareOverDays(4, 0)).toEqual([])
-  })
-
-  it('can share in other steps', () => {
-    expect(shareOverDays(2.5, 2, 1)).toEqual([2, 1])
   })
 })

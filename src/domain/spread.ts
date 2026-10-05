@@ -26,15 +26,20 @@ export const spread = (total: number, weights: number[]): number[] => {
 }
 
 /**
- * Shares FTE-days evenly over a number of days, for demand drawn across days in the Kalender.
- * Each day gets a multiple of `step` (half a person by default). The total is rounded up to the next
- * step so the demand is covered, and what does not divide evenly goes to the first days.
- * Nothing to share gives no days.
+ * Shares FTE-days over a number of days in whole people, for demand drawn across days in the Kalender.
+ * The whole FTE-days are shared evenly, with the ones that do not divide on the first days. The decimals
+ * are kept for the last day of the work: the last day drawn, or, where there are fewer whole FTE-days
+ * than days, the day after the last one that got a person. The total is rounded up to one decimal so
+ * the demand is covered. Nothing to share gives no days.
  */
-export const shareOverDays = (total: number, days: number, step = 0.5): number[] => {
+export const shareOverDays = (total: number, days: number): number[] => {
   if (days <= 0 || !(total > 1e-9)) return []
-  const steps = Math.ceil(total / step - 1e-9)
-  const base = Math.floor(steps / days)
-  const extra = steps % days
-  return Array.from({ length: days }, (_, i) => (base + (i < extra ? 1 : 0)) * step)
+  const tenths = Math.ceil(total * 10 - 1e-9)
+  const whole = Math.floor(tenths / 10)
+  const rest = (tenths % 10) / 10
+  const base = Math.floor(whole / days)
+  const extra = whole % days
+  const parts = Array.from({ length: days }, (_, i) => base + (i < extra ? 1 : 0))
+  if (rest) parts[base > 0 ? days - 1 : Math.min(extra, days - 1)] += rest
+  return parts
 }
