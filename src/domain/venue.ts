@@ -85,3 +85,16 @@ export const hallRuns = (days: Map<ISODate, HallDayEntry[]>): HallRun[] => {
   for (const run of runs) run.anchor ||= run.start
   return runs
 }
+
+/** Where a phase falls in the life of an event, for putting the one that is leaving before the one that is arriving. */
+const SEQUENCE: Record<VenuePhase, number> = { dismantle: 0, movingOut: 1, event: 2, movingIn: 3, assembly: 4 }
+
+/**
+ * The two events to show side by side on a day when a hall is shared: the two with the most central phases,
+ * the one on its way out first (MO before MI, D before A). Null when the hall has one event that day.
+ */
+export const splitEntries = (entries: HallDayEntry[]): [HallDayEntry, HallDayEntry] | null => {
+  if (entries.length < 2) return null
+  const [a, b] = [...entries].sort((x, y) => PRIORITY[y.phase] - PRIORITY[x.phase])
+  return SEQUENCE[a.phase] <= SEQUENCE[b.phase] ? [a, b] : [b, a]
+}

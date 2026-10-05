@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHallCalendar, dominantEntry, hallNames, hallRuns } from './venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallRuns, splitEntries, type HallDayEntry } from './venue'
 import type { VenueBooking } from './types'
 
 const booking = (overrides: Partial<VenueBooking>): VenueBooking => ({
@@ -45,6 +45,15 @@ describe('hall calendar', () => {
     expect(hallRuns(days).map((r) => `${r.eventName} ${r.start.slice(8)}-${r.end.slice(8)}`)).toEqual(['VVS DAGENE 2026 02-02', 'Hage 2026 03-04', 'VVS DAGENE 2026 06-06'])
     // A stretch without arrangement days carries the name on its first day.
     expect(hallRuns(days).map((r) => r.anchor.slice(8))).toEqual(['02', '03', '06'])
+  })
+
+  it('splits a shared day between its two most central events, the one leaving first', () => {
+    const entry = (eventName: string, phase: HallDayEntry['phase']): HallDayEntry => ({ eventName, phase })
+    const codes = (entries: HallDayEntry[]) => splitEntries(entries)?.map((e) => `${e.eventName}:${e.phase}`)
+    expect(codes([entry('Ny', 'movingIn'), entry('Gammel', 'movingOut')])).toEqual(['Gammel:movingOut', 'Ny:movingIn'])
+    expect(codes([entry('Ny', 'assembly'), entry('Gammel', 'dismantle')])).toEqual(['Gammel:dismantle', 'Ny:assembly'])
+    expect(codes([entry('Ny', 'assembly'), entry('Midt', 'event'), entry('Gammel', 'movingOut')])).toEqual(['Gammel:movingOut', 'Midt:event'])
+    expect(codes([entry('Alene', 'event')])).toBeUndefined()
   })
 
   it('orders halls alphabetically', () => {

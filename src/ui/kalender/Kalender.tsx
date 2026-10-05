@@ -4,7 +4,7 @@ import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
-import { buildHallCalendar, dominantEntry, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS, splitEntries } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
@@ -790,6 +790,18 @@ export function Kalender() {
                     const main = dominantEntry(entries)
                     const underLabel = labels.some((label) => col >= label.col && col < label.col + label.covered)
                     const title = entries.map((e) => `${e.eventName} – ${PHASE_LABELS[e.phase]}`).join('\n')
+                    // Wide columns have room to show both events on a day the hall is shared.
+                    const split = zoom === 'wide' ? splitEntries(entries) : null
+                    if (split)
+                      return (
+                        <div key={date} className={`${dayClass(date)} cell hall split`} style={{ width: colW }} title={title}>
+                          {split.map((entry) => (
+                            <span key={entry.eventName} className={`half ph-${entry.phase}`}>
+                              {!underLabel && <span className="phase-code">{PHASE_CODES[entry.phase]}</span>}
+                            </span>
+                          ))}
+                        </div>
+                      )
                     return (
                       <div key={date} className={`${dayClass(date)} cell hall ph-${main.phase} ${entries.length > 1 ? 'multi' : ''}`} style={{ width: colW }} title={title}>
                         {!underLabel && zoom !== 'compact' ? <span className="phase-code">{PHASE_CODES[main.phase]}</span> : null}
