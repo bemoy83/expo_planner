@@ -1050,3 +1050,10 @@ table.ledger select.location.unresolved {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* What a pencil stroke would put in a cell, while it is being drawn. */
+.cell.editable.drawn {
+  color: var(--accent);
+  font-style: italic;
+  font-weight: 600;
+}

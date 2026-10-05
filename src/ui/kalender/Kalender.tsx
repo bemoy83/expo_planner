@@ -101,6 +101,7 @@ export function Kalender() {
   const [tool, setTool] = useState<'select' | 'pencil'>('select')
   const [notice, setNotice] = useState<string | null>(null)
   const dragging = useRef<Section | null>(null)
+  const [drawing, setDrawing] = useState(false)
   const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
@@ -388,36 +389,55 @@ export function Kalender() {
    * drawn span is shared over the working days in the span, in halves. Weekends and holidays inside the
    * span are left as they are, unless the span has no working day at all.
    */
-  const drawDemand = useCallback(() => {
-    const sel = selectionRef.current
-    if (!sel || sel.section !== 'alloc') return
-    const { lane0, lane1, col0, col1 } = rangeOf(sel)
-    const span = dates.slice(col0, col1 + 1)
-    const workdays = span.filter((date) => dayType(date) === 'arbeidsdag')
-    const target = workdays.length ? workdays : span
-    let shared = 0
-    let withoutDemand = 0
-    for (let lane = lane0; lane <= lane1; lane++) {
-      const { row, node } = allocLanes[lane] ?? {}
-      if (!row && !node) continue
-      const required = node ? node.totals.requiredFte : (rowTotals(demandIndex, row!, settings).requiredFte ?? 0)
-      const planned = node ? node.totals.plannedFte : sumValues(row!.fte)
-      const onTarget = target.reduce((sum, date) => sum + ((node ? node.daily.get(date) : row!.fte[date]) ?? 0), 0)
-      const parts = shareOverDays(required - (planned - onTarget), target.length)
-      if (!parts.length) {
-        withoutDemand += 1
-        continue
+  const strokeFor = useCallback(
+    (sel: Selection | null) => {
+      if (!sel || sel.section !== 'alloc') return null
+      const { lane0, lane1, col0, col1 } = rangeOf(sel)
+      const span = dates.slice(col0, col1 + 1)
+      const workdays = span.filter((date) => dayType(date) === 'arbeidsdag')
+      const target = workdays.length ? workdays : span
+      const lanes: { lane: number; parts: number[] }[] = []
+      let withoutDemand = 0
+      let left = 0
+      for (let lane = lane0; lane <= lane1; lane++) {
+        const { row, node } = allocLanes[lane] ?? {}
+        if (!row && !node) continue
+        const required = node ? node.totals.requiredFte : (rowTotals(demandIndex, row!, settings).requiredFte ?? 0)
+        const planned = node ? node.totals.plannedFte : sumValues(row!.fte)
+        const onTarget = target.reduce((sum, date) => sum + ((node ? node.daily.get(date) : row!.fte[date]) ?? 0), 0)
+        const remaining = required - (planned - onTarget)
+        const parts = shareOverDays(remaining, target.length)
+        if (parts.length) {
+          lanes.push({ lane, parts })
+          left += remaining
+        } else withoutDemand += 1
       }
-      target.forEach((date, i) => setValue('alloc', lane, date, parts[i] || null))
-      shared += parts.reduce((a, b) => a + b, 0)
-    }
+      const perDay = target.map((_, i) => lanes.reduce((sum, l) => sum + l.parts[i], 0))
+      return { target, lanes, withoutDemand, left, shared: perDay.reduce((a, b) => a + b, 0), perDay }
+    },
+    [dates, allocLanes, demandIndex, settings],
+  )
+
+  const drawDemand = useCallback(() => {
+    const stroke = strokeFor(selectionRef.current)
+    if (!stroke) return
+    for (const { lane, parts } of stroke.lanes) stroke.target.forEach((date, i) => setValue('alloc', lane, date, parts[i] || null))
+    const { target, withoutDemand, shared } = stroke
     const days = `${target.length} ${target.length === 1 ? 'dag' : 'dager'}`
     setNotice(
       shared
         ? `Fordelte ${formatFte(shared, 1)} FTE-dager på ${days}${withoutDemand ? `. ${withoutDemand} ${withoutDemand === 1 ? 'linje' : 'linjer'} hadde ikke behov igjen.` : ''}`
         : 'Ikke noe behov igjen å fordele her. Dagene utenfor det du tegnet dekker allerede behovet, eller raden har ikke behov.',
     )
-  }, [dates, allocLanes, demandIndex, settings, setValue])
+  }, [strokeFor, setValue])
+
+  // While a stroke is being drawn, what it would give: shown in the cells and summed in the status bar.
+  const preview = useMemo(() => (drawing && tool === 'pencil' ? strokeFor(selection) : null), [drawing, tool, strokeFor, selection])
+  const ghost = useMemo(() => {
+    const cells = new Map<string, number>()
+    for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => cells.set(`${lane}|${date}`, parts[i]))
+    return cells
+  }, [preview])
 
   // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
   useEffect(() => {
@@ -429,6 +449,7 @@ export function Kalender() {
       const section = dragging.current
       dragging.current = null
       mouseX = null
+      setDrawing(false)
       if (section === 'alloc' && tool === 'pencil') drawDemand()
     }
     const timer = setInterval(() => {
@@ -534,16 +555,21 @@ export function Kalender() {
 
   const valueCell = (section: Section, lane: number, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
     const focus = isFocus(section, lane, col)
+    // During a pencil stroke the cell shows what the stroke would put there.
+    const drawn = section === 'alloc' ? ghost.get(`${lane}|${date}`) : undefined
     return (
       <div
         key={date}
-        className={`${dayClass(date)} cell editable ${isSelected(section, lane, col) ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''}`}
+        className={`${dayClass(date)} cell editable ${isSelected(section, lane, col) ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined ? 'drawn' : ''}`}
         style={{ width: colW }}
         title={note}
         onMouseDown={(e) => {
           e.preventDefault()
           select(section, { lane, col }, e.shiftKey)
-          if (e.button === 0 && !(e.target instanceof HTMLInputElement)) dragging.current = section
+          if (e.button === 0 && !(e.target instanceof HTMLInputElement)) {
+            dragging.current = section
+            setDrawing(section === 'alloc' && tool === 'pencil')
+          }
         }}
         onMouseEnter={() => {
           if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
@@ -570,6 +596,8 @@ export function Kalender() {
               }
             }}
           />
+        ) : drawn !== undefined ? (
+          formatFte(drawn || undefined)
         ) : (
           formatFte(value)
         )}
@@ -991,7 +1019,14 @@ export function Kalender() {
             <span>{fmtDate(focusInfo.date)}</span>
             <span>{focusInfo.value === undefined ? '–' : `${formatFte(focusInfo.value, 2)}`}</span>
             {selectionSum !== null && <span>Sum markert: {formatFte(selectionSum, 2)}</span>}
-            {notice && <span className="status-notice">{notice}</span>}
+            {notice && !preview && <span className="status-notice">{notice}</span>}
+            {preview && (
+              <span className="status-notice">
+                {preview.shared
+                  ? `Tegner: ${preview.target.length} ${preview.target.length === 1 ? 'arbeidsdag' : 'arbeidsdager'} · opptil ${formatFte(Math.max(...preview.perDay), 1)} FTE/dag · ${formatFte(preview.shared, 1)} FTE-dager = ${formatFte(preview.shared * settings.hoursPerDay, 1)} t (behov igjen ${formatFte(preview.left * settings.hoursPerDay, 1)} t)`
+                  : 'Tegner: ikke noe behov igjen å fordele her'}
+              </span>
+            )}
             {focusInfo.rowId && (
               <NoteEditor key={`${focusInfo.rowId}:${focusInfo.date}`} note={focusInfo.note} onSave={(note) => setAllocationNote(focusInfo.rowId!, focusInfo.date, note)} />
             )}
