@@ -1,0 +1,298 @@
+<!DOCTYPE html><html lang="nb"><head><meta charset="utf-8"><title>Expo Planner — Kalender v6</title><link rel="stylesheet" href="ds/styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="ds/_ds_bundle.js"></script><script src="planner-data.js"></script>
+<style>
+html,body,#root{height:100%}body{margin:0;overflow:hidden;background:rgb(var(--canvas));color:rgb(var(--ink));font-family:var(--font-ui)}
+a{color:rgb(var(--ink));text-decoration:underline;text-decoration-color:rgb(var(--border-strong))}a:hover{color:rgb(var(--accent))}
+.khdr{display:flex;align-items:center;gap:14px;padding:10px 24px;border-bottom:1px solid rgb(var(--border));min-width:0}.ktitle{margin:0;font:700 20px/1.2 var(--font-ui);letter-spacing:-.02em;flex:none}.kmetaline{font:400 12px var(--font-numeric);letter-spacing:.02em;color:rgb(var(--ink-faint));min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.khdr-actions{display:flex;align-items:center;gap:8px;flex:none}
+.kbar-top{display:flex;align-items:center;gap:16px;flex-wrap:nowrap;overflow-x:auto;padding:8px 24px;border-bottom:1px solid rgb(var(--border));scrollbar-width:none}.kbar-top>*{flex:none}
+.kgroupbar{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap}
+.kgb-title{font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--ink-faint));margin-right:4px}
+.kgtrack{display:inline-flex;align-items:center;gap:2px;height:32px;padding:0 3px;box-sizing:border-box;border-radius:8px;background:rgb(var(--sunken))}.kgtrack>svg{margin:0 1px}.kgchip{display:inline-flex;align-items:center;gap:0;height:26px;padding:0 2px;border-radius:6px;background:rgb(var(--surface));font-size:13px;font-weight:600;color:rgb(var(--ink))}
+.kgchip span{padding:0 6px}.kgchip button{display:grid;place-items:center;width:20px;height:20px;border:none;border-radius:5px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;padding:0}
+.kgchip button:hover:not(:disabled){background:rgb(var(--sunken));color:rgb(var(--ink))}.kgchip button:disabled{opacity:.3;cursor:default}
+.kgadd{height:32px;padding:0 10px;border-radius:8px;border:none;background:transparent;font:400 13px var(--font-ui);color:rgb(var(--ink-muted));cursor:pointer;transition:color var(--dur) var(--ease)}.kgadd:hover{color:rgb(var(--ink))}
+.kfilters{margin-left:auto;display:flex;align-items:center;gap:16px;flex-wrap:nowrap;white-space:nowrap;font-size:13px;color:rgb(var(--ink-body))}
+.kfilters label{display:flex;align-items:center;gap:6px;cursor:pointer}.kfilters input[type=checkbox]{accent-color:rgb(var(--accent));width:15px;height:15px;margin:0}
+.kfilters select{height:30px;border:none;border-radius:8px;background:rgb(var(--field));padding:0 28px 0 10px;font:400 13px var(--font-ui);color:rgb(var(--ink));appearance:none;background-image:linear-gradient(45deg,transparent 50%,rgb(var(--ink-muted)) 50%),linear-gradient(135deg,rgb(var(--ink-muted)) 50%,transparent 50%);background-position:calc(100% - 14px) 13px,calc(100% - 10px) 13px;background-size:4px 4px;background-repeat:no-repeat;cursor:pointer}
+.kwork{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px}
+.kwork.noinsp{grid-template-columns:minmax(0,1fr)}
+.kal{overflow:auto;height:100%;outline:none;position:relative;font-size:13px}
+.kinner{position:relative}
+.krow{display:flex;height:28px;position:relative}
+.klab{position:sticky;left:0;z-index:3;width:400px;flex:none;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:0 12px 0 16px;background:rgb(var(--canvas));border-right:1px solid rgb(var(--border));min-width:0}
+.kcell{width:var(--w);flex:none;box-sizing:border-box;border-right:1px solid rgb(var(--border) / .55);display:grid;place-items:center;position:relative;overflow:hidden}
+.kcell.wke{}
+.kcell.we{background:var(--sunken-2)}
+.kcell.today::after{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:rgb(var(--accent));z-index:1}
+.khead{position:sticky;top:0;z-index:6;background:rgb(var(--canvas));border-bottom:1px solid rgb(var(--border-strong))}
+.khead .klab{z-index:7}
+.kdate1 .kcell,.kdate2 .kcell{overflow:visible}
+.kwk{position:absolute;left:5px;top:3px;white-space:nowrap;font:500 11px var(--font-numeric);color:rgb(var(--ink-muted));text-transform:uppercase;letter-spacing:.04em}
+.kdd{display:flex;flex-direction:column;align-items:center;line-height:1.05;font-family:var(--font-numeric)}.kdd span{font-size:10px;color:rgb(var(--ink-faint))}.kdd b{font-size:12.5px;font-weight:500}
+.kdate2 .kcell.today .kdd b{color:rgb(var(--accent));font-weight:700}
+.kdate2{border-bottom:1px solid rgb(var(--border))}
+.keb{font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--ink-faint))}
+.kmeta{font:400 12px var(--font-numeric);color:rgb(var(--ink-muted))}
+.ksec{height:22px;display:flex;border-top:1px solid rgb(var(--border))}.ksec .klab{gap:12px;align-items:flex-end;padding-bottom:3px}
+.ksectog{display:flex;align-items:center;gap:6px;border:none;background:transparent;padding:0 4px 0 0;margin-left:-4px;cursor:pointer;color:rgb(var(--ink-faint));border-radius:6px}.ksectog:hover .keb{color:rgb(var(--ink))}
+.klegend{display:flex;gap:4px;margin-left:auto}.klegend span{font:400 10.5px var(--font-numeric);color:rgb(var(--ink-faint));padding:1px 5px;border-radius:4px;background:rgb(var(--sunken))}
+.klegend.wp{position:sticky;left:412px;width:0;flex:none;align-self:stretch;align-items:center;gap:14px;margin:0;z-index:2;white-space:nowrap;overflow:visible}.klegend.wp span{background:transparent;padding:0;display:flex;align-items:center;gap:5px;font:400 12px var(--font-ui);color:rgb(var(--ink-muted))}.klegend.wp i{width:10px;height:10px;border-radius:3px}
+.kphase{width:10px;height:10px;border-radius:3px;flex:none;box-sizing:border-box}.kphase.m,.kphase.d{box-shadow:inset 0 0 0 1px rgb(var(--ink) / .35)}
+.koutsw{width:10px;height:10px;border-radius:3px;box-shadow:inset 0 0 0 1.5px rgb(var(--danger))}.kin.koutw:not(.cur){box-shadow:inset 0 0 0 1.5px rgb(var(--danger))}
+:root{--total-1:rgb(var(--sunken));--total-2:var(--sunken-2)}.dark{--total-1:rgb(var(--surface));--total-2:rgb(var(--panel))}
+
+
+.kgroup .ksum{color:rgb(var(--ink));font-weight:500}.kgroup.top .ksum{font-weight:600}
+.khall{height:22px}.khname{font:500 12px var(--font-numeric);color:rgb(var(--ink-muted))}
+.ktrack{position:relative;display:flex;flex:none}.ktrack .kcell{height:22px}
+.kbar{position:absolute;top:3px;height:16px;border-radius:4px;display:flex;align-items:center;padding:0 6px;box-sizing:border-box;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;line-height:16px;z-index:2}
+.kcap{font-size:13px;color:rgb(var(--ink-muted))}.kcap.strong{color:rgb(var(--ink));font-weight:600}
+.krow.ktop{border-top:1px dashed rgb(var(--border-strong))}
+.kv{font:400 11.5px var(--font-numeric);padding:1px 3px;border-radius:4px;color:rgb(var(--ink))}
+.ksum{color:rgb(var(--ink-muted))}
+.kplanhead{height:30px;border-top:1px solid rgb(var(--border))}.kplanhead .knum{font:var(--type-eyebrow);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:rgb(var(--ink-faint))}
+.knums{display:flex;margin-left:auto;position:relative;flex:none;align-self:stretch;align-items:center}
+.knum{width:52px;text-align:right;font:inherit;font-family:var(--font-numeric);font-size:12px}
+.kprog{position:absolute;left:12px;right:0;bottom:3px;height:2px;background:rgb(var(--border));border-radius:2px;overflow:hidden}.kprog span{display:block;height:100%}
+.kname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kmuted{font-size:12px;color:rgb(var(--ink-faint));font-style:italic}
+.kdot{width:8px;height:8px;border-radius:999px;flex:none}
+.kchev{display:grid;place-items:center;width:20px;height:20px;border:none;background:transparent;border-radius:6px;color:rgb(var(--ink-muted));cursor:pointer;padding:0;flex:none}.kchev:hover{background:rgb(var(--sunken))}.kchev:disabled{opacity:.3}
+.kgroup{border-top:1px solid rgb(var(--border))}.kgroup .klab{font-weight:600}
+.kgroup.top{height:34px;border-top:1px solid rgb(var(--border-strong))}.kgroup.top .klab{font-size:14px}
+.kgroup .kcell{background-color:transparent}
+.kgroup.top+.kgroup.sub{border-top-color:rgb(var(--border-strong))}
+.kact{display:flex;gap:2px;opacity:0;transition:opacity var(--dur) var(--ease)}.krow:hover .kact{opacity:1}
+.kact button{display:grid;place-items:center;width:24px;height:24px;border:none;border-radius:6px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;font-size:13px;padding:0}.kact button:hover{background:rgb(var(--sunken));color:rgb(var(--ink))}
+.kleaf .klab{cursor:pointer;color:rgb(var(--ink-body))}.kleaf:hover .klab{background:var(--surface-hover)}
+.kleaf.sel .klab{background:rgb(var(--surface));color:rgb(var(--ink));font-weight:600;box-shadow:inset 3px 0 0 rgb(var(--accent))}
+.kleaf.sel .kcell:not(.kin.cur){box-shadow:inset 0 1px 0 rgb(var(--accent) / .35),inset 0 -1px 0 rgb(var(--accent) / .35)}
+.kin{cursor:cell}.kin.cur{box-shadow:inset 0 0 0 1.5px rgb(var(--accent)),0 0 0 3px var(--accent-soft);z-index:2;overflow:visible}
+.kedit{width:100%;height:100%;box-sizing:border-box;border:none;background:rgb(var(--surface));text-align:center;font:500 12px var(--font-numeric);color:rgb(var(--ink));outline:none;caret-color:rgb(var(--accent));padding:0}
+.kinsp{border-left:1px solid rgb(var(--border));background:rgb(var(--panel));display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.kinsp-body{flex:1;min-height:0;overflow:auto;padding:18px 24px;display:flex;flex-direction:column;gap:20px}
+.konchip{padding:4px 10px;border-radius:999px;font-size:12px;background:var(--on-line-soft)}
+.kscope{display:grid;grid-template-columns:90px 1fr;gap:8px 12px;margin:0;font-size:13px}.kscope dt{color:rgb(var(--ink-muted))}.kscope dd{margin:0;color:rgb(var(--ink))}
+.kinsp-p{margin:8px 0 0;font-size:13px;line-height:1.5;color:rgb(var(--ink-body));text-wrap:pretty}.kinsp-p .font-numeric{font-size:12px}
+.ktotals{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ktotals div{background:rgb(var(--surface));border:1px solid rgb(var(--border));border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.ktotals span{font-size:12px;color:rgb(var(--ink-muted))}.ktotals b{font-size:20px;font-weight:600;letter-spacing:-.03em}.ktotals em{font-style:normal;font-size:11px;color:rgb(var(--ink-faint))}
+.kdays{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.kdays th{text-align:right;font:400 11px var(--font-numeric);text-transform:uppercase;letter-spacing:.04em;color:rgb(var(--ink-faint));padding:4px 0;border-bottom:1px solid rgb(var(--border))}
+.kdays th:first-child,.kdays td:first-child{text-align:left}.kdays td{text-align:right;padding:5px 0;border-bottom:1px solid rgb(var(--border));font-family:var(--font-numeric)}
+.kout{color:rgb(var(--draft));font-family:var(--font-ui)}
+.ksave{display:flex;align-items:center;gap:6px;font-size:13px}.ksave i{width:7px;height:7px;border-radius:999px;background:rgb(var(--committed))}
+.kmenu{position:absolute;top:100%;right:0;margin-top:8px;width:268px;background:rgb(var(--surface));border:1px solid rgb(var(--border-strong));border-radius:10px;z-index:50;padding:8px}
+.kmenu button.it{width:100%;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:none;border-radius:8px;background:transparent;font:400 13px var(--font-ui);color:var(--ink-body);cursor:pointer;text-align:left}.kmenu button.it:hover{background:var(--surface-hover)}
+.kmenu .grp{padding:8px 10px 6px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:rgb(var(--ink-faint))}
+.kplaceholder{padding:22px 24px;font-size:14px;color:rgb(var(--ink-muted))}
+.ktoasts{position:fixed;right:16px;bottom:16px;z-index:60;display:flex;flex-direction:column;gap:8px;width:380px}
+.kgroup .kcell,.ktotal .kcell{border-right-color:transparent;border-left-color:transparent;background:none}
+:root{--band-1:color-mix(in oklab,rgb(var(--ink)) 6%,rgb(var(--canvas)));--band-1-we:color-mix(in oklab,rgb(var(--ink)) 10%,rgb(var(--canvas)));--band-2:color-mix(in oklab,rgb(var(--ink)) 3%,rgb(var(--canvas)));--band-2-we:color-mix(in oklab,rgb(var(--ink)) 7%,rgb(var(--canvas)))}
+.dark{--band-1:color-mix(in oklab,rgb(var(--ink)) 8%,rgb(var(--canvas)));--band-1-we:color-mix(in oklab,rgb(var(--ink)) 12%,rgb(var(--canvas)));--band-2:color-mix(in oklab,rgb(var(--ink)) 4%,rgb(var(--canvas)));--band-2-we:color-mix(in oklab,rgb(var(--ink)) 8%,rgb(var(--canvas)))}
+html:is([data-levels="project"],[data-levels="all"]) .kgroup.top,html:is([data-levels="project"],[data-levels="all"]) .kgroup.top .klab{background:var(--band-1)}
+html:is([data-levels="project"],[data-levels="all"]) .kgroup.top .kcell.we{background:var(--band-1-we)}
+html[data-levels="all"] .kgroup.sub,html[data-levels="all"] .kgroup.sub .klab{background:var(--band-2)}
+html[data-levels="all"] .kgroup.sub .kcell.we{background:var(--band-2-we)}
+.kgroup.top{height:36px}.kgroup.top .klab{font-size:14px;font-weight:700}
+.kgroup.sub{border-top:1px solid rgb(var(--border))}.kgroup.sub .klab{font-weight:500;color:rgb(var(--ink-body))}
+.kgroup.sub .kname{font-size:13px}
+.kstrip{position:absolute;top:9px;bottom:9px;z-index:0}
+.kgroup .kv{position:relative;z-index:1}
+.kgroup.top + .kleaf,.kgroup.sub + .kleaf{border-top:1px solid rgb(var(--border))}
+.kleaf .kcell{border-bottom:1px solid rgb(var(--border) / .55)}
+.kleaf .kcell.we{background:var(--sunken-2)}
+:root{--work-m:oklch(0.5 0.035 250);--work-m-ink:#fff;--work-d:oklch(0.8 0.075 42);--work-d-ink:rgb(var(--ink))}
+.dark{--work-m:oklch(0.72 0.035 250);--work-m-ink:rgb(var(--canvas));--work-d:oklch(0.47 0.075 40);--work-d-ink:rgb(var(--ink))}
+.kstrip.work{top:5px;bottom:5px}
+.kgroup.top .kstrip.work{top:8px;bottom:8px}
+.kgroup .kv{background:transparent}
+.kdotw{width:3px;height:3px;border-radius:999px;background:rgb(var(--ink) / .28)}
+.kphase.m,.kphase.d{box-shadow:none}
+html[data-mtone="sand"]{--work-m:oklch(0.82 0.03 80);--work-m-ink:rgb(var(--ink))}.dark[data-mtone="sand"]{--work-m:oklch(0.45 0.03 80);--work-m-ink:rgb(var(--ink))}
+html[data-mtone="olive"]{--work-m:oklch(0.8 0.065 115);--work-m-ink:rgb(var(--ink))}.dark[data-mtone="olive"]{--work-m:oklch(0.45 0.06 115);--work-m-ink:rgb(var(--ink))}
+html[data-mtone="sage"]{--work-m:oklch(0.62 0.045 150);--work-m-ink:#fff}.dark[data-mtone="sage"]{--work-m:oklch(0.72 0.045 150);--work-m-ink:rgb(var(--canvas))}
+html[data-mtone="ink"]{--work-m:#4a4642;--work-m-ink:#f5f2ec}.dark[data-mtone="ink"]{--work-m:#5a5550;--work-m-ink:#f5f2ec}
+.kdd.on{background:var(--accent-soft);border-radius:6px;padding:2px 0;width:calc(var(--w) - 6px)}.kdd.on span,.kdd.on b{color:rgb(var(--accent));font-weight:700}
+.kgadd:hover{background:rgb(var(--sunken))}
+.khdr{justify-content:space-between;padding:14px 24px 10px;border-bottom:none}
+.khdr-title{display:flex;align-items:baseline;gap:14px;min-width:0}.khdr-title .kmetaline{flex:initial}
+.ktools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:6px 24px 10px;border-bottom:1px solid rgb(var(--border));white-space:nowrap}
+.ktools>*{flex:none}
+.kzone{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media (max-width:1100px){.ksave span{display:none}.khaller-l{display:none}.ktools .kzdiv{display:none}}
+.kzdiv{width:1px;height:22px;background:rgb(var(--border-strong));flex:none}
+.kzlab{font-size:13px;color:rgb(var(--ink-muted));margin-right:2px}
+.kseg{display:flex;align-items:center;gap:6px}
+.kfbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:none;border-radius:8px;background:rgb(var(--field));font:400 13px var(--font-ui);color:rgb(var(--ink));cursor:pointer}
+.kfbtn:hover{background:rgb(var(--sunken))}.kfbtn svg{color:rgb(var(--ink-muted))}
+.kfbtn b{font:600 11px var(--font-numeric);padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:rgb(var(--accent))}
+.kfbtn.on svg:first-child{color:rgb(var(--accent))}
+.kfmenu label.it{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--ink-body);cursor:pointer}.kfmenu label.it:hover{background:var(--surface-hover)}
+.kfmenu input[type=checkbox]{accent-color:rgb(var(--accent));width:15px;height:15px;margin:0}
+.kmenu button.it.sel{color:rgb(var(--ink));font-weight:600}
+.kgadd{width:32px;padding:0;display:grid;place-items:center}
+.kfold{border:none;background:transparent;font:400 12px var(--font-ui);color:rgb(var(--ink-muted));cursor:pointer;padding:2px 6px;border-radius:6px;margin-left:6px}.kfold:hover{background:rgb(var(--sunken));color:rgb(var(--ink))}
+.kplanhead .klab{align-items:center}
+</style></head><body><div id="root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="KalenderGrid v6.jsx"></script>
+<script type="text/babel" src="KalenderPanels v6.jsx"></script>
+<script type="text/babel">
+const DS = window.WarmMinimalDesignSystem_58386e;
+const { TopBar, PageHeader, Button, IconButton, Segmented, HeaderDivider, NotificationToastCard, Icon, Breadcrumb } = DS;
+const EPd = window.EP;
+const ZOOM = { compact: 26, normal: 36, wide: 52 };
+const TABS = [{ id: 'kalender', label: 'Kalender' }, { id: 'behov', label: 'Behov' }, { id: 'haller', label: 'Haller' }, { id: 's1', separator: true }, { id: 'produkttyper', label: 'Produkttyper' }, { id: 'kpi', label: 'KPI' }];
+const r1 = v => Math.round(v * 10) / 10;
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "projectTotal": "venue",
+  "sums": "folded",
+  "windowDot": true,
+  "mTone": "olive",
+  "levels": "project"
+}/*EDITMODE-END*/;
+function spread(total, days) {
+  const out = {}; if (total <= 0.05 || !days.length) return out;
+  const n = days.length; let per = Math.round(total / n); if (per * (n - 1) >= total) per = Math.floor(total / n); if (per < 1) per = 1;
+  let left = total; days.forEach((d, k) => { const v = k === n - 1 ? left : Math.min(per, left); if (v > 0.05) out[d] = r1(v); left -= v; });
+  return out;
+}
+function SettingsMenu({ dark, setDark, tooltips, setTooltips, notify }) {
+  const [open, setOpen] = React.useState(false);
+  const act = l => { setOpen(false); notify({ message: l.replace(' …', '') + ' er ikke med i denne skissen.', variant: 'info' }); };
+  return (
+    <div style={{ position: 'relative' }}>
+      <Button variant="ghost" size="sm" icon="settings" onClick={() => setOpen(o => !o)}>Innstillinger</Button>
+      {open && <div data-surface="raised" className="kmenu">
+        <div style={{ padding: '8px 10px' }}><span style={{ display: 'block', fontSize: 12, color: 'rgb(var(--ink-muted))', marginBottom: 6 }}>Utseende</span>
+          <Segmented block size="compact" value={dark ? 'dark' : 'light'} onChange={v => setDark(v === 'dark')} options={[{ value: 'light', label: 'Lys' }, { value: 'dark', label: 'Mørk' }]} /></div>
+        <button className="it" onClick={() => setTooltips(!tooltips)}><Icon name="info" />Hjelpetekster {tooltips ? 'på' : 'av'}</button>
+        <button className="it" onClick={() => act('Bemanning og normaltid …')}><Icon name="users" />Bemanning og normaltid …</button>
+        <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px solid rgb(var(--border))' }}>
+          <div className="grp">Data</div>
+          {[['upload', 'Importer arbeidsbok …'], ['download', 'Last ned sikkerhetskopi'], ['rotate-ccw', 'Gjenopprett …']].map(([ic, l]) => <button key={l} className="it" onClick={() => act(l)}><Icon name={ic} />{l}</button>)}
+        </div>
+      </div>}
+    </div>
+  );
+}
+function App() {
+  const [view, setView] = React.useState('kalender');
+  const [tw, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => { document.documentElement.dataset.mtone = tw.mTone; }, [tw.mTone]);
+  React.useEffect(() => { document.documentElement.dataset.levels = tw.levels; }, [tw.levels]);
+  const [dark, setDark] = React.useState(localStorage.getItem('ep-dark') === '1');
+  const [tooltips, setTooltips] = React.useState(true);
+  const [hist, setHist] = React.useState({ rows: EPd.ROWS, past: [], future: [] });
+  const rows = hist.rows;
+  const [grouping, setGrouping] = React.useState(['project', 'phase']);
+  const [collapsed, setCollapsed] = React.useState(new Set());
+  const [zoom, setZoom] = React.useState('normal');
+  const [tool, setTool] = React.useState('select');
+  const [project, setProject] = React.useState('');
+  const [hideEmpty, setHideEmpty] = React.useState(false);
+  const [onlyOpen, setOnlyOpen] = React.useState(false);
+  const [selection, setSelection] = React.useState({ rowId: 'r3', col: 3 });
+  const [inspOpen, setInspOpen] = React.useState(true);
+  const [toasts, setToasts] = React.useState([]);
+  const scrollRef = React.useRef(null);
+  React.useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('ep-dark', dark ? '1' : '0'); }, [dark]);
+  const notify = t => { const id = Math.random(); setToasts(ts => [...ts, { ...t, id }]); setTimeout(() => setToasts(ts => ts.filter(x => x.id !== id)), 7000); };
+  const commit = fn => setHist(h => { const next = fn(h.rows); return next === h.rows ? h : { rows: next, past: [...h.past, h.rows].slice(-100), future: [] }; });
+  const undo = () => setHist(h => h.past.length ? { rows: h.past[h.past.length - 1], past: h.past.slice(0, -1), future: [h.rows, ...h.future] } : h);
+  const redo = () => setHist(h => h.future.length ? { rows: h.future[0], past: [...h.past, h.rows], future: h.future.slice(1) } : h);
+  React.useEffect(() => {
+    const k = e => { if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return; if (e.target.tagName === 'INPUT') return; e.preventDefault(); e.shiftKey ? redo() : undo(); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, []);
+  const setFte = (rowId, fn) => commit(rs => rs.map(r => r.id === rowId ? { ...r, fte: fn(r) } : r));
+  const onCommit = (rowId, col, v) => setFte(rowId, r => { const f = { ...r.fte }; if (v === null || v === 0) delete f[col]; else f[col] = v; return f; });
+  const onRange = (rowId, a, b) => {
+    if (tool === 'clear') return setFte(rowId, r => Object.fromEntries(Object.entries(r.fte).filter(([i]) => +i < a || +i > b)));
+    setFte(rowId, r => {
+      const outside = Object.fromEntries(Object.entries(r.fte).filter(([i]) => +i < a || +i > b));
+      const work = []; for (let i = a; i <= b; i++) if (EPd.DAYS[i].type === 'Arbeidsdag') work.push(i);
+      return { ...outside, ...spread(needF(r) - sumF(outside), work) };
+    });
+  };
+  const onSpread = rowId => setFte(rowId, r => { const outside = Object.fromEntries(Object.entries(r.fte).filter(([i]) => !r.window.includes(+i))); return { ...outside, ...spread(needF(r) - sumF(outside), r.window) }; });
+  const suggest = projectNos => {
+    const targets = rows.filter(r => projectNos.includes(r.projectNo) && sumF(r.fte) === 0);
+    if (!targets.length) return notify({ message: 'Alle radene har FTE allerede. Foreslå plan fyller bare tomme rader.', variant: 'info' });
+    const ids = new Set(targets.map(r => r.id));
+    commit(rs => rs.map(r => ids.has(r.id) ? { ...r, fte: spread(needF(r), r.window) } : r));
+    const names = [...new Set(targets.map(r => r.projectName))];
+    notify({ message: 'Foreslått plan for ' + targets.length + ' rader i ' + (names.length === 1 ? names[0] : names.length + ' prosjekter') + '.', variant: 'success', action: { label: 'Angre', onClick: undo } });
+  };
+  const visible = rows.filter(r => (!project || r.projectNo === project) && (!onlyOpen || sumF(r.fte) < needF(r) - 0.05));
+  const items = buildItems(visible, grouping, collapsed, { hideEmpty: hideEmpty || !!project || onlyOpen });
+  const needByDay = EPd.DAYS.map((d, i) => rows.reduce((a, r) => a + (r.fte[i] || 0), 0));
+  const short = EPd.DAYS.filter((d, i) => ((d.type === 'Arbeidsdag' ? 21 : 0) + (EPd.HIRED[i] || 0) - (EPd.ABSENT[i] || 0)) < needByDay[i]).length;
+  const selRow = rows.find(r => r.id === (selection && selection.rowId));
+  const toggle = key => setCollapsed(s => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const topKeys = items.filter(i => i.kind === 'group' && i.depth === 0).map(i => i.key);
+  const goToday = () => { if (scrollRef.current) scrollRef.current.scrollLeft = 0; };
+  const meta = [EPd.PROJECTS.length + ' prosjekter', rows.length + ' rader', short ? short + (short === 1 ? ' dag' : ' dager') + ' med underdekning' : 'Ingen underdekning', 'Lagret i nettleseren'].join(' · ');
+  const T = (t, s) => tooltips ? s : undefined;
+  let screen;
+  if (view !== 'kalender') screen = <><PageHeader title={TABS.find(t => t.id === view).label} /><p className="kplaceholder">Ikke med i denne skissen. Kalender er planleggingsflaten.</p></>;
+  else screen = (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="khdr">
+        <div className="khdr-title"><h1 className="ktitle">Kalender</h1><span className="kmetaline">{meta}</span></div>
+        <Button variant="accent" size="sm" onClick={() => suggest(project ? [project] : EPd.PROJECTS.map(p => p.no))} title={T(0, 'Fordel behovet på tomme rader i ' + (project ? 'prosjektet' : 'alle prosjekter') + '. Rader som har FTE røres ikke.')}>{'✦ Foreslå plan' + (project ? '' : ' for alle')}</Button>
+      </div>
+      <div className="ktools">
+        <div className="kzone">
+          <IconButton label="Angre" tooltip="Angre (Ctrl/Cmd+Z)" icon="undo-2" onClick={undo} disabled={!hist.past.length} />
+          <IconButton label="Gjør om" tooltip="Gjør om (Ctrl/Cmd+Shift+Z)" icon="redo-2" onClick={redo} disabled={!hist.future.length} />
+          <Segmented size="compact" aria-label="Verktøy" value={tool} onChange={setTool} options={[{ value: 'select', label: <span className="kseg"><Icon name="mouse-pointer-2" size={14} />Velg</span>, title: 'Velg og skriv FTE i cellene' }, { value: 'distribute', label: <span className="kseg"><Icon name="pencil" size={14} />Fordel behov</span>, title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over' }, { value: 'clear', label: <span className="kseg"><Icon name="eraser" size={14} />Tøm</span>, title: 'Tegn over celler for å tømme dem' }]} />
+        </div>
+        <span className="kzdiv"></span>
+        <div className="kzone">
+          <FilterMenu project={project} setProject={setProject} hideEmpty={hideEmpty} setHideEmpty={setHideEmpty} onlyOpen={onlyOpen} setOnlyOpen={setOnlyOpen} />
+          <GroupingBar grouping={grouping} onChange={g => { setGrouping(g); setCollapsed(new Set()); }} />
+          <Button variant="ghost" size="sm" icon={collapsed.size ? 'chevrons-up-down' : 'chevrons-down-up'} onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(topKeys))}>{collapsed.size ? 'Utvid alle' : 'Fold sammen'}</Button>
+        </div>
+        <div className="kzone" style={{ marginLeft: 'auto' }}>
+          <Button variant="ghost" size="sm" onClick={goToday}>I dag</Button>
+          <Segmented size="compact" aria-label="Kolonnebredde" value={zoom} onChange={setZoom} mono options={[{ value: 'compact', label: 'S' }, { value: 'normal', label: 'M' }, { value: 'wide', label: 'L' }]} />
+          <IconButton label={inspOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer'} icon="panel-right" variant={inspOpen ? 'active' : 'default'} onClick={() => setInspOpen(!inspOpen)} />
+        </div>
+      </div>
+      <div className={'kwork' + (inspOpen ? '' : ' noinsp')}>
+        <div style={{ minWidth: 0, minHeight: 0 }}>
+          <KalenderGrid items={items} grouping={grouping} rows={rows} W={ZOOM[zoom]} selection={selection} setSelection={s => { setSelection(s); }} onCommit={onCommit} tool={tool} onRange={onRange}
+            onSuggest={no => suggest([no])} onAddRow={() => notify({ message: 'Ny rad: velg kompetanse, fase og grunnlag. Ikke med i denne skissen.', variant: 'info' })} collapsed={collapsed} onToggle={toggle} scrollRef={scrollRef} needByDay={needByDay} onFoldAll={() => setCollapsed(collapsed.size ? new Set() : new Set(topKeys))} foldLabel={collapsed.size ? 'Utvid alle' : 'Fold sammen'} projectTotal={tw.projectTotal} windowDot={tw.windowDot} sums={tw.sums} />
+        </div>
+        {inspOpen && <RowInspector workStyle="mono" row={selRow} rows={rows} needByDay={needByDay} onSpread={onSpread} onClose={() => setInspOpen(false)} />}
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <TopBar brand="Expo Planner" tabs={TABS} active={view} onSelect={setView} onBrand={() => setView('kalender')}
+        right={<>
+          <span className="ksave" title="Lagret i nettleseren"><i></i><span>Lagret</span></span>
+          <span className="kzdiv" style={{ height: 18 }}></span>
+          <Button variant="ghost" size="sm" icon="refresh-cw" title={T(0, 'Sist: location_format_from-2026-10-01_to-2026-12-31.xlsx, 2. okt 2026')} onClick={() => notify({ message: 'Hallkalenderen er oppdatert for 1. okt til 31. des: 2 nye arrangementer, 1 endret, 0 borte, 37 uendret. Kan angres med Ctrl/Cmd+Z.', variant: 'success' })}><span className="khaller-l">Haller · 2. okt</span></Button>
+          <SettingsMenu dark={dark} setDark={setDark} tooltips={tooltips} setTooltips={setTooltips} notify={notify} />
+        </>} />
+      <main style={{ flex: 1, minHeight: 0 }}>{screen}</main>
+      <div className="ktoasts">{toasts.map(t => <NotificationToastCard key={t.id} {...t} action={t.action && { ...t.action, onClick: () => { t.action.onClick(); setToasts(ts => ts.filter(x => x.id !== t.id)); } }} showDismissButton onDismiss={() => setToasts(ts => ts.filter(x => x.id !== t.id))} />)}</div>
+      <TweaksPanel>
+        <TweakSection label="Rader" />
+        <TweakRadio label="Montering-farge" value={tw.mTone} options={[{ value: 'slate', label: 'Skifer' }, { value: 'sand', label: 'Sand' }, { value: 'ink', label: 'Blekk' }, { value: 'olive', label: 'Oliven' }, { value: 'sage', label: 'Salvie' }]} onChange={v => setTweak('mTone', v)} />
+        <TweakToggle label="Vindusprikk i tomme celler" value={tw.windowDot} onChange={v => setTweak('windowDot', v)} />
+        <TweakSection label="Totallinjer" />
+        <TweakRadio label="Nivåmarkering" value={tw.levels} options={[{ value: 'project', label: 'Kun prosjekt' }, { value: 'none', label: 'Ingen' }, { value: 'all', label: 'Alle nivåer' }]} onChange={v => setTweak('levels', v)} />
+        <TweakRadio label="Summer per dag" value={tw.sums} options={[{ value: 'folded', label: 'Når foldet' }, { value: 'always', label: 'Alltid' }]} onChange={v => setTweak('sums', v)} />
+        <TweakRadio label="Farge på totallinjen" value={tw.projectTotal} options={[{ value: 'venue', label: 'Hallfaser' }, { value: 'work', label: 'Mont./Dem.' }, { value: 'neutral', label: 'Nøytral' }]} onChange={v => setTweak('projectTotal', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script></body></html>

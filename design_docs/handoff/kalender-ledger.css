@@ -1,0 +1,195 @@
+/*
+ * Kalender: Ledger redesign, phase 1 (tokens + CSS only)
+ * ---------------------------------------------------------------
+ * Drop-in stylesheet for bemoy83/expo_planner. Import it AFTER src/index.css
+ * (e.g. `import './kalender-ledger.css'` on the line after `import './index.css'` in main.tsx),
+ * or paste it at the end of index.css.
+ *
+ * Rules:
+ *  - Only existing class names from index.css / GridRows.tsx / Kalender.tsx are targeted.
+ *  - No markup, state or logic changes. Removing this file restores the current look exactly.
+ *  - The row-detail panel is out of scope and untouched.
+ */
+
+/* ---- 1. Fonts (copy handoff/fonts/*.woff2 to public/fonts/) ---- */
+@font-face{font-family:'Schibsted Grotesk';font-style:normal;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-normal-400_900.woff2') format('woff2')}
+@font-face{font-family:'Schibsted Grotesk';font-style:italic;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-italic-400_900.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/JetBrainsMono-normal-400_600.woff2') format('woff2')}
+
+/* ---- 2. Tokens: same names as index.css, Ledger values ---- */
+:root{
+  /* neutrals: warm paper */
+  --bg:#f2f0eb;            /* canvas */
+  --surface:#ffffff;
+  --panel:#faf9f6;
+  --sunken:#e7e4dd;
+  --text:#171613;          /* ink */
+  --muted:#5b5953;         /* ink-muted */
+  --faint:#77746c;         /* ink-faint */
+  --line:#dcd8cf;          /* border */
+  --line-strong:#c4bfb4;   /* border-strong */
+
+  /* accent: signal orange (selection, focus, today, active tab) */
+  --accent:#ec6f00;
+  --accent-soft:color-mix(in oklab,#ec6f00 15%,transparent);
+
+  /* calendar days */
+  --weekend:color-mix(in srgb,#e7e4dd 50%,#f2f0eb);
+  --holiday:#f9e5e2;
+  --today:var(--accent);
+
+  /* work phases: light fills with dark numbers (chosen in mockup v5: Oliven + terracotta) */
+  --mon:oklch(0.8 0.065 115);
+  --dem:oklch(0.8 0.075 42);
+  --mon-strong:oklch(0.45 0.08 115);   /* label text: M, "Montering" */
+  --dem-strong:oklch(0.5 0.1 40);      /* label text: D, "Demontering" */
+
+  /* hall phases: one distinct hue each, never shared (index.css already has separate classes) */
+  --ph-assembly:color-mix(in oklab,oklch(0.56 0.13 250) 34%,#fff);   /* blue */
+  --ph-movingin:color-mix(in oklab,oklch(0.53 0.13 185) 34%,#fff);   /* teal */
+  --ph-event:color-mix(in oklab,oklch(0.56 0.13 300) 48%,#fff);      /* violet */
+  --ph-movingout:color-mix(in oklab,oklch(0.56 0.13 85) 34%,#fff);   /* amber */
+  --ph-dismantle:color-mix(in oklab,oklch(0.56 0.13 10) 34%,#fff);   /* rose */
+  --ph-moving:var(--ph-movingin); /* legacy token, kept so nothing else changes */
+
+  /* status */
+  --neg:#c53637; --neg-bg:#f9e5e2;
+  --pos:#287c42; --pos-bg:#e2efe3;
+  --over:#8f5e0a;
+
+  /* project total band (the only tinted level) */
+  --band:color-mix(in oklab,#171613 6%,#f2f0eb);
+  --band-we:color-mix(in oklab,#171613 10%,#f2f0eb);
+
+  font-family:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+
+/* ---- 3. Shell: header, tabs, controls ---- */
+.app-header{background:var(--bg);border-bottom-color:var(--line);padding:10px 24px}
+.app-header h1{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.tabs button{border-radius:8px;color:var(--muted)}
+.tabs button.active{background:var(--surface);color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);border-radius:8px 8px 0 0}
+.toolbar{background:var(--bg);border-bottom-color:var(--line);padding:8px 24px;gap:10px}
+.toolbar label{color:var(--muted)}
+.toolbar label.check{color:var(--text)}
+
+button{border:none;border-radius:8px;background:var(--sunken);padding:5px 12px;transition:background .12s}
+button:hover{border-color:transparent;background:color-mix(in oklab,var(--sunken) 80%,#171613)}
+button.primary{background:var(--accent);color:#140c05;font-weight:600}
+button.link{background:none;color:var(--text);text-decoration:underline;text-decoration-color:var(--line-strong)}
+button.link:hover{background:none;color:var(--accent)}
+button.danger{background:var(--neg-bg);color:var(--neg)}
+.toolbar button.tool.active{background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1.5px var(--accent);border-color:transparent}
+
+select,input[type='date'],input[type='search'],input:not([type]),input[type='text']{border:none;border-radius:8px;background:var(--sunken);padding:5px 8px}
+input[type='checkbox']{accent-color:var(--accent)}
+
+.tooltip{background:#4a4642;color:#f5f2ec;border-radius:6px;box-shadow:none}
+.save-state{color:var(--pos)}
+
+/* grouping bar: tiles in a track instead of outlined pills */
+.grouping-bar{border-bottom-color:var(--line);padding:6px 24px;font-size:13px}
+.grouping-title{color:var(--muted)}
+.chip{border:none;border-radius:6px;background:var(--surface);padding:3px 6px;font-weight:600;box-shadow:0 0 0 3px var(--sunken)}
+.chip.unused{border:none;background:transparent;box-shadow:none;color:var(--muted);font-weight:400;border-radius:8px}
+.chip.unused:hover{background:var(--sunken);color:var(--text)}
+.chip-move,.chip-remove{background:none;border-radius:5px;padding:0 4px}
+.chip-move:hover,.chip-remove:hover{background:var(--sunken)}
+
+/* ---- 4. Grid surface ---- */
+.grid-scroll{background:var(--bg)}
+.grid-top{background:var(--bg);box-shadow:0 1px 0 var(--line-strong)}
+.grid-label{background:var(--bg);border-right-color:var(--line)}
+.grid-row{border-bottom-color:color-mix(in srgb,var(--line) 55%,transparent)}
+.cell{border-right-color:color-mix(in srgb,var(--line) 55%,transparent);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px}
+.section-head{background:var(--bg);border-bottom-color:var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.legend{text-transform:none;letter-spacing:0}
+.lbl-title{color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace}
+
+/* dates */
+.cell.head{color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace}
+.month-label{color:var(--muted);text-transform:uppercase;font-weight:500;letter-spacing:.04em}
+.day-head .dn{font-weight:500}
+.day-head.today .dn{color:var(--accent);font-weight:700}
+.day.today{box-shadow:inset 2px 0 0 var(--accent)}
+.day.month-start{border-left-color:var(--line-strong)}
+.day.helg{background:var(--weekend)}
+.day.helligdag{background:var(--holiday)}
+
+/* hall calendar: split moving in / moving out into their own hues (classes already differ) */
+.ph-assembly{background:var(--ph-assembly)!important}
+.ph-movingIn{background:var(--ph-movingin)!important}
+.ph-movingOut{background:var(--ph-movingout)!important}
+.ph-event{background:var(--ph-event)!important}
+.ph-dismantle{background:var(--ph-dismantle)!important}
+.phase-code{color:color-mix(in srgb,#171613 55%,transparent)}
+.hall-label{font-family:'Schibsted Grotesk',system-ui,sans-serif;color:var(--text)}
+.lbl-hall{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:500;color:var(--muted)}
+
+/* staffing + totals: gridless, read-only look */
+.sum-row,.sum-row .grid-label{background:var(--bg)}
+.sum-row:not(.deviation-row) .cell{border-right-color:transparent}
+.sum-row:first-of-type{border-top:1px dashed var(--line-strong)}
+.dev.neg{background:var(--neg-bg)!important;color:var(--neg);font-weight:600}
+.dev.pos{color:var(--pos);font-weight:600}
+.deviation-row{border-bottom-color:var(--line-strong)}
+
+/* "Planlegging" column header: no day cells */
+.col-head,.col-head .grid-label{background:var(--bg)}
+.col-head .cell{border-right-color:transparent;background:none!important}
+.col-head .grid-label{color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+
+/* ---- 5. Planning rows ---- */
+/* levels: only the project total gets a band; deeper levels are type + hairline only */
+.group-row,.group-row .grid-label{background:var(--bg)}
+.group-row .cell{border-right-color:transparent;color:var(--text)}
+.group-row.depth-0,.group-row.depth-0 .grid-label{background:var(--band)}
+.group-row.depth-0{border-top:1px solid var(--line-strong)}
+.group-row.depth-0 .day.helg{background:var(--band-we)}
+.group-row.depth-1,.group-row.depth-1 .grid-label,
+.group-row.depth-2,.group-row.depth-2 .grid-label,
+.group-row.depth-3,.group-row.depth-3 .grid-label{background:var(--bg)}
+.group-row:not(.depth-0){border-top:1px solid var(--line)}
+.group-row:not(.depth-0) .day.helg{background:none}
+.group-cell{color:var(--text);font-weight:600}
+.group-row.depth-0 .lbl-project{font-size:14px;font-weight:700}
+/* project event span: neutral strip (per-phase colour is phase 2) */
+.group-row .cell.group-cell.in-span{box-shadow:inset 0 -3px 0 color-mix(in oklab,#171613 22%,transparent)}
+
+/* editable rows */
+.alloc-row .grid-label{background:var(--bg)}
+.alloc-row:hover .grid-label{background:color-mix(in srgb,var(--surface) 50%,var(--bg))}
+.cell.filled.mon{background-color:var(--mon);color:var(--text);font-weight:500}
+.cell.filled.dem{background-color:var(--dem);color:var(--text);font-weight:500}
+.lbl-phase.mon,.lbl-level.mon{color:var(--mon-strong)}
+.lbl-phase.dem,.lbl-level.dem{color:var(--dem-strong)}
+
+/* window: a faint dot in empty workdays instead of a stripe + tint */
+.alloc-row .cell.in-window,.alloc-row .cell.in-window.dem{box-shadow:none}
+.alloc-row .cell.in-window.workday:not(.filled):not(.selected),
+.alloc-row .cell.in-window.workday.dem:not(.filled):not(.selected){background-color:transparent}
+.alloc-row .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,#171613 28%,transparent)}
+.alloc-row .cell.outside-window{box-shadow:inset 0 0 0 1.5px var(--neg)}
+
+/* selection, focus, editing */
+.cell.selected{background:var(--accent-soft)!important}
+.cell.focus{outline:1.5px solid var(--accent);outline-offset:-1.5px;box-shadow:0 0 0 3px var(--accent-soft)}
+.cell-input{outline:1.5px solid var(--accent);background:var(--surface);font-family:'JetBrains Mono',ui-monospace,monospace;caret-color:var(--accent)}
+.fill-handle{background:var(--accent)}
+.cell.editable.drawn{color:var(--accent)}
+.cell.has-note::after{border-top-color:var(--accent)}
+
+/* numbers */
+.lbl-num{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px}
+.delta.under{color:var(--muted);font-weight:600}
+.delta.over{color:var(--over)}
+.delta.ok{color:var(--pos)}
+/* progress bars removed: Δ already carries coverage */
+.coverage{display:none}
+
+/* status bar + dialogs (light touch, same tokens) */
+.statusbar{background:var(--bg);border-top-color:var(--line)}
+.dialog{border-radius:12px;box-shadow:none;border:1px solid var(--line-strong)}
+.dialog-result{background:var(--sunken);border-radius:8px}
+.notice,.info-banner{background:color-mix(in oklab,var(--accent) 10%,var(--surface))}
+.badge{background:var(--pos-bg);color:var(--pos)}
