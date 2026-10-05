@@ -595,9 +595,26 @@ export function Kalender() {
     selection?.section === section && selection.focus.lane === lane && selection.focus.col === col
 
   // ---- rendering helpers --------------------------------------------------------------------
+  // Days planned above the available crew are tinted down the whole grid. A pencil stroke in progress counts,
+  // so the clash shows while it is being drawn.
+  const overbooked = useMemo(() => {
+    const drawn = new Map<ISODate, number>()
+    for (const { lane, parts } of preview?.lanes ?? []) {
+      const { row, node } = allocLanes[lane] ?? {}
+      preview!.target.forEach((date, i) => drawn.set(date, (drawn.get(date) ?? 0) + parts[i] - ((node ? node.daily.get(date) : row?.fte[date]) ?? 0)))
+    }
+    const days = new Map<ISODate, { need: number; available: number }>()
+    for (const date of new Set([...need.keys(), ...drawn.keys()])) {
+      const planned = (need.get(date) ?? 0) + (drawn.get(date) ?? 0)
+      const { available } = capacityForDate(date, ws.capacity, settings)
+      if (planned > available + 0.05) days.set(date, { need: planned, available })
+    }
+    return days
+  }, [need, preview, allocLanes, ws.capacity, settings])
+
   const dayClass = (date: ISODate) => {
     const type = dayType(date)
-    return `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''}`
+    return `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''} ${overbooked.has(date) ? 'overbooked' : ''}`
   }
 
   const row = (key: string, label: ReactNode, cells: (date: ISODate, col: number) => ReactNode, className = '', overlay?: ReactNode) => (
@@ -957,7 +974,7 @@ export function Kalender() {
               'days',
               <span className="lbl-title">Dato</span>,
               (date) => (
-                <div key={date} className={`${dayClass(date)} cell head day-head`} style={{ width: colW }} title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}`}>
+                <div key={date} className={`${dayClass(date)} cell head day-head`} style={{ width: colW }} title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}`}>
                   <span className="wd">{WEEKDAYS_NB[weekdayIndex(date)].slice(0, zoom === 'compact' ? 1 : 3).toLowerCase()}</span>
                   <span className="dn">{Number(date.slice(8))}</span>
                 </div>

@@ -608,10 +608,10 @@ input[type='text'] {
   cursor: cell;
 }
 .cell.filled.mon {
-  background: var(--mon);
+  background-color: var(--mon);
 }
 .cell.filled.dem {
-  background: var(--dem);
+  background-color: var(--dem);
 }
 .cell.has-note::after {
   content: '';
@@ -1066,10 +1066,10 @@ table.ledger select.location.unresolved {
   box-shadow: inset 0 -2px 0 rgba(196, 98, 29, 0.5);
 }
 .alloc-row .cell.in-window.workday:not(.filled):not(.selected) {
-  background: #f4f8ff;
+  background-color: #f4f8ff;
 }
 .alloc-row .cell.in-window.workday.dem:not(.filled):not(.selected) {
-  background: #fff7f0;
+  background-color: #fff7f0;
 }
 /* FTE placed on a day outside the window. */
 .alloc-row .cell.outside-window {
@@ -1126,4 +1126,13 @@ table.ledger select.location.unresolved {
 }
 .coverage.over i {
   background: #e08a1e;
+}
+
+/* A day planned above the available crew: a red wash over the whole column, on top of whatever the cell shows. */
+.grid-canvas .day.overbooked:not(.hall) {
+  background-image: linear-gradient(rgba(198, 40, 40, 0.13), rgba(198, 40, 40, 0.13)) !important;
+}
+.grid-canvas .day.overbooked.day-head {
+  color: var(--neg);
+  font-weight: 700;
 }
