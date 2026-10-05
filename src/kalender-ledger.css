@@ -341,3 +341,35 @@ button svg,.grouping-sep{flex:none}
 .twisty,.row-action,.chip-move,.chip-remove{gap:0}
 .lbl-warning{display:inline-flex;align-items:center}
 .grouping-add{padding:5px 8px}
+
+/* ---- 10. Size and spacing, as in the mockup: 14px text, 28px lines, roomier controls ---- */
+:root{font-size:14px}
+.app-header{min-height:52px;padding:0 24px;gap:10px}
+.tabs button{padding:7px 12px;font-size:14px}
+button{padding:7px 12px}
+select,input[type='date'],input[type='search'],input:not([type]),input[type='text']{padding:7px 10px}
+.toolbar{padding:8px 24px 10px}
+.segmented button{padding:4px 10px}
+.chip{padding:4px 4px;font-size:13px}
+.chip-move,.chip-remove{width:20px;height:20px;padding:0}
+.grouping-bar{font-size:13px}
+.grouping-add{padding:7px 8px}
+.menu-pop>button,.grouping-menu button{padding:8px 10px}
+.page-head{padding:12px 24px}
+.statusbar{padding:8px 24px;min-height:38px;font-size:13px}
+
+/* the grid */
+.grid-row{font-size:13px}
+.grid-label{padding:0 12px 0 10px;gap:6px}
+.head-row:not(.tall){height:20px!important}
+.day-head .wd{font-size:10px}
+.day-head .dn{font-size:12.5px}
+.section-head{height:26px;padding:0 10px}
+.twisty{width:20px;height:20px;padding:0;border-radius:6px}
+.twisty:hover{background:var(--sunken)}
+.row-action{width:22px;height:22px;padding:0;border-radius:6px}
+.row-action:hover{background:var(--sunken);color:var(--text)}
+.lbl-num{width:46px;font-size:12px}
+.hall-label{line-height:22px}
+.group-row.depth-0 .lbl-project{font-size:14px}
+table.ledger{font-size:13px}

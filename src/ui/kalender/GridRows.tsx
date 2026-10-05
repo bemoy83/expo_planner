@@ -7,7 +7,7 @@ import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
 import { dominantEntry, PHASE_CODES, PHASE_LABELS, splitEntries, type HallDayEntry } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate } from './labels'
-import { LEFT_W, ROW_H, type Zoom } from './layout'
+import { HALL_ROW_H, LEFT_W, ROW_H, type Zoom } from './layout'
 import { CoverageBar } from './parts'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
@@ -25,9 +25,9 @@ const INDENT = 14
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
 /** One line of the grid: the label column, then a cell per drawn day. */
-function Line({ className = '', label, cols, cells, overlay }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode }) {
+function Line({ className = '', label, cols, cells, overlay, height = ROW_H }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number }) {
   return (
-    <div className={`grid-row ${className}`} style={{ height: ROW_H }}>
+    <div className={`grid-row ${className}`} style={{ height }}>
       <div className="grid-label" style={{ width: LEFT_W }}>
         {label}
       </div>
@@ -155,6 +155,7 @@ export const HallRow = memo(function HallRow({ hall, days, runs, cols, zoom }: H
   return (
     <Line
       className="hall-row"
+      height={HALL_ROW_H}
       label={<span className="lbl-hall">{hall}</span>}
       cols={cols}
       cells={(date, col) => {
