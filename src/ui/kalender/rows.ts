@@ -2,7 +2,7 @@ import { rowTotals, type DemandIndex, type RowTotals } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import { UNRESOLVED_HALL } from '../../domain/locations'
 import { normalizeName, type VenueEvent } from '../../domain/projects'
-import type { AllocationRow, Settings } from '../../domain/types'
+import type { AllocationRow, Settings, WorkPhase } from '../../domain/types'
 
 export interface ProjectGroup {
   key: string
@@ -273,4 +273,20 @@ export const pathKeys = (row: AllocationRow, projectGroupKey: string, grouping: 
     path = `${key}/`
   }
   return keys
+}
+
+/**
+ * The work phase that most of a day's FTE on these rows belongs to, for the strip on a folded level.
+ * Null on a day with nothing planned; montering wins a tie.
+ */
+export const workPhaseOn = (rows: AllocationRow[], date: ISODate): WorkPhase | null => {
+  let montering = 0
+  let other = 0
+  for (const row of rows) {
+    const fte = row.fte[date]
+    if (!fte) continue
+    if (row.phase === 'Demontering') other += fte
+    else montering += fte
+  }
+  return montering + other === 0 ? null : montering >= other ? 'Montering' : 'Demontering'
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, type Dimension, type GridItem } from './rows'
+import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, workPhaseOn, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -207,5 +207,22 @@ describe('filterGroups, inWindow and groupItems', () => {
     expect(inView('2026-04-01', '2026-04-01')).not.toContain('VVS 2026')
     // A project with rows but no dates at all is always listed, or it would never be seen.
     expect(inView('2027-01-01', '2027-01-31')).toEqual(['Ny messe'])
+  })
+})
+
+describe('work phase of a day', () => {
+  const rows = [
+    row('a', { fte: { '2026-10-05': 2, '2026-10-06': 1, '2026-10-07': 1 } }),
+    row('b', { phase: 'Demontering', fte: { '2026-10-06': 3, '2026-10-07': 1 } }),
+  ]
+
+  it('is the phase with most FTE that day', () => {
+    expect(workPhaseOn(rows, '2026-10-05')).toBe('Montering')
+    expect(workPhaseOn(rows, '2026-10-06')).toBe('Demontering')
+  })
+
+  it('is montering on a tie and nothing on an empty day', () => {
+    expect(workPhaseOn(rows, '2026-10-07')).toBe('Montering')
+    expect(workPhaseOn(rows, '2026-10-08')).toBeNull()
   })
 })

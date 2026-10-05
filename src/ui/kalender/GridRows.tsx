@@ -9,7 +9,7 @@ import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate } from './labels'
 import { LEFT_W, ROW_H, type Zoom } from './layout'
 import { CoverageBar } from './parts'
-import { DIMENSION_LABELS, type Dimension, type GridItem } from './rows'
+import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
@@ -256,12 +256,25 @@ interface GroupRowProps extends CellEdit {
   actions: GridActions
 }
 
-/** A level of the hierarchy: its sums, or cells to type in when it is in entry mode. */
+/**
+ * A level of the hierarchy. Open, it shows no figures per day: the rows below carry them. Folded, it shows
+ * its sums on a strip in the colour of the work phase. In entry mode it always shows cells to type in.
+ * A project's line carries the hall-phase strip either way.
+ */
 export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actions, ...edit }: GroupRowProps) {
   const { node } = item
   const project = node.project
   const delta = node.totals.plannedFte - node.totals.requiredFte
   const cell: ValueCell = { cols, edit, actions, section: 'alloc', lane }
+  // What the strip shows on a day: the hall phase on a project's line, else the work phase of a folded level.
+  const stripOn = (date: ISODate): string | null => {
+    const hallPhase = phases?.get(date)
+    if (hallPhase) return hallPhase
+    if (!item.collapsed || item.entry || phases) return null
+    if (!node.daily.get(date)) return null
+    if (node.dimension === 'phase') return node.label === 'Demontering' ? 'dem' : 'mon'
+    return workPhaseOn(node.rows, date) === 'Demontering' ? 'dem' : 'mon'
+  }
   return (
     <Line
       className={`group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`}
@@ -327,11 +340,12 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
         </>
       }
       cells={(date, col) => {
-        const phase = phases?.get(date)
+        const phase = stripOn(date)
         // The strip is rounded where a phase starts and ends.
-        const strip = phase ? `strip strip-${phase} ${phases!.get(addDays(date, -1)) === phase ? '' : 'strip-start'} ${phases!.get(addDays(date, 1)) === phase ? '' : 'strip-end'}` : ''
+        const strip = phase ? `strip strip-${phase} ${stripOn(addDays(date, -1)) === phase ? '' : 'strip-start'} ${stripOn(addDays(date, 1)) === phase ? '' : 'strip-end'}` : ''
         const inSpan = strip || (project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : '')
-        return item.entry ? valueCell(cell, date, col, node.daily.get(date), undefined, `group-cell ${inSpan}`) : readCell(cols, date, node.daily.get(date), `group-cell ${inSpan}`)
+        if (item.entry) return valueCell(cell, date, col, node.daily.get(date), undefined, `group-cell ${inSpan}`)
+        return readCell(cols, date, item.collapsed ? node.daily.get(date) : undefined, `group-cell ${inSpan}`)
       }}
     />
   )
