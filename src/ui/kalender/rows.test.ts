@@ -172,6 +172,13 @@ describe('rows as a hierarchy', () => {
     expect(items.flatMap((i) => (i.kind === 'group' && i.entry ? [i.node.label] : []))).toEqual(['Hall C', 'Demontering'])
   })
 
+  it('can leave out rows whose plan covers their demand', () => {
+    // c64 needs 2 days and has 1; c65 needs 4 and has 2; d64 needs 6 and has 3; dem and hage have no demand.
+    const covered = [...fine.slice(0, 2), row('d64', { hall: 'Hall D', avdeling: '64', fte: { '2026-10-06': 3, '2026-10-07': 3 } }), ...fine.slice(3)]
+    const items = buildItems(covered, [], demand, DEFAULT_SETTINGS, { ...EMPTY_FILTER, onlyUncovered: true }, new Set(), undefined, ['project'])
+    expect(outline(items)).toEqual(['VVS 2026', '  #c64', '  #c65'])
+  })
+
   it('gives the levels above a row, for opening the way to it', () => {
     expect(pathKeys(fine[2], '26970', ['project', 'hall'])).toEqual(['project:26970', 'project:26970/hall:hall d'])
   })

@@ -1096,3 +1096,34 @@ table.ledger select.location.unresolved {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
 }
+
+/* Behov, Plan and Δ as one block, with the line that shows how much of the demand is planned. */
+.lbl-nums {
+  position: relative;
+  display: inline-flex;
+  gap: 4px;
+  align-self: stretch;
+  align-items: center;
+  flex: none;
+}
+.coverage {
+  position: absolute;
+  left: 4px;
+  right: 0;
+  bottom: 1px;
+  height: 3px;
+  border-radius: 2px;
+  background: #e3e6eb;
+  overflow: hidden;
+}
+.coverage i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.coverage.covered i {
+  background: #2e9b57;
+}
+.coverage.over i {
+  background: #e08a1e;
+}

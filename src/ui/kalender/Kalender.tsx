@@ -709,11 +709,12 @@ export function Kalender() {
             </span>
           )}
           {node.rows.length ? (
-            <>
+            <span className="lbl-nums">
               <span className="lbl-num">{formatFte(node.totals.requiredFte)}</span>
               <span className="lbl-num">{formatFte(node.totals.plannedFte)}</span>
               <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
-            </>
+              {coverageBar(node.totals.requiredFte, node.totals.plannedFte)}
+            </span>
           ) : (
             <span className="muted small no-rows">ingen rader</span>
           )}
@@ -779,11 +780,14 @@ export function Kalender() {
         <span className="lbl-basis" title={r.basis}>
           {r.basis}
         </span>
-        <span className="lbl-num" title={totals.requiredHours === null ? '' : `${formatFte(totals.requiredHours, 2)} timer`}>
-          {formatFte(totals.requiredFte)}
+        <span className="lbl-nums">
+          <span className="lbl-num" title={totals.requiredHours === null ? '' : `${formatFte(totals.requiredHours, 2)} timer`}>
+            {formatFte(totals.requiredFte)}
+          </span>
+          <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
+          <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
+          {coverageBar(totals.requiredFte, totals.plannedFte)}
         </span>
-        <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
-        <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
         <span className="row-slot row-actions">
           {window?.size ? (
             <button className="row-action" title={`Foreslå plan for raden: fordel det som gjenstår av behovet på ${phaseDays} i hallen. Erstatter det som står på de dagene.`} onClick={() => proposePlan([r], true)}>
@@ -879,6 +883,10 @@ export function Kalender() {
         <label className="check" title="Skjul prosjekter som ikke har noen planleggingsrader ennå">
           <input type="checkbox" checked={!!filter.onlyWithRows} onChange={(e) => setFilter({ ...filter, onlyWithRows: e.target.checked })} />
           Bare med rader
+        </label>
+        <label className="check" title="Skjul rader der planen dekker behovet, så det som gjenstår står igjen som en arbeidsliste">
+          <input type="checkbox" checked={!!filter.onlyUncovered} onChange={(e) => setFilter({ ...filter, onlyUncovered: e.target.checked })} />
+          Bare det som mangler plan
         </label>
         <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
           <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
@@ -1073,14 +1081,16 @@ export function Kalender() {
                 <span className="lbl-phase">Fase</span>
                 <span className="lbl-year">År</span>
                 <span className="lbl-basis">Grunnlag</span>
-                <span className="lbl-num" title="Behov (FTE-dager)">
-                  Behov
-                </span>
-                <span className="lbl-num" title="Planlagt (FTE-dager)">
-                  Plan
-                </span>
-                <span className="lbl-num" title="Plan minus behov">
-                  Δ
+                <span className="lbl-nums" title="Linjen under tallene viser hvor mye av behovet som er planlagt: blå underveis, grønn når det er dekket, oransje når det er planlagt klart mer enn behovet.">
+                  <span className="lbl-num" title="Behov (FTE-dager)">
+                    Behov
+                  </span>
+                  <span className="lbl-num" title="Planlagt (FTE-dager)">
+                    Plan
+                  </span>
+                  <span className="lbl-num" title="Plan minus behov">
+                    Δ
+                  </span>
                 </span>
               </div>
             </div>
@@ -1154,6 +1164,23 @@ export function Kalender() {
 }
 
 const rowTitle = (row: AllocationRow) => `${describeRow(row, ['project', 'competence', 'hall', 'avdeling'])} · ${row.phase}`
+
+/** Planned within this much of the demand counts as covered; halves seldom land exactly. */
+const COVERED_WITHIN = 0.05
+/** Planned this far above the demand counts as clearly over. Rounding rows up to halves stays below it. */
+const OVER_FROM = 1.15
+
+/** A thin line under a line's figures: how much of its demand is planned. Nothing where there is no demand. */
+const coverageBar = (required: number | null, planned: number) => {
+  if (!required || required <= 0) return null
+  const share = planned / required
+  const state = planned >= required - COVERED_WITHIN ? (share > OVER_FROM ? 'over' : 'covered') : 'partly'
+  return (
+    <span className={`coverage ${state}`} aria-hidden>
+      <i style={{ width: `${Math.min(1, share) * 100}%` }} />
+    </span>
+  )
+}
 
 const deltaClass = (delta: number | null) => (delta === null ? '' : delta < -0.05 ? 'under' : delta > 0.05 ? 'over' : 'ok')
 

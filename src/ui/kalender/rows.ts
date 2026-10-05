@@ -63,6 +63,8 @@ export interface RowFilter {
   search: string
   /** Leave out projects that have no planning rows yet. */
   onlyWithRows?: boolean
+  /** Leave out rows whose plan covers their demand, and with them the projects that have nothing left to plan. */
+  onlyUncovered?: boolean
 }
 
 export const EMPTY_FILTER: RowFilter = { project: '', competence: '', search: '' }
@@ -177,13 +179,17 @@ export const buildItems = (
   grouping: Dimension[] = ['project'],
   entry: Set<string> = new Set(),
 ): GridItem[] => {
-  const narrowsRows = !!filter.competence || !!filter.search
-  let groups = buildGroups(rows.filter((row) => rowMatches(row, filter)), events, index, settings)
+  const narrowsRows = !!filter.competence || !!filter.search || !!filter.onlyUncovered
+  const lacksPlan = (row: AllocationRow) => {
+    const { requiredFte, plannedFte } = rowTotals(index, row, settings)
+    return (requiredFte ?? 0) > plannedFte + 0.05
+  }
+  let groups = buildGroups(rows.filter((row) => rowMatches(row, filter) && (!filter.onlyUncovered || lacksPlan(row))), events, index, settings)
   if (filter.project) groups = groups.filter((group) => group.key === filter.project)
   // A competence or text filter is about rows, so projects without a matching row drop out, unless the text matches the project itself.
   if (narrowsRows) {
     const q = filter.search.toLowerCase()
-    groups = groups.filter((group) => group.rows.length > 0 || (!filter.competence && !!q && `${group.projectName} ${group.projectNo}`.toLowerCase().includes(q)))
+    groups = groups.filter((group) => group.rows.length > 0 || (!filter.competence && !filter.onlyUncovered && !!q && `${group.projectName} ${group.projectNo}`.toLowerCase().includes(q)))
   }
   if (filter.onlyWithRows || grouping[0] !== 'project') groups = groups.filter((group) => group.rows.length > 0)
   // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
