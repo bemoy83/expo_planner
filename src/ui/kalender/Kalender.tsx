@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
-import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
-import { dayType, holidayName } from '../../domain/holidays'
-import type { AllocationRow, CapacityLine } from '../../domain/types'
-import { buildHallCalendar, dominantEntry, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS, splitEntries } from '../../domain/venue'
+import { dateRange, daysBetween, type ISODate } from '../../domain/dates'
+import { dayType } from '../../domain/holidays'
+import type { AllocationRow } from '../../domain/types'
+import { buildHallCalendar, hallNames, hallRuns } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { fillAcross, shareOverDays, spread } from '../../domain/spread'
@@ -16,10 +16,13 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { UndoRedoButtons } from '../common'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
+import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows, type HallLabelRun } from './GridRows'
+import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { GroupingBar } from './GroupingBar'
-import { deltaClass, describeRow, fmtDate, rowTitle } from './labels'
-import { CoverageBar, NoteEditor } from './parts'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GridItem, type GroupNode, type RowFilter } from './rows'
+import { fmtDate, rowTitle } from './labels'
+import { NoteEditor } from './parts'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
+import { useStableActions } from './useStableActions'
 import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
 
 /** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
@@ -29,22 +32,10 @@ interface AllocLane {
   row?: AllocationRow
   node?: GroupNode
 }
-interface CapLane {
-  line: CapacityLine
-  field: 'values' | 'hours'
-  label: string
-}
+/** A line that takes no numbers has nothing selected on it. */
+const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
 
 const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
-
-/** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
-const HALL_LABEL_MAX_W = 260
-const HALL_LABEL_MAX_COLS = 10
-/** Roughly the width of one letter of an event's name. */
-const HALL_LABEL_CHAR_W = 6.6
-
-/** How far each level of the hierarchy is indented in the label column. */
-const INDENT = 14
 
 export function Kalender() {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
@@ -91,7 +82,7 @@ export function Kalender() {
   const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
   // Each event's name sits on the first day of the arrangement itself in the hall and scrolls with it.
   const hallLabels = useMemo(() => {
-    const labels = new Map<string, { eventName: string; col: number; span: number; room: number }[]>()
+    const labels = new Map<string, HallLabelRun[]>()
     for (const [hall, days] of hallCalendar) {
       const all = hallRuns(days)
       // A name may run on past its own days, but not into the next event in the hall.
@@ -511,16 +502,23 @@ export function Kalender() {
     setNotice(!cells.length ? null : done.stretch ? `Strakk over ${days(filled)}` : filled ? `Fylte ${days(filled)}` : `Tømte ${days(cleared)}`)
   }, [setValue])
 
+  // What the cells of each line would hold if the stroke or the drag ended now, keyed by section and lane.
   const ghost = useMemo(() => {
-    const cells = new Map<string, number>()
-    for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => cells.set(`alloc|${lane}|${date}`, parts[i]))
+    const lanes = new Map<string, Map<ISODate, number>>()
+    const set = (section: Section, lane: number, date: ISODate, value: number) => {
+      const key = `${section}|${lane}`
+      let cells = lanes.get(key)
+      if (!cells) lanes.set(key, (cells = new Map()))
+      cells.set(date, value)
+    }
+    for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => set('alloc', lane, date, parts[i]))
     // An eraser stroke shows the cells it is about to clear as empty.
     if (drawing && tool === 'eraser' && selection?.section === 'alloc') {
       const { lane0, lane1, col0, col1 } = rangeOf(selection)
-      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) cells.set(`alloc|${lane}|${dates[col]}`, 0)
+      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) set('alloc', lane, dates[col], 0)
     }
-    for (const cell of fillCells) cells.set(`${cell.section}|${cell.lane}|${cell.date}`, cell.value ?? 0)
-    return cells
+    for (const cell of fillCells) set(cell.section, cell.lane, cell.date, cell.value ?? 0)
+    return lanes
   }, [preview, drawing, tool, selection, dates, fillCells])
 
   // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
@@ -650,13 +648,6 @@ export function Kalender() {
   }
 
   const selectionRange = selection ? rangeOf(selection) : null
-  const isSelected = (section: Section, lane: number, col: number) => {
-    if (!selectionRange || selection!.section !== section) return false
-    const { lane0, lane1, col0, col1 } = selectionRange
-    return lane >= lane0 && lane <= lane1 && col >= col0 && col <= col1
-  }
-  const isFocus = (section: Section, lane: number, col: number) =>
-    selection?.section === section && selection.focus.lane === lane && selection.focus.col === col
 
   // ---- rendering helpers --------------------------------------------------------------------
   // Days planned above the available crew are tinted down the whole grid. A pencil stroke in progress counts,
@@ -686,18 +677,7 @@ export function Kalender() {
     }
     return classes
   }, [visibleDates, today, overbooked])
-  const dayClass = (date: ISODate) => dayClasses.get(date) ?? 'day'
-
-  const row = (key: string, label: ReactNode, cells: (date: ISODate, col: number) => ReactNode, className = '', overlay?: ReactNode) => (
-    <div className={`grid-row ${className}`} key={key} style={{ height: ROW_H }}>
-      <div className="grid-label" style={{ width: LEFT_W }}>
-        {label}
-      </div>
-      <div className="grid-spacer" style={{ width: c0 * colW }} />
-      {visibleDates.map((date, i) => cells(date, c0 + i))}
-      {overlay}
-    </div>
-  )
+  const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, colW, classes: dayClasses }), [visibleDates, c0, colW, dayClasses])
 
   // What the drag of the fill handle is doing, for the status bar.
   const fillInfo = (() => {
@@ -710,80 +690,6 @@ export function Kalender() {
     if (perDay.size) return `Fyller ${days(perDay.size)} · hold Alt for å strekke i stedet`
     return cleared ? `Tømmer ${days(cleared)}` : 'Dra sidelengs for å fylle · hold Alt for å strekke'
   })()
-
-  const valueCell = (section: Section, lane: number, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
-    const focus = isFocus(section, lane, col)
-    // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
-    const drawn = ghost.get(`${section}|${lane}|${date}`)
-    // The fill handle sits on the last cell of the selection, as in Excel.
-    const corner = tool === 'select' && draft === null && selection?.section === section && selectionRange?.lane1 === lane && selectionRange.col1 === col
-    return (
-      <div
-        key={date}
-        className={`${dayClass(date)} cell editable ${isSelected(section, lane, col) ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined ? (tool === 'eraser' ? 'erasing' : 'drawn') : ''}`}
-        style={{ width: colW }}
-        title={note}
-        onMouseDown={(e) => {
-          e.preventDefault()
-          select(section, { lane, col }, e.shiftKey)
-          if (e.button === 0 && !(e.target instanceof HTMLInputElement)) {
-            dragging.current = section
-            setDrawing(section === 'alloc' && tool !== 'select')
-          }
-        }}
-        onMouseEnter={() => {
-          if (fillRef.current?.section === section) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
-          else if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
-        }}
-        onDoubleClick={() => setDraft(value === undefined ? '' : String(value).replace('.', ','))}
-      >
-        {focus && draft !== null ? (
-          <input
-            className="cell-input"
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => commitDraft()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                commitDraft(() => move(e.shiftKey ? -1 : 1, 0))
-              } else if (e.key === 'Tab') {
-                e.preventDefault()
-                commitDraft(() => move(0, e.shiftKey ? -1 : 1))
-              } else if (e.key === 'Escape') {
-                setDraft(null)
-                scrollRef.current?.focus({ preventScroll: true })
-              }
-            }}
-          />
-        ) : drawn !== undefined ? (
-          formatFte(drawn || undefined)
-        ) : (
-          formatFte(value)
-        )}
-        {corner && (
-          <span
-            className="fill-handle"
-            title="Dra sidelengs for å kopiere til flere dager, eller tilbake for å tømme. Hold Alt for å strekke: samme sum fordelt på nytt over dagene."
-            onMouseDown={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              const started: Fill = { section, ...selectionRange!, toCol: selectionRange!.col1, stretch: e.altKey }
-              fillRef.current = started
-              setFill(started)
-            }}
-          />
-        )}
-      </div>
-    )
-  }
-
-  const readCell = (date: ISODate, value: number | undefined, className = '', title?: string) => (
-    <div key={date} className={`${dayClass(date)} cell ${className}`} style={{ width: colW }} title={title}>
-      {formatFte(value)}
-    </div>
-  )
 
   const toggled = (prev: Set<string>, key: string) => {
     const next = new Set(prev)
@@ -801,147 +707,68 @@ export function Kalender() {
     setEntry((prev) => toggled(prev, key))
   }
 
-  const renderItem = (item: GridItem) => {
-    if (item.kind === 'group') {
-      const { node } = item
-      const project = node.project
-      const delta = node.totals.plannedFte - node.totals.requiredFte
-      return row(
-        `g:${node.key}`,
-        <>
-          <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => (item.entry ? toggleEntry(node.key) : toggleGroup(node.key))} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
-            {item.collapsed ? '▸' : '▾'}
-          </button>
-          {project ? (
-            <span
-              className="lbl-project"
-              title={`${project.projectName}${project.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}${project.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Sett prosjektnummeret på arrangementet på Haller-fanen.'}`}
-            >
-              {project.projectName} <span className="muted">{project.projectNo || 'uten nr.'}</span>
-              {!project.venue && <span className="unlinked"> ikke i hallkalenderen</span>}
-            </span>
-          ) : (
-            <span className={`lbl-project lbl-level ${node.dimension === 'phase' ? (node.label === 'Demontering' ? 'dem' : node.label === 'Montering' ? 'mon' : '') : ''}`} title={`${DIMENSION_LABELS[node.dimension]}: ${node.label}`}>
-              {node.label} <span className="muted count">{node.rows.length}</span>
-            </span>
-          )}
-          {node.rows.length ? (
-            <span className="lbl-nums">
-              <span className="lbl-num">{formatFte(node.totals.requiredFte)}</span>
-              <span className="lbl-num">{formatFte(node.totals.plannedFte)}</span>
-              <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
-              <CoverageBar required={node.totals.requiredFte} planned={node.totals.plannedFte} />
-            </span>
-          ) : (
-            <span className="muted small no-rows">ingen rader</span>
-          )}
-          <span className="row-slot">
-            {node.rows.length > 0 && (
-              <button
-                className={`row-action level-mode ${item.entry ? 'entry' : ''}`}
-                aria-pressed={item.entry}
-                title={
-                  item.entry
-                    ? 'Du skriver FTE på dette nivået; tallet fordeles på radene under etter behov. Klikk for å gå tilbake til sum.'
-                    : 'Nivået viser summen av radene under. Klikk for å skrive FTE her og få det fordelt på radene under etter behov.'
-                }
-                onClick={() => toggleEntry(node.key)}
-              >
-                {item.entry ? '✎' : 'Σ'}
-              </button>
-            )}
-            {node.rows.length > 0 && (
-              <button
-                className="row-action"
-                title="Foreslå plan: fordel behovet til radene under på monterings- og demonteringsdagene i hallene. Rader som allerede har FTE røres ikke."
-                onClick={() => proposePlan(node.rows, false)}
-              >
-                ✦
-              </button>
-            )}
-            {project && (
-              <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: project.projectName, projectNo: project.projectNo })}>
-                +
-              </button>
-            )}
-          </span>
-        </>,
-        (date, col) => {
-          const inSpan = project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : ''
-          return item.entry ? valueCell('alloc', laneOfRow.get(`level:${node.key}`)!, date, col, node.daily.get(date), undefined, `group-cell ${inSpan}`) : readCell(date, node.daily.get(date), `group-cell ${inSpan}`)
-        },
-        `group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`,
-      )
+  // ---- what the rows are given ---------------------------------------------------------------
+  const actions = useStableActions<GridActions>({
+    cellDown: (section, lane, col, e) => {
+      e.preventDefault()
+      select(section, { lane, col }, e.shiftKey)
+      if (e.button === 0 && !(e.target instanceof HTMLInputElement)) {
+        dragging.current = section
+        setDrawing(section === 'alloc' && tool !== 'select')
+      }
+    },
+    cellEnter: (section, lane, col) => {
+      if (fillRef.current?.section === section) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
+      else if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
+    },
+    editCell: (value) => setDraft(value === undefined ? '' : String(value).replace('.', ',')),
+    setDraft,
+    commitDraft: () => commitDraft(),
+    draftKey: (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        commitDraft(() => move(e.shiftKey ? -1 : 1, 0))
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        commitDraft(() => move(0, e.shiftKey ? -1 : 1))
+      } else if (e.key === 'Escape') {
+        setDraft(null)
+        scrollRef.current?.focus({ preventScroll: true })
+      }
+    },
+    fillDown: (section, e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!selectionRange) return
+      const started: Fill = { section, ...selectionRange, toCol: selectionRange.col1, stretch: e.altKey }
+      fillRef.current = started
+      setFill(started)
+    },
+    toggleGroup,
+    toggleEntry,
+    proposePlan,
+    addRow: (projectName, projectNo) => setDialog({ projectName, projectNo }),
+    editRow: (row) => setDialog({ row }),
+    removeRow: (row) => {
+      if (confirm(`Slette raden ${rowTitle(row)}?`)) removeAllocation(row.id)
+    },
+  })
+
+  // What one line of cells is told about the selection: plain values, so only the lines it touches are drawn again.
+  const ghostClass = tool === 'eraser' ? 'erasing' : 'drawn'
+  const editOf = (section: Section, lane: number): CellEdit => {
+    const selected = selection?.section === section && !!selectionRange && lane >= selectionRange.lane0 && lane <= selectionRange.lane1
+    const focused = selection?.section === section && selection.focus.lane === lane
+    return {
+      selFrom: selected ? selectionRange.col0 : -1,
+      selTo: selected ? selectionRange.col1 : -1,
+      focusCol: focused ? selection.focus.col : -1,
+      // The fill handle sits on the last cell of the selection, as in Excel.
+      handle: selected && tool === 'select' && draft === null && selectionRange.lane1 === lane,
+      draft: focused ? draft : null,
+      ghost: ghost.get(`${section}|${lane}`),
+      ghostClass,
     }
-    const { row: r, totals } = item
-    const lane = laneOfRow.get(r.id)!
-    const window = windowOf(r)
-    const phaseDays = r.phase === 'Demontering' ? 'demonteringsdagene' : 'monteringsdagene'
-    const outside = window?.size ? Object.keys(r.fte).filter((date) => r.fte[date] && !window.has(date)) : []
-    const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
-    return row(
-      r.id,
-      <>
-        <span className="lbl-desc" style={{ paddingLeft: 18 + item.depth * INDENT }} title={describeRow(r, ['project', 'competence', 'hall', 'avdeling'])}>
-          {description || <em className="muted">rad</em>}
-        </span>
-        {outside.length > 0 && (
-          <span className="lbl-warning" title={`${outside.length} ${outside.length === 1 ? 'dag' : 'dager'} med FTE ligger utenfor ${phaseDays} i hallen: ${outside.sort().map((d) => `${d.slice(8)}.${d.slice(5, 7)}.`).join(' ')}`}>
-            ⚠
-          </span>
-        )}
-        <span className={`lbl-phase ${r.phase === 'Demontering' ? 'dem' : 'mon'}`} title={r.phase}>
-          {r.phase === 'Montering' ? 'M' : r.phase === 'Demontering' ? 'D' : '–'}
-        </span>
-        <span className="lbl-year">{r.refYear}</span>
-        <span className="lbl-basis" title={r.basis}>
-          {r.basis}
-        </span>
-        <span className="lbl-nums">
-          <span className="lbl-num" title={totals.requiredHours === null ? '' : `${formatFte(totals.requiredHours, 2)} timer`}>
-            {formatFte(totals.requiredFte)}
-          </span>
-          <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
-          <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
-          <CoverageBar required={totals.requiredFte} planned={totals.plannedFte} />
-        </span>
-        <span className="row-slot row-actions">
-          {window?.size ? (
-            <button className="row-action" title={`Foreslå plan for raden: fordel det som gjenstår av behovet på ${phaseDays} i hallen. Erstatter det som står på de dagene.`} onClick={() => proposePlan([r], true)}>
-              ✦
-            </button>
-          ) : null}
-          {/* A suggested row is not stored yet, so there is nothing to edit or delete. */}
-          {!isSuggestedRow(r) && (
-            <>
-              <button className="row-action" title="Endre rad" onClick={() => setDialog({ row: r })}>
-                ✎
-              </button>
-              <button
-                className="row-action"
-                title="Slett rad"
-                onClick={() => {
-                  if (confirm(`Slette raden ${rowTitle(r)}?`)) removeAllocation(r.id)
-                }}
-              >
-                ×
-              </button>
-            </>
-          )}
-        </span>
-      </>,
-      (date, col) =>
-        valueCell(
-          'alloc',
-          lane,
-          date,
-          col,
-          r.fte[date],
-          r.notes[date],
-          `${r.phase === 'Demontering' ? 'dem' : 'mon'} ${window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && r.fte[date] ? 'outside-window' : ''}`,
-        ),
-      'alloc-row',
-    )
   }
 
   // ---- selection details for the status bar -------------------------------------------------
@@ -1062,27 +889,7 @@ export function Kalender() {
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
           {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
           <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
-            {row(
-              'months',
-              <span className="lbl-title">{zoom === 'compact' ? '' : 'Uke / måned'}</span>,
-              (date) => (
-                <div key={date} className={`${dayClass(date)} cell head`} style={{ width: colW }}>
-                  {date.endsWith('-01') ? <span className="month-label">{`${MONTHS_NB[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`}</span> : weekdayIndex(date) === 0 ? <span className="week-label">u{isoWeek(date)}</span> : null}
-                </div>
-              ),
-              'head-row',
-            )}
-            {row(
-              'days',
-              <span className="lbl-title">Dato</span>,
-              (date) => (
-                <div key={date} className={`${dayClass(date)} cell head day-head`} style={{ width: colW }} title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}`}>
-                  <span className="wd">{WEEKDAYS_NB[weekdayIndex(date)].slice(0, zoom === 'compact' ? 1 : 3).toLowerCase()}</span>
-                  <span className="dn">{Number(date.slice(8))}</span>
-                </div>
-              ),
-              'head-row tall',
-            )}
+            <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} />
 
             <div className="section-head" style={{ width: LEFT_W }}>
               <button className="twisty" onClick={() => setHallsOpen(!hallsOpen)}>
@@ -1103,53 +910,7 @@ export function Kalender() {
                 Ingen hallbookinger. Les inn <code>location_format</code> med «Oppdater haller (Venyou)».
               </div>
             )}
-            {hallsOpen &&
-              halls.map((hall) => {
-                const days = hallCalendar.get(hall)
-                // Names of the events in or near the visible dates, each with the width it may take.
-                const labels = (hallLabels.get(hall) ?? [])
-                  .filter((run) => run.col <= c1 && run.col + Math.max(run.span, Math.min(run.room, HALL_LABEL_MAX_COLS)) > c0)
-                  .map((run) => {
-                    const width = Math.min(run.room * colW, Math.max(run.span * colW, HALL_LABEL_MAX_W)) - 2
-                    // Roughly the columns the text covers, so the phase letters under it can be left out.
-                    const covered = Math.ceil(Math.min(width, run.eventName.length * HALL_LABEL_CHAR_W + 6) / colW)
-                    return { ...run, width, covered }
-                  })
-                return row(
-                  `hall:${hall}`,
-                  <span className="lbl-hall">{hall}</span>,
-                  (date, col) => {
-                    const entries = days?.get(date)
-                    if (!entries?.length) return <div key={date} className={`${dayClass(date)} cell hall`} style={{ width: colW }} />
-                    const main = dominantEntry(entries)
-                    const underLabel = labels.some((label) => col >= label.col && col < label.col + label.covered)
-                    const title = entries.map((e) => `${e.eventName} – ${PHASE_LABELS[e.phase]}`).join('\n')
-                    // Wide columns have room to show both events on a day the hall is shared.
-                    const split = zoom === 'wide' ? splitEntries(entries) : null
-                    if (split)
-                      return (
-                        <div key={date} className={`${dayClass(date)} cell hall split`} style={{ width: colW }} title={title}>
-                          {split.map((entry) => (
-                            <span key={entry.eventName} className={`half ph-${entry.phase}`}>
-                              {!underLabel && <span className="phase-code">{PHASE_CODES[entry.phase]}</span>}
-                            </span>
-                          ))}
-                        </div>
-                      )
-                    return (
-                      <div key={date} className={`${dayClass(date)} cell hall ph-${main.phase} ${entries.length > 1 ? 'multi' : ''}`} style={{ width: colW }} title={title}>
-                        {!underLabel && zoom !== 'compact' ? <span className="phase-code">{PHASE_CODES[main.phase]}</span> : null}
-                      </div>
-                    )
-                  },
-                  'hall-row',
-                  labels.map((label) => (
-                    <span key={`${label.eventName}:${label.col}`} className="hall-label" style={{ left: LEFT_W + label.col * colW, maxWidth: label.width }}>
-                      {label.eventName}
-                    </span>
-                  )),
-                )
-              })}
+            {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} days={hallCalendar.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
 
             <div className="section-head" style={{ width: LEFT_W }}>
               <button className="twisty" onClick={() => setCapacityOpen(!capacityOpen)}>
@@ -1162,37 +923,13 @@ export function Kalender() {
             </div>
             {capacityOpen && (
               <>
-                {row('base', <span className="lbl-cap">Faste (FTE)</span>, (date) => readCell(date, dayType(date) === 'arbeidsdag' ? settings.baseCrew : undefined, 'cap-cell'), 'cap-row')}
-                {capLanes.map((cap, lane) =>
-                  row(
-                    `cap:${cap.line.id}:${cap.field}`,
-                    <span className={`lbl-cap group-${cap.line.group}`}>{cap.label}</span>,
-                    (date, col) => valueCell('cap', lane, date, col, cap.line[cap.field]?.[date], cap.field === 'values' ? cap.line.notes[date] : undefined, 'cap-cell'),
-                    `cap-row group-${cap.line.group}`,
-                  ),
-                )}
+                <BaseCrewRow cols={cols} baseCrew={settings.baseCrew} />
+                {capLanes.map((cap, lane) => (
+                  <CapRow key={`cap:${cap.line.id}:${cap.field}`} cap={cap} lane={lane} cols={cols} actions={actions} {...editOf('cap', lane)} />
+                ))}
               </>
             )}
-            {row('need', <span className="lbl-cap strong">Planlagt behov</span>, (date) => readCell(date, need.get(date), 'sum-cell'), 'sum-row')}
-            {row(
-              'available',
-              <span className="lbl-cap strong">Tilgjengelig</span>,
-              (date) => {
-                const cap = capacityForDate(date, ws.capacity, settings)
-                return readCell(date, cap.available || undefined, 'sum-cell', `Faste ${formatFte(cap.base)} + innleid/fag ${formatFte(cap.added)} + overtid ${formatFte(cap.overtime)} − utilgjengelig ${formatFte(cap.unavailable)}`)
-              },
-              'sum-row',
-            )}
-            {row(
-              'deviation',
-              <span className="lbl-cap strong">Avvik</span>,
-              (date) => {
-                const dev = capacityForDate(date, ws.capacity, settings).available - (need.get(date) ?? 0)
-                const n = need.get(date) ?? 0
-                return readCell(date, n || dev ? dev : undefined, `sum-cell dev ${dev < -0.05 ? 'neg' : dev > 0.05 && n ? 'pos' : ''}`)
-              },
-              'sum-row deviation-row',
-            )}
+            <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} />
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
                 <span className="lbl-desc" title="Nivåene radene er gruppert etter">
@@ -1218,7 +955,15 @@ export function Kalender() {
 
           <div className="grid-alloc" style={{ height: items.length * ROW_H }}>
             <div style={{ height: r0 * ROW_H }} />
-            {items.slice(r0, r1).map(renderItem)}
+            {items.slice(r0, r1).map((item) => {
+              if (item.kind === 'row') {
+                const lane = laneOfRow.get(item.row.id)!
+                return <AllocRow key={item.row.id} item={item} lane={lane} window={windowOf(item.row)} rowDimensions={rowDimensions} cols={cols} actions={actions} {...editOf('alloc', lane)} />
+              }
+              // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
+              const lane = item.entry ? laneOfRow.get(`level:${item.node.key}`)! : -1
+              return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} cols={cols} actions={actions} {...(item.entry ? editOf('alloc', lane) : NO_EDIT)} />
+            })}
           </div>
           {items.length === 0 && (
             <p className="empty-rows">{rows.length === 0

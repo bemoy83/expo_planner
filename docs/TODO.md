@@ -70,9 +70,9 @@ General
 
 ## Technical debt
 
-- No component or end-to-end tests beyond a smoke test. The grid, dialogs and imports are verified by hand in a browser.
+- Few component tests and no end-to-end tests: a smoke test and the grid's row component. The grid as a whole, dialogs and imports are verified by hand in a browser.
 - One lint warning: a `setState` inside an effect in `Kalender.tsx` (selecting a row that was just added).
-- `Kalender.tsx` is one large component (about 1,300 lines). No row is memoized, so each scroll frame and each cell entered during a drag renders every visible cell again; this is the main cost left when scrolling. Splitting it into row components needs the grid tested by hand.
+- `Kalender.tsx` is still one large component (about 1,000 lines): it holds the toolbar, the selection, the pencil, eraser and fill handle, and the status bar. The lines of the grid are memoized components in `kalender/GridRows.tsx`, drawn again only when something on the line changed. Scrolling sideways still draws every line again each time a new day column comes into view.
 - `index.css` is one file of about 1,150 lines.
 - A fill or paste of several cells in one row writes that row to IndexedDB once per cell.
 - Numbers typed with a decimal comma are parsed in several places with slightly different rules (empty means 0, nothing, or invalid).
