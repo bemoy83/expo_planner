@@ -132,3 +132,43 @@ export const projectPhases = (bookings: VenueBooking[], projectOf: (booking: Ven
   }
   return projects
 }
+
+/** One bar in a hall's line of the hall calendar: a stretch of days with the same event in the same phase. */
+export interface HallSegment {
+  eventName: string
+  phase: VenuePhase
+  /** The first day, counted in days from the origin. A half on a shared day starts on .5. */
+  col: number
+  /** The length in days; half a day for one of two events sharing a day. */
+  span: number
+  /** More than one event is in the hall on these days. */
+  shared: boolean
+  /** Every event in the hall on the first day, with its phase. */
+  title: string
+}
+
+/**
+ * A hall's calendar as bars, in date order: consecutive days where the same event is the main one, in the
+ * same phase, are one bar. With `split`, a day two events may share (see `splitEntries`) is two half bars.
+ */
+export const hallSegments = (days: Map<ISODate, HallDayEntry[]>, origin: ISODate, split: boolean): HallSegment[] => {
+  const segments: HallSegment[] = []
+  let open: HallSegment | null = null
+  for (const date of [...days.keys()].sort()) {
+    const entries = days.get(date)!
+    if (!entries.length) continue
+    const col = daysBetween(origin, date)
+    const title = entries.map((e) => `${e.eventName} – ${PHASE_LABELS[e.phase]}`).join('\n')
+    const halves = split ? splitEntries(entries) : null
+    if (halves) {
+      halves.forEach((entry, i) => segments.push({ eventName: entry.eventName, phase: entry.phase, col: col + i / 2, span: 0.5, shared: true, title }))
+      open = null
+      continue
+    }
+    const main = dominantEntry(entries)
+    const shared = entries.length > 1
+    if (open && open.eventName === main.eventName && open.phase === main.phase && open.shared === shared && open.col + open.span === col) open.span += 1
+    else segments.push((open = { eventName: main.eventName, phase: main.phase, col, span: 1, shared, title }))
+  }
+  return segments
+}

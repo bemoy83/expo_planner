@@ -4,7 +4,7 @@ import { addDays, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } 
 import { dayType, holidayName } from '../../domain/holidays'
 import { isSuggestedRow } from '../../domain/plannedRows'
 import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
-import { dominantEntry, PHASE_CODES, PHASE_LABELS, splitEntries, type HallDayEntry } from '../../domain/venue'
+import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate } from './labels'
 import { HALL_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
@@ -133,14 +133,18 @@ export interface HallLabelRun {
 
 interface HallRowProps {
   hall: string
-  days: Map<ISODate, HallDayEntry[]> | undefined
+  /** The hall's bookings as bars, see `hallSegments`. */
+  bars: HallSegment[] | undefined
   runs: HallLabelRun[] | undefined
   cols: Columns
   zoom: Zoom
 }
 
-/** One hall of the hall calendar: a phase per day, with the events' names laid over them. */
-export const HallRow = memo(function HallRow({ hall, days, runs, cols, zoom }: HallRowProps) {
+/**
+ * One hall of the hall calendar: a bar per phase of each event, with the events' names laid over them.
+ * The day cells under the bars are empty, so a line costs a handful of bars however many days it shows.
+ */
+export const HallRow = memo(function HallRow({ hall, bars, runs, cols, zoom }: HallRowProps) {
   const { c0, colW } = cols
   const c1 = c0 + cols.dates.length - 1
   // Names of the events in or near the visible dates, each with the width it may take.
@@ -152,41 +156,38 @@ export const HallRow = memo(function HallRow({ hall, days, runs, cols, zoom }: H
       const covered = Math.ceil(Math.min(width, run.eventName.length * HALL_LABEL_CHAR_W + 6) / colW)
       return { ...run, width, covered }
     })
+  const visible = (bars ?? []).filter((bar) => bar.col <= c1 && bar.col + bar.span > c0)
   return (
     <Line
       className="hall-row"
       height={HALL_ROW_H}
       label={<span className="lbl-hall">{hall}</span>}
       cols={cols}
-      cells={(date, col) => {
-        const entries = days?.get(date)
-        if (!entries?.length) return <div key={date} className={`${dayClass(cols, date)} cell hall`} style={{ width: colW }} />
-        const main = dominantEntry(entries)
-        const underLabel = labels.some((label) => col >= label.col && col < label.col + label.covered)
-        const title = entries.map((e) => `${e.eventName} – ${PHASE_LABELS[e.phase]}`).join('\n')
-        // Wide columns have room to show both events on a day the hall is shared.
-        const split = zoom === 'wide' ? splitEntries(entries) : null
-        if (split)
-          return (
-            <div key={date} className={`${dayClass(cols, date)} cell hall split`} style={{ width: colW }} title={title}>
-              {split.map((entry) => (
-                <span key={entry.eventName} className={`half ph-${entry.phase}`}>
-                  {!underLabel && <span className="phase-code">{PHASE_CODES[entry.phase]}</span>}
-                </span>
-              ))}
-            </div>
-          )
-        return (
-          <div key={date} className={`${dayClass(cols, date)} cell hall ph-${main.phase} ${entries.length > 1 ? 'multi' : ''}`} style={{ width: colW }} title={title}>
-            {!underLabel && zoom !== 'compact' ? <span className="phase-code">{PHASE_CODES[main.phase]}</span> : null}
-          </div>
-        )
-      }}
-      overlay={labels.map((label) => (
-        <span key={`${label.eventName}:${label.col}`} className="hall-label" style={{ left: LEFT_W + label.col * colW, maxWidth: label.width }}>
-          {label.eventName}
-        </span>
-      ))}
+      cells={(date) => <div key={date} className={`${dayClass(cols, date)} cell hall`} style={{ width: colW }} />}
+      overlay={
+        <>
+          {visible.map((bar) => {
+            // The phase letters sit in the middle of the bar; they are left out under an event's name, in narrow columns and on the arrangement itself, which carries the name.
+            const middle = bar.col + bar.span / 2
+            const underLabel = labels.some((label) => middle >= label.col && middle < label.col + label.covered)
+            return (
+              <span
+                key={`${bar.eventName}:${bar.phase}:${bar.col}`}
+                className={`hall-bar ph-${bar.phase} ${bar.shared ? 'shared' : ''}`}
+                style={{ left: LEFT_W + bar.col * colW + 1, width: bar.span * colW - 2 }}
+                title={bar.title}
+              >
+                {!underLabel && zoom !== 'compact' && bar.phase !== 'event' ? PHASE_CODES[bar.phase] : null}
+              </span>
+            )
+          })}
+          {labels.map((label) => (
+            <span key={`${label.eventName}:${label.col}`} className="hall-label" style={{ left: LEFT_W + label.col * colW, maxWidth: label.width }}>
+              {label.eventName}
+            </span>
+          ))}
+        </>
+      }
     />
   )
 })

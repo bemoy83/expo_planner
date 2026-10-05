@@ -390,3 +390,8 @@ table.ledger{font-size:13px}
 /* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
    every rule sits exactly on the boundary between two lines: a level's hairline above it, a cell's rule above it. */
 .grid-alloc .grid-row{border-bottom:0}
+
+/* ---- 11. Hall calendar: a rounded bar per phase of each event, as in the mockup ---- */
+.hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;color:color-mix(in srgb,var(--text) 60%,transparent)}
+.hall-bar.shared{background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px)!important}
+.hall-label{z-index:1;padding-left:7px;font-weight:600;font-size:11.5px}

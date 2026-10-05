@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHallCalendar, dominantEntry, hallNames, hallRuns, projectPhases, splitEntries, type HallDayEntry } from './venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallRuns, hallSegments, projectPhases, splitEntries, type HallDayEntry } from './venue'
 import type { VenueBooking } from './types'
 
 const booking = (overrides: Partial<VenueBooking>): VenueBooking => ({
@@ -93,5 +93,25 @@ describe('project phases', () => {
 
   it('leaves out bookings that are no project', () => {
     expect([...phases.keys()]).toEqual(['26970'])
+  })
+})
+
+describe('hall segments', () => {
+  const days = buildHallCalendar([
+    booking({ phases: { assembly: { start: '2026-10-05', end: '2026-10-07' }, event: { start: '2026-10-08', end: '2026-10-09' }, dismantle: { start: '2026-10-10', end: '2026-10-10' } } }),
+    booking({ id: 'b2', eventName: 'OSLO MOTOR SHOW', phases: { assembly: { start: '2026-10-10', end: '2026-10-12' } } }),
+  ]).get('C')!
+  const bars = (split: boolean) => hallSegments(days, '2026-10-01', split).map((s) => `${s.eventName.slice(0, 3)} ${s.phase} ${s.col}+${s.span}${s.shared ? ' shared' : ''}`)
+
+  it('joins the days of one phase of one event into a bar', () => {
+    expect(bars(false).slice(0, 2)).toEqual(['VVS assembly 4+3', 'VVS event 7+2'])
+  })
+
+  it('starts a new bar where the hall becomes shared or changes event', () => {
+    expect(bars(false).slice(2)).toEqual(['VVS dismantle 9+1 shared', 'OSL assembly 10+2'])
+  })
+
+  it('gives a shared day two half bars when asked to split, the event on its way out first', () => {
+    expect(bars(true).slice(2)).toEqual(['VVS dismantle 9+0.5 shared', 'OSL assembly 9.5+0.5 shared', 'OSL assembly 10+2'])
   })
 })

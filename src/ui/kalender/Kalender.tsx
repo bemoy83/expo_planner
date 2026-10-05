@@ -4,7 +4,7 @@ import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { VENUE_PHASES, type AllocationRow, type VenueBooking } from '../../domain/types'
-import { buildHallCalendar, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
+import { buildHallCalendar, hallNames, hallRuns, hallSegments, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { fillAcross, shareOverDays, spread } from '../../domain/spread'
@@ -98,6 +98,9 @@ export function Kalender() {
     }
     return labels
   }, [hallCalendar, range.start])
+  // Each hall's bookings as bars. Wide columns have room to show both events on a day the hall is shared.
+  const splitShared = zoom === 'wide'
+  const hallBars = useMemo(() => new Map([...hallCalendar].map(([hall, days]) => [hall, hallSegments(days, range.start, splitShared)])), [hallCalendar, range.start, splitShared])
   const halls = useMemo(() => {
     const names = hallNames(ws.venue)
     if (allHalls) return names
@@ -1000,7 +1003,7 @@ export function Kalender() {
                 Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
               </div>
             )}
-            {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} days={hallCalendar.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
+            {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
 
             <div className="section-head" style={{ width: LEFT_W }}>
               <button
