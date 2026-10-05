@@ -14,7 +14,7 @@ import { buildWindows, windowFor } from '../../domain/windows'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
-import { UndoRedoButtons } from '../common'
+import { Menu, Segmented, UndoRedoButtons } from '../common'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows, type HallLabelRun } from './GridRows'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
@@ -127,10 +127,11 @@ export function Kalender() {
     () => (inViewOnly ? JSON.stringify(filtered.filter((group) => inWindow(group, { from: winFrom, to: winTo })).map((group) => group.key)) : null),
     [filtered, inViewOnly, winFrom, winTo],
   )
-  const items = useMemo(() => {
+  const shownGroups = useMemo(() => {
     const keys = inViewKeys === null ? null : new Set(JSON.parse(inViewKeys) as string[])
-    return groupItems(keys ? filtered.filter((group) => keys.has(group.key)) : filtered, demandIndex, settings, collapsed, grouping, entry)
-  }, [filtered, inViewKeys, demandIndex, settings, collapsed, grouping, entry])
+    return keys ? filtered.filter((group) => keys.has(group.key)) : filtered
+  }, [filtered, inViewKeys])
+  const items = useMemo(() => groupItems(shownGroups, demandIndex, settings, collapsed, grouping, entry), [shownGroups, demandIndex, settings, collapsed, grouping, entry])
   const allocLanes = useMemo<AllocLane[]>(() => items.flatMap((item, index): AllocLane[] => (item.kind === 'row' ? [{ row: item.row, index }] : item.entry ? [{ node: item.node, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row?.id ?? `level:${lane.node!.key}`, i])), [allocLanes])
   const capLanes = useMemo<CapLane[]>(
@@ -796,96 +797,137 @@ export function Kalender() {
     return sum
   })()
 
+  const shownRowCount = shownGroups.reduce((sum, group) => sum + group.rows.length, 0)
+  // The choices in the filter menu that narrow the list; «Bare prosjekter i visningen» is the normal state.
+  const activeFilters = [filter.project, filter.competence, filter.onlyWithRows, filter.onlyUncovered].filter(Boolean).length
+
   // ---- render ---------------------------------------------------------------------------------
   return (
     <div className={`kalender ${tool === 'select' ? '' : tool}`}>
-      <div className="toolbar">
-        <label>
-          Prosjekt
-          <select value={filter.project} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
-            <option value="">Alle prosjekter ({projects.length})</option>
-            {projects.map(([key, name]) => (
-              <option key={key} value={key}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Kompetanse
-          <select value={filter.competence} onChange={(e) => setFilter({ ...filter, competence: e.target.value })}>
-            <option value="">Alle</option>
-            {competences.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <input className="search" type="search" placeholder="Søk i rader" value={filter.search} onChange={(e) => setFilter({ ...filter, search: e.target.value })} />
-        {(filter.project || filter.competence || filter.search) && (
-          <button className="link" onClick={() => setFilter(EMPTY_FILTER)}>
-            Nullstill
-          </button>
-        )}
-        <label className="check" title="Skjul prosjekter som ikke har noen planleggingsrader ennå">
-          <input type="checkbox" checked={!!filter.onlyWithRows} onChange={(e) => setFilter({ ...filter, onlyWithRows: e.target.checked })} />
-          Bare med rader
-        </label>
-        <label className="check" title="Skjul rader der planen dekker behovet, så det som gjenstår står igjen som en arbeidsliste">
-          <input type="checkbox" checked={!!filter.onlyUncovered} onChange={(e) => setFilter({ ...filter, onlyUncovered: e.target.checked })} />
-          Bare det som mangler plan
-        </label>
-        <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
-          <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
-          Bare prosjekter i visningen
-        </label>
-        <span className="toolbar-gap" />
-        <UndoRedoButtons />
-        <button onClick={() => setCollapsed(new Set())}>Utvid alle</button>
-        <button title="Fold sammen til øverste nivå" onClick={() => setCollapsed(new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}>
-          Fold alle
-        </button>
+      <div className="page-head">
+        <h2>Kalender</h2>
+        <span className="page-meta">
+          {[
+            `${shownGroups.length} ${shownGroups.length === 1 ? 'prosjekt' : 'prosjekter'}`,
+            `${shownRowCount} ${shownRowCount === 1 ? 'rad' : 'rader'}`,
+            overbooked.size ? `${overbooked.size} ${overbooked.size === 1 ? 'dag' : 'dager'} med underdekning` : 'Ingen underdekning',
+          ].join(' · ')}
+        </span>
+        <button className="ghost" onClick={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}>+ Ny rad</button>
         <button
-          className={tool === 'pencil' ? 'tool active' : 'tool'}
-          aria-pressed={tool === 'pencil'}
-          title="Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag. Klikk igjen for å slå av."
-          onClick={() => setTool(tool === 'pencil' ? 'select' : 'pencil')}
+          className="primary"
+          disabled={shownRowCount === 0}
+          title="Foreslå plan: fordel behovet til radene i prosjektene som vises på monterings- og demonteringsdagene i hallene. Rader som allerede har FTE røres ikke."
+          onClick={() => proposePlan(shownGroups.flatMap((group) => group.rows), false)}
         >
-          ✏ Fordel behov
-        </button>
-        <button
-          className={tool === 'eraser' ? 'tool active' : 'tool'}
-          aria-pressed={tool === 'eraser'}
-          title="Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under. Klikk igjen for å slå av."
-          onClick={() => setTool(tool === 'eraser' ? 'select' : 'eraser')}
-        >
-          ⌫ Visk ut
-        </button>
-        <button onClick={() => scrollToDate(today)}>I dag</button>
-        <input
-          type="date"
-          aria-label="Gå til dato"
-          min={range.start}
-          max={range.end}
-          onChange={(e) => e.target.value && scrollToDate(e.target.value, 2)}
-        />
-        <select value={zoom} aria-label="Kolonnebredde" onChange={(e) => setZoom(e.target.value as Zoom)}>
-          <option value="compact">Smal</option>
-          <option value="normal">Normal</option>
-          <option value="wide">Bred</option>
-        </select>
-        <button className="primary" onClick={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}>
-          + Ny rad
+          ✦ Foreslå plan
         </button>
       </div>
 
-      <GroupingBar
-        grouping={grouping}
-        onChange={(next) => {
-          // Lanes are positions in the list, so a selection would land on other rows after regrouping.
-          setSelection(null)
-          setGrouping(next)
-        }}
-      />
+      <div className="toolbar zones">
+        <div className="zone">
+          <UndoRedoButtons />
+          <Segmented
+            label="Verktøy"
+            value={tool}
+            onChange={setTool}
+            options={[
+              { value: 'select', label: 'Velg', title: 'Velg celler og skriv FTE i dem.' },
+              {
+                value: 'pencil',
+                label: '✏ Fordel behov',
+                title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag.',
+              },
+              { value: 'eraser', label: '⌫ Tøm', title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under.' },
+            ]}
+          />
+        </div>
+        <span className="zone-divider" />
+        <div className="zone">
+          <Menu
+            label={
+              <>
+                Filter{activeFilters > 0 && <span className="menu-count">{activeFilters}</span>}
+              </>
+            }
+            title="Velg hvilke prosjekter og rader som vises"
+          >
+            {() => (
+              <div className="filter-panel">
+                <label>
+                  Prosjekt
+                  <select value={filter.project} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
+                    <option value="">Alle prosjekter ({projects.length})</option>
+                    {projects.map(([key, name]) => (
+                      <option key={key} value={key}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Kompetanse
+                  <select value={filter.competence} onChange={(e) => setFilter({ ...filter, competence: e.target.value })}>
+                    <option value="">Alle</option>
+                    {competences.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="check" title="Skjul prosjekter som ikke har noen planleggingsrader ennå">
+                  <input type="checkbox" checked={!!filter.onlyWithRows} onChange={(e) => setFilter({ ...filter, onlyWithRows: e.target.checked })} />
+                  Skjul tomme
+                </label>
+                <label className="check" title="Skjul rader der planen dekker behovet, så det som gjenstår står igjen som en arbeidsliste">
+                  <input type="checkbox" checked={!!filter.onlyUncovered} onChange={(e) => setFilter({ ...filter, onlyUncovered: e.target.checked })} />
+                  Bare det som gjenstår
+                </label>
+                <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
+                  <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
+                  Bare prosjekter i visningen
+                </label>
+                {(activeFilters > 0 || filter.search) && (
+                  <button className="link" onClick={() => setFilter(EMPTY_FILTER)}>
+                    Nullstill
+                  </button>
+                )}
+              </div>
+            )}
+          </Menu>
+          <input className="search" type="search" placeholder="Søk i rader" value={filter.search} onChange={(e) => setFilter({ ...filter, search: e.target.value })} />
+          <GroupingBar
+            grouping={grouping}
+            onChange={(next) => {
+              // Lanes are positions in the list, so a selection would land on other rows after regrouping.
+              setSelection(null)
+              setGrouping(next)
+            }}
+          />
+          <button
+            className="ghost"
+            title={collapsed.size ? 'Vis alle nivåer' : 'Fold sammen til øverste nivå'}
+            onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
+          >
+            {collapsed.size ? 'Utvid alle' : 'Fold sammen'}
+          </button>
+        </div>
+        <div className="zone zone-end">
+          <button className="ghost" onClick={() => scrollToDate(today)}>
+            I dag
+          </button>
+          <input type="date" aria-label="Gå til dato" min={range.start} max={range.end} onChange={(e) => e.target.value && scrollToDate(e.target.value, 2)} />
+          <Segmented
+            label="Kolonnebredde"
+            value={zoom}
+            onChange={setZoom}
+            options={[
+              { value: 'compact', label: 'S', title: 'Smale kolonner' },
+              { value: 'normal', label: 'M', title: 'Normale kolonner' },
+              { value: 'wide', label: 'L', title: 'Brede kolonner' },
+            ]}
+          />
+        </div>
+      </div>
 
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
@@ -913,7 +955,7 @@ export function Kalender() {
             </div>
             {hallsOpen && ws.venue.length === 0 && (
               <div className="section-hint" style={{ width: LEFT_W }}>
-                Ingen hallbookinger. Les inn <code>location_format</code> med «Oppdater haller (Venyou)».
+                Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
               </div>
             )}
             {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} days={hallCalendar.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
@@ -987,7 +1029,7 @@ export function Kalender() {
             <p className="empty-rows">{rows.length === 0
                 ? 'Ingen planleggingsrader ennå. Bruk «+ Ny rad» for å legge til en rad for et prosjekt.'
                 : inViewOnly
-                  ? 'Ingen prosjekter har planlagte dager i denne perioden. Slå av «Bare prosjekter i visningen» for å se alle.'
+                  ? 'Ingen prosjekter har planlagte dager i denne perioden. Slå av «Bare prosjekter i visningen» under Filter for å se alle.'
                   : 'Ingen rader passer filteret.'}</p>
           )}
         </div>

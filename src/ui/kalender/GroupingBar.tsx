@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useDismiss } from '../useDismiss'
 import { DIMENSION_LABELS, DIMENSIONS, type Dimension } from './rows'
 
 interface Props {
@@ -16,22 +17,7 @@ export function GroupingBar({ grouping, onChange }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLSpanElement>(null)
 
-  // The menu closes on a click outside it and on Escape.
-  useEffect(() => {
-    if (!menuOpen) return
-    const onDown = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [menuOpen])
+  useDismiss(menuRef, menuOpen, setMenuOpen)
 
   /** Puts `dimension` at `index` among the levels, whether it was in use or not. */
   const place = (dimension: Dimension, index: number) => {

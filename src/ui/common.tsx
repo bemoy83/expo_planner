@@ -1,4 +1,51 @@
+import { useRef, useState, type ReactNode } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
+import { useDismiss } from './useDismiss'
+
+interface MenuProps {
+  label: ReactNode
+  title?: string
+  className?: string
+  /** Which edge of the button the menu lines up with. */
+  align?: 'left' | 'right'
+  /** The content, given a function that closes the menu. */
+  children: (close: () => void) => ReactNode
+}
+
+/** A button that opens a menu or a small panel under it. Closes on a click outside and on Escape. */
+export function Menu({ label, title, className = '', align = 'left', children }: MenuProps) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  useDismiss(ref, open, setOpen)
+  return (
+    <span className="menu" ref={ref}>
+      <button className={`menu-button ${className}`} aria-haspopup="true" aria-expanded={open} title={title} onClick={() => setOpen(!open)}>
+        {label}
+      </button>
+      {open && <div className={`menu-pop ${align}`}>{children(() => setOpen(false))}</div>}
+    </span>
+  )
+}
+
+interface SegmentedProps<T extends string> {
+  label: string
+  value: T
+  options: { value: T; label: ReactNode; title?: string }[]
+  onChange: (value: T) => void
+}
+
+/** A choice between a few values, shown as buttons in one track. */
+export function Segmented<T extends string>({ label, value, options, onChange }: SegmentedProps<T>) {
+  return (
+    <span className="segmented" role="group" aria-label={label}>
+      {options.map((option) => (
+        <button key={option.value} className={option.value === value ? 'active' : ''} aria-pressed={option.value === value} title={option.title} onClick={() => onChange(option.value)}>
+          {option.label}
+        </button>
+      ))}
+    </span>
+  )
+}
 
 /** Undo and redo, as they sit in every tab's toolbar. */
 export function UndoRedoButtons() {

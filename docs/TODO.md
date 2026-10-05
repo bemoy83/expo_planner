@@ -45,7 +45,7 @@ Kalender
 
 - A planning row made before rows had Hall and Avd. covers all halls and departments, and keeps the demand from being split into rows per hall. To split it, delete the row; its FTE is not moved.
 - A level in entry mode (✎) shares a typed number over the rows below by their required hours. It does not look at what is already planned or at the phase, so a level holding both montering and demontering shares one day's number across both. Which levels are in entry mode is kept per browser.
-- "Fold alle" folds to the top level only; there is no "fold to level N".
+- «Fold sammen» folds to the top level only; there is no "fold to level N".
 - The grouping and the folded levels are kept per browser (localStorage), not in the workspace or the backup.
 - Demand whose Hall/Sted names no hall on Haller is gathered under «Uavklart» until the planner picks a hall under Plassering on Behov. The choice is for the text and applies in every project; there is no choice for one line or one project only, no table listing the choices, and lines with an empty Hall/Sted cannot be placed. A hall letter with several numbered halls («Hall B» with B1–B4) is left unresolved until chosen.
 - If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. Rows made for several texts that are now all «Uavklart» each show the whole unresolved demand.
@@ -55,7 +55,7 @@ Kalender
 - The pencil («Fordel behov») shares in whole people, evenly, with what does not divide on the first days and the decimals on the last day. A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.
 - A row's window is the build-up (A) or tear-down (D) days of its project in its hall; moving in and out are not counted as work days. Levels do not show a window, and a row for all halls or for «Uavklart» gets the days of all the project's halls together.
 - «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row. Small rows therefore get one day with a decimal each (0,2 here, 0,6 there) instead of being gathered into whole people across rows. It does not look at the available crew.
-- The eraser («Visk ut») works on planning rows and levels only, not on the staffing lines.
+- The eraser («Tøm») works on planning rows and levels only, not on the staffing lines.
 - Notes can be written on planning cells but not on staffing cells; staffing notes from the workbook are shown only.
 - A suggested row cannot carry a note or be edited until FTE is typed into it.
 - With staffing details open, the top block is taller than the screen and stops being pinned.

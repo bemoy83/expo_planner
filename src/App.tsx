@@ -12,6 +12,7 @@ import { Haller } from './ui/haller/Haller'
 import { Kpi } from './ui/kpi/Kpi'
 import { Produkttyper } from './ui/kpi/Produkttyper'
 import { Kalender } from './ui/kalender/Kalender'
+import { Menu } from './ui/common'
 import { errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
@@ -36,7 +37,12 @@ type View = (typeof TABS)[number][0]
 /** Its own component, so that saving an edit does not render the tabs again. */
 function SaveIndicator() {
   const saveState = useSaveState()
-  return <span className={`save-state ${saveState}`}>{saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet' : 'Lagret i nettleseren'}</span>
+  return (
+    <span className={`save-state ${saveState}`} title={saveState === 'saved' ? 'Lagret i nettleseren' : undefined}>
+      <i />
+      {saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet' : 'Lagret'}
+    </span>
+  )
 }
 
 const emptyWorkspace = (): Workspace => ({
@@ -54,7 +60,7 @@ const emptyWorkspace = (): Workspace => ({
 })
 
 function Shell() {
-  const { status, workspace, replaceWorkspace, importVenue, undo, redo } = useWorkspace()
+  const { status, workspace, replaceWorkspace, resetWorkspace, importVenue, undo, redo } = useWorkspace()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
@@ -140,26 +146,87 @@ function Shell() {
             ))}
           </nav>
         )}
-        {workspace?.importedFrom && (
-          <span className="muted small" title={`Importert ${new Date(workspace.importedFrom.importedAt).toLocaleString('nb-NO')}`}>
-            fra {workspace.importedFrom.fileName}
-          </span>
-        )}
         <span className="toolbar-gap" />
         {busy && <span className="busy">{busy}</span>}
         {status === 'ready' && <SaveIndicator />}
         {workspace && (
-          <button onClick={() => venyouInput.current?.click()} title={workspace.venueImport ? `Sist: ${workspace.venueImport.fileName}, ${new Date(workspace.venueImport.importedAt).toLocaleString('nb-NO')}` : 'Les inn location_format fra Venyou'}>
-            Oppdater haller (Venyou)
+          <button
+            className="ghost"
+            onClick={() => venyouInput.current?.click()}
+            title={
+              workspace.venueImport
+                ? `Oppdater hallkalenderen fra Venyou (location_format). Sist: ${workspace.venueImport.fileName}, ${new Date(workspace.venueImport.importedAt).toLocaleString('nb-NO')}`
+                : 'Les inn location_format fra Venyou'
+            }
+          >
+            ↻ {workspace.venueImport ? `Haller · ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}` : 'Les inn haller'}
           </button>
         )}
-        <button onClick={() => workbookInput.current?.click()}>Importer arbeidsbok</button>
-        {workspace && <button onClick={exportBackup}>Last ned sikkerhetskopi</button>}
-        <button onClick={() => backupInput.current?.click()}>Gjenopprett</button>
-        <button className={tooltips ? 'toggle on' : 'toggle'} aria-pressed={tooltips} onClick={() => setTooltips(!tooltips)}>
-          Hjelpetekster {tooltips ? 'på' : 'av'}
-        </button>
-        {workspace && <button onClick={() => setSettingsOpen(true)}>Innstillinger</button>}
+        <Menu label="⚙ Innstillinger" className="ghost" align="right">
+          {(close) => (
+            <>
+              <button role="menuitem" aria-pressed={tooltips} onClick={() => setTooltips(!tooltips)}>
+                Hjelpetekster {tooltips ? 'på' : 'av'}
+              </button>
+              {workspace && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    close()
+                    setSettingsOpen(true)
+                  }}
+                >
+                  Bemanning og normaltid …
+                </button>
+              )}
+              <span className="menu-group">Data</span>
+              <button
+                role="menuitem"
+                title={workspace?.importedFrom ? `Sist: ${workspace.importedFrom.fileName}, ${new Date(workspace.importedFrom.importedAt).toLocaleString('nb-NO')}` : undefined}
+                onClick={() => {
+                  close()
+                  workbookInput.current?.click()
+                }}
+              >
+                Importer arbeidsbok …
+              </button>
+              {workspace && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    close()
+                    exportBackup()
+                  }}
+                >
+                  Last ned sikkerhetskopi
+                </button>
+              )}
+              <button
+                role="menuitem"
+                onClick={() => {
+                  close()
+                  backupInput.current?.click()
+                }}
+              >
+                Gjenopprett …
+              </button>
+              {workspace && (
+                <button
+                  role="menuitem"
+                  className="danger"
+                  title="Sletter alt som er lagret i nettleseren: haller, prosjekter, behov, KPI og planlegging. Last ned en sikkerhetskopi først hvis du vil kunne gå tilbake."
+                  onClick={async () => {
+                    close()
+                    if (!confirm('Slette alt som er lagret i Expo Planner i denne nettleseren? Dette kan ikke angres.')) return
+                    await resetWorkspace()
+                  }}
+                >
+                  Slett alt og start på nytt …
+                </button>
+              )}
+            </>
+          )}
+        </Menu>
         <Tooltips enabled={tooltips} />
         <input ref={workbookInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFile(e, importWorkbook)} />
         <input ref={venyouInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFile(e, importVenyou)} />

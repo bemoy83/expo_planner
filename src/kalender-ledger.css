@@ -233,3 +233,43 @@ input[type='checkbox']{accent-color:var(--accent)}
 .grouping-menu{position:absolute;top:100%;left:0;margin-top:6px;min-width:170px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;z-index:50}
 .grouping-menu button{background:transparent;text-align:left;padding:7px 10px;border-radius:8px}
 .grouping-menu button:hover{background:var(--sunken)}
+
+/* ---- 7. Phase 2, A: top bar, page header and the toolbar in zones ---- */
+button.ghost{background:transparent;color:var(--text)}
+button.ghost:hover{background:var(--sunken)}
+.app-header{flex-wrap:nowrap}
+.save-state{display:inline-flex;align-items:center;gap:6px;color:var(--muted);white-space:nowrap}
+.save-state i{width:7px;height:7px;border-radius:999px;background:var(--pos)}
+.save-state.saving i{background:var(--faint)}
+.save-state.error{color:var(--neg)}
+.save-state.error i{background:var(--neg)}
+
+.menu{position:relative;display:inline-flex}
+.menu-pop{position:absolute;top:100%;left:0;margin-top:6px;min-width:230px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;z-index:50}
+.menu-pop.right{left:auto;right:0}
+.menu-pop>button{background:transparent;text-align:left;padding:7px 10px;border-radius:8px;white-space:nowrap}
+.menu-pop>button:hover{background:var(--sunken)}
+.menu-pop>button.danger{color:var(--neg)}
+.menu-pop>button.danger:hover{background:var(--neg-bg)}
+.menu-group{margin-top:4px;padding:10px 10px 4px;border-top:1px solid var(--line);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--faint)}
+.menu-count{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--accent);color:#140c05;font-size:11px;font-weight:700}
+.filter-panel{display:flex;flex-direction:column;gap:10px;padding:8px 10px;min-width:280px}
+.filter-panel label{display:flex;flex-direction:column;align-items:stretch;gap:4px;color:var(--muted)}
+.filter-panel label.check{flex-direction:row;align-items:center;gap:6px;color:var(--text)}
+.filter-panel select{max-width:none}
+.filter-panel button.link{align-self:flex-start;padding:0}
+
+.segmented{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--sunken)}
+.segmented button{background:transparent;padding:3px 10px;border-radius:6px;color:var(--muted);white-space:nowrap}
+.segmented button:hover{background:color-mix(in srgb,var(--surface) 60%,transparent);color:var(--text)}
+.segmented button.active{background:var(--surface);color:var(--text);font-weight:600}
+
+.page-head{display:flex;align-items:center;gap:14px;padding:10px 24px;border-bottom:1px solid var(--line)}
+.page-head h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em}
+.page-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--faint)}
+
+.toolbar.zones{gap:12px;row-gap:8px}
+.zone{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.zone-end{margin-left:auto}
+.zone-divider{width:1px;height:20px;background:var(--line-strong)}
+.toolbar .grouping-bar{padding:0;border-bottom:none;flex-wrap:nowrap}
