@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useDismiss } from '../useDismiss'
 import { DIMENSION_LABELS, DIMENSIONS, type Dimension } from './rows'
+import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 
 interface Props {
   grouping: Dimension[]
@@ -33,7 +34,7 @@ export function GroupingBar({ grouping, onChange }: Props) {
         <span className="grouping-track">
           {grouping.map((dimension, i) => (
             <span key={dimension} className="grouping-step">
-              {i > 0 && <span className="grouping-sep">→</span>}
+              {i > 0 && <ChevronRight className="grouping-sep" size={13} aria-hidden />}
               <span
                 className={`chip ${dragged === dimension ? 'dragging' : ''}`}
                 draggable
@@ -52,14 +53,14 @@ export function GroupingBar({ grouping, onChange }: Props) {
                 }}
               >
                 <button className="chip-move" disabled={i === 0} aria-label={`Flytt ${DIMENSION_LABELS[dimension]} et nivå opp`} title="Et nivå opp" onClick={() => place(dimension, i - 1)}>
-                  ◂
+                  <ChevronLeft size={13} aria-hidden />
                 </button>
                 {DIMENSION_LABELS[dimension]}
                 <button className="chip-move" disabled={i === grouping.length - 1} aria-label={`Flytt ${DIMENSION_LABELS[dimension]} et nivå ned`} title="Et nivå ned" onClick={() => place(dimension, i + 1)}>
-                  ▸
+                  <ChevronRight size={13} aria-hidden />
                 </button>
                 <button className="chip-remove" aria-label={`Fjern ${DIMENSION_LABELS[dimension]} som nivå`} title="Ikke grupper etter denne" onClick={() => onChange(grouping.filter((d) => d !== dimension))}>
-                  ×
+                  <X size={13} aria-hidden />
                 </button>
               </span>
             </span>
@@ -79,7 +80,7 @@ export function GroupingBar({ grouping, onChange }: Props) {
           }}
         >
           <button className="grouping-add" aria-haspopup="menu" aria-expanded={menuOpen} aria-label="Legg til nivå" title="Legg til nivå" onClick={() => setMenuOpen(!menuOpen)}>
-            +
+            <Plus size={14} aria-hidden />
           </button>
           {menuOpen && (
             <span className="grouping-menu" role="menu">

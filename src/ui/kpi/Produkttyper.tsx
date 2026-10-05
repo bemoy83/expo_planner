@@ -6,6 +6,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFile } from '../files'
 import { TextField } from '../fields'
+import { X } from 'lucide-react'
 
 /**
  * How each Visma product type is read: which unit it is counted in and which competence it belongs to.
@@ -134,7 +135,7 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
                     ) : null}
                     {row.configured && (
                       <button className="row-action" title="Fjern fra oppsettet" onClick={() => confirm(`Fjerne ${row.name} fra oppsettet?`) && setKpi(removeWorkType(kpi, row.name))}>
-                        ×
+                        <X size={13} aria-hidden />
                       </button>
                     )}
                   </td>

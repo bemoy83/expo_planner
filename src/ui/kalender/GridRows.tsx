@@ -11,6 +11,7 @@ import { LEFT_W, ROW_H, type Zoom } from './layout'
 import { CoverageBar } from './parts'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
+import { ChevronDown, ChevronRight, Pencil, Plus, TriangleAlert, X } from 'lucide-react'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
@@ -282,7 +283,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
       label={
         <>
           <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => (item.entry ? actions.toggleEntry(node.key) : actions.toggleGroup(node.key))} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
-            {item.collapsed ? '▸' : '▾'}
+            {item.collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
           </button>
           {project ? (
             <span
@@ -333,7 +334,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
             )}
             {project && (
               <button className="row-action" title="Legg til rad i prosjektet" onClick={() => actions.addRow(project.projectName, project.projectNo)}>
-                +
+                <Plus size={13} aria-hidden />
               </button>
             )}
           </span>
@@ -380,7 +381,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
           </span>
           {outside.length > 0 && (
             <span className="lbl-warning" title={`${outside.length} ${outside.length === 1 ? 'dag' : 'dager'} med FTE ligger utenfor ${phaseDays} i hallen: ${outside.sort().map((d) => `${d.slice(8)}.${d.slice(5, 7)}.`).join(' ')}`}>
-              ⚠
+              <TriangleAlert size={13} aria-hidden />
             </span>
           )}
           <span className={`lbl-phase ${r.phase === 'Demontering' ? 'dem' : 'mon'}`} title={r.phase}>
@@ -408,10 +409,10 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
             {!isSuggestedRow(r) && (
               <>
                 <button className="row-action" title="Endre rad" onClick={() => actions.editRow(r)}>
-                  ✎
+                  <Pencil size={13} aria-hidden />
                 </button>
                 <button className="row-action" title="Slett rad" onClick={() => actions.removeRow(r)}>
-                  ×
+                  <X size={13} aria-hidden />
                 </button>
               </>
             )}

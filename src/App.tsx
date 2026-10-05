@@ -16,6 +16,7 @@ import { Menu, Segmented } from './ui/common'
 import { errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
+import { RefreshCw, Settings } from 'lucide-react'
 
 export default function App() {
   return (
@@ -164,10 +165,18 @@ function Shell() {
                 : 'Les inn location_format fra Venyou'
             }
           >
-            ↻ {workspace.venueImport ? `Haller · ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}` : 'Les inn haller'}
+            <RefreshCw size={14} aria-hidden /> {workspace.venueImport ? `Haller · ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}` : 'Les inn haller'}
           </button>
         )}
-        <Menu label="⚙ Innstillinger" className="ghost" align="right">
+        <Menu
+          label={
+            <>
+              <Settings size={14} aria-hidden /> Innstillinger
+            </>
+          }
+          className="ghost"
+          align="right"
+        >
           {(close) => (
             <>
               <span className="menu-setting">

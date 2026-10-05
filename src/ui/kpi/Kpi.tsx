@@ -6,6 +6,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { NumberField } from '../fields'
+import { X } from 'lucide-react'
 
 interface PendingImport {
   files: string[]
@@ -138,7 +139,7 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
                         +
                       </button>
                       <button className="row-action" title="Slett" onClick={() => confirm(`Slette ${row.name} (${row.unit})?`) && setKpi(removeKpiRow(kpi, row.name, row.unit))}>
-                        ×
+                        <X size={13} aria-hidden />
                       </button>
                     </td>
                   </tr>

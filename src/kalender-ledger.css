@@ -333,3 +333,11 @@ button.ghost:hover{background:var(--sunken)}
 
 /* the Lys/Mørk choice in the Innstillinger menu */
 .menu-setting{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 10px 8px;color:var(--muted)}
+
+/* ---- 9. Icons (Lucide, as named in the mockup) ---- */
+button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button svg,.grouping-sep{flex:none}
+.menu-pop>button,.grouping-menu button{justify-content:flex-start}
+.twisty,.row-action,.chip-move,.chip-remove{gap:0}
+.lbl-warning{display:inline-flex;align-items:center}
+.grouping-add{padding:5px 8px}

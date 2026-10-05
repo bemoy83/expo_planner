@@ -24,6 +24,7 @@ import { NoteEditor } from './parts'
 import { buildGroups, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
 import { useStableActions } from './useStableActions'
 import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eraser, Filter, MousePointer2, Pencil, Plus } from 'lucide-react'
 
 /** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
 interface AllocLane {
@@ -814,7 +815,9 @@ export function Kalender() {
             overbooked.size ? `${overbooked.size} ${overbooked.size === 1 ? 'dag' : 'dager'} med underdekning` : 'Ingen underdekning',
           ].join(' · ')}
         </span>
-        <button className="ghost" onClick={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}>+ Ny rad</button>
+        <button className="ghost" onClick={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}>
+          <Plus size={14} aria-hidden /> Ny rad
+        </button>
         <button
           className="primary"
           disabled={shownRowCount === 0}
@@ -833,13 +836,29 @@ export function Kalender() {
             value={tool}
             onChange={setTool}
             options={[
-              { value: 'select', label: 'Velg', title: 'Velg celler og skriv FTE i dem.' },
+              {
+                value: 'select',
+                label: (
+                  <>
+                    <MousePointer2 size={14} aria-hidden /> Velg
+                  </>
+                ), title: 'Velg celler og skriv FTE i dem.' },
               {
                 value: 'pencil',
-                label: '✏ Fordel behov',
+                label: (
+                  <>
+                    <Pencil size={14} aria-hidden /> Fordel behov
+                  </>
+                ),
                 title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag.',
               },
-              { value: 'eraser', label: '⌫ Tøm', title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under.' },
+              {
+                value: 'eraser',
+                label: (
+                  <>
+                    <Eraser size={14} aria-hidden /> Tøm
+                  </>
+                ), title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under.' },
             ]}
           />
         </div>
@@ -848,7 +867,7 @@ export function Kalender() {
           <Menu
             label={
               <>
-                Filter{activeFilters > 0 && <span className="menu-count">{activeFilters}</span>}
+                <Filter size={14} aria-hidden /> Filter{activeFilters > 0 && <span className="menu-count">{activeFilters}</span>}
               </>
             }
             title="Velg hvilke prosjekter og rader som vises"
@@ -909,6 +928,7 @@ export function Kalender() {
             title={collapsed.size ? 'Vis alle nivåer' : 'Fold sammen til øverste nivå'}
             onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
           >
+            {collapsed.size ? <ChevronsUpDown size={14} aria-hidden /> : <ChevronsDownUp size={14} aria-hidden />}
             {collapsed.size ? 'Utvid alle' : 'Fold sammen'}
           </button>
         </div>
@@ -938,7 +958,7 @@ export function Kalender() {
 
             <div className="section-head" style={{ width: LEFT_W }}>
               <button className="twisty" aria-expanded={hallsOpen} aria-label={hallsOpen ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => setHallsOpen(!hallsOpen)}>
-                {hallsOpen ? '▾' : '▸'}
+                {hallsOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
               </button>
               Haller
               {!hallsOpen && <span className="section-meta">{halls.length} skjult</span>}
@@ -975,7 +995,7 @@ export function Kalender() {
                   setStaffingOpen(!staffingOpen)
                 }}
               >
-                {staffingOpen ? '▾' : '▸'}
+                {staffingOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
               </button>
               Bemanning <span className="muted">(FTE)</span>
               {staffingOpen ? (

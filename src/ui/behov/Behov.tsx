@@ -11,6 +11,7 @@ import { MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { NumberField, TextField } from '../fields'
 import { DemandLineDialog } from './DemandLineDialog'
+import { Pencil, X } from 'lucide-react'
 
 const hours = (value: number) => formatFte(value, 1)
 
@@ -376,10 +377,10 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                         <td>{line.comment}</td>
                         <td className="actions">
                           <button className="row-action" title="Endre" onClick={() => setDialog({ line })}>
-                            ✎
+                            <Pencil size={13} aria-hidden />
                           </button>
                           <button className="row-action" title="Slett" onClick={() => confirm(`Slette linjen ${line.competence} · ${line.workType}?`) && removeDemandLine(line.id)}>
-                            ×
+                            <X size={13} aria-hidden />
                           </button>
                         </td>
                       </tr>

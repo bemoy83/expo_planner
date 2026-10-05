@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { useDismiss } from './useDismiss'
+import { Redo2, Undo2 } from 'lucide-react'
 
 interface MenuProps {
   label: ReactNode
@@ -53,10 +54,10 @@ export function UndoRedoButtons() {
   return (
     <>
       <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
-        ↶ Angre
+        <Undo2 size={14} aria-hidden /> Angre
       </button>
       <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
-        ↷ Gjør om
+        <Redo2 size={14} aria-hidden /> Gjør om
       </button>
     </>
   )
