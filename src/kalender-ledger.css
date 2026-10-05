@@ -207,3 +207,18 @@ input[type='checkbox']{accent-color:var(--accent)}
 .phase-legend i.mon{background:var(--mon)}
 .phase-legend i.dem{background:var(--dem)}
 .phase-legend i.outside{box-shadow:inset 0 0 0 1.5px var(--neg)}
+
+/* hall legend: one chip per phase with the code the cells use; the name is in the tooltip */
+.legend{gap:4px}
+.legend i{width:auto;height:auto;margin-left:0;padding:1px 5px;border-radius:4px;font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:color-mix(in srgb,#171613 70%,transparent)}
+
+/* C: the project's line carries a strip in the colour of the day's hall phase */
+.group-row .cell.group-cell.strip{isolation:isolate;box-shadow:none}
+.group-row .cell.group-cell.strip::before{content:'';position:absolute;top:4px;bottom:4px;left:0;right:0;z-index:-1}
+.group-row .cell.group-cell.strip-start::before{left:2px;border-top-left-radius:5px;border-bottom-left-radius:5px}
+.group-row .cell.group-cell.strip-end::before{right:2px;border-top-right-radius:5px;border-bottom-right-radius:5px}
+.strip-assembly::before{background:var(--ph-assembly)}
+.strip-movingIn::before{background:var(--ph-movingin)}
+.strip-event::before{background:var(--ph-event)}
+.strip-movingOut::before{background:var(--ph-movingout)}
+.strip-dismantle::before{background:var(--ph-dismantle)}

@@ -1,9 +1,9 @@
 import { memo, type ReactNode } from 'react'
 import { capacityForDate, formatFte } from '../../domain/calc'
-import { isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { addDays, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import { isSuggestedRow } from '../../domain/plannedRows'
-import type { CapacityLine, Settings } from '../../domain/types'
+import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
 import { dominantEntry, PHASE_CODES, PHASE_LABELS, splitEntries, type HallDayEntry } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate } from './labels'
@@ -246,12 +246,14 @@ interface GroupRowProps extends CellEdit {
   item: Extract<GridItem, { kind: 'group' }>
   /** The level's place among the lines that take FTE, when it is in entry mode. */
   lane: number
+  /** The hall phase of each day of the project, for the strip on a project's line. */
+  phases: Map<ISODate, VenuePhase> | undefined
   cols: Columns
   actions: GridActions
 }
 
 /** A level of the hierarchy: its sums, or cells to type in when it is in entry mode. */
-export const GroupRow = memo(function GroupRow({ item, lane, cols, actions, ...edit }: GroupRowProps) {
+export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actions, ...edit }: GroupRowProps) {
   const { node } = item
   const project = node.project
   const delta = node.totals.plannedFte - node.totals.requiredFte
@@ -321,7 +323,10 @@ export const GroupRow = memo(function GroupRow({ item, lane, cols, actions, ...e
         </>
       }
       cells={(date, col) => {
-        const inSpan = project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : ''
+        const phase = phases?.get(date)
+        // The strip is rounded where a phase starts and ends.
+        const strip = phase ? `strip strip-${phase} ${phases!.get(addDays(date, -1)) === phase ? '' : 'strip-start'} ${phases!.get(addDays(date, 1)) === phase ? '' : 'strip-end'}` : ''
+        const inSpan = strip || (project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : '')
         return item.entry ? valueCell(cell, date, col, node.daily.get(date), undefined, `group-cell ${inSpan}`) : readCell(cols, date, node.daily.get(date), `group-cell ${inSpan}`)
       }}
     />

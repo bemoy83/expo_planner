@@ -3,8 +3,8 @@ import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumVal
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import type { AllocationRow } from '../../domain/types'
-import { buildHallCalendar, hallNames, hallRuns } from '../../domain/venue'
+import { VENUE_PHASES, type AllocationRow, type VenueBooking } from '../../domain/types'
+import { buildHallCalendar, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { fillAcross, shareOverDays, spread } from '../../domain/spread'
@@ -151,9 +151,11 @@ export function Kalender() {
     [allGroups],
   )
   // The days each row can be worked on: its project's build-up or tear-down days in its hall.
-  const windows = useMemo(() => {
+  // The same lookup gives the hall phase of each day of a project, for the strip on its line.
+  const [windows, phasesOfProject] = useMemo(() => {
     const projectOfEvent = new Map(events.map((event) => [event.key, projectKey({ projectNo: event.projectNo, projectName: event.name })]))
-    return buildWindows(shownVenue, (booking) => projectOfEvent.get(eventKey(booking.eventName, anchorDate(booking))) ?? null)
+    const projectOf = (booking: VenueBooking) => projectOfEvent.get(eventKey(booking.eventName, anchorDate(booking))) ?? null
+    return [buildWindows(shownVenue, projectOf), projectPhases(shownVenue, projectOf)] as const
   }, [shownVenue, events])
   const projectOfRow = useMemo(() => new Map(allGroups.flatMap((group) => group.rows.map((row) => [row.id, group.key] as const))), [allGroups])
   const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
@@ -902,7 +904,11 @@ export function Kalender() {
                 </button>
               )}
               <span className="legend">
-                <i className="ph-assembly" /> Montering <i className="ph-movingIn" /> Innflytting <i className="ph-event" /> Arrangement <i className="ph-movingOut" /> Utflytting <i className="ph-dismantle" /> Demontering
+                {VENUE_PHASES.map((phase) => (
+                  <i key={phase} className={`ph-${phase}`} title={PHASE_LABELS[phase]}>
+                    {PHASE_CODES[phase]}
+                  </i>
+                ))}
               </span>
             </div>
             {hallsOpen && ws.venue.length === 0 && (
@@ -974,7 +980,7 @@ export function Kalender() {
               }
               // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
               const lane = item.entry ? laneOfRow.get(`level:${item.node.key}`)! : -1
-              return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} cols={cols} actions={actions} {...(item.entry ? editOf('alloc', lane) : NO_EDIT)} />
+              return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project ? phasesOfProject.get(item.node.project.key) : undefined} cols={cols} actions={actions} {...(item.entry ? editOf('alloc', lane) : NO_EDIT)} />
             })}
           </div>
           {items.length === 0 && (

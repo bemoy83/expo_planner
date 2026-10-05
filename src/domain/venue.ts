@@ -108,3 +108,27 @@ export const splitEntries = (entries: HallDayEntry[]): [HallDayEntry, HallDayEnt
   if (!b) return null
   return SEQUENCE[a.phase] <= SEQUENCE[b.phase] ? [a, b] : [b, a]
 }
+
+/**
+ * The hall phase of each day of a project, across all its halls, for the strip on the project's line.
+ * Where the halls differ on a day (one still being built while another has moved in), the earliest
+ * phase in the life of the event shows. `projectOf` gives the project a booking belongs to, or null.
+ */
+export const projectPhases = (bookings: VenueBooking[], projectOf: (booking: VenueBooking) => string | null): Map<string, Map<ISODate, VenuePhase>> => {
+  const projects = new Map<string, Map<ISODate, VenuePhase>>()
+  for (const booking of bookings) {
+    const project = projectOf(booking)
+    if (project === null) continue
+    let days = projects.get(project)
+    if (!days) projects.set(project, (days = new Map()))
+    for (const phase of VENUE_PHASES) {
+      const span = booking.phases[phase]
+      if (!span) continue
+      for (const date of dateRange(span.start, span.end)) {
+        const existing = days.get(date)
+        if (!existing || VENUE_PHASES.indexOf(phase) < VENUE_PHASES.indexOf(existing)) days.set(date, phase)
+      }
+    }
+  }
+  return projects
+}

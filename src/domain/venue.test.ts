@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHallCalendar, dominantEntry, hallNames, hallRuns, splitEntries, type HallDayEntry } from './venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallRuns, projectPhases, splitEntries, type HallDayEntry } from './venue'
 import type { VenueBooking } from './types'
 
 const booking = (overrides: Partial<VenueBooking>): VenueBooking => ({
@@ -64,5 +64,34 @@ describe('hall calendar', () => {
 
   it('orders halls alphabetically', () => {
     expect(hallNames([booking({ hall: 'STUDIO2' }), booking({ hall: 'A1' }), booking({ hall: 'C' })])).toEqual(['A1', 'C', 'STUDIO2'])
+  })
+})
+
+describe('project phases', () => {
+  const bookings = [
+    booking({ id: 'c', hall: 'C', phases: { assembly: { start: '2026-10-05', end: '2026-10-06' }, movingIn: { start: '2026-10-07', end: '2026-10-07' }, event: { start: '2026-10-08', end: '2026-10-09' } } }),
+    booking({ id: 'd', hall: 'D1', phases: { assembly: { start: '2026-10-06', end: '2026-10-07' }, event: { start: '2026-10-08', end: '2026-10-08' }, dismantle: { start: '2026-10-09', end: '2026-10-10' } } }),
+    booking({ id: 'x', eventName: 'Annet', phases: { event: { start: '2026-10-05', end: '2026-10-05' } } }),
+  ]
+  const phases = projectPhases(bookings, (b) => (b.eventName === 'Annet' ? null : '26970'))
+
+  it('gives each day of a project the phase of its halls', () => {
+    const days = phases.get('26970')!
+    expect(days.get('2026-10-05')).toBe('assembly')
+    expect(days.get('2026-10-08')).toBe('event')
+    expect(days.get('2026-10-10')).toBe('dismantle')
+    expect(days.has('2026-10-11')).toBe(false)
+  })
+
+  it('shows the earliest phase where the halls differ', () => {
+    const days = phases.get('26970')!
+    // Hall C has moved in while D1 is still being built.
+    expect(days.get('2026-10-07')).toBe('assembly')
+    // Hall C still has the arrangement while D1 is being taken down.
+    expect(days.get('2026-10-09')).toBe('event')
+  })
+
+  it('leaves out bookings that are no project', () => {
+    expect([...phases.keys()]).toEqual(['26970'])
   })
 })
