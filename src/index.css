@@ -1034,3 +1034,19 @@ table.ledger select.location.unresolved {
   background-color: var(--surface);
   color: var(--text);
 }
+
+/* The pencil: drawing across days shares out the demand. */
+.toolbar button.tool.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.kalender.pencil .alloc-row .cell.editable,
+.kalender.pencil .entry-level .cell.editable {
+  cursor: crosshair;
+}
+.status-notice {
+  color: var(--accent);
+  font-weight: 600;
+}

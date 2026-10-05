@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { capacityForDate, dailyNeed, formatFte, requiredHours } from '../../domain/calc'
+import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
@@ -7,7 +7,7 @@ import type { AllocationRow, CapacityLine } from '../../domain/types'
 import { buildHallCalendar, dominantEntry, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS, splitEntries } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
-import { spread } from '../../domain/spread'
+import { shareOverDays, spread } from '../../domain/spread'
 import { venueEvents } from '../../domain/projects'
 import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -97,6 +97,11 @@ export function Kalender() {
   const [capacityOpen, setCapacityOpen] = useState(() => loadPref('capacityOpen', false))
   const [onlyInView, setOnlyInView] = useState(() => loadPref('onlyInView', true))
   const [selection, setSelection] = useState<Selection | null>(null)
+  // With the pencil, drawing across days on a row shares out what is left of its demand over those days.
+  const [tool, setTool] = useState<'select' | 'pencil'>('select')
+  const [notice, setNotice] = useState<string | null>(null)
+  const dragging = useRef<Section | null>(null)
+  const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
   const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200, height: 800 })
@@ -369,9 +374,82 @@ export function Kalender() {
 
   const select = (section: Section, cell: Cell, extend: boolean) => {
     if (draft !== null) commitDraft()
+    setNotice(null)
     setSelection((sel) => (extend && sel?.section === section ? { ...sel, focus: cell } : { section, anchor: cell, focus: cell }))
     scrollRef.current?.focus({ preventScroll: true })
   }
+
+  useEffect(() => {
+    selectionRef.current = selection
+  }, [selection])
+
+  /**
+   * The pencil: for every line in the selection, what is left of its demand after the days outside the
+   * drawn span is shared over the working days in the span, in halves. Weekends and holidays inside the
+   * span are left as they are, unless the span has no working day at all.
+   */
+  const drawDemand = useCallback(() => {
+    const sel = selectionRef.current
+    if (!sel || sel.section !== 'alloc') return
+    const { lane0, lane1, col0, col1 } = rangeOf(sel)
+    const span = dates.slice(col0, col1 + 1)
+    const workdays = span.filter((date) => dayType(date) === 'arbeidsdag')
+    const target = workdays.length ? workdays : span
+    let shared = 0
+    let withoutDemand = 0
+    for (let lane = lane0; lane <= lane1; lane++) {
+      const { row, node } = allocLanes[lane] ?? {}
+      if (!row && !node) continue
+      const required = node ? node.totals.requiredFte : (rowTotals(demandIndex, row!, settings).requiredFte ?? 0)
+      const planned = node ? node.totals.plannedFte : sumValues(row!.fte)
+      const onTarget = target.reduce((sum, date) => sum + ((node ? node.daily.get(date) : row!.fte[date]) ?? 0), 0)
+      const parts = shareOverDays(required - (planned - onTarget), target.length)
+      if (!parts.length) {
+        withoutDemand += 1
+        continue
+      }
+      target.forEach((date, i) => setValue('alloc', lane, date, parts[i] || null))
+      shared += parts.reduce((a, b) => a + b, 0)
+    }
+    const days = `${target.length} ${target.length === 1 ? 'dag' : 'dager'}`
+    setNotice(
+      shared
+        ? `Fordelte ${formatFte(shared, 1)} FTE-dager på ${days}${withoutDemand ? `. ${withoutDemand} ${withoutDemand === 1 ? 'linje' : 'linjer'} hadde ikke behov igjen.` : ''}`
+        : 'Ikke noe behov igjen å fordele her. Dagene utenfor det du tegnet dekker allerede behovet, eller raden har ikke behov.',
+    )
+  }, [dates, allocLanes, demandIndex, settings, setValue])
+
+  // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
+  useEffect(() => {
+    let mouseX: number | null = null
+    const onMove = (e: MouseEvent) => {
+      mouseX = dragging.current ? e.clientX : null
+    }
+    const onUp = () => {
+      const section = dragging.current
+      dragging.current = null
+      mouseX = null
+      if (section === 'alloc' && tool === 'pencil') drawDemand()
+    }
+    const timer = setInterval(() => {
+      const el = scrollRef.current
+      if (!el || mouseX === null || !dragging.current) return
+      const rect = el.getBoundingClientRect()
+      const step = mouseX > rect.right - 24 ? colW : mouseX < rect.left + LEFT_W + 24 ? -colW : 0
+      if (!step) return
+      el.scrollLeft += step
+      // No cell is entered while the grid moves under a still mouse, so the selection follows the scroll.
+      const col = Math.max(0, Math.min(dates.length - 1, Math.floor((Math.min(Math.max(mouseX, rect.left + LEFT_W), rect.right - 1) - rect.left - LEFT_W + el.scrollLeft) / colW)))
+      setSelection((sel) => (sel && sel.focus.col !== col ? { ...sel, focus: { ...sel.focus, col } } : sel))
+    }, 60)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [tool, drawDemand, colW, dates.length])
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -465,6 +543,10 @@ export function Kalender() {
         onMouseDown={(e) => {
           e.preventDefault()
           select(section, { lane, col }, e.shiftKey)
+          if (e.button === 0 && !(e.target instanceof HTMLInputElement)) dragging.current = section
+        }}
+        onMouseEnter={() => {
+          if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
         }}
         onDoubleClick={() => setDraft(value === undefined ? '' : String(value).replace('.', ','))}
       >
@@ -650,7 +732,7 @@ export function Kalender() {
 
   // ---- render ---------------------------------------------------------------------------------
   return (
-    <div className="kalender">
+    <div className={`kalender ${tool === 'pencil' ? 'pencil' : ''}`}>
       <div className="toolbar">
         <label>
           Prosjekt
@@ -696,6 +778,14 @@ export function Kalender() {
         <button onClick={() => setCollapsed(new Set())}>Utvid alle</button>
         <button title="Fold sammen til øverste nivå" onClick={() => setCollapsed(new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}>
           Fold alle
+        </button>
+        <button
+          className={tool === 'pencil' ? 'tool active' : 'tool'}
+          aria-pressed={tool === 'pencil'}
+          title="Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i halve FTE. Klikk igjen for å slå av."
+          onClick={() => setTool(tool === 'pencil' ? 'select' : 'pencil')}
+        >
+          ✏ Fordel behov
         </button>
         <button onClick={() => scrollToDate(today)}>I dag</button>
         <input
@@ -901,13 +991,14 @@ export function Kalender() {
             <span>{fmtDate(focusInfo.date)}</span>
             <span>{focusInfo.value === undefined ? '–' : `${formatFte(focusInfo.value, 2)}`}</span>
             {selectionSum !== null && <span>Sum markert: {formatFte(selectionSum, 2)}</span>}
+            {notice && <span className="status-notice">{notice}</span>}
             {focusInfo.rowId && (
               <NoteEditor key={`${focusInfo.rowId}:${focusInfo.date}`} note={focusInfo.note} onSave={(note) => setAllocationNote(focusInfo.rowId!, focusInfo.date, note)} />
             )}
             {!focusInfo.rowId && focusInfo.note && <span className="note-text">Notat: {focusInfo.note}</span>}
           </>
         ) : (
-          <span className="muted">Klikk en celle for å planlegge. Skriv tall (f.eks. 1,5), Enter for neste rad, Shift+klikk for å markere flere, Ctrl/Cmd+C/V for kopier og lim inn.</span>
+          <span className="muted">Klikk en celle for å planlegge. Skriv tall (f.eks. 1,5), Enter for neste rad, dra eller Shift+klikk for å markere flere, Ctrl/Cmd+C/V for kopier og lim inn.</span>
         )}
       </div>
 

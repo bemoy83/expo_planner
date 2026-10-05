@@ -24,3 +24,17 @@ export const spread = (total: number, weights: number[]): number[] => {
   }
   return parts.map((part) => (sign * part) / scale)
 }
+
+/**
+ * Shares FTE-days evenly over a number of days, for demand drawn across days in the Kalender.
+ * Each day gets a multiple of `step` (half a person by default). The total is rounded up to the next
+ * step so the demand is covered, and what does not divide evenly goes to the first days.
+ * Nothing to share gives no days.
+ */
+export const shareOverDays = (total: number, days: number, step = 0.5): number[] => {
+  if (days <= 0 || !(total > 1e-9)) return []
+  const steps = Math.ceil(total / step - 1e-9)
+  const base = Math.floor(steps / days)
+  const extra = steps % days
+  return Array.from({ length: days }, (_, i) => (base + (i < extra ? 1 : 0)) * step)
+}
