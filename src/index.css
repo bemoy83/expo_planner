@@ -1043,7 +1043,9 @@ table.ledger select.location.unresolved {
   font-weight: 600;
 }
 .kalender.pencil .alloc-row .cell.editable,
-.kalender.pencil .entry-level .cell.editable {
+.kalender.pencil .entry-level .cell.editable,
+.kalender.eraser .alloc-row .cell.editable,
+.kalender.eraser .entry-level .cell.editable {
   cursor: crosshair;
 }
 .status-notice {
@@ -1135,4 +1137,9 @@ table.ledger select.location.unresolved {
 .grid-canvas .day.overbooked.day-head {
   color: var(--neg);
   font-weight: 700;
+}
+
+/* A cell an eraser stroke is about to clear. */
+.grid-canvas .cell.editable.erasing {
+  background-color: var(--neg-bg);
 }

@@ -54,6 +54,7 @@ Kalender
 - The pencil («Fordel behov») shares in whole people, evenly, with what does not divide on the first days and the decimals on the last day. A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.
 - A row's window is the build-up (A) or tear-down (D) days of its project in its hall; moving in and out are not counted as work days. Levels do not show a window, and a row for all halls or for «Uavklart» gets the days of all the project's halls together.
 - «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row. Small rows therefore get one day with a decimal each (0,2 here, 0,6 there) instead of being gathered into whole people across rows. It does not look at the available crew.
+- The eraser («Visk ut») works on planning rows and levels only, not on the staffing lines.
 - No handles for stretching a run of planned days; that was the planned next step after the pencil.
 - Notes can be written on planning cells but not on staffing cells; staffing notes from the workbook are shown only.
 - A suggested row cannot carry a note or be edited until FTE is typed into it.

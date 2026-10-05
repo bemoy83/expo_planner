@@ -99,7 +99,8 @@ export function Kalender() {
   const [onlyInView, setOnlyInView] = useState(() => loadPref('onlyInView', true))
   const [selection, setSelection] = useState<Selection | null>(null)
   // With the pencil, drawing across days on a row shares out what is left of its demand over those days.
-  const [tool, setTool] = useState<'select' | 'pencil'>('select')
+  // With the eraser, drawing across cells clears them.
+  const [tool, setTool] = useState<'select' | 'pencil' | 'eraser'>('select')
   const [notice, setNotice] = useState<string | null>(null)
   const dragging = useRef<Section | null>(null)
   const [drawing, setDrawing] = useState(false)
@@ -488,14 +489,35 @@ export function Kalender() {
     [windowOf, demandIndex, settings, setRowFte],
   )
 
+  /** The eraser: clears every cell drawn across. On a level in entry mode, that day is cleared for the rows below. */
+  const eraseDrawn = useCallback(() => {
+    const sel = selectionRef.current
+    if (!sel || sel.section !== 'alloc') return
+    const { lane0, lane1, col0, col1 } = rangeOf(sel)
+    let erased = 0
+    for (let lane = lane0; lane <= lane1; lane++)
+      for (let col = col0; col <= col1; col++) {
+        const value = getValue('alloc', lane, dates[col])
+        if (value === undefined) continue
+        erased += value
+        setValue('alloc', lane, dates[col], null)
+      }
+    setNotice(erased ? `Visket ut ${formatFte(erased, 1)} FTE-dager` : 'Ingenting å viske ut her')
+  }, [dates, getValue, setValue])
+
   // While a stroke is being drawn, what it would give: shown in the cells, with the level per day in the status bar.
   // The total is left out: a stroke always places all that is left, so it would not move.
   const preview = useMemo(() => (drawing && tool === 'pencil' ? strokeFor(selection) : null), [drawing, tool, strokeFor, selection])
   const ghost = useMemo(() => {
     const cells = new Map<string, number>()
     for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => cells.set(`${lane}|${date}`, parts[i]))
+    // An eraser stroke shows the cells it is about to clear as empty.
+    if (drawing && tool === 'eraser' && selection?.section === 'alloc') {
+      const { lane0, lane1, col0, col1 } = rangeOf(selection)
+      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) cells.set(`${lane}|${dates[col]}`, 0)
+    }
     return cells
-  }, [preview])
+  }, [preview, drawing, tool, selection, dates])
 
   // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
   useEffect(() => {
@@ -509,6 +531,7 @@ export function Kalender() {
       mouseX = null
       setDrawing(false)
       if (section === 'alloc' && tool === 'pencil') drawDemand()
+      if (section === 'alloc' && tool === 'eraser') eraseDrawn()
     }
     const timer = setInterval(() => {
       const el = scrollRef.current
@@ -528,7 +551,7 @@ export function Kalender() {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, [tool, drawDemand, colW, dates.length])
+  }, [tool, drawDemand, eraseDrawn, colW, dates.length])
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -635,7 +658,7 @@ export function Kalender() {
     return (
       <div
         key={date}
-        className={`${dayClass(date)} cell editable ${isSelected(section, lane, col) ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined ? 'drawn' : ''}`}
+        className={`${dayClass(date)} cell editable ${isSelected(section, lane, col) ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined ? (tool === 'eraser' ? 'erasing' : 'drawn') : ''}`}
         style={{ width: colW }}
         title={note}
         onMouseDown={(e) => {
@@ -643,7 +666,7 @@ export function Kalender() {
           select(section, { lane, col }, e.shiftKey)
           if (e.button === 0 && !(e.target instanceof HTMLInputElement)) {
             dragging.current = section
-            setDrawing(section === 'alloc' && tool === 'pencil')
+            setDrawing(section === 'alloc' && tool !== 'select')
           }
         }}
         onMouseEnter={() => {
@@ -870,7 +893,7 @@ export function Kalender() {
 
   // ---- render ---------------------------------------------------------------------------------
   return (
-    <div className={`kalender ${tool === 'pencil' ? 'pencil' : ''}`}>
+    <div className={`kalender ${tool === 'select' ? '' : tool}`}>
       <div className="toolbar">
         <label>
           Prosjekt
@@ -928,6 +951,14 @@ export function Kalender() {
           onClick={() => setTool(tool === 'pencil' ? 'select' : 'pencil')}
         >
           ✏ Fordel behov
+        </button>
+        <button
+          className={tool === 'eraser' ? 'tool active' : 'tool'}
+          aria-pressed={tool === 'eraser'}
+          title="Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under. Klikk igjen for å slå av."
+          onClick={() => setTool(tool === 'eraser' ? 'select' : 'eraser')}
+        >
+          ⌫ Visk ut
         </button>
         <button onClick={() => scrollToDate(today)}>I dag</button>
         <input
