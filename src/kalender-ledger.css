@@ -386,3 +386,6 @@ table.ledger{font-size:13px}
 .group-row .cell.group-cell.strip::before{top:9px;bottom:9px}
 .group-row .cell.group-cell.strip-mon::before,.group-row .cell.group-cell.strip-dem::before{top:5px;bottom:5px}
 .group-row.depth-0 .cell.group-cell.strip-mon::before,.group-row.depth-0 .cell.group-cell.strip-dem::before{top:8px;bottom:8px}
+
+/* the planning cells carry the mockup's grid: a faint rule under and beside each day cell; the label column has none */
+.alloc-row .cell{border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
