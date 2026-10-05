@@ -373,3 +373,7 @@ select,input[type='date'],input[type='search'],input:not([type]),input[type='tex
 .hall-label{line-height:22px}
 .group-row.depth-0 .lbl-project{font-size:14px}
 table.ledger{font-size:13px}
+
+/* planning rows: no rules between them; the line under the pointer is tinted instead */
+.alloc-row{border-bottom-color:transparent}
+.alloc-row:hover,.alloc-row:hover .grid-label{background:color-mix(in srgb,var(--text) 5%,var(--bg))}

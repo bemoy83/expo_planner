@@ -7,7 +7,7 @@ import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
 import { dominantEntry, PHASE_CODES, PHASE_LABELS, splitEntries, type HallDayEntry } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate } from './labels'
-import { HALL_ROW_H, LEFT_W, ROW_H, type Zoom } from './layout'
+import { HALL_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { CoverageBar } from './parts'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
@@ -280,6 +280,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
   return (
     <Line
       className={`group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`}
+      height={node.depth === 0 ? TOP_ROW_H : ROW_H}
       cols={cols}
       label={
         <>

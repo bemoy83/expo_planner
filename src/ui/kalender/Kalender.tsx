@@ -15,7 +15,7 @@ import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { Menu, Segmented, UndoRedoButtons } from '../common'
-import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
+import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows, type HallLabelRun } from './GridRows'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { GroupingBar } from './GroupingBar'
@@ -231,8 +231,25 @@ export function Kalender() {
   const visibleDates = useMemo(() => dates.slice(c0, c1 + 1), [dates, c0, c1])
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
   const topPinned = topHeight < viewport.height * 0.65
-  const r0 = Math.max(0, Math.floor((viewport.top - (topPinned ? 0 : topHeight)) / ROW_H) - OVERSCAN_ROWS)
-  const r1 = Math.min(items.length, Math.ceil((viewport.top + viewport.height - topHeight) / ROW_H) + OVERSCAN_ROWS)
+  // Where each line starts: the top level's lines are taller than the rest. One entry more than there are lines, the last being the full height.
+  const rowTops = useMemo(() => {
+    const tops = [0]
+    for (const item of items) tops.push(tops[tops.length - 1] + (item.kind === 'group' && item.node.depth === 0 ? TOP_ROW_H : ROW_H))
+    return tops
+  }, [items])
+  /** The line that covers `y`, counted from the top of the planning rows. */
+  const rowAt = (y: number) => {
+    let lo = 0
+    let hi = items.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (rowTops[mid + 1] <= y) lo = mid + 1
+      else hi = mid
+    }
+    return lo
+  }
+  const r0 = Math.max(0, rowAt(viewport.top - (topPinned ? 0 : topHeight)) - OVERSCAN_ROWS)
+  const r1 = Math.min(items.length, rowAt(viewport.top + viewport.height - topHeight) + 1 + OVERSCAN_ROWS)
 
   const ensureVisible = useCallback(
     (section: Section, cell: Cell) => {
@@ -243,12 +260,13 @@ export function Kalender() {
       else if (x + colW > el.scrollLeft + el.clientWidth - LEFT_W) el.scrollLeft = x + colW - (el.clientWidth - LEFT_W)
       if (section === 'alloc') {
         const index = allocLanes[cell.lane]?.index ?? 0
-        const y = index * ROW_H
+        const y = rowTops[index] ?? 0
+        const bottom = rowTops[index + 1] ?? y + ROW_H
         if (y < el.scrollTop) el.scrollTop = topPinned ? y : topHeight + y
-        else if (topHeight + y + ROW_H > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + y + ROW_H - el.clientHeight
+        else if (topHeight + bottom > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + bottom - el.clientHeight
       }
     },
-    [colW, allocLanes, topHeight, topPinned],
+    [colW, allocLanes, rowTops, topHeight, topPinned],
   )
 
   // Select the first visible day of a row that was just added or edited.
@@ -1050,8 +1068,8 @@ export function Kalender() {
             </div>
           </div>
 
-          <div className="grid-alloc" style={{ height: items.length * ROW_H }}>
-            <div style={{ height: r0 * ROW_H }} />
+          <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
+            <div style={{ height: rowTops[r0] }} />
             {items.slice(r0, r1).map((item) => {
               if (item.kind === 'row') {
                 const lane = laneOfRow.get(item.row.id)!
