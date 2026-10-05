@@ -398,7 +398,6 @@ export function Kalender() {
       const target = workdays.length ? workdays : span
       const lanes: { lane: number; parts: number[] }[] = []
       let withoutDemand = 0
-      let left = 0
       for (let lane = lane0; lane <= lane1; lane++) {
         const { row, node } = allocLanes[lane] ?? {}
         if (!row && !node) continue
@@ -407,13 +406,11 @@ export function Kalender() {
         const onTarget = target.reduce((sum, date) => sum + ((node ? node.daily.get(date) : row!.fte[date]) ?? 0), 0)
         const remaining = required - (planned - onTarget)
         const parts = shareOverDays(remaining, target.length)
-        if (parts.length) {
-          lanes.push({ lane, parts })
-          left += remaining
-        } else withoutDemand += 1
+        if (parts.length) lanes.push({ lane, parts })
+        else withoutDemand += 1
       }
       const perDay = target.map((_, i) => lanes.reduce((sum, l) => sum + l.parts[i], 0))
-      return { target, lanes, withoutDemand, left, shared: perDay.reduce((a, b) => a + b, 0), perDay }
+      return { target, lanes, withoutDemand, shared: perDay.reduce((a, b) => a + b, 0), perDay }
     },
     [dates, allocLanes, demandIndex, settings],
   )
@@ -431,7 +428,8 @@ export function Kalender() {
     )
   }, [strokeFor, setValue])
 
-  // While a stroke is being drawn, what it would give: shown in the cells and summed in the status bar.
+  // While a stroke is being drawn, what it would give: shown in the cells, with the level per day in the status bar.
+  // The total is left out: a stroke always places all that is left, so it would not move.
   const preview = useMemo(() => (drawing && tool === 'pencil' ? strokeFor(selection) : null), [drawing, tool, strokeFor, selection])
   const ghost = useMemo(() => {
     const cells = new Map<string, number>()
@@ -1023,7 +1021,7 @@ export function Kalender() {
             {preview && (
               <span className="status-notice">
                 {preview.shared
-                  ? `Tegner: ${preview.target.length} ${preview.target.length === 1 ? 'arbeidsdag' : 'arbeidsdager'} · opptil ${formatFte(Math.max(...preview.perDay), 1)} FTE/dag · ${formatFte(preview.shared, 1)} FTE-dager = ${formatFte(preview.shared * settings.hoursPerDay, 1)} t (behov igjen ${formatFte(preview.left * settings.hoursPerDay, 1)} t)`
+                  ? `Tegner: opptil ${formatFte(Math.max(...preview.perDay), 1)} FTE per dag over ${preview.target.length} ${preview.target.length === 1 ? 'arbeidsdag' : 'arbeidsdager'}`
                   : 'Tegner: ikke noe behov igjen å fordele her'}
               </span>
             )}
