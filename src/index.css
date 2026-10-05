@@ -1143,3 +1143,17 @@ table.ledger select.location.unresolved {
 .grid-canvas .cell.editable.erasing {
   background-color: var(--neg-bg);
 }
+
+/* The fill handle on the last cell of the selection: drag to copy, Alt-drag to stretch. */
+.fill-handle {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  /* Above the neighbouring cells, below the pinned label column. */
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff;
+  background: var(--accent);
+  cursor: crosshair;
+}

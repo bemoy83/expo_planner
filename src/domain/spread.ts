@@ -43,3 +43,59 @@ export const shareOverDays = (total: number, days: number): number[] => {
   if (rest) parts[base > 0 ? days - 1 : Math.min(extra, days - 1)] += rest
   return parts
 }
+
+export interface FillInput {
+  /** The cells from the first selected day to the last day involved: the selection, and the days dragged over. */
+  values: (number | undefined)[]
+  /** Whether each of those days is a working day. */
+  workdays: boolean[]
+  /** How many of the cells were selected when the drag started. */
+  sourceLength: number
+  /** How many cells the block covers after the drag: more than `sourceLength` drags out, fewer drags back in. */
+  length: number
+  mode: 'copy' | 'stretch'
+}
+
+/**
+ * What dragging the fill handle of a selection sideways does to one line, cell by cell:
+ * a number to put there, null to clear the cell, undefined to leave it alone.
+ *
+ * Copying repeats the selected values over the new days, as Excel does, but only on working days; weekends
+ * and holidays in between are left alone unless the selection itself has no working day. Dragging back in
+ * clears the days let go of.
+ *
+ * Stretching keeps the sum of the selection and shares it again over the working days of the new length,
+ * see `shareOverDays`.
+ */
+export const fillAcross = ({ values, workdays, sourceLength, length, mode }: FillInput): (number | null | undefined)[] => {
+  const span = Math.max(sourceLength, length)
+  const out: (number | null | undefined)[] = Array.from({ length: span }, () => undefined)
+  const indexes = (count: number) => {
+    const all = Array.from({ length: count }, (_, i) => i)
+    const working = all.filter((i) => workdays[i])
+    return working.length ? working : all
+  }
+  if (mode === 'copy') {
+    for (let i = length; i < sourceLength; i++) out[i] = values[i] === undefined ? undefined : null
+    if (length <= sourceLength) return out
+    const source = indexes(sourceLength)
+    const skipsDaysOff = source.every((i) => workdays[i])
+    let next = 0
+    for (let i = sourceLength; i < length; i++) {
+      if (skipsDaysOff && !workdays[i]) continue
+      // An empty cell in the pattern empties the day it lands on; a day that is already empty is left alone.
+      out[i] = values[source[next++ % source.length]] ?? (values[i] === undefined ? undefined : null)
+    }
+    return out
+  }
+  const total = values.slice(0, sourceLength).reduce<number>((sum, value) => sum + (value ?? 0), 0)
+  const target = indexes(length)
+  const parts = shareOverDays(total, target.length)
+  if (!parts.length) return out
+  for (let i = 0; i < span; i++) {
+    const at = i < length ? target.indexOf(i) : -1
+    if (at >= 0) out[i] = parts[at] || null
+    else if (values[i] !== undefined) out[i] = null
+  }
+  return out
+}

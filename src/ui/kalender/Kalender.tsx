@@ -7,7 +7,7 @@ import type { AllocationRow, CapacityLine } from '../../domain/types'
 import { buildHallCalendar, dominantEntry, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS, splitEntries } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
-import { shareOverDays, spread } from '../../domain/spread'
+import { fillAcross, shareOverDays, spread } from '../../domain/spread'
 import { eventKey, venueEvents } from '../../domain/projects'
 import { anchorDate, visibleVenue } from '../../domain/venueImport'
 import { buildWindows, windowFor } from '../../domain/windows'
@@ -33,6 +33,23 @@ interface AllocLane {
   index: number
   row?: AllocationRow
   node?: GroupNode
+}
+/** A drag of the fill handle: the block that was selected, how far it has been dragged, and whether it stretches. */
+interface Fill {
+  section: Section
+  lane0: number
+  lane1: number
+  col0: number
+  col1: number
+  toCol: number
+  stretch: boolean
+}
+interface FillCell {
+  section: Section
+  lane: number
+  date: ISODate
+  /** `null` clears the cell. */
+  value: number | null
 }
 interface CapLane {
   line: CapacityLine
@@ -104,6 +121,9 @@ export function Kalender() {
   const [notice, setNotice] = useState<string | null>(null)
   const dragging = useRef<Section | null>(null)
   const [drawing, setDrawing] = useState(false)
+  const [fill, setFill] = useState<Fill | null>(null)
+  const fillRef = useRef<Fill | null>(null)
+  const fillCellsRef = useRef<FillCell[]>([])
   const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
@@ -508,24 +528,80 @@ export function Kalender() {
   // While a stroke is being drawn, what it would give: shown in the cells, with the level per day in the status bar.
   // The total is left out: a stroke always places all that is left, so it would not move.
   const preview = useMemo(() => (drawing && tool === 'pencil' ? strokeFor(selection) : null), [drawing, tool, strokeFor, selection])
+  // What a drag of the fill handle would do, line by line: copy the block over the new days, or stretch its sum.
+  const fillCells = useMemo<FillCell[]>(() => {
+    if (!fill) return []
+    const cells: FillCell[] = []
+    const end = Math.max(fill.col1, fill.toCol)
+    const span = dates.slice(fill.col0, end + 1)
+    const workdays = span.map((date) => dayType(date) === 'arbeidsdag')
+    for (let lane = fill.lane0; lane <= fill.lane1; lane++) {
+      const result = fillAcross({
+        values: span.map((date) => getValue(fill.section, lane, date)),
+        workdays,
+        sourceLength: fill.col1 - fill.col0 + 1,
+        length: fill.toCol - fill.col0 + 1,
+        mode: fill.stretch ? 'stretch' : 'copy',
+      })
+      result.forEach((value, i) => value !== undefined && cells.push({ section: fill.section, lane, date: span[i], value }))
+    }
+    return cells
+  }, [fill, dates, getValue])
+  useEffect(() => {
+    fillRef.current = fill
+    fillCellsRef.current = fillCells
+  }, [fill, fillCells])
+
+  const commitFill = useCallback(() => {
+    const done = fillRef.current
+    const cells = fillCellsRef.current
+    fillRef.current = null
+    setFill(null)
+    if (!done) return
+    for (const cell of cells) setValue(cell.section, cell.lane, cell.date, cell.value)
+    // The block is now what was dragged out, so it can be dragged on from there.
+    setSelection({ section: done.section, anchor: { lane: done.lane0, col: done.col0 }, focus: { lane: done.lane1, col: done.toCol } })
+    const filled = new Set(cells.filter((cell) => cell.value !== null).map((cell) => cell.date)).size
+    const cleared = new Set(cells.filter((cell) => cell.value === null).map((cell) => cell.date)).size
+    const days = (n: number) => `${n} ${n === 1 ? 'dag' : 'dager'}`
+    setNotice(!cells.length ? null : done.stretch ? `Strakk over ${days(filled)}` : filled ? `Fylte ${days(filled)}` : `Tømte ${days(cleared)}`)
+  }, [setValue])
+
   const ghost = useMemo(() => {
     const cells = new Map<string, number>()
-    for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => cells.set(`${lane}|${date}`, parts[i]))
+    for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => cells.set(`alloc|${lane}|${date}`, parts[i]))
     // An eraser stroke shows the cells it is about to clear as empty.
     if (drawing && tool === 'eraser' && selection?.section === 'alloc') {
       const { lane0, lane1, col0, col1 } = rangeOf(selection)
-      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) cells.set(`${lane}|${dates[col]}`, 0)
+      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) cells.set(`alloc|${lane}|${dates[col]}`, 0)
     }
+    for (const cell of fillCells) cells.set(`${cell.section}|${cell.lane}|${cell.date}`, cell.value ?? 0)
     return cells
-  }, [preview, drawing, tool, selection, dates])
+  }, [preview, drawing, tool, selection, dates, fillCells])
 
   // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
   useEffect(() => {
     let mouseX: number | null = null
+    const setStretch = (stretch: boolean) => {
+      if (fillRef.current && fillRef.current.stretch !== stretch) setFill((f) => f && { ...f, stretch })
+    }
     const onMove = (e: MouseEvent) => {
-      mouseX = dragging.current ? e.clientX : null
+      mouseX = dragging.current || fillRef.current ? e.clientX : null
+      setStretch(e.altKey)
+    }
+    // Alt can be pressed or let go while the mouse rests.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' && fillRef.current) {
+        e.preventDefault()
+        setStretch(e.type === 'keydown')
+      }
     }
     const onUp = () => {
+      if (fillRef.current) {
+        mouseX = null
+        commitFill()
+        return
+      }
       const section = dragging.current
       dragging.current = null
       mouseX = null
@@ -535,23 +611,28 @@ export function Kalender() {
     }
     const timer = setInterval(() => {
       const el = scrollRef.current
-      if (!el || mouseX === null || !dragging.current) return
+      if (!el || mouseX === null || !(dragging.current || fillRef.current)) return
       const rect = el.getBoundingClientRect()
       const step = mouseX > rect.right - 24 ? colW : mouseX < rect.left + LEFT_W + 24 ? -colW : 0
       if (!step) return
       el.scrollLeft += step
       // No cell is entered while the grid moves under a still mouse, so the selection follows the scroll.
       const col = Math.max(0, Math.min(dates.length - 1, Math.floor((Math.min(Math.max(mouseX, rect.left + LEFT_W), rect.right - 1) - rect.left - LEFT_W + el.scrollLeft) / colW)))
-      setSelection((sel) => (sel && sel.focus.col !== col ? { ...sel, focus: { ...sel.focus, col } } : sel))
+      if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
+      else setSelection((sel) => (sel && sel.focus.col !== col ? { ...sel, focus: { ...sel.focus, col } } : sel))
     }, 60)
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKey)
     return () => {
       clearInterval(timer)
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKey)
     }
-  }, [tool, drawDemand, eraseDrawn, colW, dates.length])
+  }, [tool, drawDemand, eraseDrawn, commitFill, colW, dates.length])
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -626,6 +707,7 @@ export function Kalender() {
       const { row, node } = allocLanes[lane] ?? {}
       preview!.target.forEach((date, i) => drawn.set(date, (drawn.get(date) ?? 0) + parts[i] - ((node ? node.daily.get(date) : row?.fte[date]) ?? 0)))
     }
+    for (const cell of fillCells) if (cell.section === 'alloc') drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue('alloc', cell.lane, cell.date) ?? 0))
     const days = new Map<ISODate, { need: number; available: number }>()
     for (const date of new Set([...need.keys(), ...drawn.keys()])) {
       const planned = (need.get(date) ?? 0) + (drawn.get(date) ?? 0)
@@ -633,7 +715,7 @@ export function Kalender() {
       if (planned > available + 0.05) days.set(date, { need: planned, available })
     }
     return days
-  }, [need, preview, allocLanes, ws.capacity, settings])
+  }, [need, preview, fillCells, getValue, allocLanes, ws.capacity, settings])
 
   const dayClass = (date: ISODate) => {
     const type = dayType(date)
@@ -651,10 +733,26 @@ export function Kalender() {
     </div>
   )
 
+  const selectionRange = selection ? rangeOf(selection) : null
+
+  // What the drag of the fill handle is doing, for the status bar.
+  const fillInfo = (() => {
+    if (!fill) return ''
+    const perDay = new Map<ISODate, number>()
+    for (const cell of fillCells) if (cell.value !== null) perDay.set(cell.date, (perDay.get(cell.date) ?? 0) + cell.value)
+    const cleared = new Set(fillCells.filter((cell) => cell.value === null).map((cell) => cell.date)).size
+    const days = (n: number) => `${n} ${n === 1 ? 'dag' : 'dager'}`
+    if (fill.stretch) return perDay.size ? `Strekker: opptil ${formatFte(Math.max(...perDay.values()), 1)} FTE per dag over ${days(perDay.size)}` : 'Strekker: ingenting å fordele'
+    if (perDay.size) return `Fyller ${days(perDay.size)} · hold Alt for å strekke i stedet`
+    return cleared ? `Tømmer ${days(cleared)}` : 'Dra sidelengs for å fylle · hold Alt for å strekke'
+  })()
+
   const valueCell = (section: Section, lane: number, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
     const focus = isFocus(section, lane, col)
-    // During a pencil stroke the cell shows what the stroke would put there.
-    const drawn = section === 'alloc' ? ghost.get(`${lane}|${date}`) : undefined
+    // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
+    const drawn = ghost.get(`${section}|${lane}|${date}`)
+    // The fill handle sits on the last cell of the selection, as in Excel.
+    const corner = tool === 'select' && draft === null && selection?.section === section && selectionRange?.lane1 === lane && selectionRange.col1 === col
     return (
       <div
         key={date}
@@ -670,7 +768,8 @@ export function Kalender() {
           }
         }}
         onMouseEnter={() => {
-          if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
+          if (fillRef.current?.section === section) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
+          else if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
         }}
         onDoubleClick={() => setDraft(value === undefined ? '' : String(value).replace('.', ','))}
       >
@@ -698,6 +797,19 @@ export function Kalender() {
           formatFte(drawn || undefined)
         ) : (
           formatFte(value)
+        )}
+        {corner && (
+          <span
+            className="fill-handle"
+            title="Dra sidelengs for å kopiere til flere dager, eller tilbake for å tømme. Hold Alt for å strekke: samme sum fordelt på nytt over dagene."
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              const started: Fill = { section, ...selectionRange!, toCol: selectionRange!.col1, stretch: e.altKey }
+              fillRef.current = started
+              setFill(started)
+            }}
+          />
         )}
       </div>
     )
@@ -1166,7 +1278,8 @@ export function Kalender() {
             <span>{fmtDate(focusInfo.date)}</span>
             <span>{focusInfo.value === undefined ? '–' : `${formatFte(focusInfo.value, 2)}`}</span>
             {selectionSum !== null && <span>Sum markert: {formatFte(selectionSum, 2)}</span>}
-            {notice && !preview && <span className="status-notice">{notice}</span>}
+            {notice && !preview && !fill && <span className="status-notice">{notice}</span>}
+            {fill && <span className="status-notice">{fillInfo}</span>}
             {preview && (
               <span className="status-notice">
                 {preview.shared
