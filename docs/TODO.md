@@ -52,6 +52,8 @@ Kalender
 - After filling a range and pressing Enter, the selection collapses to one cell. Excel keeps the range.
 - No drag-fill. Selecting by dragging works, and follows the mouse past the left and right edges but not up or down.
 - The pencil («Fordel behov») shares in halves, evenly, with what does not divide on the first days. The step, a front- or back-loaded shape, and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.
+- A row's window is the build-up (A) or tear-down (D) days of its project in its hall; moving in and out are not counted as work days. Levels do not show a window, and a row for all halls or for «Uavklart» gets the days of all the project's halls together.
+- «Foreslå plan» (✦) shares each row's demand in halves and rounds every row up, so a level with many small rows ends above its demand (43,5 became 47,5 for one hall of fourteen rows). It does not look at the available crew.
 - No handles for stretching a run of planned days; that was the planned next step after the pencil.
 - Notes can be written on planning cells but not on staffing cells; staffing notes from the workbook are shown only.
 - A suggested row cannot carry a note or be edited until FTE is typed into it.

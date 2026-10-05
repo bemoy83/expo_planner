@@ -19,7 +19,7 @@ Run `npx tsc -b` after edits; tests are type-checked through `tsconfig.test.json
 
 Five tabs, all in Norwegian:
 
-- **Kalender** – the planning workspace. Date header, hall calendar and staffing totals are pinned above the planning rows. The rows form a hierarchy the planner arranges («Grupper etter»: Prosjekt, Arbeidsfase, Hall/Sted, Kompetanse, Avd., in any order); FTE per day is stored on the rows and every level above sums. A level can be switched from Σ to entry (✎): a number typed there is shared out over its rows by required hours (`domain/spread.ts`). The pencil («Fordel behov») shares what is left of a line's demand over the working days drawn across.
+- **Kalender** – the planning workspace. Date header, hall calendar and staffing totals are pinned above the planning rows. The rows form a hierarchy the planner arranges («Grupper etter»: Prosjekt, Arbeidsfase, Hall/Sted, Kompetanse, Avd., in any order); FTE per day is stored on the rows and every level above sums. A level can be switched from Σ to entry (✎): a number typed there is shared out over its rows by required hours (`domain/spread.ts`). The pencil («Fordel behov») shares what is left of a line's demand over the working days drawn across. Each row shows its window, the build-up or tear-down days of its project in its hall (`domain/windows.ts`), and ✦ («Foreslå plan») fills rows over their windows.
 - **Behov** – the demand ledger per project: Visma lines, the planner's own lines and earlier years. "I plan" takes a Visma line into the demand that is planned with («Planlagt»).
 - **Haller** – every hall booking from Venyou, with a tick for whether it shows in the Kalender, and the project number per event.
 - **Produkttyper** – how each Visma product type is read: unit and competence.

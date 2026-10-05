@@ -8,8 +8,9 @@ import { buildHallCalendar, dominantEntry, hallNames, hallRuns, PHASE_CODES, PHA
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { shareOverDays, spread } from '../../domain/spread'
-import { venueEvents } from '../../domain/projects'
-import { visibleVenue } from '../../domain/venueImport'
+import { eventKey, venueEvents } from '../../domain/projects'
+import { anchorDate, visibleVenue } from '../../domain/venueImport'
+import { buildWindows, windowFor } from '../../domain/windows'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
@@ -193,6 +194,14 @@ export function Kalender() {
     () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
     [allGroups],
   )
+  // The days each row can be worked on: its project's build-up or tear-down days in its hall.
+  const windows = useMemo(() => {
+    const projectOfEvent = new Map(events.map((event) => [event.key, projectKey({ projectNo: event.projectNo, projectName: event.name })]))
+    return buildWindows(shownVenue, (booking) => projectOfEvent.get(eventKey(booking.eventName, anchorDate(booking))) ?? null)
+  }, [shownVenue, events])
+  const projectOfRow = useMemo(() => new Map(allGroups.flatMap((group) => group.rows.map((row) => [row.id, group.key] as const))), [allGroups])
+  const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
+
   const projectOptions = useMemo(() => allGroups.map((group) => ({ name: group.projectName, projectNo: group.projectNo })), [allGroups])
   // What a row's own line says: the properties that are not a level above it. The phase always shows as a badge.
   const rowDimensions = useMemo(() => (['project', 'competence', 'hall', 'avdeling'] as Dimension[]).filter((d) => !grouping.includes(d)), [grouping])
@@ -427,6 +436,56 @@ export function Kalender() {
         : 'Ikke noe behov igjen å fordele her. Dagene utenfor det du tegnet dekker allerede behovet, eller raden har ikke behov.',
     )
   }, [strokeFor, setValue])
+
+  /**
+   * A draft plan: each row's demand shared over the working days of its window, as a pencil stroke over
+   * the whole window would. For several rows at once only rows without any FTE are filled, so nothing
+   * the planner has placed is touched; for a single row the days in its window are replaced.
+   */
+  const proposePlan = useCallback(
+    (list: AllocationRow[], replace: boolean) => {
+      let done = 0
+      let hadPlan = 0
+      let noWindow = 0
+      let noDemand = 0
+      for (const row of list) {
+        const window = windowOf(row)
+        if (!window?.size) {
+          noWindow += 1
+          continue
+        }
+        if (!replace && Object.keys(row.fte).length) {
+          hadPlan += 1
+          continue
+        }
+        const days = [...window].sort()
+        const workdays = days.filter((date) => dayType(date) === 'arbeidsdag')
+        const target = workdays.length ? workdays : days
+        const onTarget = target.reduce((sum, date) => sum + (row.fte[date] ?? 0), 0)
+        const parts = shareOverDays((rowTotals(demandIndex, row, settings).requiredFte ?? 0) - (sumValues(row.fte) - onTarget), target.length)
+        if (!parts.length) {
+          noDemand += 1
+          continue
+        }
+        target.forEach((date, i) => {
+          if (parts[i] || row.fte[date] !== undefined) setRowFte(row, date, parts[i] || null)
+        })
+        done += 1
+      }
+      const rows = (n: number) => `${n} ${n === 1 ? 'rad' : 'rader'}`
+      setNotice(
+        [
+          done ? `Foreslo plan for ${rows(done)}` : 'Ingen rader fikk forslag',
+          hadPlan ? `${rows(hadPlan)} hadde plan fra før og er ikke rørt` : '',
+          noWindow ? `${rows(noWindow)} har ingen monterings- eller demonteringsdager i hallkalenderen` : '',
+          noDemand ? `${rows(noDemand)} har ikke behov igjen` : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      )
+    },
+    [windowOf, demandIndex, settings, setRowFte],
+  )
 
   // While a stroke is being drawn, what it would give: shown in the cells, with the level per day in the status bar.
   // The total is left out: a stroke always places all that is left, so it would not move.
@@ -673,6 +732,15 @@ export function Kalender() {
                 {item.entry ? '✎' : 'Σ'}
               </button>
             )}
+            {node.rows.length > 0 && (
+              <button
+                className="row-action"
+                title="Foreslå plan: fordel behovet til radene under på monterings- og demonteringsdagene i hallene. Rader som allerede har FTE røres ikke."
+                onClick={() => proposePlan(node.rows, false)}
+              >
+                ✦
+              </button>
+            )}
             {project && (
               <button className="row-action" title="Legg til rad i prosjektet" onClick={() => setDialog({ projectName: project.projectName, projectNo: project.projectNo })}>
                 +
@@ -689,6 +757,9 @@ export function Kalender() {
     }
     const { row: r, totals } = item
     const lane = laneOfRow.get(r.id)!
+    const window = windowOf(r)
+    const phaseDays = r.phase === 'Demontering' ? 'demonteringsdagene' : 'monteringsdagene'
+    const outside = window?.size ? Object.keys(r.fte).filter((date) => r.fte[date] && !window.has(date)) : []
     const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
     return row(
       r.id,
@@ -696,6 +767,11 @@ export function Kalender() {
         <span className="lbl-desc" style={{ paddingLeft: 18 + item.depth * INDENT }} title={describeRow(r, ['project', 'competence', 'hall', 'avdeling'])}>
           {description || <em className="muted">rad</em>}
         </span>
+        {outside.length > 0 && (
+          <span className="lbl-warning" title={`${outside.length} ${outside.length === 1 ? 'dag' : 'dager'} med FTE ligger utenfor ${phaseDays} i hallen: ${outside.sort().map((d) => `${d.slice(8)}.${d.slice(5, 7)}.`).join(' ')}`}>
+            ⚠
+          </span>
+        )}
         <span className={`lbl-phase ${r.phase === 'Demontering' ? 'dem' : 'mon'}`} title={r.phase}>
           {r.phase === 'Montering' ? 'M' : r.phase === 'Demontering' ? 'D' : '–'}
         </span>
@@ -709,6 +785,11 @@ export function Kalender() {
         <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
         <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
         <span className="row-slot row-actions">
+          {window?.size ? (
+            <button className="row-action" title={`Foreslå plan for raden: fordel det som gjenstår av behovet på ${phaseDays} i hallen. Erstatter det som står på de dagene.`} onClick={() => proposePlan([r], true)}>
+              ✦
+            </button>
+          ) : null}
           {/* A suggested row is not stored yet, so there is nothing to edit or delete. */}
           {!isSuggestedRow(r) && (
             <>
@@ -728,7 +809,16 @@ export function Kalender() {
           )}
         </span>
       </>,
-      (date, col) => valueCell('alloc', lane, date, col, r.fte[date], r.notes[date], r.phase === 'Demontering' ? 'dem' : 'mon'),
+      (date, col) =>
+        valueCell(
+          'alloc',
+          lane,
+          date,
+          col,
+          r.fte[date],
+          r.notes[date],
+          `${r.phase === 'Demontering' ? 'dem' : 'mon'} ${window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && r.fte[date] ? 'outside-window' : ''}`,
+        ),
       'alloc-row',
     )
   }
@@ -1030,6 +1120,8 @@ export function Kalender() {
             )}
             {!focusInfo.rowId && focusInfo.note && <span className="note-text">Notat: {focusInfo.note}</span>}
           </>
+        ) : notice ? (
+          <span className="status-notice">{notice}</span>
         ) : (
           <span className="muted">Klikk en celle for å planlegge. Skriv tall (f.eks. 1,5), Enter for neste rad, dra eller Shift+klikk for å markere flere, Ctrl/Cmd+C/V for kopier og lim inn.</span>
         )}
