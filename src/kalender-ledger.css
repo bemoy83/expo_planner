@@ -74,7 +74,7 @@
 .toolbar label.check{color:var(--text)}
 
 button{border:none;border-radius:8px;background:var(--sunken);padding:5px 12px;transition:background .12s}
-button:hover{border-color:transparent;background:color-mix(in oklab,var(--sunken) 80%,#171613)}
+button:hover{border-color:transparent;background:color-mix(in oklab,var(--sunken) 80%,var(--text))}
 button.primary{background:var(--accent);color:#140c05;font-weight:600}
 button.link{background:none;color:var(--text);text-decoration:underline;text-decoration-color:var(--line-strong)}
 button.link:hover{background:none;color:var(--accent)}
@@ -122,7 +122,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .ph-movingOut{background:var(--ph-movingout)!important}
 .ph-event{background:var(--ph-event)!important}
 .ph-dismantle{background:var(--ph-dismantle)!important}
-.phase-code{color:color-mix(in srgb,#171613 55%,transparent)}
+.phase-code{color:color-mix(in srgb,var(--text) 55%,transparent)}
 .hall-label{font-family:'Schibsted Grotesk',system-ui,sans-serif;color:var(--text)}
 .lbl-hall{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:500;color:var(--muted)}
 
@@ -154,7 +154,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .group-cell{color:var(--text);font-weight:600}
 .group-row.depth-0 .lbl-project{font-size:14px;font-weight:700}
 /* project event span: neutral strip (per-phase colour is phase 2) */
-.group-row .cell.group-cell.in-span{box-shadow:inset 0 -3px 0 color-mix(in oklab,#171613 22%,transparent)}
+.group-row .cell.group-cell.in-span{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--text) 22%,transparent)}
 
 /* editable rows */
 .alloc-row .grid-label{background:var(--bg)}
@@ -168,7 +168,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .alloc-row .cell.in-window,.alloc-row .cell.in-window.dem{box-shadow:none}
 .alloc-row .cell.in-window.workday:not(.filled):not(.selected),
 .alloc-row .cell.in-window.workday.dem:not(.filled):not(.selected){background-color:transparent}
-.alloc-row .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,#171613 28%,transparent)}
+.alloc-row .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--text) 28%,transparent)}
 .alloc-row .cell.outside-window{box-shadow:inset 0 0 0 1.5px var(--neg)}
 
 /* selection, focus, editing */
@@ -210,7 +210,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 
 /* hall legend: one chip per phase with the code the cells use; the name is in the tooltip */
 .legend{gap:4px}
-.legend i{width:auto;height:auto;margin-left:0;padding:1px 5px;border-radius:4px;font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:color-mix(in srgb,#171613 70%,transparent)}
+.legend i{width:auto;height:auto;margin-left:0;padding:1px 5px;border-radius:4px;font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:color-mix(in srgb,var(--text) 70%,transparent)}
 
 /* C: the project's line carries a strip in the colour of the day's hall phase */
 .group-row .cell.group-cell.strip{isolation:isolate;box-shadow:none}
@@ -276,3 +276,60 @@ button.ghost:hover{background:var(--sunken)}
 
 /* F: what a folded section of the top block hides */
 .section-meta{margin-left:8px;text-transform:none;letter-spacing:0;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:var(--faint)}
+
+/* D: a folded level shows its sums on a strip in the colour of the work phase */
+.strip-mon::before{background:var(--mon)}
+.strip-dem::before{background:var(--dem)}
+.group-row .cell.group-cell.strip-mon::before,.group-row .cell.group-cell.strip-dem::before{top:2px;bottom:2px}
+
+/* ---- 8. Phase 2, G: dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende) ---- */
+:root.dark{
+  color-scheme:dark;
+  --bg:#0f0f0e;
+  --surface:#1f1f1c;
+  --panel:#171715;
+  --sunken:#21211e;
+  --text:#f3f2ee;
+  --muted:#a6a49d;
+  --faint:#7b7a73;
+  --line:#262623;
+  --line-strong:#3a3935;
+
+  --accent:#fd923e;
+  --accent-soft:color-mix(in oklab,#fd923e 18%,transparent);
+
+  --weekend:color-mix(in srgb,#f3f2ee 4%,#0f0f0e);
+  --holiday:#301615;
+
+  /* work phases: dark fills with light numbers */
+  --mon:oklch(0.45 0.06 115);
+  --dem:oklch(0.47 0.075 40);
+  --mon-strong:oklch(0.78 0.08 115);
+  --dem-strong:oklch(0.76 0.1 40);
+
+  --ph-assembly:color-mix(in oklab,oklch(0.76 0.11 250) 40%,#1f1f1c);
+  --ph-movingin:color-mix(in oklab,oklch(0.76 0.11 185) 40%,#1f1f1c);
+  --ph-event:color-mix(in oklab,oklch(0.76 0.11 300) 52%,#1f1f1c);
+  --ph-movingout:color-mix(in oklab,oklch(0.76 0.11 85) 40%,#1f1f1c);
+  --ph-dismantle:color-mix(in oklab,oklch(0.76 0.11 10) 40%,#1f1f1c);
+
+  --neg:#f97770; --neg-bg:#301615;
+  --pos:#6fd087; --pos-bg:#112618;
+  --over:#f2b54f;
+
+  --band:color-mix(in oklab,#f3f2ee 8%,#0f0f0e);
+  --band-we:color-mix(in oklab,#f3f2ee 12%,#0f0f0e);
+}
+/* the places index.css paints with fixed light colours */
+.dark .tooltip{background:#3a3935;color:#f3f2ee}
+.dark .lbl-cap.group-overtime{color:#c2b1f8}
+.dark table.ledger tr.has-issue td,.dark .orphans{background:#2b200d;border-color:#503b16}
+.dark table.ledger tr.hidden-row td{background:var(--panel)}
+.dark .fill-handle{border-color:var(--bg)}
+.dark .cell.hall.multi{background-image:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.1) 4px 6px)!important}
+.dark .cell.hall.split .half+.half{border-left-color:rgba(255,255,255,.3)}
+.dark .dialog-backdrop{background:rgba(0,0,0,.6)}
+.dark .grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(rgba(249,119,112,.18),rgba(249,119,112,.18))!important}
+
+/* the Lys/Mørk choice in the Innstillinger menu */
+.menu-setting{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 10px 8px;color:var(--muted)}

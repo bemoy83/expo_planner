@@ -12,7 +12,7 @@ import { Haller } from './ui/haller/Haller'
 import { Kpi } from './ui/kpi/Kpi'
 import { Produkttyper } from './ui/kpi/Produkttyper'
 import { Kalender } from './ui/kalender/Kalender'
-import { Menu } from './ui/common'
+import { Menu, Segmented } from './ui/common'
 import { errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
@@ -67,6 +67,11 @@ function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Whether hovering shows help texts. A choice for this browser, like the other view preferences.
   const [tooltips, setTooltips] = usePref('tooltips', true)
+  // Light or dark, also a choice for this browser. main.tsx sets it before the first paint.
+  const [theme, setTheme] = usePref<'light' | 'dark'>('theme', 'light')
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
   const [view, setView] = useState<View>('kalender')
   const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
@@ -165,6 +170,18 @@ function Shell() {
         <Menu label="⚙ Innstillinger" className="ghost" align="right">
           {(close) => (
             <>
+              <span className="menu-setting">
+                Utseende
+                <Segmented
+                  label="Utseende"
+                  value={theme}
+                  onChange={setTheme}
+                  options={[
+                    { value: 'light', label: 'Lys' },
+                    { value: 'dark', label: 'Mørk' },
+                  ]}
+                />
+              </span>
               <button role="menuitem" aria-pressed={tooltips} onClick={() => setTooltips(!tooltips)}>
                 Hjelpetekster {tooltips ? 'på' : 'av'}
               </button>
