@@ -11,45 +11,23 @@ import { fillAcross, shareOverDays, spread } from '../../domain/spread'
 import { eventKey, venueEvents } from '../../domain/projects'
 import { anchorDate, visibleVenue } from '../../domain/venueImport'
 import { buildWindows, windowFor } from '../../domain/windows'
+import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
+import { UndoRedoButtons } from '../common'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { GroupingBar } from './GroupingBar'
-import { buildGroups, buildItems, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, dimensionValue, EMPTY_FILTER, pathKeys, projectKey, type Dimension, type GridItem, type GroupNode, type RowFilter } from './rows'
+import { deltaClass, describeRow, fmtDate, rowTitle } from './labels'
+import { CoverageBar, NoteEditor } from './parts'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GridItem, type GroupNode, type RowFilter } from './rows'
+import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
 
-type Section = 'alloc' | 'cap'
-interface Cell {
-  lane: number
-  col: number
-}
-interface Selection {
-  section: Section
-  anchor: Cell
-  focus: Cell
-}
 /** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
 interface AllocLane {
   /** Position in the list of grid items. */
   index: number
   row?: AllocationRow
   node?: GroupNode
-}
-/** A drag of the fill handle: the block that was selected, how far it has been dragged, and whether it stretches. */
-interface Fill {
-  section: Section
-  lane0: number
-  lane1: number
-  col0: number
-  col1: number
-  toCol: number
-  stretch: boolean
-}
-interface FillCell {
-  section: Section
-  lane: number
-  date: ISODate
-  /** `null` clears the cell. */
-  value: number | null
 }
 interface CapLane {
   line: CapacityLine
@@ -58,29 +36,6 @@ interface CapLane {
 }
 
 const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
-
-const loadPref = <T,>(key: string, fallback: T): T => {
-  try {
-    const raw = localStorage.getItem(`expo-planner:${key}`)
-    return raw ? (JSON.parse(raw) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-const savePref = (key: string, value: unknown) => {
-  try {
-    localStorage.setItem(`expo-planner:${key}`, JSON.stringify(value))
-  } catch {
-    // preferences are a convenience only
-  }
-}
-
-const rangeOf = (sel: Selection) => ({
-  lane0: Math.min(sel.anchor.lane, sel.focus.lane),
-  lane1: Math.max(sel.anchor.lane, sel.focus.lane),
-  col0: Math.min(sel.anchor.col, sel.focus.col),
-  col1: Math.max(sel.anchor.col, sel.focus.col),
-})
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
@@ -91,29 +46,20 @@ const HALL_LABEL_CHAR_W = 6.6
 /** How far each level of the hierarchy is indented in the label column. */
 const INDENT = 14
 
-/** A row described by the given properties, e.g. «Hall C · Avd. 64». */
-const describeRow = (row: AllocationRow, dimensions: Dimension[]): string =>
-  dimensions.map((d) => (d === 'project' ? row.projectName : dimensionValue(row, d).label)).join(' · ')
-
-const fmtDate = (date: ISODate) => {
-  const [y, m, d] = date.split('-')
-  return `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${d}.${m}.${y}`
-}
-
 export function Kalender() {
-  const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const { settings } = ws
 
-  const [zoom, setZoom] = useState<Zoom>(() => loadPref('zoom', 'normal'))
-  const [filter, setFilter] = useState<RowFilter>(() => loadPref('filter', EMPTY_FILTER))
-  const [grouping, setGrouping] = useState<Dimension[]>(() => cleanGrouping(loadPref<unknown>('grouping', DEFAULT_GROUPING)))
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadPref<string[]>('collapsedLevels', [])))
-  const [entry, setEntry] = useState<Set<string>>(() => new Set(loadPref<string[]>('entryLevels', [])))
-  const [hallsOpen, setHallsOpen] = useState(() => loadPref('hallsOpen', true))
-  const [allHalls, setAllHalls] = useState(() => loadPref('allHalls', false))
-  const [capacityOpen, setCapacityOpen] = useState(() => loadPref('capacityOpen', false))
-  const [onlyInView, setOnlyInView] = useState(() => loadPref('onlyInView', true))
+  const [zoom, setZoom] = usePref<Zoom>('zoom', 'normal')
+  const [filter, setFilter] = usePref<RowFilter>('filter', EMPTY_FILTER)
+  const [grouping, setGrouping] = usePref<Dimension[]>('grouping', DEFAULT_GROUPING, cleanGrouping)
+  const [collapsed, setCollapsed] = usePrefSet('collapsedLevels')
+  const [entry, setEntry] = usePrefSet('entryLevels')
+  const [hallsOpen, setHallsOpen] = usePref('hallsOpen', true)
+  const [allHalls, setAllHalls] = usePref('allHalls', false)
+  const [capacityOpen, setCapacityOpen] = usePref('capacityOpen', false)
+  const [onlyInView, setOnlyInView] = usePref('onlyInView', true)
   const [selection, setSelection] = useState<Selection | null>(null)
   // With the pencil, drawing across days on a row shares out what is left of its demand over those days.
   // With the eraser, drawing across cells clears them.
@@ -130,16 +76,6 @@ export function Kalender() {
   const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200, height: 800 })
   const [topHeight, setTopHeight] = useState(0)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
-
-  useEffect(() => savePref('zoom', zoom), [zoom])
-  useEffect(() => savePref('filter', filter), [filter])
-  useEffect(() => savePref('grouping', grouping), [grouping])
-  useEffect(() => savePref('collapsedLevels', [...collapsed]), [collapsed])
-  useEffect(() => savePref('entryLevels', [...entry]), [entry])
-  useEffect(() => savePref('hallsOpen', hallsOpen), [hallsOpen])
-  useEffect(() => savePref('allHalls', allHalls), [allHalls])
-  useEffect(() => savePref('capacityOpen', capacityOpen), [capacityOpen])
-  useEffect(() => savePref('onlyInView', onlyInView), [onlyInView])
 
   const colW = ZOOM_WIDTHS[zoom]
   // The period follows the hall bookings, see `calendarRange`.
@@ -192,10 +128,18 @@ export function Kalender() {
     const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases)
     return [...placed, ...suggestedRows(locatedDemand, placed)]
   }, [ws.allocations, ws.venue, ws.hallAliases, locatedDemand])
-  const items = useMemo(
-    () => buildItems(rows, events, demandIndex, settings, filter, collapsed, inViewOnly ? { from: winFrom, to: winTo } : undefined, grouping, entry),
-    [rows, events, demandIndex, settings, filter, collapsed, inViewOnly, winFrom, winTo, grouping, entry],
+  const filtered = useMemo(() => filterGroups(rows, events, demandIndex, settings, filter, grouping), [rows, events, demandIndex, settings, filter, grouping])
+  // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
+  // The visible dates change with every column scrolled, the projects they hold seldom do; the hierarchy is
+  // built again only when that list of projects changes.
+  const inViewKeys = useMemo(
+    () => (inViewOnly ? JSON.stringify(filtered.filter((group) => inWindow(group, { from: winFrom, to: winTo })).map((group) => group.key)) : null),
+    [filtered, inViewOnly, winFrom, winTo],
   )
+  const items = useMemo(() => {
+    const keys = inViewKeys === null ? null : new Set(JSON.parse(inViewKeys) as string[])
+    return groupItems(keys ? filtered.filter((group) => keys.has(group.key)) : filtered, demandIndex, settings, collapsed, grouping, entry)
+  }, [filtered, inViewKeys, demandIndex, settings, collapsed, grouping, entry])
   const allocLanes = useMemo<AllocLane[]>(() => items.flatMap((item, index): AllocLane[] => (item.kind === 'row' ? [{ row: item.row, index }] : item.entry ? [{ node: item.node, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row?.id ?? `level:${lane.node!.key}`, i])), [allocLanes])
   const capLanes = useMemo<CapLane[]>(
@@ -288,7 +232,7 @@ export function Kalender() {
 
   const c0 = Math.max(0, Math.floor(viewport.left / colW) - OVERSCAN_COLS)
   const c1 = Math.min(dates.length - 1, Math.ceil((viewport.left + viewport.width - LEFT_W) / colW) + OVERSCAN_COLS)
-  const visibleDates = dates.slice(c0, c1 + 1)
+  const visibleDates = useMemo(() => dates.slice(c0, c1 + 1), [dates, c0, c1])
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
   const topPinned = topHeight < viewport.height * 0.65
   const r0 = Math.max(0, Math.floor((viewport.top - (topPinned ? 0 : topHeight)) / ROW_H) - OVERSCAN_ROWS)
@@ -580,13 +524,40 @@ export function Kalender() {
   }, [preview, drawing, tool, selection, dates, fillCells])
 
   // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
+  // The listeners are attached once and read what they need from here, so a drag is not disturbed when
+  // the rows or the tool change under it.
+  const dragEnv = useRef({ tool, drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length })
+  useEffect(() => {
+    dragEnv.current = { tool, drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length }
+  })
   useEffect(() => {
     let mouseX: number | null = null
+    let timer: ReturnType<typeof setInterval> | undefined
+    const follow = () => {
+      const el = scrollRef.current
+      if (!el || mouseX === null || !(dragging.current || fillRef.current)) return
+      const { colW, dayCount } = dragEnv.current
+      const rect = el.getBoundingClientRect()
+      const step = mouseX > rect.right - 24 ? colW : mouseX < rect.left + LEFT_W + 24 ? -colW : 0
+      if (!step) return
+      el.scrollLeft += step
+      // No cell is entered while the grid moves under a still mouse, so the selection follows the scroll.
+      const col = Math.max(0, Math.min(dayCount - 1, Math.floor((Math.min(Math.max(mouseX, rect.left + LEFT_W), rect.right - 1) - rect.left - LEFT_W + el.scrollLeft) / colW)))
+      if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
+      else setSelection((sel) => (sel && sel.focus.col !== col ? { ...sel, focus: { ...sel.focus, col } } : sel))
+    }
+    const rest = () => {
+      mouseX = null
+      clearInterval(timer)
+      timer = undefined
+    }
     const setStretch = (stretch: boolean) => {
       if (fillRef.current && fillRef.current.stretch !== stretch) setFill((f) => f && { ...f, stretch })
     }
     const onMove = (e: MouseEvent) => {
       mouseX = dragging.current || fillRef.current ? e.clientX : null
+      // The timer runs only while something is being dragged.
+      if (mouseX !== null && timer === undefined) timer = setInterval(follow, 60)
       setStretch(e.altKey)
     }
     // Alt can be pressed or let go while the mouse rests.
@@ -597,42 +568,30 @@ export function Kalender() {
       }
     }
     const onUp = () => {
+      rest()
+      const { tool, drawDemand, eraseDrawn, commitFill } = dragEnv.current
       if (fillRef.current) {
-        mouseX = null
         commitFill()
         return
       }
       const section = dragging.current
       dragging.current = null
-      mouseX = null
       setDrawing(false)
       if (section === 'alloc' && tool === 'pencil') drawDemand()
       if (section === 'alloc' && tool === 'eraser') eraseDrawn()
     }
-    const timer = setInterval(() => {
-      const el = scrollRef.current
-      if (!el || mouseX === null || !(dragging.current || fillRef.current)) return
-      const rect = el.getBoundingClientRect()
-      const step = mouseX > rect.right - 24 ? colW : mouseX < rect.left + LEFT_W + 24 ? -colW : 0
-      if (!step) return
-      el.scrollLeft += step
-      // No cell is entered while the grid moves under a still mouse, so the selection follows the scroll.
-      const col = Math.max(0, Math.min(dates.length - 1, Math.floor((Math.min(Math.max(mouseX, rect.left + LEFT_W), rect.right - 1) - rect.left - LEFT_W + el.scrollLeft) / colW)))
-      if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
-      else setSelection((sel) => (sel && sel.focus.col !== col ? { ...sel, focus: { ...sel.focus, col } } : sel))
-    }, 60)
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKey)
     return () => {
-      clearInterval(timer)
+      rest()
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKey)
     }
-  }, [tool, drawDemand, eraseDrawn, commitFill, colW, dates.length])
+  }, [])
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -690,9 +649,10 @@ export function Kalender() {
     )
   }
 
+  const selectionRange = selection ? rangeOf(selection) : null
   const isSelected = (section: Section, lane: number, col: number) => {
-    if (!selection || selection.section !== section) return false
-    const { lane0, lane1, col0, col1 } = rangeOf(selection)
+    if (!selectionRange || selection!.section !== section) return false
+    const { lane0, lane1, col0, col1 } = selectionRange
     return lane >= lane0 && lane <= lane1 && col >= col0 && col <= col1
   }
   const isFocus = (section: Section, lane: number, col: number) =>
@@ -717,10 +677,16 @@ export function Kalender() {
     return days
   }, [need, preview, fillCells, getValue, allocLanes, ws.capacity, settings])
 
-  const dayClass = (date: ISODate) => {
-    const type = dayType(date)
-    return `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''} ${overbooked.has(date) ? 'overbooked' : ''}`
-  }
+  // Every cell of a day shares these classes; they are worked out once per day, not once per cell.
+  const dayClasses = useMemo(() => {
+    const classes = new Map<ISODate, string>()
+    for (const date of visibleDates) {
+      const type = dayType(date)
+      classes.set(date, `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''} ${overbooked.has(date) ? 'overbooked' : ''}`)
+    }
+    return classes
+  }, [visibleDates, today, overbooked])
+  const dayClass = (date: ISODate) => dayClasses.get(date) ?? 'day'
 
   const row = (key: string, label: ReactNode, cells: (date: ISODate, col: number) => ReactNode, className = '', overlay?: ReactNode) => (
     <div className={`grid-row ${className}`} key={key} style={{ height: ROW_H }}>
@@ -732,8 +698,6 @@ export function Kalender() {
       {overlay}
     </div>
   )
-
-  const selectionRange = selection ? rangeOf(selection) : null
 
   // What the drag of the fill handle is doing, for the status bar.
   const fillInfo = (() => {
@@ -866,7 +830,7 @@ export function Kalender() {
               <span className="lbl-num">{formatFte(node.totals.requiredFte)}</span>
               <span className="lbl-num">{formatFte(node.totals.plannedFte)}</span>
               <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
-              {coverageBar(node.totals.requiredFte, node.totals.plannedFte)}
+              <CoverageBar required={node.totals.requiredFte} planned={node.totals.plannedFte} />
             </span>
           ) : (
             <span className="muted small no-rows">ingen rader</span>
@@ -939,7 +903,7 @@ export function Kalender() {
           </span>
           <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
           <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
-          {coverageBar(totals.requiredFte, totals.plannedFte)}
+          <CoverageBar required={totals.requiredFte} planned={totals.plannedFte} />
         </span>
         <span className="row-slot row-actions">
           {window?.size ? (
@@ -1046,12 +1010,7 @@ export function Kalender() {
           Bare prosjekter i visningen
         </label>
         <span className="toolbar-gap" />
-        <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
-          ↶ Angre
-        </button>
-        <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
-          ↷ Gjør om
-        </button>
+        <UndoRedoButtons />
         <button onClick={() => setCollapsed(new Set())}>Utvid alle</button>
         <button title="Fold sammen til øverste nivå" onClick={() => setCollapsed(new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}>
           Fold alle
@@ -1322,41 +1281,5 @@ export function Kalender() {
         />
       )}
     </div>
-  )
-}
-
-const rowTitle = (row: AllocationRow) => `${describeRow(row, ['project', 'competence', 'hall', 'avdeling'])} · ${row.phase}`
-
-/** Planned within this much of the demand counts as covered; a plan in tenths seldom lands exactly. */
-const COVERED_WITHIN = 0.05
-/** Planned this far above the demand counts as clearly over. */
-const OVER_FROM = 1.15
-
-/** A thin line under a line's figures: how much of its demand is planned. Nothing where there is no demand. */
-const coverageBar = (required: number | null, planned: number) => {
-  if (!required || required <= 0) return null
-  const share = planned / required
-  // A small row rounded up to the next tenth is far over in per cent but not in people.
-  const state = planned >= required - COVERED_WITHIN ? (share > OVER_FROM && planned - required > 0.25 ? 'over' : 'covered') : 'partly'
-  return (
-    <span className={`coverage ${state}`} aria-hidden>
-      <i style={{ width: `${Math.min(1, share) * 100}%` }} />
-    </span>
-  )
-}
-
-const deltaClass = (delta: number | null) => (delta === null ? '' : delta < -0.05 ? 'under' : delta > 0.05 ? 'over' : 'ok')
-
-function NoteEditor({ note, onSave }: { note: string; onSave: (note: string) => void }) {
-  const [value, setValue] = useState(note)
-  return (
-    <input
-      className="note-input"
-      placeholder="Notat for cellen"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => value !== note && onSave(value)}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-    />
   )
 }

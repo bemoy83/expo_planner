@@ -10,6 +10,7 @@ import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
 import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHallAliases, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearPrefs } from './prefs'
 import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
@@ -22,7 +23,6 @@ interface WorkspaceStore {
   demandIndex: DemandIndex
   /** The demand with Hall/Sted read as a hall of the hall ledger, or as unresolved. See `locateDemand`. */
   locatedDemand: DemandLine[]
-  saveState: SaveState
   replaceWorkspace: (workspace: Workspace) => Promise<void>
   /** Deletes everything stored in the browser and returns to the start screen. Cannot be undone. */
   resetWorkspace: () => Promise<void>
@@ -49,6 +49,8 @@ interface WorkspaceStore {
   importVisma: (rows: VismaRow[], fileName: string) => string[]
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
   setLineOverride: (projectNo: string, key: string, patch: LineOverride) => void
+  /** The same for several lines of a project at once: the project's Visma lines are recalculated and written once. */
+  setLineOverrides: (projectNo: string, patches: { key: string; patch: LineOverride }[]) => void
   /** Places every demand line with this Hall/Sted text in a hall; without a hall, the text is read automatically again. */
   setHallAlias: (text: string, hall: string | undefined) => void
   /** Forgets the decisions made for a Visma line, typically one that has left the export. */
@@ -63,6 +65,8 @@ interface WorkspaceStore {
 }
 
 const Context = createContext<WorkspaceStore | null>(null)
+// Saving flips state on every edit; kept apart so that only what shows it renders again.
+const SaveStateContext = createContext<SaveState>('saved')
 
 const EMPTY_DEMAND: DemandLine[] = []
 
@@ -98,7 +102,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       .catch(() => setStatus('empty'))
   }, [])
 
-  const syncHistorySize = () => setHistorySize({ undo: undoStack.current.length + (openStep.current ? 1 : 0), redo: redoStack.current.length })
+  const syncHistorySize = () => {
+    const undo = undoStack.current.length + (openStep.current ? 1 : 0)
+    const redo = redoStack.current.length
+    setHistorySize((size) => (size.undo === undo && size.redo === redo ? size : { undo, redo }))
+  }
 
   const closeStep = useCallback(() => {
     const step = openStep.current
@@ -187,7 +195,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const undo = useCallback(() => stepThroughHistory('undo'), [stepThroughHistory])
   const redo = useCallback(() => stepThroughHistory('redo'), [stepThroughHistory])
 
-
   const replaceWorkspace = useCallback(async (next: Workspace) => {
     setSaveState('saving')
     await saveWorkspace(next)
@@ -201,11 +208,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const resetWorkspace = useCallback(async () => {
     await clearAll()
     // View preferences (filters, zoom, collapsed projects) belong to the data that is gone.
-    try {
-      for (const key of Object.keys(localStorage)) if (key.startsWith('expo-planner:')) localStorage.removeItem(key)
-    } catch {
-      // preferences are a convenience only
-    }
+    clearPrefs()
     current.current = null
     setWorkspace(null)
     clearHistory()
@@ -434,16 +437,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commitDemand],
   )
 
-  const setLineOverride = useCallback(
-    (projectNo: string, key: string, patch: LineOverride) => {
+  const setLineOverrides = useCallback(
+    (projectNo: string, patches: { key: string; patch: LineOverride }[]) => {
       const ws = current.current
-      if (!ws) return
-      const overrides = { ...ws.overrides, [key]: { ...ws.overrides?.[key], ...patch } }
+      if (!ws || !patches.length) return
+      const overrides = { ...ws.overrides }
+      for (const { key, patch } of patches) overrides[key] = { ...overrides[key], ...patch }
       const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi ?? EMPTY_KPI, overrides, ws.visma ?? [])
       commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
     },
     [commitDemand],
   )
+
+  const setLineOverride = useCallback((projectNo: string, key: string, patch: LineOverride) => setLineOverrides(projectNo, [{ key, patch }]), [setLineOverrides])
 
   const removeLineOverride = useCallback(
     (projectNo: string, key: string) => {
@@ -483,39 +489,49 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallAliases) : EMPTY_DEMAND), [demand, venue, hallAliases])
   const demandIndex = useMemo(() => buildDemandIndex(locatedDemand), [locatedDemand])
 
-  const value: WorkspaceStore = {
-    status,
-    workspace,
-    demandIndex,
-    locatedDemand,
-    saveState,
-    replaceWorkspace,
-    resetWorkspace,
-    setAllocationFte,
-    setSuggestedFte,
-    setAllocationNote,
-    addAllocation,
-    updateAllocation,
-    removeAllocation,
-    setCapacityValue,
-    updateSettings,
-    importVenue,
-    setEventProject,
-    importProjects,
-    setVenueHidden,
-    setKpi,
-    importVisma,
-    setLineOverride,
-    setHallAlias,
-    removeLineOverride,
-    saveDemandLine,
-    removeDemandLine,
-    canUndo: historySize.undo > 0,
-    canRedo: historySize.redo > 0,
-    undo,
-    redo,
-  }
-  return <Context.Provider value={value}>{children}</Context.Provider>
+  const canUndo = historySize.undo > 0
+  const canRedo = historySize.redo > 0
+  // The same object as long as nothing in it changed, so a tab renders again only when the data does.
+  const value = useMemo<WorkspaceStore>(
+    () => ({
+      status,
+      workspace,
+      demandIndex,
+      locatedDemand,
+      replaceWorkspace,
+      resetWorkspace,
+      setAllocationFte,
+      setSuggestedFte,
+      setAllocationNote,
+      addAllocation,
+      updateAllocation,
+      removeAllocation,
+      setCapacityValue,
+      updateSettings,
+      importVenue,
+      setEventProject,
+      importProjects,
+      setVenueHidden,
+      setKpi,
+      importVisma,
+      setLineOverride,
+      setLineOverrides,
+      setHallAlias,
+      removeLineOverride,
+      saveDemandLine,
+      removeDemandLine,
+      canUndo,
+      canRedo,
+      undo,
+      redo,
+    }),
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, setCapacityValue, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, canUndo, canRedo, undo, redo],
+  )
+  return (
+    <Context.Provider value={value}>
+      <SaveStateContext.Provider value={saveState}>{children}</SaveStateContext.Provider>
+    </Context.Provider>
+  )
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -524,3 +540,7 @@ export const useWorkspace = (): WorkspaceStore => {
   if (!store) throw new Error('useWorkspace must be used inside WorkspaceProvider')
   return store
 }
+
+/** Whether the latest edits have reached storage. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const useSaveState = (): SaveState => useContext(SaveStateContext)

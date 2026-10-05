@@ -72,8 +72,10 @@ General
 
 - No component or end-to-end tests beyond a smoke test. The grid, dialogs and imports are verified by hand in a browser.
 - One lint warning: a `setState` inside an effect in `Kalender.tsx` (selecting a row that was just added).
-- `Kalender.tsx` is one large component (about 800 lines).
-- Recalculating Visma lines runs once per toggled line; "Ta alle inn i plan" does it for every line in turn.
+- `Kalender.tsx` is one large component (about 1,300 lines). No row is memoized, so each scroll frame and each cell entered during a drag renders every visible cell again; this is the main cost left when scrolling. Splitting it into row components needs the grid tested by hand.
+- `index.css` is one file of about 1,150 lines.
+- A fill or paste of several cells in one row writes that row to IndexedDB once per cell.
+- Numbers typed with a decimal comma are parsed in several places with slightly different rules (empty means 0, nothing, or invalid).
 - `design_docs/` is stale and uses the misspelling "Venyoo". `docs/kalender-workbook.md` describes the workbook, not the app.
 - `AllocationRow.importedHours` only has meaning for rows that came from the workbook.
 

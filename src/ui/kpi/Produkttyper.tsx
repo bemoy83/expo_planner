@@ -3,6 +3,8 @@ import { addWorkType, diffKpi, EMPTY_KPI, linesWithoutProductType, mergeKpi, rem
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { errorText, takeFile } from '../files'
 import { TextField } from '../fields'
 
 /**
@@ -11,13 +13,13 @@ import { TextField } from '../fields'
  * exports, so nothing has to be imported to get started.
  */
 export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
-  const { workspace, setKpi, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [pending, setPending] = useState<{ file: string; incoming: Partial<KpiConfig> } | null>(null)
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<Message | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const rows = useMemo(() => workTypeRows(kpi, ws.visma ?? []), [kpi, ws.visma])
@@ -30,8 +32,7 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
   const fresh = rows.filter((row) => !row.configured).length
   const untyped = useMemo(() => linesWithoutProductType(ws.visma ?? []), [ws.visma])
 
-  const onFile = async (file: File | undefined) => {
-    if (!file) return
+  const onFile = async (file: File) => {
     try {
       const { workTypes } = readKpiWorkbook(new Uint8Array(await file.arrayBuffer()))
       if (!workTypes) throw new Error('Filen har ingen tabell med «Produkttype 2», «Enhet» og «Nøkkelområder».')
@@ -40,7 +41,7 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
         setMessage({ kind: 'ok', text: `${file.name}: ${workTypes.length} produkttyper lest inn.` })
       } else setPending({ file: file.name, incoming: { workTypes } })
     } catch (e) {
-      setMessage({ kind: 'error', text: e instanceof Error ? e.message : String(e) })
+      setMessage({ kind: 'error', text: errorText(e) })
     }
   }
 
@@ -58,12 +59,7 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
         <input className="search" type="search" placeholder="Søk produkttype" value={search} onChange={(e) => setSearch(e.target.value)} />
         <span className="muted small">{kpi.workTypes.length} produkttyper satt opp</span>
         <span className="toolbar-gap" />
-        <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
-          ↶ Angre
-        </button>
-        <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
-          ↷ Gjør om
-        </button>
+        <UndoRedoButtons />
         <button onClick={() => fileInput.current?.click()} title="Valgfritt: hent tabellen fra Nøkkeltall Visma-arbeidsboken én gang">
           Hent fra fil
         </button>
@@ -75,22 +71,11 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
           type="file"
           accept=".xlsx"
           hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            e.target.value = ''
-            onFile(file)
-          }}
+          onChange={(e) => takeFile(e, onFile)}
         />
       </div>
 
-      {message && (
-        <div className={message.kind === 'ok' ? 'info-banner' : 'error-banner'} role="status">
-          {message.text}{' '}
-          <button className="link" onClick={() => setMessage(null)}>
-            Lukk
-          </button>
-        </div>
-      )}
+      <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="behov-body">
         <p className="hint">
@@ -182,27 +167,14 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
       </div>
 
       {pending && diff && (
-        <div className="dialog-backdrop">
-          <div className="dialog">
-            <h2>Hent produkttyper fra fil</h2>
-            <p className="hint">{pending.file}</p>
-            <p className="dialog-result">
-              {diff.added} nye, {diff.changed} endret, {diff.unchanged} like, {diff.onlyInApp} bare i appen
-            </p>
-            <p className="hint">
-              <strong>Slå sammen:</strong> filen vinner der den har en rad, det som bare finnes i appen beholdes.
-              <br />
-              <strong>Erstatt alt:</strong> tabellen byttes helt ut med filen{diff.onlyInApp > 0 ? `; ${diff.onlyInApp} rader som bare finnes i appen forsvinner` : ''}.
-            </p>
-            <div className="dialog-actions">
-              <button onClick={() => setPending(null)}>Avbryt</button>
-              <button onClick={() => apply('replace')}>Erstatt alt</button>
-              <button className="primary" onClick={() => apply('merge')}>
-                Slå sammen
-              </button>
-            </div>
-          </div>
-        </div>
+        <MergeReplaceDialog
+          title="Hent produkttyper fra fil"
+          source={pending.file}
+          results={[`${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`]}
+          replaceText={`tabellen byttes helt ut med filen${diff.onlyInApp > 0 ? `; ${diff.onlyInApp} rader som bare finnes i appen forsvinner` : ''}`}
+          onCancel={() => setPending(null)}
+          onApply={apply}
+        />
       )}
 
       {adding && (

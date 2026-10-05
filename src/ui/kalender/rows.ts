@@ -153,7 +153,8 @@ export const buildGroups = (rows: AllocationRow[], events: VenueEvent[], index: 
   })
 }
 
-const inWindow = (group: ProjectGroup, window: { from: ISODate; to: ISODate }): boolean =>
+/** Whether a project takes place or has planned days inside the given dates. */
+export const inWindow = (group: ProjectGroup, window: { from: ISODate; to: ISODate }): boolean =>
   (!!group.venue && group.venue.start <= window.to && group.venue.end >= window.from) ||
   [...group.daily.keys()].some((d) => d >= window.from && d <= window.to) ||
   // Rows with no dates at all (no event in the calendar, nothing planned yet) would otherwise never be seen.
@@ -162,23 +163,10 @@ const inWindow = (group: ProjectGroup, window: { from: ISODate; to: ISODate }): 
 const PHASE_ORDER: Record<string, number> = { montering: 0, demontering: 1 }
 
 /**
- * The rows as a hierarchy, like the row fields of a pivot table: one level per property in `grouping`,
- * in that order. FTE is typed on the rows; every level above sums what is below it.
- * Where a row is alone on the lowest level, the row itself takes that level's place.
- * A level in `entry` is folded and takes FTE itself, see `spread`.
- * Projects without rows are listed only where the project is the top level.
+ * The projects the filter leaves, each with the rows that match it.
+ * Projects without rows are kept only where the project is the top level.
  */
-export const buildItems = (
-  rows: AllocationRow[],
-  events: VenueEvent[],
-  index: DemandIndex,
-  settings: Settings,
-  filter: RowFilter,
-  collapsed: Set<string>,
-  window?: { from: ISODate; to: ISODate },
-  grouping: Dimension[] = ['project'],
-  entry: Set<string> = new Set(),
-): GridItem[] => {
+export const filterGroups = (rows: AllocationRow[], events: VenueEvent[], index: DemandIndex, settings: Settings, filter: RowFilter, grouping: Dimension[] = ['project']): ProjectGroup[] => {
   const narrowsRows = !!filter.competence || !!filter.search || !!filter.onlyUncovered
   const lacksPlan = (row: AllocationRow) => {
     const { requiredFte, plannedFte } = rowTotals(index, row, settings)
@@ -192,9 +180,16 @@ export const buildItems = (
     groups = groups.filter((group) => group.rows.length > 0 || (!filter.competence && !filter.onlyUncovered && !!q && `${group.projectName} ${group.projectNo}`.toLowerCase().includes(q)))
   }
   if (filter.onlyWithRows || grouping[0] !== 'project') groups = groups.filter((group) => group.rows.length > 0)
-  // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
-  if (window) groups = groups.filter((group) => inWindow(group, window))
+  return groups
+}
 
+/**
+ * The rows of the given projects as a hierarchy, like the row fields of a pivot table: one level per
+ * property in `grouping`, in that order. FTE is typed on the rows; every level above sums what is below it.
+ * Where a row is alone on the lowest level, the row itself takes that level's place.
+ * A level in `entry` is folded and takes FTE itself, see `spread`.
+ */
+export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings: Settings, collapsed: Set<string>, grouping: Dimension[] = ['project'], entry: Set<string> = new Set()): GridItem[] => {
   interface Entry {
     row: AllocationRow
     totals: RowTotals
@@ -249,6 +244,23 @@ export const buildItems = (
   }
   walk(entries, 0, '', grouping[0] === 'project' ? groups.filter((group) => group.rows.length === 0) : [])
   return items
+}
+
+/** The grid's lines from the planning rows: `filterGroups`, the projects inside `window` where one is given, then `groupItems`. */
+export const buildItems = (
+  rows: AllocationRow[],
+  events: VenueEvent[],
+  index: DemandIndex,
+  settings: Settings,
+  filter: RowFilter,
+  collapsed: Set<string>,
+  window?: { from: ISODate; to: ISODate },
+  grouping: Dimension[] = ['project'],
+  entry: Set<string> = new Set(),
+): GridItem[] => {
+  const groups = filterGroups(rows, events, index, settings, filter, grouping)
+  // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
+  return groupItems(window ? groups.filter((group) => inWindow(group, window)) : groups, index, settings, collapsed, grouping, entry)
 }
 
 /** The keys of the levels above a row, for opening the way to it. */

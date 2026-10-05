@@ -40,8 +40,8 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
   - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
   - `calendarRange.ts` – the Kalender's period follows the hall bookings.
 - `src/import/` – file readers. `xlsx.ts` is a small own reader (cached values and comments only); ExcelJS fails on the planner workbook's tables.
-- `src/store/` – `db.ts` (Dexie/IndexedDB), `workspaceStore.tsx` (all mutations, each persisted and recorded for undo), `history.ts` (undo steps), `backup.ts`.
-- `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the row hierarchy from the chosen grouping.
+- `src/store/` – `db.ts` (Dexie/IndexedDB), `workspaceStore.tsx` (all mutations, each persisted and recorded for undo), `history.ts` (undo steps), `backup.ts`, `prefs.ts` (view preferences per browser, in localStorage).
+- `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the row hierarchy from the chosen grouping. What the tabs share is in `common.tsx` (undo buttons, message banner, merge-or-replace dialog), `files.ts` and `fields.tsx`.
 
 Everything is stored in the browser (IndexedDB database `expo-planner`). There is no server.
 

@@ -5,6 +5,9 @@ import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
 import { anchorDate, VENYOU_ID_PREFIX, venueKey } from '../../domain/venueImport'
 import { readProjectList } from '../../import/venyouExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { errorText, takeFile } from '../files'
+import { TextField } from '../fields'
 
 const PHASE_HEADERS: Record<VenuePhase, string> = { assembly: 'Montering', movingIn: 'Innflytting', event: 'Arrangement', movingOut: 'Utflytting', dismantle: 'Demontering' }
 
@@ -24,7 +27,7 @@ type Visibility = 'all' | 'shown' | 'hidden'
 
 /** The hall ledger: every hall booking, with a tick for whether it shows in the Kalender. */
 export function Haller() {
-  const { workspace, setVenueHidden, setEventProject, importProjects, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, setVenueHidden, setEventProject, importProjects } = useWorkspace()
   const ws = workspace!
   const hidden = useMemo(() => ws.hiddenVenue ?? {}, [ws.hiddenVenue])
   const [search, setSearch] = useState('')
@@ -33,7 +36,7 @@ export function Haller() {
   const [visibility, setVisibility] = useState<Visibility>('all')
   const [includePast, setIncludePast] = useState(false)
   const [onlyUnlinked, setOnlyUnlinked] = useState(false)
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<Message | null>(null)
   const listInput = useRef<HTMLInputElement>(null)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
 
@@ -43,13 +46,12 @@ export function Haller() {
   const events = useMemo(() => new Map(venueEvents(ws.venue, ws.eventLinks, ws.projects).map((event) => [event.key, event])), [ws.venue, ws.eventLinks, ws.projects])
   const unlinkedCount = useMemo(() => [...events.values()].filter((event) => !event.projectNo).length, [events])
 
-  const onProjectList = async (file: File | undefined) => {
-    if (!file) return
+  const onProjectList = async (file: File) => {
     try {
       const count = importProjects(readProjectList(new Uint8Array(await file.arrayBuffer())))
       setMessage({ kind: 'ok', text: `${file.name}: ${count} navn med prosjektnummer lest inn. Arrangementer med likt navn har fått nummer.` })
     } catch (e) {
-      setMessage({ kind: 'error', text: e instanceof Error ? e.message : String(e) })
+      setMessage({ kind: 'error', text: errorText(e) })
     }
   }
 
@@ -130,18 +132,9 @@ export function Haller() {
           type="file"
           accept=".xlsx"
           hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            e.target.value = ''
-            onProjectList(file)
-          }}
+          onChange={(e) => takeFile(e, onProjectList)}
         />
-        <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
-          ↶ Angre
-        </button>
-        <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
-          ↷ Gjør om
-        </button>
+        <UndoRedoButtons />
         <button onClick={() => setVenueHidden(listed, false)} disabled={!rowCount}>
           Vis alle i listen
         </button>
@@ -150,14 +143,7 @@ export function Haller() {
         </button>
       </div>
 
-      {message && (
-        <div className={message.kind === 'ok' ? 'info-banner' : 'error-banner'} role="status">
-          {message.text}{' '}
-          <button className="link" onClick={() => setMessage(null)}>
-            Lukk
-          </button>
-        </div>
-      )}
+      <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="behov-body">
         <p className="hint">
@@ -203,7 +189,14 @@ export function Haller() {
                     <td colSpan={2} className="project-no">
                       {group.event && (
                         <>
-                          <ProjectNoField event={group.event} onCommit={(value) => setEventProject(group.event!, value)} />
+                          {/* Clearing a hand-set number goes back to the match from the project list. */}
+                          <TextField
+                            className={`project-no-input ${group.event.projectNo ? '' : 'missing'}`}
+                            placeholder="Prosjektnr."
+                            ariaLabel={`Prosjektnummer for ${group.event.name}`}
+                            value={group.event.projectNo}
+                            onCommit={(value) => setEventProject(group.event!, value)}
+                          />
                           <span className="muted small">
                             {group.event.linkSource === 'list' ? ' fra listen' : group.event.ambiguous ? ' flere treff i listen' : group.event.linkSource === 'none' ? '' : ' satt for hånd'}
                           </span>
@@ -236,25 +229,6 @@ export function Haller() {
         )}
       </div>
     </div>
-  )
-}
-
-/** The event's project number. Clearing a hand-set number goes back to the match from the project list. */
-function ProjectNoField({ event, onCommit }: { event: VenueEvent; onCommit: (projectNo: string) => void }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  return (
-    <input
-      className={`inline project-no-input ${event.projectNo ? '' : 'missing'}`}
-      placeholder="Prosjektnr."
-      aria-label={`Prosjektnummer for ${event.name}`}
-      value={draft ?? event.projectNo}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        if (draft !== null && draft.trim() !== event.projectNo) onCommit(draft.trim())
-        setDraft(null)
-      }}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-    />
   )
 }
 

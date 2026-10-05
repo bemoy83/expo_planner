@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildItems, cleanGrouping, EMPTY_FILTER, pathKeys, type Dimension, type GridItem } from './rows'
+import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -186,5 +186,26 @@ describe('rows as a hierarchy', () => {
   it('keeps only known properties from a stored grouping', () => {
     expect(cleanGrouping(['hall', 'nope', 'hall', 'project'])).toEqual(['hall', 'project'])
     expect(cleanGrouping('x')).toEqual(['project', 'phase', 'competence'])
+  })
+})
+
+describe('filterGroups, inWindow and groupItems', () => {
+  const events = [event('VVS 2026', '26970', '2026-10-01', '2026-10-10'), event('Hage 2026', '26100', '2026-03-28', '2026-04-05')]
+  const grouping: Dimension[] = ['project', 'phase']
+
+  it('give the same lines in steps as buildItems does in one go', () => {
+    const window = { from: '2026-10-01', to: '2026-10-31' }
+    const groups = filterGroups(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, grouping)
+    const inSteps = groupItems(groups.filter((group) => inWindow(group, window)), index, DEFAULT_SETTINGS, new Set(), grouping)
+    expect(inSteps).toEqual(buildItems(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, new Set(), window, grouping))
+  })
+
+  it('keep a project in view by its event or by a planned day', () => {
+    const groups = filterGroups(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, grouping)
+    const inView = (from: string, to: string) => groups.filter((group) => inWindow(group, { from, to })).map((group) => group.projectName)
+    expect(inView('2026-04-01', '2026-04-01')).toContain('Hage 2026')
+    expect(inView('2026-04-01', '2026-04-01')).not.toContain('VVS 2026')
+    // A project with rows but no dates at all is always listed, or it would never be seen.
+    expect(inView('2027-01-01', '2027-01-31')).toEqual(['Ny messe'])
   })
 })

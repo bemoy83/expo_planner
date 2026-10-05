@@ -3,6 +3,8 @@ import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, mergeKpi, removeKpiRow, replace
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { errorText, takeFiles } from '../files'
 import { NumberField } from '../fields'
 
 interface PendingImport {
@@ -14,13 +16,13 @@ const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} 
 
 /** The KPI rates: how many units one person does per hour, for each product type and unit. */
 export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) {
-  const { workspace, setKpi, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState<Partial<NewKpiRow> | null>(null)
   const [pending, setPending] = useState<PendingImport | null>(null)
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<Message | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const rows = useMemo(() => kpiRows(kpi), [kpi])
@@ -44,7 +46,7 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
         setMessage({ kind: 'ok', text: `${names.join(' og ')} lest inn.` })
       } else setPending({ files: names, incoming })
     } catch (e) {
-      setMessage({ kind: 'error', text: e instanceof Error ? e.message : String(e) })
+      setMessage({ kind: 'error', text: errorText(e) })
     }
   }
 
@@ -65,12 +67,7 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
           {kpi.rates.length} satser
         </span>
         <span className="toolbar-gap" />
-        <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
-          ↶ Angre
-        </button>
-        <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
-          ↷ Gjør om
-        </button>
+        <UndoRedoButtons />
         <button onClick={() => fileInput.current?.click()}>Importer KPI-filer</button>
         <button className="primary" onClick={() => setAdding({})}>
           + Ny sats
@@ -81,22 +78,11 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
           accept=".xlsx"
           multiple
           hidden
-          onChange={(e) => {
-            const files = [...(e.target.files ?? [])]
-            e.target.value = ''
-            onFiles(files)
-          }}
+          onChange={(e) => takeFiles(e, onFiles)}
         />
       </div>
 
-      {message && (
-        <div className={message.kind === 'ok' ? 'info-banner' : 'error-banner'} role="status">
-          {message.text}{' '}
-          <button className="link" onClick={() => setMessage(null)}>
-            Lukk
-          </button>
-        </div>
-      )}
+      <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="behov-body">
         <p className="hint">
@@ -168,27 +154,16 @@ Ingen satser ennå. Legg dem inn med «Ny sats», eller les inn <code>Kpier.xlsx
       </div>
 
       {pending && diff && (
-        <div className="dialog-backdrop">
-          <div className="dialog">
-            <h2>Importer KPI</h2>
-            <p className="hint">{pending.files.join(' og ')}</p>
-            {pending.incoming.workTypes && <p className="dialog-result">{describeDiff('Arbeidstyper', diff.workTypes)}</p>}
-            {pending.incoming.rates && <p className="dialog-result">{describeDiff('Satser', diff.rates)}</p>}
-            <p className="hint">
-              <strong>Slå sammen:</strong> filen vinner der den har en rad, det som bare finnes i appen beholdes.
-              <br />
-              <strong>Erstatt alt:</strong> {[pending.incoming.workTypes && 'arbeidstypene', pending.incoming.rates && 'satsene'].filter(Boolean).join(' og ')} i appen byttes helt ut med filen
-              {diff.workTypes.onlyInApp + diff.rates.onlyInApp > 0 ? `; ${diff.workTypes.onlyInApp + diff.rates.onlyInApp} rader som bare finnes i appen forsvinner` : ''}.
-            </p>
-            <div className="dialog-actions">
-              <button onClick={() => setPending(null)}>Avbryt</button>
-              <button onClick={() => apply('replace')}>Erstatt alt</button>
-              <button className="primary" onClick={() => apply('merge')}>
-                Slå sammen
-              </button>
-            </div>
-          </div>
-        </div>
+        <MergeReplaceDialog
+          title="Importer KPI"
+          source={pending.files.join(' og ')}
+          results={[pending.incoming.workTypes && describeDiff('Arbeidstyper', diff.workTypes), pending.incoming.rates && describeDiff('Satser', diff.rates)].filter((line): line is string => !!line)}
+          replaceText={`${[pending.incoming.workTypes && 'arbeidstypene', pending.incoming.rates && 'satsene'].filter(Boolean).join(' og ')} i appen byttes helt ut med filen${
+            diff.workTypes.onlyInApp + diff.rates.onlyInApp > 0 ? `; ${diff.workTypes.onlyInApp + diff.rates.onlyInApp} rader som bare finnes i appen forsvinner` : ''
+          }`}
+          onCancel={() => setPending(null)}
+          onApply={apply}
+        />
       )}
 
       {adding && (

@@ -5,12 +5,14 @@ import { withVismaImports } from './domain/visma'
 import { readVenyouExport } from './import/venyouExport'
 import { importWorkbookFile } from './import/importWorkbook'
 import { parseBackup, toBackup } from './store/backup'
-import { useWorkspace, WorkspaceProvider } from './store/workspaceStore'
+import { usePref } from './store/prefs'
+import { useSaveState, useWorkspace, WorkspaceProvider } from './store/workspaceStore'
 import { Behov } from './ui/behov/Behov'
 import { Haller } from './ui/haller/Haller'
 import { Kpi } from './ui/kpi/Kpi'
 import { Produkttyper } from './ui/kpi/Produkttyper'
 import { Kalender } from './ui/kalender/Kalender'
+import { errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
 
@@ -22,10 +24,19 @@ export default function App() {
   )
 }
 
-const pickFile = (e: React.ChangeEvent<HTMLInputElement>, handle: (file: File) => unknown) => {
-  const file = e.target.files?.[0]
-  e.target.value = ''
-  if (file) handle(file)
+const TABS = [
+  ['kalender', 'Kalender'],
+  ['behov', 'Behov'],
+  ['haller', 'Haller'],
+  ['produkttyper', 'Produkttyper'],
+  ['kpi', 'KPI'],
+] as const
+type View = (typeof TABS)[number][0]
+
+/** Its own component, so that saving an edit does not render the tabs again. */
+function SaveIndicator() {
+  const saveState = useSaveState()
+  return <span className={`save-state ${saveState}`}>{saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet' : 'Lagret i nettleseren'}</span>
 }
 
 const emptyWorkspace = (): Workspace => ({
@@ -43,27 +54,14 @@ const emptyWorkspace = (): Workspace => ({
 })
 
 function Shell() {
-  const { status, workspace, saveState, replaceWorkspace, importVenue, undo, redo } = useWorkspace()
+  const { status, workspace, replaceWorkspace, importVenue, undo, redo } = useWorkspace()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Whether hovering shows help texts. A choice for this browser, like the other view preferences.
-  const [tooltips, setTooltips] = useState(() => {
-    try {
-      return localStorage.getItem('expo-planner:tooltips') !== 'false'
-    } catch {
-      return true
-    }
-  })
-  useEffect(() => {
-    try {
-      localStorage.setItem('expo-planner:tooltips', String(tooltips))
-    } catch {
-      // preferences are a convenience only
-    }
-  }, [tooltips])
-  const [view, setView] = useState<'kalender' | 'behov' | 'haller' | 'produkttyper' | 'kpi'>('kalender')
+  const [tooltips, setTooltips] = usePref('tooltips', true)
+  const [view, setView] = useState<View>('kalender')
   const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
@@ -91,7 +89,7 @@ function Shell() {
     try {
       await task()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorText(e))
     } finally {
       setBusy(null)
     }
@@ -135,21 +133,11 @@ function Shell() {
         <h1>Expo Planner</h1>
         {status === 'ready' && (
           <nav className="tabs">
-            <button className={view === 'kalender' ? 'active' : ''} onClick={() => setView('kalender')}>
-              Kalender
-            </button>
-            <button className={view === 'behov' ? 'active' : ''} onClick={() => setView('behov')}>
-              Behov
-            </button>
-            <button className={view === 'haller' ? 'active' : ''} onClick={() => setView('haller')}>
-              Haller
-            </button>
-            <button className={view === 'produkttyper' ? 'active' : ''} onClick={() => setView('produkttyper')}>
-              Produkttyper
-            </button>
-            <button className={view === 'kpi' ? 'active' : ''} onClick={() => setView('kpi')}>
-              KPI
-            </button>
+            {TABS.map(([tab, label]) => (
+              <button key={tab} className={view === tab ? 'active' : ''} onClick={() => setView(tab)}>
+                {label}
+              </button>
+            ))}
           </nav>
         )}
         {workspace?.importedFrom && (
@@ -159,7 +147,7 @@ function Shell() {
         )}
         <span className="toolbar-gap" />
         {busy && <span className="busy">{busy}</span>}
-        {status === 'ready' && <span className={`save-state ${saveState}`}>{saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet' : 'Lagret i nettleseren'}</span>}
+        {status === 'ready' && <SaveIndicator />}
         {workspace && (
           <button onClick={() => venyouInput.current?.click()} title={workspace.venueImport ? `Sist: ${workspace.venueImport.fileName}, ${new Date(workspace.venueImport.importedAt).toLocaleString('nb-NO')}` : 'Les inn location_format fra Venyou'}>
             Oppdater haller (Venyou)
@@ -173,9 +161,9 @@ function Shell() {
         </button>
         {workspace && <button onClick={() => setSettingsOpen(true)}>Innstillinger</button>}
         <Tooltips enabled={tooltips} />
-        <input ref={workbookInput} type="file" accept=".xlsx" hidden onChange={(e) => pickFile(e, importWorkbook)} />
-        <input ref={venyouInput} type="file" accept=".xlsx" hidden onChange={(e) => pickFile(e, importVenyou)} />
-        <input ref={backupInput} type="file" accept=".json,application/json" hidden onChange={(e) => pickFile(e, restoreBackup)} />
+        <input ref={workbookInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFile(e, importWorkbook)} />
+        <input ref={venyouInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFile(e, importVenyou)} />
+        <input ref={backupInput} type="file" accept=".json,application/json" hidden onChange={(e) => takeFile(e, restoreBackup)} />
       </header>
 
       {error && (

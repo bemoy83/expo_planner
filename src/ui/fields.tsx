@@ -21,13 +21,24 @@ export function NumberField({ value, onCommit }: { value: number; onCommit: (val
   )
 }
 
+interface TextFieldProps {
+  value: string
+  onCommit: (value: string) => void
+  list?: string
+  className?: string
+  placeholder?: string
+  ariaLabel?: string
+}
+
 /** Text edited in place, saved on blur or Enter. */
-export function TextField({ value, onCommit, list }: { value: string; onCommit: (value: string) => void; list?: string }) {
+export function TextField({ value, onCommit, list, className, placeholder, ariaLabel }: TextFieldProps) {
   const [draft, setDraft] = useState<string | null>(null)
   return (
     <input
-      className="inline"
+      className={className ? `inline ${className}` : 'inline'}
       list={list}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
       value={draft ?? value}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {

@@ -7,6 +7,8 @@ import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { placeOf, resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallNames } from '../../domain/venue'
+import { MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { errorText, takeFiles } from '../files'
 import { NumberField, TextField } from '../fields'
 import { DemandLineDialog } from './DemandLineDialog'
 
@@ -18,13 +20,6 @@ const ISSUE_TEXT: Record<NonNullable<VismaLine['issue']>, string> = {
   'no-rate': 'Mangler sats for denne enheten',
 }
 
-/** Copies the chosen files before clearing the input; the input's own list empties when it is reset. */
-const takeFiles = (e: React.ChangeEvent<HTMLInputElement>, handle: (files: File[]) => unknown) => {
-  const files = [...(e.target.files ?? [])]
-  e.target.value = ''
-  handle(files)
-}
-
 interface Props {
   projectNo: string
   onProjectChange: (projectNo: string) => void
@@ -33,9 +28,9 @@ interface Props {
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
 export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
-  const { workspace, importVisma, setLineOverride, removeLineOverride, removeDemandLine, setHallAlias, undo, redo, canUndo, canRedo } = useWorkspace()
+  const { workspace, importVisma, setLineOverride, setLineOverrides, removeLineOverride, removeDemandLine, setHallAlias } = useWorkspace()
   const ws = workspace!
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<Message | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
   const vismaInput = useRef<HTMLInputElement>(null)
 
@@ -118,7 +113,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
       for (const file of files) done.push(handle(new Uint8Array(await file.arrayBuffer()), file.name))
       setMessage({ kind: 'ok', text: done.join(' ') })
     } catch (e) {
-      setMessage({ kind: 'error', text: e instanceof Error ? e.message : String(e) })
+      setMessage({ kind: 'error', text: errorText(e) })
     }
   }
 
@@ -130,8 +125,10 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     })
 
   const withIssue = vismaLines.filter((line) => line.issue && line.issue !== 'no-product-type').length
-  const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) =>
-    setLineOverride(line.projectNo, line.key, { ...patch, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
+  const withRef = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) => ({ ...patch, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
+  const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) => setLineOverride(line.projectNo, line.key, withRef(line, patch))
+  /** Takes the given lines in or out of the plan in one go, so the project is recalculated once. */
+  const setInPlan = (lines: VismaLine[], inPlan: boolean) => setLineOverrides(projectNo, lines.map((line) => ({ key: line.key, patch: withRef(line, { inPlan }) })))
   const plannedCount = vismaLines.filter((l) => l.inPlan).length
   const projectName = projects.find(([no]) => no === projectNo)?.[1] ?? ''
 
@@ -150,26 +147,14 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
           </select>
         </label>
         <span className="toolbar-gap" />
-        <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
-          ↶ Angre
-        </button>
-        <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
-          ↷ Gjør om
-        </button>
+        <UndoRedoButtons />
         <button className="primary" onClick={() => vismaInput.current?.click()}>
           Importer Visma-utskrift
         </button>
         <input ref={vismaInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFiles(e, onVismaFiles)} />
       </div>
 
-      {message && (
-        <div className={message.kind === 'ok' ? 'info-banner' : 'error-banner'} role="status">
-          {message.text}{' '}
-          <button className="link" onClick={() => setMessage(null)}>
-            Lukk
-          </button>
-        </div>
-      )}
+      <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="behov-body">
         {withIssue > 0 && (
@@ -242,8 +227,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                 <span className="toolbar-gap" />
                 {vismaLines.length > 0 && (
                   <>
-                    <button onClick={() => vismaLines.forEach((l) => !l.inPlan && !l.issue && override(l, { inPlan: true }))}>Ta alle inn i plan</button>
-                    <button onClick={() => vismaLines.forEach((l) => l.inPlan && override(l, { inPlan: false }))}>Ta alle ut</button>
+                    <button onClick={() => setInPlan(vismaLines.filter((l) => !l.inPlan && !l.issue), true)}>Ta alle inn i plan</button>
+                    <button onClick={() => setInPlan(vismaLines.filter((l) => l.inPlan), false)}>Ta alle ut</button>
                   </>
                 )}
               </div>
