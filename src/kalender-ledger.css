@@ -280,7 +280,6 @@ button.ghost:hover{background:var(--sunken)}
 /* D: a folded level shows its sums on a strip in the colour of the work phase */
 .strip-mon::before{background:var(--mon)}
 .strip-dem::before{background:var(--dem)}
-.group-row .cell.group-cell.strip-mon::before,.group-row .cell.group-cell.strip-dem::before{top:2px;bottom:2px}
 
 /* ---- 8. Phase 2, G: dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende) ---- */
 :root.dark{
@@ -377,3 +376,13 @@ table.ledger{font-size:13px}
 /* planning rows: no rules between them; the line under the pointer is tinted instead */
 .alloc-row{border-bottom-color:transparent}
 .alloc-row:hover,.alloc-row:hover .grid-label{background:color-mix(in srgb,var(--text) 5%,var(--bg))}
+
+/* level dividers: one hairline above each level, nothing under it */
+.group-row{border-bottom-color:transparent}
+.group-row,.group-row.depth-0,.group-row:not(.depth-0){border-top:1px solid var(--line)}
+.col-head{border-bottom-color:var(--line)}
+
+/* strips are slimmer than the line they sit on */
+.group-row .cell.group-cell.strip::before{top:9px;bottom:9px}
+.group-row .cell.group-cell.strip-mon::before,.group-row .cell.group-cell.strip-dem::before{top:5px;bottom:5px}
+.group-row.depth-0 .cell.group-cell.strip-mon::before,.group-row.depth-0 .cell.group-cell.strip-dem::before{top:8px;bottom:8px}
