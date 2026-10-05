@@ -88,8 +88,8 @@ const valueCell = ({ cols, edit, actions, section, lane }: ValueCell, date: ISOD
   )
 }
 
-/** The two header lines: week and month, then weekday and date. */
-export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked }: { cols: Columns; zoom: Zoom; overbooked: Map<ISODate, { need: number; available: number }> }) {
+/** The two header lines: week and month, then weekday and date. `activeDate` is the day of the focused cell. */
+export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeDate }: { cols: Columns; zoom: Zoom; overbooked: Map<ISODate, { need: number; available: number }>; activeDate: ISODate | undefined }) {
   return (
     <>
       <Line
@@ -109,7 +109,7 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked }: { col
         cells={(date) => (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell head day-head`}
+            className={`${dayClass(cols, date)} cell head day-head ${date === activeDate ? 'active' : ''}`}
             style={{ width: cols.colW }}
             title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}`}
           >

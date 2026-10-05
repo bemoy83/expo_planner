@@ -889,7 +889,7 @@ export function Kalender() {
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
           {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
           <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
-            <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} />
+            <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={selection ? dates[selection.focus.col] : undefined} />
 
             <div className="section-head" style={{ width: LEFT_W }}>
               <button className="twisty" onClick={() => setHallsOpen(!hallsOpen)}>
@@ -902,7 +902,7 @@ export function Kalender() {
                 </button>
               )}
               <span className="legend">
-                <i className="ph-assembly" /> Montering <i className="ph-movingIn" /> Inn/utflytting <i className="ph-event" /> Arrangement <i className="ph-dismantle" /> Demontering
+                <i className="ph-assembly" /> Montering <i className="ph-movingIn" /> Innflytting <i className="ph-event" /> Arrangement <i className="ph-movingOut" /> Utflytting <i className="ph-dismantle" /> Demontering
               </span>
             </div>
             {hallsOpen && ws.venue.length === 0 && (
@@ -950,6 +950,18 @@ export function Kalender() {
                   </span>
                 </span>
               </div>
+              {/* What the colours of the planning cells mean; stays beside the label column when scrolling sideways. */}
+              <span className="phase-legend" style={{ left: LEFT_W }}>
+                <span>
+                  <i className="mon" /> Montering
+                </span>
+                <span>
+                  <i className="dem" /> Demontering
+                </span>
+                <span title="FTE på en dag utenfor radens monterings- eller demonteringsdager i hallen">
+                  <i className="outside" /> Utenfor
+                </span>
+              </span>
             </div>
           </div>
 
