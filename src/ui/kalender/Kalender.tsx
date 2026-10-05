@@ -49,6 +49,7 @@ export function Kalender() {
   const [entry, setEntry] = usePrefSet('entryLevels')
   const [hallsOpen, setHallsOpen] = usePref('hallsOpen', true)
   const [allHalls, setAllHalls] = usePref('allHalls', false)
+  const [staffingOpen, setStaffingOpen] = usePref('staffingOpen', true)
   const [capacityOpen, setCapacityOpen] = usePref('capacityOpen', false)
   const [onlyInView, setOnlyInView] = usePref('onlyInView', true)
   const [selection, setSelection] = useState<Selection | null>(null)
@@ -936,22 +937,25 @@ export function Kalender() {
             <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={selection ? dates[selection.focus.col] : undefined} />
 
             <div className="section-head" style={{ width: LEFT_W }}>
-              <button className="twisty" onClick={() => setHallsOpen(!hallsOpen)}>
+              <button className="twisty" aria-expanded={hallsOpen} aria-label={hallsOpen ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => setHallsOpen(!hallsOpen)}>
                 {hallsOpen ? '▾' : '▸'}
               </button>
               Haller
+              {!hallsOpen && <span className="section-meta">{halls.length} skjult</span>}
               {hallsOpen && (
                 <button className="link small" onClick={() => setAllHalls(!allHalls)}>
                   {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
                 </button>
               )}
-              <span className="legend">
-                {VENUE_PHASES.map((phase) => (
-                  <i key={phase} className={`ph-${phase}`} title={PHASE_LABELS[phase]}>
-                    {PHASE_CODES[phase]}
-                  </i>
-                ))}
-              </span>
+              {hallsOpen && (
+                <span className="legend">
+                  {VENUE_PHASES.map((phase) => (
+                    <i key={phase} className={`ph-${phase}`} title={PHASE_LABELS[phase]}>
+                      {PHASE_CODES[phase]}
+                    </i>
+                  ))}
+                </span>
+              )}
             </div>
             {hallsOpen && ws.venue.length === 0 && (
               <div className="section-hint" style={{ width: LEFT_W }}>
@@ -961,15 +965,28 @@ export function Kalender() {
             {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} days={hallCalendar.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
 
             <div className="section-head" style={{ width: LEFT_W }}>
-              <button className="twisty" onClick={() => setCapacityOpen(!capacityOpen)}>
-                {capacityOpen ? '▾' : '▸'}
+              <button
+                className="twisty"
+                aria-expanded={staffingOpen}
+                aria-label={staffingOpen ? 'Skjul bemanningen' : 'Vis bemanningen'}
+                onClick={() => {
+                  // A selection in the staffing lines has nowhere to be once they are folded away.
+                  if (staffingOpen && selection?.section === 'cap') setSelection(null)
+                  setStaffingOpen(!staffingOpen)
+                }}
+              >
+                {staffingOpen ? '▾' : '▸'}
               </button>
               Bemanning <span className="muted">(FTE)</span>
-              <button className="link small" onClick={() => setCapacityOpen(!capacityOpen)}>
-                {capacityOpen ? 'Skjul detaljer' : 'Vis detaljer'}
-              </button>
+              {staffingOpen ? (
+                <button className="link small" onClick={() => setCapacityOpen(!capacityOpen)}>
+                  {capacityOpen ? 'Skjul detaljer' : 'Vis detaljer'}
+                </button>
+              ) : (
+                <span className="section-meta">bare avvik vises</span>
+              )}
             </div>
-            {capacityOpen && (
+            {staffingOpen && capacityOpen && (
               <>
                 <BaseCrewRow cols={cols} baseCrew={settings.baseCrew} />
                 {capLanes.map((cap, lane) => (
@@ -977,7 +994,7 @@ export function Kalender() {
                 ))}
               </>
             )}
-            <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} />
+            <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} deviationOnly={!staffingOpen} />
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
                 <span className="lbl-desc" title="Nivåene radene er gruppert etter">

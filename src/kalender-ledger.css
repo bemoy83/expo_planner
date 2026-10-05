@@ -273,3 +273,6 @@ button.ghost:hover{background:var(--sunken)}
 .zone-end{margin-left:auto}
 .zone-divider{width:1px;height:20px;background:var(--line-strong)}
 .toolbar .grouping-bar{padding:0;border-bottom:none;flex-wrap:nowrap}
+
+/* F: what a folded section of the top block hides */
+.section-meta{margin-left:8px;text-transform:none;letter-spacing:0;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:var(--faint)}

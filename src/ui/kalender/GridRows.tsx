@@ -214,20 +214,24 @@ export const CapRow = memo(function CapRow({ cap, lane, cols, actions, ...edit }
   )
 })
 
-/** The totals under the staffing lines: planned need, available crew and the difference. */
-export const SumRows = memo(function SumRows({ cols, need, capacity, settings }: { cols: Columns; need: Map<ISODate, number>; capacity: CapacityLine[]; settings: Settings }) {
+/** The totals under the staffing lines: planned need, available crew and the difference. With the section folded only the difference shows. */
+export const SumRows = memo(function SumRows({ cols, need, capacity, settings, deviationOnly }: { cols: Columns; need: Map<ISODate, number>; capacity: CapacityLine[]; settings: Settings; deviationOnly: boolean }) {
   return (
     <>
-      <Line className="sum-row" label={<span className="lbl-cap strong">Planlagt behov</span>} cols={cols} cells={(date) => readCell(cols, date, need.get(date), 'sum-cell')} />
-      <Line
-        className="sum-row"
-        label={<span className="lbl-cap strong">Tilgjengelig</span>}
-        cols={cols}
-        cells={(date) => {
-          const cap = capacityForDate(date, capacity, settings)
-          return readCell(cols, date, cap.available || undefined, 'sum-cell', `Faste ${formatFte(cap.base)} + innleid/fag ${formatFte(cap.added)} + overtid ${formatFte(cap.overtime)} − utilgjengelig ${formatFte(cap.unavailable)}`)
-        }}
-      />
+      {!deviationOnly && (
+        <>
+          <Line className="sum-row" label={<span className="lbl-cap strong">Planlagt behov</span>} cols={cols} cells={(date) => readCell(cols, date, need.get(date), 'sum-cell')} />
+          <Line
+            className="sum-row"
+            label={<span className="lbl-cap strong">Tilgjengelig</span>}
+            cols={cols}
+            cells={(date) => {
+              const cap = capacityForDate(date, capacity, settings)
+              return readCell(cols, date, cap.available || undefined, 'sum-cell', `Faste ${formatFte(cap.base)} + innleid/fag ${formatFte(cap.added)} + overtid ${formatFte(cap.overtime)} − utilgjengelig ${formatFte(cap.unavailable)}`)
+            }}
+          />
+        </>
+      )}
       <Line
         className="sum-row deviation-row"
         label={<span className="lbl-cap strong">Avvik</span>}
