@@ -60,11 +60,12 @@ export interface HallRun {
   eventName: string
   start: ISODate
   end: ISODate
+  /** Where the event's name belongs: the first day of the event itself (the arrangement phase), or the first day when the stretch has none. */
+  anchor: ISODate
 }
 
 /**
- * The stretches of a hall's calendar, in date order: each is where one event's name belongs,
- * anchored to the first day of the stretch.
+ * The stretches of a hall's calendar, in date order, each with the day its event's name is anchored to.
  */
 export const hallRuns = (days: Map<ISODate, HallDayEntry[]>): HallRun[] => {
   const runs: HallRun[] = []
@@ -72,12 +73,15 @@ export const hallRuns = (days: Map<ISODate, HallDayEntry[]>): HallRun[] => {
   for (const date of [...days.keys()].sort()) {
     const entries = days.get(date)!
     if (!entries.length) continue
-    const { eventName } = dominantEntry(entries)
+    const { eventName, phase } = dominantEntry(entries)
     const last = runs.at(-1)
     // The same event on the very next day continues the stretch; a gap or another event starts a new one.
     if (last && last.eventName === eventName && previous !== null && daysBetween(previous, date) === 1) last.end = date
-    else runs.push({ eventName, start: date, end: date })
+    else runs.push({ eventName, start: date, end: date, anchor: '' })
+    const run = runs.at(-1)!
+    if (!run.anchor && phase === 'event') run.anchor = date
     previous = date
   }
+  for (const run of runs) run.anchor ||= run.start
   return runs
 }

@@ -32,9 +32,9 @@ describe('hall calendar', () => {
     expect(calendar.get('C')!.get('2026-10-10')).toBeUndefined()
   })
 
-  it('gives one stretch per event, anchored to its first day in the hall', () => {
-    expect(hallRuns(calendar.get('C')!)).toEqual([{ eventName: 'VVS DAGENE 2026', start: '2026-09-28', end: '2026-10-09' }])
-    expect(hallRuns(calendar.get('A1')!)).toEqual([{ eventName: 'Annet', start: '2026-10-08', end: '2026-10-08' }])
+  it('gives one stretch per event, with the name anchored to the first day of the arrangement', () => {
+    expect(hallRuns(calendar.get('C')!)).toEqual([{ eventName: 'VVS DAGENE 2026', start: '2026-09-28', end: '2026-10-09', anchor: '2026-10-09' }])
+    expect(hallRuns(calendar.get('A1')!)).toEqual([{ eventName: 'Annet', start: '2026-10-08', end: '2026-10-08', anchor: '2026-10-08' }])
   })
 
   it('starts a new stretch after a gap or when another event takes over', () => {
@@ -43,6 +43,8 @@ describe('hall calendar', () => {
       booking({ id: 'b2', eventName: 'Hage 2026', phases: { event: { start: '2026-03-03', end: '2026-03-04' } } }),
     ]).get('C')!
     expect(hallRuns(days).map((r) => `${r.eventName} ${r.start.slice(8)}-${r.end.slice(8)}`)).toEqual(['VVS DAGENE 2026 02-02', 'Hage 2026 03-04', 'VVS DAGENE 2026 06-06'])
+    // A stretch without arrangement days carries the name on its first day.
+    expect(hallRuns(days).map((r) => r.anchor.slice(8))).toEqual(['02', '03', '06'])
   })
 
   it('orders halls alphabetically', () => {

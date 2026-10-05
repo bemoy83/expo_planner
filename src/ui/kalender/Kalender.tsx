@@ -125,13 +125,18 @@ export function Kalender() {
   // ---- derived data -------------------------------------------------------------------------
   const shownVenue = useMemo(() => visibleVenue(ws.venue, ws.hiddenVenue), [ws.venue, ws.hiddenVenue])
   const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
-  // Each event's name sits on the event's first day in the hall and scrolls with it.
+  // Each event's name sits on the first day of the arrangement itself in the hall and scrolls with it.
   const hallLabels = useMemo(() => {
     const labels = new Map<string, { eventName: string; col: number; span: number; room: number }[]>()
     for (const [hall, days] of hallCalendar) {
-      const runs = hallRuns(days).map((run) => ({ eventName: run.eventName, col: daysBetween(range.start, run.start), span: daysBetween(run.start, run.end) + 1, room: Infinity }))
+      const all = hallRuns(days)
       // A name may run on past its own days, but not into the next event in the hall.
-      runs.forEach((run, i) => (run.room = runs[i + 1] ? runs[i + 1].col - run.col : Infinity))
+      const runs = all.map((run, i) => ({
+        eventName: run.eventName,
+        col: daysBetween(range.start, run.anchor),
+        span: daysBetween(run.anchor, run.end) + 1,
+        room: all[i + 1] ? daysBetween(run.anchor, all[i + 1].start) : Infinity,
+      }))
       labels.set(hall, runs)
     }
     return labels

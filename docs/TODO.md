@@ -36,7 +36,7 @@ Projects and halls
 
 - Matching an event to a project number is by exact name only. No suggestions for near matches such as "VVS 2026" and "VVS DAGENE 2026"; the user wants any such suggestions to be confirmed by hand.
 - Hall ticks and project numbers are stored by event name and date. If Venyou renames an event or moves its start, the booking counts as new and the choices do not follow.
-- In the hall calendar an event's name sits on its first day in the hall and scrolls away with it. Nothing tells which event a stretch belongs to once its first day is out of view, other than the tooltip on each day.
+- In the hall calendar an event's name sits on the first day of the arrangement phase in the hall and scrolls away with it. The build-up days before it carry no name, and nothing tells which event a stretch belongs to once that day is out of view, other than the tooltip on each day.
 - "Bare messehaller" in the Kalender is a guess: halls where at least half the bookings have build-up or tear-down periods.
 - A Venyou export covers one period. Planning the next year needs a second export; this works but has only been tried with one.
 - After the first import, the app's hall ticks win over the workbook's Exclude column.
