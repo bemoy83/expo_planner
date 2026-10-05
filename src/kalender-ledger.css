@@ -388,4 +388,7 @@ table.ledger{font-size:13px}
 .group-row.depth-0 .cell.group-cell.strip-mon::before,.group-row.depth-0 .cell.group-cell.strip-dem::before{top:8px;bottom:8px}
 
 /* the planning cells carry the mockup's grid: a faint rule under and beside each day cell; the label column has none */
-.alloc-row .cell{border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.alloc-row .cell{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+/* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
+   every rule sits exactly on the boundary between two lines: a level's hairline above it, a cell's rule above it. */
+.grid-alloc .grid-row{border-bottom:0}
