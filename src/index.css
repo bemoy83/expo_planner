@@ -1080,3 +1080,19 @@ table.ledger select.location.unresolved {
   font-size: 11px;
   cursor: help;
 }
+
+/* The app's own tooltip, see Tooltips.tsx. */
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  max-width: 320px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #1d2129;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-line;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}

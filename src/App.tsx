@@ -12,11 +12,13 @@ import { Kpi } from './ui/kpi/Kpi'
 import { Produkttyper } from './ui/kpi/Produkttyper'
 import { Kalender } from './ui/kalender/Kalender'
 import { SettingsDialog } from './ui/SettingsDialog'
+import { Tooltips } from './ui/Tooltips'
 
 export default function App() {
   return (
     <WorkspaceProvider>
       <Shell />
+      <Tooltips />
     </WorkspaceProvider>
   )
 }
