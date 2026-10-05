@@ -18,7 +18,6 @@ export default function App() {
   return (
     <WorkspaceProvider>
       <Shell />
-      <Tooltips />
     </WorkspaceProvider>
   )
 }
@@ -49,6 +48,21 @@ function Shell() {
   const [error, setError] = useState<string | null>(null)
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Whether hovering shows help texts. A choice for this browser, like the other view preferences.
+  const [tooltips, setTooltips] = useState(() => {
+    try {
+      return localStorage.getItem('expo-planner:tooltips') !== 'false'
+    } catch {
+      return true
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('expo-planner:tooltips', String(tooltips))
+    } catch {
+      // preferences are a convenience only
+    }
+  }, [tooltips])
   const [view, setView] = useState<'kalender' | 'behov' | 'haller' | 'produkttyper' | 'kpi'>('kalender')
   const [behovProject, setBehovProject] = useState('')
   const workbookInput = useRef<HTMLInputElement>(null)
@@ -154,7 +168,11 @@ function Shell() {
         <button onClick={() => workbookInput.current?.click()}>Importer arbeidsbok</button>
         {workspace && <button onClick={exportBackup}>Last ned sikkerhetskopi</button>}
         <button onClick={() => backupInput.current?.click()}>Gjenopprett</button>
+        <button className={tooltips ? 'toggle on' : 'toggle'} aria-pressed={tooltips} onClick={() => setTooltips(!tooltips)}>
+          Hjelpetekster {tooltips ? 'på' : 'av'}
+        </button>
         {workspace && <button onClick={() => setSettingsOpen(true)}>Innstillinger</button>}
+        <Tooltips enabled={tooltips} />
         <input ref={workbookInput} type="file" accept=".xlsx" hidden onChange={(e) => pickFile(e, importWorkbook)} />
         <input ref={venyouInput} type="file" accept=".xlsx" hidden onChange={(e) => pickFile(e, importVenyou)} />
         <input ref={backupInput} type="file" accept=".json,application/json" hidden onChange={(e) => pickFile(e, restoreBackup)} />

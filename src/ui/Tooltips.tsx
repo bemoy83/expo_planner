@@ -13,9 +13,10 @@ interface Tip {
 /**
  * Shows the `title` of whatever the mouse rests on, sooner than the browser does. While an element is
  * hovered its title is held aside so the browser's own tooltip does not show as well, and put back
- * when the mouse leaves. Mounted once for the whole app.
+ * when the mouse leaves. Mounted once for the whole app. Switched off, nothing shows: not the browser's
+ * tooltip either.
  */
-export function Tooltips() {
+export function Tooltips({ enabled }: { enabled: boolean }) {
   const [tip, setTip] = useState<Tip | null>(null)
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export function Tooltips() {
       el.removeAttribute('title')
       // A button that is only an icon is named by its title; keep that name while the title is held aside.
       if (!el.getAttribute('aria-label') && !el.textContent?.trim()) el.setAttribute('aria-label', text)
-      timer = setTimeout(() => current === el && setTip({ text, box: el.getBoundingClientRect() }), DELAY_MS)
+      if (enabled) timer = setTimeout(() => current === el && setTip({ text, box: el.getBoundingClientRect() }), DELAY_MS)
     }
     const onOut = (e: MouseEvent) => {
       if (current && !(e.relatedTarget instanceof Node && current.contains(e.relatedTarget))) leave()
@@ -61,7 +62,7 @@ export function Tooltips() {
       document.removeEventListener('keydown', leave)
       document.removeEventListener('scroll', leave, true)
     }
-  }, [])
+  }, [enabled])
 
   if (!tip) return null
   const below = tip.box.bottom + GAP + 60 < window.innerHeight
