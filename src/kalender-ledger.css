@@ -90,7 +90,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* grouping bar: tiles in a track instead of outlined pills */
 .grouping-bar{border-bottom-color:var(--line);padding:6px 24px;font-size:13px}
 .grouping-title{color:var(--muted)}
-.chip{border:none;border-radius:6px;background:var(--surface);padding:3px 6px;font-weight:600;box-shadow:0 0 0 3px var(--sunken)}
+.chip{border:none;border-radius:6px;background:var(--surface);padding:3px 6px;font-weight:600}
 .chip.unused{border:none;background:transparent;box-shadow:none;color:var(--muted);font-weight:400;border-radius:8px}
 .chip.unused:hover{background:var(--sunken);color:var(--text)}
 .chip-move,.chip-remove{background:none;border-radius:5px;padding:0 4px}
@@ -222,3 +222,14 @@ input[type='checkbox']{accent-color:var(--accent)}
 .strip-event::before{background:var(--ph-event)}
 .strip-movingOut::before{background:var(--ph-movingout)}
 .strip-dismantle::before{background:var(--ph-dismantle)}
+
+/* B: the levels in use sit in one track; the rest are behind one "+" menu */
+.grouping-track{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:8px;background:var(--sunken)}
+.grouping-track .grouping-step{gap:2px}
+.grouping-track .grouping-sep{color:var(--faint);font-size:11px}
+.grouping-unused{position:relative;margin-left:0}
+.grouping-add{background:transparent;color:var(--muted);padding:5px 10px;font-size:15px;line-height:1}
+.grouping-add:hover,.grouping-add[aria-expanded='true']{background:var(--sunken);color:var(--text)}
+.grouping-menu{position:absolute;top:100%;left:0;margin-top:6px;min-width:170px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;z-index:50}
+.grouping-menu button{background:transparent;text-align:left;padding:7px 10px;border-radius:8px}
+.grouping-menu button:hover{background:var(--sunken)}
