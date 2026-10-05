@@ -1,4 +1,4 @@
-import { dateRange, type ISODate } from './dates'
+import { dateRange, daysBetween, type ISODate } from './dates'
 import { VENUE_PHASES, type VenueBooking, type VenuePhase } from './types'
 
 export interface HallDayEntry {
@@ -54,3 +54,30 @@ export const hallNames = (bookings: VenueBooking[]): string[] =>
 
 export const dominantEntry = (entries: HallDayEntry[]): HallDayEntry =>
   entries.reduce((best, e) => (PRIORITY[e.phase] > PRIORITY[best.phase] ? e : best))
+
+/** One stretch of days in a hall where the same event is the main one. */
+export interface HallRun {
+  eventName: string
+  start: ISODate
+  end: ISODate
+}
+
+/**
+ * The stretches of a hall's calendar, in date order: each is where one event's name belongs,
+ * anchored to the first day of the stretch.
+ */
+export const hallRuns = (days: Map<ISODate, HallDayEntry[]>): HallRun[] => {
+  const runs: HallRun[] = []
+  let previous: ISODate | null = null
+  for (const date of [...days.keys()].sort()) {
+    const entries = days.get(date)!
+    if (!entries.length) continue
+    const { eventName } = dominantEntry(entries)
+    const last = runs.at(-1)
+    // The same event on the very next day continues the stretch; a gap or another event starts a new one.
+    if (last && last.eventName === eventName && previous !== null && daysBetween(previous, date) === 1) last.end = date
+    else runs.push({ eventName, start: date, end: date })
+    previous = date
+  }
+  return runs
+}

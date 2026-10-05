@@ -4,7 +4,7 @@ import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
-import { buildHallCalendar, dominantEntry, hallNames, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallRuns, PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
@@ -64,6 +64,12 @@ const rangeOf = (sel: Selection) => ({
   col1: Math.max(sel.anchor.col, sel.focus.col),
 })
 
+/** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
+const HALL_LABEL_MAX_W = 260
+const HALL_LABEL_MAX_COLS = 10
+/** Roughly the width of one letter of an event's name. */
+const HALL_LABEL_CHAR_W = 6.6
+
 /** How far each level of the hierarchy is indented in the label column. */
 const INDENT = 14
 
@@ -119,6 +125,17 @@ export function Kalender() {
   // ---- derived data -------------------------------------------------------------------------
   const shownVenue = useMemo(() => visibleVenue(ws.venue, ws.hiddenVenue), [ws.venue, ws.hiddenVenue])
   const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
+  // Each event's name sits on the event's first day in the hall and scrolls with it.
+  const hallLabels = useMemo(() => {
+    const labels = new Map<string, { eventName: string; col: number; span: number; room: number }[]>()
+    for (const [hall, days] of hallCalendar) {
+      const runs = hallRuns(days).map((run) => ({ eventName: run.eventName, col: daysBetween(range.start, run.start), span: daysBetween(run.start, run.end) + 1, room: Infinity }))
+      // A name may run on past its own days, but not into the next event in the hall.
+      runs.forEach((run, i) => (run.room = runs[i + 1] ? runs[i + 1].col - run.col : Infinity))
+      labels.set(hall, runs)
+    }
+    return labels
+  }, [hallCalendar, range.start])
   const halls = useMemo(() => {
     const names = hallNames(ws.venue)
     if (allHalls) return names
@@ -421,13 +438,14 @@ export function Kalender() {
     return `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''}`
   }
 
-  const row = (key: string, label: ReactNode, cells: (date: ISODate, col: number) => ReactNode, className = '') => (
+  const row = (key: string, label: ReactNode, cells: (date: ISODate, col: number) => ReactNode, className = '', overlay?: ReactNode) => (
     <div className={`grid-row ${className}`} key={key} style={{ height: ROW_H }}>
       <div className="grid-label" style={{ width: LEFT_W }}>
         {label}
       </div>
       <div className="grid-spacer" style={{ width: c0 * colW }} />
       {visibleDates.map((date, i) => cells(date, c0 + i))}
+      {overlay}
     </div>
   )
 
@@ -749,6 +767,15 @@ export function Kalender() {
             {hallsOpen &&
               halls.map((hall) => {
                 const days = hallCalendar.get(hall)
+                // Names of the events in or near the visible dates, each with the width it may take.
+                const labels = (hallLabels.get(hall) ?? [])
+                  .filter((run) => run.col <= c1 && run.col + Math.max(run.span, Math.min(run.room, HALL_LABEL_MAX_COLS)) > c0)
+                  .map((run) => {
+                    const width = Math.min(run.room * colW, Math.max(run.span * colW, HALL_LABEL_MAX_W)) - 2
+                    // Roughly the columns the text covers, so the phase letters under it can be left out.
+                    const covered = Math.ceil(Math.min(width, run.eventName.length * HALL_LABEL_CHAR_W + 6) / colW)
+                    return { ...run, width, covered }
+                  })
                 return row(
                   `hall:${hall}`,
                   <span className="lbl-hall">{hall}</span>,
@@ -756,16 +783,20 @@ export function Kalender() {
                     const entries = days?.get(date)
                     if (!entries?.length) return <div key={date} className={`${dayClass(date)} cell hall`} style={{ width: colW }} />
                     const main = dominantEntry(entries)
-                    const prev = days?.get(dates[col - 1])
-                    const startsHere = col === firstVisibleCol || (col > firstVisibleCol && !prev?.some((e) => e.eventName === main.eventName))
+                    const underLabel = labels.some((label) => col >= label.col && col < label.col + label.covered)
                     const title = entries.map((e) => `${e.eventName} – ${PHASE_LABELS[e.phase]}`).join('\n')
                     return (
                       <div key={date} className={`${dayClass(date)} cell hall ph-${main.phase} ${entries.length > 1 ? 'multi' : ''}`} style={{ width: colW }} title={title}>
-                        {startsHere ? <span className="hall-label">{main.eventName}</span> : zoom !== 'compact' ? <span className="phase-code">{PHASE_CODES[main.phase]}</span> : null}
+                        {!underLabel && zoom !== 'compact' ? <span className="phase-code">{PHASE_CODES[main.phase]}</span> : null}
                       </div>
                     )
                   },
                   'hall-row',
+                  labels.map((label) => (
+                    <span key={`${label.eventName}:${label.col}`} className="hall-label" style={{ left: LEFT_W + label.col * colW, maxWidth: label.width }}>
+                      {label.eventName}
+                    </span>
+                  )),
                 )
               })}
 
