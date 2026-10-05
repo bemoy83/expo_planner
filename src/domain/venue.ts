@@ -90,11 +90,21 @@ export const hallRuns = (days: Map<ISODate, HallDayEntry[]>): HallRun[] => {
 const SEQUENCE: Record<VenuePhase, number> = { dismantle: 0, movingOut: 1, event: 2, movingIn: 3, assembly: 4 }
 
 /**
- * The two events to show side by side on a day when a hall is shared: the two with the most central phases,
- * the one on its way out first (MO before MI, D before A). Null when the hall has one event that day.
+ * Build-up and tear-down are the venue's own phases; moving in, the arrangement and moving out are the
+ * customer's. A day can be shared between two events only within one kind: tear-down with build-up, or
+ * moving out with moving in. The arrangement itself is never shared.
+ */
+const SHARES: Partial<Record<VenuePhase, 'venue' | 'moving'>> = { assembly: 'venue', dismantle: 'venue', movingIn: 'moving', movingOut: 'moving' }
+
+/**
+ * The two events to show side by side on a day when a hall is shared: the one with the most central phase
+ * and another whose phase may share a day with it, the one on its way out first (MO before MI, D before A).
+ * Null when the day belongs to one event alone, as when a customer's phase meets the venue's.
  */
 export const splitEntries = (entries: HallDayEntry[]): [HallDayEntry, HallDayEntry] | null => {
   if (entries.length < 2) return null
-  const [a, b] = [...entries].sort((x, y) => PRIORITY[y.phase] - PRIORITY[x.phase])
+  const [a, ...rest] = [...entries].sort((x, y) => PRIORITY[y.phase] - PRIORITY[x.phase])
+  const b = SHARES[a.phase] && rest.find((entry) => SHARES[entry.phase] === SHARES[a.phase])
+  if (!b) return null
   return SEQUENCE[a.phase] <= SEQUENCE[b.phase] ? [a, b] : [b, a]
 }

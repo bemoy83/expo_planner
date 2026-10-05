@@ -47,12 +47,18 @@ describe('hall calendar', () => {
     expect(hallRuns(days).map((r) => r.anchor.slice(8))).toEqual(['02', '03', '06'])
   })
 
-  it('splits a shared day between its two most central events, the one leaving first', () => {
+  it('splits a shared day only within the venue\'s phases or within moving, the one leaving first', () => {
     const entry = (eventName: string, phase: HallDayEntry['phase']): HallDayEntry => ({ eventName, phase })
     const codes = (entries: HallDayEntry[]) => splitEntries(entries)?.map((e) => `${e.eventName}:${e.phase}`)
     expect(codes([entry('Ny', 'movingIn'), entry('Gammel', 'movingOut')])).toEqual(['Gammel:movingOut', 'Ny:movingIn'])
     expect(codes([entry('Ny', 'assembly'), entry('Gammel', 'dismantle')])).toEqual(['Gammel:dismantle', 'Ny:assembly'])
-    expect(codes([entry('Ny', 'assembly'), entry('Midt', 'event'), entry('Gammel', 'movingOut')])).toEqual(['Gammel:movingOut', 'Midt:event'])
+    expect(codes([entry('Ny', 'assembly'), entry('Annen', 'assembly')])).toEqual(['Ny:assembly', 'Annen:assembly'])
+    // A customer's phase is not split with the venue's, and the arrangement is not split at all.
+    expect(codes([entry('Ny', 'assembly'), entry('Gammel', 'movingOut')])).toBeUndefined()
+    expect(codes([entry('Ny', 'movingIn'), entry('Midt', 'event')])).toBeUndefined()
+    expect(codes([entry('Ny', 'assembly'), entry('Midt', 'event'), entry('Gammel', 'movingOut')])).toBeUndefined()
+    // The winning phase picks its partner among the others, past one it cannot share with.
+    expect(codes([entry('Bygg', 'assembly'), entry('Ny', 'movingIn'), entry('Gammel', 'movingOut')])).toEqual(['Gammel:movingOut', 'Ny:movingIn'])
     expect(codes([entry('Alene', 'event')])).toBeUndefined()
   })
 
