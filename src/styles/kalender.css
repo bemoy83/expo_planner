@@ -56,7 +56,7 @@
 /* Bemanning: the hairline under it is the one above the «Planlegging» heading */
 .top-section.staffing{border-bottom:0}
 /* what sits in a heading beside its name is ordinary text */
-.legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
+.section-head .phase-legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
 /* what a folded section hides */
 .section-meta{margin-left:8px;text-transform:none;letter-spacing:0;font-family:var(--font-num);font-size:10.5px;color:var(--faint)}
 .section-hint{position:sticky;left:0;padding:4px 24px;color:var(--muted);white-space:nowrap;overflow:visible}
@@ -80,9 +80,6 @@
 .ph-movingOut{background:var(--ph-movingout)!important}
 .ph-event{background:var(--ph-event)!important}
 .ph-dismantle{background:var(--ph-dismantle)!important}
-/* the legend: one chip per phase with the code the bars use; the name is in the tooltip */
-.legend{display:inline-flex;align-items:center;gap:4px;margin-left:12px;color:var(--muted);font-size:11px}
-.legend i{display:inline-block;padding:1px 5px;border-radius:4px;font-style:normal;font-family:var(--font-num);font-size:10.5px;color:color-mix(in srgb,var(--text) 70%,transparent)}
 
 /* ---- the staffing ---- */
 /* Every line carries the same grid as the planning rows: a faint rule above and beside each day cell, no rule
@@ -170,11 +167,16 @@
 /* the heading row; the top block ends in the hairline above it */
 .col-head{background:var(--bg);border-top:1px solid var(--line);border-bottom-color:var(--line)}
 .col-head .lbl-num{font-size:inherit;font-weight:inherit}
-/* what the colours of the planning cells mean, pinned beside the label column */
+/* What the colours mean, pinned beside the label column: the planning cells in the heading row, the hall
+   phases in the «Haller» heading. A hall phase has the letters its bars carry in the mark. */
 .phase-legend{position:sticky;flex:none;width:0;align-self:stretch;display:flex;align-items:center;gap:14px;white-space:nowrap;overflow:visible;z-index:2;font-size:12px;color:var(--muted)}
 .phase-legend span{display:flex;align-items:center;gap:5px;margin-left:10px}
 .phase-legend span+span{margin-left:0}
-.phase-legend i{flex:none;width:10px;height:10px;border-radius:3px}
+.phase-legend i{flex:none}
+.phase-legend i:empty{width:10px;height:10px;border-radius:3px}
+.phase-legend i:not(:empty){padding:1px 5px;border-radius:4px;font-style:normal;font-family:var(--font-num);font-size:10.5px;color:color-mix(in srgb,var(--text) 70%,transparent)}
+/* at the right edge of the heading, which is as wide as the label column: past its padding, so the marks of the two legends line up */
+.section-head .phase-legend{margin:0 -10px 0 auto}
 .phase-legend i.mon{background:var(--mon)}
 .phase-legend i.dem{background:var(--dem)}
 .phase-legend i.outside{box-shadow:inset 0 0 0 1.5px var(--neg)}

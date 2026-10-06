@@ -999,11 +999,11 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
                   </button>
                 )}
                 {hallsOpen && (
-                  <span className="legend">
+                  <span className="phase-legend">
                     {VENUE_PHASES.map((phase) => (
-                      <i key={phase} className={`ph-${phase}`} title={PHASE_LABELS[phase]}>
-                        {PHASE_CODES[phase]}
-                      </i>
+                      <span key={phase}>
+                        <i className={`ph-${phase}`}>{PHASE_CODES[phase]}</i> {PHASE_LABELS[phase]}
+                      </span>
                     ))}
                   </span>
                 )}
