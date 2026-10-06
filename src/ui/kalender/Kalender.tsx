@@ -888,10 +888,13 @@ export function Kalender() {
           <Menu
             label={
               <>
-                <Filter size={14} aria-hidden /> Filter{activeFilters > 0 && <span className="menu-count">{activeFilters}</span>}
+                <Filter size={16} aria-hidden />
+                {activeFilters > 0 && <span className="menu-count">{activeFilters}</span>}
               </>
             }
-            title="Velg hvilke prosjekter og rader som vises"
+            ariaLabel="Filter"
+            className="icon-button"
+            title="Filter: velg hvilke prosjekter og rader som vises"
           >
             {() => (
               <div className="filter-panel">
@@ -945,12 +948,12 @@ export function Kalender() {
             }}
           />
           <button
-            className="ghost"
-            title={collapsed.size ? 'Vis alle nivåer' : 'Fold sammen til øverste nivå'}
+            className="ghost icon-button"
+            aria-label={collapsed.size ? 'Utvid alle' : 'Fold sammen'}
+            title={collapsed.size ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'}
             onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
           >
-            {collapsed.size ? <ChevronsUpDown size={14} aria-hidden /> : <ChevronsDownUp size={14} aria-hidden />}
-            {collapsed.size ? 'Utvid alle' : 'Fold sammen'}
+            {collapsed.size ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}
           </button>
         </div>
         <div className="zone zone-end">

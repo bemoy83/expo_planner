@@ -421,4 +421,5 @@ table.ledger{font-size:13px}
 .top-section .section-head + .grid-row .cell{border-top-color:transparent}
 
 /* a button that is an icon alone: square, named in its tooltip */
-button.icon-button{padding:7px;width:32px;height:32px}
+button.icon-button{padding:7px;min-width:32px;height:32px}
+.icon-button .menu-count{margin-left:0}
