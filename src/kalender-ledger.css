@@ -423,3 +423,6 @@ table.ledger{font-size:13px}
 /* a button that is an icon alone: square, named in its tooltip */
 button.icon-button{padding:7px;min-width:32px;height:32px}
 .icon-button .menu-count{margin-left:0}
+
+/* the slot for a line's actions holds three of them without spilling over the figures */
+.row-slot{width:70px;gap:2px}

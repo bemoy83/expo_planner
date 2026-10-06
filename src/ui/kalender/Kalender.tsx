@@ -21,7 +21,7 @@ import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { GroupingBar } from './GroupingBar'
 import { fmtDate, rowTitle } from './labels'
 import { NoteEditor } from './parts'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, DIMENSION_LABELS, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
 import { useStableActions } from './useStableActions'
 import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eraser, Filter, MousePointer2, Pencil, Plus } from 'lucide-react'
@@ -1047,9 +1047,7 @@ export function Kalender() {
             </div>
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
-                <span className="lbl-desc" title="Nivåene radene er gruppert etter">
-                  {[...grouping, ...rowDimensions].map((d) => DIMENSION_LABELS[d]).join(' / ')}
-                </span>
+                <span className="lbl-desc">Planlegging</span>
                 <span className="lbl-phase">Fase</span>
                 <span className="lbl-year">År</span>
                 <span className="lbl-basis">Grunnlag</span>
@@ -1064,6 +1062,8 @@ export function Kalender() {
                     Δ
                   </span>
                 </span>
+                {/* The rows end in a slot for their actions; the same slot here keeps the headings over their columns. */}
+                <span className="row-slot" />
               </div>
               {/* What the colours of the planning cells mean; stays beside the label column when scrolling sideways. */}
               <span className="phase-legend" style={{ left: LEFT_W }}>
