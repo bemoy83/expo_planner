@@ -495,16 +495,6 @@ input[type='text'] {
 .col-head .lbl-competence {
   padding-left: 0;
 }
-.lbl-year {
-  width: 38px;
-  color: var(--muted);
-}
-.lbl-basis {
-  width: 92px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--muted);
-}
 .lbl-num {
   width: 40px;
   text-align: right;

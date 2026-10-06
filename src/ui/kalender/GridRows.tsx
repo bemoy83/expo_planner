@@ -455,7 +455,8 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
       label={
         <>
           <PhaseMark phase={r.phase} indent={18 + item.depth * INDENT} />
-          <span className="lbl-desc" title={describeRow(r, ALL_DIMENSIONS)}>
+          {/* The year and the kind of demand data behind the row are in the tooltip and in row details. */}
+          <span className="lbl-desc" title={[describeRow(r, ALL_DIMENSIONS), r.refYear, r.basis].filter(Boolean).join(' · ')}>
             {description || <em className="muted">rad</em>}
           </span>
           {outside.length > 0 && (
@@ -463,10 +464,6 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
               <TriangleAlert size={13} aria-hidden />
             </span>
           )}
-          <span className="lbl-year">{r.refYear}</span>
-          <span className="lbl-basis" title={r.basis}>
-            {r.basis}
-          </span>
           <span className="lbl-nums">
             <span className="lbl-num" title={totals.requiredHours === null ? '' : `${formatFte(totals.requiredHours, 2)} timer`}>
               {formatFte(totals.requiredFte)}

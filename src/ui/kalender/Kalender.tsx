@@ -1210,8 +1210,6 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
                 <span className="lbl-desc">Planlegging</span>
-                <span className="lbl-year">År</span>
-                <span className="lbl-basis">Grunnlag</span>
                 <span className="lbl-nums" title="Linjen under tallene viser hvor mye av behovet som er planlagt: blå underveis, grønn når det er dekket, oransje når det er planlagt klart mer enn behovet.">
                   <span className="lbl-num" title="Behov (FTE-dager)">
                     Behov

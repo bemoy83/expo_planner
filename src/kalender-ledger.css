@@ -108,8 +108,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* small uppercase headings: one recipe for the section heads, the «Planlegging» heading row and the menu groups */
 .section-head,.col-head .grid-label,.menu-group{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
 .section-head{background:var(--bg);border-bottom-color:var(--line)}
-.col-head .lbl-num,.col-head .lbl-year{font-size:inherit;font-weight:inherit}
-.col-head .lbl-year,.col-head .lbl-basis{color:inherit}
+.col-head .lbl-num{font-size:inherit;font-weight:inherit}
 /* what sits in a heading beside its name is ordinary text */
 .legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
 .lbl-title{color:var(--faint);font-family:var(--font-num)}
@@ -184,7 +183,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .cell.has-note::after{border-top-color:var(--accent)}
 
 /* numbers */
-.lbl-num,.lbl-year,.lbl-level .count,.lbl-project>.muted{font-family:var(--font-num);font-size:var(--fs-sm)}
+.lbl-num,.lbl-level .count,.lbl-project>.muted{font-family:var(--font-num);font-size:var(--fs-sm)}
 .lbl-project>.muted:not(.count){font-weight:500}
 .delta.under{color:var(--muted);font-weight:600}
 .delta.over{color:var(--over)}
