@@ -977,33 +977,36 @@ export function Kalender() {
           <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
             <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={selection ? dates[selection.focus.col] : undefined} />
 
-            <div className="section-head" style={{ width: LEFT_W }}>
-              <button className="twisty" aria-expanded={hallsOpen} aria-label={hallsOpen ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => setHallsOpen(!hallsOpen)}>
-                {hallsOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-              </button>
-              Haller
-              {!hallsOpen && <span className="section-meta">{halls.length} skjult</span>}
-              {hallsOpen && (
-                <button className="link small" onClick={() => setAllHalls(!allHalls)}>
-                  {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
+            {/* The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. */}
+            <div className="top-section">
+              <div className="section-head" style={{ width: LEFT_W }}>
+                <button className="twisty" aria-expanded={hallsOpen} aria-label={hallsOpen ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => setHallsOpen(!hallsOpen)}>
+                  {hallsOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
                 </button>
-              )}
-              {hallsOpen && (
-                <span className="legend">
-                  {VENUE_PHASES.map((phase) => (
-                    <i key={phase} className={`ph-${phase}`} title={PHASE_LABELS[phase]}>
-                      {PHASE_CODES[phase]}
-                    </i>
-                  ))}
-                </span>
-              )}
-            </div>
-            {hallsOpen && ws.venue.length === 0 && (
-              <div className="section-hint" style={{ width: LEFT_W }}>
-                Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
+                Haller
+                {!hallsOpen && <span className="section-meta">{halls.length} skjult</span>}
+                {hallsOpen && (
+                  <button className="link small" onClick={() => setAllHalls(!allHalls)}>
+                    {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
+                  </button>
+                )}
+                {hallsOpen && (
+                  <span className="legend">
+                    {VENUE_PHASES.map((phase) => (
+                      <i key={phase} className={`ph-${phase}`} title={PHASE_LABELS[phase]}>
+                        {PHASE_CODES[phase]}
+                      </i>
+                    ))}
+                  </span>
+                )}
               </div>
-            )}
-            {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
+              {hallsOpen && ws.venue.length === 0 && (
+                <div className="section-hint" style={{ width: LEFT_W }}>
+                  Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
+                </div>
+              )}
+              {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
+            </div>
 
             <div className="section-head" style={{ width: LEFT_W }}>
               <button

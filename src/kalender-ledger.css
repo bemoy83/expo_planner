@@ -406,3 +406,8 @@ table.ledger{font-size:13px}
 .cap-row:hover,.cap-row:hover .grid-label{background:color-mix(in srgb,var(--text) 5%,var(--bg))}
 /* the top block ends in a hairline above the «Planlegging» heading */
 .col-head{border-top:1px solid var(--line)}
+
+/* the hall calendar: a hairline above (under the dates) and below, across the whole grid */
+.head-row.tall{border-bottom-color:var(--line)}
+.top-section{border-bottom:1px solid var(--line)}
+.top-section .section-head{border-bottom:0}
