@@ -72,8 +72,9 @@ General
 
 - Few component tests and no end-to-end tests: a smoke test and the grid's row component. The grid as a whole, dialogs and imports are verified by hand in a browser.
 - One lint warning: a `setState` inside an effect in `Kalender.tsx` (selecting a row that was just added).
-- `Kalender.tsx` is still one large component (about 1,000 lines): it holds the toolbar, the selection, the pencil, eraser and fill handle, and the status bar. The lines of the grid are memoized components in `kalender/GridRows.tsx`, drawn again only when something on the line changed. Scrolling sideways still draws every line again each time a new day column comes into view.
-- `index.css` is one file of about 1,150 lines.
+- `Kalender.tsx` is still one large component (about 1,200 lines): it holds the selection, the pencil, eraser and fill handle, the keys and the drag across the grid's edges, and lays out the page. The tool switch and the filter (`PlanTools.tsx`), the status bar (`StatusBar.tsx`) and what is drawn of the hall bookings (`useHallCalendar.ts`) are files of their own; the interaction that is left has no tests, so it is best split with tests written first. The lines of the grid are memoized components in `kalender/GridRows.tsx`, drawn again only when something on the line changed. Scrolling sideways still draws every line again each time a new day column comes into view.
+- The style sheets in `src/styles/` still hold sizes and a few colours as plain values (the tooltip, the amber of a line with an issue, the frame of the fill handle) instead of tokens.
+- A field edited in place in the tables (`input.inline`) looks like any other field: filled, with 7px of padding. Before the Ledger look it was a bare text that showed a frame on hover; whether the taller table rows are wanted has not been decided.
 - A fill or paste of several cells in one row writes that row to IndexedDB once per cell.
 - Numbers typed with a decimal comma are parsed in several places with slightly different rules (empty means 0, nothing, or invalid).
 - `design_docs/` is stale and uses the misspelling "Venyoo". `docs/kalender-workbook.md` describes the workbook, not the app.

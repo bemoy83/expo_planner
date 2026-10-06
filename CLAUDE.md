@@ -42,6 +42,7 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
 - `src/import/` – file readers. `xlsx.ts` is a small own reader (cached values and comments only); ExcelJS fails on the planner workbook's tables.
 - `src/store/` – `db.ts` (Dexie/IndexedDB), `workspaceStore.tsx` (all mutations, each persisted and recorded for undo), `history.ts` (undo steps), `backup.ts`, `prefs.ts` (view preferences per browser, in localStorage).
 - `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the row hierarchy from the chosen grouping, and `kalender/GridRows.tsx` holds the lines of the grid as memoized components. They get the selection as plain values per line (`CellEdit`) and their handlers through `useStableActions`; keep it that way, or every line is drawn again on each scroll frame. What the tabs share is in `common.tsx` (undo buttons, message banner, merge-or-replace dialog), `files.ts` and `fields.tsx`.
+- `src/styles/` – the style sheets, imported in this order by `main.tsx`: `tokens.css` (fonts, colours and text sizes, light and dark), `base.css` (controls, the shell, menus, dialogs), `tables.css` (the ledgers of the other tabs), `kalender.css` and `inspector.css`. Each rule is written once; do not add a later rule that overrides an earlier one, change the rule.
 
 Everything is stored in the browser (IndexedDB database `expo-planner`). There is no server.
 
