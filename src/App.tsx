@@ -169,12 +169,10 @@ function Shell() {
           </button>
         )}
         <Menu
-          label={
-            <>
-              <Settings size={14} aria-hidden /> Innstillinger
-            </>
-          }
-          className="ghost"
+          label={<Settings size={16} aria-hidden />}
+          ariaLabel="Innstillinger"
+          title="Innstillinger"
+          className="ghost icon-button"
           align="right"
         >
           {(close) => (

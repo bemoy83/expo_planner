@@ -6,6 +6,8 @@ import { Redo2, Undo2 } from 'lucide-react'
 interface MenuProps {
   label: ReactNode
   title?: string
+  /** What the button is called when its label is an icon alone. */
+  ariaLabel?: string
   className?: string
   /** Which edge of the button the menu lines up with. */
   align?: 'left' | 'right'
@@ -14,13 +16,13 @@ interface MenuProps {
 }
 
 /** A button that opens a menu or a small panel under it. Closes on a click outside and on Escape. */
-export function Menu({ label, title, className = '', align = 'left', children }: MenuProps) {
+export function Menu({ label, title, ariaLabel, className = '', align = 'left', children }: MenuProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
   useDismiss(ref, open, setOpen)
   return (
     <span className="menu" ref={ref}>
-      <button className={`menu-button ${className}`} aria-haspopup="true" aria-expanded={open} title={title} onClick={() => setOpen(!open)}>
+      <button className={`menu-button ${className}`} aria-haspopup="true" aria-expanded={open} aria-label={ariaLabel} title={title} onClick={() => setOpen(!open)}>
         {label}
       </button>
       {open && <div className={`menu-pop ${align}`}>{children(() => setOpen(false))}</div>}
@@ -48,16 +50,16 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
   )
 }
 
-/** Undo and redo, as they sit in every tab's toolbar. */
+/** Undo and redo, as they sit in every tab's toolbar: icons alone, named in the tooltip. */
 export function UndoRedoButtons() {
   const { undo, redo, canUndo, canRedo } = useWorkspace()
   return (
     <>
-      <button onClick={undo} disabled={!canUndo} title="Angre (Ctrl/Cmd+Z)">
-        <Undo2 size={14} aria-hidden /> Angre
+      <button className="icon-button" onClick={undo} disabled={!canUndo} aria-label="Angre" title="Angre (Ctrl/Cmd+Z)">
+        <Undo2 size={16} aria-hidden />
       </button>
-      <button onClick={redo} disabled={!canRedo} title="Gjør om (Ctrl/Cmd+Shift+Z)">
-        <Redo2 size={14} aria-hidden /> Gjør om
+      <button className="icon-button" onClick={redo} disabled={!canRedo} aria-label="Gjør om" title="Gjør om (Ctrl/Cmd+Shift+Z)">
+        <Redo2 size={16} aria-hidden />
       </button>
     </>
   )
