@@ -1013,7 +1013,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
                   Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
                 </div>
               )}
-              {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} cols={cols} zoom={zoom} />)}
+              {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} cols={cols} />)}
             </div>
 
             {/* Bemanning is framed the same way; its heading always has the Avvik line under it. */}

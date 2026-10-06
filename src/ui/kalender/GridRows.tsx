@@ -142,14 +142,13 @@ interface HallRowProps {
   /** The projects with a booking in the hall, as `projectList` writes them, so the hall can be marked for one of them. */
   projects: string | undefined
   cols: Columns
-  zoom: Zoom
 }
 
 /**
  * One hall of the hall calendar: a bar per phase of each event, with the events' names laid over them.
  * The day cells under the bars are empty, so a line costs a handful of bars however many days it shows.
  */
-export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols, zoom }: HallRowProps) {
+export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols }: HallRowProps) {
   const { c0, colW } = cols
   const c1 = c0 + cols.dates.length - 1
   // Names of the events in or near the visible dates, each with the width it may take.
@@ -173,7 +172,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols,
       overlay={
         <>
           {visible.map((bar) => {
-            // The phase letters sit in the middle of the bar; they are left out under an event's name, in narrow columns and on the arrangement itself, which carries the name.
+            // The phase letters sit in the middle of the bar; they are left out under an event's name, on a bar of a single day and on the arrangement itself, which carries the name.
             const middle = bar.col + bar.span / 2
             const underLabel = labels.some((label) => middle >= label.col && middle < label.col + label.covered)
             return (
@@ -184,7 +183,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols,
                 title={bar.title}
                 data-project={bar.project}
               >
-                {!underLabel && zoom !== 'compact' && bar.phase !== 'event' ? PHASE_CODES[bar.phase] : null}
+                {!underLabel && bar.span > 1 && bar.phase !== 'event' ? PHASE_CODES[bar.phase] : null}
               </span>
             )
           })}
