@@ -16,8 +16,7 @@ export const projectHoverCss = (project: string): string => {
     `.hall-bar:not(${is}),.hall-label:not(${is}),.hall-row:not(${among}) .lbl-hall{opacity:.3}`,
     `.hall-bar${is}{box-shadow:0 0 0 1.5px var(--text)}`,
     `.hall-row${among} .lbl-hall{font-weight:700;color:var(--text)}`,
-    // A wash over the whole label, laid on top of whatever shade the line has, and a bar at its left edge.
-    `.grid-row${is}>.grid-label,.hall-row${among}>.grid-label{box-shadow:inset 4px 0 0 var(--text);background-image:linear-gradient(var(--hover-wash),var(--hover-wash))}`,
+    `.grid-row${is}>.grid-label,.hall-row${among}>.grid-label{box-shadow:inset 3px 0 0 var(--text)}`,
   ].join('\n')
 }
 

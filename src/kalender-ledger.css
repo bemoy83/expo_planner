@@ -450,4 +450,3 @@ button.icon-button{padding:7px;min-width:32px;height:32px}
 /* ---- Pointing at a project lights its bars in the hall calendar and its lines; the rule that picks the project is written by useProjectHover ---- */
 .hall-bar,.hall-label{transition:opacity .12s}
 .lbl-hall{transition:opacity .12s}
-:root{--hover-wash:color-mix(in srgb,var(--text) 11%,transparent)}
