@@ -145,6 +145,8 @@ export interface HallSegment {
   shared: boolean
   /** Every event in the hall on the first day, with its phase. */
   title: string
+  /** The project the event is in the Kalender, where the grid has looked it up, see `hallProjects`. */
+  project?: string
 }
 
 /**
@@ -171,4 +173,23 @@ export const hallSegments = (days: Map<ISODate, HallDayEntry[]>, origin: ISODate
     else segments.push((open = { eventName: main.eventName, phase: main.phase, col, span: 1, shared, title }))
   }
   return segments
+}
+
+/**
+ * Which project a day of an event in a hall belongs to: that of the booking covering the day. The same
+ * event name comes back year after year as different projects, so the name alone does not tell.
+ * `projectOf` gives the project a booking belongs to, or null.
+ */
+export const hallProjects = (bookings: VenueBooking[], projectOf: (booking: VenueBooking) => string | null): ((hall: string, eventName: string, date: ISODate) => string | undefined) => {
+  const index = new Map<string, { start: ISODate; end: ISODate; project: string }[]>()
+  for (const booking of bookings) {
+    const project = projectOf(booking)
+    const spans = VENUE_PHASES.flatMap((phase) => booking.phases[phase] ?? [])
+    if (project === null || !spans.length) continue
+    const start = spans.reduce((min, span) => (span.start < min ? span.start : min), spans[0].start)
+    const end = spans.reduce((max, span) => (span.end > max ? span.end : max), spans[0].end)
+    const key = `${booking.hall}|${booking.eventName}`
+    index.set(key, [...(index.get(key) ?? []), { start, end, project }])
+  }
+  return (hall, eventName, date) => index.get(`${hall}|${eventName}`)?.find((span) => date >= span.start && date <= span.end)?.project
 }

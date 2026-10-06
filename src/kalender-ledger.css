@@ -446,3 +446,6 @@ button.icon-button{padding:7px;min-width:32px;height:32px}
 
 /* the slot for a line's actions holds three of them without spilling over the figures */
 .row-slot{width:70px;gap:2px}
+
+/* ---- Pointing at a project lights its bars in the hall calendar and its lines; the rule that picks the project is written by useProjectHover ---- */
+.hall-bar,.hall-label{transition:opacity .12s}

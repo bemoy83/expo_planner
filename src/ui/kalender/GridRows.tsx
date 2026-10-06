@@ -25,9 +25,9 @@ const INDENT = 14
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
 /** One line of the grid: the label column, then a cell per drawn day. */
-function Line({ className = '', label, cols, cells, overlay, height = ROW_H }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number }) {
+function Line({ className = '', label, cols, cells, overlay, height = ROW_H, project }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string }) {
   return (
-    <div className={`grid-row ${className}`} style={{ height }}>
+    <div className={`grid-row ${className}`} style={{ height }} data-project={project}>
       <div className="grid-label" style={{ width: LEFT_W }}>
         {label}
       </div>
@@ -129,6 +129,7 @@ export interface HallLabelRun {
   col: number
   span: number
   room: number
+  project?: string
 }
 
 interface HallRowProps {
@@ -176,13 +177,14 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, cols, zoom }: H
                 className={`hall-bar ph-${bar.phase} ${bar.shared ? 'shared' : ''}`}
                 style={{ left: LEFT_W + bar.col * colW + 1, width: bar.span * colW - 2 }}
                 title={bar.title}
+                data-project={bar.project}
               >
                 {!underLabel && zoom !== 'compact' && bar.phase !== 'event' ? PHASE_CODES[bar.phase] : null}
               </span>
             )
           })}
           {labels.map((label) => (
-            <span key={`${label.eventName}:${label.col}`} className="hall-label" style={{ left: LEFT_W + label.col * colW, maxWidth: label.width }}>
+            <span key={`${label.eventName}:${label.col}`} className="hall-label" data-project={label.project} style={{ left: LEFT_W + label.col * colW, maxWidth: label.width }}>
               {label.eventName}
             </span>
           ))}
@@ -282,6 +284,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
     <Line
       className={`group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`}
       height={node.depth === 0 ? TOP_ROW_H : ROW_H}
+      project={node.projectKey}
       cols={cols}
       label={
         <>
@@ -376,6 +379,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
   return (
     <Line
       className="alloc-row"
+      project={item.project.venue ? item.project.key : undefined}
       cols={cols}
       label={
         <>

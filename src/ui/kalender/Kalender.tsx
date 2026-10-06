@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
-import { dateRange, daysBetween, type ISODate } from '../../domain/dates'
+import { addDays, dateRange, daysBetween, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { VENUE_PHASES, type AllocationRow, type VenueBooking } from '../../domain/types'
-import { buildHallCalendar, hallNames, hallRuns, hallSegments, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
+import { buildHallCalendar, hallNames, hallProjects, hallRuns, hallSegments, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { fillAcross, shareOverDays, spread } from '../../domain/spread'
@@ -22,6 +22,7 @@ import { GroupingBar } from './GroupingBar'
 import { fmtDate, rowTitle } from './labels'
 import { NoteEditor } from './parts'
 import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
+import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eraser, Filter, MousePointer2, Pencil, Plus } from 'lucide-react'
@@ -77,11 +78,21 @@ export function Kalender() {
   const today = todayIso()
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const projectHover = useProjectHover()
   const topRef = useRef<HTMLDivElement>(null)
 
   // ---- derived data -------------------------------------------------------------------------
   const shownVenue = useMemo(() => visibleVenue(ws.venue, ws.hiddenVenue), [ws.venue, ws.hiddenVenue])
   const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
+  // Projects are the events in the Venyou calendar that have at least one hall booking shown.
+  const events = useMemo(() => venueEvents(shownVenue, ws.eventLinks, ws.projects), [shownVenue, ws.eventLinks, ws.projects])
+  /** The project a hall booking belongs to. */
+  const projectOf = useMemo(() => {
+    const projectOfEvent = new Map(events.map((event) => [event.key, projectKey({ projectNo: event.projectNo, projectName: event.name })]))
+    return (booking: VenueBooking) => projectOfEvent.get(eventKey(booking.eventName, anchorDate(booking))) ?? null
+  }, [events])
+  // The project behind each bar and name of the hall calendar, so that pointing at a project can light them.
+  const hallProject = useMemo(() => hallProjects(shownVenue, projectOf), [shownVenue, projectOf])
   // Each event's name sits on the first day of the arrangement itself in the hall and scrolls with it.
   const hallLabels = useMemo(() => {
     const labels = new Map<string, HallLabelRun[]>()
@@ -93,14 +104,18 @@ export function Kalender() {
         col: daysBetween(range.start, run.anchor),
         span: daysBetween(run.anchor, run.end) + 1,
         room: all[i + 1] ? daysBetween(run.anchor, all[i + 1].start) : Infinity,
+        project: hallProject(hall, run.eventName, run.anchor),
       }))
       labels.set(hall, runs)
     }
     return labels
-  }, [hallCalendar, range.start])
+  }, [hallCalendar, range.start, hallProject])
   // Each hall's bookings as bars. Wide columns have room to show both events on a day the hall is shared.
   const splitShared = zoom === 'wide'
-  const hallBars = useMemo(() => new Map([...hallCalendar].map(([hall, days]) => [hall, hallSegments(days, range.start, splitShared)])), [hallCalendar, range.start, splitShared])
+  const hallBars = useMemo(
+    () => new Map([...hallCalendar].map(([hall, days]) => [hall, hallSegments(days, range.start, splitShared).map((bar) => ({ ...bar, project: hallProject(hall, bar.eventName, addDays(range.start, Math.floor(bar.col))) }))])),
+    [hallCalendar, range.start, splitShared, hallProject],
+  )
   const halls = useMemo(() => {
     const names = hallNames(ws.venue)
     if (allHalls) return names
@@ -117,8 +132,6 @@ export function Kalender() {
   const winFrom = dates[Math.max(0, Math.floor(viewport.left / colW))]
   const winTo = dates[Math.max(0, Math.min(dates.length - 1, Math.floor((viewport.left + viewport.width - LEFT_W) / colW)))]
   const inViewOnly = onlyInView && !filter.project && !filter.search
-  // Projects are the events in the Venyou calendar that have at least one hall booking shown.
-  const events = useMemo(() => venueEvents(shownVenue, ws.eventLinks, ws.projects), [shownVenue, ws.eventLinks, ws.projects])
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
   const rows = useMemo(() => {
     const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases)
@@ -158,11 +171,7 @@ export function Kalender() {
   )
   // The days each row can be worked on: its project's build-up or tear-down days in its hall.
   // The same lookup gives the hall phase of each day of a project, for the strip on its line.
-  const [windows, phasesOfProject] = useMemo(() => {
-    const projectOfEvent = new Map(events.map((event) => [event.key, projectKey({ projectNo: event.projectNo, projectName: event.name })]))
-    const projectOf = (booking: VenueBooking) => projectOfEvent.get(eventKey(booking.eventName, anchorDate(booking))) ?? null
-    return [buildWindows(shownVenue, projectOf), projectPhases(shownVenue, projectOf)] as const
-  }, [shownVenue, events])
+  const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf])
   const projectOfRow = useMemo(() => new Map(allGroups.flatMap((group) => group.rows.map((row) => [row.id, group.key] as const))), [allGroups])
   const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
 
@@ -974,7 +983,7 @@ export function Kalender() {
         </div>
       </div>
 
-      <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
+      <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
           {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
           <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>

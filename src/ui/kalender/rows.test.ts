@@ -200,6 +200,18 @@ describe('filterGroups, inWindow and groupItems', () => {
     expect(inSteps).toEqual(buildItems(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, new Set(), window, grouping))
   })
 
+  it('mark every level from a project down with it, where the project is in the hall calendar', () => {
+    const groups = filterGroups(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, grouping)
+    const marks = (g: Dimension[]) => groupItems(groups, index, DEFAULT_SETTINGS, new Set(), g).flatMap((i) => (i.kind === 'group' ? [`${i.node.dimension} ${i.node.projectKey ?? '-'}`] : []))
+    const below = marks(grouping)
+    expect(below).toContain('project 26970')
+    expect(below).toContain('phase 26970')
+    // A project without an event has no bars to light, and a level above the projects holds several.
+    expect(below.filter((m) => m.startsWith('project')).some((m) => m.endsWith(' -'))).toBe(true)
+    expect(marks(['phase', 'project']).filter((m) => m.startsWith('phase'))).toEqual(expect.arrayContaining(['phase -']))
+    expect(marks(['phase', 'project']).filter((m) => m.startsWith('phase')).every((m) => m === 'phase -')).toBe(true)
+  })
+
   it('keep a project in view by its event or by a planned day', () => {
     const groups = filterGroups(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, grouping)
     const inView = (from: string, to: string) => groups.filter((group) => inWindow(group, { from, to })).map((group) => group.projectName)

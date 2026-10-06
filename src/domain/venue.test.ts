@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHallCalendar, dominantEntry, hallNames, hallRuns, hallSegments, projectPhases, splitEntries, type HallDayEntry } from './venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallProjects, hallRuns, hallSegments, projectPhases, splitEntries, type HallDayEntry } from './venue'
 import type { VenueBooking } from './types'
 
 const booking = (overrides: Partial<VenueBooking>): VenueBooking => ({
@@ -113,5 +113,32 @@ describe('hall segments', () => {
 
   it('gives a shared day two half bars when asked to split, the event on its way out first', () => {
     expect(bars(true).slice(2)).toEqual(['VVS dismantle 9+0.5 shared', 'OSL assembly 9.5+0.5 shared', 'OSL assembly 10+2'])
+  })
+})
+
+describe('hall projects', () => {
+  const bookings = [
+    booking({ phases: { assembly: { start: '2026-10-05', end: '2026-10-07' }, dismantle: { start: '2026-10-10', end: '2026-10-10' } } }),
+    booking({ id: 'b2', hall: 'D', phases: { event: { start: '2026-10-08', end: '2026-10-09' } } }),
+    booking({ id: 'b3', phases: { event: { start: '2027-10-08', end: '2027-10-09' } } }),
+    booking({ id: 'b4', eventName: 'OSLO MOTOR SHOW', phases: { event: { start: '2026-10-20', end: '2026-10-21' } } }),
+  ]
+  // The project is the event and its year, as in the Kalender; the motor show is no project.
+  const projectOf = (b: VenueBooking) => (b.eventName.startsWith('VVS') ? `vvs ${(b.phases.event ?? b.phases.assembly)!.start.slice(0, 4)}` : null)
+  const project = hallProjects(bookings, projectOf)
+
+  it('gives the project of the booking that covers the day, in every hall it has', () => {
+    expect(project('C', 'VVS DAGENE 2026', '2026-10-05')).toBe('vvs 2026')
+    expect(project('C', 'VVS DAGENE 2026', '2026-10-10')).toBe('vvs 2026')
+    expect(project('D', 'VVS DAGENE 2026', '2026-10-08')).toBe('vvs 2026')
+  })
+
+  it('tells the same event name in another year apart', () => {
+    expect(project('C', 'VVS DAGENE 2026', '2027-10-08')).toBe('vvs 2027')
+  })
+
+  it('gives nothing for an event that is no project, or outside its days', () => {
+    expect(project('C', 'OSLO MOTOR SHOW', '2026-10-20')).toBeUndefined()
+    expect(project('C', 'VVS DAGENE 2026', '2026-11-01')).toBeUndefined()
   })
 })
