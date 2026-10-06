@@ -1008,37 +1008,40 @@ export function Kalender() {
               {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
             </div>
 
-            <div className="section-head" style={{ width: LEFT_W }}>
-              <button
-                className="twisty"
-                aria-expanded={staffingOpen}
-                aria-label={staffingOpen ? 'Skjul bemanningen' : 'Vis bemanningen'}
-                onClick={() => {
-                  // A selection in the staffing lines has nowhere to be once they are folded away.
-                  if (staffingOpen && selection?.section === 'cap') setSelection(null)
-                  setStaffingOpen(!staffingOpen)
-                }}
-              >
-                {staffingOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-              </button>
-              Bemanning <span className="muted">(FTE)</span>
-              {staffingOpen ? (
-                <button className="link small" onClick={() => setCapacityOpen(!capacityOpen)}>
-                  {capacityOpen ? 'Skjul detaljer' : 'Vis detaljer'}
+            {/* Bemanning is framed the same way; its heading always has the Avvik line under it. */}
+            <div className="top-section staffing open">
+              <div className="section-head" style={{ width: LEFT_W }}>
+                <button
+                  className="twisty"
+                  aria-expanded={staffingOpen}
+                  aria-label={staffingOpen ? 'Skjul bemanningen' : 'Vis bemanningen'}
+                  onClick={() => {
+                    // A selection in the staffing lines has nowhere to be once they are folded away.
+                    if (staffingOpen && selection?.section === 'cap') setSelection(null)
+                    setStaffingOpen(!staffingOpen)
+                  }}
+                >
+                  {staffingOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
                 </button>
-              ) : (
-                <span className="section-meta">bare avvik vises</span>
+                Bemanning <span className="muted">(FTE)</span>
+                {staffingOpen ? (
+                  <button className="link small" onClick={() => setCapacityOpen(!capacityOpen)}>
+                    {capacityOpen ? 'Skjul detaljer' : 'Vis detaljer'}
+                  </button>
+                ) : (
+                  <span className="section-meta">bare avvik vises</span>
+                )}
+              </div>
+              {staffingOpen && capacityOpen && (
+                <>
+                  <BaseCrewRow cols={cols} baseCrew={settings.baseCrew} />
+                  {capLanes.map((cap, lane) => (
+                    <CapRow key={`cap:${cap.line.id}:${cap.field}`} cap={cap} lane={lane} cols={cols} actions={actions} {...editOf('cap', lane)} />
+                  ))}
+                </>
               )}
+              <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} deviationOnly={!staffingOpen} />
             </div>
-            {staffingOpen && capacityOpen && (
-              <>
-                <BaseCrewRow cols={cols} baseCrew={settings.baseCrew} />
-                {capLanes.map((cap, lane) => (
-                  <CapRow key={`cap:${cap.line.id}:${cap.field}`} cap={cap} lane={lane} cols={cols} actions={actions} {...editOf('cap', lane)} />
-                ))}
-              </>
-            )}
-            <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} deviationOnly={!staffingOpen} />
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
                 <span className="lbl-desc" title="Nivåene radene er gruppert etter">

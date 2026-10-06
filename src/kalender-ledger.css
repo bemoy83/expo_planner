@@ -415,3 +415,7 @@ table.ledger{font-size:13px}
 .top-section{position:relative}
 .top-section.open .section-head{margin-bottom:1px}
 .top-section.open::after{content:'';position:absolute;top:26px;left:0;right:0;height:1px;background:var(--line);z-index:1;pointer-events:none}
+/* Bemanning: the hairline under it is the one above the «Planlegging» heading */
+.top-section.staffing{border-bottom:0}
+/* the line right under a heading has the heading's hairline above it already */
+.top-section .section-head + .grid-row .cell{border-top-color:transparent}
