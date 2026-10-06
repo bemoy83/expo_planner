@@ -61,7 +61,17 @@
   --band:color-mix(in oklab,#171613 6%,#f2f0eb);
   --band-we:color-mix(in oklab,#171613 10%,#f2f0eb);
 
-  font-family:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  /* type: one stack for text, one for numbers and dates, and the sizes text outside the grid's cells is set in */
+  --font-ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-num:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --fs-xs:11px;      /* small uppercase headings */
+  --fs-sm:12px;      /* figures, badges, counts */
+  --fs-md:13px;      /* grid lines, tables, hints */
+  --fs-base:14px;    /* body text and controls */
+  --fs-title-sm:16px;/* dialog titles */
+  --fs-title:20px;   /* page titles */
+
+  font-family:var(--font-ui);
 }
 
 /* ---- 3. Shell: header, tabs, controls ---- */
@@ -101,16 +111,20 @@ input[type='checkbox']{accent-color:var(--accent)}
 .grid-top{background:var(--bg);box-shadow:0 1px 0 var(--line-strong)}
 .grid-label{background:var(--bg);border-right-color:var(--line)}
 .grid-row{border-bottom-color:color-mix(in srgb,var(--line) 55%,transparent)}
-.cell{border-right-color:color-mix(in srgb,var(--line) 55%,transparent);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px}
-.section-head{background:var(--bg);border-bottom-color:var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
-.legend{text-transform:none;letter-spacing:0}
-.lbl-title{color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace}
+.cell{border-right-color:color-mix(in srgb,var(--line) 55%,transparent);font-family:var(--font-num);font-size:11.5px}
+/* small uppercase headings: one recipe for the section heads, the «Planlegging» heading row and the menu groups */
+.section-head,.col-head .grid-label,.menu-group{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.section-head{background:var(--bg);border-bottom-color:var(--line)}
+.col-head .lbl-num,.col-head .lbl-phase,.col-head .lbl-year{font-size:inherit;font-weight:inherit}
+/* what sits in a heading beside its name is ordinary text */
+.legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
+.lbl-title{color:var(--faint);font-family:var(--font-num)}
 
 /* dates */
-.cell.head{color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace}
+.cell.head{color:var(--faint);font-family:var(--font-num)}
 .month-label{color:var(--muted);text-transform:uppercase;font-weight:500;letter-spacing:.04em}
 .day-head .dn{font-weight:500}
-.day-head.today .dn{color:var(--accent);font-weight:700}
+.day-head.today .dn{color:var(--accent);font-weight:600}
 .day.today{box-shadow:inset 2px 0 0 var(--accent)}
 .day.month-start{border-left-color:var(--line-strong)}
 .day.helg{background:var(--weekend)}
@@ -123,8 +137,8 @@ input[type='checkbox']{accent-color:var(--accent)}
 .ph-event{background:var(--ph-event)!important}
 .ph-dismantle{background:var(--ph-dismantle)!important}
 .phase-code{color:color-mix(in srgb,var(--text) 55%,transparent)}
-.hall-label{font-family:'Schibsted Grotesk',system-ui,sans-serif;color:var(--text)}
-.lbl-hall{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:500;color:var(--muted)}
+.hall-label{font-family:var(--font-ui);color:var(--text)}
+.lbl-hall{font-family:var(--font-num);font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
 
 /* staffing + totals: gridless, read-only look */
 .sum-row,.sum-row .grid-label{background:var(--bg)}
@@ -137,7 +151,6 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* "Planlegging" column header: no day cells */
 .col-head,.col-head .grid-label{background:var(--bg)}
 .col-head .cell{border-right-color:transparent;background:none!important}
-.col-head .grid-label{color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
 
 /* ---- 5. Planning rows ---- */
 /* levels: only the project total gets a band; deeper levels are type + hairline only */
@@ -174,13 +187,14 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* selection, focus, editing */
 .cell.selected{background:var(--accent-soft)!important}
 .cell.focus{outline:1.5px solid var(--accent);outline-offset:-1.5px;box-shadow:0 0 0 3px var(--accent-soft)}
-.cell-input{outline:1.5px solid var(--accent);background:var(--surface);font-family:'JetBrains Mono',ui-monospace,monospace;caret-color:var(--accent)}
+.cell-input{outline:1.5px solid var(--accent);background:var(--surface);font-family:var(--font-num);caret-color:var(--accent)}
 .fill-handle{background:var(--accent)}
 .cell.editable.drawn{color:var(--accent)}
 .cell.has-note::after{border-top-color:var(--accent)}
 
 /* numbers */
-.lbl-num{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px}
+.lbl-num,.lbl-year,.lbl-level .count,.lbl-project>.muted{font-family:var(--font-num);font-size:var(--fs-sm)}
+.lbl-project>.muted:not(.count){font-weight:500}
 .delta.under{color:var(--muted);font-weight:600}
 .delta.over{color:var(--over)}
 .delta.ok{color:var(--pos)}
@@ -197,7 +211,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* ---- 6. Phase 2 ---- */
 /* E: the date of the focused cell */
 .day-head.active::before{content:'';position:absolute;inset:2px 3px;border-radius:6px;background:var(--accent-soft);pointer-events:none}
-.day-head.active .wd,.day-head.active .dn{color:var(--accent);font-weight:700}
+.day-head.active .wd,.day-head.active .dn{color:var(--accent);font-weight:600}
 
 /* H: legend for the planning cells, pinned beside the label column */
 .phase-legend{position:sticky;flex:none;width:0;align-self:stretch;display:flex;align-items:center;gap:14px;white-space:nowrap;overflow:visible;z-index:2;font-size:12px;color:var(--muted)}
@@ -210,7 +224,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 
 /* hall legend: one chip per phase with the code the cells use; the name is in the tooltip */
 .legend{gap:4px}
-.legend i{width:auto;height:auto;margin-left:0;padding:1px 5px;border-radius:4px;font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:color-mix(in srgb,var(--text) 70%,transparent)}
+.legend i{width:auto;height:auto;margin-left:0;padding:1px 5px;border-radius:4px;font-style:normal;font-family:var(--font-num);font-size:10.5px;color:color-mix(in srgb,var(--text) 70%,transparent)}
 
 /* C: the project's line carries a strip in the colour of the day's hall phase */
 .group-row .cell.group-cell.strip{isolation:isolate;box-shadow:none}
@@ -251,7 +265,7 @@ button.ghost:hover{background:var(--sunken)}
 .menu-pop>button:hover{background:var(--sunken)}
 .menu-pop>button.danger{color:var(--neg)}
 .menu-pop>button.danger:hover{background:var(--neg-bg)}
-.menu-group{margin-top:4px;padding:10px 10px 4px;border-top:1px solid var(--line);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--faint)}
+.menu-group{margin-top:4px;padding:10px 10px 4px;border-top:1px solid var(--line)}
 .menu-count{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--accent);color:#140c05;font-size:11px;font-weight:700}
 .filter-panel{display:flex;flex-direction:column;gap:10px;padding:8px 10px;min-width:280px}
 .filter-panel label{display:flex;flex-direction:column;align-items:stretch;gap:4px;color:var(--muted)}
@@ -266,7 +280,7 @@ button.ghost:hover{background:var(--sunken)}
 
 .page-head{display:flex;align-items:center;gap:14px;padding:10px 24px;border-bottom:1px solid var(--line)}
 .page-head h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em}
-.page-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--faint)}
+.page-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-num);font-size:12px;color:var(--faint)}
 
 .toolbar.zones{gap:12px;row-gap:8px}
 .zone{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -275,7 +289,7 @@ button.ghost:hover{background:var(--sunken)}
 .toolbar .grouping-bar{padding:0;border-bottom:none;flex-wrap:nowrap}
 
 /* F: what a folded section of the top block hides */
-.section-meta{margin-left:8px;text-transform:none;letter-spacing:0;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:var(--faint)}
+.section-meta{margin-left:8px;text-transform:none;letter-spacing:0;font-family:var(--font-num);font-size:10.5px;color:var(--faint)}
 
 /* D: a folded level shows its sums on a strip in the colour of the work phase */
 .strip-mon::before{background:var(--mon)}
@@ -368,10 +382,13 @@ select,input[type='date'],input[type='search'],input:not([type]),input[type='tex
 .twisty:hover{background:var(--sunken)}
 .row-action{width:22px;height:22px;padding:0;border-radius:6px}
 .row-action:hover{background:var(--sunken);color:var(--text)}
-.lbl-num{width:46px;font-size:12px}
+.lbl-num{width:46px}
 .hall-label{line-height:22px}
 .group-row.depth-0 .lbl-project{font-size:14px}
-table.ledger{font-size:13px}
+table.ledger{font-size:var(--fs-md)}
+/* numbers and dates in the tables are set as in the Kalender */
+table.ledger .num,table.ledger .date,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
+code{font-family:var(--font-num);font-size:.9em}
 
 /* planning rows: no rules between them; the line under the pointer is tinted instead */
 .alloc-row{border-bottom-color:transparent}
@@ -392,7 +409,7 @@ table.ledger{font-size:13px}
 .grid-alloc .grid-row{border-bottom:0}
 
 /* ---- 11. Hall calendar: a rounded bar per phase of each event, as in the mockup ---- */
-.hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;color:color-mix(in srgb,var(--text) 60%,transparent)}
+.hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:10px;color:color-mix(in srgb,var(--text) 60%,transparent)}
 .hall-bar.shared{background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px)!important}
 .hall-label{z-index:1;padding-left:7px;font-weight:600;font-size:11.5px}
 /* no rules between the halls: the bars carry the line. No border at all, or an invisible one would cut the today line into dashes. */

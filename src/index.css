@@ -89,7 +89,7 @@ input[type='text'] {
   color: var(--muted);
 }
 .small {
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 .center {
   text-align: center;
@@ -118,7 +118,7 @@ input[type='text'] {
   flex: 1;
 }
 .save-state {
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: var(--pos);
 }
 .save-state.saving {
@@ -455,7 +455,6 @@ input[type='text'] {
 }
 .lbl-level .count {
   font-weight: 400;
-  font-size: 11px;
 }
 .group-row.depth-0 .lbl-project {
   font-weight: 600;
@@ -687,7 +686,8 @@ input[type='text'] {
 }
 .dialog h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--fs-title-sm);
+  font-weight: 600;
 }
 .dialog label {
   display: flex;
@@ -715,7 +715,7 @@ input[type='text'] {
 }
 .hint {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-md);
   font-weight: 400;
 }
 .dialog-result {
@@ -765,12 +765,16 @@ input[type='text'] {
   overflow: auto;
   padding: 12px 16px 32px;
 }
-.behov-body h2 {
-  font-size: 16px;
+.behov-body h2,
+.empty-state h2 {
+  font-size: var(--fs-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   margin: 4px 0 12px;
 }
 .behov-body h3 {
-  font-size: 13px;
+  font-size: var(--fs-base);
+  font-weight: 600;
   margin: 0;
 }
 .behov-body section {
@@ -982,7 +986,7 @@ button.danger {
   border-color: var(--neg);
 }
 .badge {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   padding: 1px 6px;
   border-radius: 8px;
   background: var(--pos-bg);
@@ -995,7 +999,7 @@ button.link.issue {
 .unlinked {
   color: var(--over);
   font-weight: 400;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .row-actions[hidden] {
   display: none;
@@ -1056,7 +1060,6 @@ table.ledger select.location.unresolved {
 /* What a pencil stroke would put in a cell, while it is being drawn. */
 .cell.editable.drawn {
   color: var(--accent);
-  font-style: italic;
   font-weight: 600;
 }
 
@@ -1079,7 +1082,7 @@ table.ledger select.location.unresolved {
 }
 .lbl-warning {
   color: var(--neg);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   cursor: help;
 }
 
@@ -1092,7 +1095,7 @@ table.ledger select.location.unresolved {
   border-radius: 5px;
   background: #1d2129;
   color: #fff;
-  font-size: 12px;
+  font-size: var(--fs-md);
   line-height: 1.35;
   white-space: pre-line;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -1136,7 +1139,7 @@ table.ledger select.location.unresolved {
 }
 .grid-canvas .day.overbooked.day-head {
   color: var(--neg);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* A cell an eraser stroke is about to clear. */

@@ -213,7 +213,7 @@ export function Haller() {
                         </td>
                         <td className="hall-name">{booking.hall}</td>
                         {VENUE_PHASES.map((phase) => (
-                          <td key={phase}>{span(booking.phases[phase])}</td>
+                          <td key={phase} className="date">{span(booking.phases[phase])}</td>
                         ))}
                         <td>{booking.status}</td>
                         <td className="muted">{booking.id.startsWith(VENYOU_ID_PREFIX) ? 'Venyou' : 'Arbeidsbok'}</td>
