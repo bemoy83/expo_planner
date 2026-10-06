@@ -16,7 +16,7 @@ export const projectHoverCss = (project: string): string => {
     `.hall-bar:not(${is}),.hall-label:not(${is}),.hall-row:not(${among}) .lbl-hall{opacity:.3}`,
     `.hall-bar${is}{box-shadow:0 0 0 1.5px var(--text)}`,
     `.hall-row${among} .lbl-hall{font-weight:700;color:var(--text)}`,
-    `.hall-row${among}>.grid-label{box-shadow:inset 3px 0 0 var(--text)}`,
+    `.hall-row${among}>.grid-label{box-shadow:inset -3px 0 0 var(--text)}`,
   ].join('\n')
 }
 
@@ -26,13 +26,16 @@ export const projectHoverCss = (project: string): string => {
  * style rule written into the page. Nothing is drawn again by React, and lines that scroll into view
  * are lit by the same rule. Returns the handlers for the element that holds the grid.
  * It follows the setting for tooltips: switched off, nothing is lit.
+ * `pin` keeps one project lit whatever the setting, while the mouse is on no other project.
  */
 export const useProjectHover = (enabled = true) => {
-  const state = useRef<{ style: HTMLStyleElement | null; shown: string | null; timer: ReturnType<typeof setTimeout> | undefined }>({ style: null, shown: null, timer: undefined })
+  const state = useRef<{ style: HTMLStyleElement | null; shown: string | null; hovered: string | null; pinned: string | null; timer: ReturnType<typeof setTimeout> | undefined }>({ style: null, shown: null, hovered: null, pinned: null, timer: undefined })
   const hover = useMemo(() => {
-    const show = (project: string | null) => {
+    const show = (hovered: string | null) => {
       const now = state.current
       clearTimeout(now.timer)
+      now.hovered = hovered
+      const project = hovered ?? now.pinned
       if (project === now.shown) return
       now.shown = project
       now.style ??= document.createElement('style')
@@ -45,10 +48,15 @@ export const useProjectHover = (enabled = true) => {
         const project = on.current && e.buttons === 0 && e.target instanceof Element ? (e.target.closest<HTMLElement>('[data-project]')?.dataset.project ?? null) : null
         clearTimeout(state.current.timer)
         if (project === null) show(null)
-        else if (project !== state.current.shown) state.current.timer = setTimeout(() => show(project), DELAY_MS)
+        else if (project !== state.current.hovered) state.current.timer = setTimeout(() => show(project), DELAY_MS)
       },
       onMouseLeave: () => show(null),
+      pin: (project: string | null) => {
+        state.current.pinned = project
+        show(state.current.hovered)
+      },
       dispose: () => {
+        state.current.pinned = null
         show(null)
         state.current.style?.remove()
       },

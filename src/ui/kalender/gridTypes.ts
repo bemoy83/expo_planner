@@ -52,6 +52,8 @@ export interface GridActions {
   commitDraft: () => void
   draftKey: (e: KeyboardEvent) => void
   fillDown: (section: Section, e: MouseEvent) => void
+  /** A click on the name of a project that is in the hall calendar. */
+  showProject: (key: string) => void
   toggleGroup: (key: string) => void
   toggleEntry: (key: string) => void
   proposePlan: (rows: AllocationRow[], replace: boolean) => void

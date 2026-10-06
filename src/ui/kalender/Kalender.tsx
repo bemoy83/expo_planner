@@ -14,7 +14,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { Segmented, UndoRedoButtons } from '../common'
 import { CellMenu } from './CellMenu'
-import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
+import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows } from './GridRows'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { GroupingMenu } from './GroupingMenu'
@@ -93,6 +93,10 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const [topHeight, setTopHeight] = useState(0)
   const [barHeight, setBarHeight] = useState(0)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
+  // The project whose halls and days the hall calendar is showing, after a click on its name.
+  const [located, setLocated] = useState<string | null>(null)
+  // The days to bring into view, once the column width that fits them is in place.
+  const [goTo, setGoTo] = useState<{ start: ISODate; end: ISODate } | null>(null)
 
   const colW = ZOOM_WIDTHS[zoom]
   // The period follows the hall bookings, see `calendarRange`.
@@ -240,6 +244,17 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const visibleDates = useMemo(() => dates.slice(c0, c1 + 1), [dates, c0, c1])
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
   const topPinned = topHeight < viewport.height * 0.65
+  // Bring a project's days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el || !goTo) return
+    const { leftCol } = fitSpan(daysBetween(range.start, goTo.start), daysBetween(goTo.start, goTo.end) + 1, el.clientWidth - LEFT_W, zoom)
+    el.scrollLeft = leftCol * colW
+    // The hall calendar scrolls away with the rows when it is too tall to pin.
+    if (!topPinned) el.scrollTop = 0
+    onScroll()
+    setGoTo(null)
+  }, [goTo]) // eslint-disable-line react-hooks/exhaustive-deps
   // Where each line starts: the top level's lines are taller than the rest. One entry more than there are lines, the last being the full height.
   const rowTops = useMemo(() => {
     const tops = [0]
@@ -818,6 +833,18 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       fillRef.current = started
       setFill(started)
     },
+    // Shows where and when a project is: its days are brought into view, in narrower columns if they do not
+    // fit, and its halls and bars stay lit. A click on the same project again lets go of it.
+    showProject: (key) => {
+      const span = located === key ? undefined : allGroups.find((group) => group.key === key)?.venue
+      setLocated(span ? key : null)
+      projectHover.pin(span ? key : null)
+      if (!span) return
+      const el = scrollRef.current
+      const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
+      if (fit.zoom !== zoom) setZoom(fit.zoom)
+      setGoTo(span)
+    },
     toggleGroup,
     toggleEntry,
     proposePlan,
@@ -840,7 +867,11 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || typingIn(e.target) || dialog) return
       if (e.key === 'Escape') {
         if (cellMenu) setCellMenu(null)
-        else setTool('select')
+        else if (tool !== 'select') setTool('select')
+        else if (located) {
+          setLocated(null)
+          projectHover.pin(null)
+        }
         return
       }
       const picked = TOOL_KEYS[e.key.toLowerCase()]
@@ -848,7 +879,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [cellMenu, dialog])
+  }, [cellMenu, dialog, tool, located, projectHover])
   // While Shift or Alt is held the planning cells show what a drag would do.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => setModifier(e.altKey ? 'eraser' : e.shiftKey ? 'pencil' : null)
@@ -1023,7 +1054,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and stay pinned even when the top block is too tall to be. */}
           <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : 0 }}>
-            <PlanBar width={viewport.width} fitKey={`${grouping.join()}|${filterFit.label}|${filterFit.others}|${hints}|${tool}`}>
+            <PlanBar width={viewport.width} fitKey={`${grouping.join()}|${filterFit.label}|${filterFit.others}|${hints}|${tool}|${collapsed.size > 0}`}>
               <div className="bar-zone">
                 <UndoRedoButtons />
                 <ToolSwitch tool={tool} onChange={setTool} />
@@ -1040,12 +1071,12 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
                     }}
                   />
                   <button
-                    className="ghost icon-button"
-                    aria-label={collapsed.size ? 'Utvid alle' : 'Fold sammen'}
+                    className="ghost"
                     title={collapsed.size ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'}
                     onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
                   >
                     {collapsed.size ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}
+                    {collapsed.size ? 'Utvid alle' : 'Fold sammen'}
                   </button>
                 </div>
                 <div className="bar-zone bar-zone-end">
