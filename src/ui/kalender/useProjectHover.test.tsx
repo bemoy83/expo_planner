@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { projectHoverCss, useProjectHover } from './useProjectHover'
+import { projectHoverCss, projectList, useProjectHover } from './useProjectHover'
 
 function Grid() {
   const hover = useProjectHover()
@@ -16,6 +16,13 @@ function Grid() {
 }
 
 const rule = () => [...document.head.querySelectorAll('style')].map((style) => style.textContent).join('')
+
+describe('projectList', () => {
+  it('keeps projects apart whose keys hold spaces', () => {
+    expect(projectList(['26970', 'navn:oslo motor show'])).toBe('|26970|navn:oslo motor show|')
+    expect(projectHoverCss('26970')).toContain('[data-projects*="|26970|"]')
+  })
+})
 
 describe('useProjectHover', () => {
   beforeEach(() => vi.useFakeTimers())

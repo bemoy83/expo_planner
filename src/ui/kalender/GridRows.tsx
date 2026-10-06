@@ -25,9 +25,9 @@ const INDENT = 14
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
 /** One line of the grid: the label column, then a cell per drawn day. */
-function Line({ className = '', label, cols, cells, overlay, height = ROW_H, project }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string }) {
+function Line({ className = '', label, cols, cells, overlay, height = ROW_H, project, projects }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string; /** On a hall's line: its projects, see `projectList`. */ projects?: string }) {
   return (
-    <div className={`grid-row ${className}`} style={{ height }} data-project={project}>
+    <div className={`grid-row ${className}`} style={{ height }} data-project={project} data-projects={projects}>
       <div className="grid-label" style={{ width: LEFT_W }}>
         {label}
       </div>
@@ -137,6 +137,8 @@ interface HallRowProps {
   /** The hall's bookings as bars, see `hallSegments`. */
   bars: HallSegment[] | undefined
   runs: HallLabelRun[] | undefined
+  /** The projects with a booking in the hall, as `projectList` writes them, so the hall can be marked for one of them. */
+  projects: string | undefined
   cols: Columns
   zoom: Zoom
 }
@@ -145,7 +147,7 @@ interface HallRowProps {
  * One hall of the hall calendar: a bar per phase of each event, with the events' names laid over them.
  * The day cells under the bars are empty, so a line costs a handful of bars however many days it shows.
  */
-export const HallRow = memo(function HallRow({ hall, bars, runs, cols, zoom }: HallRowProps) {
+export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols, zoom }: HallRowProps) {
   const { c0, colW } = cols
   const c1 = c0 + cols.dates.length - 1
   // Names of the events in or near the visible dates, each with the width it may take.
@@ -162,6 +164,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, cols, zoom }: H
     <Line
       className="hall-row"
       height={HALL_ROW_H}
+      projects={projects}
       label={<span className="lbl-hall">{hall}</span>}
       cols={cols}
       cells={(date) => <div key={date} className={`${dayClass(cols, date)} cell hall`} style={{ width: colW }} />}

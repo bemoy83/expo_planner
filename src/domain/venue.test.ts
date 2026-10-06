@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHallCalendar, dominantEntry, hallNames, hallProjects, hallRuns, hallSegments, projectPhases, splitEntries, type HallDayEntry } from './venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallProjects, hallRuns, projectsOfHalls, hallSegments, projectPhases, splitEntries, type HallDayEntry } from './venue'
 import type { VenueBooking } from './types'
 
 const booking = (overrides: Partial<VenueBooking>): VenueBooking => ({
@@ -131,6 +131,12 @@ describe('hall projects', () => {
     expect(project('C', 'VVS DAGENE 2026', '2026-10-05')).toBe('vvs 2026')
     expect(project('C', 'VVS DAGENE 2026', '2026-10-10')).toBe('vvs 2026')
     expect(project('D', 'VVS DAGENE 2026', '2026-10-08')).toBe('vvs 2026')
+  })
+
+  it('lists the projects of each hall', () => {
+    const halls = projectsOfHalls(bookings, projectOf)
+    expect([...halls.get('C')!]).toEqual(['vvs 2026', 'vvs 2027'])
+    expect([...halls.get('D')!]).toEqual(['vvs 2026'])
   })
 
   it('tells the same event name in another year apart', () => {

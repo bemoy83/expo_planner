@@ -193,3 +193,13 @@ export const hallProjects = (bookings: VenueBooking[], projectOf: (booking: Venu
   }
   return (hall, eventName, date) => index.get(`${hall}|${eventName}`)?.find((span) => date >= span.start && date <= span.end)?.project
 }
+
+/** The projects that have a booking in each hall. `projectOf` gives the project a booking belongs to, or null. */
+export const projectsOfHalls = (bookings: VenueBooking[], projectOf: (booking: VenueBooking) => string | null): Map<string, Set<string>> => {
+  const halls = new Map<string, Set<string>>()
+  for (const booking of bookings) {
+    const project = projectOf(booking)
+    if (project !== null) halls.set(booking.hall, (halls.get(booking.hall) ?? new Set()).add(project))
+  }
+  return halls
+}

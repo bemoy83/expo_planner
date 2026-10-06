@@ -4,7 +4,7 @@ import { calendarRange } from '../../domain/calendarRange'
 import { addDays, dateRange, daysBetween, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { VENUE_PHASES, type AllocationRow, type VenueBooking } from '../../domain/types'
-import { buildHallCalendar, hallNames, hallProjects, hallRuns, hallSegments, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
+import { buildHallCalendar, hallNames, hallProjects, hallRuns, hallSegments, projectsOfHalls, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { fillAcross, shareOverDays, spread } from '../../domain/spread'
@@ -22,7 +22,7 @@ import { GroupingBar } from './GroupingBar'
 import { fmtDate, rowTitle } from './labels'
 import { NoteEditor } from './parts'
 import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
-import { useProjectHover } from './useProjectHover'
+import { projectList, useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eraser, Filter, MousePointer2, Pencil, Plus } from 'lucide-react'
@@ -93,6 +93,7 @@ export function Kalender() {
   }, [events])
   // The project behind each bar and name of the hall calendar, so that pointing at a project can light them.
   const hallProject = useMemo(() => hallProjects(shownVenue, projectOf), [shownVenue, projectOf])
+  const hallProjectLists = useMemo(() => new Map([...projectsOfHalls(shownVenue, projectOf)].map(([hall, projects]) => [hall, projectList(projects)])), [shownVenue, projectOf])
   // Each event's name sits on the first day of the arrangement itself in the hall and scrolls with it.
   const hallLabels = useMemo(() => {
     const labels = new Map<string, HallLabelRun[]>()
@@ -1017,7 +1018,7 @@ export function Kalender() {
                   Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
                 </div>
               )}
-              {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} cols={cols} zoom={zoom} />)}
+              {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} cols={cols} zoom={zoom} />)}
             </div>
 
             {/* Bemanning is framed the same way; its heading always has the Avvik line under it. */}
