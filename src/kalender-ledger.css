@@ -56,6 +56,8 @@
   --neg:#c53637; --neg-bg:#f9e5e2;
   --pos:#287c42; --pos-bg:#e2efe3;
   --over:#8f5e0a;
+  --overtime:#6a4c93;      /* the overtime line in Bemanning */
+  --on-accent:#140c05;     /* text on the accent fill */
 
   /* project total band (the only tinted level) */
   --band:color-mix(in oklab,#171613 6%,#f2f0eb);
@@ -85,7 +87,7 @@
 
 button{border:none;border-radius:8px;background:var(--sunken);padding:5px 12px;transition:background .12s}
 button:hover{border-color:transparent;background:color-mix(in oklab,var(--sunken) 80%,var(--text))}
-button.primary{background:var(--accent);color:#140c05;font-weight:600}
+button.primary{background:var(--accent);color:var(--on-accent);font-weight:600}
 button.link{background:none;color:var(--text);text-decoration:underline;text-decoration-color:var(--line-strong)}
 button.link:hover{background:none;color:var(--accent)}
 button.danger{background:var(--neg-bg);color:var(--neg)}
@@ -116,6 +118,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .section-head,.col-head .grid-label,.menu-group{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
 .section-head{background:var(--bg);border-bottom-color:var(--line)}
 .col-head .lbl-num,.col-head .lbl-phase,.col-head .lbl-year{font-size:inherit;font-weight:inherit}
+.col-head .lbl-year,.col-head .lbl-basis{color:inherit}
 /* what sits in a heading beside its name is ordinary text */
 .legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
 .lbl-title{color:var(--faint);font-family:var(--font-num)}
@@ -266,7 +269,7 @@ button.ghost:hover{background:var(--sunken)}
 .menu-pop>button.danger{color:var(--neg)}
 .menu-pop>button.danger:hover{background:var(--neg-bg)}
 .menu-group{margin-top:4px;padding:10px 10px 4px;border-top:1px solid var(--line)}
-.menu-count{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--accent);color:#140c05;font-size:11px;font-weight:700}
+.menu-count{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700}
 .filter-panel{display:flex;flex-direction:column;gap:10px;padding:8px 10px;min-width:280px}
 .filter-panel label{display:flex;flex-direction:column;align-items:stretch;gap:4px;color:var(--muted)}
 .filter-panel label.check{flex-direction:row;align-items:center;gap:6px;color:var(--text)}
@@ -329,13 +332,13 @@ button.ghost:hover{background:var(--sunken)}
   --neg:#f97770; --neg-bg:#301615;
   --pos:#6fd087; --pos-bg:#112618;
   --over:#f2b54f;
+  --overtime:#c2b1f8;
 
   --band:color-mix(in oklab,#f3f2ee 8%,#0f0f0e);
   --band-we:color-mix(in oklab,#f3f2ee 12%,#0f0f0e);
 }
 /* the places index.css paints with fixed light colours */
 .dark .tooltip{background:#3a3935;color:#f3f2ee}
-.dark .lbl-cap.group-overtime{color:#c2b1f8}
 .dark table.ledger tr.has-issue td,.dark .orphans{background:#2b200d;border-color:#503b16}
 .dark table.ledger tr.hidden-row td{background:var(--panel)}
 .dark .fill-handle{border-color:var(--bg)}

@@ -394,7 +394,7 @@ input[type='text'] {
   font-weight: 600;
 }
 .lbl-cap.group-overtime {
-  color: #6a4c93;
+  color: var(--overtime);
 }
 .lbl-cap.group-unavailable {
   color: var(--neg);
@@ -1021,8 +1021,8 @@ table.ledger select.location.chosen {
   font-weight: 600;
 }
 table.ledger select.location.unresolved {
-  background-color: var(--holiday);
-  color: var(--dem-strong);
+  background-color: color-mix(in srgb, var(--over) 14%, transparent);
+  color: var(--over);
 }
 
 /* A level that takes FTE itself instead of only summing its rows. */
@@ -1053,7 +1053,7 @@ table.ledger select.location.unresolved {
   cursor: crosshair;
 }
 .status-notice {
-  color: var(--accent);
+  color: var(--text);
   font-weight: 600;
 }
 
