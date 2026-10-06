@@ -4,6 +4,8 @@ export const ROW_H = 28
 export const TOP_ROW_H = 34
 /** The lines of the hall calendar are lower: there are many halls, and they hold no numbers. */
 export const HALL_ROW_H = 22
+/** The Avvik line as a heat map: room for a tile with air around it. */
+export const HEAT_ROW_H = 30
 export const LEFT_W = 544
 export const OVERSCAN_COLS = 6
 export const OVERSCAN_ROWS = 8

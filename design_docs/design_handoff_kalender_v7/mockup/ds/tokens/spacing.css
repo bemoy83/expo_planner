@@ -1,0 +1,26 @@
+/* Shell, panes, radii, controls, elevation, motion — from app/globals.css */
+:root {
+  --app-header-h: 52px;
+  --page-pad-x: 24px;
+  --page-header-pad: 22px 24px 18px;
+  --pane-pad: 20px 24px;
+  --editor-pad: 24px 32px;
+  --rail-pad: 16px 12px;
+  --rail-w: 260px;
+  --category-w: 200px;
+  --panel-w: 360px;
+  --quickview-w: 420px;
+
+  --radius-xs: 4px;        /* swatch / logo mark */
+  --radius-sm: 6px;        /* segmented inner, small chips */
+  --radius-md: 8px;        /* inputs, header buttons */
+  --radius-row: 10px;      /* list rows, cards, CTA buttons */
+  --radius-lg: 12px;       /* containers */
+  --radius-inverse: 14px;  /* inverted commit block */
+  --radius-2xl: 20px;
+  --radius-pill: 9999px;
+
+  --control-h: 42px;       /* inputs (38 compact · 46 staff run view) */
+  --button-h: 36px;
+  --cta-pad: 13px;
+}

@@ -68,6 +68,8 @@ function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Whether hovering shows help texts. A choice for this browser, like the other view preferences.
   const [tooltips, setTooltips] = usePref('tooltips', true)
+  // Whether the Avvik line of the Kalender is drawn as a heat map.
+  const [heat, setHeat] = usePref('heat', true)
   // Light or dark, also a choice for this browser. main.tsx sets it before the first paint.
   const [theme, setTheme] = usePref<'light' | 'dark'>('theme', 'light')
   useEffect(() => {
@@ -192,6 +194,9 @@ function Shell() {
               <button role="menuitem" aria-pressed={tooltips} onClick={() => setTooltips(!tooltips)}>
                 Hjelpetekster {tooltips ? 'på' : 'av'}
               </button>
+              <button role="menuitem" aria-pressed={heat} title="Vis avviket mellom tilgjengelig og planlagt bemanning som fargede felt: rødt for underdekning, gult for stramt, grønt for ledig." onClick={() => setHeat(!heat)}>
+                Varmekart for avvik {heat ? 'på' : 'av'}
+              </button>
               {workspace && (
                 <button
                   role="menuitem"
@@ -310,7 +315,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {status === 'ready' && workspace && view === 'kalender' && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} hints={tooltips} />}
+      {status === 'ready' && workspace && view === 'kalender' && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} hints={tooltips} heat={heat} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
       {status === 'ready' && workspace && view === 'produkttyper' && <Produkttyper onOpenKpi={() => setView('kpi')} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi onOpenProductTypes={() => setView('produkttyper')} />}

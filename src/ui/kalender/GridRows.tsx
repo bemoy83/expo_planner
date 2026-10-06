@@ -1,17 +1,17 @@
-import { memo, type ReactNode } from 'react'
+import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { capacityForDate, formatFte } from '../../domain/calc'
 import { addDays, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
-import { isSuggestedRow } from '../../domain/plannedRows'
 import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate } from './labels'
-import { HALL_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
+import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
+import { HEAT_LABELS, heatTile } from './heat'
 import { CoverageBar } from './parts'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
-import { ChevronDown, ChevronRight, Pencil, Plus, TriangleAlert, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
@@ -25,10 +25,10 @@ const INDENT = 14
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
 /** One line of the grid: the label column, then a cell per drawn day. */
-function Line({ className = '', label, cols, cells, overlay, height = ROW_H, project, projects }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string; /** On a hall's line: its projects, see `projectList`. */ projects?: string }) {
+function Line({ className = '', label, cols, cells, overlay, height = ROW_H, project, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string; /** On a hall's line: its projects, see `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
   return (
     <div className={`grid-row ${className}`} style={{ height }} data-project={project} data-projects={projects}>
-      <div className="grid-label" style={{ width: LEFT_W }}>
+      <div className="grid-label" style={{ width: LEFT_W }} onClick={onLabelClick}>
         {label}
       </div>
       <div className="grid-spacer" style={{ width: cols.c0 * cols.colW }} />
@@ -52,9 +52,11 @@ interface ValueCell {
   actions: GridActions
   section: Section
   lane: number
+  /** A right-click on the cell opens the cell menu. */
+  menu?: boolean
 }
 
-const valueCell = ({ cols, edit, actions, section, lane }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
+const valueCell = ({ cols, edit, actions, section, lane, menu }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
   const focus = edit.focusCol === col
   const selected = col >= edit.selFrom && col <= edit.selTo
   // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
@@ -70,6 +72,7 @@ const valueCell = ({ cols, edit, actions, section, lane }: ValueCell, date: ISOD
       onMouseDown={(e) => actions.cellDown(section, lane, col, e)}
       onMouseEnter={() => actions.cellEnter(section, lane, col)}
       onDoubleClick={() => actions.editCell(value)}
+      onContextMenu={menu ? (e) => actions.cellMenu(lane, col, e) : undefined}
     >
       {focus && edit.draft !== null ? (
         <input className="cell-input" autoFocus value={edit.draft} onChange={(e) => actions.setDraft(e.target.value)} onBlur={() => actions.commitDraft()} onKeyDown={actions.draftKey} />
@@ -222,8 +225,29 @@ export const CapRow = memo(function CapRow({ cap, lane, cols, actions, ...edit }
   )
 })
 
+interface SumRowsProps {
+  cols: Columns
+  need: Map<ISODate, number>
+  capacity: CapacityLine[]
+  settings: Settings
+  deviationOnly: boolean
+  /** Whether Avvik is drawn as a heat map, see `heatTile`. */
+  heat: boolean
+  /** The largest shortage and surplus of the period, which the heat map is scaled by. */
+  maxShortage: number
+  maxSurplus: number
+}
+
+/** What the colours of the heat map mean, beside the name of the Avvik line. */
+const HEAT_LEGEND: [string, number][] = [
+  ['short', 85],
+  ['short', 35],
+  ['tight', 22],
+  ['spare', 22],
+]
+
 /** The totals under the staffing lines: planned need, available crew and the difference. With the section folded only the difference shows. */
-export const SumRows = memo(function SumRows({ cols, need, capacity, settings, deviationOnly }: { cols: Columns; need: Map<ISODate, number>; capacity: CapacityLine[]; settings: Settings; deviationOnly: boolean }) {
+export const SumRows = memo(function SumRows({ cols, need, capacity, settings, deviationOnly, heat, maxShortage, maxSurplus }: SumRowsProps) {
   return (
     <>
       {!deviationOnly && (
@@ -240,16 +264,48 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
           />
         </>
       )}
-      <Line
-        className="sum-row deviation-row"
-        label={<span className="lbl-cap strong">Avvik</span>}
-        cols={cols}
-        cells={(date) => {
-          const dev = capacityForDate(date, capacity, settings).available - (need.get(date) ?? 0)
-          const n = need.get(date) ?? 0
-          return readCell(cols, date, n || dev ? dev : undefined, `sum-cell dev ${dev < -0.05 ? 'neg' : dev > 0.05 && n ? 'pos' : ''}`)
-        }}
-      />
+      {heat ? (
+        <Line
+          className="sum-row deviation-row heat-row"
+          height={HEAT_ROW_H}
+          label={
+            <>
+              <span className="lbl-cap strong">Avvik</span>
+              <span className="heat-legend" title="Rødt: underdekning (mørkere = større). Gult: stramt (under 2 FTE ledig). Grønt: ledig kapasitet.">
+                {HEAT_LEGEND.map(([kind, percent]) => (
+                  <i key={`${kind}${percent}`} className={`heat ${kind}`} style={{ '--p': `${percent}%` } as CSSProperties} />
+                ))}
+              </span>
+            </>
+          }
+          cols={cols}
+          cells={(date) => {
+            const available = capacityForDate(date, capacity, settings).available
+            const n = need.get(date) ?? 0
+            // A day with no crew and nothing planned has nothing to show.
+            if (!available && !n) return <div key={date} className={`${dayClass(cols, date)} cell sum-cell`} style={{ width: cols.colW }} />
+            const dev = available - n
+            const tile = heatTile(dev, maxShortage, maxSurplus)
+            return (
+              <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} style={{ width: cols.colW }} title={`${HEAT_LABELS[tile.kind]} ${formatFte(dev)} FTE`}>
+                <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
+                <span className="heat-value">{formatFte(dev)}</span>
+              </div>
+            )
+          }}
+        />
+      ) : (
+        <Line
+          className="sum-row deviation-row"
+          label={<span className="lbl-cap strong">Avvik</span>}
+          cols={cols}
+          cells={(date) => {
+            const dev = capacityForDate(date, capacity, settings).available - (need.get(date) ?? 0)
+            const n = need.get(date) ?? 0
+            return readCell(cols, date, n || dev ? dev : undefined, `sum-cell dev ${dev < -0.05 ? 'neg' : dev > 0.05 && n ? 'pos' : ''}`)
+          }}
+        />
+      )}
     </>
   )
 })
@@ -386,10 +442,14 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
   const phaseDays = r.phase === 'Demontering' ? 'demonteringsdagene' : 'monteringsdagene'
   const outside = window?.size ? Object.keys(r.fte).filter((date) => r.fte[date] && !window.has(date)) : []
   const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
-  const cell: ValueCell = { cols, edit, actions, section: 'alloc', lane }
+  const cell: ValueCell = { cols, edit, actions, section: 'alloc', lane, menu: true }
+  const remaining = (totals.requiredFte ?? 0) - totals.plannedFte
   return (
     <Line
       className="alloc-row"
+      onLabelClick={(e) => {
+        if (!(e.target instanceof Element && e.target.closest('button'))) actions.selectRow(lane)
+      }}
       project={item.project.venue ? item.project.key : undefined}
       cols={cols}
       label={
@@ -416,22 +476,18 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
             <CoverageBar required={totals.requiredFte} planned={totals.plannedFte} />
           </span>
           <span className="row-slot row-actions">
-            {window?.size ? (
-              <button className="row-action" title={`Foreslå plan for raden: fordel det som gjenstår av behovet på ${phaseDays} i hallen. Erstatter det som står på de dagene.`} onClick={() => actions.proposePlan([r], true)}>
-                ✦
-              </button>
-            ) : null}
-            {/* A suggested row is not stored yet, so there is nothing to edit or delete. */}
-            {!isSuggestedRow(r) && (
-              <>
-                <button className="row-action" title="Endre rad" onClick={() => actions.editRow(r)}>
-                  <Pencil size={13} aria-hidden />
-                </button>
-                <button className="row-action" title="Slett rad" onClick={() => actions.removeRow(r)}>
-                  <X size={13} aria-hidden />
-                </button>
-              </>
-            )}
+            <button
+              className="row-action"
+              disabled={!window?.size || remaining <= 0.05}
+              aria-label="Fordel det som gjenstår over vinduet"
+              title={`Fordel det som gjenstår av behovet på ${phaseDays} i hallen. Erstatter det som står på de dagene.`}
+              onClick={() => actions.proposePlan([r], true)}
+            >
+              <Pencil size={14} aria-hidden />
+            </button>
+            <button className="row-action" disabled={Object.keys(r.fte).length === 0} aria-label="Tøm raden" title="Tøm raden" onClick={() => actions.clearRow(r)}>
+              <Eraser size={14} aria-hidden />
+            </button>
           </span>
         </>
       }

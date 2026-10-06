@@ -15,17 +15,21 @@ import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { Menu, Segmented, UndoRedoButtons } from '../common'
+import { CellMenu } from './CellMenu'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows, type HallLabelRun } from './GridRows'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
-import { GroupingBar } from './GroupingBar'
+import { GroupingMenu } from './GroupingBar'
+import { heatScale } from './heat'
 import { fmtDate, rowTitle } from './labels'
 import { NoteEditor } from './parts'
+import { PlanBar } from './PlanBar'
+import { RowInspector, type RowDetails } from './RowInspector'
 import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
 import { projectList, useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eraser, Filter, MousePointer2, Pencil, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eraser, Filter, Info, MousePointer2, PanelRight, Pencil, Plus } from 'lucide-react'
 
 /** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
 interface AllocLane {
@@ -39,8 +43,17 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false,
 
 const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
 
-/** `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing. */
-export function Kalender({ hints = true }: { hints?: boolean }) {
+type Tool = 'select' | 'pencil' | 'eraser'
+/** The keys that pick a tool, anywhere on the page. */
+const TOOL_KEYS: Record<string, Tool> = { v: 'select', f: 'pencil', t: 'eraser' }
+
+const typingIn = (target: EventTarget | null) => target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)
+
+/**
+ * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
+ * `heat` is the setting «Varmekart for avvik»: the Avvik line as coloured tiles.
+ */
+export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?: boolean }) {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const { settings } = ws
@@ -58,10 +71,21 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const [selection, setSelection] = useState<Selection | null>(null)
   // With the pencil, drawing across days on a row shares out what is left of its demand over those days.
   // With the eraser, drawing across cells clears them.
-  const [tool, setTool] = useState<'select' | 'pencil' | 'eraser'>('select')
+  const [tool, setTool] = useState<Tool>('select')
   const [notice, setNotice] = useState<string | null>(null)
   const dragging = useRef<Section | null>(null)
-  const [drawing, setDrawing] = useState(false)
+  // The tool of the stroke being drawn. Shift or Alt held when the mouse goes down picks the pencil or the
+  // eraser for that one stroke, whatever tool is chosen.
+  const [stroke, setStroke] = useState<Exclude<Tool, 'select'> | null>(null)
+  const strokeRef = useRef<Exclude<Tool, 'select'> | null>(null)
+  // A Shift-click extends the selection, as in Excel. Dragged on to another cell, it becomes a pencil stroke from the cell it started on.
+  const spring = useRef<Cell | null>(null)
+  // The tool Shift or Alt would give, while one of them is held.
+  const [modifier, setModifier] = useState<Exclude<Tool, 'select'> | null>(null)
+  const [cellMenu, setCellMenu] = useState<{ x: number; y: number; rowId: string; col: number } | null>(null)
+  const [inspectorOpen, setInspectorOpen] = usePref('inspectorOpen', false)
+  // The row the details panel shows: the last planning row that had the focus.
+  const [detailId, setDetailId] = useState<string | null>(null)
   const [fill, setFill] = useState<Fill | null>(null)
   const fillRef = useRef<Fill | null>(null)
   const fillCellsRef = useRef<FillCell[]>([])
@@ -69,7 +93,9 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
   const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200, height: 800 })
+  // The height of everything above the planning rows, and of the planning bar with the heading row at the foot of it.
   const [topHeight, setTopHeight] = useState(0)
+  const [barHeight, setBarHeight] = useState(0)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
 
   const colW = ZOOM_WIDTHS[zoom]
@@ -81,6 +107,7 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const projectHover = useProjectHover(hints)
   const topRef = useRef<HTMLDivElement>(null)
+  const toolsRef = useRef<HTMLDivElement>(null)
 
   // ---- derived data -------------------------------------------------------------------------
   const shownVenue = useMemo(() => visibleVenue(ws.venue, ws.hiddenVenue), [ws.venue, ws.hiddenVenue])
@@ -154,6 +181,9 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const items = useMemo(() => groupItems(shownGroups, demandIndex, settings, collapsed, grouping, entry), [shownGroups, demandIndex, settings, collapsed, grouping, entry])
   const allocLanes = useMemo<AllocLane[]>(() => items.flatMap((item, index): AllocLane[] => (item.kind === 'row' ? [{ row: item.row, index }] : item.entry ? [{ node: item.node, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row?.id ?? `level:${lane.node!.key}`, i])), [allocLanes])
+  // The details panel keeps its row when the selection is cleared or moves to a level or a staffing line.
+  const focusRowId = selection?.section === 'alloc' ? (allocLanes[selection.focus.lane]?.row?.id ?? null) : null
+  if (focusRowId && focusRowId !== detailId) setDetailId(focusRowId)
   const capLanes = useMemo<CapLane[]>(
     () =>
       ws.capacity.flatMap((line) =>
@@ -177,6 +207,16 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const projectOfRow = useMemo(() => new Map(allGroups.flatMap((group) => group.rows.map((row) => [row.id, group.key] as const))), [allGroups])
   const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
 
+  const details = useMemo<RowDetails | null>(() => {
+    const row = inspectorOpen && detailId ? rows.find((r) => r.id === detailId) : undefined
+    if (!row) return null
+    const key = projectOfRow.get(row.id) ?? projectKey(row)
+    const halls = [...new Set(shownVenue.filter((booking) => projectOf(booking) === key).map((booking) => booking.hall))].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }))
+    return { row, totals: rowTotals(demandIndex, row, settings), window: windowOf(row), projectName: allGroups.find((group) => group.key === key)?.projectName ?? row.projectName, halls, stored: !isSuggestedRow(row) }
+  }, [inspectorOpen, detailId, rows, projectOfRow, shownVenue, projectOf, demandIndex, settings, windowOf, allGroups])
+  // The heat map of the Avvik line is scaled by the largest shortage and surplus of the whole period.
+  const heatMax = useMemo(() => heatScale(heat ? dates.map((date) => capacityForDate(date, ws.capacity, settings).available - (need.get(date) ?? 0)) : []), [heat, dates, ws.capacity, settings, need])
+
   const projectOptions = useMemo(() => allGroups.map((group) => ({ name: group.projectName, projectNo: group.projectNo })), [allGroups])
   // What a row's own line says: the properties that are not a level above it. The phase always shows as a badge.
   const rowDimensions = useMemo(() => (['project', 'competence', 'hall', 'avdeling'] as Dimension[]).filter((d) => !grouping.includes(d)), [grouping])
@@ -187,18 +227,22 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const onScroll = useCallback(() => {
     const el = scrollRef.current
     if (el) setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
+    setCellMenu(null)
   }, [])
 
   useLayoutEffect(() => {
     const el = scrollRef.current
     const top = topRef.current
-    if (!el || !top) return
+    const tools = toolsRef.current
+    if (!el || !top || !tools) return
     const observer = new ResizeObserver(() => {
       setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
-      setTopHeight(top.offsetHeight)
+      setTopHeight(top.offsetHeight + tools.offsetHeight)
+      setBarHeight(tools.offsetHeight)
     })
     observer.observe(el)
     observer.observe(top)
+    observer.observe(tools)
     return () => observer.disconnect()
   }, [])
 
@@ -276,11 +320,13 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
         const index = allocLanes[cell.lane]?.index ?? 0
         const y = rowTops[index] ?? 0
         const bottom = rowTops[index + 1] ?? y + ROW_H
-        if (y < el.scrollTop) el.scrollTop = topPinned ? y : topHeight + y
+        // What stays pinned over the rows: the whole top block, or only the planning bar when the block is too tall to pin.
+        const pinned = topPinned ? topHeight : barHeight
+        if (topHeight + y < el.scrollTop + pinned) el.scrollTop = topHeight + y - pinned
         else if (topHeight + bottom > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + bottom - el.clientHeight
       }
     },
-    [colW, allocLanes, rowTops, topHeight, topPinned],
+    [colW, allocLanes, rowTops, topHeight, barHeight, topPinned],
   )
 
   // Select the first visible day of a row that was just added or edited.
@@ -418,11 +464,11 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
     [dates, allocLanes, demandIndex, settings],
   )
 
-  const drawDemand = useCallback(() => {
-    const stroke = strokeFor(selectionRef.current)
-    if (!stroke) return
-    for (const { lane, parts } of stroke.lanes) stroke.target.forEach((date, i) => setValue('alloc', lane, date, parts[i] || null))
-    const { target, withoutDemand, shared } = stroke
+  const drawDemand = useCallback((over: Selection | null = selectionRef.current) => {
+    const drawn = strokeFor(over)
+    if (!drawn) return
+    for (const { lane, parts } of drawn.lanes) drawn.target.forEach((date, i) => setValue('alloc', lane, date, parts[i] || null))
+    const { target, withoutDemand, shared } = drawn
     const days = `${target.length} ${target.length === 1 ? 'dag' : 'dager'}`
     setNotice(
       shared
@@ -499,7 +545,7 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
 
   // While a stroke is being drawn, what it would give: shown in the cells, with the level per day in the status bar.
   // The total is left out: a stroke always places all that is left, so it would not move.
-  const preview = useMemo(() => (drawing && tool === 'pencil' ? strokeFor(selection) : null), [drawing, tool, strokeFor, selection])
+  const preview = useMemo(() => (stroke === 'pencil' ? strokeFor(selection) : null), [stroke, strokeFor, selection])
   // What a drag of the fill handle would do, line by line: copy the block over the new days, or stretch its sum.
   const fillCells = useMemo<FillCell[]>(() => {
     if (!fill) return []
@@ -550,20 +596,20 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
     }
     for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => set('alloc', lane, date, parts[i]))
     // An eraser stroke shows the cells it is about to clear as empty.
-    if (drawing && tool === 'eraser' && selection?.section === 'alloc') {
+    if (stroke === 'eraser' && selection?.section === 'alloc') {
       const { lane0, lane1, col0, col1 } = rangeOf(selection)
       for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) set('alloc', lane, dates[col], 0)
     }
     for (const cell of fillCells) set(cell.section, cell.lane, cell.date, cell.value ?? 0)
     return lanes
-  }, [preview, drawing, tool, selection, dates, fillCells])
+  }, [preview, stroke, selection, dates, fillCells])
 
   // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
   // The listeners are attached once and read what they need from here, so a drag is not disturbed when
   // the rows or the tool change under it.
-  const dragEnv = useRef({ tool, drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length })
+  const dragEnv = useRef({ drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length })
   useEffect(() => {
-    dragEnv.current = { tool, drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length }
+    dragEnv.current = { drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length }
   })
   useEffect(() => {
     let mouseX: number | null = null
@@ -604,16 +650,19 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
     }
     const onUp = () => {
       rest()
-      const { tool, drawDemand, eraseDrawn, commitFill } = dragEnv.current
+      const { drawDemand, eraseDrawn, commitFill } = dragEnv.current
       if (fillRef.current) {
         commitFill()
         return
       }
       const section = dragging.current
+      const drawn = strokeRef.current
       dragging.current = null
-      setDrawing(false)
-      if (section === 'alloc' && tool === 'pencil') drawDemand()
-      if (section === 'alloc' && tool === 'eraser') eraseDrawn()
+      strokeRef.current = null
+      spring.current = null
+      setStroke(null)
+      if (section === 'alloc' && drawn === 'pencil') drawDemand()
+      if (section === 'alloc' && drawn === 'eraser') eraseDrawn()
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
@@ -646,7 +695,8 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
       e.preventDefault()
       fillSelection(null)
     } else if (e.key === 'Escape') {
-      setSelection(null)
+      // Escape first puts the pencil or the eraser away, see the tool keys.
+      if (tool === 'select' && !cellMenu) setSelection(null)
     } else if (/^[0-9,.-]$/.test(e.key) && !e.metaKey && !e.ctrlKey) {
       e.preventDefault()
       setDraft(e.key)
@@ -687,8 +737,8 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const selectionRange = selection ? rangeOf(selection) : null
 
   // ---- rendering helpers --------------------------------------------------------------------
-  // Days planned above the available crew are tinted down the whole grid. A pencil stroke in progress counts,
-  // so the clash shows while it is being drawn.
+  // Days planned above the available crew. Without the heat map they are tinted down the whole grid; with it,
+  // the Avvik line alone carries them. A pencil stroke in progress counts, so the clash shows while it is being drawn.
   const overbooked = useMemo(() => {
     const drawn = new Map<ISODate, number>()
     for (const { lane, parts } of preview?.lanes ?? []) {
@@ -710,10 +760,10 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
     const classes = new Map<ISODate, string>()
     for (const date of visibleDates) {
       const type = dayType(date)
-      classes.set(date, `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''} ${overbooked.has(date) ? 'overbooked' : ''}`)
+      classes.set(date, `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''} ${!heat && overbooked.has(date) ? 'overbooked' : ''}`)
     }
     return classes
-  }, [visibleDates, today, overbooked])
+  }, [visibleDates, today, overbooked, heat])
   const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, colW, classes: dayClasses }), [visibleDates, c0, colW, dayClasses])
 
   // What the drag of the fill handle is doing, for the status bar.
@@ -748,16 +798,43 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
   const actions = useStableActions<GridActions>({
     cellDown: (section, lane, col, e) => {
       e.preventDefault()
-      select(section, { lane, col }, e.shiftKey)
-      if (e.button === 0 && !(e.target instanceof HTMLInputElement)) {
-        dragging.current = section
-        setDrawing(section === 'alloc' && tool !== 'select')
-      }
+      const drags = e.button === 0 && !(e.target instanceof HTMLInputElement)
+      const plans = drags && section === 'alloc'
+      // Alt clears and Shift shares out demand for this one stroke. With «Velg», Shift still extends the
+      // selection on a click; the stroke starts once the mouse is dragged on.
+      const erases = plans && e.altKey
+      const extends_ = e.shiftKey && !erases && (!plans || tool === 'select')
+      select(section, { lane, col }, extends_)
+      if (!drags) return
+      dragging.current = section
+      spring.current = plans && extends_ ? { lane, col } : null
+      const started = !plans || spring.current ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
+      strokeRef.current = started
+      setStroke(started)
     },
     cellEnter: (section, lane, col) => {
       if (fillRef.current?.section === section) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
-      else if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
+      else if (dragging.current === section && spring.current) {
+        const anchor = spring.current
+        spring.current = null
+        strokeRef.current = 'pencil'
+        setStroke('pencil')
+        setSelection({ section, anchor, focus: { lane, col } })
+      } else if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
     },
+    cellMenu: (lane, col, e) => {
+      const row = allocLanes[lane]?.row
+      if (!row) return
+      e.preventDefault()
+      // The press that asked for the menu is no drag.
+      dragging.current = null
+      strokeRef.current = null
+      spring.current = null
+      setStroke(null)
+      select('alloc', { lane, col }, false)
+      setCellMenu({ x: e.clientX, y: e.clientY, rowId: row.id, col })
+    },
+    selectRow: (lane) => select('alloc', { lane, col: selection?.section === 'alloc' ? selection.focus.col : firstVisibleCol }, false),
     editCell: (value) => setDraft(value === undefined ? '' : String(value).replace('.', ',')),
     setDraft,
     commitDraft: () => commitDraft(),
@@ -789,10 +866,49 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
     removeRow: (row) => {
       if (confirm(`Slette raden ${rowTitle(row)}?`)) removeAllocation(row.id)
     },
+    clearRow: (row) => {
+      const cleared = sumValues(row.fte)
+      for (const date of Object.keys(row.fte)) setRowFte(row, date, null)
+      setNotice(cleared ? `Tømte raden: ${formatFte(cleared, 1)} FTE-dager` : 'Raden var tom')
+    },
   })
 
+  // ---- tools: keys and modifiers --------------------------------------------------------------
+  // V, F and T pick a tool and Escape goes back to «Velg», anywhere on the page but in a field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || typingIn(e.target) || dialog) return
+      if (e.key === 'Escape') {
+        if (cellMenu) setCellMenu(null)
+        else setTool('select')
+        return
+      }
+      const picked = TOOL_KEYS[e.key.toLowerCase()]
+      if (picked) setTool(picked)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [cellMenu, dialog])
+  // While Shift or Alt is held the planning cells show what a drag would do.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => setModifier(e.altKey ? 'eraser' : e.shiftKey ? 'pencil' : null)
+    const onBlur = () => setModifier(null)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKey)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKey)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [])
+  const activeTool = stroke ?? modifier ?? tool
+  // The details panel is memoized; these keep their identity so it is not drawn again on every scroll frame.
+  const spreadRow = useCallback((row: AllocationRow) => proposePlan([row], true), [proposePlan])
+  const closeInspector = useCallback(() => setInspectorOpen(false), [setInspectorOpen])
+
   // What one line of cells is told about the selection: plain values, so only the lines it touches are drawn again.
-  const ghostClass = tool === 'eraser' ? 'erasing' : 'drawn'
+  const ghostClass = stroke === 'eraser' ? 'erasing' : 'drawn'
   const editOf = (section: Section, lane: number): CellEdit => {
     const selected = selection?.section === section && !!selectionRange && lane >= selectionRange.lane0 && lane <= selectionRange.lane1
     const focused = selection?.section === section && selection.focus.lane === lane
@@ -833,11 +949,17 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
 
   const shownRowCount = shownGroups.reduce((sum, group) => sum + group.rows.length, 0)
   // The choices in the filter menu that narrow the list; «Bare prosjekter i visningen» is the normal state.
-  const activeFilters = [filter.project, filter.competence, filter.onlyWithRows, filter.onlyUncovered].filter(Boolean).length
+  const otherFilters = [filter.competence, filter.search, filter.onlyWithRows, filter.onlyUncovered].filter(Boolean).length
+  const activeFilters = otherFilters + (filter.project ? 1 : 0)
+  // The filter button names the project shown; what else narrows the list is counted beside it.
+  const filterLabel = (filter.project && projects.find(([key]) => key === filter.project)?.[1]) || 'Alle prosjekter'
+  const menuRow = cellMenu ? rows.find((row) => row.id === cellMenu.rowId) : undefined
+  const menuWindow = menuRow ? windowOf(menuRow) : undefined
+  const menuWindowEnd = menuWindow?.size ? [...menuWindow].sort().at(-1) : undefined
 
   // ---- render ---------------------------------------------------------------------------------
   return (
-    <div className={`kalender ${tool === 'select' ? '' : tool}`}>
+    <div className={`kalender ${activeTool === 'select' ? '' : activeTool}`}>
       <div className="page-head">
         <h2>Kalender</h2>
         <span className="page-meta">
@@ -851,6 +973,15 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
           <Plus size={14} aria-hidden /> Ny rad
         </button>
         <button
+          className={`ghost icon-button ${inspectorOpen ? 'active' : ''}`}
+          aria-pressed={inspectorOpen}
+          aria-label={inspectorOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer'}
+          title={inspectorOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer: behov, vindu og dager for raden du står på'}
+          onClick={() => setInspectorOpen(!inspectorOpen)}
+        >
+          <PanelRight size={16} aria-hidden />
+        </button>
+        <button
           className="primary"
           disabled={shownRowCount === 0}
           title="Foreslå plan: fordel behovet til radene i prosjektene som vises på monterings- og demonteringsdagene i hallene. Rader som allerede har FTE røres ikke."
@@ -860,131 +991,7 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
         </button>
       </div>
 
-      <div className="toolbar zones">
-        <div className="zone">
-          <UndoRedoButtons />
-          <Segmented
-            label="Verktøy"
-            value={tool}
-            onChange={setTool}
-            options={[
-              {
-                value: 'select',
-                label: (
-                  <>
-                    <MousePointer2 size={14} aria-hidden /> Velg
-                  </>
-                ), title: 'Velg celler og skriv FTE i dem.' },
-              {
-                value: 'pencil',
-                label: (
-                  <>
-                    <Pencil size={14} aria-hidden /> Fordel behov
-                  </>
-                ),
-                title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag.',
-              },
-              {
-                value: 'eraser',
-                label: (
-                  <>
-                    <Eraser size={14} aria-hidden /> Tøm
-                  </>
-                ), title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under.' },
-            ]}
-          />
-        </div>
-        <span className="zone-divider" />
-        <div className="zone">
-          <Menu
-            label={
-              <>
-                <Filter size={16} aria-hidden />
-                {activeFilters > 0 && <span className="menu-count">{activeFilters}</span>}
-              </>
-            }
-            ariaLabel="Filter"
-            className="icon-button"
-            title="Filter: velg hvilke prosjekter og rader som vises"
-          >
-            {() => (
-              <div className="filter-panel">
-                <label>
-                  Prosjekt
-                  <select value={filter.project} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
-                    <option value="">Alle prosjekter ({projects.length})</option>
-                    {projects.map(([key, name]) => (
-                      <option key={key} value={key}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Kompetanse
-                  <select value={filter.competence} onChange={(e) => setFilter({ ...filter, competence: e.target.value })}>
-                    <option value="">Alle</option>
-                    {competences.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="check" title="Skjul prosjekter som ikke har noen planleggingsrader ennå">
-                  <input type="checkbox" checked={!!filter.onlyWithRows} onChange={(e) => setFilter({ ...filter, onlyWithRows: e.target.checked })} />
-                  Skjul tomme
-                </label>
-                <label className="check" title="Skjul rader der planen dekker behovet, så det som gjenstår står igjen som en arbeidsliste">
-                  <input type="checkbox" checked={!!filter.onlyUncovered} onChange={(e) => setFilter({ ...filter, onlyUncovered: e.target.checked })} />
-                  Bare det som gjenstår
-                </label>
-                <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
-                  <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
-                  Bare prosjekter i visningen
-                </label>
-                {(activeFilters > 0 || filter.search) && (
-                  <button className="link" onClick={() => setFilter(EMPTY_FILTER)}>
-                    Nullstill
-                  </button>
-                )}
-              </div>
-            )}
-          </Menu>
-          <input className="search" type="search" placeholder="Søk i rader" value={filter.search} onChange={(e) => setFilter({ ...filter, search: e.target.value })} />
-          <GroupingBar
-            grouping={grouping}
-            onChange={(next) => {
-              // Lanes are positions in the list, so a selection would land on other rows after regrouping.
-              setSelection(null)
-              setGrouping(next)
-            }}
-          />
-          <button
-            className="ghost icon-button"
-            aria-label={collapsed.size ? 'Utvid alle' : 'Fold sammen'}
-            title={collapsed.size ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'}
-            onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
-          >
-            {collapsed.size ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}
-          </button>
-        </div>
-        <div className="zone zone-end">
-          <button className="ghost" onClick={() => scrollToDate(today)}>
-            I dag
-          </button>
-          <input type="date" aria-label="Gå til dato" min={range.start} max={range.end} onChange={(e) => e.target.value && scrollToDate(e.target.value, 2)} />
-          <Segmented
-            label="Kolonnebredde"
-            value={zoom}
-            onChange={setZoom}
-            options={[
-              { value: 'compact', label: 'S', title: 'Smale kolonner' },
-              { value: 'normal', label: 'M', title: 'Normale kolonner' },
-              { value: 'wide', label: 'L', title: 'Brede kolonner' },
-            ]}
-          />
-        </div>
-      </div>
-
+      <div className="kal-work">
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
           {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
@@ -1054,8 +1061,152 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
                   ))}
                 </>
               )}
-              <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} deviationOnly={!staffingOpen} />
+              <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} deviationOnly={!staffingOpen} heat={heat} maxShortage={heatMax.maxShortage} maxSurplus={heatMax.maxSurplus} />
             </div>
+          </div>
+
+          {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and stay pinned even when the top block is too tall to be. */}
+          <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : 0 }}>
+            <PlanBar width={viewport.width} fitKey={`${grouping.join()}|${filterLabel}|${otherFilters}|${hints}|${tool}`}>
+              <div className="bar-zone">
+                <UndoRedoButtons />
+                <span className="tool-switch">
+                  <Segmented
+                    label="Verktøy"
+                    value={tool}
+                    onChange={setTool}
+                    options={[
+                      {
+                        value: 'select',
+                        label: (
+                          <>
+                            <MousePointer2 size={14} aria-hidden /> Velg <kbd>V</kbd>
+                          </>
+                        ),
+                        title: 'Velg celler og skriv FTE i dem (V).',
+                      },
+                      {
+                        value: 'pencil',
+                        label: (
+                          <>
+                            <Pencil size={14} aria-hidden /> Fordel behov <kbd>F</kbd>
+                          </>
+                        ),
+                        title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag (F, eller hold Shift og dra).',
+                      },
+                      {
+                        value: 'eraser',
+                        label: (
+                          <>
+                            <Eraser size={14} aria-hidden /> Tøm <kbd>T</kbd>
+                          </>
+                        ),
+                        title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under (T, eller hold Alt og dra).',
+                      },
+                    ]}
+                  />
+                </span>
+              </div>
+              <div className="bar-view">
+                <div className="bar-zone">
+                  <Menu
+                    label={
+                      <>
+                        <Filter size={14} aria-hidden />
+                        <span className="bar-button-label">{filterLabel}</span>
+                        {otherFilters > 0 && <span className="bar-count">+{otherFilters}</span>}
+                        <ChevronDown size={12} aria-hidden />
+                      </>
+                    }
+                    className={`bar-button ${activeFilters > 0 ? 'on' : ''}`}
+                    title="Filter: velg hvilke prosjekter og rader som vises"
+                  >
+                    {() => (
+                      <div className="filter-panel">
+                        <input className="search" type="search" aria-label="Søk i rader" placeholder="Søk i rader" value={filter.search} onChange={(e) => setFilter({ ...filter, search: e.target.value })} />
+                        <label>
+                          Prosjekt
+                          <select value={filter.project} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
+                            <option value="">Alle prosjekter ({projects.length})</option>
+                            {projects.map(([key, name]) => (
+                              <option key={key} value={key}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Kompetanse
+                          <select value={filter.competence} onChange={(e) => setFilter({ ...filter, competence: e.target.value })}>
+                            <option value="">Alle</option>
+                            {competences.map((c) => (
+                              <option key={c}>{c}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="check" title="Skjul prosjekter som ikke har noen planleggingsrader ennå">
+                          <input type="checkbox" checked={!!filter.onlyWithRows} onChange={(e) => setFilter({ ...filter, onlyWithRows: e.target.checked })} />
+                          Skjul tomme
+                        </label>
+                        <label className="check" title="Skjul rader der planen dekker behovet, så det som gjenstår står igjen som en arbeidsliste">
+                          <input type="checkbox" checked={!!filter.onlyUncovered} onChange={(e) => setFilter({ ...filter, onlyUncovered: e.target.checked })} />
+                          Bare det som gjenstår
+                        </label>
+                        <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
+                          <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
+                          Bare prosjekter i visningen
+                        </label>
+                        {activeFilters > 0 && (
+                          <button className="link" onClick={() => setFilter(EMPTY_FILTER)}>
+                            Nullstill
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </Menu>
+                  <GroupingMenu
+                    grouping={grouping}
+                    onChange={(next) => {
+                      // Lanes are positions in the list, so a selection would land on other rows after regrouping.
+                      setSelection(null)
+                      setGrouping(next)
+                    }}
+                  />
+                  <button
+                    className="ghost icon-button"
+                    aria-label={collapsed.size ? 'Utvid alle' : 'Fold sammen'}
+                    title={collapsed.size ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'}
+                    onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
+                  >
+                    {collapsed.size ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}
+                  </button>
+                </div>
+                <div className="bar-zone bar-zone-end">
+                  {hints && (
+                    <span className="bar-hint" title="Hold Shift og dra for å fordele, Alt og dra for å tømme. Høyreklikk en celle for flere valg.">
+                      <Info size={14} aria-hidden />
+                      <span className="bar-hint-text">
+                        <b>Shift</b>/<b>Alt</b>-dra · <b>høyreklikk</b>
+                      </span>
+                    </span>
+                  )}
+                  <button className="ghost" onClick={() => scrollToDate(today)}>
+                    I dag
+                  </button>
+                  <input className="bar-date" type="date" aria-label="Gå til dato" title="Gå til dato" min={range.start} max={range.end} onChange={(e) => e.target.value && scrollToDate(e.target.value, 2)} />
+                  <Segmented
+                    label="Kolonnebredde"
+                    value={zoom}
+                    onChange={setZoom}
+                    options={[
+                      { value: 'compact', label: 'S', title: 'Smale kolonner' },
+                      { value: 'normal', label: 'M', title: 'Normale kolonner' },
+                      { value: 'wide', label: 'L', title: 'Brede kolonner' },
+                    ]}
+                  />
+                </div>
+              </div>
+            </PlanBar>
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
                 <span className="lbl-desc">Planlegging</span>
@@ -1111,6 +1262,31 @@ export function Kalender({ hints = true }: { hints?: boolean }) {
           )}
         </div>
       </div>
+      {inspectorOpen && <RowInspector details={details} need={need} capacity={ws.capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
+      </div>
+
+      {cellMenu && menuRow && (
+        <CellMenu
+          x={cellMenu.x}
+          y={cellMenu.y}
+          row={menuRow}
+          date={dates[cellMenu.col]}
+          remaining={(rowTotals(demandIndex, menuRow, settings).requiredFte ?? 0) - sumValues(menuRow.fte)}
+          windowEnd={menuWindowEnd}
+          stored={!isSuggestedRow(menuRow)}
+          onClose={() => setCellMenu(null)}
+          onSpread={() => proposePlan([menuRow], true)}
+          onSpreadFromHere={() => {
+            const lane = laneOfRow.get(menuRow.id)
+            if (lane !== undefined && menuWindowEnd) drawDemand({ section: 'alloc', anchor: { lane, col: cellMenu.col }, focus: { lane, col: daysBetween(range.start, menuWindowEnd) } })
+          }}
+          onClearCell={() => setRowFte(menuRow, dates[cellMenu.col], null)}
+          onClearRow={() => actions.clearRow(menuRow)}
+          onDetails={() => setInspectorOpen(true)}
+          onEdit={() => actions.editRow(menuRow)}
+          onRemove={() => actions.removeRow(menuRow)}
+        />
+      )}
 
       <div className="statusbar">
         {focusInfo ? (

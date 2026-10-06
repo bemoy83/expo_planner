@@ -486,62 +486,6 @@ input[type='text'] {
   width: 56px;
   flex: none;
 }
-.grouping-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 12px;
-  border-bottom: 1px solid var(--line-strong);
-  font-size: 12px;
-}
-.grouping-title {
-  color: var(--muted);
-}
-.grouping-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.grouping-sep {
-  color: var(--muted);
-}
-.grouping-unused {
-  display: inline-flex;
-  gap: 6px;
-  margin-left: 10px;
-}
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 1px 4px;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: #fff;
-  cursor: grab;
-  user-select: none;
-}
-.chip.dragging {
-  opacity: 0.5;
-}
-.chip.unused {
-  padding: 1px 8px;
-  border-style: dashed;
-  color: var(--muted);
-  cursor: pointer;
-}
-.chip-move,
-.chip-remove {
-  border: none;
-  background: none;
-  padding: 0 3px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.chip-move:disabled {
-  visibility: hidden;
-}
 .lbl-competence {
   width: 150px;
   overflow: hidden;
@@ -1038,13 +982,7 @@ table.ledger select.location.unresolved {
   color: var(--text);
 }
 
-/* The pencil: drawing across days shares out the demand. */
-.toolbar button.tool.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 600;
-}
+/* The pencil and the eraser: drawing across days shares out the demand or clears it. */
 .kalender.pencil .alloc-row .cell.editable,
 .kalender.pencil .entry-level .cell.editable,
 .kalender.eraser .alloc-row .cell.editable,

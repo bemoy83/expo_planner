@@ -43,6 +43,10 @@ export interface CapLane {
 export interface GridActions {
   cellDown: (section: Section, lane: number, col: number, e: MouseEvent) => void
   cellEnter: (section: Section, lane: number, col: number) => void
+  /** A right-click on a planning row's cell. */
+  cellMenu: (lane: number, col: number, e: MouseEvent) => void
+  /** A click on a planning row's label. */
+  selectRow: (lane: number) => void
   editCell: (value: number | undefined) => void
   setDraft: (text: string) => void
   commitDraft: () => void
@@ -54,4 +58,6 @@ export interface GridActions {
   addRow: (projectName: string, projectNo: string) => void
   editRow: (row: AllocationRow) => void
   removeRow: (row: AllocationRow) => void
+  /** Removes all FTE from a row. */
+  clearRow: (row: AllocationRow) => void
 }

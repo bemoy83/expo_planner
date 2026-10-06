@@ -99,15 +99,6 @@ input[type='checkbox']{accent-color:var(--accent)}
 .tooltip{background:#4a4642;color:#f5f2ec;border-radius:6px;box-shadow:none}
 .save-state{color:var(--pos)}
 
-/* grouping bar: tiles in a track instead of outlined pills */
-.grouping-bar{border-bottom-color:var(--line);padding:6px 24px;font-size:13px}
-.grouping-title{color:var(--muted)}
-.chip{border:none;border-radius:6px;background:var(--surface);padding:3px 6px;font-weight:600}
-.chip.unused{border:none;background:transparent;box-shadow:none;color:var(--muted);font-weight:400;border-radius:8px}
-.chip.unused:hover{background:var(--sunken);color:var(--text)}
-.chip-move,.chip-remove{background:none;border-radius:5px;padding:0 4px}
-.chip-move:hover,.chip-remove:hover{background:var(--sunken)}
-
 /* ---- 4. Grid surface ---- */
 .grid-scroll{background:var(--bg)}
 .grid-top{background:var(--bg);box-shadow:0 1px 0 var(--line-strong)}
@@ -131,7 +122,6 @@ input[type='checkbox']{accent-color:var(--accent)}
 .day.today{box-shadow:inset 2px 0 0 var(--accent)}
 .day.month-start{border-left-color:var(--line-strong)}
 .day.helg{background:var(--weekend)}
-.day.helligdag{background:var(--holiday)}
 
 /* hall calendar: split moving in / moving out into their own hues (classes already differ) */
 .ph-assembly{background:var(--ph-assembly)!important}
@@ -238,17 +228,6 @@ input[type='checkbox']{accent-color:var(--accent)}
 .strip-movingOut::before{background:var(--ph-movingout)}
 .strip-dismantle::before{background:var(--ph-dismantle)}
 
-/* B: the levels in use sit in one track; the rest are behind one "+" menu */
-.grouping-track{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:8px;background:var(--sunken)}
-.grouping-track .grouping-step{gap:2px}
-.grouping-track .grouping-sep{color:var(--faint);font-size:11px}
-.grouping-unused{position:relative;margin-left:0}
-.grouping-add{background:transparent;color:var(--muted);padding:5px 10px;font-size:15px;line-height:1}
-.grouping-add:hover,.grouping-add[aria-expanded='true']{background:var(--sunken);color:var(--text)}
-.grouping-menu{position:absolute;top:100%;left:0;margin-top:6px;min-width:170px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;z-index:50}
-.grouping-menu button{background:transparent;text-align:left;padding:7px 10px;border-radius:8px}
-.grouping-menu button:hover{background:var(--sunken)}
-
 /* ---- 7. Phase 2, A: top bar, page header and the toolbar in zones ---- */
 button.ghost{background:transparent;color:var(--text)}
 button.ghost:hover{background:var(--sunken)}
@@ -283,11 +262,6 @@ button.ghost:hover{background:var(--sunken)}
 .page-head h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em}
 .page-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-num);font-size:12px;color:var(--faint)}
 
-.toolbar.zones{gap:12px;row-gap:8px}
-.zone{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.zone-end{margin-left:auto}
-.zone-divider{width:1px;height:20px;background:var(--line-strong)}
-.toolbar .grouping-bar{padding:0;border-bottom:none;flex-wrap:nowrap}
 
 /* F: what a folded section of the top block hides */
 .section-meta{margin-left:8px;text-transform:none;letter-spacing:0;font-family:var(--font-num);font-size:10.5px;color:var(--faint)}
@@ -350,11 +324,10 @@ button.ghost:hover{background:var(--sunken)}
 
 /* ---- 9. Icons (Lucide, as named in the mockup) ---- */
 button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
-button svg,.grouping-sep{flex:none}
-.menu-pop>button,.grouping-menu button{justify-content:flex-start}
-.twisty,.row-action,.chip-move,.chip-remove{gap:0}
+button svg{flex:none}
+.menu-pop>button{justify-content:flex-start}
+.twisty,.row-action{gap:0}
 .lbl-warning{display:inline-flex;align-items:center}
-.grouping-add{padding:5px 8px}
 
 /* ---- 10. Size and spacing, as in the mockup: 14px text, 28px lines, roomier controls ---- */
 :root{font-size:14px}
@@ -364,11 +337,7 @@ button{padding:7px 12px}
 select,input[type='date'],input[type='search'],input:not([type]),input[type='text']{padding:7px 10px}
 .toolbar{padding:8px 24px 10px}
 .segmented button{padding:4px 10px}
-.chip{padding:4px 4px;font-size:13px}
-.chip-move,.chip-remove{width:20px;height:20px;padding:0}
-.grouping-bar{font-size:13px}
-.grouping-add{padding:7px 8px}
-.menu-pop>button,.grouping-menu button{padding:8px 10px}
+.menu-pop>button{padding:8px 10px}
 .page-head{padding:12px 24px}
 .statusbar{padding:8px 24px;min-height:38px;font-size:13px}
 
@@ -451,3 +420,156 @@ button.icon-button{padding:7px;min-width:32px;height:32px}
 /* ---- Pointing at a project lights its bars in the hall calendar and its lines; the rule that picks the project is written by useProjectHover ---- */
 .hall-bar,.hall-label{transition:opacity .12s}
 .lbl-hall{transition:opacity .12s}
+
+/* ---- 12. Kalender v7: the planning bar, the Avvik heat map, red days, the cell menu and row details ---- */
+
+/* the page header: the title and what the Kalender holds; the tools are in the bar above the planning rows */
+.page-head .icon-button.active{background:var(--sunken);color:var(--accent)}
+
+/* the grid and the row details that slide in over its right edge */
+.kal-work{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+
+/* the planning bar and the «Planlegging» heading under it: pinned right above the planning rows */
+.grid-top{box-shadow:none}
+.grid-tools{position:sticky;z-index:3;background:var(--bg);box-shadow:0 1px 0 var(--line-strong)}
+.plan-bar{display:flex;border-top:1px solid var(--line-strong)}
+.plan-bar-in{position:sticky;left:0;z-index:8;flex:none;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 20px;padding:8px 16px;background:var(--bg);white-space:nowrap;font-size:13px;container-type:inline-size}
+.bar-zone{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.bar-view{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 20px}
+.bar-zone-end{margin-left:auto}
+.plan-bar-in button,.plan-bar-in input[type='date']{height:32px;font-size:13px}
+.plan-bar-in .segmented{height:32px;box-sizing:border-box}
+.plan-bar-in .segmented button{height:26px}
+.plan-bar-in .menu-pop button,.plan-bar-in .menu-pop input{height:auto}
+.plan-bar-in .menu-pop{white-space:normal}
+
+/* the tool switch: every tool shows its name and its key */
+.tool-switch .segmented button:not(.active):hover{background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text)}
+kbd{font:500 10px/14px var(--font-num);padding:0 4px;border-radius:4px;background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--faint)}
+
+/* a button of the bar that opens a menu: an icon, what is chosen, and a chevron */
+.bar-button{padding:0 10px;font-weight:400}
+.bar-button svg{color:var(--muted)}
+.bar-button.on svg:first-child{color:var(--accent)}
+.bar-button-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.bar-count{padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font:600 11px var(--font-num)}
+.filter-panel .search{width:auto}
+
+/* the grouping menu: a line per level with its place, then the levels left out */
+.menu-group.first{margin-top:0;border-top:0;padding-top:6px}
+.grouping-pop{width:260px}
+.grouping-flat{padding:2px 10px 8px}
+.level-row{display:flex;align-items:center;gap:4px;height:34px;padding:0 4px 0 10px;border-radius:8px}
+.level-row:hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
+.level-no{width:14px;font:500 11px var(--font-num);color:var(--faint)}
+.level-name{flex:1}
+.plan-bar-in .level-row button,.level-row button{width:26px;height:26px;padding:0;border-radius:6px;background:transparent;color:var(--muted)}
+.level-row button:hover:not(:disabled){background:var(--sunken);color:var(--text)}
+.level-row button:disabled{opacity:.3}
+
+/* what Shift, Alt and a right-click do, for those who have help texts on */
+.bar-hint{display:flex;align-items:center;gap:6px;padding:0 4px;font-size:12px;color:var(--faint);cursor:help}
+.bar-hint b{font-weight:500;color:var(--muted)}
+
+/* how the bar fits its width, see PlanBar: the stage is written to data-fit */
+.plan-bar-in:not([data-fit='0']) .bar-hint-text{display:none}
+.plan-bar-in[data-fit='2'] .crumbs,.plan-bar-in[data-fit='w240'] .crumbs{max-width:240px}
+.plan-bar-in[data-fit='3'] .crumbs,.plan-bar-in[data-fit='w160'] .crumbs{max-width:160px}
+.plan-bar-in[data-fit='w110'] .crumbs{max-width:110px}
+.plan-bar-in[data-fit='w70'] .crumbs{max-width:70px}
+@container (max-width:700px){.plan-bar-in .bar-button-label:not(.crumbs){max-width:110px}.plan-bar-in .bar-hint,.plan-bar-in .bar-date{display:none}}
+@container (max-width:620px){.plan-bar-in .bar-button-label:not(.crumbs){max-width:90px}}
+@container (max-width:500px){.plan-bar-in .bar-zone-end{margin-left:0}}
+
+/* a tool held with Shift or Alt, or chosen in the bar: the cell under the pointer shows what a drag would do */
+.kalender.pencil .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 60%,transparent)}
+.kalender.eraser .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--neg) 70%,transparent)}
+
+/* a row's own actions: share out what is left, clear the row */
+.alloc-row .grid-label{cursor:pointer}
+.row-actions .row-action{width:24px;height:24px}
+.row-action:disabled{opacity:.3}
+.row-action:disabled:hover{background:none;color:var(--muted)}
+
+/* the Avvik line as a heat map: a tile per day, with a little air between neighbours */
+.heat-row .cell,.sum-row.heat-row .cell{border-right-color:transparent}
+.heat{position:absolute;inset:3px 2px;border-radius:5px;z-index:0;background:color-mix(in oklab,var(--heat-c) var(--p),var(--bg))}
+.heat.short{--heat-c:var(--neg)}
+.heat.tight{--heat-c:var(--over)}
+.heat.spare{--heat-c:var(--pos)}
+.heat-value{position:relative;z-index:1;font-weight:600}
+.heat-cell.short .heat-value{color:var(--neg)}
+.heat-cell.short.strong .heat-value{color:#fff}
+.heat-cell.tight .heat-value{color:var(--text)}
+.heat-cell.spare .heat-value{color:var(--pos)}
+.heat-legend{display:inline-flex;gap:2px;margin-left:6px;cursor:help}
+.heat-legend .heat{position:static;width:10px;height:10px;border-radius:2px}
+
+/* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the planning rows */
+.day.helligdag{background-color:var(--weekend)}
+.group-row.depth-0 .day.helligdag{background-color:var(--band-we)}
+.group-row:not(.depth-0) .day.helligdag{background-color:transparent}
+.day-head.helligdag .wd,.day-head.helligdag .dn{color:var(--neg)}
+:is(.head-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
+.dark :is(.head-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 12%,transparent),color-mix(in srgb,var(--neg) 12%,transparent))}
+
+/* the menu a right-click on a planning cell opens */
+.cell-menu{position:fixed;margin:0;width:280px;z-index:70;font-size:13px}
+.menu-pop>button svg{color:var(--muted)}
+.menu-pop>button.danger svg{color:inherit}
+.menu-pop>button:disabled{opacity:.4;background:transparent}
+.menu-key{margin-left:auto;padding-left:12px;font:400 11px var(--font-num);color:var(--faint)}
+.menu-rule{height:1px;margin:4px 0;background:var(--line)}
+
+/* row details: a panel over the right edge of the grid, which keeps its width */
+.inspector{position:absolute;top:0;right:0;bottom:0;z-index:20;width:340px;max-width:calc(100% - 48px);display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--panel);border-left:1px solid var(--line);box-shadow:-12px 0 32px -12px color-mix(in srgb,var(--text) 22%,transparent);animation:inspector-in 220ms cubic-bezier(.4,0,.2,1)}
+.dark .inspector{box-shadow:-12px 0 32px -12px rgba(0,0,0,.6)}
+@keyframes inspector-in{from{transform:translateX(100%)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.inspector{animation:none}}
+.insp-head{display:flex;align-items:flex-start;gap:8px;padding:16px 12px 14px 20px;background:var(--sunken);border-bottom:1px solid var(--line)}
+.dark .insp-head{background:var(--surface)}
+.insp-head-text{flex:1;min-width:0}
+.insp-title{font-size:var(--fs-title-sm);font-weight:700;line-height:1.25;letter-spacing:-.02em}
+.insp-sub{display:flex;align-items:center;gap:6px;margin-top:6px;min-width:0;font-size:13px;color:var(--muted)}
+.insp-sep{color:var(--faint)}
+.insp-trunc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.insp-actions{display:flex;gap:2px;flex:none;margin-top:-4px}
+.insp-eyebrow,.insp-h{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.insp-empty{margin:10px 0 0;font-size:var(--fs-base);line-height:1.45;color:var(--muted)}
+.insp-body{flex:1;min-height:0;overflow:auto}
+.insp-sec{padding:16px 20px 18px;border-bottom:1px solid var(--line)}
+.insp-sec:last-child{border-bottom:0}
+.insp-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 12px}
+.insp-h span{font-size:11px;text-transform:none;letter-spacing:0}
+.insp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.insp-stats div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.insp-stats div+div{padding-left:14px;border-left:1px solid var(--line)}
+.insp-stats div:not(:last-child){padding-right:14px}
+.insp-stats span{font-size:12px;color:var(--muted)}
+.insp-stats b{font:600 22px/1.15 var(--font-num);letter-spacing:-.03em;color:var(--text)}
+.insp-stats em{min-height:14px;font:normal 400 11px var(--font-num);color:var(--faint)}
+.insp-stats .over b{color:var(--over)}
+.insp-stats .done b{color:var(--pos)}
+.insp-bar{height:4px;margin-top:14px;border-radius:4px;background:var(--sunken);overflow:hidden}
+.insp-bar span{display:block;height:100%;border-radius:4px;background:var(--mon)}
+.insp-bar.over span{background:var(--over)}
+.insp-bar.done span{background:var(--pos)}
+.insp-warn{margin:10px 0 0;font-size:12px;color:var(--over)}
+.insp-note{margin:0;font-size:13px;line-height:1.45;color:var(--muted)}
+.insp-dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:7px 12px;margin:0;font-size:13px}
+.insp-pair{display:contents}
+.insp-dl dt{color:var(--muted)}
+.insp-dl dd{margin:0;color:var(--text);text-wrap:pretty}
+.insp-dl dd.num{font-family:var(--font-num);font-size:var(--fs-sm)}
+.insp-days{width:100%;border-collapse:collapse;font-size:12px}
+.insp-days th{padding:4px 0;border-bottom:1px solid var(--line);text-align:right;font:400 11px var(--font-num);text-transform:uppercase;letter-spacing:.04em;color:var(--faint)}
+.insp-days td{padding:5px 0;border-bottom:1px solid var(--line);text-align:right;font-family:var(--font-num)}
+.insp-days th:first-child,.insp-days td:first-child{text-align:left}
+.insp-days td.neg{color:var(--neg)}
+.insp-days td.pos{color:var(--pos)}
+.insp-out{font-family:var(--font-ui);color:var(--over)}
+.insp-foot{flex:none;box-sizing:border-box;display:flex;align-items:center;min-height:56px;padding:12px 20px;background:var(--panel);border-top:1px solid var(--line)}
+.insp-foot>button{width:100%}
+.insp-done{font-size:13px;font-weight:500}
+.insp-done.done{color:var(--pos)}
+.insp-done.over{color:var(--over)}
