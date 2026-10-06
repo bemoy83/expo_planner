@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 
-/** How long the mouse rests on a project before it is lit, so crossing the grid does not make it flicker. */
-const DELAY_MS = 120
+/** How long the mouse rests on a project before it is lit, so crossing the grid does not make it flicker. The same wait as a tooltip's. */
+const DELAY_MS = 250
 
 /** Several projects in one attribute, each between bars, since a project's key may hold spaces. */
 export const projectList = (projects: Iterable<string>): string => `|${[...projects].join('|')}|`
@@ -25,8 +25,9 @@ export const projectHoverCss = (project: string): string => {
  * of those halls; on one of its bars, its lines as well. Lines and bars carry their project in `data-project`, and the cue is one
  * style rule written into the page. Nothing is drawn again by React, and lines that scroll into view
  * are lit by the same rule. Returns the handlers for the element that holds the grid.
+ * It follows the setting for tooltips: switched off, nothing is lit.
  */
-export const useProjectHover = () => {
+export const useProjectHover = (enabled = true) => {
   const state = useRef<{ style: HTMLStyleElement | null; shown: string | null; timer: ReturnType<typeof setTimeout> | undefined }>({ style: null, shown: null, timer: undefined })
   const hover = useMemo(() => {
     const show = (project: string | null) => {
@@ -41,7 +42,7 @@ export const useProjectHover = () => {
     return {
       onMouseOver: (e: { target: EventTarget; buttons: number }) => {
         // Not while a selection, a pencil stroke or the fill handle is being dragged.
-        const project = e.buttons === 0 && e.target instanceof Element ? (e.target.closest<HTMLElement>('[data-project]')?.dataset.project ?? null) : null
+        const project = on.current && e.buttons === 0 && e.target instanceof Element ? (e.target.closest<HTMLElement>('[data-project]')?.dataset.project ?? null) : null
         clearTimeout(state.current.timer)
         if (project === null) show(null)
         else if (project !== state.current.shown) state.current.timer = setTimeout(() => show(project), DELAY_MS)
@@ -53,6 +54,11 @@ export const useProjectHover = () => {
       },
     }
   }, [])
+  const on = useRef(enabled)
+  useEffect(() => {
+    on.current = enabled
+    if (!enabled) hover.onMouseLeave()
+  }, [enabled, hover])
   useEffect(() => hover.dispose, [hover])
   return hover
 }

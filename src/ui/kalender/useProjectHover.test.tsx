@@ -2,8 +2,8 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { projectHoverCss, projectList, useProjectHover } from './useProjectHover'
 
-function Grid() {
-  const hover = useProjectHover()
+function Grid({ enabled = true }: { enabled?: boolean }) {
+  const hover = useProjectHover(enabled)
   return (
     <div data-testid="grid" onMouseOver={hover.onMouseOver} onMouseLeave={hover.onMouseLeave}>
       <span className="hall-bar" data-project="26970" data-testid="bar" />
@@ -34,8 +34,9 @@ describe('useProjectHover', () => {
   it('lights the project of the line or bar under the mouse, after a short rest', () => {
     const { getByTestId } = render(<Grid />)
     fireEvent.mouseOver(getByTestId('cell'))
-    expect(rule()).toBe('')
     act(() => void vi.advanceTimersByTime(200))
+    expect(rule()).toBe('')
+    act(() => void vi.advanceTimersByTime(300))
     expect(rule()).toBe(projectHoverCss('26970'))
     // Moving on to a bar of the same project changes nothing.
     fireEvent.mouseOver(getByTestId('bar'))
@@ -46,7 +47,7 @@ describe('useProjectHover', () => {
     const { getByTestId } = render(<Grid />)
     const light = () => {
       fireEvent.mouseOver(getByTestId('bar'))
-      act(() => void vi.advanceTimersByTime(200))
+      act(() => void vi.advanceTimersByTime(300))
     }
     light()
     fireEvent.mouseOver(getByTestId('other'))
@@ -59,14 +60,27 @@ describe('useProjectHover', () => {
   it('stays out of the way while the mouse is dragging', () => {
     const { getByTestId } = render(<Grid />)
     fireEvent.mouseOver(getByTestId('cell'), { buttons: 1 })
-    act(() => void vi.advanceTimersByTime(200))
+    act(() => void vi.advanceTimersByTime(300))
+    expect(rule()).toBe('')
+  })
+
+  it('lights nothing with tooltips switched off, and clears when they are switched off', () => {
+    const { getByTestId, rerender } = render(<Grid enabled={false} />)
+    fireEvent.mouseOver(getByTestId('bar'))
+    act(() => void vi.advanceTimersByTime(300))
+    expect(rule()).toBe('')
+    rerender(<Grid />)
+    fireEvent.mouseOver(getByTestId('bar'))
+    act(() => void vi.advanceTimersByTime(300))
+    expect(rule()).toBe(projectHoverCss('26970'))
+    rerender(<Grid enabled={false} />)
     expect(rule()).toBe('')
   })
 
   it('removes its rule with the grid', () => {
     const { getByTestId, unmount } = render(<Grid />)
     fireEvent.mouseOver(getByTestId('bar'))
-    act(() => void vi.advanceTimersByTime(200))
+    act(() => void vi.advanceTimersByTime(300))
     unmount()
     expect(rule()).toBe('')
   })

@@ -39,7 +39,8 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false,
 
 const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
 
-export function Kalender() {
+/** `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing. */
+export function Kalender({ hints = true }: { hints?: boolean }) {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const { settings } = ws
@@ -78,7 +79,7 @@ export function Kalender() {
   const today = todayIso()
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const projectHover = useProjectHover()
+  const projectHover = useProjectHover(hints)
   const topRef = useRef<HTMLDivElement>(null)
 
   // ---- derived data -------------------------------------------------------------------------
