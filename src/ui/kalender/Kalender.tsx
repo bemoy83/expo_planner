@@ -977,8 +977,8 @@ export function Kalender() {
           <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
             <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={selection ? dates[selection.focus.col] : undefined} />
 
-            {/* The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. */}
-            <div className="top-section">
+            {/* The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too. */}
+            <div className={`top-section ${hallsOpen ? 'open' : ''}`}>
               <div className="section-head" style={{ width: LEFT_W }}>
                 <button className="twisty" aria-expanded={hallsOpen} aria-label={hallsOpen ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => setHallsOpen(!hallsOpen)}>
                   {hallsOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}

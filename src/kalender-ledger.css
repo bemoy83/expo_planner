@@ -411,3 +411,7 @@ table.ledger{font-size:13px}
 .head-row.tall{border-bottom-color:var(--line)}
 .top-section{border-bottom:1px solid var(--line)}
 .top-section .section-head{border-bottom:0}
+/* open: a hairline under the heading and its legend, across the whole grid */
+.top-section{position:relative}
+.top-section.open .section-head{margin-bottom:1px}
+.top-section.open::after{content:'';position:absolute;top:26px;left:0;right:0;height:1px;background:var(--line);z-index:1;pointer-events:none}
