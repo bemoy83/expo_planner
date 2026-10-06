@@ -218,7 +218,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const heatMax = useMemo(() => heatScale(heat ? dates.map((date) => capacityForDate(date, ws.capacity, settings).available - (need.get(date) ?? 0)) : []), [heat, dates, ws.capacity, settings, need])
 
   const projectOptions = useMemo(() => allGroups.map((group) => ({ name: group.projectName, projectNo: group.projectNo })), [allGroups])
-  // What a row's own line says: the properties that are not a level above it. The phase always shows as a badge.
+  // What a row's own line says: the properties that are not a level above it. The phase shows as a colour mark in front of it.
   const rowDimensions = useMemo(() => (['project', 'competence', 'hall', 'avdeling'] as Dimension[]).filter((d) => !grouping.includes(d)), [grouping])
   const competences = useMemo(() => [...new Set(rows.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [rows])
 
@@ -1210,7 +1210,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
             <div className="grid-row col-head" style={{ height: ROW_H }}>
               <div className="grid-label" style={{ width: LEFT_W }}>
                 <span className="lbl-desc">Planlegging</span>
-                <span className="lbl-nums" title="Linjen under tallene viser hvor mye av behovet som er planlagt: blå underveis, grønn når det er dekket, oransje når det er planlagt klart mer enn behovet.">
+                <span className="lbl-nums">
                   <span className="lbl-num" title="Behov (FTE-dager)">
                     Behov
                   </span>

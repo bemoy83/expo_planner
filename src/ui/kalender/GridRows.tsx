@@ -8,7 +8,6 @@ import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate } from './labels'
 import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatTile } from './heat'
-import { CoverageBar } from './parts'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
 import { ChevronDown, ChevronRight, Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
@@ -371,7 +370,6 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
               <span className="lbl-num">{formatFte(node.totals.requiredFte)}</span>
               <span className="lbl-num">{formatFte(node.totals.plannedFte)}</span>
               <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
-              <CoverageBar required={node.totals.requiredFte} planned={node.totals.plannedFte} />
             </span>
           ) : (
             <span className="muted small no-rows">ingen rader</span>
@@ -470,7 +468,6 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
             </span>
             <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
             <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
-            <CoverageBar required={totals.requiredFte} planned={totals.plannedFte} />
           </span>
           <span className="row-slot row-actions">
             <button

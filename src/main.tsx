@@ -1,7 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import './kalender-ledger.css'
+import './styles/tokens.css'
+import './styles/base.css'
+import './styles/tables.css'
+import './styles/kalender.css'
+import './styles/inspector.css'
 import App from './App.tsx'
 import { loadPref } from './store/prefs'
 

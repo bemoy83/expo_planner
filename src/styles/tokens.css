@@ -1,0 +1,99 @@
+/* Fonts and tokens: the Ledger look. Every colour, font and text size the other style sheets use is named here. */
+
+@font-face{font-family:'Schibsted Grotesk';font-style:normal;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-normal-400_900.woff2') format('woff2')}
+@font-face{font-family:'Schibsted Grotesk';font-style:italic;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-italic-400_900.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/JetBrainsMono-normal-400_600.woff2') format('woff2')}
+
+:root{
+  /* neutrals: warm paper */
+  --bg:#f2f0eb;            /* canvas */
+  --surface:#ffffff;
+  --panel:#faf9f6;
+  --sunken:#e7e4dd;
+  --text:#171613;          /* ink */
+  --muted:#5b5953;         /* ink-muted */
+  --faint:#77746c;         /* ink-faint */
+  --line:#dcd8cf;          /* border */
+  --line-strong:#c4bfb4;   /* border-strong */
+
+  /* accent: signal orange (selection, focus, today, active tab) */
+  --accent:#ec6f00;
+  --accent-soft:color-mix(in oklab,#ec6f00 15%,transparent);
+  --on-accent:#140c05;     /* text on the accent fill */
+
+  /* days off */
+  --weekend:color-mix(in srgb,#e7e4dd 50%,#f2f0eb);
+
+  /* work phases: light fills with dark numbers */
+  --mon:oklch(0.8 0.065 115);
+  --dem:oklch(0.8 0.075 42);
+
+  /* hall phases: one hue each */
+  --ph-assembly:color-mix(in oklab,oklch(0.56 0.13 250) 34%,#fff);   /* blue */
+  --ph-movingin:color-mix(in oklab,oklch(0.53 0.13 185) 34%,#fff);   /* teal */
+  --ph-event:color-mix(in oklab,oklch(0.56 0.13 300) 48%,#fff);      /* violet */
+  --ph-movingout:color-mix(in oklab,oklch(0.56 0.13 85) 34%,#fff);   /* amber */
+  --ph-dismantle:color-mix(in oklab,oklch(0.56 0.13 10) 34%,#fff);   /* rose */
+
+  /* status */
+  --neg:#c53637; --neg-bg:#f9e5e2;
+  --pos:#287c42; --pos-bg:#e2efe3;
+  --over:#8f5e0a;
+  --overtime:#6a4c93;      /* the overtime line in Bemanning */
+
+  /* the band of a project's line, the only tinted level */
+  --band:color-mix(in oklab,#171613 6%,#f2f0eb);
+  --band-we:color-mix(in oklab,#171613 10%,#f2f0eb);
+
+  /* type: one stack for text, one for numbers and dates, and the sizes text outside the grid's cells is set in */
+  --font-ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-num:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --fs-xs:11px;      /* small uppercase headings */
+  --fs-sm:12px;      /* figures, badges, counts */
+  --fs-md:13px;      /* grid lines, tables, hints */
+  --fs-base:14px;    /* body text and controls */
+  --fs-title-sm:16px;/* dialog titles */
+  --fs-title:20px;   /* page titles */
+
+  font-family:var(--font-ui);
+  font-size:14px;
+  color:var(--text);
+  background:var(--bg);
+}
+
+/* The dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende). */
+:root.dark{
+  color-scheme:dark;
+  --bg:#0f0f0e;
+  --surface:#1f1f1c;
+  --panel:#171715;
+  --sunken:#21211e;
+  --text:#f3f2ee;
+  --muted:#a6a49d;
+  --faint:#7b7a73;
+  --line:#262623;
+  --line-strong:#3a3935;
+
+  --accent:#fd923e;
+  --accent-soft:color-mix(in oklab,#fd923e 18%,transparent);
+
+  --weekend:color-mix(in srgb,#f3f2ee 4%,#0f0f0e);
+
+  /* work phases: dark fills with light numbers */
+  --mon:oklch(0.45 0.06 115);
+  --dem:oklch(0.47 0.075 40);
+
+  --ph-assembly:color-mix(in oklab,oklch(0.76 0.11 250) 40%,#1f1f1c);
+  --ph-movingin:color-mix(in oklab,oklch(0.76 0.11 185) 40%,#1f1f1c);
+  --ph-event:color-mix(in oklab,oklch(0.76 0.11 300) 52%,#1f1f1c);
+  --ph-movingout:color-mix(in oklab,oklch(0.76 0.11 85) 40%,#1f1f1c);
+  --ph-dismantle:color-mix(in oklab,oklch(0.76 0.11 10) 40%,#1f1f1c);
+
+  --neg:#f97770; --neg-bg:#301615;
+  --pos:#6fd087; --pos-bg:#112618;
+  --over:#f2b54f;
+  --overtime:#c2b1f8;
+
+  --band:color-mix(in oklab,#f3f2ee 8%,#0f0f0e);
+  --band-we:color-mix(in oklab,#f3f2ee 12%,#0f0f0e);
+}

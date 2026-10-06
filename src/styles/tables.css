@@ -1,0 +1,52 @@
+/* The ledgers of Behov, Haller, Produkttyper and KPI: a scrolling page of tables that are edited in place. */
+
+.behov{display:flex;flex-direction:column;flex:1;min-height:0}
+.behov-body{flex:1;overflow:auto;padding:12px 16px 32px}
+.behov-body h2,.empty-state h2{font-size:var(--fs-title);font-weight:700;letter-spacing:-.02em;margin:4px 0 12px}
+.behov-body h3{font-size:var(--fs-base);font-weight:600;margin:0}
+.behov-body section{margin-bottom:24px}
+.section-title{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.badge{font-size:var(--fs-sm);padding:1px 6px;border-radius:8px;background:var(--pos-bg);color:var(--pos)}
+
+table.ledger{border-collapse:collapse;background:var(--surface);font-size:var(--fs-md);width:100%}
+table.ledger.summary{width:auto}
+table.ledger th,table.ledger td{border:1px solid var(--line);padding:3px 8px;text-align:left;white-space:nowrap}
+table.ledger th{background:var(--bg);font-weight:600;position:sticky;top:-12px}
+table.ledger tr.sub th{font-weight:400;color:var(--muted);position:static}
+table.ledger .num{text-align:right;font-variant-numeric:tabular-nums}
+table.ledger .center{text-align:center}
+table.ledger td.actions{width:1%}
+table.ledger tr.in-plan td,table.ledger .planned{background:var(--pos-bg)}
+table.ledger tr.has-issue td{background:#fff6e0}
+.dark table.ledger tr.has-issue td,.dark .orphans{background:#2b200d;border-color:#503b16}
+/* numbers and dates are set as in the Kalender */
+table.ledger .num,table.ledger .date,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
+
+/* a field edited in place, see fields.tsx */
+input.inline{width:100%;min-width:120px}
+input.inline.num{min-width:0;width:52px;text-align:right}
+input.inline:hover,input.inline:focus{background:var(--surface)}
+
+/* Visma lines that no longer have a line behind them */
+.orphans{background:#fff6e0;border:1px solid #f0d58a;border-radius:6px;padding:8px 12px;margin-bottom:8px}
+.orphans ul{margin:6px 0 0;padding-left:18px}
+.orphans li span{margin-right:10px}
+
+/* Where a demand line counts in the Kalender. */
+table.ledger select.location{padding:0 2px;background-color:transparent;color:var(--muted)}
+table.ledger select.location.chosen{color:var(--text);font-weight:600}
+table.ledger select.location.unresolved{background-color:color-mix(in srgb,var(--over) 14%,transparent);color:var(--over)}
+
+/* ---- Haller ---- */
+table.ledger.halls{width:auto;min-width:760px}
+table.ledger tr.event-row td{background:var(--bg);border-top:2px solid var(--line-strong)}
+table.ledger tr.hidden-row td{color:var(--muted);background:#fafafa}
+.dark table.ledger tr.hidden-row td{background:var(--panel)}
+table.ledger tr.hidden-row td.hall-name{text-decoration:line-through}
+table.ledger td.hall-name{padding-left:20px;font-weight:600}
+input.inline.project-no-input{width:90px;min-width:0;background:var(--surface)}
+
+/* ---- KPI ---- */
+table.ledger.kpi{width:auto;min-width:760px}
+table.ledger.kpi tr.first-of-type td{border-top:1px solid var(--line-strong)}
+table.ledger.kpi tr.alt-unit td{color:var(--muted)}

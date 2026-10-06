@@ -1,0 +1,288 @@
+/* The Kalender: a grid of lines, each a pinned label column and a cell per day. See kalender/Kalender.tsx and GridRows.tsx. */
+
+.kalender{display:flex;flex-direction:column;flex:1;min-height:0}
+/* the grid and the row details that slide in over its right edge */
+.kal-work{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.grid-scroll{flex:1;overflow:auto;position:relative;outline:none;background:var(--bg);overscroll-behavior:contain}
+.grid-canvas{position:relative}
+/* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows, unless they would cover most of the screen */
+.grid-top{position:relative;z-index:3;background:var(--bg)}
+.grid-top.pinned{position:sticky;top:0}
+
+/* ---- a line and its cells ---- */
+.grid-row{display:flex;flex-wrap:nowrap;border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent);font-size:13px}
+.grid-label{position:sticky;left:0;z-index:2;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;background:var(--bg);border-right:1px solid var(--line);overflow:hidden;white-space:nowrap}
+.grid-spacer{flex:none}
+.cell{flex:none;position:relative;display:flex;align-items:center;justify-content:center;border-right:1px solid color-mix(in srgb,var(--line) 55%,transparent);font-family:var(--font-num);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* what every cell of a day shares */
+.day.helg,.day.helligdag{background:var(--weekend)}
+.day.month-start{border-left:1px solid var(--line-strong)}
+.day.today{box-shadow:inset 2px 0 0 var(--accent)}
+/* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the planning rows */
+:is(.head-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
+.dark :is(.head-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 12%,transparent),color-mix(in srgb,var(--neg) 12%,transparent))}
+/* A day planned above the available crew, when the heat map is off: a red wash over the whole column, on top of whatever the cell shows. */
+.grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(rgba(198,40,40,.13),rgba(198,40,40,.13))!important}
+.dark .grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(rgba(249,119,112,.18),rgba(249,119,112,.18))!important}
+.grid-canvas .day.overbooked.day-head{color:var(--neg);font-weight:600}
+
+/* ---- the date header ---- */
+.head-row{border-bottom:none}
+.head-row:not(.tall){height:20px!important}
+.head-row.tall{height:30px!important;border-bottom:1px solid var(--line)}
+.head-row .grid-label,.head-row .cell{height:100%}
+.lbl-title{color:var(--faint);font-family:var(--font-num);font-size:11px}
+.cell.head{justify-content:flex-start;overflow:visible;color:var(--faint);font-size:11px}
+.month-label{position:relative;z-index:1;padding-left:3px;color:var(--muted);text-transform:uppercase;font-weight:500;letter-spacing:.04em}
+.week-label{padding-left:3px}
+.day-head{flex-direction:column;justify-content:center!important;line-height:1.1}
+.day-head .wd{font-size:10px}
+.day-head .dn{color:var(--text);font-size:12.5px;font-weight:500}
+.day-head.today .dn{color:var(--accent);font-weight:600}
+/* the date of the focused cell */
+.day-head.active::before{content:'';position:absolute;inset:2px 3px;border-radius:6px;background:var(--accent-soft);pointer-events:none}
+.day-head.active .wd,.day-head.active .dn{color:var(--accent);font-weight:600}
+/* a red day keeps its red date */
+.day-head.helligdag .wd,.day-head.helligdag .dn{color:var(--neg)}
+
+/* ---- the sections of the top block: the hall calendar and the staffing ---- */
+/* each is framed by a hairline above and below, across the whole grid */
+.top-section{position:relative;border-bottom:1px solid var(--line)}
+.section-head{position:sticky;left:0;z-index:2;display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;background:var(--bg);white-space:nowrap;overflow:visible}
+/* open: a hairline under the heading and its legend */
+.top-section.open .section-head{margin-bottom:1px}
+.top-section.open::after{content:'';position:absolute;top:26px;left:0;right:0;height:1px;background:var(--line);z-index:1;pointer-events:none}
+/* Bemanning: the hairline under it is the one above the «Planlegging» heading */
+.top-section.staffing{border-bottom:0}
+/* what sits in a heading beside its name is ordinary text */
+.legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
+/* what a folded section hides */
+.section-meta{margin-left:8px;text-transform:none;letter-spacing:0;font-family:var(--font-num);font-size:10.5px;color:var(--faint)}
+.section-hint{position:sticky;left:0;padding:4px 24px;color:var(--muted);white-space:nowrap;overflow:visible}
+.twisty{width:20px;height:20px;padding:0;gap:0;border-radius:6px;background:none;color:var(--muted)}
+.twisty:hover{background:var(--sunken)}
+
+/* ---- the hall calendar: a rounded bar per phase of each event, with the event's name laid over ---- */
+/* no rules between the halls: the bars carry the line. No border at all, or an invisible one would cut the today line into dashes. */
+.hall-row{position:relative;border-bottom:0}
+.lbl-hall{padding-left:18px;font-family:var(--font-num);font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
+.hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:10px;color:color-mix(in srgb,var(--text) 60%,transparent)}
+/* a day two events share */
+.hall-bar.shared{background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px)!important}
+/* An event's name, anchored to the first day of the arrangement in the hall. */
+.hall-label{position:absolute;top:0;bottom:0;z-index:1;padding-left:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;font-family:var(--font-ui);font-size:11.5px;font-weight:600;color:var(--text);pointer-events:none}
+/* Pointing at a project lights its bars and its halls; the rule that picks the project is written by useProjectHover. */
+.hall-bar,.hall-label,.lbl-hall{transition:opacity .12s}
+.ph-assembly{background:var(--ph-assembly)!important}
+.ph-movingIn{background:var(--ph-movingin)!important}
+.ph-movingOut{background:var(--ph-movingout)!important}
+.ph-event{background:var(--ph-event)!important}
+.ph-dismantle{background:var(--ph-dismantle)!important}
+/* the legend: one chip per phase with the code the bars use; the name is in the tooltip */
+.legend{display:inline-flex;align-items:center;gap:4px;margin-left:12px;color:var(--muted);font-size:11px}
+.legend i{display:inline-block;padding:1px 5px;border-radius:4px;font-style:normal;font-family:var(--font-num);font-size:10.5px;color:color-mix(in srgb,var(--text) 70%,transparent)}
+
+/* ---- the staffing ---- */
+/* Every line carries the same grid as the planning rows: a faint rule above and beside each day cell, no rule
+   in the label column, and no border on the line itself, so the today line runs unbroken. */
+.cap-row,.sum-row{background:var(--bg);border-bottom:0}
+.cap-row .cell,.sum-row .cell{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.cap-row:hover,.cap-row:hover .grid-label{background:color-mix(in srgb,var(--text) 5%,var(--bg))}
+/* the line right under a heading has the heading's hairline above it already */
+.top-section .section-head + .grid-row .cell{border-top-color:transparent}
+.lbl-cap{padding-left:18px}
+.lbl-cap.strong{font-weight:600}
+.lbl-cap.group-overtime{color:var(--overtime)}
+.lbl-cap.group-unavailable{color:var(--neg)}
+.cap-cell{color:var(--text)}
+.sum-cell{font-weight:600}
+/* Avvik as plain figures, with the heat map switched off */
+.dev.neg{background:var(--neg-bg)!important;color:var(--neg);font-weight:600}
+.dev.pos{color:var(--pos);font-weight:600}
+/* Avvik as a heat map: a tile per day, with a little air between neighbours */
+.heat-row .cell{border-right-color:transparent}
+.heat{position:absolute;inset:3px 2px;border-radius:5px;z-index:0;background:color-mix(in oklab,var(--heat-c) var(--p),var(--bg))}
+.heat.short{--heat-c:var(--neg)}
+.heat.tight{--heat-c:var(--over)}
+.heat.spare{--heat-c:var(--pos)}
+.heat-value{position:relative;z-index:1;font-weight:600}
+.heat-cell.short .heat-value{color:var(--neg)}
+.heat-cell.short.strong .heat-value{color:#fff}
+.heat-cell.tight .heat-value{color:var(--text)}
+.heat-cell.spare .heat-value{color:var(--pos)}
+.heat-legend{display:inline-flex;gap:2px;margin-left:6px;cursor:help}
+.heat-legend .heat{position:static;width:10px;height:10px;border-radius:2px}
+
+/* ---- the planning bar and the «Planlegging» heading under it: pinned right above the planning rows ---- */
+.grid-tools{position:sticky;z-index:3;background:var(--bg);box-shadow:0 1px 0 var(--line-strong)}
+.plan-bar{display:flex;border-top:1px solid var(--line-strong)}
+.plan-bar-in{position:sticky;left:0;z-index:8;flex:none;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 20px;padding:8px 16px;background:var(--bg);white-space:nowrap;font-size:13px;container-type:inline-size}
+.bar-zone{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.bar-view{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 20px}
+.bar-zone-end{margin-left:auto}
+.plan-bar-in button,.plan-bar-in input[type='date']{height:32px;font-size:13px}
+.plan-bar-in .segmented{height:32px;box-sizing:border-box}
+.plan-bar-in .segmented button{height:26px}
+.plan-bar-in .menu-pop button,.plan-bar-in .menu-pop input{height:auto}
+.plan-bar-in .menu-pop{white-space:normal}
+.tool-switch .segmented button:not(.active):hover{background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text)}
+
+/* a button of the bar that opens a menu: an icon, what is chosen, and a chevron */
+.bar-button{padding:0 10px;font-weight:400}
+.bar-button svg{color:var(--muted)}
+.bar-button.on svg:first-child{color:var(--accent)}
+.bar-button-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.bar-count{padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font:600 11px var(--font-num)}
+
+.filter-panel{display:flex;flex-direction:column;gap:10px;padding:8px 10px;min-width:280px}
+.filter-panel label{display:flex;flex-direction:column;align-items:stretch;gap:4px;color:var(--muted)}
+.filter-panel label.check{flex-direction:row;align-items:center;gap:6px;color:var(--text)}
+.filter-panel select{max-width:none}
+.filter-panel button.link{align-self:flex-start;padding:0}
+
+/* the grouping menu: a line per level with its place, then the levels left out */
+.grouping-pop{width:260px}
+.grouping-flat{padding:2px 10px 8px}
+.level-row{display:flex;align-items:center;gap:4px;height:34px;padding:0 4px 0 10px;border-radius:8px}
+.level-row:hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
+.level-no{width:14px;font:500 11px var(--font-num);color:var(--faint)}
+.level-name{flex:1}
+.plan-bar-in .level-row button,.level-row button{width:26px;height:26px;padding:0;border-radius:6px;background:transparent;color:var(--muted)}
+.level-row button:hover:not(:disabled){background:var(--sunken);color:var(--text)}
+.level-row button:disabled{opacity:.3}
+
+/* what Shift, Alt and a right-click do, for those who have help texts on */
+.bar-hint{display:flex;align-items:center;gap:6px;padding:0 4px;font-size:12px;color:var(--faint);cursor:help}
+.bar-hint b{font-weight:500;color:var(--muted)}
+
+/* how the bar fits its width, see PlanBar: the stage is written to data-fit */
+.plan-bar-in:not([data-fit='0']) .bar-hint-text{display:none}
+.plan-bar-in[data-fit='2'] .crumbs,.plan-bar-in[data-fit='w240'] .crumbs{max-width:240px}
+.plan-bar-in[data-fit='3'] .crumbs,.plan-bar-in[data-fit='w160'] .crumbs{max-width:160px}
+.plan-bar-in[data-fit='w110'] .crumbs{max-width:110px}
+.plan-bar-in[data-fit='w70'] .crumbs{max-width:70px}
+@container (max-width:700px){.plan-bar-in .bar-button-label:not(.crumbs){max-width:110px}.plan-bar-in .bar-hint,.plan-bar-in .bar-date{display:none}}
+@container (max-width:620px){.plan-bar-in .bar-button-label:not(.crumbs){max-width:90px}}
+@container (max-width:500px){.plan-bar-in .bar-zone-end{margin-left:0}}
+
+/* the heading row; the top block ends in the hairline above it */
+.col-head{background:var(--bg);border-top:1px solid var(--line);border-bottom-color:var(--line)}
+.col-head .lbl-num{font-size:inherit;font-weight:inherit}
+/* what the colours of the planning cells mean, pinned beside the label column */
+.phase-legend{position:sticky;flex:none;width:0;align-self:stretch;display:flex;align-items:center;gap:14px;white-space:nowrap;overflow:visible;z-index:2;font-size:12px;color:var(--muted)}
+.phase-legend span{display:flex;align-items:center;gap:5px;margin-left:10px}
+.phase-legend span+span{margin-left:0}
+.phase-legend i{flex:none;width:10px;height:10px;border-radius:3px}
+.phase-legend i.mon{background:var(--mon)}
+.phase-legend i.dem{background:var(--dem)}
+.phase-legend i.outside{box-shadow:inset 0 0 0 1.5px var(--neg)}
+
+/* ---- the planning rows ---- */
+/* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
+   every rule sits exactly on the boundary between two lines: a level's hairline above it, a cell's rule above it. */
+.grid-alloc .grid-row{border-bottom:0}
+/* The last line closes the list with a hairline of its own, since no level follows to draw one. It sits
+   outside the height the rows fill. */
+.grid-alloc:has(.grid-row){box-sizing:content-box;border-bottom:1px solid var(--line)}
+.empty-rows{padding:16px;color:var(--muted);position:sticky;left:0}
+
+/* what a label holds: a name, the figures Behov, Plan and Δ, and a slot for the line's actions */
+.lbl-project{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.lbl-desc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.lbl-level{font-weight:500}
+.lbl-level .count{font-weight:400}
+.lbl-nums{position:relative;display:inline-flex;gap:4px;align-self:stretch;align-items:center;flex:none}
+.lbl-num{width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.lbl-num,.lbl-level .count,.lbl-project>.muted{font-family:var(--font-num);font-size:var(--fs-sm)}
+.lbl-project>.muted:not(.count){font-weight:500}
+.delta.under{color:var(--muted);font-weight:600}
+.delta.over{color:var(--over)}
+.delta.ok{color:var(--pos)}
+.no-rows{width:120px;text-align:right}
+.unlinked{color:var(--over);font-weight:400;font-size:var(--fs-sm)}
+.lbl-warning{display:inline-flex;align-items:center;color:var(--neg);font-size:var(--fs-sm);cursor:help}
+/* The work phase of a line: a small mark in the colour its cells are filled with. */
+.phase-mark{flex:none;width:10px;height:10px;border-radius:3px;box-shadow:inset 0 0 0 1px var(--line-strong)}
+.phase-mark.mon{background:var(--mon);box-shadow:none}
+.phase-mark.dem{background:var(--dem);box-shadow:none}
+/* The slot has the same width on every line, so the figures stay in their columns; it holds three actions. */
+.row-slot{display:inline-flex;justify-content:flex-end;flex:none;width:70px;gap:2px}
+.row-action{width:22px;height:22px;padding:0;gap:0;border-radius:6px;background:none;color:var(--muted)}
+.row-action:hover{background:var(--sunken);color:var(--text)}
+.row-action:disabled{opacity:.3}
+.row-action:disabled:hover{background:none;color:var(--muted)}
+.row-actions{visibility:hidden}
+.row-actions .row-action{width:24px;height:24px}
+.group-row .row-action{visibility:hidden}
+.grid-row:hover .row-actions,.group-row:hover .row-action{visibility:visible}
+
+/* levels: one hairline above each, nothing under it; only a project's line is tinted */
+.group-row{background:var(--bg);border-top:1px solid var(--line)}
+.group-row.depth-0,.group-row.depth-0 .grid-label{background:var(--band)}
+.group-row.depth-0 .lbl-project{font-size:14px;font-weight:700}
+.empty-group .lbl-project{font-weight:500}
+.group-row .cell{border-right-color:transparent}
+.group-row.depth-0 .day.helg,.group-row.depth-0 .day.helligdag{background-color:var(--band-we)}
+.group-row:not(.depth-0) .day.helg{background:none}
+.group-row:not(.depth-0) .day.helligdag{background-color:transparent}
+.group-cell{font-weight:600}
+/* the days of a project that is in the hall calendar but has no phase on the day */
+.group-row .cell.group-cell.in-span{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--text) 22%,transparent)}
+/* A strip behind a level's cells, slimmer than the line and rounded where it starts and ends: the hall phase
+   of the day on a project's line, the work phase on a folded level. */
+.group-row .cell.group-cell.strip{isolation:isolate;box-shadow:none}
+.group-row .cell.group-cell.strip::before{content:'';position:absolute;top:calc(50% - 9.5px);height:18px;left:0;right:0;z-index:-1}
+.group-row .cell.group-cell.strip-start::before{left:2px;border-top-left-radius:5px;border-bottom-left-radius:5px}
+.group-row .cell.group-cell.strip-end::before{right:2px;border-top-right-radius:5px;border-bottom-right-radius:5px}
+.strip-assembly::before{background:var(--ph-assembly)}
+.strip-movingIn::before{background:var(--ph-movingin)}
+.strip-event::before{background:var(--ph-event)}
+.strip-movingOut::before{background:var(--ph-movingout)}
+.strip-dismantle::before{background:var(--ph-dismantle)}
+.strip-mon::before{background:var(--mon)}
+.strip-dem::before{background:var(--dem)}
+/* A level that takes FTE itself instead of only summing its rows. */
+.group-row .row-action.level-mode.entry{visibility:visible;color:var(--accent);font-weight:600}
+.group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}
+.group-row.entry-level .cell.editable{background-color:var(--surface);color:var(--text)}
+
+/* rows: no rules between them in the label column, a faint rule above each day cell; the line under the pointer is tinted */
+.alloc-row .grid-label{cursor:pointer}
+.alloc-row:hover,.alloc-row:hover .grid-label{background:color-mix(in srgb,var(--text) 5%,var(--bg))}
+.alloc-row .cell{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.cell.editable{cursor:cell}
+.cell.filled.mon{background-color:var(--mon);color:var(--text);font-weight:500}
+.cell.filled.dem{background-color:var(--dem);color:var(--text);font-weight:500}
+.cell.has-note::after{content:'';position:absolute;top:0;right:0;border-left:6px solid transparent;border-top:6px solid var(--accent)}
+/* The days a row can be worked on, its project's build-up or tear-down days in its hall: a faint dot in the empty working days. */
+.alloc-row .cell.in-window{box-shadow:none}
+.alloc-row .cell.in-window.workday:not(.filled):not(.selected){background-color:transparent}
+.alloc-row .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--text) 28%,transparent)}
+/* FTE placed on a day outside the window. */
+.alloc-row .cell.outside-window{box-shadow:inset 0 0 0 1.5px var(--neg)}
+
+/* ---- selection, typing and the tools ---- */
+.cell.selected{background:var(--accent-soft)!important}
+.cell.focus{outline:1.5px solid var(--accent);outline-offset:-1.5px;z-index:1;box-shadow:0 0 0 3px var(--accent-soft)}
+.cell-input{position:absolute;inset:0;width:100%;outline:1.5px solid var(--accent);text-align:center;font-family:var(--font-num);font-size:12px;caret-color:var(--accent)}
+/* The fill handle on the last cell of the selection: drag to copy, Alt-drag to stretch. Above the neighbouring cells, below the pinned label column. */
+.fill-handle{position:absolute;right:-4px;bottom:-4px;z-index:1;width:8px;height:8px;border:1px solid #fff;background:var(--accent);cursor:crosshair}
+.dark .fill-handle{border-color:var(--bg)}
+/* The pencil and the eraser, chosen in the bar or held with Shift or Alt: the cell under the pointer shows what a drag would do. */
+.kalender.pencil .alloc-row .cell.editable,.kalender.pencil .entry-level .cell.editable,.kalender.eraser .alloc-row .cell.editable,.kalender.eraser .entry-level .cell.editable{cursor:crosshair}
+.kalender.pencil .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 60%,transparent)}
+.kalender.eraser .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--neg) 70%,transparent)}
+/* What a pencil stroke would put in a cell, while it is being drawn, and a cell an eraser stroke is about to clear. */
+.cell.editable.drawn{color:var(--accent)}
+.cell.editable.drawn:not(.filled){font-weight:600}
+.grid-canvas .cell.editable.erasing{background-color:var(--neg-bg)}
+
+/* the menu a right-click on a planning cell opens */
+.cell-menu{position:fixed;margin:0;width:280px;z-index:70;font-size:13px}
+
+/* ---- the status bar ---- */
+.statusbar{display:flex;align-items:center;gap:16px;padding:8px 24px;min-height:38px;background:var(--bg);border-top:1px solid var(--line);font-size:13px}
+.status-title{font-weight:600}
+.status-notice{color:var(--text);font-weight:600}
+.note-input{flex:1;max-width:420px}

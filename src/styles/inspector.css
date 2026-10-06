@@ -1,0 +1,52 @@
+/* Row details: a panel that slides in over the right edge of the Kalender's grid, which keeps its width. See RowInspector.tsx. */
+
+.inspector{position:absolute;top:0;right:0;bottom:0;z-index:20;width:340px;max-width:calc(100% - 48px);display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--panel);border-left:1px solid var(--line);box-shadow:-12px 0 32px -12px color-mix(in srgb,var(--text) 22%,transparent);animation:inspector-in 220ms cubic-bezier(.4,0,.2,1)}
+.dark .inspector{box-shadow:-12px 0 32px -12px rgba(0,0,0,.6)}
+@keyframes inspector-in{from{transform:translateX(100%)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.inspector{animation:none}}
+.insp-head{display:flex;align-items:flex-start;gap:8px;padding:16px 12px 14px 20px;background:var(--sunken);border-bottom:1px solid var(--line)}
+.dark .insp-head{background:var(--surface)}
+.insp-head-text{flex:1;min-width:0}
+.insp-title{font-size:var(--fs-title-sm);font-weight:700;line-height:1.25;letter-spacing:-.02em}
+.insp-sub{display:flex;align-items:center;gap:6px;margin-top:6px;min-width:0;font-size:13px;color:var(--muted)}
+.insp-sep{color:var(--faint)}
+.insp-trunc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.insp-actions{display:flex;gap:2px;flex:none;margin-top:-4px}
+.insp-empty{margin:10px 0 0;font-size:var(--fs-base);line-height:1.45;color:var(--muted)}
+.insp-body{flex:1;min-height:0;overflow:auto}
+.insp-sec{padding:16px 20px 18px;border-bottom:1px solid var(--line)}
+.insp-sec:last-child{border-bottom:0}
+.insp-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 12px}
+.insp-h span{font-size:11px;text-transform:none;letter-spacing:0}
+.insp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.insp-stats div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.insp-stats div+div{padding-left:14px;border-left:1px solid var(--line)}
+.insp-stats div:not(:last-child){padding-right:14px}
+.insp-stats span{font-size:12px;color:var(--muted)}
+.insp-stats b{font:600 22px/1.15 var(--font-num);letter-spacing:-.03em;color:var(--text)}
+.insp-stats em{min-height:14px;font:normal 400 11px var(--font-num);color:var(--faint)}
+.insp-stats .over b{color:var(--over)}
+.insp-stats .done b{color:var(--pos)}
+.insp-bar{height:4px;margin-top:14px;border-radius:4px;background:var(--sunken);overflow:hidden}
+.insp-bar span{display:block;height:100%;border-radius:4px;background:var(--mon)}
+.insp-bar.over span{background:var(--over)}
+.insp-bar.done span{background:var(--pos)}
+.insp-warn{margin:10px 0 0;font-size:12px;color:var(--over)}
+.insp-note{margin:0;font-size:13px;line-height:1.45;color:var(--muted)}
+.insp-dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:7px 12px;margin:0;font-size:13px}
+.insp-pair{display:contents}
+.insp-dl dt{color:var(--muted)}
+.insp-dl dd{margin:0;color:var(--text);text-wrap:pretty}
+.insp-dl dd.num{font-family:var(--font-num);font-size:var(--fs-sm)}
+.insp-days{width:100%;border-collapse:collapse;font-size:12px}
+.insp-days th{padding:4px 0;border-bottom:1px solid var(--line);text-align:right;font:400 11px var(--font-num);text-transform:uppercase;letter-spacing:.04em;color:var(--faint)}
+.insp-days td{padding:5px 0;border-bottom:1px solid var(--line);text-align:right;font-family:var(--font-num)}
+.insp-days th:first-child,.insp-days td:first-child{text-align:left}
+.insp-days td.neg{color:var(--neg)}
+.insp-days td.pos{color:var(--pos)}
+.insp-out{font-family:var(--font-ui);color:var(--over)}
+.insp-foot{flex:none;box-sizing:border-box;display:flex;align-items:center;min-height:56px;padding:12px 20px;background:var(--panel);border-top:1px solid var(--line)}
+.insp-foot>button{width:100%}
+.insp-done{font-size:13px;font-weight:500}
+.insp-done.done{color:var(--pos)}
+.insp-done.over{color:var(--over)}
