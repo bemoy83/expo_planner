@@ -306,7 +306,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
             <>
               {node.dimension === 'phase' && <PhaseMark phase={node.label} />}
               <span className="lbl-project lbl-level" title={`${DIMENSION_LABELS[node.dimension]}: ${node.label}`}>
-                {node.label} <span className="muted count">{node.rows.length}</span>
+                {node.label}{item.collapsed && <span className="muted count"> {node.rows.length}</span>}
               </span>
             </>
           )}
