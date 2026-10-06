@@ -6,7 +6,7 @@ const DELAY_MS = 250
 /** Several projects in one attribute, each between bars, since a project's key may hold spaces. */
 export const projectList = (projects: Iterable<string>): string => `|${[...projects].join('|')}|`
 
-/** The style rules that light one project: its bars and names in the hall calendar, the halls it is in, and its lines. */
+/** The style rules that light one project: its bars and names in the hall calendar, and the halls it is in. */
 export const projectHoverCss = (project: string): string => {
   // Inside a quoted string only the quote and the backslash need escaping.
   const key = project.replace(/["\\]/g, '\\$&')
@@ -16,13 +16,13 @@ export const projectHoverCss = (project: string): string => {
     `.hall-bar:not(${is}),.hall-label:not(${is}),.hall-row:not(${among}) .lbl-hall{opacity:.3}`,
     `.hall-bar${is}{box-shadow:0 0 0 1.5px var(--text)}`,
     `.hall-row${among} .lbl-hall{font-weight:700;color:var(--text)}`,
-    `.grid-row${is}>.grid-label,.hall-row${among}>.grid-label{box-shadow:inset 3px 0 0 var(--text)}`,
+    `.hall-row${among}>.grid-label{box-shadow:inset 3px 0 0 var(--text)}`,
   ].join('\n')
 }
 
 /**
- * Pointing at a project lights everything of it: on one of its lines, its bars in every hall and the names
- * of those halls; on one of its bars, its lines as well. Lines and bars carry their project in `data-project`, and the cue is one
+ * Pointing at a project, on one of its lines or one of its bars, lights its bars in every hall and the
+ * names of those halls. The planning lines themselves are left as they are. Lines and bars carry their project in `data-project`, and the cue is one
  * style rule written into the page. Nothing is drawn again by React, and lines that scroll into view
  * are lit by the same rule. Returns the handlers for the element that holds the grid.
  * It follows the setting for tooltips: switched off, nothing is lit.
