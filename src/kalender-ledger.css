@@ -408,6 +408,9 @@ code{font-family:var(--font-num);font-size:.9em}
 /* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
    every rule sits exactly on the boundary between two lines: a level's hairline above it, a cell's rule above it. */
 .grid-alloc .grid-row{border-bottom:0}
+/* The last line closes the list with a hairline of its own, since no level follows to draw one. It sits
+   outside the height the rows fill. */
+.grid-alloc:has(.grid-row){box-sizing:content-box;border-bottom:1px solid var(--line)}
 
 /* ---- 11. Hall calendar: a rounded bar per phase of each event, as in the mockup ---- */
 .hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:10px;color:color-mix(in srgb,var(--text) 60%,transparent)}
