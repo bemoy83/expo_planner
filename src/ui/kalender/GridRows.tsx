@@ -1,11 +1,11 @@
 import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { capacityForDate, formatFte } from '../../domain/calc'
-import { addDays, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { addDays, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
-import { deltaClass, describeRow, fmtDate } from './labels'
+import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatTile } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
@@ -99,11 +99,15 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
         className="head-row"
         label={<span className="lbl-title">{zoom === 'compact' ? '' : 'Uke / måned'}</span>}
         cols={cols}
-        cells={(date) => (
-          <div key={date} className={`${dayClass(cols, date)} cell head`} style={{ width: cols.colW }}>
-            {date.endsWith('-01') ? <span className="month-label">{`${MONTHS_NB[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`}</span> : weekdayIndex(date) === 0 ? <span className="week-label">u{isoWeek(date)}</span> : null}
-          </div>
-        )}
+        cells={(date) => {
+          const { month, week } = headLabel(date, cols.colW)
+          return (
+            <div key={date} className={`${dayClass(cols, date)} cell head`} style={{ width: cols.colW }}>
+              {month && <span className="month-label">{month}</span>}
+              {week && <span className="week-label">{month ? `· ${week}` : week}</span>}
+            </div>
+          )
+        }}
       />
       <Line
         className="head-row tall"
