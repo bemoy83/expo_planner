@@ -4,7 +4,7 @@ export const ROW_H = 28
 export const TOP_ROW_H = 34
 /** The lines of the hall calendar are lower: there are many halls, and they hold no numbers. */
 export const HALL_ROW_H = 22
-export const LEFT_W = 580
+export const LEFT_W = 544
 export const OVERSCAN_COLS = 6
 export const OVERSCAN_ROWS = 8
 

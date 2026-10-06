@@ -303,9 +303,12 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
               {!project.venue && <span className="unlinked"> ikke i hallkalenderen</span>}
             </span>
           ) : (
-            <span className={`lbl-project lbl-level ${node.dimension === 'phase' ? (node.label === 'Demontering' ? 'dem' : node.label === 'Montering' ? 'mon' : '') : ''}`} title={`${DIMENSION_LABELS[node.dimension]}: ${node.label}`}>
-              {node.label} <span className="muted count">{node.rows.length}</span>
-            </span>
+            <>
+              {node.dimension === 'phase' && <PhaseMark phase={node.label} />}
+              <span className="lbl-project lbl-level" title={`${DIMENSION_LABELS[node.dimension]}: ${node.label}`}>
+                {node.label} <span className="muted count">{node.rows.length}</span>
+              </span>
+            </>
           )}
           {node.rows.length ? (
             <span className="lbl-nums">
@@ -361,6 +364,11 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
   )
 })
 
+/** The colour of a work phase as a small mark in front of a line's name; the planning cells are filled in the same colour. */
+function PhaseMark({ phase, indent }: { phase: string; indent?: number }) {
+  return <i className={`phase-mark ${phase === 'Demontering' ? 'dem' : phase === 'Montering' ? 'mon' : ''}`} style={indent ? { marginLeft: indent } : undefined} title={phase || 'Uten arbeidsfase'} />
+}
+
 interface AllocRowProps extends CellEdit {
   item: Extract<GridItem, { kind: 'row' }>
   lane: number
@@ -386,7 +394,8 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
       cols={cols}
       label={
         <>
-          <span className="lbl-desc" style={{ paddingLeft: 18 + item.depth * INDENT }} title={describeRow(r, ALL_DIMENSIONS)}>
+          <PhaseMark phase={r.phase} indent={18 + item.depth * INDENT} />
+          <span className="lbl-desc" title={describeRow(r, ALL_DIMENSIONS)}>
             {description || <em className="muted">rad</em>}
           </span>
           {outside.length > 0 && (
@@ -394,9 +403,6 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
               <TriangleAlert size={13} aria-hidden />
             </span>
           )}
-          <span className={`lbl-phase ${r.phase === 'Demontering' ? 'dem' : 'mon'}`} title={r.phase}>
-            {r.phase === 'Montering' ? 'M' : r.phase === 'Demontering' ? 'D' : '–'}
-          </span>
           <span className="lbl-year">{r.refYear}</span>
           <span className="lbl-basis" title={r.basis}>
             {r.basis}

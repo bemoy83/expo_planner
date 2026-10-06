@@ -435,6 +435,22 @@ input[type='text'] {
   text-overflow: ellipsis;
   font-weight: 600;
 }
+/* The work phase of a line: a small mark in the colour its cells are filled with. */
+.phase-mark {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.phase-mark.mon {
+  background: var(--mon);
+  box-shadow: none;
+}
+.phase-mark.dem {
+  background: var(--dem);
+  box-shadow: none;
+}
 .lbl-desc {
   flex: 1;
   min-width: 0;
@@ -446,12 +462,6 @@ input[type='text'] {
 }
 .lbl-level {
   font-weight: 500;
-}
-.lbl-level.mon {
-  color: var(--mon-strong);
-}
-.lbl-level.dem {
-  color: var(--dem-strong);
 }
 .lbl-level .count {
   font-weight: 400;
@@ -540,17 +550,6 @@ input[type='text'] {
 }
 .col-head .lbl-competence {
   padding-left: 0;
-}
-.lbl-phase {
-  width: 30px;
-  text-align: center;
-  font-weight: 600;
-}
-.lbl-phase.mon {
-  color: var(--mon-strong);
-}
-.lbl-phase.dem {
-  color: var(--dem-strong);
 }
 .lbl-year {
   width: 38px;

@@ -117,7 +117,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* small uppercase headings: one recipe for the section heads, the «Planlegging» heading row and the menu groups */
 .section-head,.col-head .grid-label,.menu-group{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
 .section-head{background:var(--bg);border-bottom-color:var(--line)}
-.col-head .lbl-num,.col-head .lbl-phase,.col-head .lbl-year{font-size:inherit;font-weight:inherit}
+.col-head .lbl-num,.col-head .lbl-year{font-size:inherit;font-weight:inherit}
 .col-head .lbl-year,.col-head .lbl-basis{color:inherit}
 /* what sits in a heading beside its name is ordinary text */
 .legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
@@ -177,8 +177,6 @@ input[type='checkbox']{accent-color:var(--accent)}
 .alloc-row:hover .grid-label{background:color-mix(in srgb,var(--surface) 50%,var(--bg))}
 .cell.filled.mon{background-color:var(--mon);color:var(--text);font-weight:500}
 .cell.filled.dem{background-color:var(--dem);color:var(--text);font-weight:500}
-.lbl-phase.mon,.lbl-level.mon{color:var(--mon-strong)}
-.lbl-phase.dem,.lbl-level.dem{color:var(--dem-strong)}
 
 /* window: a faint dot in empty workdays instead of a stripe + tint */
 .alloc-row .cell.in-window,.alloc-row .cell.in-window.dem{box-shadow:none}
