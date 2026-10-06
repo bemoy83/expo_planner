@@ -1,35 +1,35 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
-import { addDays, dateRange, daysBetween, type ISODate } from '../../domain/dates'
+import { dateRange, daysBetween, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { VENUE_PHASES, type AllocationRow, type VenueBooking } from '../../domain/types'
-import { buildHallCalendar, hallNames, hallProjects, hallRuns, hallSegments, projectsOfHalls, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
+import { VENUE_PHASES, type AllocationRow } from '../../domain/types'
+import { hallNames, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { fillAcross, shareOverDays, spread } from '../../domain/spread'
-import { eventKey, venueEvents } from '../../domain/projects'
-import { anchorDate, visibleVenue } from '../../domain/venueImport'
 import { buildWindows, windowFor } from '../../domain/windows'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
-import { Menu, Segmented, UndoRedoButtons } from '../common'
+import { Segmented, UndoRedoButtons } from '../common'
 import { CellMenu } from './CellMenu'
 import { LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
-import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows, type HallLabelRun } from './GridRows'
+import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows } from './GridRows'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
-import { GroupingMenu } from './GroupingBar'
+import { GroupingMenu } from './GroupingMenu'
 import { heatScale } from './heat'
-import { fmtDate, rowTitle } from './labels'
-import { NoteEditor } from './parts'
+import { rowTitle } from './labels'
 import { PlanBar } from './PlanBar'
+import { FilterMenu, ToolSwitch } from './PlanTools'
 import { RowInspector, type RowDetails } from './RowInspector'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
-import { projectList, useProjectHover } from './useProjectHover'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
+import { StatusBar, type FocusInfo } from './StatusBar'
+import { useHallCalendar } from './useHallCalendar'
+import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
-import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection } from './selection'
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eraser, Filter, Info, MousePointer2, PanelRight, Pencil, Plus } from 'lucide-react'
+import { rangeOf, TOOL_KEYS, type Cell, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Info, PanelRight, Plus } from 'lucide-react'
 
 /** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
 interface AllocLane {
@@ -42,10 +42,6 @@ interface AllocLane {
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
 
 const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
-
-type Tool = 'select' | 'pencil' | 'eraser'
-/** The keys that pick a tool, anywhere on the page. */
-const TOOL_KEYS: Record<string, Tool> = { v: 'select', f: 'pencil', t: 'eraser' }
 
 const typingIn = (target: EventTarget | null) => target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)
 
@@ -110,52 +106,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const toolsRef = useRef<HTMLDivElement>(null)
 
   // ---- derived data -------------------------------------------------------------------------
-  const shownVenue = useMemo(() => visibleVenue(ws.venue, ws.hiddenVenue), [ws.venue, ws.hiddenVenue])
-  const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
-  // Projects are the events in the Venyou calendar that have at least one hall booking shown.
-  const events = useMemo(() => venueEvents(shownVenue, ws.eventLinks, ws.projects), [shownVenue, ws.eventLinks, ws.projects])
-  /** The project a hall booking belongs to. */
-  const projectOf = useMemo(() => {
-    const projectOfEvent = new Map(events.map((event) => [event.key, projectKey({ projectNo: event.projectNo, projectName: event.name })]))
-    return (booking: VenueBooking) => projectOfEvent.get(eventKey(booking.eventName, anchorDate(booking))) ?? null
-  }, [events])
-  // The project behind each bar and name of the hall calendar, so that pointing at a project can light them.
-  const hallProject = useMemo(() => hallProjects(shownVenue, projectOf), [shownVenue, projectOf])
-  const hallProjectLists = useMemo(() => new Map([...projectsOfHalls(shownVenue, projectOf)].map(([hall, projects]) => [hall, projectList(projects)])), [shownVenue, projectOf])
-  // Each event's name sits on the first day of the arrangement itself in the hall and scrolls with it.
-  const hallLabels = useMemo(() => {
-    const labels = new Map<string, HallLabelRun[]>()
-    for (const [hall, days] of hallCalendar) {
-      const all = hallRuns(days)
-      // A name may run on past its own days, but not into the next event in the hall.
-      const runs = all.map((run, i) => ({
-        eventName: run.eventName,
-        col: daysBetween(range.start, run.anchor),
-        span: daysBetween(run.anchor, run.end) + 1,
-        room: all[i + 1] ? daysBetween(run.anchor, all[i + 1].start) : Infinity,
-        project: hallProject(hall, run.eventName, run.anchor),
-      }))
-      labels.set(hall, runs)
-    }
-    return labels
-  }, [hallCalendar, range.start, hallProject])
-  // Each hall's bookings as bars. Wide columns have room to show both events on a day the hall is shared.
-  const splitShared = zoom === 'wide'
-  const hallBars = useMemo(
-    () => new Map([...hallCalendar].map(([hall, days]) => [hall, hallSegments(days, range.start, splitShared).map((bar) => ({ ...bar, project: hallProject(hall, bar.eventName, addDays(range.start, Math.floor(bar.col))) }))])),
-    [hallCalendar, range.start, splitShared, hallProject],
-  )
-  const halls = useMemo(() => {
-    const names = hallNames(ws.venue)
-    if (allHalls) return names
-    // Exhibition halls: most of their bookings have build-up or tear-down periods.
-    return names.filter((hall) => {
-      const bookings = shownVenue.filter((b) => b.hall === hall)
-      if (!bookings.length) return false
-      return bookings.filter((b) => b.phases.assembly || b.phases.dismantle).length / bookings.length >= 0.5
-    })
-  }, [ws.venue, shownVenue, allHalls])
-  const hallCount = useMemo(() => hallNames(ws.venue).length, [ws.venue])
+  const { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallCount } = useHallCalendar(ws, range.start, zoom === 'wide', allHalls)
 
   const need = useMemo(() => dailyNeed(ws.allocations), [ws.allocations])
   const winFrom = dates[Math.max(0, Math.floor(viewport.left / colW))]
@@ -778,6 +729,15 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     return cleared ? `Tømmer ${days(cleared)}` : 'Dra sidelengs for å fylle · hold Alt for å strekke'
   })()
 
+  // What the stroke or the drag in progress would do, for the status bar.
+  const progress = fill
+    ? fillInfo
+    : preview
+      ? preview.shared
+        ? `Tegner: opptil ${formatFte(Math.max(...preview.perDay), 1)} FTE per dag over ${preview.target.length} ${preview.target.length === 1 ? 'arbeidsdag' : 'arbeidsdager'}`
+        : 'Tegner: ikke noe behov igjen å fordele her'
+      : null
+
   const toggled = (prev: Set<string>, key: string) => {
     const next = new Set(prev)
     if (next.has(key)) next.delete(key)
@@ -925,7 +885,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   }
 
   // ---- selection details for the status bar -------------------------------------------------
-  const focusInfo = (() => {
+  const focusInfo = ((): FocusInfo | null => {
     if (!selection) return null
     const date = dates[selection.focus.col]
     if (selection.section === 'alloc') {
@@ -948,11 +908,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   })()
 
   const shownRowCount = shownGroups.reduce((sum, group) => sum + group.rows.length, 0)
-  // The choices in the filter menu that narrow the list; «Bare prosjekter i visningen» is the normal state.
-  const otherFilters = [filter.competence, filter.search, filter.onlyWithRows, filter.onlyUncovered].filter(Boolean).length
-  const activeFilters = otherFilters + (filter.project ? 1 : 0)
-  // The filter button names the project shown; what else narrows the list is counted beside it.
-  const filterLabel = (filter.project && projects.find(([key]) => key === filter.project)?.[1]) || 'Alle prosjekter'
+  const filterFit = filterSummary(filter, projects)
   const menuRow = cellMenu ? rows.find((row) => row.id === cellMenu.rowId) : undefined
   const menuWindow = menuRow ? windowOf(menuRow) : undefined
   const menuWindowEnd = menuWindow?.size ? [...menuWindow].sort().at(-1) : undefined
@@ -1067,103 +1023,14 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and stay pinned even when the top block is too tall to be. */}
           <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : 0 }}>
-            <PlanBar width={viewport.width} fitKey={`${grouping.join()}|${filterLabel}|${otherFilters}|${hints}|${tool}`}>
+            <PlanBar width={viewport.width} fitKey={`${grouping.join()}|${filterFit.label}|${filterFit.others}|${hints}|${tool}`}>
               <div className="bar-zone">
                 <UndoRedoButtons />
-                <span className="tool-switch">
-                  <Segmented
-                    label="Verktøy"
-                    value={tool}
-                    onChange={setTool}
-                    options={[
-                      {
-                        value: 'select',
-                        label: (
-                          <>
-                            <MousePointer2 size={14} aria-hidden /> Velg <kbd>V</kbd>
-                          </>
-                        ),
-                        title: 'Velg celler og skriv FTE i dem (V).',
-                      },
-                      {
-                        value: 'pencil',
-                        label: (
-                          <>
-                            <Pencil size={14} aria-hidden /> Fordel behov <kbd>F</kbd>
-                          </>
-                        ),
-                        title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag (F, eller hold Shift og dra).',
-                      },
-                      {
-                        value: 'eraser',
-                        label: (
-                          <>
-                            <Eraser size={14} aria-hidden /> Tøm <kbd>T</kbd>
-                          </>
-                        ),
-                        title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under (T, eller hold Alt og dra).',
-                      },
-                    ]}
-                  />
-                </span>
+                <ToolSwitch tool={tool} onChange={setTool} />
               </div>
               <div className="bar-view">
                 <div className="bar-zone">
-                  <Menu
-                    label={
-                      <>
-                        <Filter size={14} aria-hidden />
-                        <span className="bar-button-label">{filterLabel}</span>
-                        {otherFilters > 0 && <span className="bar-count">+{otherFilters}</span>}
-                        <ChevronDown size={12} aria-hidden />
-                      </>
-                    }
-                    className={`bar-button ${activeFilters > 0 ? 'on' : ''}`}
-                    title="Filter: velg hvilke prosjekter og rader som vises"
-                  >
-                    {() => (
-                      <div className="filter-panel">
-                        <input className="search" type="search" aria-label="Søk i rader" placeholder="Søk i rader" value={filter.search} onChange={(e) => setFilter({ ...filter, search: e.target.value })} />
-                        <label>
-                          Prosjekt
-                          <select value={filter.project} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
-                            <option value="">Alle prosjekter ({projects.length})</option>
-                            {projects.map(([key, name]) => (
-                              <option key={key} value={key}>
-                                {name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label>
-                          Kompetanse
-                          <select value={filter.competence} onChange={(e) => setFilter({ ...filter, competence: e.target.value })}>
-                            <option value="">Alle</option>
-                            {competences.map((c) => (
-                              <option key={c}>{c}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="check" title="Skjul prosjekter som ikke har noen planleggingsrader ennå">
-                          <input type="checkbox" checked={!!filter.onlyWithRows} onChange={(e) => setFilter({ ...filter, onlyWithRows: e.target.checked })} />
-                          Skjul tomme
-                        </label>
-                        <label className="check" title="Skjul rader der planen dekker behovet, så det som gjenstår står igjen som en arbeidsliste">
-                          <input type="checkbox" checked={!!filter.onlyUncovered} onChange={(e) => setFilter({ ...filter, onlyUncovered: e.target.checked })} />
-                          Bare det som gjenstår
-                        </label>
-                        <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
-                          <input type="checkbox" checked={onlyInView} onChange={(e) => setOnlyInView(e.target.checked)} />
-                          Bare prosjekter i visningen
-                        </label>
-                        {activeFilters > 0 && (
-                          <button className="link" onClick={() => setFilter(EMPTY_FILTER)}>
-                            Nullstill
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </Menu>
+                  <FilterMenu filter={filter} onChange={setFilter} projects={projects} competences={competences} onlyInView={onlyInView} onOnlyInView={setOnlyInView} />
                   <GroupingMenu
                     grouping={grouping}
                     onChange={(next) => {
@@ -1286,33 +1153,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
         />
       )}
 
-      <div className="statusbar">
-        {focusInfo ? (
-          <>
-            <span className="status-title">{focusInfo.title}</span>
-            <span>{fmtDate(focusInfo.date)}</span>
-            <span>{focusInfo.value === undefined ? '–' : `${formatFte(focusInfo.value, 2)}`}</span>
-            {selectionSum !== null && <span>Sum markert: {formatFte(selectionSum, 2)}</span>}
-            {notice && !preview && !fill && <span className="status-notice">{notice}</span>}
-            {fill && <span className="status-notice">{fillInfo}</span>}
-            {preview && (
-              <span className="status-notice">
-                {preview.shared
-                  ? `Tegner: opptil ${formatFte(Math.max(...preview.perDay), 1)} FTE per dag over ${preview.target.length} ${preview.target.length === 1 ? 'arbeidsdag' : 'arbeidsdager'}`
-                  : 'Tegner: ikke noe behov igjen å fordele her'}
-              </span>
-            )}
-            {focusInfo.rowId && (
-              <NoteEditor key={`${focusInfo.rowId}:${focusInfo.date}`} note={focusInfo.note} onSave={(note) => setAllocationNote(focusInfo.rowId!, focusInfo.date, note)} />
-            )}
-            {!focusInfo.rowId && focusInfo.note && <span className="note-text">Notat: {focusInfo.note}</span>}
-          </>
-        ) : notice ? (
-          <span className="status-notice">{notice}</span>
-        ) : (
-          <span className="muted">Klikk en celle for å planlegge. Skriv tall (f.eks. 1,5), Enter for neste rad, dra eller Shift+klikk for å markere flere, Ctrl/Cmd+C/V for kopier og lim inn.</span>
-        )}
-      </div>
+      <StatusBar focus={focusInfo} selectionSum={selectionSum} notice={notice} progress={progress} onSaveNote={setAllocationNote} />
 
       {dialog && (
         <AllocationDialog

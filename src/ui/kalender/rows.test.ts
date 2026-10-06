@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, workPhaseOn, type Dimension, type GridItem } from './rows'
+import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, workPhaseOn, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -236,5 +236,19 @@ describe('work phase of a day', () => {
   it('is montering on a tie and nothing on an empty day', () => {
     expect(workPhaseOn(rows, '2026-10-07')).toBe('Montering')
     expect(workPhaseOn(rows, '2026-10-08')).toBeNull()
+  })
+})
+
+describe('filterSummary', () => {
+  const projects: [string, string][] = [['26970', 'VVS 2026'], ['27100', 'Hage 2026']]
+
+  it('names the project shown and counts what else narrows the list', () => {
+    expect(filterSummary(EMPTY_FILTER, projects)).toEqual({ label: 'Alle prosjekter', others: 0, active: 0 })
+    expect(filterSummary({ ...EMPTY_FILTER, project: '27100' }, projects)).toEqual({ label: 'Hage 2026', others: 0, active: 1 })
+    expect(filterSummary({ project: '26970', competence: 'FOGA', search: 'hall', onlyUncovered: true }, projects)).toEqual({ label: 'VVS 2026', others: 3, active: 4 })
+  })
+
+  it('falls back to all projects when the chosen project is gone', () => {
+    expect(filterSummary({ ...EMPTY_FILTER, project: 'x' }, projects).label).toBe('Alle prosjekter')
   })
 })

@@ -34,3 +34,7 @@ export const rangeOf = (sel: Selection) => ({
   col0: Math.min(sel.anchor.col, sel.focus.col),
   col1: Math.max(sel.anchor.col, sel.focus.col),
 })
+
+export type Tool = 'select' | 'pencil' | 'eraser'
+/** The keys that pick a tool, anywhere on the page. */
+export const TOOL_KEYS: Record<string, Tool> = { v: 'select', f: 'pencil', t: 'eraser' }

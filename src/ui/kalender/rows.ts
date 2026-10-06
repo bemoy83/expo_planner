@@ -71,6 +71,15 @@ export interface RowFilter {
 
 export const EMPTY_FILTER: RowFilter = { project: '', competence: '', search: '' }
 
+/**
+ * What the filter button says: the project shown, and how many other choices narrow the list.
+ * «Bare prosjekter i visningen» is the normal state and is not counted.
+ */
+export const filterSummary = (filter: RowFilter, projects: [key: string, name: string][]) => {
+  const others = [filter.competence, filter.search, filter.onlyWithRows, filter.onlyUncovered].filter(Boolean).length
+  return { label: (filter.project && projects.find(([key]) => key === filter.project)?.[1]) || 'Alle prosjekter', others, active: others + (filter.project ? 1 : 0) }
+}
+
 /** Rows with the same project number belong together even when the name is spelled differently. */
 export const projectKey = (row: Pick<AllocationRow, 'projectNo' | 'projectName'>): string => row.projectNo.trim() || `navn:${normalizeName(row.projectName)}`
 
