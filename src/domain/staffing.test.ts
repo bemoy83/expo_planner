@@ -21,7 +21,6 @@ import {
   drawBlock,
   editableWindows,
   freeCapacity,
-  freeEligibleHours,
   freeIntervals,
   invariantBreaches,
   mergeAdjacent,
@@ -354,11 +353,11 @@ describe('balance', () => {
 
   it('D18 marks hours as uncoverable only when the people with the competence have too little free time', () => {
     // Monday: 7,5 left, and Hanne and Per are free.
-    expect(freeEligibleHours(ws, 'teppefliser', MON)).toBe(15)
+    expect(freeCapacity(ws, MON, 'teppefliser').hours).toBe(15)
     expect(uncoverable(ws, 'teppefliser', MON)).toBe(0)
     // Tuesday: 26 left, and only Eirik and Hanne are free.
     expect(dayBalance(ws, 'teppefliser', TUE).remaining).toBe(26)
-    expect(freeEligibleHours(ws, 'teppefliser', TUE)).toBe(15)
+    expect(freeCapacity(ws, TUE, 'teppefliser').hours).toBe(15)
     expect(uncoverable(ws, 'teppefliser', TUE)).toBe(11)
     expect(uncoverable(ws, 'innredning', SAT)).toBe(0)
   })
@@ -412,10 +411,12 @@ describe('sickness', () => {
 
   it('D21 removes exactly the unresolved blocks', () => {
     const ill: Workspace = { ...ws, unavailability: [...ws.unavailability!, ...sick(ANDERS, [MON, TUE])] }
-    const left = removeUnresolved(ill)
+    const left = removeUnresolved(ill, WEEK)
     expect(left).toHaveLength(ws.assignments!.length - 2)
     expect(left.some((a) => a.personId === ANDERS)).toBe(false)
-    expect(removeUnresolved(ws)).toBe(ws.assignments)
+    // Only the week shown: Tuesday's block stays when Monday alone is asked for.
+    expect(removeUnresolved(ill, [MON]).filter((a) => a.personId === ANDERS).map((a) => a.date)).toEqual([TUE])
+    expect(removeUnresolved(ws, WEEK)).toBe(ws.assignments)
   })
 
   it('keeps a block open only while hours of its competence remain that day', () => {
@@ -431,6 +432,7 @@ describe('sickness', () => {
     expect(dayBalance(covered, 'teppefliser', MON).remaining).toBe(0)
     expect(openUnresolved(covered)).toEqual([])
     expect(unresolvedAssignments(covered)).toHaveLength(1)
+    expect(removeUnresolved(covered, WEEK)).toBe(covered.assignments)
     expect(openUnresolved(ws)).toEqual([])
   })
 

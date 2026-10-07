@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { addDays, dayOfMonth, monthShort, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { assignmentStatus, openUnresolved, buildBalance, carry, clearDays, clearSick, freeCapacity, isSick, markSick, removeCarried, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
+import { assignmentStatus, openUnresolved, buildBalance, carry, clearDays, clearSick, defaultBrush, freeCapacity, isSick, markSick, removeCarried, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, removeUnresolved, uncoverable as uncoverableHours, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
 import type { Assignment, Unavailability, Workspace } from '../../domain/types'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -88,8 +88,8 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     const hours = new Map<string, number>()
     for (const { style } of stripRows) {
       for (const date of dates) {
-        const remaining = balance.get(style.key, date).remaining
-        if (remaining > EPSILON && dayType(date) === 'arbeidsdag') hours.set(`${style.key}|${date}`, Math.max(0, remaining - freeCapacity(ws, date, style.key).hours))
+        const short = uncoverableHours(ws, style.key, date, balance)
+        if (short > EPSILON) hours.set(`${style.key}|${date}`, short)
       }
     }
     return hours
@@ -215,10 +215,7 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     const inWeek = new Set(dates)
     return (ws.assignments ?? []).filter((a) => inWeek.has(a.date) && openIds.has(a.id))
   }, [ws, dates, openIds])
-  const removeUnresolved = () => {
-    const gone = new Set(unresolved.map((a) => a.id))
-    updateStaffing((w) => ({ ...w, assignments: (w.assignments ?? []).filter((a) => !gone.has(a.id)) }))
-  }
+  const removeOpen = () => updateStaffing((w) => ({ ...w, assignments: removeUnresolved(w, dates) }))
 
   const clear = (cells: Day[]) => updateStaffing((w) => ({ ...w, assignments: clearDays(w.assignments ?? [], cells) }))
 
@@ -278,16 +275,9 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     return () => window.removeEventListener('mouseup', onUp)
   }, [stroking, strokeEnd])
 
-  /** The competence the brush starts with: the one people have with the most hours left on the day in focus. */
-  const defaultBrush = () => {
-    let best = staffed[0]?.key ?? null
-    for (const style of staffed) if (best && balance.get(style.key, focusDate).remaining > balance.get(best, focusDate).remaining) best = style.key
-    return best
-  }
-
   const pickTool = (next: Tool) => {
     if (next === 'paint' && !activeBrush) {
-      const competence = defaultBrush()
+      const competence = defaultBrush(ws, focusDate, balance)
       if (!competence) return toast('Ingen av de faste har en kompetanse ennå. Legg dem inn på Personell.')
       setBrush(competence)
     }
@@ -401,7 +391,7 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
         anyOpen={rows.some(({ person }) => openRows.has(person.id))}
         onToggleAll={() => setOpenRows(rows.some(({ person }) => openRows.has(person.id)) ? new Set() : new Set(rows.map(({ person }) => person.id)))}
         unresolved={unresolved.length}
-        onRemoveUnresolved={removeUnresolved}
+        onRemoveUnresolved={removeOpen}
       />
 
       <div

@@ -1,3 +1,4 @@
+import { staffedCompetences } from './competences'
 import { addDays, type ISODate } from './dates'
 import { dayType, type DayType } from './holidays'
 import { competenceKey, type Assignment, type CompetenceKey, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type WorkdaySettings, type Workspace } from './types'
@@ -213,13 +214,6 @@ export const okAssignments = (ws: Workspace): Assignment[] => {
 export const unresolvedAssignments = (ws: Workspace): Assignment[] => {
   const ok = new Set(okAssignments(ws))
   return (ws.assignments ?? []).filter((a) => !ok.has(a))
-}
-
-/** «Fjern uløste»: the assignments without the unresolved ones. */
-export const removeUnresolved = (ws: Workspace): Assignment[] => {
-  const all = ws.assignments ?? []
-  const ok = okAssignments(ws)
-  return ok.length === all.length ? all : ok
 }
 
 export interface EditOptions {
@@ -443,8 +437,6 @@ export const freeCapacity = (ws: Workspace, date: ISODate, competence?: Competen
   return { hours, people }
 }
 
-export const freeEligibleHours = (ws: Workspace, competence: CompetenceKey, date: ISODate): number => freeCapacity(ws, date, competence).hours
-
 /**
  * The unresolved assignments that still leave a gap: those on a day where hours of their competence remain.
  * Once others cover the day's demand, the assignment is replaced: it still does not count, but there is nothing left to solve.
@@ -456,9 +448,17 @@ export const openUnresolved = (ws: Workspace): Assignment[] => {
   return unresolved.filter((a) => balance.get(a.competence, a.date).remaining > 0.01)
 }
 
+/** «Fjern uløste»: the assignments without the open unresolved ones on the given dates. Those whose day others cover are left as they are. */
+export const removeUnresolved = (ws: Workspace, dates: ISODate[]): Assignment[] => {
+  const all = ws.assignments ?? []
+  const wanted = new Set(dates)
+  const gone = new Set(openUnresolved(ws).filter((a) => wanted.has(a.date)))
+  return gone.size ? all.filter((a) => !gone.has(a)) : all
+}
+
 /** R11: the remaining hours that the people with the competence have no free normal time for. Workdays only. */
-export const uncoverable = (ws: Workspace, competence: CompetenceKey, date: ISODate): number =>
-  dayType(date) === 'arbeidsdag' ? Math.max(0, dayBalance(ws, competence, date).remaining - freeEligibleHours(ws, competence, date)) : 0
+export const uncoverable = (ws: Workspace, competence: CompetenceKey, date: ISODate, balance: Balance = buildBalance(ws, [date])): number =>
+  dayType(date) === 'arbeidsdag' ? Math.max(0, balance.get(competence, date).remaining - freeCapacity(ws, date, competence).hours) : 0
 
 /** R12: moves unfinished hours to the next day as added demand. The day they come from keeps its demand and its assignments. */
 export const carry = (ws: Workspace, competence: CompetenceKey, fromDate: ISODate, hours: number, makeId: () => string = () => `adj-${crypto.randomUUID()}`): DemandAdjustment[] => {
@@ -523,14 +523,10 @@ export const personWeek = (ws: Workspace, personId: string, dates: ISODate[]): P
   return total
 }
 
-/** R14: the competence the brush starts with: the one with the most hours remaining on the day, if any has. */
-export const defaultBrush = (ws: Workspace, date: ISODate): CompetenceKey | null => {
-  const balance = buildBalance(ws, [date])
+/** R14: the competence the brush starts with: of those people have, the one with the most hours remaining on the day; the first of them when nothing remains. */
+export const defaultBrush = (ws: Workspace, date: ISODate, balance: Balance = buildBalance(ws, [date])): CompetenceKey | null => {
   let best: CompetenceKey | null = null
-  for (const competence of balance.competences) {
-    const remaining = balance.get(competence, date).remaining
-    if (remaining > 0 && (best === null || remaining > balance.get(best, date).remaining)) best = competence
-  }
+  for (const { key } of staffedCompetences(ws)) if (best === null || balance.get(key, date).remaining > balance.get(best, date).remaining) best = key
   return best
 }
 
