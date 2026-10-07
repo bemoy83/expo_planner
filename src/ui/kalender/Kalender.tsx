@@ -4,8 +4,8 @@ import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { decimalText } from '../../domain/numbers'
 import { dayType } from '../../domain/holidays'
-import { VENUE_PHASES, type AllocationRow } from '../../domain/types'
-import { hallNames, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
+import type { AllocationRow } from '../../domain/types'
+import { hallNames, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
@@ -13,19 +13,17 @@ import { buildWindows, windowFor } from '../../domain/windows'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
-import { Segmented, UndoRedoButtons } from '../common'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
-import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows } from './GridRows'
+import { AllocRow, GroupRow, HeadRows } from './GridRows'
 import type { AllocLane, CapLane, CellEdit, Columns, GridActions } from './gridTypes'
-import { GroupingMenu } from './GroupingMenu'
 import { heatScale } from './heat'
 import { rowTitle } from './labels'
-import { PlanBar } from './PlanBar'
-import { FilterMenu, PlanToolSwitch } from './PlanTools'
+import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, projectKey, type Dimension, type RowFilter } from './rows'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
+import { HallSection, PlanningHeading, StaffingSection } from './TopSections'
 import { useGridDrag } from './useGridDrag'
 import { useGridViewport } from './useGridViewport'
 import { useHallCalendar } from './useHallCalendar'
@@ -34,7 +32,6 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
 import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Info, PanelRight, Plus } from 'lucide-react'
 
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
@@ -614,7 +611,6 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   })()
 
   const shownRowCount = shownGroups.reduce((sum, group) => sum + group.rows.length, 0)
-  const filterFit = filterSummary(filter, projects)
   const menuRow = cellMenu ? rows.find((row) => row.id === cellMenu.rowId) : undefined
   const menuWindow = menuRow ? windowOf(menuRow) : undefined
   const menuWindowEnd = menuWindow?.size ? [...menuWindow].sort().at(-1) : undefined
@@ -626,36 +622,15 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // ---- render ---------------------------------------------------------------------------------
   return (
     <div className={`kalender ${activeTool === 'select' ? '' : activeTool}`}>
-      <div className="page-head">
-        <h2>Kalender</h2>
-        <span className="page-meta">
-          {[
-            `${shownGroups.length} ${shownGroups.length === 1 ? 'prosjekt' : 'prosjekter'}`,
-            `${shownRowCount} ${shownRowCount === 1 ? 'rad' : 'rader'}`,
-            overbooked.size ? `${overbooked.size} ${overbooked.size === 1 ? 'dag' : 'dager'} med underdekning` : 'Ingen underdekning',
-          ].join(' · ')}
-        </span>
-        <button className="ghost" onClick={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}>
-          <Plus size={14} aria-hidden /> Ny rad
-        </button>
-        <button
-          className={`ghost icon-button ${inspectorOpen ? 'active' : ''}`}
-          aria-pressed={inspectorOpen}
-          aria-label={inspectorOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer'}
-          title={inspectorOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer: behov, vindu og dager for raden du står på'}
-          onClick={() => setInspectorOpen(!inspectorOpen)}
-        >
-          <PanelRight size={16} aria-hidden />
-        </button>
-        <button
-          className="primary"
-          disabled={shownRowCount === 0}
-          title="Foreslå plan: fordel behovet til radene i prosjektene som vises på monterings- og demonteringsdagene i hallene. Rader som allerede har FTE røres ikke."
-          onClick={() => proposePlan(shownGroups.flatMap((group) => group.rows), false)}
-        >
-          ✦ Foreslå plan
-        </button>
-      </div>
+      <KalenderHead
+        projects={shownGroups.length}
+        rows={shownRowCount}
+        overbooked={overbooked.size}
+        inspectorOpen={inspectorOpen}
+        onInspector={setInspectorOpen}
+        onNewRow={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}
+        onPropose={() => proposePlan(shownGroups.flatMap((group) => group.rows), false)}
+      />
 
       <div className="kal-work">
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
@@ -664,156 +639,57 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
           <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
             <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={activeDate} />
 
-            {/* The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too. */}
-            <div className={`top-section ${hallsOpen ? 'open' : ''}`}>
-              <div className="section-head" style={{ width: LEFT_W }}>
-                <button className="twisty" aria-expanded={hallsOpen} aria-label={hallsOpen ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => setHallsOpen(!hallsOpen)}>
-                  {hallsOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-                </button>
-                Haller
-                {!hallsOpen && <span className="section-meta">{halls.length} skjult</span>}
-                {hallsOpen && (
-                  <button className="link small" onClick={() => setAllHalls(!allHalls)}>
-                    {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
-                  </button>
-                )}
-                {hallsOpen && (
-                  <span className="phase-legend">
-                    {VENUE_PHASES.map((phase) => (
-                      <span key={phase}>
-                        <i className={`ph-${phase}`}>{PHASE_CODES[phase]}</i> {PHASE_LABELS[phase]}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </div>
-              {hallsOpen && ws.venue.length === 0 && (
-                <div className="section-hint" style={{ width: LEFT_W }}>
-                  Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
-                </div>
-              )}
-              {hallsOpen && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} cols={cols} />)}
-            </div>
-
-            {/* Bemanning is framed the same way; its heading always has the Avvik line under it. */}
-            <div className="top-section staffing open">
-              <div className="section-head" style={{ width: LEFT_W }}>
-                <button
-                  className="twisty"
-                  aria-expanded={staffingOpen}
-                  aria-label={staffingOpen ? 'Skjul bemanningen' : 'Vis bemanningen'}
-                  onClick={() => {
-                    // A selection in the staffing lines has nowhere to be once they are folded away.
-                    if (staffingOpen && selection?.section === 'cap') setSelection(null)
-                    setStaffingOpen(!staffingOpen)
-                  }}
-                >
-                  {staffingOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-                </button>
-                Bemanning <span className="muted">(FTE)</span>
-                {staffingOpen ? (
-                  <button className="link small" onClick={() => setCapacityOpen(!capacityOpen)}>
-                    {capacityOpen ? 'Skjul detaljer' : 'Vis detaljer'}
-                  </button>
-                ) : (
-                  <span className="section-meta">bare avvik vises</span>
-                )}
-              </div>
-              {staffingOpen && capacityOpen && (
-                <>
-                  <BaseCrewRow cols={cols} baseCrew={settings.baseCrew} />
-                  {capLanes.map((cap, lane) => (
-                    <CapRow key={`cap:${cap.line.id}:${cap.field}`} cap={cap} lane={lane} cols={cols} actions={actions} {...editOf('cap', lane)} />
-                  ))}
-                </>
-              )}
-              <SumRows cols={cols} need={need} capacity={ws.capacity} settings={settings} deviationOnly={!staffingOpen} heat={heat} maxShortage={heatMax.maxShortage} maxSurplus={heatMax.maxSurplus} />
-            </div>
+            <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
+            <StaffingSection
+              open={staffingOpen}
+              onOpen={(open) => {
+                // A selection in the staffing lines has nowhere to be once they are folded away.
+                if (!open && selection?.section === 'cap') setSelection(null)
+                setStaffingOpen(open)
+              }}
+              detailsOpen={capacityOpen}
+              onDetailsOpen={setCapacityOpen}
+              capLanes={capLanes}
+              editOf={(lane) => editOf('cap', lane)}
+              cols={cols}
+              actions={actions}
+              need={need}
+              capacity={ws.capacity}
+              settings={settings}
+              heat={heat}
+              heatMax={heatMax}
+            />
           </div>
 
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and stay pinned even when the top block is too tall to be. */}
           <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : 0 }}>
-            <PlanBar width={viewport.width} fitKey={`${grouping.join()}|${filterFit.label}|${filterFit.others}|${hints}|${tool}|${collapsed.size > 0}`}>
-              <div className="bar-zone">
-                <UndoRedoButtons />
-                <PlanToolSwitch tool={tool} onChange={setTool} />
-              </div>
-              <div className="bar-view">
-                <div className="bar-zone">
-                  <FilterMenu filter={filter} onChange={setFilter} projects={projects} competences={competences} onlyInView={onlyInView} onOnlyInView={setOnlyInView} />
-                  <GroupingMenu
-                    grouping={grouping}
-                    onChange={(next) => {
-                      // Lanes are positions in the list, so a selection would land on other rows after regrouping.
-                      setSelection(null)
-                      setGrouping(next)
-                    }}
-                  />
-                  <button
-                    className="ghost"
-                    title={collapsed.size ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'}
-                    onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
-                  >
-                    {collapsed.size ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}
-                    {collapsed.size ? 'Utvid alle' : 'Fold sammen'}
-                  </button>
-                </div>
-                <div className="bar-zone bar-zone-end">
-                  {hints && (
-                    <span className="bar-hint" title="Hold Shift og dra for å fordele, Alt og dra for å tømme. Høyreklikk en celle for flere valg.">
-                      <Info size={14} aria-hidden />
-                      <span className="bar-hint-text">
-                        <b>Shift</b>/<b>Alt</b>-dra · <b>høyreklikk</b>
-                      </span>
-                    </span>
-                  )}
-                  <button className="ghost" onClick={() => scrollToDate(today)}>
-                    I dag
-                  </button>
-                  <input className="bar-date" type="date" aria-label="Gå til dato" title="Gå til dato" min={range.start} max={range.end} onChange={(e) => e.target.value && scrollToDate(e.target.value, 2)} />
-                  <Segmented
-                    label="Kolonnebredde"
-                    value={zoom}
-                    onChange={setZoom}
-                    options={[
-                      { value: 'compact', label: 'S', title: 'Smale kolonner' },
-                      { value: 'normal', label: 'M', title: 'Normale kolonner' },
-                      { value: 'wide', label: 'L', title: 'Brede kolonner' },
-                    ]}
-                  />
-                </div>
-              </div>
-            </PlanBar>
-            <div className="grid-row col-head" style={{ height: ROW_H }}>
-              <div className="grid-label" style={{ width: LEFT_W }}>
-                <span className="lbl-desc">Planlegging</span>
-                <span className="lbl-nums">
-                  <span className="lbl-num" title="Behov (FTE-dager)">
-                    Behov
-                  </span>
-                  <span className="lbl-num" title="Planlagt (FTE-dager)">
-                    Plan
-                  </span>
-                  <span className="lbl-num" title="Plan minus behov">
-                    Δ
-                  </span>
-                </span>
-                {/* The rows end in a slot for their actions; the same slot here keeps the headings over their columns. */}
-                <span className="row-slot" />
-              </div>
-              {/* What the colours of the planning cells mean; stays beside the label column when scrolling sideways. */}
-              <span className="phase-legend" style={{ left: LEFT_W }}>
-                <span>
-                  <i className="mon" /> Montering
-                </span>
-                <span>
-                  <i className="dem" /> Demontering
-                </span>
-                <span title="FTE på en dag utenfor radens monterings- eller demonteringsdager i hallen">
-                  <i className="outside" /> Utenfor
-                </span>
-              </span>
-            </div>
+            <KalenderBar
+              width={viewport.width}
+              hints={hints}
+              tool={tool}
+              onTool={setTool}
+              filter={filter}
+              onFilter={setFilter}
+              projects={projects}
+              competences={competences}
+              onlyInView={onlyInView}
+              onOnlyInView={setOnlyInView}
+              grouping={grouping}
+              onGrouping={(next) => {
+                // Lanes are positions in the list, so a selection would land on other rows after regrouping.
+                setSelection(null)
+                setGrouping(next)
+              }}
+              folded={collapsed.size > 0}
+              onFold={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
+              start={range.start}
+              end={range.end}
+              onToday={() => scrollToDate(today)}
+              onDate={(date) => scrollToDate(date, 2)}
+              zoom={zoom}
+              onZoom={setZoom}
+            />
+            <PlanningHeading />
           </div>
 
           <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
