@@ -130,7 +130,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
                       </Remaining>
                       {index < 5 && cell.demand > EPSILON && <em>av {hoursText(cell.demand)}</em>}
                     </span>
-                    <span className="bm-bar">
+                    <span className="bar">
                       <i className="covered" style={{ width: `${regular}%` }} />
                       {overtime > 0 && <i className="overtime" style={{ left: `${regular}%`, width: `${overtime}%` }} />}
                       {surplus > 0 && <i className="surplus" style={{ left: `${regular + overtime}%`, width: `${surplus}%` }} />}

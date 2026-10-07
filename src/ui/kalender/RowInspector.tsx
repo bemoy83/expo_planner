@@ -101,7 +101,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
           <h3 className="insp-h">
             Fremdrift<span>FTE-dager</span>
           </h3>
-          <div className="insp-stats">
+          <div className="stats">
             <div>
               <span>Behov</span>
               <b>{totals.requiredFte === null ? '–' : formatFte(required)}</b>
@@ -118,8 +118,8 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
               <em>{required > 0 ? `${Math.round((planned / required) * 100)} %` : ' '}</em>
             </div>
           </div>
-          <div className={`insp-bar ${state}`}>
-            <span style={{ width: `${share}%` }} />
+          <div className={`bar ${state}`}>
+            <i className="share" style={{ width: `${share}%` }} />
           </div>
           {outside > 0 && <p className="insp-warn">{formatFte(outside)} FTE-dager ligger utenfor vinduet.</p>}
         </section>

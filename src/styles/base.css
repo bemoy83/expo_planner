@@ -117,6 +117,22 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* The app's own tooltip, see Tooltips.tsx. */
 .tooltip{position:fixed;z-index:100;max-width:320px;padding:5px 8px;border-radius:6px;background:var(--tip-bg);color:var(--tip-text);font-size:var(--fs-md);line-height:1.35;white-space:pre-line;pointer-events:none}
 
+/* ---- stats: three figures side by side, and the thin bar that shows a share. Row details in the Kalender, demand in Bemanning ---- */
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.stats div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stats div+div{padding-left:14px;border-left:1px solid var(--line)}
+.stats div:not(:last-child){padding-right:14px}
+.stats span{font-size:var(--fs-sm);color:var(--muted)}
+.stats b{font:600 var(--fs-figure)/1.15 var(--font-num);letter-spacing:-.02em;color:var(--text)}
+.stats em{min-height:14px;font:normal 400 var(--fs-xs) var(--font-num);color:var(--faint)}
+.stats .over b{color:var(--over)}
+.stats .done b{color:var(--pos)}
+.bar{position:relative;height:4px;border-radius:3px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0;left:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
+.bar .share{background:var(--mon)}
+.bar.over .share{background:var(--over)}
+.bar.done .share{background:var(--pos)}
+
 /* ---- toasts: short messages in the corner, see Toasts.tsx ---- */
 .toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;width:400px;max-width:calc(100vw - 32px)}
 .toast{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);box-shadow:0 16px 40px -16px var(--shadow);font-size:var(--fs-md)}

@@ -77,6 +77,7 @@
   --fs-base:14px;    /* body text and controls */
   --fs-title-sm:16px;/* dialog titles */
   --fs-title:20px;   /* page titles */
+  --fs-figure:18px;  /* the three figures of a stats block */
 
   /* motion: the one curve things move on */
   --ease:cubic-bezier(.4,0,.2,1);

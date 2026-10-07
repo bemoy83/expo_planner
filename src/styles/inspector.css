@@ -18,19 +18,7 @@
 .insp-sec:last-child{border-bottom:0}
 .insp-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 12px}
 .insp-h span{font-size:var(--fs-xs);text-transform:none;letter-spacing:0}
-.insp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
-.insp-stats div{display:flex;flex-direction:column;gap:2px;min-width:0}
-.insp-stats div+div{padding-left:14px;border-left:1px solid var(--line)}
-.insp-stats div:not(:last-child){padding-right:14px}
-.insp-stats span{font-size:var(--fs-sm);color:var(--muted)}
-.insp-stats b{font:600 22px/1.15 var(--font-num);letter-spacing:-.03em;color:var(--text)}
-.insp-stats em{min-height:14px;font:normal 400 var(--fs-xs) var(--font-num);color:var(--faint)}
-.insp-stats .over b{color:var(--over)}
-.insp-stats .done b{color:var(--pos)}
-.insp-bar{height:4px;margin-top:14px;border-radius:4px;background:var(--sunken);overflow:hidden}
-.insp-bar span{display:block;height:100%;border-radius:4px;background:var(--mon)}
-.insp-bar.over span{background:var(--over)}
-.insp-bar.done span{background:var(--pos)}
+.insp-sec .bar{margin-top:14px}
 .insp-warn{margin:10px 0 0;font-size:var(--fs-sm);color:var(--over)}
 .insp-note{margin:0;font-size:var(--fs-md);line-height:1.45;color:var(--muted)}
 .insp-dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:7px 12px;margin:0;font-size:var(--fs-md)}

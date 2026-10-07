@@ -170,7 +170,7 @@ export function DemandPopover({ x, y, style, dayText, demand, assigned, remainin
         <b>{style.label}</b>
         <span>{dayText}</span>
       </div>
-      <div className="bm-pop-stats">
+      <div className="stats">
         <div>
           <span>Behov</span>
           <b>{hoursText(demand)}</b>
