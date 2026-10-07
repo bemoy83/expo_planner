@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
+import { competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
 import { DEFAULT_SETTINGS, LINE_COLORS, type AllocationRow, type Workspace } from './types'
 
 const row = (competence: string): AllocationRow => ({ id: `row-${competence}`, order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering', basis: 'Planlagt', importedHours: null, fte: {}, notes: {} })
@@ -137,5 +137,17 @@ describe('a competence that is replaced', () => {
     expect(next.competenceStyles!.print).toMatchObject({ key: 'print', color: styled.competenceStyles!.print.color })
     const fresh = replaceCompetence(styled, 'skilting', 'Folie')
     expect(fresh.competenceStyles!.folie).toMatchObject({ key: 'folie', label: 'Folie', shortLabel: 'FOL', color: 'line-rose', order })
+  })
+})
+
+describe('competenceUse', () => {
+  it('counts what names a competence, and finds nothing for one added by hand', () => {
+    const ws: Workspace = { ...base, assignments: [{ id: 'a', personId: 'p1', date: '2026-10-12', competence: 'banner', start: 420, end: 900, source: 'manual' }] }
+    expect(competenceUse(ws, 'foga')).toEqual({ productTypes: 0, demandLines: 0, rows: 2, people: 0, blocks: 0 })
+    expect(competenceUse(ws, 'skilting')).toMatchObject({ productTypes: 1, rows: 0 })
+    expect(competenceUse(ws, 'banner')).toMatchObject({ people: 1, blocks: 1 })
+    const use = competenceUse(ws, 'ny')
+    expect(Object.values(use).every((n) => n === 0)).toBe(true)
+    expect(isUnusedCompetence({ ...ws, competenceStyles: addCompetence(ws, 'Ny')! }, 'ny')).toBe(true)
   })
 })

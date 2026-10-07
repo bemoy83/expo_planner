@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { addCompetence, addPerson, competenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from '../../domain/competences'
+import { competenceUse, type CompetenceUse, addCompetence, addPerson, competenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from '../../domain/competences'
 import { LINE_COLORS, type CompetenceStyle, type LineColor, type Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, UndoRedoButtons } from '../common'
@@ -25,6 +25,22 @@ const LAST_KEY = 9
  * The permanent staff and what each of them can do, and how the competences are shown in Bemanning.
  * The list of competences fills itself from the product types, the demand and the planning rows.
  */
+/** What names a competence, in words: the reason it cannot be removed. */
+const usedByText = (use: CompetenceUse): string => {
+  const part = (n: number, one: string, many: string) => (n ? `${n} ${n === 1 ? one : many}` : '')
+  return (
+    [
+      part(use.productTypes, 'produkttype', 'produkttyper'),
+      part(use.demandLines, 'behovslinje', 'behovslinjer'),
+      part(use.rows, 'rad i Kalender', 'rader i Kalender'),
+      part(use.people, 'person', 'personer'),
+      part(use.blocks, 'blokk i Bemanning', 'blokker i Bemanning'),
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'ingen – kan fjernes'
+  )
+}
+
 export function Personell() {
   const { workspace, updateStaffing } = useWorkspace()
   const ws = workspace!
@@ -161,6 +177,7 @@ export function Personell() {
                   <th className="num" title="Aktive faste som har kompetansen">
                     Faste
                   </th>
+                  <th title="Det som nevner kompetansen. Den kan fjernes først når ingenting gjør det.">Brukes av</th>
                 </tr>
               </thead>
               <tbody>
@@ -210,6 +227,7 @@ export function Personell() {
                       </span>
                     </td>
                     <td className="num">{holders(style.key) || ''}</td>
+                    <td className="muted used-by">{usedByText(competenceUse(ws, style.key))}</td>
                   </tr>
                 ))}
               </tbody>

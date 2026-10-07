@@ -70,6 +70,23 @@ export const addCompetence = (ws: Workspace, label: string): Record<CompetenceKe
   return asRecord([...styles, { key, label: label.trim(), shortLabel: defaultShortLabel(label.trim()), color: nextColor(styles.map((style) => style.color)), order: styles.length }])
 }
 
+/** What names a competence, counted: it can be removed only when nothing does. */
+export interface CompetenceUse {
+  productTypes: number
+  demandLines: number
+  rows: number
+  people: number
+  blocks: number
+}
+
+export const competenceUse = (ws: Workspace, key: CompetenceKey): CompetenceUse => ({
+  productTypes: (ws.kpi?.workTypes ?? []).filter((rule) => competenceKey(rule.competence) === key).length,
+  demandLines: ws.demand.filter((line) => competenceKey(line.competence) === key).length,
+  rows: ws.allocations.filter((row) => competenceKey(row.competence) === key).length,
+  people: (ws.persons ?? []).filter((person) => person.competences.includes(key)).length,
+  blocks: (ws.assignments ?? []).filter((a) => a.competence === key).length,
+})
+
 /** Whether a competence is only there because the planner added it, so that it can be removed again. */
 export const isUnusedCompetence = (ws: Workspace, key: CompetenceKey): boolean => !textsInUse(ws).has(key) && !(ws.assignments ?? []).some((a) => a.competence === key)
 

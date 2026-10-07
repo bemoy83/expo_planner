@@ -77,6 +77,8 @@ table.ledger tr.inactive-row .comp-toggle{color:var(--muted)}
 .menu-button.comp-add{width:22px;height:22px;padding:0;border-radius:6px;background:transparent;color:var(--muted)}
 .menu-button.comp-add:hover,.menu-button.comp-add[aria-expanded='true']{background:var(--sunken);color:var(--text)}
 .comp-toggles .menu-pop{max-height:320px;overflow:auto}
+/* what names a competence: a few words that may break over two lines, so the table stays inside the window */
+table.ledger td.used-by{white-space:normal;min-width:170px;font-size:var(--fs-sm)}
 input.inline.short-label{min-width:0;width:64px;font-family:var(--font-num);font-size:var(--fs-sm)}
 .color-choice{display:inline-flex;gap:2px}
 .color-choice button{padding:5px;border-radius:6px;background:transparent}
