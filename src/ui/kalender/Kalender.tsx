@@ -7,6 +7,7 @@ import { dayType } from '../../domain/holidays'
 import type { AllocationRow } from '../../domain/types'
 import { hallNames, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
+import { absenceLine } from '../../domain/staffing'
 import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
 import { buildWindows, windowFor } from '../../domain/windows'
@@ -44,6 +45,9 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The staffing lines the planner types in, and after them the absence entered in Bemanning, which is worked out.
+  const absence = useMemo(() => absenceLine(ws), [ws.persons, ws.unavailability, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  const capacity = useMemo(() => [...ws.capacity, absence], [ws.capacity, absence])
 
   const [zoom, setZoom] = usePref<Zoom>('zoom', 'normal')
   const [filter, setFilter] = usePref<RowFilter>('filter', EMPTY_FILTER)
@@ -177,7 +181,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     return { row, totals: rowTotals(demandIndex, row, settings), window: windowOf(row), projectName: allGroups.find((group) => group.key === key)?.projectName ?? row.projectName, halls, stored: !isSuggestedRow(row) }
   }, [inspectorOpen, detailId, rows, projectOfRow, shownVenue, projectOf, demandIndex, settings, windowOf, allGroups])
   // The heat map of the Avvik line is scaled by the largest shortage and surplus of the whole period.
-  const heatMax = useMemo(() => heatScale(heat ? dates.map((date) => capacityForDate(date, ws.capacity, settings).available - (need.get(date) ?? 0)) : []), [heat, dates, ws.capacity, settings, need])
+  const heatMax = useMemo(() => heatScale(heat ? dates.map((date) => capacityForDate(date, capacity, settings).available - (need.get(date) ?? 0)) : []), [heat, dates, capacity, settings, need])
 
   const projectOptions = useMemo(() => allGroups.map((group) => ({ name: group.projectName, projectNo: group.projectNo })), [allGroups])
   // What a row's own line says: the properties that are not a level above it. The phase shows as a colour mark in front of it.
@@ -440,7 +444,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // ---- rendering helpers --------------------------------------------------------------------
   // Days planned above the available crew. Without the heat map they are tinted down the whole grid; with it,
   // the Avvik line alone carries them. A pencil stroke in progress counts, so the clash shows while it is being drawn.
-  const overbooked = useMemo(() => overbookedDays(need, preview, fillCells, allocLanes, getValue, ws.capacity, settings), [need, preview, fillCells, allocLanes, getValue, ws.capacity, settings])
+  const overbooked = useMemo(() => overbookedDays(need, preview, fillCells, allocLanes, getValue, capacity, settings), [need, preview, fillCells, allocLanes, getValue, capacity, settings])
 
   // Every cell of a day shares these classes; they are worked out once per day, not once per cell.
   const dayClasses = useMemo(() => {
@@ -666,7 +670,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               cols={cols}
               actions={actions}
               need={need}
-              capacity={ws.capacity}
+              capacity={capacity}
+              absence={ws.persons?.length ? absence.values : null}
               settings={settings}
               heat={heat}
               heatMax={heatMax}
@@ -725,7 +730,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
           )}
         </div>
       </div>
-      {inspectorOpen && <RowInspector details={details} need={need} capacity={ws.capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
+      {inspectorOpen && <RowInspector details={details} need={need} capacity={capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
       </div>
 
       {cellMenu && menuRow && (

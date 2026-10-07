@@ -33,7 +33,7 @@ Choices made where the handoff was open or disagreed with itself
 - «N uløste blokker · Fjern» counts and removes the open unresolved blocks of the week shown, not of every week. The faint traces are removed by hand.
 - Moved hours can be taken back from the popover of the day they were moved to.
 - Hours moved from a Friday land on the Saturday; the user has confirmed this.
-- The Kalender's «Faste» is the number of active people on Personell (`planningSettings` in `domain/calc.ts`). The number under Innstillinger stands in only until the first person is entered. A person's absence does not lower «Faste»; that is still the staffing lines' job.
+- The Kalender's «Faste» is the number of active people on Personell (`planningSettings` in `domain/calc.ts`). The number under Innstillinger stands in only until the first person is entered. A person's absence does not lower «Faste»; it shows on its own line, «Fravær faste».
 - The competence colours include an orange and an amber, and the primary buttons are orange; the user keeps them for now.
 
 Gaps
@@ -44,9 +44,10 @@ Gaps
 - The preview «−N» shows for collapsed days only, not while drawing in an open person.
 - Reading back from IndexedDB after a reload, and every gesture in the two tabs, are checked by hand in the browser. The test environment has no IndexedDB, and there are no component tests for Bemanning beyond the folded day cell.
 
-## Deferred by the user
+## Staffing lines: begun
 
-- **Staffing lines.** Only the base crew shows without the workbook. Adding, renaming and removing lines (Innleid, trade crews, overtime, Fravær, Admin, margin) is not built. Do not start on this until the user asks.
+- **Fravær is in.** The absence entered in Bemanning shows in the Kalender's Bemanning section as the line «Fravær faste (FTE)», worked out per day (`absenceFte` in `domain/staffing.ts`: a whole day away is 1, a part of the day its share of the normal day, active people on workdays only), and is subtracted from «Tilgjengelig». It is read-only in the Kalender. A workspace read from the planner workbook still has the workbook's own Fravær line; with both filled in for the same day the absence counts twice.
+- **Not built.** Adding, renaming and removing the lines the planner types in (Innleid, trade crews, overtime, Admin, margin). Without the workbook only «Faste» and «Fravær faste» show. Overtime from Bemanning is not fed into the Kalender.
 
 ## Still only in the workbook
 

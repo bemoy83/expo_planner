@@ -1,7 +1,7 @@
 import { staffedCompetences } from './competences'
 import { addDays, type ISODate } from './dates'
 import { dayType, type DayType } from './holidays'
-import { competenceKey, type Assignment, type CompetenceKey, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type WorkdaySettings, type Workspace } from './types'
+import { competenceKey, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type WorkdaySettings, type Workspace } from './types'
 
 /**
  * The rules of Bemanning: who can work when, what an assignment counts for, and how far the assigned
@@ -63,6 +63,38 @@ export const normalWindows = (personId: string, date: ISODate, unavailability: U
   if (absence.some(isWholeDay)) return []
   return subtract([normalDay(wd)], absence.map((u) => ({ start: u.start!, end: u.end! })))
 }
+
+/**
+ * The normal time the active people are away, as FTE per day, for the Kalender's «Tilgjengelig»: a whole
+ * day away is 1, a part of the day is its share of the normal day. Workdays only; days without absence are left out.
+ */
+export const absenceFte = ({ persons, unavailability, settings }: Pick<Workspace, 'persons' | 'unavailability' | 'settings'>): DayValues => {
+  const wd = settings.workday
+  const full = paidHours(normalDay(wd), wd)
+  const active = new Set((persons ?? []).filter((person) => person.active).map((person) => person.id))
+  const days: DayValues = {}
+  const seen = new Set<string>()
+  for (const u of unavailability ?? []) {
+    const key = `${u.personId}|${u.date}`
+    if (!active.has(u.personId) || seen.has(key) || dayType(u.date) !== 'arbeidsdag' || !(full > 0)) continue
+    seen.add(key)
+    const left = normalWindows(u.personId, u.date, unavailability ?? [], wd).reduce((sum, iv) => sum + paidHours(iv, wd), 0)
+    const away = Math.round(((full - left) / full) * 100) / 100
+    if (away > 0) days[u.date] = Math.round(((days[u.date] ?? 0) + away) * 100) / 100
+  }
+  return days
+}
+
+/** The absence entered in Bemanning as a staffing line of the Kalender. It is worked out, never stored, and cannot be typed in. */
+export const ABSENCE_LINE_ID = 'absence:bemanning'
+export const absenceLine = (ws: Pick<Workspace, 'persons' | 'unavailability' | 'settings'>): CapacityLine => ({
+  id: ABSENCE_LINE_ID,
+  order: Number.MAX_SAFE_INTEGER,
+  label: 'Fravær faste',
+  group: 'unavailable',
+  values: absenceFte(ws),
+  notes: {},
+})
 
 /** R4: where blocks may be placed by hand. Overtime is open on any day the person is not away for a part or all of. */
 export const editableWindows = (personId: string, date: ISODate, unavailability: Unavailability[], wd: WorkdaySettings): Interval[] => {

@@ -2,7 +2,7 @@ import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react
 import { capacityForDate, formatFte, FTE_NOISE } from '../../domain/calc'
 import { addDays, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
-import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
+import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
@@ -205,6 +205,22 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
 /** The base crew, which is there on every working day. */
 export const BaseCrewRow = memo(function BaseCrewRow({ cols, baseCrew }: { cols: Columns; baseCrew: number }) {
   return <Line className="cap-row" label={<span className="lbl-cap">Faste (FTE)</span>} cols={cols} cells={(date) => readCell(cols, date, dayType(date) === 'arbeidsdag' ? baseCrew : undefined, 'cap-cell')} />
+})
+
+/** The people away each day, as entered in Bemanning. It is read here and changed there. */
+export const AbsenceRow = memo(function AbsenceRow({ cols, absence }: { cols: Columns; absence: DayValues }) {
+  return (
+    <Line
+      className="cap-row"
+      label={
+        <span className="lbl-cap" title="Fravær blant de faste, hentet fra Bemanning. Trekkes fra Tilgjengelig.">
+          Fravær faste (FTE)
+        </span>
+      }
+      cols={cols}
+      cells={(date) => readCell(cols, date, absence[date], 'cap-cell')}
+    />
+  )
 })
 
 interface CapRowProps extends CellEdit {

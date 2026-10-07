@@ -1,8 +1,8 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
-import { VENUE_PHASES, type CapacityLine, type Settings } from '../../domain/types'
+import { VENUE_PHASES, type CapacityLine, type DayValues, type Settings } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
-import { BaseCrewRow, CapRow, HallRow, SumRows } from './GridRows'
+import { AbsenceRow, BaseCrewRow, CapRow, HallRow, SumRows } from './GridRows'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { LEFT_W, ROW_H } from './layout'
 import type { useHallCalendar } from './useHallCalendar'
@@ -67,14 +67,17 @@ interface StaffingSectionProps {
   cols: Columns
   actions: GridActions
   need: Map<ISODate, number>
+  /** The staffing lines with the absence from Bemanning among them. */
   capacity: CapacityLine[]
+  /** FTE away per day, from Bemanning; `null` until people are entered on Personell. */
+  absence: DayValues | null
   settings: Settings
   heat: boolean
   heatMax: { maxShortage: number; maxSurplus: number }
 }
 
 /** Bemanning is framed as the hall calendar is; its heading always has the Avvik line under it. */
-export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, capLanes, editOf, cols, actions, need, capacity, settings, heat, heatMax }: StaffingSectionProps) {
+export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, capLanes, editOf, cols, actions, need, capacity, absence, settings, heat, heatMax }: StaffingSectionProps) {
   return (
     <div className="top-section staffing open">
       <div className="section-head" style={{ width: LEFT_W }}>
@@ -93,6 +96,7 @@ export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, capL
       {open && detailsOpen && (
         <>
           <BaseCrewRow cols={cols} baseCrew={settings.baseCrew} />
+          {absence && <AbsenceRow cols={cols} absence={absence} />}
           {capLanes.map((cap, lane) => (
             <CapRow key={`cap:${cap.line.id}:${cap.field}`} cap={cap} lane={lane} cols={cols} actions={actions} {...editOf(lane)} />
           ))}

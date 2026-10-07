@@ -2,8 +2,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { loadStaffingFixture, withStaffingFixture } from './staffingFixture'
 import { readPlannerWorkbook } from '../import/plannerWorkbook'
-import { dailyNeed } from './calc'
+import { capacityForDate, dailyNeed, planningSettings } from './calc'
 import {
+  ABSENCE_LINE_ID,
+  absenceFte,
+  absenceLine,
   absenceSpans,
   addAbsence,
   clearSick,
@@ -524,5 +527,30 @@ describe.skipIf(!available)('demand from the Kalender (local data)', () => {
       const hours = balance.competences.reduce((sum, competence) => sum + balance.get(competence, date).demand, 0)
       expect(hours).toBeCloseTo(need.get(date)! * workspace.settings.hoursPerDay, 6)
     }
+  })
+})
+
+describe('absence in the Kalender', () => {
+  const person = (id: string, active = true) => ({ id, name: id, order: 0, active, competences: [] })
+  const away = (personId: string, date: string, part?: [string, string]): Unavailability => ({ id: `${personId}-${date}-${part?.[0] ?? 'day'}`, personId, date, kind: 'ferie', ...(part ? iv(part[0], part[1]) : {}) })
+  const crew: Workspace = { ...empty, persons: [person('a'), person('b'), person('gone', false)] }
+
+  it('counts a whole day away as 1 and a part of the day as its share of the normal day', () => {
+    // b is away 07:00–11:00, 4 of the 7,5 paid hours.
+    const ws: Workspace = { ...crew, unavailability: [away('a', MON), away('b', MON, ['07:00', '11:00']), away('b', TUE)] }
+    expect(absenceFte(ws)).toEqual({ [MON]: 1.53, [TUE]: 1 })
+  })
+
+  it('leaves out weekends, people who are not active, and a day entered twice', () => {
+    const ws: Workspace = { ...crew, unavailability: [away('a', SAT), away('gone', MON), away('a', TUE), { ...away('a', TUE), id: 'again' }, away('a', TUE, ['07:00', '09:00'])] }
+    expect(absenceFte(ws)).toEqual({ [TUE]: 1 })
+    expect(absenceFte(empty)).toEqual({})
+  })
+
+  it('is a staffing line that lowers what is available', () => {
+    const ws: Workspace = { ...crew, unavailability: [away('a', MON)] }
+    const line = absenceLine(ws)
+    expect(line).toMatchObject({ id: ABSENCE_LINE_ID, group: 'unavailable', values: { [MON]: 1 } })
+    expect(capacityForDate(MON, [line], planningSettings(ws))).toMatchObject({ base: 2, unavailable: 1, available: 1 })
   })
 })
