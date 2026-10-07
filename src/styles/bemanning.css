@@ -67,6 +67,30 @@
 .bm-free b{font-size:12px;font-weight:500}
 .bm-free em{font-size:10.5px;font-style:normal;color:var(--faint)}
 
+/* a competence in focus: its line is lit, the others step back */
+.bm-pick{border-radius:0;font:inherit;text-align:left;justify-content:flex-start;cursor:pointer}
+.bm-pick:hover{background:color-mix(in srgb,var(--text) 4%,var(--bg))}
+.bm-pick:disabled{opacity:1;cursor:default}
+.bm-pick:disabled:hover{background:var(--bg)}
+.bm-demand{transition:opacity 160ms var(--ease)}
+.bm-demand.dim{opacity:.42}
+.bm-demand.dim:hover{opacity:.8}
+.bm-demand.on{background:color-mix(in oklch,var(--cc) 7%,var(--bg))}
+.bm-demand.on .bm-pick{background:var(--surface);box-shadow:inset 3px 0 0 var(--cc)}
+.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklch,var(--cc) 14%,transparent);color:var(--cc);font:600 11px var(--font-num)}
+
+/* ---- the bar with the tools and the brush ---- */
+.bm-tools button{height:32px;font-size:13px}
+.bm-tools .segmented{height:32px}
+.bm-tools .segmented button{height:26px}
+.bm-brush{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:color-mix(in oklch,var(--cc) 14%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--cc);font-size:13px;font-weight:600}
+.bm-brush .swatch{width:10px;height:10px;background:var(--cc)}
+.bm-brush .row-action{height:22px}
+.bm-hints{display:flex;gap:10px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--faint)}
+.bm-hints b{font-weight:500;color:var(--muted)}
+.bm-ask{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80}
+.bm-ask p{margin:0;font-size:13px;line-height:1.45}
+
 /* ---- the people ---- */
 .bm-person{height:46px}
 .bm-person .bm-label{gap:6px;border-bottom:1px solid var(--bm-rule)}
@@ -74,6 +98,7 @@
 .bm-dots{display:flex;gap:3px}
 .bm-dots i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line-strong) 70%,transparent)}
 .bm-dots i.has{background:var(--cc);box-shadow:none}
+.bm-dots i.focused{outline:1.5px solid var(--cc);outline-offset:1.5px}
 .bm-person-week{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 11px var(--font-num);color:var(--faint);white-space:nowrap}
 .bm-person-week b{font-weight:600;color:var(--text)}
 .bm-person-week em{font-style:normal;color:var(--muted)}
@@ -91,6 +116,19 @@
 .bm-block em{margin-left:auto;font:400 10.5px var(--font-num);font-style:normal;opacity:.85}
 /* a block whose hours are back in the demand: hatched, outlined in its colour */
 .bm-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
+.bm-block.other,.bm-off-blocks>i.other{opacity:.28}
+
+/* what the pointer does to a day: the brush outlines it in its colour (dashed for half a day), the eraser in red */
+.bm-scroll[data-tool='paint'] .bm-cell{cursor:cell}
+.bm-scroll[data-tool='erase'] .bm-cell{cursor:crosshair}
+.bm-scroll[data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
+.bm-cell.selected{z-index:1;box-shadow:inset 0 0 0 1.5px var(--line-strong);background-color:color-mix(in srgb,var(--text) 5%,transparent)}
+.bm-scroll[data-tool='paint']:not([data-half]) .bm-cell:not(.blocked):not(.stroke):hover{box-shadow:inset 0 0 0 1.5px var(--bc)}
+.bm-scroll[data-tool='paint'][data-half] .bm-cell:not(.blocked):not(.stroke):hover,.bm-cell.stroke.paint-half:not(.blocked){outline:1.5px dashed var(--bc);outline-offset:-3px}
+.bm-cell.stroke.paint:not(.blocked){background-color:color-mix(in oklch,var(--bc) 12%,transparent);box-shadow:inset 0 0 0 2px var(--bc)}
+.bm-cell.stroke.paint-half:not(.blocked){background-color:color-mix(in oklch,var(--bc) 8%,transparent)}
+.bm-cell.stroke.erase{background-color:color-mix(in srgb,var(--neg) 7%,transparent);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--neg) 70%,transparent)}
+
 .bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:italic;color:var(--muted)}
 .bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-size:11px;font-weight:600;white-space:nowrap}
 .bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 9.5px var(--font-num);color:var(--faint)}

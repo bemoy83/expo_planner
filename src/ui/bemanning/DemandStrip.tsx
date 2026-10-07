@@ -21,6 +21,11 @@ interface Props {
   onFocusDate: (date: ISODate) => void
   folded: boolean
   onToggleFolded: () => void
+  /** The competence in focus, if any. */
+  brush: string | null
+  onPick: (competence: string) => void
+  /** Hours the stroke under the pointer would add for the brush, by date. */
+  preview: Map<ISODate, number>
 }
 
 /** The remaining hours of a day. It is keyed by its value, so a changed number is a new element, and that one slides in. */
@@ -30,7 +35,7 @@ function Remaining({ live, state, children }: { live: boolean; state: string; ch
 }
 
 /** The pinned top of Bemanning: the days of the week, what remains of the demand per competence, and the free capacity. */
-export function DemandStrip({ dates, competences, balance, uncoverable, capacity, focusDate, onFocusDate, folded, onToggleFolded }: Props) {
+export function DemandStrip({ dates, competences, balance, uncoverable, capacity, focusDate, onFocusDate, folded, onToggleFolded, brush, onPick, preview }: Props) {
   // Numbers slide in when they change, but not when the page opens.
   const [live, setLive] = useState(false)
   useEffect(() => {
@@ -59,21 +64,22 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
 
       <div className="bm-row bm-section">
         <div className="bm-label">
-          <button className="bm-section-toggle" aria-expanded={!folded} title={folded ? 'Vis alle kompetanser' : 'Skjul kompetansene'} onClick={onToggleFolded}>
+          <button className="bm-section-toggle" aria-expanded={!folded} title={folded ? 'Vis alle kompetanser' : 'Vis bare kompetansen i fokus'} onClick={onToggleFolded}>
             {folded ? <ChevronRight size={12} aria-hidden /> : <ChevronDown size={12} aria-hidden />}
             <span className="bm-eyebrow">Behov</span>
           </button>
-          <span className="bm-label-note">{folded ? `${competences.length} skjult` : 'gjenstår · timer'}</span>
+          <span className="bm-label-note">{folded ? `${competences.filter(({ style }) => style.key !== brush).length} skjult` : 'gjenstår · timer'}</span>
         </div>
         <span />
       </div>
 
-      {!folded &&
-        competences.map(({ style, key }) => {
+      {competences.map(({ style, key }) => {
+          const on = style.key === brush
+          if (folded && !on) return null
           const weekRemaining = workdays.reduce((sum, date) => sum + Math.max(0, balance.get(style.key, date).remaining), 0)
           return (
-            <div key={style.key} className="bm-row bm-demand" style={{ '--cc': `var(--${style.color})` } as React.CSSProperties}>
-              <div className="bm-label">
+            <div key={style.key} className={`bm-row bm-demand ${on ? 'on' : brush ? 'dim' : ''}`} style={{ '--cc': `var(--${style.color})` } as React.CSSProperties}>
+              <button className="bm-label bm-pick" aria-pressed={on} disabled={!key && !on} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
                 <i className="swatch" />
                 <span className="bm-name">{style.label}</span>
                 {key > 0 && <kbd>{key}</kbd>}
@@ -81,7 +87,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
                   {hoursText(weekRemaining)}
                   <em> t igjen</em>
                 </span>
-              </div>
+              </button>
               {dates.map((date, index) => {
                 const cell = balance.get(style.key, date)
                 const offDay = dayType(date) !== 'arbeidsdag'
@@ -110,6 +116,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
                 return (
                   <div key={date} className={`bm-need ${dayClass(date, index)}`} title={title}>
                     <span className="bm-need-value">
+                      {on && (preview.get(date) ?? 0) > EPSILON && <span className="bm-preview">−{hoursText(Math.min(preview.get(date)!, Math.max(cell.remaining, 0)) || preview.get(date)!)}</span>}
                       {cell.carried > EPSILON && index < 5 && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
                       <Remaining key={hoursText(cell.remaining)} live={live} state={state}>
                         {state === 'ok' ? <Check size={14} aria-label="Dekket" /> : state === 'over' ? `+${hoursText(-cell.remaining)}` : hoursText(cell.remaining)}
@@ -131,7 +138,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
 
       <div className="bm-row bm-capacity">
         <div className="bm-label">
-          <span className="bm-label-text">Ledig kapasitet, faste</span>
+          <span className="bm-label-text">{brush ? `Ledig med ${competences.find(({ style }) => style.key === brush)?.style.label ?? brush}` : 'Ledig kapasitet, faste'}</span>
         </div>
         {dates.map((date, index) => (
           <div key={date} className={`bm-free ${dayClass(date, index)}`}>

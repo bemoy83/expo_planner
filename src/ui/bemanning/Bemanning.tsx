@@ -1,16 +1,21 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { addDays, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, freeCapacity, okAssignments, personWeek, weekTotals } from '../../domain/staffing'
-import type { Assignment, Unavailability } from '../../domain/types'
+import { buildBalance, clearDays, freeCapacity, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
+import type { Assignment, Unavailability, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
+import { useStableActions } from '../kalender/useStableActions'
+import { Toasts, useToasts } from '../Toasts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { dayCell } from './dayCell'
+import { BemanningTools } from './BemanningTools'
+import { ABSENCE_LABELS, dayCell } from './dayCell'
 import { DemandStrip } from './DemandStrip'
-import { PersonRow } from './PersonRow'
-import { hoursText, todayIso, weekDates, weekLabel, weekRange } from './week'
+import { PersonRow, type RowActions } from './PersonRow'
+import { DayMenu, PaintAsk } from './Popovers'
+import { strokeRange, TOOL_KEYS, type Stroke, type Tool } from './tools'
+import { hoursText, todayIso, weekDates, weekLabel, weekRange, WEEKDAYS_LONG } from './week'
 
 const EPSILON = 0.05
 /** The highest number a competence can be picked with on the keyboard. */
@@ -20,17 +25,42 @@ const FOLD_STRIP_UNDER = 640
 
 const NO_ASSIGNMENTS: Assignment[] = []
 const NO_ABSENCE: Unavailability[] = []
+const NO_PREVIEW = new Map<ISODate, number>()
+
+const isTyping = (target: EventTarget | null) => {
+  const el = target as HTMLElement | null
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+}
+
+/** The assigned hours of one competence per date. */
+const hoursByDate = (assignments: Assignment[], competence: string, ws: Workspace) => {
+  const hours = new Map<ISODate, number>()
+  for (const a of assignments) if (a.competence === competence) hours.set(a.date, (hours.get(a.date) ?? 0) + paidHours(a, ws.settings.workday))
+  return hours
+}
 
 /**
  * Who does the work the Kalender has planned: the permanent staff by name, one week at a time,
  * against the hours that remain per competence and day.
  */
 export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) {
-  const { workspace } = useWorkspace()
+  const { workspace, updateStaffing } = useWorkspace()
   const ws = workspace!
   // The day in focus is shared with the Kalender, so both open on the same week.
   const [focus, setFocus] = usePref<{ date: ISODate } | null>('planningFocus', null)
   const [folded, setFolded] = usePref('bemanningStripFolded', window.innerHeight < FOLD_STRIP_UNDER)
+  const [tool, setTool] = useState<Tool>('select')
+  /** The competence in focus, which is also what the brush paints. */
+  const [brush, setBrush] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Day | null>(null)
+  const [stroke, setStroke] = useState<Stroke | null>(null)
+  const [hover, setHover] = useState<{ row: number; col: number } | null>(null)
+  const [shift, setShift] = useState(false)
+  const [ask, setAsk] = useState<{ cells: Day[]; competence: string; count: number; x: number; y: number } | null>(null)
+  const [menu, setMenu] = useState<{ cell: Day; x: number; y: number } | null>(null)
+  const { toasts, show: toast, dismiss: dismissToast } = useToasts()
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   const focusDate = focus?.date ?? todayIso()
   const monday = weekDates(focusDate)[0]
   const dates = useMemo(() => weekDates(monday), [monday])
@@ -40,14 +70,17 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
   const totals = useMemo(() => weekTotals(ws, dates), [ws, dates])
   const staffed = useMemo(() => staffedCompetences(ws), [ws])
   const styles = useMemo(() => new Map(competenceStyles(ws).map((style) => [style.key, style])), [ws])
+  // A brush whose competence nobody has any more is no brush.
+  const activeBrush = brush && staffed.some((style) => style.key === brush) ? brush : null
+  const activeTool: Tool = tool === 'paint' && !activeBrush ? 'select' : tool
   // The strip shows the competences people have, and any other with demand or assigned hours this week.
   const stripRows = useMemo(() => {
     const keys = new Map(staffed.slice(0, LAST_KEY).map((style, index) => [style.key, index + 1]))
-    const inWeek = new Set(balance.competences)
     const held = new Set(staffed.map((style) => style.key))
+    const inWeek = new Set(balance.competences)
     return [...styles.values()].filter((style) => held.has(style.key) || inWeek.has(style.key)).map((style) => ({ style, key: keys.get(style.key) ?? 0 }))
   }, [staffed, styles, balance])
-  const capacity = useMemo(() => dates.map((date) => freeCapacity(ws, date)), [ws, dates])
+  const capacity = useMemo(() => dates.map((date) => freeCapacity(ws, date, activeBrush ?? undefined)), [ws, dates, activeBrush])
   const uncoverable = useMemo(() => {
     const hours = new Map<string, number>()
     for (const { style } of stripRows) {
@@ -59,7 +92,7 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     return hours
   }, [ws, balance, stripRows, dates])
 
-  const rows = useMemo(() => {
+  const allRows = useMemo(() => {
     const ok = new Set(okAssignments(ws))
     const isOk = (a: Assignment) => ok.has(a)
     const byDay = <T extends { personId: string; date: ISODate }>(list: T[]) => {
@@ -75,6 +108,171 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
       cells: dates.map((date) => dayCell(date, assignments.get(`${person.id}|${date}`) ?? NO_ASSIGNMENTS, absence.get(`${person.id}|${date}`) ?? NO_ABSENCE, isOk, ws.settings.workday)),
     }))
   }, [ws, persons, dates])
+  // With a competence in focus, only the people who have it are shown.
+  const rows = useMemo(() => (activeBrush ? allRows.filter(({ person }) => person.competences.includes(activeBrush)) : allRows), [allRows, activeBrush])
+  const blocked = useMemo(
+    () => (activeTool === 'paint' && activeBrush ? rows.map(({ person }) => dates.map((date) => (paintBlock(ws, { personId: person.id, date }, activeBrush) ? 'x' : '-')).join('')) : null),
+    [ws, rows, dates, activeTool, activeBrush],
+  )
+
+  const dayAt = (row: number, col: number): Day => ({ personId: rows[row].person.id, date: dates[col] })
+  const strokeCells = (s: Stroke): Day[] => {
+    const { rowFrom, rowTo, colFrom, colTo } = strokeRange(s)
+    const cells: Day[] = []
+    for (let row = rowFrom; row <= rowTo && row < rows.length; row++) for (let col = colFrom; col <= colTo; col++) cells.push(dayAt(row, col))
+    return cells
+  }
+
+  // What the stroke, or the day under the pointer, would add for the brush: shown in the strip before the click.
+  const preview = useMemo(() => {
+    if (activeTool !== 'paint' || !activeBrush || ask) return NO_PREVIEW
+    const cells = stroke ? (stroke.mode === 'paint' ? strokeCells(stroke) : []) : hover && hover.row < rows.length ? [dayAt(hover.row, hover.col)] : []
+    if (!cells.length) return NO_PREVIEW
+    const half = stroke ? stroke.half : shift
+    const after = paintDays(ws, cells, activeBrush, { span: half ? 'half' : 'full', mode: 'fill' }, () => 'preview')
+    if (after === ws.assignments) return NO_PREVIEW
+    const before = hoursByDate(ws.assignments ?? [], activeBrush, ws)
+    const added = new Map<ISODate, number>()
+    for (const [date, hours] of hoursByDate(after, activeBrush, ws)) if (hours - (before.get(date) ?? 0) > EPSILON) added.set(date, hours - (before.get(date) ?? 0))
+    return added
+    // `strokeCells` and `dayAt` read `rows` and `dates`.
+  }, [ws, rows, dates, activeTool, activeBrush, stroke, hover, shift, ask]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
+  const labelOf = (competence: string) => styles.get(competence)?.label ?? competence
+  const dayName = (date: ISODate) => WEEKDAYS_LONG[dates.indexOf(date)] ?? date
+
+  /** Why a day cannot be painted, for the one day a click hit. */
+  const blockText = (cell: Day, competence: string): string => {
+    if (paintBlock(ws, cell, competence) === 'ineligible') return `${nameOf(cell.personId)} har ikke ${labelOf(competence)}.`
+    const kind = dayType(cell.date)
+    const away = (ws.unavailability ?? []).find((u) => u.personId === cell.personId && u.date === cell.date)
+    const why = kind !== 'arbeidsdag' ? `${kind}. Overtid legges inn i ukevisningen` : away ? ABSENCE_LABELS[away.kind].toLowerCase() : ''
+    return `${nameOf(cell.personId)} er ikke tilgjengelig ${dayName(cell.date)}${why ? ` (${why})` : ''}.`
+  }
+
+  const applyPaint = (cells: Day[], competence: string, opts: PaintOptions) => updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence, opts) }))
+
+  /** Paints the days, after asking when a full-day paint meets other work. */
+  const paint = (cells: Day[], competence: string, half: boolean, x: number, y: number) => {
+    if (cells.every((cell) => paintBlock(ws, cell, competence))) {
+      toast(cells.length === 1 ? blockText(cells[0], competence) : `Ingen av dagene kan males med ${labelOf(competence)}.`)
+      return
+    }
+    const conflicts = half ? [] : paintConflicts(ws, cells, competence)
+    if (conflicts.length) setAsk({ cells, competence, count: conflicts.length, x, y })
+    else applyPaint(cells, competence, { span: half ? 'half' : 'full', mode: 'fill' })
+  }
+
+  const clear = (cells: Day[]) => updateStaffing((w) => ({ ...w, assignments: clearDays(w.assignments ?? [], cells) }))
+
+  const finishStroke = (s: Stroke, x: number, y: number) => {
+    setStroke(null)
+    const cells = strokeCells(s)
+    if (s.mode === 'erase') clear(cells)
+    else if (activeBrush) paint(cells, activeBrush, s.half, x, y)
+  }
+
+  const actions = useStableActions<RowActions>({
+    cellDown: (row, col, event) => {
+      if (event.button !== 0) return
+      const mode = event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : null
+      if (!mode) {
+        setSelected(dayAt(row, col))
+        setFocus({ date: dates[col] })
+        return
+      }
+      event.preventDefault()
+      setSelected(null)
+      setStroke({ mode, half: mode === 'paint' && event.shiftKey, row0: row, col0: col, row1: row, col1: col })
+    },
+    cellEnter: (row, col) => {
+      setHover({ row, col })
+      setStroke((s) => (s && (s.row1 !== row || s.col1 !== col) ? { ...s, row1: row, col1: col } : s))
+    },
+    cellMenu: (row, col, event) => {
+      event.preventDefault()
+      setStroke(null)
+      setSelected(dayAt(row, col))
+      setMenu({ cell: dayAt(row, col), x: event.clientX, y: event.clientY })
+    },
+  })
+
+  // A stroke ends where the button is let go, also outside the grid.
+  const strokeEnd = useStableActions({ finish: (x: number, y: number) => stroke && finishStroke(stroke, x, y) })
+  const stroking = stroke !== null
+  useEffect(() => {
+    if (!stroking) return
+    const onUp = (e: MouseEvent) => strokeEnd.finish(e.clientX, e.clientY)
+    window.addEventListener('mouseup', onUp)
+    return () => window.removeEventListener('mouseup', onUp)
+  }, [stroking, strokeEnd])
+
+  /** The competence the brush starts with: the one people have with the most hours left on the day in focus. */
+  const defaultBrush = () => {
+    let best = staffed[0]?.key ?? null
+    for (const style of staffed) if (best && balance.get(style.key, focusDate).remaining > balance.get(best, focusDate).remaining) best = style.key
+    return best
+  }
+
+  const pickTool = (next: Tool) => {
+    if (next === 'paint' && !activeBrush) {
+      const competence = defaultBrush()
+      if (!competence) return toast('Ingen av de faste har en kompetanse ennå. Legg dem inn på Personell.')
+      setBrush(competence)
+    }
+    setTool(next)
+  }
+  const pickBrush = (competence: string) => {
+    setBrush(competence)
+    setTool('paint')
+    setSelected(null)
+  }
+  const clearBrush = () => {
+    setBrush(null)
+    setTool('select')
+  }
+  /** A pick in the demand strip is a step back to the whole week: the list goes to the top. */
+  const pickFromStrip = (competence: string) => {
+    if (competence === activeBrush) return clearBrush()
+    pickBrush(competence)
+    scrollRef.current?.scrollTo({ top: 0 })
+  }
+
+  const keys = useStableActions({
+    down: (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setShift(true)
+      if (isTyping(e.target) || e.metaKey || e.ctrlKey) return
+      const key = e.key.toLowerCase()
+      if (key === 'escape') {
+        // A menu or a question that is open takes the key first, and closes itself.
+        if (ask || menu) return
+        if (stroke) setStroke(null)
+        else if (activeBrush || tool !== 'select') clearBrush()
+        else setSelected(null)
+      } else if (TOOL_KEYS[key] && !e.altKey) pickTool(TOOL_KEYS[key])
+      else if (/^[1-9]$/.test(key) && staffed[Number(key) - 1]) pickBrush(staffed[Number(key) - 1].key)
+      else if ((key === 'delete' || key === 'backspace') && selected) {
+        e.preventDefault()
+        clear([selected])
+      }
+    },
+    up: (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setShift(false)
+    },
+  })
+  useEffect(() => {
+    const lost = () => setShift(false)
+    // In the capture phase, so Escape is seen while a menu that closes on it is still open.
+    window.addEventListener('keydown', keys.down, true)
+    window.addEventListener('keyup', keys.up)
+    window.addEventListener('blur', lost)
+    return () => {
+      window.removeEventListener('keydown', keys.down, true)
+      window.removeEventListener('keyup', keys.up)
+      window.removeEventListener('blur', lost)
+    }
+  }, [keys])
 
   const meta = [
     `${persons.length} faste`,
@@ -84,6 +282,9 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     totals.weekendOpen > EPSILON ? `helg ${hoursText(totals.weekendOpen)} t åpent` : '',
   ].filter(Boolean)
   const crewDiffers = persons.length > 0 && persons.length !== ws.settings.baseCrew
+  const range = stroke ? strokeRange(stroke) : null
+  const strokeMode = stroke ? (stroke.mode === 'erase' ? 'erase' : stroke.half ? 'paint-half' : 'paint') : ''
+  const menuPerson = menu ? persons.find((p) => p.id === menu.cell.personId) : undefined
 
   return (
     <div className="bemanning">
@@ -109,20 +310,62 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
         </span>
       </div>
 
-      <div className="bm-scroll">
+      <BemanningTools tool={activeTool} onTool={pickTool} brush={activeBrush ? styles.get(activeBrush) : undefined} onClearBrush={clearBrush} keyCount={Math.min(staffed.length, LAST_KEY)} />
+
+      <div
+        className="bm-scroll"
+        ref={scrollRef}
+        data-tool={activeTool}
+        data-half={activeTool === 'paint' && shift ? '' : undefined}
+        style={activeBrush ? ({ '--bc': `var(--${styles.get(activeBrush)!.color})` } as React.CSSProperties) : undefined}
+        onMouseLeave={() => setHover(null)}
+      >
         <div className="bm-grid">
-          <DemandStrip dates={dates} competences={stripRows} balance={balance} uncoverable={uncoverable} capacity={capacity} focusDate={focusDate} onFocusDate={(date) => setFocus({ date })} folded={folded} onToggleFolded={() => setFolded(!folded)} />
-          <div className="bm-row bm-section">
+          <DemandStrip
+            dates={dates}
+            competences={stripRows}
+            balance={balance}
+            uncoverable={uncoverable}
+            capacity={capacity}
+            focusDate={focusDate}
+            onFocusDate={(date) => setFocus({ date })}
+            folded={folded}
+            onToggleFolded={() => setFolded(!folded)}
+            brush={activeBrush}
+            onPick={pickFromStrip}
+            preview={preview}
+          />
+          <div className="bm-row bm-section" onMouseEnter={() => setHover(null)}>
             <div className="bm-label">
               <span className="bm-eyebrow">Personell</span>
-              <span className="bm-label-note">{persons.length} faste</span>
+              <span className="bm-label-note">{activeBrush ? `${rows.length} med ${labelOf(activeBrush)}` : `${persons.length} faste`}</span>
               <span className="bm-label-note bm-label-end">uke · t</span>
             </div>
             <span />
           </div>
-          {rows.map(({ person, week, cells }) => (
-            <PersonRow key={person.id} person={person} dates={dates} cells={cells} week={week} competences={staffed} styles={styles} focusDate={focusDate} />
-          ))}
+          {rows.map(({ person, week, cells }, index) => {
+            const inStroke = range !== null && index >= range.rowFrom && index <= range.rowTo
+            return (
+              <PersonRow
+                key={person.id}
+                person={person}
+                dates={dates}
+                cells={cells}
+                week={week}
+                competences={staffed}
+                styles={styles}
+                focusDate={focusDate}
+                rowIndex={index}
+                brush={activeBrush}
+                blocked={blocked?.[index] ?? ''}
+                strokeFrom={inStroke ? range.colFrom : -1}
+                strokeTo={inStroke ? range.colTo : -1}
+                strokeMode={inStroke ? strokeMode : ''}
+                selected={selected?.personId === person.id ? dates.indexOf(selected.date) : -1}
+                actions={actions}
+              />
+            )
+          })}
           {!persons.length && (
             <div className="bm-empty">
               <strong>Ingen faste registrert.</strong> Legg inn de ansatte og kompetansene deres, så kan de tildeles arbeidet som er planlagt i Kalender.
@@ -131,6 +374,36 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
           )}
         </div>
       </div>
+
+      {ask && (
+        <PaintAsk
+          x={ask.x}
+          y={ask.y}
+          count={ask.count}
+          onCancel={() => setAsk(null)}
+          onFill={() => {
+            applyPaint(ask.cells, ask.competence, { span: 'full', mode: 'fill' })
+            setAsk(null)
+          }}
+          onReplace={() => {
+            applyPaint(ask.cells, ask.competence, { span: 'full', mode: 'replace' })
+            setAsk(null)
+          }}
+        />
+      )}
+      {menu && menuPerson && (
+        <DayMenu
+          x={menu.x}
+          y={menu.y}
+          title={`${menuPerson.name} · ${dayName(menu.cell.date)} ${Number(menu.cell.date.slice(8))}.`}
+          competences={staffed.filter((style) => menuPerson.competences.includes(style.key)).map((style) => ({ style, blocked: paintBlock(ws, menu.cell, style.key) !== null }))}
+          hasBlocks={(ws.assignments ?? []).some((a) => a.personId === menu.cell.personId && a.date === menu.cell.date)}
+          onClose={() => setMenu(null)}
+          onPaint={(competence) => paint([menu.cell], competence, false, menu.x, menu.y)}
+          onClear={() => clear([menu.cell])}
+        />
+      )}
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }
