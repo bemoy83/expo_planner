@@ -3,12 +3,13 @@ import { formatFte } from '../../domain/calc'
 import { EMPTY_KPI } from '../../domain/kpi'
 import { decimalText } from '../../domain/numbers'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
-import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
+import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
+import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { placeOf, resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallNames } from '../../domain/venue'
-import { MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { NumberField, TextField } from '../fields'
 import { DemandLineDialog } from './DemandLineDialog'
@@ -21,6 +22,8 @@ const ISSUE_TEXT: Record<NonNullable<VismaLine['issue']>, string> = {
   'unknown-work-type': 'Produkttypen finnes ikke i KPI-oppsettet',
   'no-rate': 'Mangler sats for denne enheten',
 }
+
+const NO_REVIEW: ProjectReview = { projectNo: '', lines: [], open: 0, ready: 0, unresolved: 0, issues: 0 }
 
 const MISSING_RATE_TEXT: Record<NonNullable<VismaLine['missingRate']>, string> = {
   assembly: 'Ingen sats for montering',
@@ -39,6 +42,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const ws = workspace!
   const [message, setMessage] = useState<Message | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
+  const [filter, setFilter] = useState<LineFilter>('all')
   const vismaInput = useRef<HTMLInputElement>(null)
 
   const projects = useMemo(() => {
@@ -80,15 +84,14 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     )
   }
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
-  const vismaLines = useMemo(
-    () =>
-      vismaImport
-        ? buildVismaLines(vismaImport.rows, kpi, ws.overrides ?? {}).sort(
-            (a, b) => a.competence.localeCompare(b.competence, 'nb') || a.workType.localeCompare(b.workType, 'nb') || a.hall.localeCompare(b.hall, 'nb'),
-          )
-        : [],
-    [vismaImport, kpi, ws.overrides],
-  )
+  // Every project's Visma lines, with what still needs the planner: the filter and the actions for all projects read from this.
+  const review = useMemo(() => reviewVisma(ws.visma ?? [], kpi, ws.overrides ?? {}, halls, ws.hallAliases), [ws.visma, kpi, ws.overrides, halls, ws.hallAliases])
+  const vismaLines = useMemo(() => review.get(projectNo)?.lines ?? [], [review, projectNo])
+  const shownLines = useMemo(() => vismaLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases)), [vismaLines, filter, halls, ws.hallAliases])
+  const totals = useMemo(() => {
+    const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
+    return { all: sum('all'), open: sum('open'), unresolved: sum('unresolved'), issue: sum('issue'), ready: [...review.values()].reduce((n, project) => n + project.ready, 0) }
+  }, [review])
   const orphans = useMemo(() => (vismaImport ? orphanedDecisions(projectNo, vismaLines, ws.overrides ?? {}) : []), [vismaImport, projectNo, vismaLines, ws.overrides])
   const projectLines = useMemo(() => ws.demand.filter((l) => l.projectNo === projectNo), [ws.demand, projectNo])
   const legacyVisma = useMemo(() => (vismaImport ? [] : projectLines.filter(isVismaLine)), [projectLines, vismaImport])
@@ -136,14 +139,27 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) => setLineOverride(line.projectNo, line.key, withRef(line, patch))
   /** Takes the given lines in or out of the plan in one go, so the project is recalculated once. */
   const setInPlan = (lines: VismaLine[], inPlan: boolean) => setLineOverrides(projectNo, lines.map((line) => ({ key: line.key, patch: withRef(line, { inPlan }) })))
-  /** «Ta alle inn i plan» leaves the lines that give no hours, and says how many. */
-  const takeAllIn = () => {
-    const open = vismaLines.filter((l) => !l.inPlan)
+  const lineCount = (n: number) => `${n} ${n === 1 ? 'linje' : 'linjer'}`
+  const skippedText = (skipped: number) => (skipped ? ` ${lineCount(skipped)} gir ingen timer og ble stående: de mangler produkttype eller sats.` : '')
+  /** Takes the lines that are shown into the plan. It leaves the lines that give no hours, and says how many. */
+  const takeShownIn = () => {
+    const open = shownLines.filter((l) => !l.inPlan)
     const taken = open.filter((l) => !l.issue)
     setInPlan(taken, true)
-    const skipped = open.length - taken.length
-    const lines = (n: number) => `${n} ${n === 1 ? 'linje' : 'linjer'}`
-    setMessage({ kind: 'ok', text: `Tok ${lines(taken.length)} inn i plan.${skipped ? ` ${lines(skipped)} gir ingen timer og ble stående: de mangler produkttype eller sats.` : ''}` })
+    setMessage({ kind: 'ok', text: `Tok ${lineCount(taken.length)} inn i plan.${skippedText(open.length - taken.length)}` })
+  }
+  /** After a large import: every line of every project that gives hours, in one step that can be undone. */
+  const takeEveryProjectIn = () => {
+    const withOpen = [...review.values()].filter((project) => project.ready > 0)
+    const taken = withOpen.flatMap((project) => project.lines.filter((l) => !l.inPlan && !l.issue))
+    setLineOverrides(withOpen.map((project) => project.projectNo), taken.map((line) => ({ key: line.key, patch: withRef(line, { inPlan: true }) })))
+    setMessage({ kind: 'ok', text: `Tok ${lineCount(taken.length)} i ${withOpen.length} ${withOpen.length === 1 ? 'prosjekt' : 'prosjekter'} inn i plan.${skippedText(totals.open - taken.length)} Kan angres med Ctrl/Cmd+Z.` })
+  }
+  // With a filter on, the list holds the projects that have such lines, and the one that is open.
+  const listed = filter === 'all' ? projects : projects.filter(([no]) => no === projectNo || countOf(review.get(no) ?? NO_REVIEW, filter) > 0)
+  const attention = (no: string) => {
+    const project = review.get(no)
+    return project ? [project.unresolved ? `${project.unresolved} uavklart` : '', project.issues ? `${project.issues} uten timer` : ''].filter(Boolean).map((text) => ` · ${text}`).join('') : ''
   }
   const plannedCount = vismaLines.filter((l) => l.inPlan).length
   const projectName = projects.find(([no]) => no === projectNo)?.[1] ?? ''
@@ -155,14 +171,32 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
           Prosjekt
           <select value={projectNo} onChange={(e) => onProjectChange(e.target.value)}>
             <option value="">Velg prosjekt</option>
-            {projects.map(([no, name]) => (
+            {listed.map(([no, name]) => (
               <option key={no} value={no}>
-                {name} ({no})
+                {name} ({no}){attention(no)}
               </option>
             ))}
           </select>
         </label>
+        {totals.all > 0 && (
+          <Segmented
+            label="Vis Visma-linjer"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: 'Alle', title: 'Alle prosjekter og alle Visma-linjer' },
+              { value: 'open', label: `Ikke i plan ${totals.open}`, title: 'Linjer som ikke er tatt inn i plan, og prosjektene som har slike' },
+              { value: 'unresolved', label: `Uavklart ${totals.unresolved}`, title: 'Linjer der Hall/sted ikke er en hall på Haller-fanen, og prosjektene som har slike' },
+              { value: 'issue', label: `Uten timer ${totals.issue}`, title: 'Linjer som ikke gir timer fordi produkttype eller sats mangler, og prosjektene som har slike' },
+            ]}
+          />
+        )}
         <span className="toolbar-gap" />
+        {totals.ready > 0 && (
+          <button onClick={takeEveryProjectIn} title="Tar alle Visma-linjer som gir timer inn i plan, i alle prosjekter. Kan angres.">
+            Ta alle prosjekter inn i plan ({totals.ready})
+          </button>
+        )}
         <UndoRedoButtons />
         <button className="primary" onClick={() => vismaInput.current?.click()}>
           Importer Visma-utskrift
@@ -237,14 +271,14 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                 {vismaImport && (
                   <span className="muted small">
                     {vismaImport.fileName}, lest inn {new Date(vismaImport.importedAt).toLocaleString('nb-NO')} · {vismaImport.rows.length} ordrelinjer · {plannedCount} av{' '}
-                    {vismaLines.length} linjer i plan
+                    {vismaLines.length} linjer i plan{filter !== 'all' && ` · viser ${shownLines.length}`}
                   </span>
                 )}
                 <span className="toolbar-gap" />
                 {vismaLines.length > 0 && (
                   <>
-                    <button onClick={takeAllIn}>Ta alle inn i plan</button>
-                    <button onClick={() => setInPlan(vismaLines.filter((l) => l.inPlan), false)}>Ta alle ut</button>
+                    <button onClick={takeShownIn}>{filter === 'all' ? 'Ta alle inn i plan' : 'Ta de viste inn i plan'}</button>
+                    <button onClick={() => setInPlan(shownLines.filter((l) => l.inPlan), false)}>{filter === 'all' ? 'Ta alle ut' : 'Ta de viste ut'}</button>
                   </>
                 )}
               </div>
@@ -299,7 +333,14 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {vismaLines.map((line) => (
+                    {shownLines.length === 0 && (
+                      <tr>
+                        <td colSpan={12} className="muted">
+                          Ingen linjer i dette prosjektet passer filteret.
+                        </td>
+                      </tr>
+                    )}
+                    {shownLines.map((line) => (
                       <tr key={line.key} className={`${line.inPlan ? 'in-plan' : ''} ${line.issue ? 'has-issue' : ''}`}>
                         <td className="center">
                           <input type="checkbox" checked={line.inPlan} onChange={(e) => override(line, { inPlan: e.target.checked })} aria-label="I plan" />

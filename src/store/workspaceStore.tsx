@@ -51,7 +51,7 @@ interface WorkspaceStore {
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
   setLineOverride: (projectNo: string, key: string, patch: LineOverride) => void
   /** The same for several lines of a project at once: the project's Visma lines are recalculated and written once. */
-  setLineOverrides: (projectNo: string, patches: { key: string; patch: LineOverride }[]) => void
+  setLineOverrides: (projectNo: string | string[], patches: { key: string; patch: LineOverride }[]) => void
   /** Places every demand line with this Hall/Sted text in a hall; without a hall, the text is read automatically again. */
   setHallAlias: (text: string, hall: string | undefined) => void
   /** Forgets the decisions made for a Visma line, typically one that has left the export. */
@@ -448,12 +448,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   )
 
   const setLineOverrides = useCallback(
-    (projectNo: string, patches: { key: string; patch: LineOverride }[]) => {
+    (projectNo: string | string[], patches: { key: string; patch: LineOverride }[]) => {
       const ws = current.current
       if (!ws || !patches.length) return
       const overrides = { ...ws.overrides }
       for (const { key, patch } of patches) overrides[key] = { ...overrides[key], ...patch }
-      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi ?? EMPTY_KPI, overrides, ws.visma ?? [])
+      const { demand, write } = withVismaLines(ws, [projectNo].flat(), ws.kpi ?? EMPTY_KPI, overrides, ws.visma ?? [])
       commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
     },
     [commitDemand],
