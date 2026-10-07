@@ -207,18 +207,18 @@ export const BaseCrewRow = memo(function BaseCrewRow({ cols, baseCrew }: { cols:
   return <Line className="cap-row" label={<span className="lbl-cap">Faste (FTE)</span>} cols={cols} cells={(date) => readCell(cols, date, dayType(date) === 'arbeidsdag' ? baseCrew : undefined, 'cap-cell')} />
 })
 
-/** The people away each day, as entered in Bemanning. It is read here and changed there. */
-export const AbsenceRow = memo(function AbsenceRow({ cols, absence }: { cols: Columns; absence: DayValues }) {
+/** A staffing line that comes from Bemanning: absence, overtime. It is read here and changed there. */
+export const FromBemanningRow = memo(function FromBemanningRow({ cols, label, title, values }: { cols: Columns; label: string; title: string; values: DayValues }) {
   return (
     <Line
       className="cap-row"
       label={
-        <span className="lbl-cap" title="Fravær blant de faste, hentet fra Bemanning. Trekkes fra Tilgjengelig.">
-          Fravær faste (FTE)
+        <span className="lbl-cap" title={title}>
+          {label}
         </span>
       }
       cols={cols}
-      cells={(date) => readCell(cols, date, absence[date], 'cap-cell')}
+      cells={(date) => readCell(cols, date, values[date], 'cap-cell')}
     />
   )
 })

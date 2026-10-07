@@ -243,6 +243,35 @@ export const okAssignments = (ws: Workspace): Assignment[] => {
   )
 }
 
+/**
+ * The overtime drawn in Bemanning, as hours per day and the number of people who work it, for the Kalender's
+ * «Tilgjengelig». Only assignments that count are included; on a weekend or a holiday all paid hours are overtime.
+ */
+export const overtimeByDay = (ws: Workspace): Map<ISODate, { hours: number; people: number }> => {
+  const wd = ws.settings.workday
+  const perPerson = new Map<ISODate, Map<string, number>>()
+  for (const a of okAssignments(ws)) {
+    const hours = overtimeHours(a, dayType(a.date), wd)
+    if (!(hours > 0)) continue
+    const day = perPerson.get(a.date) ?? new Map<string, number>()
+    day.set(a.personId, (day.get(a.personId) ?? 0) + hours)
+    perPerson.set(a.date, day)
+  }
+  return new Map([...perPerson].map(([date, day]) => [date, { hours: [...day.values()].reduce((sum, h) => sum + h, 0), people: day.size }]))
+}
+
+/** The overtime from Bemanning as a staffing line of the Kalender: people and hours per person, as the typed overtime lines have them. Worked out, never stored. */
+export const OVERTIME_LINE_ID = 'overtime:bemanning'
+export const overtimeLine = (ws: Workspace): CapacityLine => {
+  const values: DayValues = {}
+  const hours: DayValues = {}
+  for (const [date, day] of overtimeByDay(ws)) {
+    values[date] = day.people
+    hours[date] = day.hours / day.people
+  }
+  return { id: OVERTIME_LINE_ID, order: Number.MAX_SAFE_INTEGER, label: 'Overtid faste', group: 'overtime', values, hours, notes: {} }
+}
+
 export const unresolvedAssignments = (ws: Workspace): Assignment[] => {
   const ok = new Set(okAssignments(ws))
   return (ws.assignments ?? []).filter((a) => !ok.has(a))

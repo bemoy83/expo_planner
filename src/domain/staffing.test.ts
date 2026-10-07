@@ -5,6 +5,9 @@ import { readPlannerWorkbook } from '../import/plannerWorkbook'
 import { capacityForDate, dailyNeed, planningSettings } from './calc'
 import {
   ABSENCE_LINE_ID,
+  OVERTIME_LINE_ID,
+  overtimeByDay,
+  overtimeLine,
   absenceFte,
   absenceLine,
   absenceSpans,
@@ -552,5 +555,32 @@ describe('absence in the Kalender', () => {
     const line = absenceLine(ws)
     expect(line).toMatchObject({ id: ABSENCE_LINE_ID, group: 'unavailable', values: { [MON]: 1 } })
     expect(capacityForDate(MON, [line], planningSettings(ws))).toMatchObject({ base: 2, unavailable: 1, available: 1 })
+  })
+})
+
+describe('overtime in the Kalender', () => {
+  const person = (id: string) => ({ id, name: id, order: 0, active: true, competences: ['foga'] })
+  const block = (personId: string, date: string, from: string, to: string): Assignment => ({ id: `${personId}-${date}-${from}`, personId, date, competence: 'foga', ...iv(from, to), source: 'manual' })
+  const crew: Workspace = {
+    ...empty,
+    persons: [person('a'), person('b')],
+    // The normal day is 07:00–15:00. On the Saturday lunch is unpaid too: 3,5 hours.
+    assignments: [block('a', MON, '13:00', '17:00'), block('b', MON, '15:00', '18:00'), block('b', MON, '07:00', '15:00'), block('a', SAT, '08:00', '12:00'), block('a', TUE, '15:00', '17:00')],
+    unavailability: sick('a', [TUE]),
+  }
+
+  it('sums the hours outside the normal day, and the people who work them', () => {
+    expect(overtimeByDay(crew)).toEqual(new Map([[MON, { hours: 5, people: 2 }], [SAT, { hours: 3.5, people: 1 }]]))
+    expect(overtimeByDay(empty).size).toBe(0)
+  })
+
+  it('is a staffing line that adds to what is available, on weekends too', () => {
+    const line = overtimeLine(crew)
+    expect(line).toMatchObject({ id: OVERTIME_LINE_ID, group: 'overtime', values: { [MON]: 2, [SAT]: 1 }, hours: { [MON]: 2.5, [SAT]: 3.5 } })
+    const settings = planningSettings(crew)
+    expect(capacityForDate(MON, [line], settings).overtime).toBeCloseTo(5 / 7.5)
+    expect(capacityForDate(SAT, [line], settings)).toMatchObject({ base: 0 })
+    expect(capacityForDate(SAT, [line], settings).available).toBeCloseTo(3.5 / 7.5)
+    expect(capacityForDate(TUE, [line], settings).overtime).toBe(0)
   })
 })

@@ -7,7 +7,7 @@ import { dayType } from '../../domain/holidays'
 import type { AllocationRow } from '../../domain/types'
 import { hallNames, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
-import { absenceLine } from '../../domain/staffing'
+import { absenceLine, overtimeLine } from '../../domain/staffing'
 import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
 import { buildWindows, windowFor } from '../../domain/windows'
@@ -45,9 +45,18 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
-  // The staffing lines the planner types in, and after them the absence entered in Bemanning, which is worked out.
+  // The staffing lines the planner types in, and after them what comes from Bemanning: absence and overtime, which are worked out.
   const absence = useMemo(() => absenceLine(ws), [ws.persons, ws.unavailability, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
-  const capacity = useMemo(() => [...ws.capacity, absence], [ws.capacity, absence])
+  const overtime = useMemo(() => overtimeLine(ws), [ws.persons, ws.unavailability, ws.assignments, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  const capacity = useMemo(() => [...ws.capacity, absence, overtime], [ws.capacity, absence, overtime])
+  const fromBemanning = useMemo(() => {
+    if (!ws.persons?.length) return []
+    const overtimeFte = Object.fromEntries(Object.entries(overtime.values).map(([date, people]) => [date, Math.round(((people * (overtime.hours?.[date] ?? 0)) / settings.hoursPerDay) * 100) / 100]))
+    return [
+      { label: 'Fravær faste (FTE)', title: 'Fravær blant de faste, hentet fra Bemanning. Trekkes fra Tilgjengelig.', values: absence.values },
+      { label: 'Overtid faste (FTE)', title: 'Overtid tegnet i Bemanning, regnet om til FTE. Legges til Tilgjengelig.', values: overtimeFte },
+    ]
+  }, [ws.persons, absence, overtime, settings.hoursPerDay])
 
   const [zoom, setZoom] = usePref<Zoom>('zoom', 'normal')
   const [filter, setFilter] = usePref<RowFilter>('filter', EMPTY_FILTER)
@@ -671,7 +680,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               actions={actions}
               need={need}
               capacity={capacity}
-              absence={ws.persons?.length ? absence.values : null}
+              fromBemanning={fromBemanning}
               settings={settings}
               heat={heat}
               heatMax={heatMax}
