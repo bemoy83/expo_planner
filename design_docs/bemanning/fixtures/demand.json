@@ -1,0 +1,162 @@
+[
+  {
+    "competence": "teppefliser",
+    "date": "2026-10-12",
+    "hours": 37.5
+  },
+  {
+    "competence": "teppefliser",
+    "date": "2026-10-13",
+    "hours": 52.5
+  },
+  {
+    "competence": "teppefliser",
+    "date": "2026-10-14",
+    "hours": 22.5
+  },
+  {
+    "competence": "teppefliser",
+    "date": "2026-10-15",
+    "hours": 7.5
+  },
+  {
+    "competence": "foga",
+    "date": "2026-10-12",
+    "hours": 30
+  },
+  {
+    "competence": "foga",
+    "date": "2026-10-13",
+    "hours": 30
+  },
+  {
+    "competence": "foga",
+    "date": "2026-10-14",
+    "hours": 37.5
+  },
+  {
+    "competence": "foga",
+    "date": "2026-10-15",
+    "hours": 15
+  },
+  {
+    "competence": "foga",
+    "date": "2026-10-16",
+    "hours": 7.5
+  },
+  {
+    "competence": "innredning",
+    "date": "2026-10-12",
+    "hours": 15
+  },
+  {
+    "competence": "innredning",
+    "date": "2026-10-13",
+    "hours": 22.5
+  },
+  {
+    "competence": "innredning",
+    "date": "2026-10-14",
+    "hours": 30
+  },
+  {
+    "competence": "innredning",
+    "date": "2026-10-15",
+    "hours": 37.5
+  },
+  {
+    "competence": "innredning",
+    "date": "2026-10-16",
+    "hours": 22.5
+  },
+  {
+    "competence": "innredning",
+    "date": "2026-10-17",
+    "hours": 7.5
+  },
+  {
+    "competence": "møbler",
+    "date": "2026-10-13",
+    "hours": 7.5
+  },
+  {
+    "competence": "møbler",
+    "date": "2026-10-14",
+    "hours": 15
+  },
+  {
+    "competence": "møbler",
+    "date": "2026-10-15",
+    "hours": 30
+  },
+  {
+    "competence": "møbler",
+    "date": "2026-10-16",
+    "hours": 37.5
+  },
+  {
+    "competence": "møbler",
+    "date": "2026-10-17",
+    "hours": 15
+  },
+  {
+    "competence": "banner",
+    "date": "2026-10-12",
+    "hours": 7.5
+  },
+  {
+    "competence": "banner",
+    "date": "2026-10-13",
+    "hours": 7.5
+  },
+  {
+    "competence": "banner",
+    "date": "2026-10-14",
+    "hours": 15
+  },
+  {
+    "competence": "banner",
+    "date": "2026-10-15",
+    "hours": 15
+  },
+  {
+    "competence": "banner",
+    "date": "2026-10-16",
+    "hours": 7.5
+  },
+  {
+    "competence": "extra",
+    "date": "2026-10-12",
+    "hours": 15
+  },
+  {
+    "competence": "extra",
+    "date": "2026-10-13",
+    "hours": 15
+  },
+  {
+    "competence": "extra",
+    "date": "2026-10-14",
+    "hours": 15
+  },
+  {
+    "competence": "extra",
+    "date": "2026-10-15",
+    "hours": 22.5
+  },
+  {
+    "competence": "extra",
+    "date": "2026-10-16",
+    "hours": 30
+  },
+  {
+    "competence": "extra",
+    "date": "2026-10-17",
+    "hours": 7.5
+  },
+  {
+    "competence": "extra",
+    "date": "2026-10-18",
+    "hours": 7.5
+  }
+]

@@ -1,0 +1,465 @@
+<!DOCTYPE html><html lang="nb"><head><meta charset="utf-8"><title>Expo Planner · Bemanning</title><link rel="stylesheet" href="ds/styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="ds/_ds_bundle.js"></script><script src="bemanning-data.js"></script>
+<style>
+html,body,#root{height:100%}body{margin:0;overflow:hidden;background:rgb(var(--canvas));color:rgb(var(--ink));font-family:var(--font-ui)}
+a{color:rgb(var(--ink));text-decoration:underline;text-decoration-color:rgb(var(--border-strong))}a:hover{color:rgb(var(--accent))}
+button{font-family:inherit}
+:root{--lab:268px;--cols:var(--lab) repeat(5,minmax(136px,1fr)) repeat(2,64px);--hat:repeating-linear-gradient(135deg,rgb(var(--ink) / .12) 0 1px,transparent 1px 5px)}
+.keb{font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--ink-faint))}
+kbd{font:500 10px/14px var(--font-numeric);padding:0 4px;border-radius:4px;background:rgb(var(--ink) / .07);color:rgb(var(--ink-faint))}
+.kchev{display:grid;place-items:center;width:20px;height:20px;border:none;background:transparent;border-radius:6px;color:rgb(var(--ink-muted));cursor:pointer;padding:0;flex:none}.kchev:hover{background:rgb(var(--sunken))}
+.bm-page{height:100%;display:flex;flex-direction:column}
+.bm-hdr{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px 12px;border-bottom:1px solid rgb(var(--border));flex-wrap:wrap}
+.bm-title{display:flex;align-items:baseline;gap:14px;min-width:0}.bm-title h1{margin:0;font:700 20px/1.2 var(--font-ui);letter-spacing:-.02em}
+.bm-meta{font:400 12px var(--font-numeric);color:rgb(var(--ink-faint));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bm-hr{display:flex;align-items:center;gap:20px}
+.bm-week{display:flex;align-items:center;gap:2px;height:32px;padding:0 2px;border-radius:8px;background:rgb(var(--field))}.bm-week b{font:600 13px var(--font-numeric);padding:0 6px;white-space:nowrap}.bm-week b span{font-weight:400;color:rgb(var(--ink-muted))}
+.bm-sum{display:flex}.bm-sum div{display:flex;flex-direction:column;gap:1px;padding:0 14px;border-left:1px solid rgb(var(--border))}.bm-sum div:first-child{border-left:none;padding-left:0}.bm-sum span{font-size:11px;color:rgb(var(--ink-muted));white-space:nowrap}.bm-sum b{font:600 16px var(--font-numeric);letter-spacing:-.02em;white-space:nowrap}.bm-sum b em{font:400 11px var(--font-numeric);color:rgb(var(--ink-faint));font-style:normal}
+.bm-tools{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid rgb(var(--border-strong))}
+.bm-z{display:flex;align-items:center;gap:6px}
+.bm-seg{display:flex;align-items:center;gap:6px}
+.bm-brush{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:color-mix(in oklch,var(--cc) 14%,rgb(var(--surface)));font-size:13px;font-weight:600;box-shadow:inset 0 0 0 1.5px var(--cc)}.bm-brush i{width:10px;height:10px;border-radius:3px;background:var(--cc)}.bm-brush button{display:grid;place-items:center;width:22px;height:22px;border:none;border-radius:6px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;font-size:15px;line-height:1}.bm-brush button:hover{background:rgb(var(--ink) / .08);color:rgb(var(--ink))}
+.bm-nobrush{font-size:13px;color:rgb(var(--ink-faint))}
+.bm-hint{font-size:12px;color:rgb(var(--ink-faint));display:flex;gap:10px;flex-wrap:wrap}.bm-hint b{font-weight:500;color:rgb(var(--ink-muted))}
+.bm-unres{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:rgb(var(--danger-bg));color:rgb(var(--danger));font-size:13px;font-weight:500}.bm-unres button{border:none;background:transparent;color:inherit;font:600 12px var(--font-ui);padding:4px 8px;border-radius:6px;cursor:pointer}.bm-unres button:hover{background:rgb(var(--danger) / .12)}
+.bm-tr{margin-left:auto;display:flex;align-items:center;gap:6px}
+.bm-scroll{flex:1;min-height:0;overflow:auto;position:relative;user-select:none}
+.bm-in{min-width:1080px;padding-bottom:40px}
+.bm-r{display:grid;grid-template-columns:var(--cols)}
+.bm-l{position:sticky;left:0;z-index:3;background:rgb(var(--canvas));border-right:1px solid rgb(var(--border));display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;min-width:0;box-sizing:border-box}
+.bm-strip{position:sticky;top:0;z-index:10;background:rgb(var(--canvas));border-bottom:1px solid rgb(var(--border-strong));box-shadow:0 10px 18px -16px rgb(var(--ink) / .35)}
+.bm-strip .bm-l{z-index:11}
+.bm-dh{height:36px;border-bottom:1px solid rgb(var(--border))}.bm-dh .bm-l{gap:10px}.bm-lh{font:400 11px var(--font-numeric);color:rgb(var(--ink-faint))}
+.bm-dhc{display:flex;align-items:center;justify-content:center;gap:5px;border:none;background:transparent;border-right:1px solid rgb(var(--border) / .55);cursor:pointer;font-family:var(--font-numeric);color:rgb(var(--ink));padding:0;position:relative}
+.bm-dhc span{font-size:11px;color:rgb(var(--ink-faint));text-transform:uppercase;letter-spacing:.04em}.bm-dhc b{font-size:13px;font-weight:500}.bm-dhc em{position:absolute;bottom:2px;font:400 9.5px var(--font-numeric);font-style:normal;color:rgb(var(--ink-faint))}
+.bm-dhc.we{flex-direction:column;gap:0;line-height:1.1;background:var(--sunken-2)}.bm-dhc.we em{position:static}
+.bm-dhc:not(.we):hover{background:rgb(var(--ink) / .04)}
+.bm-dhc.on::before{content:"";position:absolute;inset:5px 6px;border-radius:7px;background:var(--accent-soft)}.bm-dhc.on>*{position:relative}.bm-dhc.on span,.bm-dhc.on b{color:rgb(var(--accent));font-weight:700}
+.bm-dr{height:38px;border-bottom:1px solid rgb(var(--border) / .55);transition:opacity 160ms var(--ease)}
+.bm-dr.dim{opacity:.42}.bm-dr.dim:hover{opacity:.8}
+.bm-dl{border:none;border-right:1px solid rgb(var(--border));cursor:pointer;text-align:left;font:500 13px var(--font-ui);color:rgb(var(--ink))}
+.bm-dl:hover{background:var(--surface-hover)}
+.bm-sw{width:10px;height:10px;border-radius:3px;background:var(--cc);flex:none}
+.bm-cn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-wk{margin-left:auto;font:600 12px var(--font-numeric);white-space:nowrap}.bm-wk em{font-weight:400;font-style:normal;color:rgb(var(--ink-faint))}
+.bm-dr.on .bm-l{background:rgb(var(--surface));box-shadow:inset 3px 0 0 var(--cc)}
+.bm-dr.on{background:color-mix(in oklch,var(--cc) 7%,rgb(var(--canvas)))}
+.bm-dc{display:flex;flex-direction:column;justify-content:center;gap:5px;padding:0 10px;border:none;background:transparent;border-right:1px solid rgb(var(--border) / .55);cursor:pointer;color:rgb(var(--ink));min-width:0;position:relative;text-align:right}
+.bm-dc:hover{background:rgb(var(--ink) / .035)}
+.bm-dc.we{cursor:default;background:var(--sunken-2);align-items:center}.bm-wev{font:400 12px var(--font-numeric);color:rgb(var(--ink-faint))}.bm-nil{color:rgb(var(--ink-subtle));font-family:var(--font-numeric)}
+.bm-dv{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
+.bm-dv em{font:400 10.5px var(--font-numeric);font-style:normal;color:rgb(var(--ink-faint))}
+.bm-n{font:600 15px/1 var(--font-numeric);letter-spacing:-.02em;display:inline-flex}
+.bm-n.nil{color:rgb(var(--ink-subtle));font-weight:400}.bm-n.ok{color:rgb(var(--committed))}.bm-n.over{color:rgb(var(--draft))}.bm-n.unc{color:rgb(var(--danger))}
+.bm-strip.live .bm-n{animation:bmflash 600ms var(--ease)}
+@keyframes bmflash{0%{transform:translateY(-4px);opacity:.2}100%{transform:none;opacity:1}}
+.bm-pv{font:600 11px var(--font-numeric);color:var(--cc);margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklch,var(--cc) 14%,transparent)}
+.bm-cr{font:500 10px var(--font-numeric);color:rgb(var(--draft));margin-right:auto}
+.bm-bar{position:relative;height:4px;border-radius:3px;background:rgb(var(--ink) / .08);overflow:hidden}
+.bm-bar i{position:absolute;top:0;bottom:0;left:0;transition:width 280ms var(--ease),left 280ms var(--ease)}.bm-bar i.f{background:var(--cc)}.bm-bar i.o{background:rgb(var(--draft))}
+.bm-bar i.p{background:repeating-linear-gradient(90deg,var(--cc) 0 3px,transparent 3px 5px);opacity:.75}
+.bm-bar i.u{left:auto;right:0;background:repeating-linear-gradient(135deg,rgb(var(--danger)) 0 1.5px,transparent 1.5px 3.5px)}
+.bm-dc.fd,.bm-capc.fd,.bm-c.fd{background-color:rgb(var(--accent) / .045)}
+.bm-cap{height:30px}.bm-capl{font-size:12px;color:rgb(var(--ink-muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bm-capc{display:flex;align-items:baseline;justify-content:flex-end;gap:4px;padding:0 10px;align-self:stretch;align-items:center;border-right:1px solid rgb(var(--border) / .55);font-family:var(--font-numeric)}.bm-capc b{font-size:12px;font-weight:500}.bm-capc em{font-size:10.5px;font-style:normal;color:rgb(var(--ink-faint))}.bm-capc.we{background:var(--sunken-2)}
+.bm-coll{height:30px}.bm-coll .bm-cn{font-size:12px;color:rgb(var(--ink-muted))}.bm-coll .bm-wk{font-weight:500;color:rgb(var(--ink-muted))}
+@media (max-height:820px){.bm-dh{height:30px}.bm-dr{height:30px}.bm-dc{gap:3px}.bm-n{font-size:13px}.bm-dv em{display:none}.bm-cap{height:24px}.bm-hdr{padding:8px 24px}.bm-sum b{font-size:14px}.bm-tools{padding:6px 24px}}
+.bm-pr{height:46px;transition:opacity 160ms var(--ease)}.bm-pr.exp{height:96px}
+.bm-pr.dim{opacity:.38}.bm-pr.dim:hover{opacity:.7}
+.bm-pl{cursor:pointer;gap:6px;padding-left:10px;border-bottom:1px solid rgb(var(--border) / .55)}.bm-pl:hover{background:var(--surface-hover)}
+.bm-pr.exp .bm-pl{align-items:flex-start;padding-top:12px;background:rgb(var(--surface))}
+.bm-pn{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}.bm-nm{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-pc{display:flex;gap:3px}.bm-pc i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px rgb(var(--border-strong) / .7)}.bm-pc i.has{background:var(--cc);box-shadow:none}.bm-pc i.f{outline:1.5px solid var(--cc);outline-offset:1.5px}
+.bm-pw{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 11px var(--font-numeric);color:rgb(var(--ink-faint));white-space:nowrap}.bm-pw b{font-weight:600;color:rgb(var(--ink))}
+.bm-pw>i{display:block;width:52px;height:3px;border-radius:2px;background:rgb(var(--ink) / .08);overflow:hidden}.bm-pw>i>i{display:block;height:100%;background:rgb(var(--ink-muted));transition:width 280ms var(--ease)}
+.bm-c{position:relative;border-right:1px solid rgb(var(--border) / .55);border-bottom:1px solid rgb(var(--border) / .55);min-width:0;cursor:default}
+.bm-scroll[data-t="paint"] .bm-c:not(.we){cursor:cell}.bm-scroll[data-t="erase"] .bm-c{cursor:crosshair}
+.bm-scroll .bm-c.no{cursor:not-allowed}
+.bm-c.we{background:var(--sunken-2) var(--hat)}
+.bm-c.off{background-image:var(--hat)}
+.bm-c.sel{box-shadow:inset 0 0 0 1.5px rgb(var(--accent));z-index:1}
+.bm-scroll[data-t="paint"] .bm-c:not(.we):not(.no):not(.sk):hover{box-shadow:inset 0 0 0 1.5px var(--bc)}
+.bm-c.rect.paint:not(.no):not(.we){background-color:color-mix(in oklch,var(--bc) 12%,transparent);box-shadow:inset 0 0 0 2px var(--bc)}
+.bm-c.rect.erase{background-color:rgb(var(--danger) / .07);box-shadow:inset 0 0 0 2px rgb(var(--danger) / .7)}
+.bm-mtl{position:absolute;inset:7px 5px}
+.bm-hat{position:absolute;top:0;bottom:0;background:var(--hat);border-radius:4px}
+.bm-b{position:absolute;top:0;bottom:0;border-radius:5px;background:var(--cc);color:var(--on-line);display:flex;align-items:center;gap:6px;padding:0 7px;box-sizing:border-box;overflow:hidden;white-space:nowrap;transition:opacity 160ms var(--ease);box-shadow:0 0 0 1px rgb(var(--canvas))}
+.bm-b b{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis}.bm-b em{font:400 10.5px var(--font-numeric);font-style:normal;opacity:.85;margin-left:auto}
+.bm-b.other,.bm-xb.other{opacity:.28}
+.bm-b.unres,.bm-xb.unres{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:rgb(var(--ink));opacity:.85}
+.bm-off{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:rgb(var(--ink-muted));font-style:italic}
+.bm-sick{position:absolute;left:4px;top:50%;transform:translateY(-50%);font:600 11px var(--font-ui);color:rgb(var(--danger));background:rgb(var(--danger-bg));padding:2px 7px;border-radius:999px;white-space:nowrap;z-index:2;pointer-events:none}
+.bm-c.sk{background-color:rgb(var(--danger) / .04)}
+.bm-note{position:absolute;right:0;top:-6px;font:400 9.5px var(--font-numeric);color:rgb(var(--ink-faint));background:rgb(var(--canvas));padding:0 3px;border-radius:3px}
+.bm-chips{position:absolute;inset:6px 6px;display:flex;align-items:center;gap:4px;overflow:hidden}.bm-chips span{display:inline-flex;align-items:center;gap:4px;font:500 11px var(--font-numeric);white-space:nowrap;padding:2px 6px 2px 4px;border-radius:5px;background:color-mix(in oklch,var(--cc) 16%,transparent)}.bm-chips span i{width:6px;height:6px;border-radius:2px;background:var(--cc)}.bm-chips span.other{opacity:.35}
+.bm-xt{position:absolute;inset:4px 6px 8px}
+.bm-xt.we{inset:0;display:flex;align-items:center;justify-content:center}.bm-xwe{font-size:11px;color:rgb(var(--ink-faint));writing-mode:vertical-rl;transform:rotate(180deg)}
+.bm-ruler{position:absolute;left:0;right:0;top:0;height:14px}.bm-ruler span{position:absolute;transform:translateX(-50%);font:400 9.5px var(--font-numeric);color:rgb(var(--ink-faint))}.bm-ruler span:first-child{transform:none}.bm-ruler span:last-child{transform:translateX(-100%)}
+.bm-xtrack{position:absolute;left:0;right:0;top:16px;bottom:0;border-radius:6px;background:repeating-linear-gradient(90deg,rgb(var(--border)) 0 1px,transparent 1px calc(100% / 8)) rgb(var(--surface) / .6);box-shadow:inset 0 0 0 1px rgb(var(--border))}
+.bm-pr.exp .bm-c:not(.we){background-color:transparent}
+.bm-pr.exp .bm-xtrack{background:repeating-linear-gradient(90deg,rgb(var(--ink) / .06) 0 1px,transparent 1px calc(100% / 8)) rgb(var(--sunken));box-shadow:none}
+.bm-pr.exp .bm-xb{box-shadow:none}.bm-pr.exp .bm-xb.drag{box-shadow:0 4px 12px -4px rgb(var(--ink) / .4)}
+.bm-pr.exp .bm-c.fd{background-color:rgb(var(--accent) / .045)}
+.bm-zl{font-size:12px;color:rgb(var(--ink-muted))}
+.bm-scroll[data-half] .bm-c:not(.we):not(.no):not(.sk):hover,.bm-c.rect.paint.half:not(.no):not(.we){box-shadow:none;outline:1.5px dashed var(--bc);outline-offset:-3px}
+.bm-c.rect.paint.half:not(.no):not(.we){background-color:color-mix(in oklch,var(--bc) 8%,transparent)}
+.bm-qc{display:flex;flex-wrap:wrap;gap:4px}.bm-vl-info .bm-qc{flex-direction:column;align-items:stretch;padding-left:26px}
+.bm-qc button{display:flex;align-items:center;gap:6px;height:22px;padding:0 6px;border:none;border-radius:6px;background:rgb(var(--sunken));font:500 11.5px var(--font-ui);color:rgb(var(--ink));cursor:pointer;white-space:nowrap}.bm-vl-info .bm-qc button{height:28px;padding:0 8px;font-size:12.5px}
+.bm-qc button i{width:8px;height:8px;border-radius:2px;background:var(--cc);flex:none}.bm-qc button kbd{margin-left:auto}
+.bm-qc button:hover{background:color-mix(in oklch,var(--cc) 14%,rgb(var(--sunken)))}
+.bm-qc button.on{background:color-mix(in oklch,var(--cc) 16%,rgb(var(--surface)));box-shadow:inset 0 0 0 1.5px var(--cc);font-weight:600}
+.bm-pin{border-bottom:2px solid rgb(var(--border-strong))}
+.bm-ghost{height:30px;cursor:pointer}.bm-ghost .bm-l{gap:8px;padding-left:12px;background:var(--accent-soft);border-bottom:1px solid rgb(var(--border) / .55);color:rgb(var(--accent))}.bm-ghost .bm-nm{font-size:12.5px;color:rgb(var(--ink))}.bm-ghost>span{grid-column:2/-1;display:flex;align-items:center;padding:0 12px;font-size:12px;color:rgb(var(--ink-muted));background:var(--accent-soft);border-bottom:1px solid rgb(var(--border) / .55)}.bm-ghost:hover>span,.bm-ghost:hover .bm-l{background:rgb(var(--accent) / .14)}
+.bm-ottag{position:absolute;right:-2px;top:-6px;z-index:3;font:600 9.5px/13px var(--font-numeric);padding:0 4px;border-radius:4px;color:rgb(var(--ink));background:rgb(var(--canvas));box-shadow:inset 0 0 0 1px rgb(var(--border-strong))}.bm-ottag.we{position:static;margin-left:2px}
+.bm-wec{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px}.bm-wec>i{width:6px;height:22px;border-radius:3px;background:var(--cc)}.bm-wec>i.other{opacity:.3}
+.bm-otw{font-style:normal;color:rgb(var(--ink-muted))}
+.bm-bar i.ot{background:repeating-linear-gradient(135deg,var(--cc) 0 2px,color-mix(in oklch,var(--cc) 35%,transparent) 2px 4px)}
+.bm-pr.vexp{height:calc(var(--vh) + 24px)}
+.bm-pr.vexp .bm-l{align-items:stretch;padding:0;background:rgb(var(--surface));border-bottom:1px solid rgb(var(--border-strong))}
+.bm-pr.vexp .bm-c{border-bottom:1px solid rgb(var(--border-strong))}
+.bm-vl{position:sticky;display:grid!important;grid-template-columns:minmax(0,1fr) 40px}
+.bm-vl-info{display:flex;flex-direction:column;gap:10px;padding:12px 8px 12px 10px;min-width:0}
+.bm-vl-top{display:flex;align-items:center;gap:6px;margin:-12px -8px 0 -10px;padding:12px 8px 6px 10px;cursor:pointer;border-radius:0}.bm-vl-top:hover{background:var(--surface-hover)}.bm-vl-top .bm-nm{font-size:14px;font-weight:600}
+.bm-vl-info .bm-pc{padding-left:26px}
+.bm-vl-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;padding-left:26px;font-size:12px}.bm-vl-dl dt{color:rgb(var(--ink-muted))}.bm-vl-dl dd{margin:0;font-family:var(--font-numeric);text-align:right}.bm-vl-dl dd.ot{font-weight:600}
+.bm-vl-nav{display:flex;gap:2px;padding-left:20px}
+.bm-vl-hint{padding-left:26px;font-size:11.5px;color:rgb(var(--ink-faint));text-wrap:pretty}
+.bm-axis{position:relative;margin:12px 0}.bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 10px var(--font-numeric);color:rgb(var(--ink-faint))}.bm-axis span.n{color:rgb(var(--ink));font-weight:600}
+.bm-vc{cursor:default}
+.bm-vt{position:absolute;left:5px;right:5px;top:12px;bottom:12px;border-radius:6px;background:repeating-linear-gradient(180deg,rgb(var(--ink) / .06) 0 1px,transparent 1px 28px) rgb(var(--sunken))}
+.bm-vt.paint{cursor:copy}
+.bm-vband{position:absolute;left:0;right:0;pointer-events:none}.bm-vband.ot{background:repeating-linear-gradient(135deg,rgb(var(--ink) / .07) 0 1px,transparent 1px 6px)}.bm-vband.ot:first-child{border-radius:6px 6px 0 0}
+.bm-vband.lunch{background:repeating-linear-gradient(135deg,rgb(var(--ink) / .1) 0 1px,transparent 1px 3px)}
+.bm-vband.na{background:repeating-linear-gradient(135deg,rgb(var(--ink) / .16) 0 1px,transparent 1px 4px) rgb(var(--ink) / .04)}
+.bm-vline{position:absolute;left:0;right:0;height:0;border-top:1px solid rgb(var(--ink) / .28);pointer-events:none}
+.bm-voff{position:absolute;top:40%;left:0;right:0;text-align:center;font-size:12px;font-style:italic;color:rgb(var(--ink-muted))}
+.bm-vnote{position:absolute;left:6px;margin-top:4px;font:400 10px var(--font-numeric);color:rgb(var(--ink-muted))}
+.bm-vb{position:absolute;left:3px;right:3px;border-radius:5px;background:var(--cc);color:var(--on-line);display:flex;flex-direction:column;gap:1px;padding:4px 7px;box-sizing:border-box;overflow:hidden;cursor:grab;transition:opacity 160ms var(--ease)}
+.bm-vb b{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}.bm-vb em{font:400 10.5px var(--font-numeric);font-style:normal;opacity:.9;white-space:nowrap;position:relative}
+.bm-vb.other{opacity:.28}.bm-vb.ghost{opacity:.6}.bm-vb.drag{cursor:grabbing;box-shadow:0 6px 16px -6px rgb(var(--ink) / .45);z-index:3}
+.bm-vb.unres{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:rgb(var(--ink));opacity:.85}
+.bm-vot{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,var(--on-line-soft) 0 2px,transparent 2px 7px);pointer-events:none}
+.bm-vh{position:absolute;left:0;right:0;height:7px;cursor:ns-resize;z-index:2}.bm-vh.t{top:0}.bm-vh.b{bottom:0}.bm-vh::after{content:"";position:absolute;left:35%;right:35%;top:2px;height:2px;border-radius:2px;background:var(--on-line-rule);opacity:0}.bm-vb:hover .bm-vh::after{opacity:1}
+.bm-vb:hover .bm-x{display:grid}
+.bm-pr.vexp .bm-c.fd{background-color:rgb(var(--accent) / .045)}
+.bm-xt.paint .bm-xtrack{cursor:copy}
+.bm-hat.lunch{background:repeating-linear-gradient(135deg,rgb(var(--ink) / .09) 0 1px,transparent 1px 3px);border-radius:0}
+.bm-xb{position:absolute;top:3px;bottom:3px;border-radius:5px;background:var(--cc);color:var(--on-line);display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 8px;box-sizing:border-box;overflow:hidden;white-space:nowrap;cursor:grab;box-shadow:0 0 0 1px rgb(var(--canvas));transition:opacity 160ms var(--ease)}
+.bm-xb.drag{cursor:grabbing;box-shadow:0 0 0 1px rgb(var(--canvas)),0 4px 12px -4px rgb(var(--ink) / .4);z-index:3}
+.bm-xb.ghost{opacity:.6}
+.bm-xb b{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis}.bm-xb em{font:400 10.5px var(--font-numeric);font-style:normal;opacity:.9;overflow:hidden;text-overflow:ellipsis}
+.bm-hd{position:absolute;top:0;bottom:0;width:7px;cursor:ew-resize;z-index:2}.bm-hd.l{left:0}.bm-hd.r{right:0}.bm-hd::after{content:"";position:absolute;top:30%;bottom:30%;left:2px;width:2px;border-radius:2px;background:var(--on-line-rule);opacity:0}.bm-xb:hover .bm-hd::after{opacity:1}
+.bm-x{position:absolute;top:2px;right:6px;width:16px;height:16px;border:none;border-radius:4px;background:var(--on-line-soft);color:var(--on-line);font-size:12px;line-height:1;display:none;place-items:center;cursor:pointer;padding:0;z-index:3}.bm-xb:hover .bm-x{display:grid}.bm-xb.unres .bm-x{background:rgb(var(--ink) / .1);color:rgb(var(--ink))}
+.bm-div{height:34px}.bm-div .bm-l{gap:8px;cursor:pointer;font-size:12px;color:rgb(var(--ink-muted));border-top:1px solid rgb(var(--border-strong))}.bm-div .bm-l:hover{color:rgb(var(--ink))}
+.bm-div>span{grid-column:2/-1;border-top:1px solid rgb(var(--border-strong));display:flex;align-items:center;padding:0 12px;font-size:12px;color:rgb(var(--ink-faint))}
+.bm-pop,.bm-menu{position:fixed;z-index:80;background:rgb(var(--surface));border:1px solid rgb(var(--border-strong));border-radius:10px;box-shadow:0 16px 40px -16px rgb(var(--ink) / .35)}
+.bm-pop{width:300px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.bm-pop-h{display:flex;align-items:center;gap:8px;font-size:14px}.bm-pop-h span{margin-left:auto;font-size:12px;color:rgb(var(--ink-muted))}
+.bm-pop-stats{display:grid;grid-template-columns:repeat(3,1fr);background:var(--sunken-2);border-radius:8px;padding:10px 0}.bm-pop-stats div{display:flex;flex-direction:column;gap:2px;padding:0 12px}.bm-pop-stats div+div{border-left:1px solid rgb(var(--border))}.bm-pop-stats span{font-size:11px;color:rgb(var(--ink-muted))}.bm-pop-stats b{font:600 18px var(--font-numeric);letter-spacing:-.02em}
+.bm-pop-p{margin:0;font-size:12.5px;color:rgb(var(--ink-body))}
+.bm-pop-carry{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid rgb(var(--border))}.bm-pop-lab{font-size:12px;color:rgb(var(--ink-muted))}
+.bm-pop-row{display:flex;align-items:center;gap:6px}.bm-pop-row input{width:52px;height:30px;box-sizing:border-box;border:none;border-radius:7px;background:rgb(var(--field));text-align:right;padding:0 8px;font:500 13px var(--font-numeric);color:rgb(var(--ink));outline:none}.bm-pop-row input:focus{box-shadow:0 0 0 2px rgb(var(--accent))}.bm-pop-u{font:400 12px var(--font-numeric);color:rgb(var(--ink-faint));margin-right:auto}
+.bm-pop-f{display:flex;justify-content:flex-end;gap:6px}
+.bm-ask{width:280px}.bm-ask p{margin:0;font-size:13px;line-height:1.45;color:rgb(var(--ink-body));text-wrap:pretty}
+.bm-menu{width:260px;padding:6px}.bm-menu .grp{padding:8px 10px 6px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:rgb(var(--ink-faint))}
+.bm-menu button{width:100%;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:none;border-radius:7px;background:transparent;font:400 13px var(--font-ui);color:var(--ink-body);cursor:pointer;text-align:left}.bm-menu button:hover:not(:disabled){background:var(--surface-hover)}.bm-menu button:disabled{opacity:.4;cursor:default}.bm-menu button.dg{color:rgb(var(--danger))}
+.bm-menu hr{border:none;border-top:1px solid rgb(var(--border));margin:4px 0}
+.ktoasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;width:400px}
+.bm-ph{padding:40px 24px;display:flex;flex-direction:column;gap:14px;max-width:560px}.bm-ph h1{margin:0;font:700 20px var(--font-ui)}.bm-ph p{margin:0;font-size:14px;line-height:1.5;color:rgb(var(--ink-body))}
+.bm-ctxchip{display:inline-flex;align-items:center;gap:8px;font:500 13px var(--font-numeric);padding:6px 10px;border-radius:8px;background:var(--accent-soft);color:rgb(var(--ink));width:max-content}
+.bm-hdr{padding:14px 24px 10px;border-bottom:none;flex-wrap:nowrap}.bm-title{flex-wrap:wrap;row-gap:2px}.bm-meta{color:rgb(var(--ink-muted))}
+.bm-week{flex:none;width:auto;height:auto;background:transparent;padding:0;gap:2px}.bm-week b{font:500 13px var(--font-numeric);padding:0 4px}
+.bm-tools{padding:6px 24px 10px;border-bottom:1px solid rgb(var(--border));gap:8px 14px}
+.bm-z .bm-hint{margin-left:6px}
+.bm-dh{height:40px}.bm-dl0{flex-direction:row;align-items:center;gap:10px}
+.bm-dhc{flex-direction:column;gap:1px;line-height:1.05}.bm-dhc span{font-size:10px;text-transform:none;letter-spacing:0}.bm-dhc b{font-size:12.5px;font-weight:500}.bm-dhc.on::before{inset:5px 8px}
+.bm-sec{height:22px;border-top:1px solid rgb(var(--border));border-bottom:1px solid rgb(var(--border))}.bm-sec .bm-l{align-items:flex-end;padding-bottom:3px;gap:10px}.bm-sec>span{grid-column:2/-1;display:flex;align-items:flex-end;padding:0 12px 3px}
+.bm-strip .bm-sec{border-top:none}
+.bm-sectog{display:flex;align-items:center;gap:4px;border:none;background:transparent;padding:0 4px 0 0;margin-left:-6px;cursor:pointer;color:rgb(var(--ink-faint));border-radius:6px}.bm-sectog:hover,.bm-sectog:hover .keb{color:rgb(var(--ink))}
+.bm-psec{border-top:none}.bm-sec .bm-lh{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ksave{display:flex;align-items:center;gap:6px;font-size:13px}.ksave i{width:7px;height:7px;border-radius:999px;background:rgb(var(--committed))}.kzdiv{width:1px;background:rgb(var(--border-strong));flex:none}
+@media (max-height:820px){.bm-dh{height:36px}.bm-hdr{padding:10px 24px 6px}}
+</style></head><body><div id="root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="BemanningStrip.jsx"></script>
+<script type="text/babel" src="BemanningGrid.jsx"></script>
+<script type="text/babel" src="BemanningVertical.jsx"></script>
+<script type="text/babel">
+const DS = window.WarmMinimalDesignSystem_58386e;
+const { TopBar, Button, IconButton, Segmented, NotificationToastCard, Icon } = DS;
+const { DAYS, COMPS, PEOPLE, baseAvail, DEMAND, SEED, hrs, fmtH, fmtT, freeIv, freeH, merge, otH, S: DS_S, E: DS_E, L0, L1 } = window.BM;
+const halfWin = (av, cb) => { if (av.s == null) return null; for (const w of [{ s: Math.max(av.s, DS_S), e: Math.min(av.e, L0) }, { s: Math.max(av.s, L1), e: Math.min(av.e, DS_E) }]) if (w.e > w.s && freeIv(w, cb).length) return w; return null; };
+const compById = Object.fromEntries(COMPS.map(c => [c.id, c]));
+const personById = Object.fromEntries(PEOPLE.map(p => [p.id, p]));
+const TABS = [{ id: 'kalender', label: 'Kalender' }, { id: 'behov', label: 'Behov' }, { id: 'bemanning', label: 'Bemanning' }, { id: 'haller', label: 'Haller' }, { id: 's1', separator: true }, { id: 'produkttyper', label: 'Produkttyper' }, { id: 'kpi', label: 'KPI' }];
+let UID = 1;
+const nid = () => 'b' + (UID++);
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "inelig": "hide",
+  "multi": "timeline",
+  "stripMode": "rest",
+  "dark": false,
+  "expand": "vertical"
+}/*EDITMODE-END*/;
+const availIn = (sick, pid, d) => { const a = baseAvail(pid, d); return sick[pid + '|' + d] && !a.we ? { off: 'Syk', sick: true } : a; };
+
+function App() {
+  const [tw, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [view, setView] = React.useState('bemanning');
+  const [hist, setHist] = React.useState({ cur: { blocks: SEED, sick: {}, demand: DEMAND, carry: {} }, past: [], future: [] });
+  const st = hist.cur;
+  const commit = fn => setHist(h => { const n = fn(h.cur); return n === h.cur ? h : { cur: n, past: [...h.past, h.cur].slice(-100), future: [] }; });
+  const undo = () => setHist(h => h.past.length ? { cur: h.past[h.past.length - 1], past: h.past.slice(0, -1), future: [h.cur, ...h.future] } : h);
+  const redo = () => setHist(h => h.future.length ? { cur: h.future[0], past: [...h.past, h.cur], future: h.future.slice(1) } : h);
+  const [tool, setTool] = React.useState('select');
+  const [brush, setBrush] = React.useState(null);
+  const [expanded, setExpanded] = React.useState(new Set(['p16']));
+  const [vPid, setVPid] = React.useState('p16');
+  const vmode = tw.expand === 'vertical';
+  const scrollRef = React.useRef(null);
+  const [focusDay, setFocusDay] = React.useState(1);
+  const [sel, setSel] = React.useState(null);
+  const [drag, setDrag] = React.useState(null);
+  const dragRef = React.useRef(null);
+  const [hover, setHover] = React.useState(null);
+  const [ask, setAsk] = React.useState(null);
+  const [menu, setMenu] = React.useState(null);
+  const [dpop, setDpop] = React.useState(null);
+  const [hideInelig, setHideInelig] = React.useState(false);
+  const [shift, setShift] = React.useState(false);
+  const [stripColl, setStripColl] = React.useState(() => window.innerHeight < 640);
+  const [toasts, setToasts] = React.useState([]);
+  React.useEffect(() => { document.documentElement.classList.toggle('dark', !!tw.dark); }, [tw.dark]);
+  const notify = t => { const id = Math.random(); setToasts(ts => [...ts.slice(-2), { ...t, id }]); setTimeout(() => setToasts(ts => ts.filter(x => x.id !== id)), 7000); };
+
+  const isSick = (pid, d) => !!st.sick[pid + '|' + d];
+  const availOf = (pid, d) => availIn(st.sick, pid, d);
+  const byCell = React.useMemo(() => { const m = {}; st.blocks.forEach(b => { (m[b.pid + '|' + b.day] = m[b.pid + '|' + b.day] || []).push(b); }); Object.values(m).forEach(a => a.sort((x, y) => x.s - y.s)); return m; }, [st.blocks]);
+  const blocksOf = (pid, d) => byCell[pid + '|' + d] || [];
+  const zero = () => Object.fromEntries(COMPS.map(c => [c.id, DAYS.map(() => 0)]));
+  const assigned = zero(), assignedOT = zero(), freeElig = zero();
+  st.blocks.forEach(b => { if (isSick(b.pid, b.day)) return; assigned[b.comp][b.day] += hrs(b.s, b.e); assignedOT[b.comp][b.day] += otH(b, DAYS[b.day].we); });
+  const freeOf = (pid, d) => freeH(availOf(pid, d), blocksOf(pid, d));
+  const freeHalf = (pid, d) => { const bl = blocksOf(pid, d), w = halfWin(availOf(pid, d), bl); return w ? freeH(w, bl) : 0; };
+  PEOPLE.forEach(p => DAYS.forEach(d => { if (d.we) return; const f = freeOf(p.id, d.i); p.comps.forEach(c => { freeElig[c][d.i] += f; }); }));
+  const cap = DAYS.map(d => { let h = 0, n = 0; if (!d.we) PEOPLE.forEach(p => { if (brush && !p.comps.includes(brush)) return; const f = freeOf(p.id, d.i); if (f > 0) { h += f; n++; } }); return { h, n }; });
+  const weekOf = pid => { let a = 0, c = 0, ot = 0; DAYS.forEach(d => { const av = availOf(pid, d.i); if (av.s != null) c += hrs(av.s, av.e); if (!isSick(pid, d.i)) blocksOf(pid, d.i).forEach(b => { const o = otH(b, d.we); a += hrs(b.s, b.e) - o; ot += o; }); }); return { a, c, ot }; };
+  const wd = DAYS.filter(d => !d.we);
+  let tReq = 0, tCov = 0, tRem = 0, tWe = 0, tOT = 0;
+  COMPS.forEach(c => { wd.forEach(d => { const r = st.demand[c.id][d.i], a = assigned[c.id][d.i]; tReq += r; tCov += Math.min(r, a); tRem += Math.max(0, r - a); }); DAYS.forEach(d => { tOT += assignedOT[c.id][d.i]; if (d.we) tWe += Math.max(0, st.demand[c.id][d.i] - assigned[c.id][d.i]); }); });
+  const unres = st.blocks.filter(b => isSick(b.pid, b.day));
+
+  const eligibleP = p => !brush || p.comps.includes(brush);
+  let rowsV = PEOPLE, splitAt = -1, nIn = 0;
+  if (brush && tw.inelig !== 'dim') {
+    const a = PEOPLE.filter(eligibleP), b = PEOPLE.filter(p => !eligibleP(p)); nIn = b.length;
+    rowsV = tw.inelig === 'hide' || hideInelig ? a : [...a, ...b]; splitAt = a.length;
+  }
+  const rectOf = d => d && { r0: Math.min(d.r0, d.r1), r1: Math.max(d.r0, d.r1), d0: Math.min(d.d0, d.d1), d1: Math.max(d.d0, d.d1) };
+  const rectCells = d => { const r = rectOf(d), out = []; for (let i = r.r0; i <= r.r1; i++) for (let j = r.d0; j <= r.d1; j++) if (!DAYS[j].we && rowsV[i]) out.push({ pid: rowsV[i].id, day: j }); return out; };
+  const rr = rectOf(drag);
+  const inRect = (ri, d) => !!rr && ri >= rr.r0 && ri <= rr.r1 && d >= rr.d0 && d <= rr.d1;
+  const canPaint = (c, comp) => personById[c.pid].comps.includes(comp) && availOf(c.pid, c.day).s != null;
+
+  const preview = {};
+  if (tool === 'paint' && brush) {
+    const cells = drag && drag.mode === 'paint' ? rectCells(drag) : hover && rowsV[hover.ri] && !DAYS[hover.day].we ? [{ pid: rowsV[hover.ri].id, day: hover.day }] : [];
+    const half = drag ? drag.half : shift;
+    cells.forEach(c => { if (canPaint(c, brush)) preview[c.day] = (preview[c.day] || 0) + (half ? freeHalf : freeOf)(c.pid, c.day); });
+  }
+
+  const paintCells = (cells, comp, mode, half) => commit(cur => {
+    let bl = cur.blocks; const add = [];
+    cells.forEach(({ pid, day }) => {
+      const av = availIn(cur.sick, pid, day); if (av.s == null || !personById[pid].comps.includes(comp)) return;
+      let cb = bl.filter(b => b.pid === pid && b.day === day);
+      if (mode === 'replace') { bl = bl.filter(b => !(b.pid === pid && b.day === day)); cb = []; }
+      const win = half ? halfWin(av, cb) : av; if (!win) return;
+      freeIv(win, cb).forEach(([s, e]) => add.push({ id: nid(), pid, day, comp, s, e }));
+    });
+    if (!add.length && bl === cur.blocks) return cur;
+    return { ...cur, blocks: merge([...bl, ...add]) };
+  });
+  const clearCells = cells => commit(cur => { const k = new Set(cells.map(c => c.pid + '|' + c.day)); const bl = cur.blocks.filter(b => !k.has(b.pid + '|' + b.day)); return bl.length === cur.blocks.length ? cur : { ...cur, blocks: bl }; });
+  const ops = {
+    del: id => commit(cur => ({ ...cur, blocks: cur.blocks.filter(b => b.id !== id) })),
+    update: (id, s, e) => commit(cur => ({ ...cur, blocks: merge(cur.blocks.map(b => b.id === id ? { ...b, s, e } : b)) })),
+    recolor: (id, comp) => commit(cur => ({ ...cur, blocks: merge(cur.blocks.map(b => b.id === id ? { ...b, comp } : b)) })),
+    split: (id, t) => commit(cur => { const b = cur.blocks.find(x => x.id === id); return { ...cur, blocks: [...cur.blocks.filter(x => x.id !== id), { ...b, e: t }, { ...b, id: nid(), s: t }] }; }),
+    create: (pid, day, comp, s, e) => commit(cur => ({ ...cur, blocks: merge([...cur.blocks, { id: nid(), pid, day, comp, s, e }]) })),
+    focus: d => { if (!DAYS[d].we) setFocusDay(d); }
+  };
+  const finish = (d, ev) => {
+    const cells = rectCells(d);
+    if (d.mode === 'erase') return clearCells(cells);
+    const ok = cells.filter(c => canPaint(c, brush));
+    if (!ok.length) { if (cells.length === 1) { const p = personById[cells[0].pid]; const av = availOf(p.id, cells[0].day); notify({ message: av.s == null ? p.name + ' er ikke tilgjengelig ' + DAYS[cells[0].day].long + ' (' + av.off.toLowerCase() + ').' : p.name + ' har ikke ' + compById[brush].name + '.', variant: 'info' }); } return; }
+    if (d.half) return paintCells(ok, brush, 'fill', true);
+    const occ = ok.filter(c => blocksOf(c.pid, c.day).some(b => b.comp !== brush));
+    if (occ.length) setAsk({ cells: ok, n: occ.length, comp: brush, x: ev.clientX, y: ev.clientY });
+    else paintCells(ok, brush, 'fill');
+  };
+  const pickBrush = (id, force) => { if (!force && brush === id && tool === 'paint') { setBrush(null); setTool('select'); } else { setBrush(id); setTool('paint'); } };
+  const pickFromDemand = (id, force) => { setExpanded(new Set()); setVPid(null); if (scrollRef.current) scrollRef.current.scrollTop = 0; pickBrush(id, force); };
+  const biggestGap = () => COMPS.slice().sort((a, b) => (st.demand[b.id][focusDay] - assigned[b.id][focusDay]) - (st.demand[a.id][focusDay] - assigned[a.id][focusDay]))[0].id;
+  const setToolX = t => { if (t === 'paint' && !brush) setBrush(biggestGap()); setTool(t); };
+  const toggleExp = pid => vmode ? setVPid(v => v === pid ? null : pid) : setExpanded(s => { const n = new Set(s); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+  const isExp = pid => vmode ? vPid === pid : expanded.has(pid);
+  const stepV = dir => { const i = rowsV.findIndex(p => p.id === vPid); const n = rowsV[Math.max(0, Math.min(rowsV.length - 1, (i < 0 ? 0 : i) + dir))]; if (n) setVPid(n.id); };
+  React.useEffect(() => {
+    if (!vmode || !vPid || !scrollRef.current) return;
+    scrollRef.current.scrollTop = 0;
+  }, [vPid, vmode]);
+  const pinned = vmode && vPid ? rowsV.findIndex(p => p.id === vPid) : -1;
+  const setSickDays = (p, ds, on) => {
+    const bl = st.blocks.filter(b => b.pid === p.id && ds.includes(b.day));
+    commit(cur => { const s = { ...cur.sick }; ds.forEach(d => { if (on) s[p.id + '|' + d] = true; else delete s[p.id + '|' + d]; }); return { ...cur, sick: s }; });
+    if (on) notify({ message: p.name + ' meldt syk ' + (ds.length > 1 ? DAYS[ds[0]].long + '–' + DAYS[ds[ds.length - 1]].long : DAYS[ds[0]].long) + '. ' + (bl.length ? bl.length + ' blokker (' + fmtH(bl.reduce((a, b) => a + hrs(b.s, b.e), 0)) + ' t) er tilbake i behovet og merket uløst.' : 'Ingen blokker berørt.'), variant: 'warning', action: { label: 'Angre', onClick: undo } });
+  };
+  const carry = (comp, day, v) => {
+    const nx = day + 1;
+    commit(cur => { const dm = { ...cur.demand, [comp]: cur.demand[comp].slice() }; dm[comp][nx] += v; const k = comp + '|' + nx; return { ...cur, demand: dm, carry: { ...cur.carry, [k]: (cur.carry[k] || 0) + v } }; });
+    const rem = st.demand[comp][nx] + v - assigned[comp][nx];
+    setDpop(null); setFocusDay(nx);
+    notify({ message: fmtH(v) + ' t ' + compById[comp].name + ' flyttet til ' + DAYS[nx].long + '. ' + (DAYS[nx].we ? 'Helg: går til overtid.' : 'Gjenstår ' + DAYS[nx].long + ': ' + fmtH(Math.max(0, rem)) + ' t.'), variant: 'info', action: { label: 'Angre', onClick: undo } });
+  };
+
+  const latest = React.useRef({});
+  latest.current = { finish, undo, redo, pickBrush, setToolX, sel, toggleExp, clearCells, tool, stepV, vmode, vPid };
+  React.useEffect(() => {
+    const up = ev => { const d = dragRef.current; if (!d) return; dragRef.current = null; setDrag(null); latest.current.finish(d, ev); };
+    const down = () => { setMenu(null); setDpop(null); setAsk(null); };
+    const key = e => {
+      if (e.key === 'Shift') setShift(true);
+      if (e.target.tagName === 'INPUT') return;
+      const L = latest.current, k = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && k === 'z') { e.preventDefault(); return e.shiftKey ? L.redo() : L.undo(); }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (k >= '1' && k <= String(COMPS.length)) return L.pickBrush(COMPS[+k - 1].id, true);
+      if (k === 'escape') { down(); setBrush(null); setTool('select'); return; }
+      if (L.vmode && L.vPid && (k === 'arrowup' || k === 'arrowdown')) { e.preventDefault(); return L.stepV(k === 'arrowup' ? -1 : 1); }
+      if (k === 'v') { setTool('select'); setBrush(null); } else if (k === 'b') L.setToolX('paint'); else if (k === 't') L.setToolX(L.tool === 'erase' ? 'select' : 'erase');
+      else if (k === 'e' && (L.sel || (L.vmode && L.vPid))) L.toggleExp(L.sel ? L.sel.pid : L.vPid);
+      else if ((k === 'delete' || k === 'backspace') && L.sel) L.clearCells([L.sel]);
+    };
+    const keyUp = e => { if (e.key === 'Shift') setShift(false); };
+    const blur = () => setShift(false);
+    window.addEventListener('mouseup', up); window.addEventListener('mousedown', down); window.addEventListener('keydown', key); window.addEventListener('keyup', keyUp); window.addEventListener('blur', blur);
+    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', blur); };
+  }, []);
+
+  const cellDown = (ri, day, e) => {
+    if (e.button !== 0) return;
+    const p = rowsV[ri]; setSel({ pid: p.id, day }); if (!DAYS[day].we) setFocusDay(day);
+    const mode = tool === 'erase' || e.altKey ? 'erase' : tool === 'paint' && brush ? 'paint' : null;
+    if (!mode) return;
+    e.preventDefault(); e.stopPropagation(); setAsk(null);
+    const d = { mode, half: mode === 'paint' && e.shiftKey, r0: ri, d0: day, r1: ri, d1: day }; dragRef.current = d; setDrag(d);
+  };
+  const cellEnter = (ri, day) => { setHover({ ri, day }); const d = dragRef.current; if (d && (d.r1 !== ri || d.d1 !== day)) { const n = { ...d, r1: ri, d1: day }; dragRef.current = n; setDrag(n); } };
+  const cellCtx = (p, day, e) => { setMenu({ p, day, x: e.clientX, y: e.clientY }); setSel({ pid: p.id, day }); };
+  const gctx = { availOf, blocksOf, isSick, brush, tool, focusDay, sel, inRect, dragMode: drag && (drag.mode + (drag.half ? ' half' : '')), weekOf, multi: tw.multi, ops, cellDown, cellEnter, cellCtx, toggleExp, vmode, stepV, pickBrush };
+
+  const pct = tReq ? Math.round(tCov / tReq * 100) : 0;
+  const fdl = DAYS[focusDay];
+  let screen;
+  if (view !== 'bemanning') screen = (
+    <div className="bm-ph">
+      <h1>{TABS.find(t => t.id === view).label}</h1>
+      <span className="bm-ctxchip"><Icon name="calendar" size={14} />Uke 42 · {fdl.long} {fdl.d}. okt{brush ? ' · ' + compById[brush].name : ''}</span>
+      <p>Samme tidslinje som Bemanning. Uke, dag og kompetanse følger med når du bytter visning. Denne visningen er ikke med i skissen.</p>
+      <div><Button variant="secondary" size="sm" icon="arrow-left" onClick={() => setView('bemanning')}>Tilbake til Bemanning</Button></div>
+    </div>
+  );
+  else screen = (
+    <div className="bm-page">
+      <div className="bm-hdr">
+        <div className="bm-title"><h1>Bemanning</h1><span className="bm-meta">{PEOPLE.length} faste · {tRem < 0.05 ? 'Ingen underdekning' : pct + ' % dekket · ' + fmtH(tRem) + ' t gjenstår'}{tOT > 0.05 ? ' · ' + fmtH(tOT) + ' t overtid' : ''}{tWe > 0.05 ? ' · helg ' + fmtH(tWe) + ' t åpent' : ''}</span></div>
+        <div className="bm-week">
+          <IconButton label="Forrige uke" icon="chevron-left" onClick={() => notify({ message: 'Bare uke 42 finnes i skissen.', variant: 'info' })} />
+          <b>U42 <span>12.–18. okt</span></b>
+          <IconButton label="Neste uke" icon="chevron-right" onClick={() => notify({ message: 'Bare uke 42 finnes i skissen.', variant: 'info' })} />
+        </div>
+      </div>
+      <div className="bm-tools">
+        <div className="bm-z">
+          <IconButton label="Angre" tooltip="Angre (Ctrl/Cmd+Z)" icon="undo-2" onClick={undo} disabled={!hist.past.length} />
+          <IconButton label="Gjør om" tooltip="Gjør om (Ctrl/Cmd+Shift+Z)" icon="redo-2" onClick={redo} disabled={!hist.future.length} />
+          <Segmented size="compact" aria-label="Verktøy" value={tool} onChange={setToolX} options={[
+            { value: 'select', label: <span className="bm-seg"><Icon name="mouse-pointer-2" size={14} />Velg<kbd>V</kbd></span> },
+            { value: 'paint', label: <span className="bm-seg"><Icon name="paintbrush" size={14} />Pensel<kbd>B</kbd></span>, title: 'Mal hele dager. Uten valgt kompetanse velges den med størst gjenstående behov for valgt dag.' },
+            { value: 'erase', label: <span className="bm-seg"><Icon name="eraser" size={14} />Tøm<kbd>T</kbd></span>, title: 'Dra over celler for å tømme dem (eller hold Alt)' }]} />
+        </div>
+        <div className="bm-z">
+          {brush ? <><span className="bm-brush" style={{ '--cc': compById[brush].color }}><i></i>{compById[brush].name}<button onClick={() => { setBrush(null); setTool('select'); }} aria-label="Slå av fokus" title="Slå av fokus (Esc)">×</button></span>
+            <span className="bm-hint"><span><b>Klikk</b> hel dag</span><span><b>Shift</b> halv dag</span><span><b>Dra</b> flere</span><span><b>Alt</b> tøm</span></span></>
+            : <span className="bm-nobrush">Velg en kompetanse i behovet (1–{COMPS.length}) for å fokusere og male</span>}
+        </div>
+        {unres.length > 0 && <span className="bm-unres"><Icon name="triangle-alert" size={14} />{unres.length} uløste blokker<button onClick={() => commit(cur => ({ ...cur, blocks: cur.blocks.filter(b => !cur.sick[b.pid + '|' + b.day]) }))}>Fjern</button></span>}
+        <div className="bm-tr">
+          <span className="bm-z"><span className="bm-zl">Utvid</span><Segmented size="compact" aria-label="Utvid som" value={tw.expand} onChange={v => setTweak('expand', v)} options={[{ value: 'row', label: 'Rad', title: 'Utvid flere personer, horisontal tidslinje 07–15' }, { value: 'vertical', label: 'Uke', title: 'Én person om gangen, vertikal dag 06–21 med overtid' }]} /></span>
+          {!vmode && <Button variant="ghost" size="sm" icon={expanded.size ? 'chevrons-down-up' : 'chevrons-up-down'} onClick={() => setExpanded(expanded.size ? new Set() : new Set(rowsV.map(p => p.id)))}>{expanded.size ? 'Fold alle' : 'Utvid alle'}</Button>}
+        </div>
+      </div>
+      <div className="bm-scroll" ref={scrollRef} data-half={shift && tool === 'paint' && brush ? '1' : null} data-t={tool === 'paint' && brush ? 'paint' : tool} onMouseLeave={() => setHover(null)}>
+        <div className="bm-in">
+          <DemandStrip days={DAYS} comps={COMPS} demand={st.demand} assigned={assigned} assignedOT={assignedOT} freeElig={freeElig} brush={brush} onPick={pickFromDemand} preview={preview} focusDay={focusDay} setFocusDay={setFocusDay} stripMode={tw.stripMode} cap={cap} carry={st.carry} collapsed={stripColl} onToggle={() => setStripColl(c => !c)}
+            onCellClick={(comp, day, e) => { e.stopPropagation(); setFocusDay(day); setDpop({ comp, day, x: e.clientX, y: e.clientY }); }} />
+          <div className="bm-r bm-sec bm-psec"><div className="bm-l"><span className="keb">Personell</span><span className="bm-lh">{brush && tw.inelig !== 'dim' ? splitAt + ' med ' + compById[brush].name : PEOPLE.length + ' faste'}</span><span className="bm-lh" style={{ marginLeft: 'auto' }}>uke · t</span></div><span className="bm-lh">{'Dobbeltklikk en dag for ' + (vmode ? 'ukevisning med overtid' : 'timer')}</span></div>
+          {pinned >= 0 && <div className="bm-pin"><PersonRow p={rowsV[pinned]} ri={pinned} exp={true} dim={!eligibleP(rowsV[pinned])} days={DAYS} comps={COMPS} compById={compById} ctx={gctx} /></div>}
+          {rowsV.map((p, ri) => (
+            <React.Fragment key={p.id}>
+              {ri === splitAt && <div className="bm-r bm-div"><div className="bm-l" onClick={() => setHideInelig(true)}><Icon name="chevron-down" size={14} />Uten {compById[brush].name} · {nIn}</div><span>Kan ikke tildeles {compById[brush].name}</span></div>}
+              {ri === pinned ? <div className="bm-r bm-ghost" onClick={() => setVPid(null)} title="Fold sammen"><div className="bm-l"><Icon name="arrow-up" size={14} /><span className="bm-nm">{p.name}</span></div><span>Redigeres øverst · klikk for å folde sammen</span></div> :
+              <PersonRow p={p} ri={ri} exp={isExp(p.id)} dim={!eligibleP(p)} days={DAYS} comps={COMPS} compById={compById} ctx={gctx} />}
+            </React.Fragment>
+          ))}
+          {brush && hideInelig && tw.inelig === 'bottom' && nIn > 0 && <div className="bm-r bm-div"><div className="bm-l" onClick={() => setHideInelig(false)}><Icon name="chevron-right" size={14} />Uten {compById[brush].name} · {nIn}</div><span>Skjult</span></div>}
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <TopBar brand="Expo Planner" tabs={TABS} active={view} onSelect={setView} onBrand={() => setView('bemanning')}
+        right={<><span className="ksave" title="Lagret i nettleseren"><i></i><span>Lagret</span></span><span className="kzdiv" style={{ height: 18 }}></span><Button variant="ghost" size="sm" onClick={() => notify({ message: 'Innstillinger er ikke med i skissen.', variant: 'info' })}>Innstillinger</Button></>} />
+      <main style={{ flex: 1, minHeight: 0 }}>{screen}</main>
+      {dpop && <DemandPopover pop={dpop} comps={COMPS} days={DAYS} demand={st.demand} assigned={assigned} freeElig={freeElig} brush={brush} onClose={() => setDpop(null)} onCarry={carry} onPick={pickFromDemand} />}
+      {ask && <div data-surface="raised" className="bm-pop bm-ask" style={{ left: Math.min(ask.x, window.innerWidth - 300), top: Math.min(ask.y + 10, window.innerHeight - 180), '--cc': compById[ask.comp].color }} onMouseDown={e => e.stopPropagation()}>
+        <div className="bm-pop-h"><i className="bm-sw"></i><b>{compById[ask.comp].name}</b><span>{ask.cells.length} {ask.cells.length === 1 ? 'dag' : 'dager'}</span></div>
+        <p>{ask.n === 1 && ask.cells.length === 1 ? 'Dagen har allerede andre oppgaver.' : ask.n + ' av dagene har allerede andre oppgaver.'} Vil du fylle den ledige tiden, eller erstatte alt?</p>
+        <div className="bm-pop-f">
+          <Button size="sm" variant="ghost" onClick={() => setAsk(null)}>Avbryt</Button>
+          <Button size="sm" variant="secondary" onClick={() => { paintCells(ask.cells, ask.comp, 'replace'); setAsk(null); }}>Erstatt</Button>
+          <Button size="sm" variant="accent" onClick={() => { paintCells(ask.cells, ask.comp, 'fill'); setAsk(null); }}>Fyll resten</Button>
+        </div>
+      </div>}
+      {menu && (() => { const { p, day } = menu, d = DAYS[day], sk = isSick(p.id, day), bl = blocksOf(p.id, day), act = f => () => { f(); setMenu(null); };
+        const rest = []; for (let i = day; i < 5; i++) rest.push(i);
+        return <div data-surface="raised" className="bm-menu" style={{ left: Math.min(menu.x, window.innerWidth - 270), top: Math.min(menu.y, window.innerHeight - 240) }} onMouseDown={e => e.stopPropagation()}>
+          <div className="grp">{p.name} · {d.wd} {d.d}.</div>
+          <button onClick={act(() => toggleExp(p.id))}><Icon name={isExp(p.id) ? 'chevrons-down-up' : 'chevrons-up-down'} size={14} />{isExp(p.id) ? 'Fold sammen' : vmode ? 'Utvid til ukevisning' : 'Utvid raden til timer'}<kbd style={{ marginLeft: 'auto' }}>E</kbd></button>
+          <button disabled={!bl.length} onClick={act(() => clearCells([{ pid: p.id, day }]))}><Icon name="eraser" size={14} />Tøm dagen</button>
+          <hr />
+          {sk ? <button disabled={d.we} onClick={act(() => setSickDays(p, [day], false))}><Icon name="rotate-ccw" size={14} />Friskmeld {d.long}</button>
+            : <><button className="dg" disabled={d.we || baseAvail(p.id, day).off} onClick={act(() => setSickDays(p, [day], true))}><Icon name="thermometer" size={14} />Meld syk {d.long}</button>
+              <button className="dg" disabled={d.we || day >= 4} onClick={act(() => setSickDays(p, rest, true))}><Icon name="thermometer" size={14} />Meld syk ut uka</button></>}
+        </div>; })()}
+      <div className="ktoasts">{toasts.map(t => <NotificationToastCard key={t.id} {...t} action={t.action && { ...t.action, onClick: () => { t.action.onClick(); setToasts(ts => ts.filter(x => x.id !== t.id)); } }} showDismissButton onDismiss={() => setToasts(ts => ts.filter(x => x.id !== t.id))} />)}</div>
+      <TweaksPanel>
+        <TweakSection label="Fokus" />
+        <TweakRadio label="Uten kompetansen" value={tw.inelig} options={[{ value: 'bottom', label: 'Samle nederst' }, { value: 'dim', label: 'Kun dempet' }, { value: 'hide', label: 'Skjul' }]} onChange={v => setTweak('inelig', v)} />
+        <TweakSection label="Visning" />
+        <TweakRadio label="Utvid som" value={tw.expand} options={[{ value: 'row', label: 'Rad (horisontal)' }, { value: 'vertical', label: 'Uke (vertikal)' }]} onChange={v => setTweak('expand', v)} />
+        <TweakRadio label="Flere oppgaver, foldet dag" value={tw.multi} options={[{ value: 'timeline', label: 'Mini-tidslinje' }, { value: 'chips', label: 'Brikker' }]} onChange={v => setTweak('multi', v)} />
+        <TweakRadio label="Behovstall" value={tw.stripMode} options={[{ value: 'rest', label: 'Gjenstår' }, { value: 'ratio', label: 'Tildelt / behov' }]} onChange={v => setTweak('stripMode', v)} />
+        <TweakToggle label="Mørk modus" value={tw.dark} onChange={v => setTweak('dark', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script></body></html>

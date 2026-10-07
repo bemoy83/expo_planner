@@ -1,0 +1,44 @@
+[
+  {
+    "key": "teppefliser",
+    "label": "Teppefliser",
+    "shortLabel": "TEP",
+    "color": "line-blue",
+    "order": 0
+  },
+  {
+    "key": "foga",
+    "label": "FOGA",
+    "shortLabel": "FOGA",
+    "color": "line-teal",
+    "order": 1
+  },
+  {
+    "key": "innredning",
+    "label": "Innredning",
+    "shortLabel": "INN",
+    "color": "line-green",
+    "order": 2
+  },
+  {
+    "key": "møbler",
+    "label": "Møbler",
+    "shortLabel": "MØB",
+    "color": "line-amber",
+    "order": 3
+  },
+  {
+    "key": "banner",
+    "label": "Banner",
+    "shortLabel": "BAN",
+    "color": "line-rose",
+    "order": 4
+  },
+  {
+    "key": "extra",
+    "label": "Extra",
+    "shortLabel": "EXT",
+    "color": "line-violet",
+    "order": 5
+  }
+]

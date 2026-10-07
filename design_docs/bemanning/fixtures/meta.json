@@ -1,0 +1,13 @@
+{
+  "week": "2026-W42",
+  "workday": {
+    "dayStart": 420,
+    "dayEnd": 900,
+    "breakStart": 660,
+    "breakEnd": 690,
+    "overtimeEarliest": 360,
+    "overtimeLatest": 1260,
+    "snap": 15
+  },
+  "note": "Fixture for development only. Times are minutes after midnight. Demand is competence × date hours, as Bemanning derives it from Kalender FTE × hoursPerDay."
+}

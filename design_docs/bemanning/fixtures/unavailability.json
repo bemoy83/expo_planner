@@ -1,0 +1,48 @@
+[
+  {
+    "id": "u1",
+    "personId": "p4",
+    "date": "2026-10-13",
+    "kind": "kurs",
+    "note": ""
+  },
+  {
+    "id": "u2",
+    "personId": "p8",
+    "date": "2026-10-14",
+    "kind": "ferie",
+    "note": ""
+  },
+  {
+    "id": "u3",
+    "personId": "p8",
+    "date": "2026-10-15",
+    "kind": "ferie",
+    "note": ""
+  },
+  {
+    "id": "u4",
+    "personId": "p8",
+    "date": "2026-10-16",
+    "kind": "ferie",
+    "note": ""
+  },
+  {
+    "id": "u5",
+    "personId": "p13",
+    "date": "2026-10-16",
+    "kind": "annet",
+    "start": 720,
+    "end": 900,
+    "note": "Går 12:00"
+  },
+  {
+    "id": "u6",
+    "personId": "p17",
+    "date": "2026-10-12",
+    "kind": "annet",
+    "start": 420,
+    "end": 600,
+    "note": "Fra 10:00"
+  }
+]

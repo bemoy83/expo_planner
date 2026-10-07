@@ -1,0 +1,211 @@
+[
+  {
+    "id": "p1",
+    "name": "Anders Berg",
+    "order": 0,
+    "active": true,
+    "competences": [
+      "teppefliser",
+      "foga",
+      "extra"
+    ]
+  },
+  {
+    "id": "p2",
+    "name": "Bjørn Dahl",
+    "order": 1,
+    "active": true,
+    "competences": [
+      "teppefliser",
+      "extra"
+    ]
+  },
+  {
+    "id": "p3",
+    "name": "Camilla Eide",
+    "order": 2,
+    "active": true,
+    "competences": [
+      "innredning",
+      "møbler",
+      "banner"
+    ]
+  },
+  {
+    "id": "p4",
+    "name": "Daniel Fjeld",
+    "order": 3,
+    "active": true,
+    "competences": [
+      "foga",
+      "innredning",
+      "extra"
+    ]
+  },
+  {
+    "id": "p5",
+    "name": "Eirik Haug",
+    "order": 4,
+    "active": true,
+    "competences": [
+      "teppefliser",
+      "foga"
+    ]
+  },
+  {
+    "id": "p6",
+    "name": "Frida Holm",
+    "order": 5,
+    "active": true,
+    "competences": [
+      "innredning",
+      "banner",
+      "extra"
+    ]
+  },
+  {
+    "id": "p7",
+    "name": "Geir Isaksen",
+    "order": 6,
+    "active": true,
+    "competences": [
+      "møbler",
+      "extra"
+    ]
+  },
+  {
+    "id": "p8",
+    "name": "Hanne Johansen",
+    "order": 7,
+    "active": true,
+    "competences": [
+      "teppefliser",
+      "innredning"
+    ]
+  },
+  {
+    "id": "p9",
+    "name": "Ivar Karlsen",
+    "order": 8,
+    "active": true,
+    "competences": [
+      "foga",
+      "møbler",
+      "extra"
+    ]
+  },
+  {
+    "id": "p10",
+    "name": "Jonas Lie",
+    "order": 9,
+    "active": true,
+    "competences": [
+      "foga",
+      "extra"
+    ]
+  },
+  {
+    "id": "p11",
+    "name": "Kari Moen",
+    "order": 10,
+    "active": true,
+    "competences": [
+      "innredning",
+      "møbler"
+    ]
+  },
+  {
+    "id": "p12",
+    "name": "Lars Nilsen",
+    "order": 11,
+    "active": true,
+    "competences": [
+      "teppefliser",
+      "extra"
+    ]
+  },
+  {
+    "id": "p13",
+    "name": "Mona Olsen",
+    "order": 12,
+    "active": true,
+    "competences": [
+      "banner",
+      "extra"
+    ]
+  },
+  {
+    "id": "p14",
+    "name": "Nils Pedersen",
+    "order": 13,
+    "active": true,
+    "competences": [
+      "foga",
+      "innredning",
+      "møbler"
+    ]
+  },
+  {
+    "id": "p15",
+    "name": "Ola Rønning",
+    "order": 14,
+    "active": true,
+    "competences": [
+      "møbler",
+      "extra"
+    ]
+  },
+  {
+    "id": "p16",
+    "name": "Per Solberg",
+    "order": 15,
+    "active": true,
+    "competences": [
+      "teppefliser",
+      "foga",
+      "innredning"
+    ]
+  },
+  {
+    "id": "p17",
+    "name": "Rune Strand",
+    "order": 16,
+    "active": true,
+    "competences": [
+      "innredning",
+      "extra"
+    ]
+  },
+  {
+    "id": "p18",
+    "name": "Siri Tangen",
+    "order": 17,
+    "active": true,
+    "competences": [
+      "banner",
+      "møbler",
+      "extra"
+    ]
+  },
+  {
+    "id": "p19",
+    "name": "Tor Vik",
+    "order": 18,
+    "active": true,
+    "competences": [
+      "foga",
+      "extra"
+    ]
+  },
+  {
+    "id": "p20",
+    "name": "Ulrik Aas",
+    "order": 19,
+    "active": true,
+    "competences": [
+      "innredning",
+      "møbler",
+      "extra"
+    ]
+  }
+]
