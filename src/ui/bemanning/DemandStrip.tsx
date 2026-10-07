@@ -4,6 +4,7 @@ import { dayType, holidayName } from '../../domain/holidays'
 import type { Balance, FreeCapacity } from '../../domain/staffing'
 import type { CompetenceStyle } from '../../domain/types'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { usePref } from '../../store/prefs'
 import { competenceColor } from '../dom'
 import { dayClass as dayClassOf, EPSILON, hoursText, weekLabel, weekRange, WEEKDAYS_LONG } from './week'
 
@@ -42,9 +43,79 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
     const frame = requestAnimationFrame(() => setLive(true))
     return () => cancelAnimationFrame(frame)
   }, [])
+  const [idleOpen, setIdleOpen] = usePref('bemanningIdleOpen', false)
   const today = todayIso()
   const workdays = dates.filter((date) => dayType(date) === 'arbeidsdag')
   const dayClass = (date: ISODate, index: number) => dayClassOf(date, index, focusDate)
+
+  // A competence with no demand and no assigned hours in the week is set aside under one line, so the ones that need the planner stand alone. The one in focus stays.
+  const isIdle = (key: string) => key !== brush && dates.every((date) => balance.get(key, date).demand < EPSILON && balance.get(key, date).assigned < EPSILON)
+  const busy = competences.filter(({ style }) => !isIdle(style.key))
+  const idle = competences.filter(({ style }) => isIdle(style.key))
+
+  /** One competence's line: its name with what is left in the week, and each day's hours. */
+  const line = ({ style, key }: Props['competences'][number]) => {
+      const on = style.key === brush
+      if (folded && !on) return null
+      const weekRemaining = workdays.reduce((sum, date) => sum + Math.max(0, balance.get(style.key, date).remaining), 0)
+      return (
+        <div key={style.key} className={`bm-row bm-demand ${on ? 'on' : brush ? 'dim' : ''}`} style={competenceColor(style)}>
+          <button className="bm-label bm-pick" aria-pressed={on} disabled={!key && !on} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
+            <i className="swatch" />
+            <span className="bm-name">{style.label}</span>
+            {key > 0 && <kbd>{key}</kbd>}
+            <span className="bm-week-left">
+              {hoursText(weekRemaining)}
+              <em> t igjen</em>
+            </span>
+          </button>
+          {dates.map((date, index) => {
+            const cell = balance.get(style.key, date)
+            const offDay = dayType(date) !== 'arbeidsdag'
+            const none = cell.demand < EPSILON && cell.assigned < EPSILON
+            if (none) {
+              return (
+                <div key={date} className={`bm-need ${dayClass(date, index)}`}>
+                  <span className="bm-need-value">
+                    <b className="bm-number nil">–</b>
+                  </span>
+                </div>
+              )
+            }
+            const unc = uncoverable.get(`${style.key}|${date}`) ?? 0
+            const state = cell.remaining > EPSILON ? (unc > EPSILON ? 'uncoverable' : '') : cell.remaining < -EPSILON ? 'over' : 'ok'
+            const base = Math.max(cell.demand, cell.assigned) || 1
+            const regular = (Math.min(cell.assigned - cell.assignedOT, cell.demand) / base) * 100
+            const overtime = (Math.min(cell.assigned, cell.demand) / base) * 100 - regular
+            const surplus = (Math.max(0, cell.assigned - cell.demand) / base) * 100
+            const title =
+              `${style.label} · ${WEEKDAYS_LONG[index]}${offDay ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
+              (cell.assignedOT > EPSILON ? ` (herav ${hoursText(cell.assignedOT)} t overtid)` : '') +
+              ` · gjenstår ${hoursText(Math.max(0, cell.remaining))} t` +
+              (cell.carried > EPSILON ? `\n${hoursText(cell.carried)} t er flyttet hit fra dagen før.` : '') +
+              (unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : '')
+            return (
+              <button key={date} className={`bm-need ${dayClass(date, index)}`} title={title} onClick={(e) => onDay(style.key, date, e)}>
+                <span className="bm-need-value">
+                  {on && (preview.get(date) ?? 0) > EPSILON && <span className="bm-preview">−{hoursText(Math.min(preview.get(date)!, Math.max(cell.remaining, 0)) || preview.get(date)!)}</span>}
+                  {cell.carried > EPSILON && index < 5 && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
+                  <Remaining key={hoursText(cell.remaining)} live={live} state={state}>
+                    {state === 'ok' ? <Check size={14} aria-label="Dekket" /> : state === 'over' ? `+${hoursText(-cell.remaining)}` : hoursText(cell.remaining)}
+                  </Remaining>
+                  {index < 5 && cell.demand > EPSILON && <em>av {hoursText(cell.demand)}</em>}
+                </span>
+                <span className="bar">
+                  <i className="covered" style={{ width: `${regular}%` }} />
+                  {overtime > 0 && <i className="overtime" style={{ left: `${regular}%`, width: `${overtime}%` }} />}
+                  {surplus > 0 && <i className="surplus" style={{ left: `${regular + overtime}%`, width: `${surplus}%` }} />}
+                  {unc > EPSILON && <i className="uncoverable" style={{ width: `${(unc / base) * 100}%` }} />}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )
+  }
 
   return (
     <div className="bm-strip">
@@ -80,68 +151,20 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
         <span />
       </div>
 
-      {competences.map(({ style, key }) => {
-          const on = style.key === brush
-          if (folded && !on) return null
-          const weekRemaining = workdays.reduce((sum, date) => sum + Math.max(0, balance.get(style.key, date).remaining), 0)
-          return (
-            <div key={style.key} className={`bm-row bm-demand ${on ? 'on' : brush ? 'dim' : ''}`} style={competenceColor(style)}>
-              <button className="bm-label bm-pick" aria-pressed={on} disabled={!key && !on} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
-                <i className="swatch" />
-                <span className="bm-name">{style.label}</span>
-                {key > 0 && <kbd>{key}</kbd>}
-                <span className="bm-week-left">
-                  {hoursText(weekRemaining)}
-                  <em> t igjen</em>
-                </span>
-              </button>
-              {dates.map((date, index) => {
-                const cell = balance.get(style.key, date)
-                const offDay = dayType(date) !== 'arbeidsdag'
-                const none = cell.demand < EPSILON && cell.assigned < EPSILON
-                if (none) {
-                  return (
-                    <div key={date} className={`bm-need ${dayClass(date, index)}`}>
-                      <span className="bm-need-value">
-                        <b className="bm-number nil">–</b>
-                      </span>
-                    </div>
-                  )
-                }
-                const unc = uncoverable.get(`${style.key}|${date}`) ?? 0
-                const state = cell.remaining > EPSILON ? (unc > EPSILON ? 'uncoverable' : '') : cell.remaining < -EPSILON ? 'over' : 'ok'
-                const base = Math.max(cell.demand, cell.assigned) || 1
-                const regular = (Math.min(cell.assigned - cell.assignedOT, cell.demand) / base) * 100
-                const overtime = (Math.min(cell.assigned, cell.demand) / base) * 100 - regular
-                const surplus = (Math.max(0, cell.assigned - cell.demand) / base) * 100
-                const title =
-                  `${style.label} · ${WEEKDAYS_LONG[index]}${offDay ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
-                  (cell.assignedOT > EPSILON ? ` (herav ${hoursText(cell.assignedOT)} t overtid)` : '') +
-                  ` · gjenstår ${hoursText(Math.max(0, cell.remaining))} t` +
-                  (cell.carried > EPSILON ? `\n${hoursText(cell.carried)} t er flyttet hit fra dagen før.` : '') +
-                  (unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : '')
-                return (
-                  <button key={date} className={`bm-need ${dayClass(date, index)}`} title={title} onClick={(e) => onDay(style.key, date, e)}>
-                    <span className="bm-need-value">
-                      {on && (preview.get(date) ?? 0) > EPSILON && <span className="bm-preview">−{hoursText(Math.min(preview.get(date)!, Math.max(cell.remaining, 0)) || preview.get(date)!)}</span>}
-                      {cell.carried > EPSILON && index < 5 && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
-                      <Remaining key={hoursText(cell.remaining)} live={live} state={state}>
-                        {state === 'ok' ? <Check size={14} aria-label="Dekket" /> : state === 'over' ? `+${hoursText(-cell.remaining)}` : hoursText(cell.remaining)}
-                      </Remaining>
-                      {index < 5 && cell.demand > EPSILON && <em>av {hoursText(cell.demand)}</em>}
-                    </span>
-                    <span className="bar">
-                      <i className="covered" style={{ width: `${regular}%` }} />
-                      {overtime > 0 && <i className="overtime" style={{ left: `${regular}%`, width: `${overtime}%` }} />}
-                      {surplus > 0 && <i className="surplus" style={{ left: `${regular + overtime}%`, width: `${surplus}%` }} />}
-                      {unc > EPSILON && <i className="uncoverable" style={{ width: `${(unc / base) * 100}%` }} />}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )
-        })}
+      {busy.map(line)}
+      {!folded && idle.length > 0 && (
+        <div className="bm-row bm-section">
+          <div className="bm-label">
+            <button className="bm-section-toggle" aria-expanded={idleOpen} title={idleOpen ? 'Skjul kompetansene uten behov denne uken' : 'Vis kompetansene uten behov denne uken'} onClick={() => setIdleOpen(!idleOpen)}>
+              {idleOpen ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
+              <span className="bm-eyebrow">Uten behov</span>
+            </button>
+            <span className="bm-label-note">{idle.length} denne uken</span>
+          </div>
+          <span />
+        </div>
+      )}
+      {!folded && idleOpen && idle.map(line)}
 
       <div className="bm-row bm-capacity">
         <div className="bm-label">
