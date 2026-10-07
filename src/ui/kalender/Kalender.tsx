@@ -7,7 +7,7 @@ import { dayType } from '../../domain/holidays'
 import type { AllocationRow } from '../../domain/types'
 import { hallNames, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
-import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
+import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
 import { buildWindows, windowFor } from '../../domain/windows'
 import { usePref, usePrefSet } from '../../store/prefs'
@@ -31,7 +31,7 @@ import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
-import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
+import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
 
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
@@ -78,8 +78,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
-  // The cell to scroll to and give the keys to, once it is selected.
-  const [reveal, setReveal] = useState<Cell | null>(null)
+  // The cell to scroll to, and whether the grid takes the keys, once it is selected.
+  const [reveal, setReveal] = useState<{ cell: Cell; takeKeys: boolean } | null>(null)
   // The project whose halls and days the hall calendar is showing, after a click on its name.
   const [located, setLocated] = useState<string | null>(null)
 
@@ -131,6 +131,18 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const items = useMemo(() => groupItems(shownGroups, demandIndex, settings, collapsed, grouping, entry), [shownGroups, demandIndex, settings, collapsed, grouping, entry])
   const allocLanes = useMemo<AllocLane[]>(() => items.flatMap((item, index): AllocLane[] => (item.kind === 'row' ? [{ row: item.row, index }] : item.entry ? [{ node: item.node, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row?.id ?? `level:${lane.node!.key}`, i])), [allocLanes])
+  // The selection stays on its lines when they move in the list, see `followLanes`.
+  const laneKeys = useMemo<LaneKey[]>(() => allocLanes.map((lane) => (lane.row ? { id: lane.row.id, scope: rowScope(lane.row) } : { id: `level:${lane.node!.key}` })), [allocLanes])
+  const [seenLaneKeys, setSeenLaneKeys] = useState(laneKeys)
+  if (seenLaneKeys !== laneKeys) {
+    setSeenLaneKeys(laneKeys)
+    const followed = selection && followLanes(selection, seenLaneKeys, laneKeys)
+    if (followed !== selection) {
+      setSelection(followed)
+      // The grid does not take the keys here: the list may have changed because of something typed in a field.
+      setReveal(followed && { cell: followed.focus, takeKeys: false })
+    }
+  }
   // The details panel keeps its row when the selection is cleared or moves to a level or a staffing line.
   const focusRowId = selection?.section === 'alloc' ? (allocLanes[selection.focus.lane]?.row?.id ?? null) : null
   if (focusRowId && focusRowId !== detailId) setDetailId(focusRowId)
@@ -223,12 +235,12 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     const cell = { lane: pendingLane, col: firstVisibleCol }
     setPendingFocus(null)
     setSelection({ section: 'alloc', anchor: cell, focus: cell })
-    setReveal(cell)
+    setReveal({ cell, takeKeys: true })
   }
   useEffect(() => {
     if (!reveal) return
-    ensureVisible('alloc', reveal)
-    scrollRef.current?.focus({ preventScroll: true })
+    ensureVisible('alloc', reveal.cell)
+    if (reveal.takeKeys) scrollRef.current?.focus({ preventScroll: true })
   }, [reveal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- cell values ----------------------------------------------------------------------------
