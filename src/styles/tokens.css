@@ -1,5 +1,4 @@
-/* Fonts and tokens: the Ledger look. Every colour, font and text size the other style sheets use is named here.
-   A few figures and marks are set between the sizes (9.5, 10.5, 11.5, 12.5 px); those are still plain values where they are used. */
+/* Fonts and tokens: the Ledger look. Every colour, font and text size the other style sheets use is named here. */
 
 @font-face{font-family:'Schibsted Grotesk';font-style:normal;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-normal-400_900.woff2') format('woff2')}
 @font-face{font-family:'Schibsted Grotesk';font-style:italic;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-italic-400_900.woff2') format('woff2')}

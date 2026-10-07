@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { dayOfMonth, type ISODate } from '../../domain/dates'
-import { dayType } from '../../domain/holidays'
+import { dayOfMonth, todayIso, type ISODate } from '../../domain/dates'
+import { dayType, holidayName } from '../../domain/holidays'
 import type { Balance, FreeCapacity } from '../../domain/staffing'
 import type { CompetenceStyle } from '../../domain/types'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
@@ -42,6 +42,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
     const frame = requestAnimationFrame(() => setLive(true))
     return () => cancelAnimationFrame(frame)
   }, [])
+  const today = todayIso()
   const workdays = dates.filter((date) => dayType(date) === 'arbeidsdag')
   const dayClass = (date: ISODate, index: number) => dayClassOf(date, index, focusDate)
 
@@ -55,9 +56,15 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
           </span>
         </div>
         {dates.map((date, index) => (
-          <button key={date} className={`bm-date ${dayClass(date, index)}`} aria-pressed={date === focusDate} title={`${WEEKDAYS_LONG[index]} ${dayOfMonth(date)}.`} onClick={() => onFocusDate(date)}>
-            <span>{WEEKDAYS_LONG[index].slice(0, 3)}</span>
-            <b>{dayOfMonth(date)}</b>
+          <button
+            key={date}
+            className={`bm-date day day-head ${dayClass(date, index)} ${date === today ? 'today' : ''} ${date === focusDate ? 'active' : ''} ${dayType(date) === 'helligdag' ? 'helligdag' : ''}`}
+            aria-pressed={date === focusDate}
+            title={`${WEEKDAYS_LONG[index]} ${dayOfMonth(date)}.${holidayName(date) ? ` – ${holidayName(date)}` : ''}`}
+            onClick={() => onFocusDate(date)}
+          >
+            <span className="wd">{WEEKDAYS_LONG[index].slice(0, 3)}</span>
+            <span className="dn">{dayOfMonth(date)}</span>
           </button>
         ))}
       </div>

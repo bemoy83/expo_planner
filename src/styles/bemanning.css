@@ -24,12 +24,9 @@
 .bm-strip .bm-label{z-index:11}
 .bm-dates{height:40px;border-bottom:1px solid var(--line)}
 .bm-dates .bm-label{gap:10px}
-.bm-date{position:relative;flex-direction:column;gap:1px;padding:0;border-radius:0;border-right:1px solid var(--rule);background:transparent;font-family:var(--font-num);line-height:1.05}
+/* a day's head is a button here; how it looks is the Kalender's .day-head */
+.bm-date{position:relative;gap:1px;padding:0;border-radius:0;border-right:1px solid var(--rule);background:transparent;font-family:var(--font-num)}
 .bm-date:not(.off-day):hover{background:var(--wash)}
-.bm-date span{font-size:var(--fs-2xs);color:var(--faint)}
-.bm-date b{font-size:12.5px;font-weight:500}
-.bm-date[aria-pressed='true']::before{content:'';position:absolute;inset:5px 8px;border-radius:7px;background:var(--accent-soft)}
-.bm-date[aria-pressed='true']>*{position:relative;color:var(--accent);font-weight:700}
 
 .bm-section{height:22px;border-bottom:1px solid var(--line)}
 .bm-section .bm-label{align-items:flex-end;gap:10px;padding-bottom:3px}
@@ -46,7 +43,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-need.narrow{align-items:center;padding:0 6px}
 .bm-need.narrow .bm-bar{align-self:stretch}
 .bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
-.bm-need-value em{font:400 10.5px var(--font-num);font-style:normal;color:var(--faint)}
+.bm-need-value em{font:400 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint)}
 .bm-number{display:inline-flex;font:600 15px/1 var(--font-num);letter-spacing:-.02em}
 .bm-number.nil{font-weight:400;color:color-mix(in srgb,var(--faint) 60%,transparent)}
 .bm-number.ok{color:var(--pos)}
@@ -65,7 +62,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-capacity{height:30px}
 .bm-free{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px;border-right:1px solid var(--rule);font-family:var(--font-num)}
 .bm-free b{font-size:var(--fs-sm);font-weight:500}
-.bm-free em{font-size:10.5px;font-style:normal;color:var(--faint)}
+.bm-free em{font-size:var(--fs-2xs);font-style:normal;color:var(--faint)}
 
 /* a competence in focus: its line is lit, the others step back */
 .bm-pick{border-radius:0;font:inherit;text-align:left;justify-content:flex-start;cursor:pointer}
@@ -133,7 +130,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--bm-hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
 .bm-block b{overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);font-weight:600}
-.bm-block em{margin-left:auto;font:400 10.5px var(--font-num);font-style:normal;opacity:.85}
+.bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
 /* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the editors. */
 .bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other,.bm-off-blocks>i.other{opacity:.28}
@@ -154,8 +151,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-off-blocks>i.replaced{opacity:.4}
 .bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-style:italic;color:var(--muted)}
 .bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
-.bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 9.5px var(--font-num);color:var(--faint)}
-.bm-ot-tag{position:absolute;right:-2px;top:-6px;z-index:3;padding:0 4px;border-radius:4px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line-strong);font:600 9.5px/13px var(--font-num)}
+.bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
+.bm-ot-tag{position:absolute;right:-2px;top:-6px;z-index:3;padding:0 4px;border-radius:4px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line-strong);font:600 var(--fs-2xs)/13px var(--font-num)}
 .bm-off-blocks{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px}
 .bm-off-blocks>i{width:6px;height:22px;border-radius:3px;background:var(--cc)}
 .bm-off-blocks>i.unresolved{background:transparent;box-shadow:inset 0 0 0 1.5px var(--cc)}
@@ -174,12 +171,12 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 
 /* the competences an open person is painted with */
 .bm-quick{display:flex;flex-wrap:wrap;gap:4px}
-.bm-quick button{justify-content:flex-start;height:22px;padding:0 6px;border-radius:6px;font-size:11.5px;font-weight:500;white-space:nowrap}
+.bm-quick button{justify-content:flex-start;height:22px;padding:0 6px;border-radius:6px;font-size:var(--fs-xs);font-weight:500;white-space:nowrap}
 .bm-quick button .swatch{width:8px;height:8px;border-radius:2px}
 .bm-quick button:hover{background:color-mix(in oklch,var(--cc) 14%,var(--sunken))}
 .bm-quick button.on{background:color-mix(in oklch,var(--cc) 16%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--cc);font-weight:600}
 .bm-quick.long{flex-direction:column;align-items:stretch;padding-left:20px}
-.bm-quick.long button{height:28px;padding:0 8px;font-size:12.5px}
+.bm-quick.long button{height:28px;padding:0 8px;font-size:var(--fs-sm)}
 .bm-quick.long kbd{margin-left:auto}
 
 .bm-week-editor{height:calc(var(--bm-track-h) + 24px)}
@@ -193,7 +190,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-editor-info dd{margin:0;font-family:var(--font-num);text-align:right}
 .bm-editor-info dd.has{font-weight:600}
 .bm-editor-step{display:flex;gap:2px;padding-left:16px}
-.bm-editor-hint{padding-left:20px;font-size:11.5px;color:var(--faint);text-wrap:pretty}
+.bm-editor-hint{padding-left:20px;font-size:var(--fs-xs);color:var(--faint);text-wrap:pretty}
 .bm-axis{position:relative;margin:12px 0}
 .bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .bm-axis span.day-edge{color:var(--text);font-weight:600}
@@ -203,7 +200,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-timeline-row{height:96px}
 .bm-timeline-row .bm-label{align-items:flex-start;padding-top:12px;background:var(--surface)}
 .bm-ruler{position:absolute;left:6px;right:6px;top:4px;height:14px}
-.bm-ruler span{position:absolute;transform:translateX(-50%);font:400 9.5px var(--font-num);color:var(--faint)}
+.bm-ruler span{position:absolute;transform:translateX(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .bm-ruler span:first-child{transform:none}
 .bm-ruler span:last-child{transform:translateX(-100%)}
 .bm-overtime-only{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:var(--faint);writing-mode:vertical-rl;transform:rotate(180deg)}
@@ -229,7 +226,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-track.week .bm-edit-block{left:3px;right:3px;padding:4px 7px}
 .bm-track.row .bm-edit-block{top:3px;bottom:3px;justify-content:center;padding:0 8px;white-space:nowrap;box-shadow:0 0 0 1px var(--bg)}
 .bm-edit-block b{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);font-weight:600}
-.bm-edit-block em{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 10.5px var(--font-num);font-style:normal;opacity:.9}
+.bm-edit-block em{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.9}
 .bm-edit-block.ghost{opacity:.6}
 .bm-edit-block.dragging{z-index:3;cursor:grabbing;box-shadow:0 6px 16px -6px var(--shadow)}
 .bm-edit-block.unresolved{cursor:default}
