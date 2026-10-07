@@ -464,7 +464,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     }
     return classes
   }, [visibleDates, today, overbooked, heat])
-  const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, colW, classes: dayClasses }), [visibleDates, c0, colW, dayClasses])
+  const leftCol = Math.floor(viewport.left / colW)
+  const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, first: leftCol, colW, classes: dayClasses }), [visibleDates, c0, leftCol, colW, dayClasses])
 
   // What the stroke or the drag in progress would do, for the status bar.
   const progress = fill ? fillProgress(fill, fillCells) : preview ? pencilProgress(preview) : null

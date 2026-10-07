@@ -9,6 +9,8 @@ export interface Columns {
   dates: ISODate[]
   /** Position of the first drawn day in the whole period. */
   c0: number
+  /** Position of the day at the left edge of what is seen. */
+  first: number
   colW: number
   /** The classes every cell of a day shares (weekend, today, overbooked …). */
   classes: Map<ISODate, string>

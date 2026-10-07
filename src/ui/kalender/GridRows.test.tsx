@@ -22,7 +22,7 @@ const row: AllocationRow = {
 }
 const item = { kind: 'row', row, totals: rowTotals(buildDemandIndex([]), row, DEFAULT_SETTINGS), project: { key: '26970' }, depth: 0 } as Extract<GridItem, { kind: 'row' }>
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07']
-const cols: Columns = { dates, c0: 0, colW: 36, classes: new Map(dates.map((date) => [date, 'day'])) }
+const cols: Columns = { dates, c0: 0, first: 0, colW: 36, classes: new Map(dates.map((date) => [date, 'day'])) }
 const idle: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
 const noActions = new Proxy({}, { get: () => () => {} }) as GridActions
 const rowDimensions = ['competence' as const]

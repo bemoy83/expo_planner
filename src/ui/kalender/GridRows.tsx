@@ -162,7 +162,9 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
       const width = Math.min(run.room * colW, Math.max(run.span * colW, HALL_LABEL_MAX_W)) - 2
       // Roughly the columns the text covers, so the phase letters under it can be left out.
       const covered = Math.ceil(Math.min(width, run.eventName.length * HALL_LABEL_CHAR_W + 6) / colW)
-      return { ...run, width, covered }
+      // Where the name is now: on its first day, or held at the left edge of the days, at most to the end of the stretch it may move in.
+      const at = Math.min(Math.max(run.col, cols.first), run.col + Math.max(run.span, Math.ceil(width / colW)) - covered)
+      return { ...run, width, covered, at }
     })
   const visible = (bars ?? []).filter((bar) => bar.col <= c1 && bar.col + bar.span > c0)
   return (
@@ -178,7 +180,8 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
           {visible.map((bar) => {
             // The phase letters sit in the middle of the bar; they are left out under an event's name, on a bar of a single day and on the arrangement itself, where the name rests when the days before it are scrolled away.
             const middle = bar.col + bar.span / 2
-            const underLabel = labels.some((label) => middle >= label.col && middle < label.col + label.covered)
+            // A name held at the edge sits a part of a day further in than its column says; one day more is kept clear for it.
+            const underLabel = labels.some((label) => middle >= label.at && middle < label.at + label.covered + (label.at > label.col ? 1 : 0))
             return (
               <span
                 key={`${bar.eventName}:${bar.phase}:${bar.col}`}
