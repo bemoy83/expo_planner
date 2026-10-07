@@ -1,8 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { addWorkType, diffKpi, EMPTY_KPI, linesWithoutProductType, mergeKpi, removeWorkType, replaceKpi, setActiveUnit, setCompetence, workTypeRows } from '../../domain/kpi'
+import { addWorkType, diffKpi, EMPTY_KPI, linesWithoutProductType, mergeKpi, removeWorkType, replaceKpi, setActiveUnit, setCompetence, workTypeRows, type WorkTypeRow } from '../../domain/kpi'
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { ColumnHead } from '../ColumnHead'
+import { useColumnFilters } from '../useColumnFilters'
+import type { ColumnValues } from '../columnFilter'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFile } from '../files'
 import { TextField } from '../fields'
@@ -13,6 +16,9 @@ import { X } from 'lucide-react'
  * This is the planner's own parser setup. It fills itself with the product types found in the Visma
  * exports, so nothing has to be imported to get started.
  */
+/** The columns that can be filtered. */
+const COLUMNS: ColumnValues<WorkTypeRow> = { unit: (row) => row.unit, competence: (row) => row.competence }
+
 export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
   const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
@@ -24,10 +30,11 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
   const fileInput = useRef<HTMLInputElement>(null)
 
   const rows = useMemo(() => workTypeRows(kpi, ws.visma ?? []), [kpi, ws.visma])
-  const shown = useMemo(() => {
+  const found = useMemo(() => {
     const q = search.trim().toLowerCase()
     return q ? rows.filter((row) => `${row.name} ${row.productType} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
   }, [rows, search])
+  const { rows: shown, filter: columnFilter } = useColumnFilters(found, COLUMNS)
   const competences = useMemo(() => [...new Set(kpi.workTypes.map((rule) => rule.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
   const units = useMemo(() => [...new Set([...kpi.workTypes.map((rule) => rule.unit), ...kpi.rates.map((rate) => rate.unit)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi])
   const fresh = rows.filter((row) => !row.configured).length
@@ -107,8 +114,10 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
               <tr>
                 <th>Produkttype</th>
                 <th title="Produkttype 2 slik den står i Visma">I Visma</th>
-                <th title="«ordre» og «stands» teller antall stands; andre enheter summerer antall">Enhet</th>
-                <th>Kompetanse (nøkkelområde)</th>
+                <ColumnHead filter={columnFilter('unit')} title="«ordre» og «stands» teller antall stands; andre enheter summerer antall">
+                  Enhet
+                </ColumnHead>
+                <ColumnHead filter={columnFilter('competence')}>Kompetanse (nøkkelområde)</ColumnHead>
                 <th className="num" title="Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn">
                   Linjer
                 </th>

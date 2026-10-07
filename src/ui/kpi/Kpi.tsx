@@ -1,9 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, mergeKpi, removeKpiRow, replaceKpi, setRate, type KpiDiff, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, mergeKpi, removeKpiRow, replaceKpi, setRate, type KpiDiff, type KpiRow, type NewKpiRow } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { ColumnHead } from '../ColumnHead'
+import { useColumnFilters } from '../useColumnFilters'
+import type { ColumnValues } from '../columnFilter'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { NumberField } from '../fields'
@@ -17,6 +20,9 @@ interface PendingImport {
 const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
 
 /** The KPI rates: how many units one person does per hour, for each product type and unit. */
+/** The columns that can be filtered. */
+const COLUMNS: ColumnValues<KpiRow> = { unit: (row) => row.unit, competence: (row) => row.competence }
+
 export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) {
   const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
@@ -28,10 +34,11 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
   const fileInput = useRef<HTMLInputElement>(null)
 
   const rows = useMemo(() => kpiRows(kpi), [kpi])
-  const shown = useMemo(() => {
+  const found = useMemo(() => {
     const q = search.trim().toLowerCase()
     return q ? rows.filter((row) => `${row.name} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
   }, [rows, search])
+  const { rows: shown, filter: columnFilter } = useColumnFilters(found, COLUMNS)
   const typeNames = useMemo(() => kpi.workTypes.map((rule) => rule.name).sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
   const missing = rows.filter((row) => row.missingRate).length
 
@@ -107,9 +114,9 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
             <thead>
               <tr>
                 <th>Produkttype</th>
-                <th>Enhet</th>
+                <ColumnHead filter={columnFilter('unit')}>Enhet</ColumnHead>
                 <th title="Enheten Visma-linjer av denne produkttypen regnes med. Velges på Produkttyper.">I bruk</th>
-                <th>Kompetanse</th>
+                <ColumnHead filter={columnFilter('competence')}>Kompetanse</ColumnHead>
                 <th className="num" title="Enheter per persontime">
                   Montering
                 </th>

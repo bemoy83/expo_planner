@@ -9,6 +9,9 @@ import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { placeOf, resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallNames } from '../../domain/venue'
+import { ColumnHead } from '../ColumnHead'
+import { useColumnFilters } from '../useColumnFilters'
+import type { ColumnValues } from '../columnFilter'
 import { MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { NumberField, TextField } from '../fields'
@@ -57,6 +60,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     return [...names].filter(([no]) => withData.has(no)).sort((a, b) => a[1].localeCompare(b[1], 'nb'))
   }, [ws.projects, ws.allocations, ws.visma, ws.demand])
 
+  const projectNames = useMemo(() => new Map(projects), [projects])
   const kpi = ws.kpi ?? EMPTY_KPI
   // The Kalender places demand in the halls of the hall ledger; show where each line's Hall/Sted ends up.
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
@@ -92,10 +96,25 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const vismaLines = useMemo(() => review.get(projectNo)?.lines ?? [], [review, projectNo])
   // With no project chosen, the lines of every project are in scope, in the order of the project list.
   const scopeLines = useMemo(() => (projectNo ? vismaLines : projects.flatMap(([no]) => review.get(no)?.lines ?? [])), [projectNo, vismaLines, projects, review])
-  const shownLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases)), [scopeLines, filter, halls, ws.hallAliases])
+  const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases)), [scopeLines, filter, halls, ws.hallAliases])
+  // On top of that, the filters on the table's columns.
+  const lineColumns = useMemo<ColumnValues<VismaLine>>(
+    () => ({
+      inPlan: (line) => (line.inPlan ? 'Ja' : 'Nei'),
+      project: (line) => projectNames.get(line.projectNo) ?? line.projectNo,
+      competence: (line) => line.competence,
+      workType: (line) => line.workType,
+      hall: (line) => line.hall,
+      place: (line) => placeOf(line.hall, halls, ws.hallAliases).hall,
+      avdeling: (line) => line.avdeling,
+      unit: (line) => line.unit,
+    }),
+    [projectNames, halls, ws.hallAliases],
+  )
+  const { rows: shownLines, filter: columnFilter, active: columnFilters, clear: clearColumnFilters } = useColumnFilters(matchedLines, lineColumns)
+  const narrowed = filter !== 'all' || columnFilters > 0
   // A long list is cut: every line holds fields and a list of halls, and thousands of them make the page slow.
   const listedLines = useMemo(() => shownLines.slice(0, LIST_LIMIT), [shownLines])
-  const projectNames = useMemo(() => new Map(projects), [projects])
   const totals = useMemo(() => {
     const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
     return { all: sum('all'), open: sum('open'), unresolved: sum('unresolved'), issue: sum('issue'), ready: [...review.values()].reduce((n, project) => n + project.ready, 0) }
@@ -170,8 +189,13 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   // «Ta alle inn i plan» and «Ta alle ut» act on the lines the filter lets through, in the project or in all of them.
   const bulkButtons = (
     <>
-      <button onClick={takeShownIn}>{filter === 'all' ? 'Ta alle inn i plan' : 'Ta de viste inn i plan'}</button>
-      <button onClick={() => setInPlan(shownLines.filter((l) => l.inPlan), false)}>{filter === 'all' ? 'Ta alle ut' : 'Ta de viste ut'}</button>
+      <button onClick={takeShownIn}>{narrowed ? 'Ta de viste inn i plan' : 'Ta alle inn i plan'}</button>
+      <button onClick={() => setInPlan(shownLines.filter((l) => l.inPlan), false)}>{narrowed ? 'Ta de viste ut' : 'Ta alle ut'}</button>
+      {columnFilters > 0 && (
+        <button className="ghost" onClick={clearColumnFilters} title="Fjerner filtrene i kolonnene">
+          Nullstill kolonnefilter ({columnFilters})
+        </button>
+      )}
     </>
   )
 
@@ -180,15 +204,19 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         <table className="ledger">
           <thead>
             <tr>
-              <th title="Linjen teller med i «Planlagt»">I plan</th>
-              {withProject && <th>Prosjekt</th>}
-              <th>Kompetanse</th>
-              <th>Arbeidstype</th>
-              <th>Hall / sted</th>
-              <th title="Hallen linjen teller under i Kalender">Plassering</th>
-              <th>Avd.</th>
+              <ColumnHead filter={columnFilter('inPlan')} title="Linjen teller med i «Planlagt»">
+                I plan
+              </ColumnHead>
+              {withProject && <ColumnHead filter={columnFilter('project')}>Prosjekt</ColumnHead>}
+              <ColumnHead filter={columnFilter('competence')}>Kompetanse</ColumnHead>
+              <ColumnHead filter={columnFilter('workType')}>Arbeidstype</ColumnHead>
+              <ColumnHead filter={columnFilter('hall')}>Hall / sted</ColumnHead>
+              <ColumnHead filter={columnFilter('place')} title="Hallen linjen teller under i Kalender">
+                Plassering
+              </ColumnHead>
+              <ColumnHead filter={columnFilter('avdeling')}>Avd.</ColumnHead>
               <th className="num">Antall</th>
-              <th>Enhet</th>
+              <ColumnHead filter={columnFilter('unit')}>Enhet</ColumnHead>
               <th className="num" title="Andel av timene som trekkes fra: 1 fjerner alt, 0,9 beholder 10 %, negativt tall legger til">
                 Effekt
               </th>
@@ -315,7 +343,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
               <h3>Visma-linjer i alle prosjekter</h3>
               <span className="muted small">
                 {review.size} {review.size === 1 ? 'prosjekt' : 'prosjekter'} · {totals.all - totals.open} av {totals.all} linjer i plan
-                {filter !== 'all' && ` · viser ${shownLines.length}`}
+                {narrowed && ` · viser ${shownLines.length}`}
               </span>
               <span className="toolbar-gap" />
               {bulkButtons}
@@ -381,7 +409,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                 {vismaImport && (
                   <span className="muted small">
                     {vismaImport.fileName}, lest inn {new Date(vismaImport.importedAt).toLocaleString('nb-NO')} · {vismaImport.rows.length} ordrelinjer · {plannedCount} av{' '}
-                    {vismaLines.length} linjer i plan{filter !== 'all' && ` · viser ${shownLines.length}`}
+                    {vismaLines.length} linjer i plan{narrowed && ` · viser ${shownLines.length}`}
                   </span>
                 )}
                 <span className="toolbar-gap" />

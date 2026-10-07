@@ -21,6 +21,19 @@ table.ledger tr.has-issue td{background:var(--warn-bg)}
 /* numbers and dates are set as in the Kalender */
 table.ledger .num,table.ledger .date,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
 
+/* a column's filter, see ColumnHead.tsx: a small button in the heading and a list of the column's values under it */
+table.ledger th:has(.menu-pop){z-index:3}
+.menu-button.col-filter{margin-left:4px;padding:2px;border-radius:4px;background:transparent;color:var(--faint);vertical-align:middle}
+.menu-button.col-filter:hover,.menu-button.col-filter[aria-expanded='true']{background:var(--sunken);color:var(--text)}
+th.filtered .menu-button.col-filter{background:var(--accent);color:var(--surface)}
+.col-filter-pop{display:flex;flex-direction:column;gap:6px;padding:4px;font-weight:400;text-align:left}
+.col-filter-all{display:flex;justify-content:space-between;padding:0 2px}
+.col-filter-list{display:flex;flex-direction:column;max-height:280px;overflow:auto}
+.col-filter-list label{display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:6px;font-size:var(--fs-md);cursor:pointer}
+.col-filter-list label:hover{background:var(--sunken)}
+.col-filter-list label span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.col-filter-list em{font:normal 400 var(--fs-xs) var(--font-num);color:var(--faint)}
+
 /* a field edited in place, see fields.tsx: it reads as the text of the table and shows its frame when pointed at or typed in */
 input.inline{width:100%;min-width:120px;border:none;border-radius:4px;background:transparent;padding:2px 4px}
 input.inline.num{min-width:0;width:52px;text-align:right}

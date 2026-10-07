@@ -97,6 +97,7 @@ Kalender
 
 General
 
+- The Visma lines on Behov, Produkttyper and KPI have filters on their columns, as Excel's: a button in the heading lists the column's values to tick, with a field to search in them (`ui/ColumnHead.tsx`, `ui/columnFilter.ts`). The filters last while the tab is open; they are not stored. Haller, Personell and the planner's own lines on Behov have none, and no table can be sorted by a column.
 - Undo history is lost when the page is reloaded, and a workbook import or a restore from backup cannot be undone.
 - The selected project on Behov is not remembered across a reload.
 - Data lives in one browser on one computer. There is no server, no sharing and no automatic backup.
