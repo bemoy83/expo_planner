@@ -27,7 +27,7 @@ export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'e
   // The project behind each bar and name of the hall calendar, so that pointing at a project can light them.
   const hallProject = useMemo(() => hallProjects(shownVenue, projectOf), [shownVenue, projectOf])
   const hallProjectLists = useMemo(() => new Map([...projectsOfHalls(shownVenue, projectOf)].map(([hall, list]) => [hall, projectList(list)])), [shownVenue, projectOf])
-  // Each event's name sits on the first day of the arrangement itself in the hall and scrolls with it.
+  // Each event's name starts on the first day of its stretch in the hall, build-up included, and stays in view for as long as the stretch does, see `HallRow`.
   const hallLabels = useMemo(() => {
     const labels = new Map<string, HallLabelRun[]>()
     for (const [hall, days] of hallCalendar) {
@@ -35,9 +35,9 @@ export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'e
       // A name may run on past its own days, but not into the next event in the hall.
       const runs = all.map((run, i) => ({
         eventName: run.eventName,
-        col: daysBetween(origin, run.anchor),
-        span: daysBetween(run.anchor, run.end) + 1,
-        room: all[i + 1] ? daysBetween(run.anchor, all[i + 1].start) : Infinity,
+        col: daysBetween(origin, run.start),
+        span: daysBetween(run.start, run.end) + 1,
+        room: all[i + 1] ? daysBetween(run.start, all[i + 1].start) : Infinity,
         project: hallProject(hall, run.eventName, run.anchor),
       }))
       labels.set(hall, runs)

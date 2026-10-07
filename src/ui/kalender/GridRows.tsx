@@ -176,7 +176,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
       overlay={
         <>
           {visible.map((bar) => {
-            // The phase letters sit in the middle of the bar; they are left out under an event's name, on a bar of a single day and on the arrangement itself, which carries the name.
+            // The phase letters sit in the middle of the bar; they are left out under an event's name, on a bar of a single day and on the arrangement itself, where the name rests when the days before it are scrolled away.
             const middle = bar.col + bar.span / 2
             const underLabel = labels.some((label) => middle >= label.col && middle < label.col + label.covered)
             return (
