@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
@@ -14,7 +14,6 @@ import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { Segmented, UndoRedoButtons } from '../common'
-import { isTyping } from '../dom'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows } from './GridRows'
@@ -27,11 +26,14 @@ import { FilterMenu, PlanToolSwitch } from './PlanTools'
 import { RowInspector, type RowDetails } from './RowInspector'
 import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, projectKey, type Dimension, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
+import { useGridDrag } from './useGridDrag'
+import { useGridViewport } from './useGridViewport'
 import { useHallCalendar } from './useHallCalendar'
 import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
+import { useToolKeys } from './useToolKeys'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
-import { rangeOf, TOOL_KEYS, type Cell, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
+import { rangeOf, type Cell, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Info, PanelRight, Plus } from 'lucide-react'
 
 /** A line that takes no numbers has nothing selected on it. */
@@ -68,8 +70,6 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const strokeRef = useRef<Exclude<Tool, 'select'> | null>(null)
   // A Shift-click extends the selection, as in Excel. Dragged on to another cell, it becomes a pencil stroke from the cell it started on.
   const spring = useRef<Cell | null>(null)
-  // The tool Shift or Alt would give, while one of them is held.
-  const [modifier, setModifier] = useState<Exclude<Tool, 'select'> | null>(null)
   const [cellMenu, setCellMenu] = useState<{ x: number; y: number; rowId: string; col: number } | null>(null)
   const [inspectorOpen, setInspectorOpen] = usePref('inspectorOpen', false)
   // The row the details panel shows: the last planning row that had the focus.
@@ -80,15 +80,11 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
-  const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200, height: 800 })
-  // The height of everything above the planning rows, and of the planning bar with the heading row at the foot of it.
-  const [topHeight, setTopHeight] = useState(0)
-  const [barHeight, setBarHeight] = useState(0)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
+  // The cell to scroll to and give the keys to, once it is selected.
+  const [reveal, setReveal] = useState<Cell | null>(null)
   // The project whose halls and days the hall calendar is showing, after a click on its name.
   const [located, setLocated] = useState<string | null>(null)
-  // The days to bring into view, once the column width that fits them is in place.
-  const [goTo, setGoTo] = useState<{ start: ISODate; end: ISODate } | null>(null)
 
   const colW = ZOOM_WIDTHS[zoom]
   // The period follows the hall bookings, see `calendarRange`.
@@ -96,10 +92,20 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const dates = useMemo(() => dateRange(range.start, range.end), [range.start, range.end])
   const today = todayIso()
 
-  const scrollRef = useRef<HTMLDivElement>(null)
   const projectHover = useProjectHover(hints)
-  const topRef = useRef<HTMLDivElement>(null)
-  const toolsRef = useRef<HTMLDivElement>(null)
+  // The day in focus is shared with Bemanning (`planningFocus`): the Kalender opens on it, and the day of the cell the planner stands on becomes it.
+  const [planningFocus, setPlanningFocus] = usePref<{ date: ISODate } | null>('planningFocus', null)
+  const closeCellMenu = useCallback(() => setCellMenu(null), [])
+  const clearSelection = useCallback(() => setSelection(null), [])
+  const { scrollRef, topRef, toolsRef, viewport, topHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan } = useGridViewport({
+    start: range.start,
+    end: range.end,
+    openOn: planningFocus?.date ?? today,
+    zoom,
+    colW,
+    onScrolled: closeCellMenu,
+    onPeriodMoved: clearSelection,
+  })
 
   // ---- derived data -------------------------------------------------------------------------
   const { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallCount } = useHallCalendar(ws, range.start, zoom === 'wide', allHalls)
@@ -169,88 +175,11 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const rowDimensions = useMemo(() => (['project', 'competence', 'hall', 'avdeling'] as Dimension[]).filter((d) => !grouping.includes(d)), [grouping])
   const competences = useMemo(() => [...new Set(rows.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [rows])
 
-  // ---- viewport and virtualization -----------------------------------------------------------
-  // Scroll events already arrive once per frame, so the viewport can be read directly.
-  const onScroll = useCallback(() => {
-    const el = scrollRef.current
-    if (el) setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
-    setCellMenu(null)
-  }, [])
-
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    const top = topRef.current
-    const tools = toolsRef.current
-    if (!el || !top || !tools) return
-    const observer = new ResizeObserver(() => {
-      setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
-      setTopHeight(top.offsetHeight + tools.offsetHeight)
-      setBarHeight(tools.offsetHeight)
-    })
-    observer.observe(el)
-    observer.observe(top)
-    observer.observe(tools)
-    return () => observer.disconnect()
-  }, [])
-
-  const scrollToDate = useCallback(
-    (date: ISODate, offsetDays = 7) => {
-      const el = scrollRef.current
-      if (!el) return
-      el.scrollLeft = Math.max(0, (daysBetween(range.start, date) - offsetDays) * colW)
-      onScroll()
-    },
-    [range.start, colW, onScroll],
-  )
-
-  // The day in focus is shared with Bemanning (`planningFocus`): the Kalender opens on it, and the day of the cell the planner stands on becomes it.
-  const [planningFocus, setPlanningFocus] = usePref<{ date: ISODate } | null>('planningFocus', null)
-
-  // Start near the day in focus, or today, once.
-  const didInitialScroll = useRef(false)
-  useLayoutEffect(() => {
-    if (didInitialScroll.current) return
-    didInitialScroll.current = true
-    const start = planningFocus?.date ?? today
-    scrollToDate(start >= range.start && start <= range.end ? start : range.start)
-  }, [scrollToDate, planningFocus, today, range.start, range.end])
-
-  // When the period grows at the start (new hall bookings, for example), stay on the same dates.
-  const prevStart = useRef(range.start)
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (el && prevStart.current !== range.start) {
-      el.scrollLeft = Math.max(0, el.scrollLeft + daysBetween(range.start, prevStart.current) * colW)
-      setSelection(null)
-      onScroll()
-    }
-    prevStart.current = range.start
-  }, [range.start, colW, onScroll])
-
-  // Keep the same date at the left edge when zooming.
-  const prevColW = useRef(colW)
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (el && prevColW.current !== colW) el.scrollLeft = (el.scrollLeft / prevColW.current) * colW
-    prevColW.current = colW
-  }, [colW])
-
+  // ---- virtualization ------------------------------------------------------------------------
   const c0 = Math.max(0, Math.floor(viewport.left / colW) - OVERSCAN_COLS)
   const c1 = Math.min(dates.length - 1, Math.ceil((viewport.left + viewport.width - LEFT_W) / colW) + OVERSCAN_COLS)
   const visibleDates = useMemo(() => dates.slice(c0, c1 + 1), [dates, c0, c1])
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
-  const topPinned = topHeight < viewport.height * 0.65
-  // Bring a project's days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (!el || !goTo) return
-    const { leftCol } = fitSpan(daysBetween(range.start, goTo.start), daysBetween(goTo.start, goTo.end) + 1, el.clientWidth - LEFT_W, zoom)
-    el.scrollLeft = leftCol * colW
-    // The hall calendar scrolls away with the rows when it is too tall to pin.
-    if (!topPinned) el.scrollTop = 0
-    onScroll()
-    setGoTo(null)
-  }, [goTo]) // eslint-disable-line react-hooks/exhaustive-deps
   // Where each line starts: the top level's lines are taller than the rest. One entry more than there are lines, the last being the full height.
   const rowTops = useMemo(() => {
     const tops = [0]
@@ -288,20 +217,22 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
         else if (topHeight + bottom > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + bottom - el.clientHeight
       }
     },
-    [colW, allocLanes, rowTops, topHeight, barHeight, topPinned],
+    [scrollRef, colW, allocLanes, rowTops, topHeight, barHeight, topPinned],
   )
 
-  // Select the first visible day of a row that was just added or edited.
-  useEffect(() => {
-    if (!pendingFocus) return
-    const lane = laneOfRow.get(pendingFocus)
-    if (lane === undefined) return
-    const cell = { lane, col: firstVisibleCol }
-    setSelection({ section: 'alloc', anchor: cell, focus: cell })
-    ensureVisible('alloc', cell)
+  // Select the first visible day of a row that was just added or edited, once it is among the lines.
+  const pendingLane = pendingFocus ? laneOfRow.get(pendingFocus) : undefined
+  if (pendingLane !== undefined) {
+    const cell = { lane: pendingLane, col: firstVisibleCol }
     setPendingFocus(null)
+    setSelection({ section: 'alloc', anchor: cell, focus: cell })
+    setReveal(cell)
+  }
+  useEffect(() => {
+    if (!reveal) return
+    ensureVisible('alloc', reveal)
     scrollRef.current?.focus({ preventScroll: true })
-  }, [pendingFocus, laneOfRow, firstVisibleCol, ensureVisible])
+  }, [reveal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- cell values ----------------------------------------------------------------------------
   const laneCount = (section: Section) => (section === 'alloc' ? allocLanes.length : capLanes.length)
@@ -380,7 +311,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       then?.()
       scrollRef.current?.focus({ preventScroll: true })
     },
-    [draft, selection, fillSelection],
+    [scrollRef, draft, selection, fillSelection],
   )
 
   const select = (section: Section, cell: Cell, extend: boolean) => {
@@ -453,78 +384,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // What the cells of each line would hold if the stroke or the drag ended now, keyed by section and lane.
   const ghost = useMemo(() => ghostCells(preview, stroke === 'eraser' ? selection : null, dates, fillCells), [preview, stroke, selection, dates, fillCells])
 
-  // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
-  // The listeners are attached once and read what they need from here, so a drag is not disturbed when
-  // the rows or the tool change under it.
-  const dragEnv = useRef({ drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length })
-  useEffect(() => {
-    dragEnv.current = { drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length }
-  })
-  useEffect(() => {
-    let mouseX: number | null = null
-    let timer: ReturnType<typeof setInterval> | undefined
-    const follow = () => {
-      const el = scrollRef.current
-      if (!el || mouseX === null || !(dragging.current || fillRef.current)) return
-      const { colW, dayCount } = dragEnv.current
-      const rect = el.getBoundingClientRect()
-      const step = mouseX > rect.right - 24 ? colW : mouseX < rect.left + LEFT_W + 24 ? -colW : 0
-      if (!step) return
-      el.scrollLeft += step
-      // No cell is entered while the grid moves under a still mouse, so the selection follows the scroll.
-      const col = Math.max(0, Math.min(dayCount - 1, Math.floor((Math.min(Math.max(mouseX, rect.left + LEFT_W), rect.right - 1) - rect.left - LEFT_W + el.scrollLeft) / colW)))
-      if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
-      else setSelection((sel) => (sel && sel.focus.col !== col ? { ...sel, focus: { ...sel.focus, col } } : sel))
-    }
-    const rest = () => {
-      mouseX = null
-      clearInterval(timer)
-      timer = undefined
-    }
-    const setStretch = (stretch: boolean) => {
-      if (fillRef.current && fillRef.current.stretch !== stretch) setFill((f) => f && { ...f, stretch })
-    }
-    const onMove = (e: MouseEvent) => {
-      mouseX = dragging.current || fillRef.current ? e.clientX : null
-      // The timer runs only while something is being dragged.
-      if (mouseX !== null && timer === undefined) timer = setInterval(follow, 60)
-      setStretch(e.altKey)
-    }
-    // Alt can be pressed or let go while the mouse rests.
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Alt' && fillRef.current) {
-        e.preventDefault()
-        setStretch(e.type === 'keydown')
-      }
-    }
-    const onUp = () => {
-      rest()
-      const { drawDemand, eraseDrawn, commitFill } = dragEnv.current
-      if (fillRef.current) {
-        commitFill()
-        return
-      }
-      const section = dragging.current
-      const drawn = strokeRef.current
-      dragging.current = null
-      strokeRef.current = null
-      spring.current = null
-      setStroke(null)
-      if (section === 'alloc' && drawn === 'pencil') drawDemand()
-      if (section === 'alloc' && drawn === 'eraser') eraseDrawn()
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('keyup', onKey)
-    return () => {
-      rest()
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('keyup', onKey)
-    }
-  }, [])
+  useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, setFill, setSelection, setStroke, drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length })
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -677,7 +537,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       const el = scrollRef.current
       const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
       if (fit.zoom !== zoom) setZoom(fit.zoom)
-      setGoTo(span)
+      showSpan(span)
     },
     toggleGroup,
     toggleEntry,
@@ -695,38 +555,19 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   })
 
   // ---- tools: keys and modifiers --------------------------------------------------------------
-  // V, F and T pick a tool and Escape goes back to «Velg», anywhere on the page but in a field.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || isTyping(e.target) || dialog) return
-      if (e.key === 'Escape') {
-        if (cellMenu) setCellMenu(null)
-        else if (tool !== 'select') setTool('select')
-        else if (located) {
-          setLocated(null)
-          projectHover.pin(null)
-        }
-        return
+  // Escape first closes the menu, then puts the pencil or the eraser away, then lets go of the project that is lit.
+  const modifier = useToolKeys({
+    blocked: !!dialog,
+    onTool: setTool,
+    onEscape: () => {
+      if (cellMenu) setCellMenu(null)
+      else if (tool !== 'select') setTool('select')
+      else if (located) {
+        setLocated(null)
+        projectHover.pin(null)
       }
-      const picked = TOOL_KEYS[e.key.toLowerCase()]
-      if (picked) setTool(picked)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [cellMenu, dialog, tool, located, projectHover])
-  // While Shift or Alt is held the planning cells show what a drag would do.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => setModifier(e.altKey ? 'eraser' : e.shiftKey ? 'pencil' : null)
-    const onBlur = () => setModifier(null)
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('keyup', onKey)
-    window.addEventListener('blur', onBlur)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('keyup', onKey)
-      window.removeEventListener('blur', onBlur)
-    }
-  }, [])
+    },
+  })
   const activeTool = stroke ?? modifier ?? tool
   // The details panel is memoized; these keep their identity so it is not drawn again on every scroll frame.
   const spreadRow = useCallback((row: AllocationRow) => proposePlan([row], true), [proposePlan])
