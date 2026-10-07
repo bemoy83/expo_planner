@@ -50,7 +50,7 @@ function FoldedDay({ cell, styles, brush }: { cell: DayCell; styles: Map<string,
     return cell.blocks.length ? (
       <span className="bm-off-blocks">
         {cell.blocks.map((block) => (
-          <i key={block.id} className={`${block.unresolved ? 'unresolved' : ''} ${other(block.competence)}`} style={colorOf(styles, block.competence)} title={`${styles.get(block.competence)?.label ?? block.competence} · ${clock(block.start)}–${clock(block.end)}`} />
+          <i key={block.id} className={`${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`} style={colorOf(styles, block.competence)} title={`${styles.get(block.competence)?.label ?? block.competence} · ${clock(block.start)}–${clock(block.end)}`} />
         ))}
         {overtime}
       </span>
@@ -68,9 +68,9 @@ function FoldedDay({ cell, styles, brush }: { cell: DayCell; styles: Map<string,
         return (
           <span
             key={block.id}
-            className={`bm-block ${block.unresolved ? 'unresolved' : ''} ${other(block.competence)}`}
+            className={`bm-block ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
             style={{ left: `${block.left}%`, width: `${block.width}%`, ...colorOf(styles, block.competence) }}
-            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(block.hours)} t${block.unresolved ? ' · uløst' : ''}`}
+            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : ''}`}
           >
             {block.label === 'full' ? (
               <>

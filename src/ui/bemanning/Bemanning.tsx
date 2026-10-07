@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { addDays, MONTHS_NB, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { assignmentStatus, buildBalance, carry, clearDays, clearSick, freeCapacity, isSick, markSick, removeCarried, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
+import { assignmentStatus, openUnresolved, buildBalance, carry, clearDays, clearSick, freeCapacity, isSick, markSick, removeCarried, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
 import type { Assignment, Unavailability, Workspace } from '../../domain/types'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -100,9 +100,12 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     return hours
   }, [ws, balance, stripRows, dates])
 
+  // Blocks that do not count and still leave a gap. One whose day is covered by others is no longer something to solve.
+  const openIds = useMemo(() => new Set(openUnresolved(ws).map((a) => a.id)), [ws])
   const allRows = useMemo(() => {
     const ok = new Set(okAssignments(ws))
     const isOk = (a: Assignment) => ok.has(a)
+    const isOpen = (a: Assignment) => openIds.has(a.id)
     const byDay = <T extends { personId: string; date: ISODate }>(list: T[]) => {
       const map = new Map<string, T[]>()
       for (const item of list) map.set(`${item.personId}|${item.date}`, [...(map.get(`${item.personId}|${item.date}`) ?? []), item])
@@ -113,9 +116,9 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     return persons.map((person) => ({
       person,
       week: personWeek(ws, person.id, dates),
-      cells: dates.map((date) => dayCell(date, assignments.get(`${person.id}|${date}`) ?? NO_ASSIGNMENTS, absence.get(`${person.id}|${date}`) ?? NO_ABSENCE, isOk, ws.settings.workday)),
+      cells: dates.map((date) => dayCell(date, assignments.get(`${person.id}|${date}`) ?? NO_ASSIGNMENTS, absence.get(`${person.id}|${date}`) ?? NO_ABSENCE, isOk, ws.settings.workday, isOpen)),
     }))
-  }, [ws, persons, dates])
+  }, [ws, persons, dates, openIds])
   // With a competence in focus, only the people who have it are shown.
   const rows = useMemo(() => (activeBrush ? allRows.filter(({ person }) => person.competences.includes(activeBrush)) : allRows), [allRows, activeBrush])
   const blocked = useMemo(
@@ -215,8 +218,8 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
 
   const unresolved = useMemo(() => {
     const inWeek = new Set(dates)
-    return (ws.assignments ?? []).filter((a) => inWeek.has(a.date) && assignmentStatus(a, ws) === 'unresolved')
-  }, [ws, dates])
+    return (ws.assignments ?? []).filter((a) => inWeek.has(a.date) && openIds.has(a.id))
+  }, [ws, dates, openIds])
   const removeUnresolved = () => {
     const gone = new Set(unresolved.map((a) => a.id))
     updateStaffing((w) => ({ ...w, assignments: (w.assignments ?? []).filter((a) => !gone.has(a.id)) }))

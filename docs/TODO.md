@@ -29,7 +29,8 @@ Choices made where the handoff was open or disagreed with itself
 - The day in focus is shared with the Kalender through the `planningFocus` preference: the Kalender opens on it and marks it in the date header, and the day of the cell the planner stands on becomes it.
 - A holiday on a weekday keeps its wide column but is shown as a day off, like the weekend.
 - The right-click menu of a day also paints a full day with one of the person's competences, and opens «Fravær …», the person's absence with a form for a stretch of days, a kind and a part of the day.
-- «N uløste blokker · Fjern» counts and removes the unresolved blocks of the week shown, not of every week.
+- A block whose person is away or lacks the competence never counts. It is «uløst» only while hours of its competence remain that day (`openUnresolved`). Once others cover the day, it is shown as a faint trace and is no longer counted or flagged; the user asked for this, where RULES.md R7 keeps it unresolved. If the person comes back, the block counts again and the day shows a surplus.
+- «N uløste blokker · Fjern» counts and removes the open unresolved blocks of the week shown, not of every week. The faint traces are removed by hand.
 - Moved hours can be taken back from the popover of the day they were moved to.
 - Hours moved from a Friday land on the Saturday, as the handoff says; whether the next working day is wanted has been asked.
 

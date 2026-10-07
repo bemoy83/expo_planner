@@ -47,6 +47,13 @@ describe('folded day cell', () => {
     expect(cell.blocks[0]).toMatchObject({ unresolved: true, label: 'name' })
   })
 
+  it('stops counting a block as unresolved once others cover the day', () => {
+    const sick: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'syk' }
+    const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [sick], () => false, wd, () => false)
+    expect(cell.unresolved).toBe(0)
+    expect(cell.blocks[0]).toMatchObject({ unresolved: true, replaced: true })
+  })
+
   it('keeps the blocks of a Saturday whole, all of it overtime', () => {
     const cell = dayCell(SAT, [block('a', 'foga', 480, 720, SAT)], [], yes, wd)
     expect(cell).toMatchObject({ offDay: true, overtime: 3.5 })

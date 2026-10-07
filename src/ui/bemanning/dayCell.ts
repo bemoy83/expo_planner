@@ -19,7 +19,10 @@ export interface CellBlock extends Span {
   start: Minute
   end: Minute
   hours: number
+  /** Its hours do not count: the person is away, or lacks the competence. */
   unresolved: boolean
+  /** Unresolved, but others cover the day's demand, so nothing is left to solve. */
+  replaced: boolean
   label: BlockLabel
 }
 
@@ -37,6 +40,7 @@ export interface DayCell {
   note: string
   /** The blocks, cut to the normal day. On an off day they are kept whole. */
   blocks: CellBlock[]
+  /** How many blocks are unresolved and still leave a gap. */
   unresolved: number
   overtime: number
 }
@@ -44,8 +48,11 @@ export interface DayCell {
 const NAME_MIN_WIDTH = 44
 const SHORT_MIN_WIDTH = 20
 
-/** Builds the folded view of one person's day from their assignments and absence that day. */
-export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unavailability[], ok: (a: Assignment) => boolean, wd: WorkdaySettings): DayCell => {
+/**
+ * Builds the folded view of one person's day from their assignments and absence that day.
+ * `ok` tells whether an assignment counts; `open` whether one that does not still leaves a gap.
+ */
+export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unavailability[], ok: (a: Assignment) => boolean, wd: WorkdaySettings, open: (a: Assignment) => boolean = (a) => !ok(a)): DayCell => {
   const kind = dayType(date)
   const offDay = kind !== 'arbeidsdag'
   const span = (start: Minute, end: Minute): Span => ({ left: ((start - wd.dayStart) / (wd.dayEnd - wd.dayStart)) * 100, width: ((end - start) / (wd.dayEnd - wd.dayStart)) * 100 })
@@ -59,7 +66,7 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
     if (end <= start) return []
     const shape = span(start, end)
     const covers = !offDay && sorted.length === 1 && !whole && start <= (present?.start ?? wd.dayStart) && end >= (present?.end ?? wd.dayEnd)
-    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours: paidHours(a, wd), unresolved: !ok(a), label: covers ? 'full' : shape.width >= NAME_MIN_WIDTH ? 'name' : shape.width >= SHORT_MIN_WIDTH ? 'short' : 'none', ...shape }]
+    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours: paidHours(a, wd), unresolved: !ok(a), replaced: !ok(a) && !open(a), label: covers ? 'full' : shape.width >= NAME_MIN_WIDTH ? 'name' : shape.width >= SHORT_MIN_WIDTH ? 'short' : 'none', ...shape }]
   })
   const first = partial[0]
   const derivedNote = !first ? '' : first.end! >= wd.dayEnd ? `Går ${clock(first.start!)}` : first.start! <= wd.dayStart ? `Fra ${clock(first.end!)}` : `Borte ${clock(first.start!)}–${clock(first.end!)}`
@@ -69,7 +76,7 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
     hatches: offDay ? [] : partial.map((u) => span(Math.max(u.start!, wd.dayStart), Math.min(u.end!, wd.dayEnd))).filter((s) => s.width > 0),
     note: (whole ?? first)?.note || derivedNote,
     blocks,
-    unresolved: assignments.filter((a) => !ok(a)).length,
+    unresolved: assignments.filter((a) => !ok(a) && open(a)).length,
     overtime: assignments.filter(ok).reduce((sum, a) => sum + overtimeHours(a, kind, wd), 0),
   }
 }

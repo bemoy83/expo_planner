@@ -445,6 +445,17 @@ export const freeCapacity = (ws: Workspace, date: ISODate, competence?: Competen
 
 export const freeEligibleHours = (ws: Workspace, competence: CompetenceKey, date: ISODate): number => freeCapacity(ws, date, competence).hours
 
+/**
+ * The unresolved assignments that still leave a gap: those on a day where hours of their competence remain.
+ * Once others cover the day's demand, the assignment is replaced: it still does not count, but there is nothing left to solve.
+ */
+export const openUnresolved = (ws: Workspace): Assignment[] => {
+  const unresolved = unresolvedAssignments(ws)
+  if (!unresolved.length) return unresolved
+  const balance = buildBalance(ws, [...new Set(unresolved.map((a) => a.date))])
+  return unresolved.filter((a) => balance.get(a.competence, a.date).remaining > 0.01)
+}
+
 /** R11: the remaining hours that the people with the competence have no free normal time for. Workdays only. */
 export const uncoverable = (ws: Workspace, competence: CompetenceKey, date: ISODate): number =>
   dayType(date) === 'arbeidsdag' ? Math.max(0, dayBalance(ws, competence, date).remaining - freeEligibleHours(ws, competence, date)) : 0

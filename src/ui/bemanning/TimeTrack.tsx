@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { assignmentStatus, clickBlock, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, type EditOptions } from '../../domain/staffing'
+import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, type EditOptions } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Minute, Person, Workspace } from '../../domain/types'
 import { X } from 'lucide-react'
 import { ABSENCE_LABELS } from './dayCell'
@@ -63,6 +63,7 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
   const stored = (ws.assignments ?? []).filter((a) => a.personId === person.id && a.date === date)
   const shown = (draft ? apply(draft)(ws) : (ws.assignments ?? [])).filter((a) => a.personId === person.id && a.date === date)
   const storedIds = new Set(stored.map((a) => a.id))
+  const stillOpen = new Set(stored.length ? openUnresolved(ws).map((a) => a.id) : [])
 
   const share = (t: Minute) => ((t - range.start) / (range.end - range.start)) * 100
   const place = (from: Minute, to: Minute): React.CSSProperties => (week ? { top: `${share(from)}%`, height: `${share(to) - share(from)}%` } : { left: `${share(from)}%`, width: `${share(to) - share(from)}%` })
@@ -168,6 +169,7 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
         const total = paidHours(block, wd)
         const overtime = overtimeHours(block, dayType(date), wd)
         const unresolved = assignmentStatus(block, ws) === 'unresolved'
+        const replaced = unresolved && !stillOpen.has(block.id)
         const ghost = !storedIds.has(block.id)
         const dragging = draft !== null && draft.kind !== 'draw' && draft.id === block.id
         const px = week ? (length / 60) * WEEK_HOUR_PX : Infinity
@@ -176,9 +178,9 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
         return (
           <span
             key={block.id}
-            className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
+            className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
             style={{ ...place(from, to), '--cc': `var(--${style?.color ?? 'line-slate'})` } as React.CSSProperties}
-            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
+            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
             onMouseDown={(e) => blockDown(e, block, 'move')}
             onDoubleClick={(e) => {
               e.stopPropagation()
@@ -224,7 +226,7 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
           </span>
         )
       })}
-      {awayAllDay?.kind === 'syk' && <span className="bm-sick">Syk{stored.length ? ` · ${stored.length} uløst` : ''}</span>}
+      {awayAllDay?.kind === 'syk' && <span className="bm-sick">Syk{stored.some((a) => stillOpen.has(a.id)) ? ` · ${stored.filter((a) => stillOpen.has(a.id)).length} uløst` : ''}</span>}
     </span>
   )
 }

@@ -160,6 +160,9 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-cell.stroke.paint-half:not(.blocked){background-color:color-mix(in oklch,var(--bc) 8%,transparent)}
 .bm-cell.stroke.erase{background-color:color-mix(in srgb,var(--neg) 7%,transparent);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--neg) 70%,transparent)}
 
+/* unresolved, but the day is covered by others: a faint trace of what was planned */
+.bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 60%,transparent)}
+.bm-off-blocks>i.replaced{opacity:.4}
 .bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:italic;color:var(--muted)}
 .bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-size:11px;font-weight:600;white-space:nowrap}
 .bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 9.5px var(--font-num);color:var(--faint)}

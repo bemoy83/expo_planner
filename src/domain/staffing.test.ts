@@ -8,6 +8,7 @@ import {
   addAbsence,
   clearSick,
   isSick,
+  openUnresolved,
   markSick,
   removeCarried,
   assignmentStatus,
@@ -76,6 +77,7 @@ const of = (list: Assignment[], personId: string, date: string) =>
     .sort((a, b) => a.start - b.start)
     .map((a) => ({ competence: a.competence, start: a.start, end: a.end }))
 const withAssignments = (assignments: Assignment[]): Workspace => ({ ...ws, assignments })
+const withAssignmentsOf = (base: Workspace, assignments: Assignment[]): Workspace => ({ ...base, assignments })
 const sick = (personId: string, dates: string[]): Unavailability[] => dates.map((date) => ({ id: `sick-${personId}-${date}`, personId, date, kind: 'syk' }))
 
 describe('hours and overtime', () => {
@@ -414,6 +416,22 @@ describe('sickness', () => {
     expect(left).toHaveLength(ws.assignments!.length - 2)
     expect(left.some((a) => a.personId === ANDERS)).toBe(false)
     expect(removeUnresolved(ws)).toBe(ws.assignments)
+  })
+
+  it('keeps a block open only while hours of its competence remain that day', () => {
+    // Anders sick on Monday: 15 hours of Teppefliser remain, so his block is open.
+    const ill: Workspace = { ...ws, unavailability: [...ws.unavailability!, ...sick(ANDERS, [MON])] }
+    expect(openUnresolved(ill).map((a) => a.personId)).toEqual([ANDERS])
+    // Hanne covers half of it: still open.
+    const half = withAssignmentsOf(ill, paintDays(ill, [{ personId: HANNE, date: MON }], 'teppefliser', { span: 'full', mode: 'fill' }, id))
+    expect(dayBalance(half, 'teppefliser', MON).remaining).toBe(7.5)
+    expect(openUnresolved(half)).toHaveLength(1)
+    // Per covers the rest: the demand is met, so nothing is left to solve, though the block still does not count.
+    const covered = withAssignmentsOf(half, paintDays(half, [{ personId: PER, date: MON }], 'teppefliser', { span: 'full', mode: 'fill' }, id))
+    expect(dayBalance(covered, 'teppefliser', MON).remaining).toBe(0)
+    expect(openUnresolved(covered)).toEqual([])
+    expect(unresolvedAssignments(covered)).toHaveLength(1)
+    expect(openUnresolved(ws)).toEqual([])
   })
 
   it('marks a block unresolved when it runs into a part of the day the person is away', () => {
