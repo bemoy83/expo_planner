@@ -55,8 +55,11 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
 
   /** Says so when rows already planned in the Kalender followed the product type to its new competence. */
   const changeCompetence = (name: string, unit: string, competence: string) => {
-    const moved = setKpi(setCompetence(kpi, name, unit, competence))
-    if (moved) setMessage({ kind: 'ok', text: `${name} er nå ${competence}. ${moved === 1 ? '1 planlagt rad' : `${moved} planlagte rader`} i Kalender fulgte med til ${competence}, med FTE. Kan angres med Ctrl/Cmd+Z.` })
+    const { rows, replaced } = setKpi(setCompetence(kpi, name, unit, competence))
+    if (!rows && !replaced.length) return
+    const followed = rows ? ` ${rows === 1 ? '1 planlagt rad' : `${rows} planlagte rader`} i Kalender fulgte med til ${competence}, med FTE.` : ''
+    const people = replaced.length ? ` ${replaced.join(', ')} finnes ikke lenger: de som hadde den har nå ${competence}, og blokkene deres i Bemanning fulgte med.` : ''
+    setMessage({ kind: 'ok', text: `${name} er nå ${competence}.${followed}${people} Kan angres med Ctrl/Cmd+Z.` })
   }
 
   const diff = pending ? diffKpi(kpi, pending.incoming).workTypes : null

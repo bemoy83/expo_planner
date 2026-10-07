@@ -6,6 +6,7 @@ import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
 import { locateDemand, withAlias } from '../domain/locations'
+import { competenceStyles, replaceCompetence, supersededCompetences } from '../domain/competences'
 import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
@@ -44,8 +45,11 @@ interface WorkspaceStore {
   importProjects: (projects: ProjectRef[]) => number
   /** Shows or hides hall bookings in the Kalender; keys come from `venueKey`. */
   setVenueHidden: (keys: string[], hidden: boolean) => void
-  /** Replaces the KPI setup and recalculates all Visma lines. Returns how many planned rows followed a product type to its new competence. */
-  setKpi: (kpi: KpiConfig) => number
+  /**
+   * Replaces the KPI setup and recalculates all Visma lines. Returns how many planned rows followed a product type
+   * to its new competence, and the competences that were replaced for the people because nothing else names them any more.
+   */
+  setKpi: (kpi: KpiConfig) => { rows: number; replaced: string[] }
   /** Takes in a Visma export; each project in it replaces that project's earlier Visma lines. Returns the project numbers. */
   importVisma: (rows: VismaRow[], fileName: string) => string[]
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
@@ -415,21 +419,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const setKpi = useCallback(
     (kpi: KpiConfig) => {
       const ws = current.current
-      if (!ws) return 0
+      if (!ws) return { rows: 0, replaced: [] }
       const visma = ws.visma ?? []
       const { demand, write } = withVismaLines(ws, visma.map((v) => v.projectNo), kpi, ws.overrides ?? {}, visma)
       // Rows already planned for a product type that was given another competence follow it there, in the same step.
       const moved = new Map(followCompetence(ws.allocations, ws.kpi ?? EMPTY_KPI, kpi, ws.demand, demand).map((row) => [row.id, row]))
-      const next = { ...ws, kpi, demand, allocations: moved.size ? ws.allocations.map((row) => moved.get(row.id) ?? row) : ws.allocations }
+      const planned: Workspace = { ...ws, kpi, demand, allocations: moved.size ? ws.allocations.map((row) => moved.get(row.id) ?? row) : ws.allocations }
+      // A competence that only people name after the change is replaced for them too: who had it, their blocks, its colour.
+      const replaced = supersededCompetences(ws.kpi ?? EMPTY_KPI, planned)
+      const next = replaced.reduce((w, { from, to }) => replaceCompetence(w, from, to), planned)
+      const staffing = emptyChange()
+      recordStaffing(staffing, ws, next)
       commit(
         next,
-        () => Promise.all([writeDemand({ ...write, kpi }), ...[...moved.values()].map(rowWrites.put)]),
+        () => Promise.all([writeDemand({ ...write, kpi }), ...[...moved.values()].map(rowWrites.put), putStaffing(changeWrites(staffing, 'redo').staffing)]),
         (step) => {
           recordLedger(step, ws, next)
+          recordStaffing(step, ws, next)
           for (const row of ws.allocations) if (moved.has(row.id)) recordAllocation(step, row.id, row, moved.get(row.id)!)
         },
       )
-      return moved.size
+      return { rows: moved.size, replaced: replaced.map(({ from }) => competenceStyles(ws).find((style) => style.key === from)?.label ?? from) }
     },
     [commit],
   )

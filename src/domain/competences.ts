@@ -1,4 +1,4 @@
-import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type LineColor, type Person, type Workspace } from './types'
+import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type KpiConfig, type LineColor, type Person, type Workspace } from './types'
 
 /**
  * The competences of Bemanning and the people who have them. The list of competences is derived: it is
@@ -99,4 +99,40 @@ export const removePerson = (ws: Workspace, id: string): Workspace => ({
 export const staffedCompetences = (ws: Workspace): CompetenceStyle[] => {
   const held = new Set((ws.persons ?? []).filter((p) => p.active).flatMap((p) => p.competences))
   return competenceStyles(ws).filter((style) => held.has(style.key))
+}
+
+/**
+ * The competences a change of the product types has done away with: every product type that had it was
+ * given one and the same other competence, and no product type, demand line or planning row names it any
+ * more. Only people and their blocks still do. `after` is the workspace with the change made.
+ */
+export const supersededCompetences = (kpiBefore: KpiConfig, after: Workspace): { from: CompetenceKey; to: string }[] => {
+  const was = new Map(kpiBefore.workTypes.map((type) => [type.name.trim().toLowerCase(), type.competence]))
+  const wentTo = new Map<CompetenceKey, Set<string>>()
+  for (const type of after.kpi?.workTypes ?? []) {
+    const old = competenceKey(was.get(type.name.trim().toLowerCase()) ?? '')
+    if (!old || !type.competence.trim() || old === competenceKey(type.competence)) continue
+    wentTo.set(old, (wentTo.get(old) ?? new Set()).add(type.competence.trim()))
+  }
+  const inData = new Set([...(after.kpi?.workTypes ?? []).map((type) => type.competence), ...after.demand.map((line) => line.competence), ...after.allocations.map((row) => row.competence)].map(competenceKey))
+  return [...wentTo].filter(([from, targets]) => targets.size === 1 && !inData.has(from)).map(([from, targets]) => ({ from, to: [...targets][0] }))
+}
+
+/**
+ * Replaces a competence by another for the people: those who had it get the new one, their blocks and
+ * moved hours follow, and the new one takes over its colour and place unless it has its own already.
+ */
+export const replaceCompetence = (ws: Workspace, from: CompetenceKey, toLabel: string): Workspace => {
+  const to = competenceKey(toLabel)
+  if (!to || to === from) return ws
+  const swap = <T extends { competence: CompetenceKey }>(list: T[] | undefined) => (list?.some((item) => item.competence === from) ? list.map((item) => (item.competence === from ? { ...item, competence: to } : item)) : list)
+  const persons = ws.persons?.some((person) => person.competences.includes(from))
+    ? ws.persons.map((person) => (person.competences.includes(from) ? { ...person, competences: [...new Set(person.competences.map((key) => (key === from ? to : key)))] } : person))
+    : ws.persons
+  let styles = ws.competenceStyles
+  if (styles?.[from]) {
+    const { [from]: old, ...rest } = styles
+    styles = rest[to] ? rest : { ...rest, [to]: { ...old, key: to, label: toLabel.trim(), shortLabel: defaultShortLabel(toLabel.trim()) } }
+  }
+  return { ...ws, persons, assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), competenceStyles: styles }
 }

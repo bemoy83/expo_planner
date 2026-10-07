@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
+import { replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
 import { DEFAULT_SETTINGS, LINE_COLORS, type AllocationRow, type Workspace } from './types'
 
 const row = (competence: string): AllocationRow => ({ id: `row-${competence}`, order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering', basis: 'Planlagt', importedHours: null, fte: {}, notes: {} })
@@ -88,5 +88,54 @@ describe('people', () => {
     expect(after.persons!.map((p) => p.id)).toEqual(['p2'])
     expect(after.unavailability).toEqual([])
     expect(after.assignments!.map((a) => a.id)).toEqual(['s2'])
+  })
+})
+
+describe('a competence that is replaced', () => {
+  const kpiOf = (competences: Record<string, string>) => ({ workTypes: Object.entries(competences).map(([name, competence]) => ({ name, productType: name, unit: 'stk', competence })), rates: [] })
+  const before = kpiOf({ Skilt: 'Skilting', Bannere: 'Skilting', Fliser: 'Teppefliser' })
+  const staffed: Workspace = {
+    ...base,
+    allocations: [row('Teppefliser')],
+    persons: [
+      { id: 'p1', name: 'Anna', order: 0, active: true, competences: ['skilting', 'teppefliser'] },
+      { id: 'p2', name: 'Bo', order: 1, active: true, competences: ['skilting', 'print'] },
+      { id: 'p3', name: 'Cato', order: 2, active: true, competences: ['teppefliser'] },
+    ],
+    assignments: [
+      { id: 'a1', personId: 'p1', date: '2026-10-12', competence: 'skilting', start: 420, end: 900, source: 'manual' },
+      { id: 'a2', personId: 'p3', date: '2026-10-12', competence: 'teppefliser', start: 420, end: 900, source: 'manual' },
+    ],
+    demandAdjustments: [{ id: 'adj', competence: 'skilting', date: '2026-10-13', hours: 3, reason: 'carry', createdAt: '' }],
+  }
+
+  it('is one that every product type left for the same other competence, and that no data names any more', () => {
+    expect(supersededCompetences(before, { ...staffed, kpi: kpiOf({ Skilt: 'Print', Bannere: 'Print', Fliser: 'Teppefliser' }) })).toEqual([{ from: 'skilting', to: 'Print' }])
+    // One product type still has it.
+    expect(supersededCompetences(before, { ...staffed, kpi: kpiOf({ Skilt: 'Print', Bannere: 'Skilting', Fliser: 'Teppefliser' }) })).toEqual([])
+    // They went to two competences.
+    expect(supersededCompetences(before, { ...staffed, kpi: kpiOf({ Skilt: 'Print', Bannere: 'Banner', Fliser: 'Teppefliser' }) })).toEqual([])
+    // A planning row still names it.
+    expect(supersededCompetences(before, { ...staffed, allocations: [row('Skilting')], kpi: kpiOf({ Skilt: 'Print', Bannere: 'Print', Fliser: 'Teppefliser' }) })).toEqual([])
+    expect(supersededCompetences(before, { ...staffed, kpi: before })).toEqual([])
+  })
+
+  it('gives the people who had it the new one, with their blocks and moved hours', () => {
+    const next = replaceCompetence(staffed, 'skilting', 'Print')
+    expect(next.persons!.map((p) => p.competences)).toEqual([['print', 'teppefliser'], ['print'], ['teppefliser']])
+    expect(next.persons![2]).toBe(staffed.persons![2])
+    expect(next.assignments!.map((a) => a.competence)).toEqual(['print', 'teppefliser'])
+    expect(next.demandAdjustments![0].competence).toBe('print')
+    expect(replaceCompetence(staffed, 'skilting', 'Skilting ')).toBe(staffed)
+  })
+
+  it('hands its colour and place to the new one, unless that has its own', () => {
+    const styled: Workspace = { ...staffed, competenceStyles: setCompetenceStyle(staffed, 'skilting', { color: 'line-rose' }) }
+    const order = styled.competenceStyles!.skilting.order
+    const next = replaceCompetence(styled, 'skilting', 'Print')
+    expect(next.competenceStyles!.skilting).toBeUndefined()
+    expect(next.competenceStyles!.print).toMatchObject({ key: 'print', color: styled.competenceStyles!.print.color })
+    const fresh = replaceCompetence(styled, 'skilting', 'Folie')
+    expect(fresh.competenceStyles!.folie).toMatchObject({ key: 'folie', label: 'Folie', shortLabel: 'FOL', color: 'line-rose', order })
   })
 })
