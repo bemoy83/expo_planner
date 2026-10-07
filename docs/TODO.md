@@ -64,14 +64,13 @@ Visma and demand
 - The hall rule is fixed in code: first letter of the stand, else the text in `Trans.opplysn. 1`. Department numbers (64, 65, 32) have no names. Neither is editable.
 - A product type cannot be renamed in place; add the new name and delete the old.
 - One count in the VVS 2026 export differs from the workbook (Fritekst Foga, avd. 65, Hall D: 2 from the export, 3 in the workbook). Not investigated.
-- "Ta alle inn i plan" skips lines that give no hours, without saying how many it skipped.
 - Editing a workbook line under "Egne linjer og historikk" marks it as the planner's own line from then on.
 
 Projects and halls
 
 - Matching an event to a project number is by exact name only. No suggestions for near matches such as "VVS 2026" and "VVS DAGENE 2026"; the user wants any such suggestions to be confirmed by hand.
 - Hall ticks and project numbers are stored by event name and date. If Venyou renames an event or moves its start, the booking counts as new and the choices do not follow.
-- In the hall calendar an event's name sits on the first day of the arrangement phase in the hall and scrolls away with it. The build-up days before it carry no name, and nothing tells which event a stretch belongs to once that day is out of view, other than the tooltip on each day.
+- In the hall calendar an event's name starts on the first day of the arrangement phase in the hall and stays at the left edge of the days while the rest of its stretch is in view. The build-up days before it still carry no name: with only those in view, nothing but the tooltip tells which event they belong to.
 - "Bare messehaller" in the Kalender is a guess: halls where at least half the bookings have build-up or tear-down periods.
 - A Venyou export covers one period. Planning the next year needs a second export; this works but has only been tried with one.
 - After the first import, the app's hall ticks win over the workbook's Exclude column.
@@ -84,7 +83,6 @@ Kalender
 - The grouping and the folded levels are kept per browser (localStorage), not in the workspace or the backup.
 - Demand whose Hall/Sted names no hall on Haller is gathered under «Uavklart» until the planner picks a hall under Plassering on Behov. The choice is for the text and applies in every project; there is no choice for one line or one project only, no table listing the choices, and lines with an empty Hall/Sted cannot be placed. A hall letter with several numbered halls («Hall B» with B1–B4) is left unresolved until chosen.
 - If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. Rows made for several texts that are now all «Uavklart» each show the whole unresolved demand.
-- After filling a range and pressing Enter, the selection collapses to one cell. Excel keeps the range.
 - Selecting by dragging follows the mouse past the left and right edges but not up or down.
 - The fill handle works sideways and to the right of the block's first day only: it does not copy down to other rows, and it cannot be dragged left past the start. Stretching (Alt) on several rows stretches each row by itself.
 - The pencil («Fordel behov») shares in whole people, evenly, with what does not divide on the first days and the decimals on the last day. A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.

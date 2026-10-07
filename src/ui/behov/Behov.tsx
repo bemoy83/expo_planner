@@ -136,6 +136,15 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) => setLineOverride(line.projectNo, line.key, withRef(line, patch))
   /** Takes the given lines in or out of the plan in one go, so the project is recalculated once. */
   const setInPlan = (lines: VismaLine[], inPlan: boolean) => setLineOverrides(projectNo, lines.map((line) => ({ key: line.key, patch: withRef(line, { inPlan }) })))
+  /** «Ta alle inn i plan» leaves the lines that give no hours, and says how many. */
+  const takeAllIn = () => {
+    const open = vismaLines.filter((l) => !l.inPlan)
+    const taken = open.filter((l) => !l.issue)
+    setInPlan(taken, true)
+    const skipped = open.length - taken.length
+    const lines = (n: number) => `${n} ${n === 1 ? 'linje' : 'linjer'}`
+    setMessage({ kind: 'ok', text: `Tok ${lines(taken.length)} inn i plan.${skipped ? ` ${lines(skipped)} gir ingen timer og ble stående: de mangler produkttype eller sats.` : ''}` })
+  }
   const plannedCount = vismaLines.filter((l) => l.inPlan).length
   const projectName = projects.find(([no]) => no === projectNo)?.[1] ?? ''
 
@@ -234,7 +243,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                 <span className="toolbar-gap" />
                 {vismaLines.length > 0 && (
                   <>
-                    <button onClick={() => setInPlan(vismaLines.filter((l) => !l.inPlan && !l.issue), true)}>Ta alle inn i plan</button>
+                    <button onClick={takeAllIn}>Ta alle inn i plan</button>
                     <button onClick={() => setInPlan(vismaLines.filter((l) => l.inPlan), false)}>Ta alle ut</button>
                   </>
                 )}

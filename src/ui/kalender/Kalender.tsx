@@ -530,12 +530,14 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     setDraft,
     commitDraft: () => commitDraft(),
     draftKey: (e) => {
+      // A number typed over several cells fills them all, and they stay selected, as in Excel; on a single cell Enter and Tab move on.
+      const several = !!selectionRange && (selectionRange.lane0 !== selectionRange.lane1 || selectionRange.col0 !== selectionRange.col1)
       if (e.key === 'Enter') {
         e.preventDefault()
-        commitDraft(() => move(e.shiftKey ? -1 : 1, 0))
+        commitDraft(several ? undefined : () => move(e.shiftKey ? -1 : 1, 0))
       } else if (e.key === 'Tab') {
         e.preventDefault()
-        commitDraft(() => move(0, e.shiftKey ? -1 : 1))
+        commitDraft(several ? undefined : () => move(0, e.shiftKey ? -1 : 1))
       } else if (e.key === 'Escape') {
         setDraft(null)
         scrollRef.current?.focus({ preventScroll: true })

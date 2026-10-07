@@ -72,7 +72,9 @@
 /* a day two events share */
 .hall-bar.shared{background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px)!important}
 /* An event's name, anchored to the first day of the arrangement in the hall. */
-.hall-label{position:absolute;top:0;bottom:0;z-index:1;padding-left:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600;color:var(--text);pointer-events:none}
+/* an event's name: the run is the stretch it may move in, and the name sticks to the left edge of the days inside it */
+.hall-label-run{position:absolute;top:0;bottom:0;z-index:1;display:flex;pointer-events:none}
+.hall-label{position:sticky;padding-left:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600;color:var(--text);pointer-events:none}
 /* Pointing at a project lights its bars and its halls, and a click on its name keeps them lit; the rule that picks the project is written by useProjectHover. */
 .hall-bar,.hall-label,.lbl-hall{transition:opacity .12s}
 .ph-assembly{background:var(--ph-assembly)!important}

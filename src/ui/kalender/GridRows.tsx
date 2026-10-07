@@ -192,8 +192,11 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
             )
           })}
           {labels.map((label) => (
-            <span key={`${label.eventName}:${label.col}`} className="hall-label" data-project={label.project} style={{ left: LEFT_W + label.col * colW, maxWidth: label.width }}>
-              {label.eventName}
+            // The name starts on its day and stays at the left edge of the days for as long as its event is in view.
+            <span key={`${label.eventName}:${label.col}`} className="hall-label-run" style={{ left: LEFT_W + label.col * colW, width: Math.max(label.span * colW, label.width) }}>
+              <span className="hall-label" data-project={label.project} style={{ left: LEFT_W, maxWidth: label.width }}>
+                {label.eventName}
+              </span>
             </span>
           ))}
         </>
