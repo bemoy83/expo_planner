@@ -1,8 +1,8 @@
 /* Bemanning: one week of people against the demand per competence. A grid of a label column, five days and a narrow weekend. */
 
-.bemanning{display:flex;flex-direction:column;flex:1;min-height:0;--bm-hatch:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 12%,transparent) 0 1px,transparent 1px 5px);--bm-rule:color-mix(in srgb,var(--line) 55%,transparent)}
+.bemanning{display:flex;flex-direction:column;flex:1;min-height:0;--bm-hatch:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 12%,transparent) 0 1px,transparent 1px 5px)}
 .bm-week-picker{display:flex;align-items:center;gap:2px}
-.bm-week-picker b{padding:0 4px;font:500 13px var(--font-num);white-space:nowrap}
+.bm-week-picker b{padding:0 4px;font:500 var(--fs-md) var(--font-num);white-space:nowrap}
 .bm-week-picker b span{font-weight:400;color:var(--muted)}
 .bm-crew-hint{color:var(--faint)}
 
@@ -10,8 +10,7 @@
 .bm-grid{min-width:1080px;padding-bottom:40px}
 .bm-row{display:grid;grid-template-columns:268px repeat(5,minmax(136px,1fr)) repeat(2,64px)}
 .bm-label{position:sticky;left:0;z-index:3;display:flex;align-items:center;gap:8px;min-width:0;padding:0 12px 0 16px;background:var(--bg);border-right:1px solid var(--line)}
-.bm-eyebrow{font-family:var(--font-num);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
-.bm-label-note{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--font-num);color:var(--faint)}
+.bm-label-note{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
 .bm-label-end{margin-left:auto}
 .bm-label-text{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bm-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md);font-weight:500}
@@ -21,13 +20,13 @@
 .bm-need.focus-day,.bm-free.focus-day,.bm-cell.focus-day{background-color:color-mix(in srgb,var(--accent) 5%,transparent)}
 
 /* ---- the pinned top: dates, demand, free capacity ---- */
-.bm-strip{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line-strong);box-shadow:0 10px 18px -16px color-mix(in srgb,var(--text) 35%,transparent)}
+.bm-strip{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line-strong);box-shadow:0 10px 18px -16px var(--shadow)}
 .bm-strip .bm-label{z-index:11}
 .bm-dates{height:40px;border-bottom:1px solid var(--line)}
 .bm-dates .bm-label{gap:10px}
-.bm-date{position:relative;flex-direction:column;gap:1px;padding:0;border-radius:0;border-right:1px solid var(--bm-rule);background:transparent;font-family:var(--font-num);line-height:1.05}
-.bm-date:not(.off-day):hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
-.bm-date span{font-size:10px;color:var(--faint)}
+.bm-date{position:relative;flex-direction:column;gap:1px;padding:0;border-radius:0;border-right:1px solid var(--rule);background:transparent;font-family:var(--font-num);line-height:1.05}
+.bm-date:not(.off-day):hover{background:var(--wash)}
+.bm-date span{font-size:var(--fs-2xs);color:var(--faint)}
 .bm-date b{font-size:12.5px;font-weight:500}
 .bm-date[aria-pressed='true']::before{content:'';position:absolute;inset:5px 8px;border-radius:7px;background:var(--accent-soft)}
 .bm-date[aria-pressed='true']>*{position:relative;color:var(--accent);font-weight:700}
@@ -39,12 +38,11 @@
 .bm-section-toggle:hover{background:transparent}
 .bm-section-toggle:hover .bm-eyebrow{color:var(--text)}
 
-.bm-demand{height:38px;border-bottom:1px solid var(--bm-rule)}
-.bm-demand .swatch{width:10px;height:10px;background:var(--cc)}
-.bm-week-left{margin-left:auto;font:600 12px var(--font-num);white-space:nowrap}
+.bm-demand{height:38px;border-bottom:1px solid var(--rule);transition:opacity 160ms var(--ease)}
+.bm-week-left{margin-left:auto;font:600 var(--fs-sm) var(--font-num);white-space:nowrap}
 .bm-week-left em{font-weight:400;font-style:normal;color:var(--faint)}
-.bm-need{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:5px;min-width:0;padding:0 10px;border-radius:0;border-right:1px solid var(--bm-rule);background-color:transparent;color:var(--text)}
-button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--text) 4%,transparent),color-mix(in srgb,var(--text) 4%,transparent))}
+.bm-need{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:5px;min-width:0;padding:0 10px;border-radius:0;border-right:1px solid var(--rule);background-color:transparent;color:var(--text)}
+button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-need.narrow{align-items:center;padding:0 6px}
 .bm-need.narrow .bm-bar{align-self:stretch}
 .bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
@@ -56,7 +54,7 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-number.uncoverable{color:var(--neg)}
 .bm-number.slide-in{animation:bm-slide-in 600ms var(--ease)}
 @keyframes bm-slide-in{from{transform:translateY(-4px);opacity:.2}}
-.bm-carried{margin-right:auto;font:500 10px var(--font-num);color:var(--over)}
+.bm-carried{margin-right:auto;font:500 var(--fs-2xs) var(--font-num);color:var(--over)}
 .bm-bar{position:relative;height:4px;border-radius:3px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
 .bm-bar i{position:absolute;top:0;bottom:0;left:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
 .bm-bar .covered{background:var(--cc)}
@@ -65,51 +63,46 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--neg) 0 1.5px,transparent 1.5px 3.5px)}
 
 .bm-capacity{height:30px}
-.bm-free{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px;border-right:1px solid var(--bm-rule);font-family:var(--font-num)}
-.bm-free b{font-size:12px;font-weight:500}
+.bm-free{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px;border-right:1px solid var(--rule);font-family:var(--font-num)}
+.bm-free b{font-size:var(--fs-sm);font-weight:500}
 .bm-free em{font-size:10.5px;font-style:normal;color:var(--faint)}
 
 /* a competence in focus: its line is lit, the others step back */
 .bm-pick{border-radius:0;font:inherit;text-align:left;justify-content:flex-start;cursor:pointer}
-.bm-pick:hover{background:color-mix(in srgb,var(--text) 4%,var(--bg))}
+.bm-pick:hover,.bm-person-label:hover{background:var(--wash-bg)}
 .bm-pick:disabled{opacity:1;cursor:default}
 .bm-pick:disabled:hover{background:var(--bg)}
-.bm-demand{transition:opacity 160ms var(--ease)}
 .bm-demand.dim{opacity:.42}
 .bm-demand.dim:hover{opacity:.8}
 .bm-demand.on{background:color-mix(in oklch,var(--cc) 7%,var(--bg))}
 .bm-demand.on .bm-pick{background:var(--surface);box-shadow:inset 3px 0 0 var(--cc)}
-.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklch,var(--cc) 14%,transparent);color:var(--cc);font:600 11px var(--font-num)}
+.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklch,var(--cc) 14%,transparent);color:var(--cc);font:600 var(--fs-xs) var(--font-num)}
 
 /* ---- the bar with the tools and the brush ---- */
-.bm-tools button{height:32px;font-size:13px}
-.bm-tools .segmented{height:32px}
-.bm-tools .segmented button{height:26px}
-.bm-brush{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:color-mix(in oklch,var(--cc) 14%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--cc);font-size:13px;font-weight:600}
-.bm-brush .swatch{width:10px;height:10px;background:var(--cc)}
+.bm-brush{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:color-mix(in oklch,var(--cc) 14%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--cc);font-size:var(--fs-md);font-weight:600}
 .bm-brush .row-action{height:22px}
 .bm-hints{display:flex;gap:10px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--faint)}
 .bm-hints b{font-weight:500;color:var(--muted)}
-.bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--neg-bg);color:var(--neg);font-size:13px;font-weight:500}
-.bm-unresolved button{height:22px;padding:0 8px;border-radius:6px;background:transparent;color:inherit;font-size:12px;font-weight:600}
+.bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-md);font-weight:500}
+.bm-unresolved button{height:22px;padding:0 8px;border-radius:6px;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:600}
 .bm-unresolved button:hover{background:color-mix(in srgb,var(--neg) 12%,transparent)}
 
-/* what a click on a day of a demand line opens */
-.bm-demand-pop{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:13px}
-.bm-demand-pop p{margin:0}
-.bm-pop-head{display:flex;align-items:center;gap:8px;font-size:14px}
-.bm-pop-head .swatch{width:10px;height:10px;background:var(--cc)}
-.bm-pop-head span{margin-left:auto;font-size:12px;color:var(--muted)}
+/* what opens at the pointer: the balance of a day of a demand line, and the question a full-day paint asks */
+.bm-demand-pop,.bm-ask{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:var(--fs-md)}
+.bm-demand-pop p,.bm-ask p{margin:0}
+.bm-ask p{line-height:1.45}
+.bm-pop-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-base)}
+.bm-pop-head span{margin-left:auto;font-size:var(--fs-sm);color:var(--muted)}
 .bm-pop-stats{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-radius:8px;background:var(--weekend)}
 .bm-pop-stats div{display:flex;flex-direction:column;gap:2px;padding:0 12px}
 .bm-pop-stats div+div{border-left:1px solid var(--line)}
-.bm-pop-stats span{font-size:11px;color:var(--muted)}
+.bm-pop-stats span{font-size:var(--fs-xs);color:var(--muted)}
 .bm-pop-stats b{font:600 18px var(--font-num);letter-spacing:-.02em}
 .bm-pop-carry{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
-.bm-pop-carry label{font-size:12px;color:var(--muted)}
+.bm-pop-carry label{font-size:var(--fs-sm);color:var(--muted)}
 .bm-pop-carry div{display:flex;align-items:center;gap:6px}
-.bm-pop-carry input{width:52px;text-align:right;font:500 13px var(--font-num)}
-.bm-pop-carry span{margin-right:auto;font:400 12px var(--font-num);color:var(--faint)}
+.bm-pop-carry input{width:52px;text-align:right;font:500 var(--fs-md) var(--font-num)}
+.bm-pop-carry span{margin-right:auto;font:400 var(--fs-sm) var(--font-num);color:var(--faint)}
 
 /* a person's absence */
 .bm-absence{width:min(520px,calc(100vw - 32px))}
@@ -117,43 +110,39 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-absence li{display:flex;align-items:center;gap:10px;padding:2px 0 2px 10px;border-radius:6px;background:var(--panel);font-size:var(--fs-md)}
 .bm-absence li span{flex:1;font-family:var(--font-num);font-size:var(--fs-sm);color:var(--muted)}
 
-.bm-ask{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80}
-.bm-ask p{margin:0;font-size:13px;line-height:1.45}
-
 /* ---- the people ---- */
 .bm-person{height:46px}
-.bm-person .bm-label,.bm-timeline-row .bm-label{gap:6px;border-bottom:1px solid var(--bm-rule)}
+.bm-person .bm-label,.bm-timeline-row .bm-label{gap:6px;border-bottom:1px solid var(--rule)}
 .bm-person-label{padding-left:10px;cursor:pointer}
-.bm-person-label:hover{background:color-mix(in srgb,var(--text) 4%,var(--bg))}
 .bm-person-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .bm-dots{display:flex;gap:3px}
 .bm-dots i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line-strong) 70%,transparent)}
 .bm-dots i.has{background:var(--cc);box-shadow:none}
 .bm-dots i.focused{outline:1.5px solid var(--cc);outline-offset:1.5px}
-.bm-person-week{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 11px var(--font-num);color:var(--faint);white-space:nowrap}
+.bm-person-week{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
 .bm-person-week b{font-weight:600;color:var(--text)}
 .bm-person-week em{font-style:normal;color:var(--muted)}
 .bm-person-week>i{display:block;width:52px;height:3px;border-radius:2px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
 .bm-person-week>i>i{display:block;height:100%;background:var(--muted);transition:width 280ms var(--ease)}
 
-.bm-cell{position:relative;min-width:0;border-right:1px solid var(--bm-rule);border-bottom:1px solid var(--bm-rule)}
+.bm-cell{position:relative;min-width:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
 .bm-cell.off-day{background:var(--weekend) var(--bm-hatch)}
 .bm-cell.away{background-image:var(--bm-hatch)}
 .bm-cell.sick{background-color:color-mix(in srgb,var(--neg) 4%,transparent)}
 .bm-timeline{position:absolute;inset:7px 5px}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--bm-hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
-.bm-block b{overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:600}
+.bm-block b{overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);font-weight:600}
 .bm-block em{margin-left:auto;font:400 10.5px var(--font-num);font-style:normal;opacity:.85}
-/* a block whose hours are back in the demand: hatched, outlined in its colour */
-.bm-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
-.bm-block.other,.bm-off-blocks>i.other{opacity:.28}
+/* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the editors. */
+.bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
+.bm-block.other,.bm-edit-block.other,.bm-off-blocks>i.other{opacity:.28}
 
 /* what the pointer does to a day: the brush outlines it in its colour (dashed for half a day), the eraser in red */
 .bm-scroll[data-tool='paint'] .bm-cell{cursor:cell}
 .bm-scroll[data-tool='erase'] .bm-cell{cursor:crosshair}
 .bm-scroll[data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
-.bm-cell.selected{z-index:1;box-shadow:inset 0 0 0 1.5px var(--line-strong);background-color:color-mix(in srgb,var(--text) 5%,transparent)}
+.bm-cell.selected{z-index:1;box-shadow:inset 0 0 0 1.5px var(--line-strong);background-color:var(--wash)}
 .bm-scroll[data-tool='paint']:not([data-half]) .bm-cell:not(.blocked):not(.stroke):hover{box-shadow:inset 0 0 0 1.5px var(--bc)}
 .bm-scroll[data-tool='paint'][data-half] .bm-cell:not(.blocked):not(.stroke):hover,.bm-cell.stroke.paint-half:not(.blocked){outline:1.5px dashed var(--bc);outline-offset:-3px}
 .bm-cell.stroke.paint:not(.blocked){background-color:color-mix(in oklch,var(--bc) 12%,transparent);box-shadow:inset 0 0 0 2px var(--bc)}
@@ -163,8 +152,8 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 /* unresolved, but the day is covered by others: a faint trace of what was planned */
 .bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 60%,transparent)}
 .bm-off-blocks>i.replaced{opacity:.4}
-.bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:italic;color:var(--muted)}
-.bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-size:11px;font-weight:600;white-space:nowrap}
+.bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-style:italic;color:var(--muted)}
+.bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
 .bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 9.5px var(--font-num);color:var(--faint)}
 .bm-ot-tag{position:absolute;right:-2px;top:-6px;z-index:3;padding:0 4px;border-radius:4px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line-strong);font:600 9.5px/13px var(--font-num)}
 .bm-off-blocks{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px}
@@ -179,14 +168,14 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-expand{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--muted)}
 .bm-pinned{border-bottom:2px solid var(--line-strong)}
 .bm-ghost{height:30px;cursor:pointer}
-.bm-ghost .bm-label{gap:8px;padding-left:12px;border-bottom:1px solid var(--bm-rule);background:var(--sunken);color:var(--muted)}
-.bm-ghost>span{grid-column:2/-1;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--bm-rule);background:var(--sunken);font-size:var(--fs-sm);color:var(--muted)}
+.bm-ghost .bm-label{gap:8px;padding-left:12px;border-bottom:1px solid var(--rule);background:var(--sunken);color:var(--muted)}
+.bm-ghost>span{grid-column:2/-1;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--rule);background:var(--sunken);font-size:var(--fs-sm);color:var(--muted)}
 .bm-ghost:hover .bm-label,.bm-ghost:hover>span{color:var(--text)}
 
 /* the competences an open person is painted with */
 .bm-quick{display:flex;flex-wrap:wrap;gap:4px}
 .bm-quick button{justify-content:flex-start;height:22px;padding:0 6px;border-radius:6px;font-size:11.5px;font-weight:500;white-space:nowrap}
-.bm-quick button .swatch{width:8px;height:8px;border-radius:2px;background:var(--cc)}
+.bm-quick button .swatch{width:8px;height:8px;border-radius:2px}
 .bm-quick button:hover{background:color-mix(in oklch,var(--cc) 14%,var(--sunken))}
 .bm-quick button.on{background:color-mix(in oklch,var(--cc) 16%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--cc);font-weight:600}
 .bm-quick.long{flex-direction:column;align-items:stretch;padding-left:20px}
@@ -197,16 +186,16 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-week-editor .bm-label{display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:stretch;gap:0;padding:0;background:var(--surface);border-bottom:1px solid var(--line-strong)}
 .bm-editor-info{display:flex;flex-direction:column;gap:10px;min-width:0;padding:0 8px 12px 10px}
 .bm-editor-head{justify-content:flex-start;gap:6px;margin:0 -8px 0 -10px;padding:12px 8px 6px 10px;border-radius:0;background:transparent}
-.bm-editor-head:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
-.bm-editor-head .bm-name{font-size:14px;font-weight:600}
-.bm-editor-info dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;padding-left:20px;font-size:12px}
+.bm-editor-head:hover{background:var(--wash)}
+.bm-editor-head .bm-name{font-size:var(--fs-base);font-weight:600}
+.bm-editor-info dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;padding-left:20px;font-size:var(--fs-sm)}
 .bm-editor-info dt{color:var(--muted)}
 .bm-editor-info dd{margin:0;font-family:var(--font-num);text-align:right}
 .bm-editor-info dd.has{font-weight:600}
 .bm-editor-step{display:flex;gap:2px;padding-left:16px}
 .bm-editor-hint{padding-left:20px;font-size:11.5px;color:var(--faint);text-wrap:pretty}
 .bm-axis{position:relative;margin:12px 0}
-.bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 10px var(--font-num);color:var(--faint)}
+.bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .bm-axis span.day-edge{color:var(--text);font-weight:600}
 .bm-week-editor .bm-cell{border-bottom:1px solid var(--line-strong)}
 .bm-editor-cell.off-day{background-image:none}
@@ -217,7 +206,7 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-ruler span{position:absolute;transform:translateX(-50%);font:400 9.5px var(--font-num);color:var(--faint)}
 .bm-ruler span:first-child{transform:none}
 .bm-ruler span:last-child{transform:translateX(-100%)}
-.bm-overtime-only{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--faint);writing-mode:vertical-rl;transform:rotate(180deg)}
+.bm-overtime-only{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:var(--faint);writing-mode:vertical-rl;transform:rotate(180deg)}
 
 /* the track of a day: a recessed strip with hour lines, hatched where time is overtime, lunch, or away */
 .bm-track{position:absolute;border-radius:6px;background-color:var(--sunken)}
@@ -231,20 +220,19 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
 .bm-band.lunch{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 10%,transparent) 0 1px,transparent 1px 3px)}
 .bm-band.away{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 16%,transparent) 0 1px,transparent 1px 4px) color-mix(in srgb,var(--text) 4%,transparent)}
 .bm-rule{position:absolute;left:0;right:0;height:0;border-top:1px solid color-mix(in srgb,var(--text) 28%,transparent);pointer-events:none}
-.bm-track-away{position:absolute;top:40%;left:0;right:0;text-align:center;font-size:12px;font-style:italic;color:var(--muted);pointer-events:none}
+.bm-track-away{position:absolute;top:40%;left:0;right:0;text-align:center;font-size:var(--fs-sm);font-style:italic;color:var(--muted);pointer-events:none}
 .bm-track.row .bm-track-away{top:0;bottom:0;display:flex;align-items:center;justify-content:center}
-.bm-track-note{position:absolute;left:6px;margin-top:4px;font:400 10px var(--font-num);color:var(--muted);pointer-events:none}
+.bm-track-note{position:absolute;left:6px;margin-top:4px;font:400 var(--fs-2xs) var(--font-num);color:var(--muted);pointer-events:none}
 .bm-track .bm-sick{top:12px;transform:none}
 
 .bm-edit-block{position:absolute;display:flex;flex-direction:column;gap:1px;overflow:hidden;border-radius:5px;background:var(--cc);color:var(--on-line);cursor:grab;transition:opacity 160ms var(--ease)}
 .bm-track.week .bm-edit-block{left:3px;right:3px;padding:4px 7px}
 .bm-track.row .bm-edit-block{top:3px;bottom:3px;justify-content:center;padding:0 8px;white-space:nowrap;box-shadow:0 0 0 1px var(--bg)}
-.bm-edit-block b{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}
+.bm-edit-block b{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);font-weight:600}
 .bm-edit-block em{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 10.5px var(--font-num);font-style:normal;opacity:.9}
-.bm-edit-block.other{opacity:.28}
 .bm-edit-block.ghost{opacity:.6}
-.bm-edit-block.dragging{z-index:3;cursor:grabbing;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--text) 45%,transparent)}
-.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85;cursor:default}
+.bm-edit-block.dragging{z-index:3;cursor:grabbing;box-shadow:0 6px 16px -6px var(--shadow)}
+.bm-edit-block.unresolved{cursor:default}
 .bm-scroll[data-tool='erase'] .bm-edit-block{cursor:crosshair}
 .bm-ot-part{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,var(--on-line-soft) 0 2px,transparent 2px 7px);pointer-events:none}
 .bm-grip{position:absolute;z-index:2}
@@ -269,7 +257,7 @@ button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--te
   .bm-dates{height:36px}
   .bm-demand{height:30px}
   .bm-need{gap:3px}
-  .bm-number{font-size:13px}
+  .bm-number{font-size:var(--fs-md)}
   .bm-need-value em{display:none}
   .bm-capacity{height:24px}
 }

@@ -3,6 +3,7 @@ import { addCompetence, addPerson, competenceStyles, staffedCompetences, isUnuse
 import { LINE_COLORS, type CompetenceStyle, type LineColor, type Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, UndoRedoButtons } from '../common'
+import { competenceColor } from '../dom'
 import { TextField } from '../fields'
 import { ChevronDown, ChevronUp, GripVertical, Plus, X } from 'lucide-react'
 
@@ -95,7 +96,7 @@ export function Personell() {
                           .filter((style) => person.competences.includes(style.key))
                           .map((style) => (
                             <button key={style.key} className="comp-toggle" title={`Ta bort ${style.label}`} onClick={() => setPersons((list) => togglePersonCompetence(list, person.id, style.key))}>
-                              <i className="swatch" style={{ background: `var(--${style.color})` }} />
+                              <i className="swatch" style={competenceColor(style)} />
                               {style.label}
                               <X size={11} aria-hidden />
                             </button>
@@ -107,7 +108,7 @@ export function Personell() {
                                 .filter((style) => !person.competences.includes(style.key))
                                 .map((style) => (
                                   <button key={style.key} role="menuitem" onClick={() => setPersons((list) => togglePersonCompetence(list, person.id, style.key))}>
-                                    <i className="swatch" style={{ background: `var(--${style.color})` }} />
+                                    <i className="swatch" style={competenceColor(style)} />
                                     {style.label}
                                   </button>
                                 ))
@@ -198,7 +199,7 @@ export function Personell() {
                       <span className="color-choice" role="radiogroup" aria-label={`Farge for ${style.label}`}>
                         {LINE_COLORS.map((color) => (
                           <button key={color} role="radio" aria-checked={style.color === color} title={COLOR_NAMES[color]} className={style.color === color ? 'chosen' : ''} onClick={() => setStyle(style.key, { color })}>
-                            <i className="swatch" style={{ background: `var(--${color})` }} />
+                            <i className="swatch" style={competenceColor({ color })} />
                           </button>
                         ))}
                       </span>

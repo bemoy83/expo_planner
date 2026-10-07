@@ -17,8 +17,7 @@ table.ledger .num{text-align:right;font-variant-numeric:tabular-nums}
 table.ledger .center{text-align:center}
 table.ledger td.actions{width:1%}
 table.ledger tr.in-plan td,table.ledger .planned{background:var(--pos-bg)}
-table.ledger tr.has-issue td{background:#fff6e0}
-.dark table.ledger tr.has-issue td,.dark .orphans{background:#2b200d;border-color:#503b16}
+table.ledger tr.has-issue td{background:var(--warn-bg)}
 /* numbers and dates are set as in the Kalender */
 table.ledger .num,table.ledger .date,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
 
@@ -28,7 +27,7 @@ input.inline.num{min-width:0;width:52px;text-align:right}
 input.inline:hover,input.inline:focus{background:var(--surface)}
 
 /* Visma lines that no longer have a line behind them */
-.orphans{background:#fff6e0;border:1px solid #f0d58a;border-radius:6px;padding:8px 12px;margin-bottom:8px}
+.orphans{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:6px;padding:8px 12px;margin-bottom:8px}
 .orphans ul{margin:6px 0 0;padding-left:18px}
 .orphans li span{margin-right:10px}
 
@@ -40,8 +39,8 @@ table.ledger select.location.unresolved{background-color:color-mix(in srgb,var(-
 /* ---- Haller ---- */
 table.ledger.halls{width:auto;min-width:760px}
 table.ledger tr.event-row td{background:var(--bg);border-top:2px solid var(--line-strong)}
-table.ledger tr.hidden-row td{color:var(--muted);background:#fafafa}
-.dark table.ledger tr.hidden-row td{background:var(--panel)}
+/* a booking left out of the Kalender, and a person who is no longer active */
+table.ledger tr.hidden-row td,table.ledger tr.inactive-row td{color:var(--muted);background:var(--panel)}
 table.ledger tr.hidden-row td.hall-name{text-decoration:line-through}
 table.ledger td.hall-name{padding-left:20px;font-weight:600}
 input.inline.project-no-input{width:90px;min-width:0;background:var(--surface)}
@@ -55,8 +54,6 @@ table.ledger.kpi tr.alt-unit td{color:var(--muted)}
 
 /* ---- Personell ---- */
 table.ledger.personell{width:auto;min-width:760px}
-table.ledger tr.inactive-row td{color:var(--muted);background:var(--panel)}
-.swatch{flex:none;width:9px;height:9px;border-radius:3px}
 /* the competences a person has, each removed with a click, and the + that opens the list of the rest */
 .comp-toggles{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .comp-toggle{padding:2px 6px 2px 8px;border-radius:6px;font-size:var(--fs-sm);font-weight:600}

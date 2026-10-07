@@ -42,7 +42,7 @@ export function PlanBar({ width, fitKey, children }: Props) {
   }, [width, fitKey, fontsReady])
   return (
     <div className="plan-bar">
-      <div className="plan-bar-in" ref={ref} style={{ width }}>
+      <div className="plan-bar-in bar-controls" ref={ref} style={{ width }}>
         {children}
       </div>
     </div>

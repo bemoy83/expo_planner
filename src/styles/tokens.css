@@ -1,4 +1,5 @@
-/* Fonts and tokens: the Ledger look. Every colour, font and text size the other style sheets use is named here. */
+/* Fonts and tokens: the Ledger look. Every colour, font and text size the other style sheets use is named here.
+   A few figures and marks are set between the sizes (9.5, 10.5, 11.5, 12.5 px); those are still plain values where they are used. */
 
 @font-face{font-family:'Schibsted Grotesk';font-style:normal;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-normal-400_900.woff2') format('woff2')}
 @font-face{font-family:'Schibsted Grotesk';font-style:italic;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-italic-400_900.woff2') format('woff2')}
@@ -15,6 +16,12 @@
   --faint:#77746c;         /* ink-faint */
   --line:#dcd8cf;          /* border */
   --line-strong:#c4bfb4;   /* border-strong */
+  --rule:color-mix(in srgb,var(--line) 55%,transparent);          /* the faint rule between the cells of a grid */
+  --wash:color-mix(in srgb,var(--text) 5%,transparent);           /* what the pointer is over */
+  --wash-bg:color-mix(in srgb,var(--text) 5%,var(--bg));          /* the same, on a pinned label that must stay opaque */
+  --shadow:color-mix(in srgb,var(--text) 35%,transparent);        /* under what floats: the pinned top, a toast, a block being dragged */
+  --scrim:rgba(15,20,30,.35);                                     /* behind a dialog */
+  --tip-bg:#4a4642; --tip-text:#f5f2ec;                           /* the tooltip */
 
   /* accent: signal orange (selection, focus, today, active tab) */
   --accent:#ec6f00;
@@ -52,6 +59,9 @@
   --neg:#c53637; --neg-bg:#f9e5e2;
   --pos:#287c42; --pos-bg:#e2efe3;
   --over:#8f5e0a;
+  --neg-wash:color-mix(in srgb,var(--neg) 13%,transparent);   /* a day planned above the crew */
+  --on-neg:#ffffff;        /* text on a strong red tile */
+  --warn-bg:#fff6e0; --warn-line:#f0d58a;   /* a line with an issue */
   --overtime:#6a4c93;      /* the overtime line in Bemanning */
 
   /* the band of a project's line, the only tinted level */
@@ -61,6 +71,7 @@
   /* type: one stack for text, one for numbers and dates, and the sizes text outside the grid's cells is set in */
   --font-ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
   --font-num:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --fs-2xs:10px;     /* weekdays, hour marks, keys */
   --fs-xs:11px;      /* small uppercase headings */
   --fs-sm:12px;      /* figures, badges, counts */
   --fs-md:13px;      /* grid lines, tables, hints */
@@ -89,6 +100,9 @@
   --faint:#7b7a73;
   --line:#262623;
   --line-strong:#3a3935;
+  --shadow:rgba(0,0,0,.6);
+  --scrim:rgba(0,0,0,.6);
+  --tip-bg:#3a3935; --tip-text:#f3f2ee;
 
   --accent:#fd923e;
   --accent-soft:color-mix(in oklab,#fd923e 18%,transparent);
@@ -120,6 +134,8 @@
   --neg:#f97770; --neg-bg:#301615;
   --pos:#6fd087; --pos-bg:#112618;
   --over:#f2b54f;
+  --neg-wash:color-mix(in srgb,var(--neg) 18%,transparent);
+  --warn-bg:#2b200d; --warn-line:#503b16;
   --overtime:#c2b1f8;
 
   --band:color-mix(in oklab,#f3f2ee 8%,#0f0f0e);

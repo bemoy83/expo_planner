@@ -34,7 +34,7 @@ const TOOLS: ToolChoice<Tool>[] = [
 /** The bar above the grid: undo, the tools, and what the brush paints. */
 export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount, expand, onExpand, anyOpen, onToggleAll, unresolved, onRemoveUnresolved }: Props) {
   return (
-    <div className="toolbar bm-tools">
+    <div className="toolbar bar-controls">
       <UndoRedoButtons />
       <ToolSwitch tool={tool} tools={TOOLS} onChange={onTool} />
       {brush ? (
