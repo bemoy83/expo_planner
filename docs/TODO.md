@@ -83,7 +83,7 @@ Kalender
 - «Fold sammen» folds to the top level only; there is no "fold to level N".
 - The grouping and the folded levels are kept per browser (localStorage), not in the workspace or the backup.
 - Demand whose Hall/Sted names no hall on Haller is gathered under «Uavklart» until the planner picks a hall under Plassering on Behov. The choice is for the text and applies in every project; there is no choice for one line or one project only, no table listing the choices, and lines with an empty Hall/Sted cannot be placed. A hall letter with several numbered halls («Hall B» with B1–B4) is left unresolved until chosen.
-- If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. Rows made for several texts that are now all «Uavklart» each show the whole unresolved demand.
+- If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. «Rader uten behov» under Filter lists such rows, in the whole period; they are moved or deleted by hand, one at a time. Rows made for several texts that are now all «Uavklart» each show the whole unresolved demand.
 - Selecting by dragging follows the mouse past the left and right edges but not up or down.
 - The fill handle works sideways and to the right of the block's first day only: it does not copy down to other rows, and it cannot be dragged left past the start. Stretching (Alt) on several rows stretches each row by itself.
 - The pencil («Fordel behov») shares in whole people, evenly, with what does not divide on the first days and the decimals on the last day. A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.

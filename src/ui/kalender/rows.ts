@@ -67,6 +67,8 @@ export interface RowFilter {
   onlyWithRows?: boolean
   /** Leave out rows whose plan covers their demand, and with them the projects that have nothing left to plan. */
   onlyUncovered?: boolean
+  /** Only rows that have no demand behind them, such as rows left behind when their demand moved to another competence or hall. */
+  onlyWithoutDemand?: boolean
 }
 
 export const EMPTY_FILTER: RowFilter = { project: '', competence: '', search: '' }
@@ -76,7 +78,7 @@ export const EMPTY_FILTER: RowFilter = { project: '', competence: '', search: ''
  * «Bare prosjekter i visningen» is the normal state and is not counted.
  */
 export const filterSummary = (filter: RowFilter, projects: [key: string, name: string][]) => {
-  const others = [filter.competence, filter.search, filter.onlyWithRows, filter.onlyUncovered].filter(Boolean).length
+  const others = [filter.competence, filter.search, filter.onlyWithRows, filter.onlyUncovered, filter.onlyWithoutDemand].filter(Boolean).length
   return { label: (filter.project && projects.find(([key]) => key === filter.project)?.[1]) || 'Alle prosjekter', others, active: others + (filter.project ? 1 : 0) }
 }
 
@@ -178,17 +180,18 @@ const PHASE_ORDER: Record<string, number> = { montering: 0, demontering: 1 }
  * Projects without rows are kept only where the project is the top level.
  */
 export const filterGroups = (rows: AllocationRow[], events: VenueEvent[], index: DemandIndex, settings: Settings, filter: RowFilter, grouping: Dimension[] = ['project']): ProjectGroup[] => {
-  const narrowsRows = !!filter.competence || !!filter.search || !!filter.onlyUncovered
+  const narrowsRows = !!filter.competence || !!filter.search || !!filter.onlyUncovered || !!filter.onlyWithoutDemand
   const lacksPlan = (row: AllocationRow) => {
     const { requiredFte, plannedFte } = rowTotals(index, row, settings)
     return (requiredFte ?? 0) > plannedFte + FTE_NOISE
   }
-  let groups = buildGroups(rows.filter((row) => rowMatches(row, filter) && (!filter.onlyUncovered || lacksPlan(row))), events, index, settings)
+  const lacksDemand = (row: AllocationRow) => !((rowTotals(index, row, settings).requiredFte ?? 0) > FTE_NOISE)
+  let groups = buildGroups(rows.filter((row) => rowMatches(row, filter) && (!filter.onlyUncovered || lacksPlan(row)) && (!filter.onlyWithoutDemand || lacksDemand(row))), events, index, settings)
   if (filter.project) groups = groups.filter((group) => group.key === filter.project)
   // A competence or text filter is about rows, so projects without a matching row drop out, unless the text matches the project itself.
   if (narrowsRows) {
     const q = filter.search.toLowerCase()
-    groups = groups.filter((group) => group.rows.length > 0 || (!filter.competence && !filter.onlyUncovered && !!q && `${group.projectName} ${group.projectNo}`.toLowerCase().includes(q)))
+    groups = groups.filter((group) => group.rows.length > 0 || (!filter.competence && !filter.onlyUncovered && !filter.onlyWithoutDemand && !!q && `${group.projectName} ${group.projectNo}`.toLowerCase().includes(q)))
   }
   if (filter.onlyWithRows || grouping[0] !== 'project') groups = groups.filter((group) => group.rows.length > 0)
   return groups

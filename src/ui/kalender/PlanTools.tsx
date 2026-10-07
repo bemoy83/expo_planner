@@ -83,6 +83,10 @@ export function FilterMenu({ filter, onChange, projects, competences, onlyInView
             <input type="checkbox" checked={!!filter.onlyUncovered} onChange={(e) => onChange({ ...filter, onlyUncovered: e.target.checked })} />
             Bare det som gjenstår
           </label>
+          <label className="check" title="Vis bare rader som ikke har noe behov bak seg, i hele perioden: rader som ble stående igjen da behovet flyttet til en annen kompetanse eller hall. Flytt FTE-ene eller slett raden med høyreklikk.">
+            <input type="checkbox" checked={!!filter.onlyWithoutDemand} onChange={(e) => onChange({ ...filter, onlyWithoutDemand: e.target.checked })} />
+            Rader uten behov
+          </label>
           <label className="check" title="Vis bare prosjekter som foregår eller har planlagte dager i datoene som vises">
             <input type="checkbox" checked={onlyInView} onChange={(e) => onOnlyInView(e.target.checked)} />
             Bare prosjekter i visningen

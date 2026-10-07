@@ -123,7 +123,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const need = useMemo(() => dailyNeed(ws.allocations), [ws.allocations])
   const winFrom = dates[Math.max(0, Math.floor(viewport.left / colW))]
   const winTo = dates[Math.max(0, Math.min(dates.length - 1, Math.floor((viewport.left + viewport.width - LEFT_W) / colW)))]
-  const inViewOnly = onlyInView && !filter.project && !filter.search
+  // Rows without demand are looked for in the whole period, wherever their days are.
+  const inViewOnly = onlyInView && !filter.project && !filter.search && !filter.onlyWithoutDemand
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
   const rows = useMemo(() => {
     const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases)

@@ -179,6 +179,13 @@ describe('rows as a hierarchy', () => {
     expect(outline(items)).toEqual(['VVS 2026', '  #c64', '  #c65'])
   })
 
+  it('can show only the rows that have no demand behind them', () => {
+    // dem and hage have no demand; the others do.
+    const items = buildItems(fine, [], demand, DEFAULT_SETTINGS, { ...EMPTY_FILTER, onlyWithoutDemand: true }, new Set(), undefined, ['project'])
+    expect(items.flatMap((item) => (item.kind === 'row' ? [item.row.id] : [])).sort()).toEqual(['dem', 'hage'])
+    expect(filterSummary({ ...EMPTY_FILTER, onlyWithoutDemand: true }, [])).toMatchObject({ others: 1, active: 1 })
+  })
+
   it('gives the levels above a row, for opening the way to it', () => {
     expect(pathKeys(fine[2], '26970', ['project', 'hall'])).toEqual(['project:26970', 'project:26970/hall:hall d'])
   })
