@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { capacityForDate, dailyNeed, formatFte, FTE_NOISE, requiredHours, rowTotals, sumValues } from '../../domain/calc'
+import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { decimalText } from '../../domain/numbers'
@@ -8,7 +8,7 @@ import { VENUE_PHASES, type AllocationRow } from '../../domain/types'
 import { hallNames, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
 import { isSuggestedRow, suggestedRows } from '../../domain/plannedRows'
-import { fillAcross, shareOverDays, spread } from '../../domain/spread'
+import { spread } from '../../domain/spread'
 import { buildWindows, windowFor } from '../../domain/windows'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -18,28 +18,22 @@ import { isTyping } from '../dom'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows } from './GridRows'
-import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
+import type { AllocLane, CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { GroupingMenu } from './GroupingMenu'
 import { heatScale } from './heat'
 import { rowTitle } from './labels'
 import { PlanBar } from './PlanBar'
 import { FilterMenu, PlanToolSwitch } from './PlanTools'
 import { RowInspector, type RowDetails } from './RowInspector'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, projectKey, type Dimension, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
 import { useHallCalendar } from './useHallCalendar'
 import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
+import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
 import { rangeOf, TOOL_KEYS, type Cell, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Info, PanelRight, Plus } from 'lucide-react'
 
-/** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
-interface AllocLane {
-  /** Position in the list of grid items. */
-  index: number
-  row?: AllocationRow
-  node?: GroupNode
-}
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
 
@@ -400,97 +394,21 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     selectionRef.current = selection
   }, [selection])
 
-  /**
-   * The pencil: for every line in the selection, what is left of its demand after the days outside the
-   * drawn span is shared over the working days in the span, in whole people with the decimals on the last
-   * day. Weekends and holidays inside the
-   * span are left as they are, unless the span has no working day at all.
-   */
-  const strokeFor = useCallback(
-    (sel: Selection | null) => {
-      if (!sel || sel.section !== 'alloc') return null
-      const { lane0, lane1, col0, col1 } = rangeOf(sel)
-      const span = dates.slice(col0, col1 + 1)
-      const workdays = span.filter((date) => dayType(date) === 'arbeidsdag')
-      const target = workdays.length ? workdays : span
-      const lanes: { lane: number; parts: number[] }[] = []
-      let withoutDemand = 0
-      for (let lane = lane0; lane <= lane1; lane++) {
-        const { row, node } = allocLanes[lane] ?? {}
-        if (!row && !node) continue
-        const required = node ? node.totals.requiredFte : (rowTotals(demandIndex, row!, settings).requiredFte ?? 0)
-        const planned = node ? node.totals.plannedFte : sumValues(row!.fte)
-        const onTarget = target.reduce((sum, date) => sum + ((node ? node.daily.get(date) : row!.fte[date]) ?? 0), 0)
-        const remaining = required - (planned - onTarget)
-        const parts = shareOverDays(remaining, target.length)
-        if (parts.length) lanes.push({ lane, parts })
-        else withoutDemand += 1
-      }
-      const perDay = target.map((_, i) => lanes.reduce((sum, l) => sum + l.parts[i], 0))
-      return { target, lanes, withoutDemand, shared: perDay.reduce((a, b) => a + b, 0), perDay }
-    },
-    [dates, allocLanes, demandIndex, settings],
-  )
+  const strokeFor = useCallback((sel: Selection | null) => pencilStroke(sel, dates, allocLanes, demandIndex, settings), [dates, allocLanes, demandIndex, settings])
 
   const drawDemand = useCallback((over: Selection | null = selectionRef.current) => {
     const drawn = strokeFor(over)
     if (!drawn) return
     for (const { lane, parts } of drawn.lanes) drawn.target.forEach((date, i) => setValue('alloc', lane, date, parts[i] || null))
-    const { target, withoutDemand, shared } = drawn
-    const days = `${target.length} ${target.length === 1 ? 'dag' : 'dager'}`
-    setNotice(
-      shared
-        ? `Fordelte ${formatFte(shared, 1)} FTE-dager på ${days}${withoutDemand ? `. ${withoutDemand} ${withoutDemand === 1 ? 'linje' : 'linjer'} hadde ikke behov igjen.` : ''}`
-        : 'Ikke noe behov igjen å fordele her. Dagene utenfor det du tegnet dekker allerede behovet, eller raden har ikke behov.',
-    )
+    setNotice(pencilNotice(drawn))
   }, [strokeFor, setValue])
 
-  /**
-   * A draft plan: each row's demand shared over the working days of its window, as a pencil stroke over
-   * the whole window would. For several rows at once only rows without any FTE are filled, so nothing
-   * the planner has placed is touched; for a single row the days in its window are replaced.
-   */
+  /** «Foreslå plan»: fills rows over their windows, see `proposal`. */
   const proposePlan = useCallback(
     (list: AllocationRow[], replace: boolean) => {
-      let done = 0
-      let hadPlan = 0
-      let noWindow = 0
-      let noDemand = 0
-      for (const row of list) {
-        const window = windowOf(row)
-        if (!window?.size) {
-          noWindow += 1
-          continue
-        }
-        if (!replace && Object.keys(row.fte).length) {
-          hadPlan += 1
-          continue
-        }
-        const days = [...window].sort()
-        const workdays = days.filter((date) => dayType(date) === 'arbeidsdag')
-        const target = workdays.length ? workdays : days
-        const onTarget = target.reduce((sum, date) => sum + (row.fte[date] ?? 0), 0)
-        const parts = shareOverDays((rowTotals(demandIndex, row, settings).requiredFte ?? 0) - (sumValues(row.fte) - onTarget), target.length)
-        if (!parts.length) {
-          noDemand += 1
-          continue
-        }
-        target.forEach((date, i) => {
-          if (parts[i] || row.fte[date] !== undefined) setRowFte(row, date, parts[i] || null)
-        })
-        done += 1
-      }
-      const rows = (n: number) => `${n} ${n === 1 ? 'rad' : 'rader'}`
-      setNotice(
-        [
-          done ? `Foreslo plan for ${rows(done)}` : 'Ingen rader fikk forslag',
-          hadPlan ? `${rows(hadPlan)} hadde plan fra før og er ikke rørt` : '',
-          noWindow ? `${rows(noWindow)} har ingen monterings- eller demonteringsdager i hallkalenderen` : '',
-          noDemand ? `${rows(noDemand)} har ikke behov igjen` : '',
-        ]
-          .filter(Boolean)
-          .join(' · '),
-      )
+      const plan = proposal(list, replace, windowOf, demandIndex, settings)
+      for (const { row, date, value } of plan.writes) setRowFte(row, date, value)
+      setNotice(proposalNotice(plan))
     },
     [windowOf, demandIndex, settings, setRowFte],
   )
@@ -514,25 +432,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // While a stroke is being drawn, what it would give: shown in the cells, with the level per day in the status bar.
   // The total is left out: a stroke always places all that is left, so it would not move.
   const preview = useMemo(() => (stroke === 'pencil' ? strokeFor(selection) : null), [stroke, strokeFor, selection])
-  // What a drag of the fill handle would do, line by line: copy the block over the new days, or stretch its sum.
-  const fillCells = useMemo<FillCell[]>(() => {
-    if (!fill) return []
-    const cells: FillCell[] = []
-    const end = Math.max(fill.col1, fill.toCol)
-    const span = dates.slice(fill.col0, end + 1)
-    const workdays = span.map((date) => dayType(date) === 'arbeidsdag')
-    for (let lane = fill.lane0; lane <= fill.lane1; lane++) {
-      const result = fillAcross({
-        values: span.map((date) => getValue(fill.section, lane, date)),
-        workdays,
-        sourceLength: fill.col1 - fill.col0 + 1,
-        length: fill.toCol - fill.col0 + 1,
-        mode: fill.stretch ? 'stretch' : 'copy',
-      })
-      result.forEach((value, i) => value !== undefined && cells.push({ section: fill.section, lane, date: span[i], value }))
-    }
-    return cells
-  }, [fill, dates, getValue])
+  const fillCells = useMemo(() => fillPreview(fill, dates, getValue), [fill, dates, getValue])
   useEffect(() => {
     fillRef.current = fill
     fillCellsRef.current = fillCells
@@ -547,30 +447,11 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     for (const cell of cells) setValue(cell.section, cell.lane, cell.date, cell.value)
     // The block is now what was dragged out, so it can be dragged on from there.
     setSelection({ section: done.section, anchor: { lane: done.lane0, col: done.col0 }, focus: { lane: done.lane1, col: done.toCol } })
-    const filled = new Set(cells.filter((cell) => cell.value !== null).map((cell) => cell.date)).size
-    const cleared = new Set(cells.filter((cell) => cell.value === null).map((cell) => cell.date)).size
-    const days = (n: number) => `${n} ${n === 1 ? 'dag' : 'dager'}`
-    setNotice(!cells.length ? null : done.stretch ? `Strakk over ${days(filled)}` : filled ? `Fylte ${days(filled)}` : `Tømte ${days(cleared)}`)
+    setNotice(fillNotice(done, cells))
   }, [setValue])
 
   // What the cells of each line would hold if the stroke or the drag ended now, keyed by section and lane.
-  const ghost = useMemo(() => {
-    const lanes = new Map<string, Map<ISODate, number>>()
-    const set = (section: Section, lane: number, date: ISODate, value: number) => {
-      const key = `${section}|${lane}`
-      let cells = lanes.get(key)
-      if (!cells) lanes.set(key, (cells = new Map()))
-      cells.set(date, value)
-    }
-    for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => set('alloc', lane, date, parts[i]))
-    // An eraser stroke shows the cells it is about to clear as empty.
-    if (stroke === 'eraser' && selection?.section === 'alloc') {
-      const { lane0, lane1, col0, col1 } = rangeOf(selection)
-      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) set('alloc', lane, dates[col], 0)
-    }
-    for (const cell of fillCells) set(cell.section, cell.lane, cell.date, cell.value ?? 0)
-    return lanes
-  }, [preview, stroke, selection, dates, fillCells])
+  const ghost = useMemo(() => ghostCells(preview, stroke === 'eraser' ? selection : null, dates, fillCells), [preview, stroke, selection, dates, fillCells])
 
   // A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its edges.
   // The listeners are attached once and read what they need from here, so a drag is not disturbed when
@@ -673,17 +554,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
   const onCopy = (e: React.ClipboardEvent) => {
     if (!selection || draft !== null) return
-    const { lane0, lane1, col0, col1 } = rangeOf(selection)
-    const lines: string[] = []
-    for (let lane = lane0; lane <= lane1; lane++) {
-      const cells: string[] = []
-      for (let col = col0; col <= col1; col++) {
-        const value = getValue(selection.section, lane, dates[col])
-        cells.push(value === undefined ? '' : decimalText(value))
-      }
-      lines.push(cells.join('\t'))
-    }
-    e.clipboardData.setData('text/plain', lines.join('\n'))
+    e.clipboardData.setData('text/plain', copyText(selection, dates, getValue))
     e.preventDefault()
   }
 
@@ -692,17 +563,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     const textData = e.clipboardData.getData('text/plain')
     if (!textData) return
     e.preventDefault()
-    const { lane0, col0 } = rangeOf(selection)
-    const grid = textData.replace(/\r/g, '').replace(/\n$/, '').split('\n').map((line) => line.split('\t'))
-    const lanes = laneCount(selection.section)
-    grid.forEach((cells, dl) =>
-      cells.forEach((raw, dc) => {
-        const lane = lane0 + dl
-        const col = col0 + dc
-        const value = parseCellInput(raw)
-        if (lane < lanes && col < dates.length && value !== undefined) setValue(selection.section, lane, dates[col], value)
-      }),
-    )
+    for (const cell of pasteCells(textData, selection, dates, laneCount(selection.section))) setValue(selection.section, cell.lane, cell.date, cell.value)
   }
 
   const selectionRange = selection ? rangeOf(selection) : null
@@ -710,21 +571,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // ---- rendering helpers --------------------------------------------------------------------
   // Days planned above the available crew. Without the heat map they are tinted down the whole grid; with it,
   // the Avvik line alone carries them. A pencil stroke in progress counts, so the clash shows while it is being drawn.
-  const overbooked = useMemo(() => {
-    const drawn = new Map<ISODate, number>()
-    for (const { lane, parts } of preview?.lanes ?? []) {
-      const { row, node } = allocLanes[lane] ?? {}
-      preview!.target.forEach((date, i) => drawn.set(date, (drawn.get(date) ?? 0) + parts[i] - ((node ? node.daily.get(date) : row?.fte[date]) ?? 0)))
-    }
-    for (const cell of fillCells) if (cell.section === 'alloc') drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue('alloc', cell.lane, cell.date) ?? 0))
-    const days = new Map<ISODate, { need: number; available: number }>()
-    for (const date of new Set([...need.keys(), ...drawn.keys()])) {
-      const planned = (need.get(date) ?? 0) + (drawn.get(date) ?? 0)
-      const { available } = capacityForDate(date, ws.capacity, settings)
-      if (planned > available + FTE_NOISE) days.set(date, { need: planned, available })
-    }
-    return days
-  }, [need, preview, fillCells, getValue, allocLanes, ws.capacity, settings])
+  const overbooked = useMemo(() => overbookedDays(need, preview, fillCells, allocLanes, getValue, ws.capacity, settings), [need, preview, fillCells, allocLanes, getValue, ws.capacity, settings])
 
   // Every cell of a day shares these classes; they are worked out once per day, not once per cell.
   const dayClasses = useMemo(() => {
@@ -737,26 +584,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   }, [visibleDates, today, overbooked, heat])
   const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, colW, classes: dayClasses }), [visibleDates, c0, colW, dayClasses])
 
-  // What the drag of the fill handle is doing, for the status bar.
-  const fillInfo = (() => {
-    if (!fill) return ''
-    const perDay = new Map<ISODate, number>()
-    for (const cell of fillCells) if (cell.value !== null) perDay.set(cell.date, (perDay.get(cell.date) ?? 0) + cell.value)
-    const cleared = new Set(fillCells.filter((cell) => cell.value === null).map((cell) => cell.date)).size
-    const days = (n: number) => `${n} ${n === 1 ? 'dag' : 'dager'}`
-    if (fill.stretch) return perDay.size ? `Strekker: opptil ${formatFte(Math.max(...perDay.values()), 1)} FTE per dag over ${days(perDay.size)}` : 'Strekker: ingenting å fordele'
-    if (perDay.size) return `Fyller ${days(perDay.size)} · hold Alt for å strekke i stedet`
-    return cleared ? `Tømmer ${days(cleared)}` : 'Dra sidelengs for å fylle · hold Alt for å strekke'
-  })()
-
   // What the stroke or the drag in progress would do, for the status bar.
-  const progress = fill
-    ? fillInfo
-    : preview
-      ? preview.shared
-        ? `Tegner: opptil ${formatFte(Math.max(...preview.perDay), 1)} FTE per dag over ${preview.target.length} ${preview.target.length === 1 ? 'arbeidsdag' : 'arbeidsdager'}`
-        : 'Tegner: ikke noe behov igjen å fordele her'
-      : null
+  const progress = fill ? fillProgress(fill, fillCells) : preview ? pencilProgress(preview) : null
 
   const toggled = (prev: Set<string>, key: string) => {
     const next = new Set(prev)

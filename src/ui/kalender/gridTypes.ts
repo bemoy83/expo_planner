@@ -1,6 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from 'react'
 import type { ISODate } from '../../domain/dates'
 import type { AllocationRow, CapacityLine } from '../../domain/types'
+import type { GroupNode } from './rows'
 import type { Section } from './selection'
 
 /** The day columns that are drawn: the visible ones and a few to each side. */
@@ -30,6 +31,14 @@ export interface CellEdit {
   /** What a pencil or eraser stroke, or a drag of the fill handle, would put in this line's cells. */
   ghost: Map<ISODate, number> | undefined
   ghostClass: 'drawn' | 'erasing'
+}
+
+/** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */
+export interface AllocLane {
+  /** Position in the list of grid items. */
+  index: number
+  row?: AllocationRow
+  node?: GroupNode
 }
 
 /** A staffing line as the grid shows it: overtime has one line for people and one for hours. */
