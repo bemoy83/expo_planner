@@ -44,6 +44,7 @@
   --line-violet:oklch(0.56 0.13 300);
   --line-slate:oklch(0.52 0.03 250);
   --line-orange:oklch(0.6 0.14 50);
+  --on-line:#ffffff;       /* text on a competence colour */
 
   /* status */
   --neg:#c53637; --neg-bg:#f9e5e2;
@@ -64,6 +65,9 @@
   --fs-base:14px;    /* body text and controls */
   --fs-title-sm:16px;/* dialog titles */
   --fs-title:20px;   /* page titles */
+
+  /* motion: the one curve things move on */
+  --ease:cubic-bezier(.4,0,.2,1);
 
   font-family:var(--font-ui);
   font-size:14px;
@@ -107,6 +111,7 @@
   --line-violet:oklch(0.76 0.11 300);
   --line-slate:oklch(0.74 0.03 250);
   --line-orange:oklch(0.78 0.12 50);
+  --on-line:#140c05;
 
   --neg:#f97770; --neg-bg:#301615;
   --pos:#6fd087; --pos-bg:#112618;

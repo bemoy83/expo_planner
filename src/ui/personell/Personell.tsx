@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from '../../domain/competences'
+import { addCompetence, addPerson, competenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from '../../domain/competences'
 import { LINE_COLORS, type CompetenceStyle, type LineColor, type Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, UndoRedoButtons } from '../common'
@@ -37,6 +37,8 @@ export function Personell() {
     const q = search.trim().toLowerCase()
     return q ? persons.filter((p) => `${p.name} ${p.note ?? ''}`.toLowerCase().includes(q)) : persons
   }, [persons, search])
+  // The keys follow the competences people have, as in Bemanning.
+  const keys = useMemo(() => new Map(staffedCompetences(ws).slice(0, LAST_KEY).map((style, index) => [style.key, index + 1])), [ws])
   const active = persons.filter((p) => p.active).length
   const holders = (key: string) => persons.filter((p) => p.active && p.competences.includes(key)).length
 
@@ -142,7 +144,7 @@ export function Personell() {
           </div>
           <p className="hint">
             Listen fyller seg selv fra produkttypene, behovet og radene i Kalender. Her bestemmer du navnet, kortnavnet og fargen kompetansen vises med i Bemanning, og rekkefølgen: dra en rad,
-            eller bruk pilene. De ni første velges med tastene 1–9.
+            eller bruk pilene. De ni første som noen av de faste har, velges med tastene 1–9.
           </p>
           {styles.length > 0 && (
             <table className="ledger personell competences">
@@ -185,7 +187,7 @@ export function Personell() {
                         </button>
                       </span>
                     </td>
-                    <td className="center">{index < LAST_KEY ? <kbd>{index + 1}</kbd> : ''}</td>
+                    <td className="center">{keys.has(style.key) ? <kbd>{keys.get(style.key)}</kbd> : ''}</td>
                     <td>
                       <TextField value={style.label} ariaLabel="Navn" onCommit={(label) => label && setStyle(style.key, { label })} />
                     </td>

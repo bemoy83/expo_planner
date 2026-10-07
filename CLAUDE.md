@@ -17,14 +17,15 @@ Run `npx tsc -b` after edits; tests are type-checked through `tsconfig.test.json
 
 ## What the app does
 
-Six tabs, all in Norwegian:
+Seven tabs, all in Norwegian:
 
 - **Kalender** – the planning workspace. Date header, hall calendar and staffing totals are pinned above the planning rows, and right above the rows sits the planning bar with the tools (`kalender/PlanBar.tsx`): Velg, Fordel behov and Tøm (keys V, F, T; Shift-drag and Alt-drag give the pencil and the eraser for one stroke), filter, grouping and zoom. A right-click on a planning cell opens a menu for the cell and its row, and the panel toggle in the page header slides row details in over the grid (`kalender/RowInspector.tsx`). The Avvik line is a heat map (`kalender/heat.ts`), switched off under Innstillinger. The rows form a hierarchy the planner arranges («Grupper etter»: Prosjekt, Arbeidsfase, Hall/Sted, Kompetanse, Avd., in any order); FTE per day is stored on the rows and every level above sums. A level can be switched from Σ to entry (✎): a number typed there is shared out over its rows by required hours (`domain/spread.ts`). The selection has a fill handle as in Excel: drag to copy the block over more days, Alt-drag to stretch its sum over them. The pencil («Fordel behov») shares what is left of a line's demand over the working days drawn across. Each row shows its window, the build-up or tear-down days of its project in its hall (`domain/windows.ts`), and ✦ («Foreslå plan») fills rows over their windows. A click on a project's name brings its days into view, in narrower columns if they do not fit (`fitSpan` in `kalender/layout.ts`), and keeps its halls and bars lit in the hall calendar until it is clicked again or Escape is pressed.
 - **Behov** – the demand ledger per project: Visma lines, the planner's own lines and earlier years. "I plan" takes a Visma line into the demand that is planned with («Planlagt»).
 - **Haller** – every hall booking from Venyou, with a tick for whether it shows in the Kalender, and the project number per event.
 - **Produkttyper** – how each Visma product type is read: unit and competence.
 - **KPI** – rates (units per person-hour) for montering and demontering.
-- **Personell** – the permanent staff with their competences, and how each competence is shown (name, short name, colour, order). It feeds Bemanning, a tab being built from `design_docs/bemanning/`; see docs/TODO.md for how far it has come.
+- **Bemanning** – who does the work: the permanent staff by name, one week at a time, against the hours that remain per competence and day. It reads its demand from the Kalender's planned FTE. It is being built from `design_docs/bemanning/`; see docs/TODO.md for how far it has come.
+- **Personell** – the permanent staff with their competences, and how each competence is shown (name, short name, colour, order).
 
 Sources read from files: the Venyou export (`location_format_from-…_to-….xlsx`), Visma exports (`utskrift_visma_….xlsx`), and optionally `Prosjekt.xlsx`, `Kpier.xlsx`, `Nøkkeltall Visma …xlsx` and the planner workbook as one-time shortcuts.
 
@@ -40,10 +41,11 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
   - `plannedRows.ts` – demand under «Planlagt» shows as suggested Kalender rows, one per project × phase × hall × competence × Avd. A row with no hall or Avd. covers all of them.
   - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
   - `calendarRange.ts` – the Kalender's period follows the hall bookings.
+  - `staffing.ts` – the rules of Bemanning: paid hours and overtime, when a person can work, painting and editing assignments, and the balance of demand and assigned hours per competence and day. `competences.ts` – the list of competences and their styles, and edits to people.
 - `src/import/` – file readers. `xlsx.ts` is a small own reader (cached values and comments only); ExcelJS fails on the planner workbook's tables.
 - `src/store/` – `db.ts` (Dexie/IndexedDB), `workspaceStore.tsx` (all mutations, each persisted and recorded for undo), `history.ts` (undo steps), `backup.ts`, `prefs.ts` (view preferences per browser, in localStorage).
 - `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the row hierarchy from the chosen grouping, and `kalender/GridRows.tsx` holds the lines of the grid as memoized components. They get the selection as plain values per line (`CellEdit`) and their handlers through `useStableActions`; keep it that way, or every line is drawn again on each scroll frame. What the tabs share is in `common.tsx` (undo buttons, message banner, merge-or-replace dialog), `files.ts` and `fields.tsx`.
-- `src/styles/` – the style sheets, imported in this order by `main.tsx`: `tokens.css` (fonts, colours and text sizes, light and dark), `base.css` (controls, the shell, menus, dialogs), `tables.css` (the ledgers of the other tabs), `kalender.css` and `inspector.css`. Each rule is written once; do not add a later rule that overrides an earlier one, change the rule.
+- `src/styles/` – the style sheets, imported in this order by `main.tsx`: `tokens.css` (fonts, colours and text sizes, light and dark), `base.css` (controls, the shell, menus, dialogs), `tables.css` (the ledgers of the other tabs), `kalender.css`, `inspector.css` and `bemanning.css`. Each rule is written once; do not add a later rule that overrides an earlier one, change the rule.
 
 Everything is stored in the browser (IndexedDB database `expo-planner`). There is no server.
 

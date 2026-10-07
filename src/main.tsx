@@ -5,6 +5,7 @@ import './styles/base.css'
 import './styles/tables.css'
 import './styles/kalender.css'
 import './styles/inspector.css'
+import './styles/bemanning.css'
 import App from './App.tsx'
 import { loadPref } from './store/prefs'
 

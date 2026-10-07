@@ -25,7 +25,11 @@ A new tab where permanent staff are assigned by name to the competence hours the
 - The list of competences is every competence text on the product types, the demand, the planning rows and the people. With the workbook read in, that includes texts that are not competences (Estimat, Overhead, Ukjent). They cannot be hidden or removed while something uses them.
 - A competence's name in the table is how it is shown; it does not rename the competence on the product types. A competence gets its colour and place when it first appears, and these are stored at the first edit of any competence.
 - People are entered by hand. There is no import of a staff register, and people cannot be reordered.
-- Phases 4–7 remain: the read-only tab, painting, hour editing, and sickness and moved hours.
+- Phase 4, the read-only tab, is built (`ui/bemanning/`, styles in `styles/bemanning.css`): the page header with the week's totals and the week picker, the pinned demand strip with the free capacity, and a row per active person with a small timeline per day. Nothing can be edited there yet; people and assignments come from Personell and the test data.
+- The demand strip lists the competences an active person has, plus any other with demand or assigned hours in the week. The keys 1–9 follow the competences people have, in the order set on Personell.
+- The day in focus is shared with the Kalender through the `planningFocus` preference: the Kalender opens on it and marks it in the date header, and the day of the cell the planner stands on becomes it.
+- A holiday on a weekday keeps its wide column but is shown as a day off, like the weekend.
+- Phases 5–7 remain: painting, hour editing, and sickness and moved hours.
 
 ## Deferred by the user
 

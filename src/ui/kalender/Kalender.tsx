@@ -211,13 +211,17 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     [range.start, colW, onScroll],
   )
 
-  // Start near today, once.
+  // The day in focus is shared with Bemanning (`planningFocus`): the Kalender opens on it, and the day of the cell the planner stands on becomes it.
+  const [planningFocus, setPlanningFocus] = usePref<{ date: ISODate } | null>('planningFocus', null)
+
+  // Start near the day in focus, or today, once.
   const didInitialScroll = useRef(false)
   useLayoutEffect(() => {
     if (didInitialScroll.current) return
     didInitialScroll.current = true
-    scrollToDate(today >= range.start && today <= range.end ? today : range.start)
-  }, [scrollToDate, today, range.start, range.end])
+    const start = planningFocus?.date ?? today
+    scrollToDate(start >= range.start && start <= range.end ? start : range.start)
+  }, [scrollToDate, planningFocus, today, range.start, range.end])
 
   // When the period grows at the start (new hall bookings, for example), stay on the same dates.
   const prevStart = useRef(range.start)
@@ -944,6 +948,10 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const menuWindow = menuRow ? windowOf(menuRow) : undefined
   const menuWindowEnd = menuWindow?.size ? [...menuWindow].sort().at(-1) : undefined
 
+  const selectedDate = selection ? dates[selection.focus.col] : undefined
+  if (selectedDate && selectedDate !== planningFocus?.date) setPlanningFocus({ date: selectedDate })
+  const activeDate = selectedDate ?? planningFocus?.date
+
   // ---- render ---------------------------------------------------------------------------------
   return (
     <div className={`kalender ${activeTool === 'select' ? '' : activeTool}`}>
@@ -983,7 +991,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
           {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
           <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
-            <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={selection ? dates[selection.focus.col] : undefined} />
+            <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={activeDate} />
 
             {/* The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too. */}
             <div className={`top-section ${hallsOpen ? 'open' : ''}`}>

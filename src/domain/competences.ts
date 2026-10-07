@@ -94,3 +94,9 @@ export const removePerson = (ws: Workspace, id: string): Workspace => ({
   unavailability: (ws.unavailability ?? []).filter((u) => u.personId !== id),
   assignments: (ws.assignments ?? []).filter((a) => a.personId !== id),
 })
+
+/** The competences Bemanning works with: those an active person has, in the planner's order. The first nine are picked with the keys 1–9. */
+export const staffedCompetences = (ws: Workspace): CompetenceStyle[] => {
+  const held = new Set((ws.persons ?? []).filter((p) => p.active).flatMap((p) => p.competences))
+  return competenceStyles(ws).filter((style) => held.has(style.key))
+}
