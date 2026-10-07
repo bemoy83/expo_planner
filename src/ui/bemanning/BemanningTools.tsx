@@ -11,10 +11,18 @@ interface Props {
   onClearBrush: () => void
   /** How many competences can be picked with a number key. */
   keyCount: number
+  /** How a person opens for editing hours: as a row timeline, or as the week editor. */
+  expand: ExpandMode
+  onExpand: (mode: ExpandMode) => void
+  /** Row mode only: whether any row is open, and the button that opens or folds them all. */
+  anyOpen: boolean
+  onToggleAll: () => void
 }
 
+export type ExpandMode = 'row' | 'week'
+
 /** The bar above the grid: undo, the tools, and what the brush paints. */
-export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount }: Props) {
+export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount, expand, onExpand, anyOpen, onToggleAll }: Props) {
   return (
     <div className="toolbar bm-tools">
       <UndoRedoButtons />
@@ -48,6 +56,24 @@ export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount }: 
         </>
       ) : (
         <span className="bm-hints">Velg en kompetanse i behovet{keyCount ? ` (1–${keyCount})` : ''} for å fokusere og male</span>
+      )}
+      <span className="toolbar-gap" />
+      <span className="bm-expand">
+        Utvid
+        <Segmented
+          label="Utvid"
+          value={expand}
+          onChange={onExpand}
+          options={[
+            { value: 'row', label: 'Rad', title: 'Åpne flere personer samtidig, hver med en tidslinje for normaltiden.' },
+            { value: 'week', label: 'Uke', title: 'Åpne én person om gangen med hele døgnet 06–21, der overtid legges inn.' },
+          ]}
+        />
+      </span>
+      {expand === 'row' && (
+        <button className="ghost" onClick={onToggleAll}>
+          {anyOpen ? 'Fold alle' : 'Utvid alle'}
+        </button>
       )}
     </div>
   )

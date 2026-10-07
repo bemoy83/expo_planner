@@ -32,7 +32,10 @@ A new tab where permanent staff are assigned by name to the competence hours the
 - Phase 5, painting, is built: the tools Velg, Pensel and Tøm (V, B, T), a competence in focus that is also the brush (a click on its demand line, or 1–9), whole and half days, strokes over several people and days, the question when a full day meets other work, the «−N» preview in the demand strip, and a right-click menu on a day. With a competence in focus, only the people who have it are shown. Messages show as toasts (`ui/Toasts.tsx`).
 - The painting gestures are tested by hand in the browser; the rules behind them have unit tests.
 - The right-click menu also paints a full day with one of the person's competences, which the handoff's menu does not have.
-- Phases 6–7 remain: hour editing, and sickness and moved hours.
+- Phase 6, hour editing, is built (`ui/bemanning/TimeTrack.tsx`, `PersonEditor.tsx`). A person opens from the row label, a double-click on a day, E or the day menu. «Utvid: Uke» pins one person at the top with the day from 06 to 21, where blocks are drawn, moved, resized, split with a double-click, recoloured with the brush and removed, and where overtime is made. «Utvid: Rad» opens several people, each with a timeline of the normal day. A drag shows the block as it will be stored, because it runs the same rule the drop does.
+- In the row timeline a block that reaches into overtime cannot be moved or resized; that is done in the week editor.
+- The editors' gestures are tested by hand in the browser.
+- Phase 7 remains: sickness and other absence, «Fjern uløste», and moving hours to the next day.
 
 ## Deferred by the user
 

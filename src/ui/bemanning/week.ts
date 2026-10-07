@@ -24,7 +24,7 @@ export const weekLabel = (dates: ISODate[]): string => `U${isoWeek(dates[0])}`
 
 export const WEEKDAYS_LONG = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag']
 
-/** Hours with at most one decimal and a decimal comma; nothing for 0 is left to the caller. */
-export const hoursText = (hours: number): string => formatFte(Math.round(hours * 10) / 10, 1) || '0'
+/** Hours with a decimal comma. Quarter hours keep both decimals: 2,75. */
+export const hoursText = (hours: number): string => formatFte(Math.round(hours * 100) / 100, 2) || '0'
 
 export const clock = (minute: Minute): string => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`

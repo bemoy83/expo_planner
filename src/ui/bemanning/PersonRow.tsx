@@ -2,6 +2,7 @@ import { memo } from 'react'
 import type { ISODate } from '../../domain/dates'
 import type { PersonWeek } from '../../domain/staffing'
 import type { CompetenceStyle, Person } from '../../domain/types'
+import { ChevronRight } from 'lucide-react'
 import { ABSENCE_LABELS, type DayCell } from './dayCell'
 import { clock, hoursText } from './week'
 
@@ -36,6 +37,8 @@ export interface RowActions {
   cellDown: (row: number, col: number, event: React.MouseEvent) => void
   cellEnter: (row: number, col: number) => void
   cellMenu: (row: number, col: number, event: React.MouseEvent) => void
+  /** Opens the person for editing hours. */
+  open: (personId: string) => void
 }
 
 const colorOf = (styles: Map<string, CompetenceStyle>, competence: string) => ({ '--cc': `var(--${styles.get(competence)?.color ?? 'line-slate'})` }) as React.CSSProperties
@@ -94,7 +97,10 @@ export const PersonRow = memo(function PersonRow({ person, dates, cells, week, c
   const share = week.capacity ? Math.min(1, week.normal / week.capacity) * 100 : 0
   return (
     <div className="bm-row bm-person">
-      <div className="bm-label">
+      <div className="bm-label bm-person-label" onClick={() => actions.open(person.id)}>
+        <button className="row-action" aria-expanded={false} aria-label="Utvid til timer" title="Utvid til timer (E)">
+          <ChevronRight size={14} aria-hidden />
+        </button>
         <span className="bm-person-name">
           <span className="bm-name">{person.name}</span>
           <span className="bm-dots">
@@ -123,6 +129,7 @@ export const PersonRow = memo(function PersonRow({ person, dates, cells, week, c
             onMouseDown={(e) => actions.cellDown(rowIndex, index, e)}
             onMouseEnter={() => actions.cellEnter(rowIndex, index)}
             onContextMenu={(e) => actions.cellMenu(rowIndex, index, e)}
+            onDoubleClick={() => actions.open(person.id)}
           >
             <FoldedDay cell={cell} styles={styles} brush={brush} />
           </div>

@@ -4,14 +4,15 @@ import { addDays, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { buildBalance, clearDays, freeCapacity, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
 import type { Assignment, Unavailability, Workspace } from '../../domain/types'
-import { usePref } from '../../store/prefs'
+import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { useStableActions } from '../kalender/useStableActions'
 import { Toasts, useToasts } from '../Toasts'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { BemanningTools } from './BemanningTools'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BemanningTools, type ExpandMode } from './BemanningTools'
 import { ABSENCE_LABELS, dayCell } from './dayCell'
 import { DemandStrip } from './DemandStrip'
+import { TimelineRow, WeekEditor, type EditorActions } from './PersonEditor'
 import { PersonRow, type RowActions } from './PersonRow'
 import { DayMenu, PaintAsk } from './Popovers'
 import { strokeRange, TOOL_KEYS, type Stroke, type Tool } from './tools'
@@ -58,6 +59,10 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
   const [shift, setShift] = useState(false)
   const [ask, setAsk] = useState<{ cells: Day[]; competence: string; count: number; x: number; y: number } | null>(null)
   const [menu, setMenu] = useState<{ cell: Day; x: number; y: number } | null>(null)
+  // A person opens for editing hours as the week editor, one at a time and pinned at the top, or as a row timeline, several at once.
+  const [expand, setExpand] = usePref<ExpandMode>('bemanningExpand', 'week')
+  const [openWeek, setOpenWeek] = useState<string | null>(null)
+  const [openRows, setOpenRows] = usePrefSet('bemanningOpenRows')
   const { toasts, show: toast, dismiss: dismissToast } = useToasts()
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -114,6 +119,30 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     () => (activeTool === 'paint' && activeBrush ? rows.map(({ person }) => dates.map((date) => (paintBlock(ws, { personId: person.id, date }, activeBrush) ? 'x' : '-')).join('')) : null),
     [ws, rows, dates, activeTool, activeBrush],
   )
+
+  const isOpen = (personId: string) => (expand === 'week' ? openWeek === personId : openRows.has(personId))
+  const toggleOpen = (personId: string) => {
+    if (expand === 'week') {
+      setOpenWeek(openWeek === personId ? null : personId)
+      if (openWeek !== personId) scrollRef.current?.scrollTo({ top: 0 })
+    } else {
+      setOpenRows((open) => {
+        const next = new Set(open)
+        if (!next.delete(personId)) next.add(personId)
+        return next
+      })
+    }
+  }
+  const foldAll = () => {
+    setOpenWeek(null)
+    setOpenRows(new Set())
+  }
+  /** Moves the week editor to the person before or after in the list. */
+  const stepOpen = (delta: number) => {
+    const at = rows.findIndex(({ person }) => person.id === openWeek)
+    const next = rows[Math.min(Math.max(at + delta, 0), rows.length - 1)]
+    if (next) setOpenWeek(next.person.id)
+  }
 
   const dayAt = (row: number, col: number): Day => ({ personId: rows[row].person.id, date: dates[col] })
   const strokeCells = (s: Stroke): Day[] => {
@@ -196,6 +225,20 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
       setSelected(dayAt(row, col))
       setMenu({ cell: dayAt(row, col), x: event.clientX, y: event.clientY })
     },
+    open: toggleOpen,
+  })
+  const editorActions = useStableActions<EditorActions>({
+    change: (change) => updateStaffing((w) => ({ ...w, assignments: change(w) })),
+    // A pick from an open person keeps the person open.
+    pickBrush: (competence) => (competence === activeBrush ? clearBrush() : pickBrush(competence)),
+    fold: toggleOpen,
+    step: stepOpen,
+    focusDate: (date) => setFocus({ date }),
+    dayMenu: (personId, date, event) => {
+      event.preventDefault()
+      setMenu({ cell: { personId, date }, x: event.clientX, y: event.clientY })
+    },
+    enter: () => setHover(null),
   })
 
   // A stroke ends where the button is let go, also outside the grid.
@@ -232,10 +275,11 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     setBrush(null)
     setTool('select')
   }
-  /** A pick in the demand strip is a step back to the whole week: the list goes to the top. */
+  /** A pick in the demand strip is a step back to the whole week: open people fold, and the list goes to the top. */
   const pickFromStrip = (competence: string) => {
     if (competence === activeBrush) return clearBrush()
     pickBrush(competence)
+    foldAll()
     scrollRef.current?.scrollTo({ top: 0 })
   }
 
@@ -252,7 +296,13 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
         else setSelected(null)
       } else if (TOOL_KEYS[key] && !e.altKey) pickTool(TOOL_KEYS[key])
       else if (/^[1-9]$/.test(key) && staffed[Number(key) - 1]) pickBrush(staffed[Number(key) - 1].key)
-      else if ((key === 'delete' || key === 'backspace') && selected) {
+      else if (key === 'e' && !e.altKey) {
+        const personId = selected?.personId ?? (expand === 'week' ? openWeek : null)
+        if (personId) toggleOpen(personId)
+      } else if ((key === 'arrowup' || key === 'arrowdown') && expand === 'week' && openWeek) {
+        e.preventDefault()
+        stepOpen(key === 'arrowup' ? -1 : 1)
+      } else if ((key === 'delete' || key === 'backspace') && selected) {
         e.preventDefault()
         clear([selected])
       }
@@ -284,6 +334,12 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
   const crewDiffers = persons.length > 0 && persons.length !== ws.settings.baseCrew
   const range = stroke ? strokeRange(stroke) : null
   const strokeMode = stroke ? (stroke.mode === 'erase' ? 'erase' : stroke.half ? 'paint-half' : 'paint') : ''
+  const pinned = expand === 'week' && openWeek ? allRows.find(({ person }) => person.id === openWeek) : undefined
+  const keyOf = new Map(staffed.slice(0, LAST_KEY).map((style, index) => [style.key, index + 1]))
+  const competencesOf = (personId: string) => {
+    const person = persons.find((p) => p.id === personId)
+    return staffed.filter((style) => person?.competences.includes(style.key)).map((style) => ({ style, key: keyOf.get(style.key) ?? 0 }))
+  }
   const menuPerson = menu ? persons.find((p) => p.id === menu.cell.personId) : undefined
 
   return (
@@ -310,7 +366,15 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
         </span>
       </div>
 
-      <BemanningTools tool={activeTool} onTool={pickTool} brush={activeBrush ? styles.get(activeBrush) : undefined} onClearBrush={clearBrush} keyCount={Math.min(staffed.length, LAST_KEY)} />
+      <BemanningTools tool={activeTool} onTool={pickTool} brush={activeBrush ? styles.get(activeBrush) : undefined} onClearBrush={clearBrush} keyCount={Math.min(staffed.length, LAST_KEY)}
+        expand={expand}
+        onExpand={(mode) => {
+          foldAll()
+          setExpand(mode)
+        }}
+        anyOpen={rows.some(({ person }) => openRows.has(person.id))}
+        onToggleAll={() => setOpenRows(rows.some(({ person }) => openRows.has(person.id)) ? new Set() : new Set(rows.map(({ person }) => person.id)))}
+      />
 
       <div
         className="bm-scroll"
@@ -341,10 +405,29 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
               <span className="bm-label-note">{activeBrush ? `${rows.length} med ${labelOf(activeBrush)}` : `${persons.length} faste`}</span>
               <span className="bm-label-note bm-label-end">uke · t</span>
             </div>
-            <span />
+            <span className="bm-section-hint">{expand === 'week' ? 'Dobbeltklikk en dag for ukevisning med overtid' : 'Dobbeltklikk en dag for timer'}</span>
           </div>
+          {pinned && (
+            <div className="bm-pinned">
+              <WeekEditor ws={ws} person={pinned.person} dates={dates} week={pinned.week} competences={competencesOf(pinned.person.id)} styles={styles} brush={activeBrush} tool={activeTool} focusDate={focusDate} actions={editorActions} />
+            </div>
+          )}
           {rows.map(({ person, week, cells }, index) => {
             const inStroke = range !== null && index >= range.rowFrom && index <= range.rowTo
+            if (pinned?.person.id === person.id) {
+              return (
+                <div key={person.id} className="bm-row bm-ghost" title="Fold sammen (E)" onClick={() => toggleOpen(person.id)} onMouseEnter={() => setHover(null)}>
+                  <div className="bm-label">
+                    <ChevronDown size={14} aria-hidden />
+                    <span className="bm-name">{person.name}</span>
+                  </div>
+                  <span>Redigeres øverst · klikk for å folde sammen</span>
+                </div>
+              )
+            }
+            if (expand === 'row' && openRows.has(person.id)) {
+              return <TimelineRow key={person.id} ws={ws} person={person} dates={dates} week={week} competences={competencesOf(person.id)} styles={styles} brush={activeBrush} tool={activeTool} focusDate={focusDate} actions={editorActions} />
+            }
             return (
               <PersonRow
                 key={person.id}
@@ -398,6 +481,8 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
           title={`${menuPerson.name} · ${dayName(menu.cell.date)} ${Number(menu.cell.date.slice(8))}.`}
           competences={staffed.filter((style) => menuPerson.competences.includes(style.key)).map((style) => ({ style, blocked: paintBlock(ws, menu.cell, style.key) !== null }))}
           hasBlocks={(ws.assignments ?? []).some((a) => a.personId === menu.cell.personId && a.date === menu.cell.date)}
+          open={isOpen(menu.cell.personId)}
+          onToggleOpen={() => toggleOpen(menu.cell.personId)}
           onClose={() => setMenu(null)}
           onPaint={(competence) => paint([menu.cell], competence, false, menu.x, menu.y)}
           onClear={() => clear([menu.cell])}

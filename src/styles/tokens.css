@@ -45,6 +45,8 @@
   --line-slate:oklch(0.52 0.03 250);
   --line-orange:oklch(0.6 0.14 50);
   --on-line:#ffffff;       /* text on a competence colour */
+  --on-line-soft:rgba(255,255,255,.22);
+  --on-line-rule:rgba(255,255,255,.45);
 
   /* status */
   --neg:#c53637; --neg-bg:#f9e5e2;
@@ -112,6 +114,8 @@
   --line-slate:oklch(0.74 0.03 250);
   --line-orange:oklch(0.78 0.12 50);
   --on-line:#140c05;
+  --on-line-soft:rgba(20,12,5,.16);
+  --on-line-rule:rgba(20,12,5,.35);
 
   --neg:#f97770; --neg-bg:#301615;
   --pos:#6fd087; --pos-bg:#112618;
