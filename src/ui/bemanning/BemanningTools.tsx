@@ -1,5 +1,6 @@
 import type { CompetenceStyle } from '../../domain/types'
-import { Segmented, UndoRedoButtons } from '../common'
+import { Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
+import { competenceColor } from '../dom'
 import { Eraser, MousePointer2, Paintbrush, X } from 'lucide-react'
 import type { Tool } from './tools'
 
@@ -24,26 +25,21 @@ interface Props {
 
 export type ExpandMode = 'row' | 'week'
 
+const TOOLS: ToolChoice<Tool>[] = [
+  { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg en dag (V).' },
+  { value: 'paint', icon: <Paintbrush size={14} aria-hidden />, name: 'Pensel', shortcut: 'B', title: 'Mal dager med en kompetanse: klikk for hel dag, Shift for halv dag, dra over flere (B).' },
+  { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
+]
+
 /** The bar above the grid: undo, the tools, and what the brush paints. */
 export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount, expand, onExpand, anyOpen, onToggleAll, unresolved, onRemoveUnresolved }: Props) {
   return (
     <div className="toolbar bm-tools">
       <UndoRedoButtons />
-      <span className="tool-switch">
-        <Segmented
-          label="Verktøy"
-          value={tool}
-          onChange={onTool}
-          options={[
-            { value: 'select', label: (<><MousePointer2 size={14} aria-hidden /> Velg <kbd>V</kbd></>), title: 'Velg en dag (V).' },
-            { value: 'paint', label: (<><Paintbrush size={14} aria-hidden /> Pensel <kbd>B</kbd></>), title: 'Mal dager med en kompetanse: klikk for hel dag, Shift for halv dag, dra over flere (B).' },
-            { value: 'erase', label: (<><Eraser size={14} aria-hidden /> Tøm <kbd>T</kbd></>), title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
-          ]}
-        />
-      </span>
+      <ToolSwitch tool={tool} tools={TOOLS} onChange={onTool} />
       {brush ? (
         <>
-          <span className="bm-brush" style={{ '--cc': `var(--${brush.color})` } as React.CSSProperties}>
+          <span className="bm-brush" style={competenceColor(brush)}>
             <i className="swatch" />
             {brush.label}
             <button className="row-action" aria-label="Slå av fokus og pensel" title="Slå av fokus og pensel (Esc)" onClick={onClearBrush}>

@@ -6,9 +6,9 @@ import type { Assignment, CompetenceStyle, Interval, Minute, Person, Workspace }
 import { X } from 'lucide-react'
 import { ABSENCE_LABELS } from './dayCell'
 import type { Tool } from './tools'
-import { clock, hoursText } from './week'
+import { competenceColor } from '../dom'
+import { clock, EPSILON, hoursText } from './week'
 
-const EPSILON = 0.05
 /** The pixel heights from which a block in the week editor has room for its name, its time and its hours. */
 const NAME_FROM_PX = 18
 const TIME_FROM_PX = 34
@@ -179,7 +179,7 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
           <span
             key={block.id}
             className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
-            style={{ ...place(from, to), '--cc': `var(--${style?.color ?? 'line-slate'})` } as React.CSSProperties}
+            style={{ ...place(from, to), ...competenceColor(style) }}
             title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
             onMouseDown={(e) => blockDown(e, block, 'move')}
             onDoubleClick={(e) => {

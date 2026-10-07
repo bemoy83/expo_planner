@@ -1,4 +1,4 @@
-import { rowTotals, type DemandIndex, type RowTotals } from '../../domain/calc'
+import { FTE_NOISE, rowTotals, type DemandIndex, type RowTotals } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import { UNRESOLVED_HALL } from '../../domain/locations'
 import { normalizeName, type VenueEvent } from '../../domain/projects'
@@ -181,7 +181,7 @@ export const filterGroups = (rows: AllocationRow[], events: VenueEvent[], index:
   const narrowsRows = !!filter.competence || !!filter.search || !!filter.onlyUncovered
   const lacksPlan = (row: AllocationRow) => {
     const { requiredFte, plannedFte } = rowTotals(index, row, settings)
-    return (requiredFte ?? 0) > plannedFte + 0.05
+    return (requiredFte ?? 0) > plannedFte + FTE_NOISE
   }
   let groups = buildGroups(rows.filter((row) => rowMatches(row, filter) && (!filter.onlyUncovered || lacksPlan(row))), events, index, settings)
   if (filter.project) groups = groups.filter((group) => group.key === filter.project)

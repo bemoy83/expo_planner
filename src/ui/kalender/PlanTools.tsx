@@ -1,48 +1,29 @@
-import { Menu, Segmented } from '../common'
+import { Menu, ToolSwitch, type ToolChoice } from '../common'
 import { EMPTY_FILTER, filterSummary, type RowFilter } from './rows'
 import type { Tool } from './selection'
 import { ChevronDown, Eraser, Filter, MousePointer2, Pencil } from 'lucide-react'
 
-/** The tool switch of the planning bar: every tool shows its name and its key. */
-export function ToolSwitch({ tool, onChange }: { tool: Tool; onChange: (tool: Tool) => void }) {
-  return (
-    <span className="tool-switch">
-      <Segmented
-        label="Verktøy"
-        value={tool}
-        onChange={onChange}
-        options={[
-          {
-            value: 'select',
-            label: (
-              <>
-                <MousePointer2 size={14} aria-hidden /> Velg <kbd>V</kbd>
-              </>
-            ),
-            title: 'Velg celler og skriv FTE i dem (V).',
-          },
-          {
-            value: 'pencil',
-            label: (
-              <>
-                <Pencil size={14} aria-hidden /> Fordel behov <kbd>F</kbd>
-              </>
-            ),
-            title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag (F, eller hold Shift og dra).',
-          },
-          {
-            value: 'eraser',
-            label: (
-              <>
-                <Eraser size={14} aria-hidden /> Tøm <kbd>T</kbd>
-              </>
-            ),
-            title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under (T, eller hold Alt og dra).',
-          },
-        ]}
-      />
-    </span>
-  )
+/** The tools of the planning bar. */
+const TOOLS: ToolChoice<Tool>[] = [
+  { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg celler og skriv FTE i dem (V).' },
+  {
+    value: 'pencil',
+    icon: <Pencil size={14} aria-hidden />,
+    name: 'Fordel behov',
+    shortcut: 'F',
+    title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag (F, eller hold Shift og dra).',
+  },
+  {
+    value: 'eraser',
+    icon: <Eraser size={14} aria-hidden />,
+    name: 'Tøm',
+    shortcut: 'T',
+    title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under (T, eller hold Alt og dra).',
+  },
+]
+
+export function PlanToolSwitch({ tool, onChange }: { tool: Tool; onChange: (tool: Tool) => void }) {
+  return <ToolSwitch tool={tool} tools={TOOLS} onChange={onChange} />
 }
 
 interface FilterMenuProps {

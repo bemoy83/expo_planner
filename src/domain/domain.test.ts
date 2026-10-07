@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { buildDemandIndex, capacityForDate, dailyNeed, referenceProjectNo, requiredHours, rowTotals } from './calc'
-import { addDays, dateRange, excelSerialToDate, isoWeek, normalizeDate, weekdayIndex } from './dates'
+import { addDays, dateRange, dayOfMonth, excelSerialToDate, isoWeek, localIso, monthShort, normalizeDate, weekdayIndex } from './dates'
 import { dayType, easterSunday, holidayName } from './holidays'
 import { DEFAULT_SETTINGS, type AllocationRow, type CapacityLine, type DemandLine } from './types'
 
 describe('dates', () => {
+  it('takes today from the planner\'s own clock, also just after midnight', () => {
+    expect(localIso(new Date(2026, 9, 7, 0, 30))).toBe('2026-10-07')
+    expect(localIso(new Date(2026, 0, 1, 23, 59))).toBe('2026-01-01')
+  })
+
+  it('writes a day as «5. okt»', () => {
+    expect(`${dayOfMonth('2026-10-05')}. ${monthShort('2026-10-05')}`).toBe('5. okt')
+  })
+
   it('converts Excel serials', () => {
     expect(excelSerialToDate(46023)).toBe('2026-01-01')
     expect(excelSerialToDate(46747)).toBe('2027-12-26')

@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { decimalText, parseDecimal } from '../domain/numbers'
 
 /** A number that is edited in place and saved when the field is left or Enter is pressed. Empty means 0. */
 export function NumberField({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
-  const shown = value ? String(value).replace('.', ',') : ''
+  const shown = value ? decimalText(value) : ''
   const [draft, setDraft] = useState<string | null>(null)
   return (
     <input
@@ -12,8 +13,8 @@ export function NumberField({ value, onCommit }: { value: number; onCommit: (val
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         if (draft === null) return
-        const n = draft.trim() === '' ? 0 : Number(draft.replace(',', '.'))
-        if (Number.isFinite(n) && n !== value) onCommit(n)
+        const n = parseDecimal(draft)
+        if (n !== undefined && (n ?? 0) !== value) onCommit(n ?? 0)
         setDraft(null)
       }}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}

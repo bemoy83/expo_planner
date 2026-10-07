@@ -5,9 +5,10 @@ import type { CompetenceStyle, Person, Workspace } from '../../domain/types'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { TimeTrack, WEEK_HOUR_PX, type AssignmentChange } from './TimeTrack'
 import type { Tool } from './tools'
-import { hoursText } from './week'
+import { competenceColor } from '../dom'
+import { WeekMeter } from './PersonRow'
+import { dayClass, EPSILON, hoursText } from './week'
 
-const EPSILON = 0.05
 
 /** What an open person tells the grid; the handlers keep their identity (see `useStableActions`). */
 export interface EditorActions {
@@ -43,7 +44,7 @@ function QuickPick({ competences, brush, actions, long }: Pick<Props, 'competenc
           key={style.key}
           className={brush === style.key ? 'on' : ''}
           aria-pressed={brush === style.key}
-          style={{ '--cc': `var(--${style.color})` } as React.CSSProperties}
+          style={competenceColor(style)}
           title={brush === style.key ? 'Slå av pensel (Esc)' : `Mal med ${style.label}${key ? ` (${key})` : ''}`}
           onClick={(e) => {
             e.stopPropagation()
@@ -58,8 +59,6 @@ function QuickPick({ competences, brush, actions, long }: Pick<Props, 'competenc
     </span>
   )
 }
-
-const dayClass = (date: ISODate, index: number, focusDate: ISODate) => `${index >= 5 ? 'narrow' : ''} ${dayType(date) !== 'arbeidsdag' ? 'off-day' : ''} ${date === focusDate ? 'focus-day' : ''}`
 
 /** The week editor: one person's week with the whole day down the page, 06 to 21, where overtime is drawn. */
 export function WeekEditor({ ws, person, dates, week, competences, styles, brush, tool, focusDate, actions }: Props) {
@@ -116,7 +115,6 @@ export function TimelineRow({ ws, person, dates, week, competences, styles, brus
   const wd = ws.settings.workday
   const hours: number[] = []
   for (let hour = wd.dayStart / 60; hour * 60 <= wd.dayEnd; hour++) hours.push(hour)
-  const share = week.capacity ? Math.min(1, week.normal / week.capacity) * 100 : 0
   return (
     <div className="bm-row bm-timeline-row" onMouseEnter={actions.enter}>
       <div className="bm-label bm-person-label" onClick={() => actions.fold(person.id)}>
@@ -127,15 +125,7 @@ export function TimelineRow({ ws, person, dates, week, competences, styles, brus
           <span className="bm-name">{person.name}</span>
           <QuickPick competences={competences} brush={brush} actions={actions} long={false} />
         </span>
-        <span className="bm-person-week">
-          <span>
-            <b>{hoursText(week.normal)}</b>/{hoursText(week.capacity)}
-            {week.overtime > EPSILON && <em> +{hoursText(week.overtime)}</em>}
-          </span>
-          <i>
-            <i style={{ width: `${share}%` }} />
-          </i>
-        </span>
+        <WeekMeter week={week} />
       </div>
       {dates.map((date, index) => (
         <div key={date} className={`bm-cell bm-editor-cell ${dayClass(date, index, focusDate)}`} onContextMenu={(e) => actions.dayMenu(person.id, date, e)}>

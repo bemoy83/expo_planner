@@ -1,4 +1,5 @@
-import { addDays, isoWeek, MONTHS_NB, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { FTE_NOISE } from '../../domain/calc'
+import { addDays, dayOfMonth, isoWeek, MONTHS_NB, monthShort, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import type { AllocationRow } from '../../domain/types'
 import { dimensionValue, type Dimension } from './rows'
 
@@ -12,11 +13,11 @@ export const fmtDate = (date: ISODate) => {
 }
 
 /** A day without its year, e.g. «man 5. okt». */
-export const fmtDay = (date: ISODate) => `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${Number(date.slice(8))}. ${MONTHS_NB[Number(date.slice(5, 7)) - 1].toLowerCase()}`
+export const fmtDay = (date: ISODate) => `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${dayOfMonth(date)}. ${monthShort(date)}`
 
 export const rowTitle = (row: AllocationRow) => `${describeRow(row, ['project', 'competence', 'hall', 'avdeling'])} · ${row.phase}`
 
-export const deltaClass = (delta: number | null) => (delta === null ? '' : delta < -0.05 ? 'under' : delta > 0.05 ? 'over' : 'ok')
+export const deltaClass = (delta: number | null) => (delta === null ? '' : delta < -FTE_NOISE ? 'under' : delta > FTE_NOISE ? 'over' : 'ok')
 
 /** Roughly the width of a month's name in the date header, «NOV 2026», with a little air after it. */
 const MONTH_LABEL_W = 68
@@ -28,7 +29,7 @@ const MONTH_LABEL_W = 68
  */
 export const headLabel = (date: ISODate, colW: number): { month?: string; week?: string } => {
   const covered = Math.ceil(MONTH_LABEL_W / colW)
-  const day = Number(date.slice(8))
+  const day = dayOfMonth(date)
   if (day === 1) {
     const toMonday = (7 - weekdayIndex(date)) % 7
     return { month: `${MONTHS_NB[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`, week: toMonday < covered ? `u${isoWeek(addDays(date, toMonday))}` : undefined }

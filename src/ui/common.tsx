@@ -50,6 +50,37 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
   )
 }
 
+export interface ToolChoice<T extends string> {
+  value: T
+  icon: ReactNode
+  name: string
+  /** The key that picks the tool, shown on its button. */
+  shortcut: string
+  title: string
+}
+
+/** The tool switch of a planning page: every tool shows its icon, its name and its key. */
+export function ToolSwitch<T extends string>({ tool, tools, onChange }: { tool: T; tools: ToolChoice<T>[]; onChange: (tool: T) => void }) {
+  return (
+    <span className="tool-switch">
+      <Segmented
+        label="Verktøy"
+        value={tool}
+        onChange={onChange}
+        options={tools.map(({ value, icon, name, shortcut, title }) => ({
+          value,
+          title,
+          label: (
+            <>
+              {icon} {name} <kbd>{shortcut}</kbd>
+            </>
+          ),
+        }))}
+      />
+    </span>
+  )
+}
+
 /** Undo and redo, as they sit in every tab's toolbar: icons alone, named in the tooltip. */
 export function UndoRedoButtons() {
   const { undo, redo, canUndo, canRedo } = useWorkspace()

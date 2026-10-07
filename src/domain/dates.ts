@@ -12,6 +12,11 @@ export const toUtc = (date: ISODate): number => {
 
 export const fromUtc = (ms: number): ISODate => new Date(ms).toISOString().slice(0, 10)
 
+/** The calendar date of a moment where the planner sits, not in UTC: just after midnight it is already the new day. */
+export const localIso = (moment: Date): ISODate => `${moment.getFullYear()}-${String(moment.getMonth() + 1).padStart(2, '0')}-${String(moment.getDate()).padStart(2, '0')}`
+
+export const todayIso = (): ISODate => localIso(new Date())
+
 export const addDays = (date: ISODate, days: number): ISODate => fromUtc(toUtc(date) + days * DAY_MS)
 
 export const daysBetween = (from: ISODate, to: ISODate): number => Math.round((toUtc(to) - toUtc(from)) / DAY_MS)
@@ -38,6 +43,11 @@ export const isoWeek = (date: ISODate): number => {
 
 export const WEEKDAYS_NB = ['MAN', 'TIR', 'ONS', 'TOR', 'FRE', 'LØR', 'SØN']
 export const MONTHS_NB = ['JAN', 'FEB', 'MAR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DES']
+
+/** The day of the month as it is written, without a leading zero. */
+export const dayOfMonth = (date: ISODate): number => Number(date.slice(8, 10))
+/** The month in lower case, as in «5. okt». */
+export const monthShort = (date: ISODate): string => MONTHS_NB[Number(date.slice(5, 7)) - 1].toLowerCase()
 
 /** Accepts the forms dates arrive in from ExcelJS: Date, Excel serial, or ISO-like text. */
 export const normalizeDate = (value: unknown): ISODate | null => {

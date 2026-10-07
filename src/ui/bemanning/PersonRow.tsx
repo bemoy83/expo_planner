@@ -4,9 +4,9 @@ import type { PersonWeek } from '../../domain/staffing'
 import type { CompetenceStyle, Person } from '../../domain/types'
 import { ChevronRight } from 'lucide-react'
 import { ABSENCE_LABELS, type DayCell } from './dayCell'
-import { clock, hoursText } from './week'
+import { competenceColor } from '../dom'
+import { clock, EPSILON, hoursText } from './week'
 
-const EPSILON = 0.05
 
 interface Props {
   person: Person
@@ -41,7 +41,23 @@ export interface RowActions {
   open: (personId: string) => void
 }
 
-const colorOf = (styles: Map<string, CompetenceStyle>, competence: string) => ({ '--cc': `var(--${styles.get(competence)?.color ?? 'line-slate'})` }) as React.CSSProperties
+const colorOf = (styles: Map<string, CompetenceStyle>, competence: string) => competenceColor(styles.get(competence))
+
+/** A person's hours in the week: normal time of what they have, overtime after it, and a meter of the normal time. */
+export function WeekMeter({ week }: { week: PersonWeek }) {
+  const share = week.capacity ? Math.min(1, week.normal / week.capacity) * 100 : 0
+  return (
+    <span className="bm-person-week" title={`${hoursText(week.normal)} av ${hoursText(week.capacity)} t tildelt denne uka${week.overtime > EPSILON ? `, og ${hoursText(week.overtime)} t overtid` : ''}`}>
+      <span>
+        <b>{hoursText(week.normal)}</b>/{hoursText(week.capacity)}
+        {week.overtime > EPSILON && <em> +{hoursText(week.overtime)}</em>}
+      </span>
+      <i>
+        <i style={{ width: `${share}%` }} />
+      </i>
+    </span>
+  )
+}
 
 function FoldedDay({ cell, styles, brush }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null }) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
@@ -94,7 +110,6 @@ function FoldedDay({ cell, styles, brush }: { cell: DayCell; styles: Map<string,
 
 /** One person's week, folded: a label with their competences and hours, and a small timeline per day. */
 export const PersonRow = memo(function PersonRow({ person, dates, cells, week, competences, styles, focusDate, rowIndex, brush, blocked, strokeFrom, strokeTo, strokeMode, selected, actions }: Props) {
-  const share = week.capacity ? Math.min(1, week.normal / week.capacity) * 100 : 0
   return (
     <div className="bm-row bm-person">
       <div className="bm-label bm-person-label" onClick={() => actions.open(person.id)}>
@@ -105,19 +120,11 @@ export const PersonRow = memo(function PersonRow({ person, dates, cells, week, c
           <span className="bm-name">{person.name}</span>
           <span className="bm-dots">
             {competences.map((style) => (
-              <i key={style.key} className={`${person.competences.includes(style.key) ? 'has' : ''} ${style.key === brush ? 'focused' : ''}`} style={{ '--cc': `var(--${style.color})` } as React.CSSProperties} title={person.competences.includes(style.key) ? style.label : undefined} />
+              <i key={style.key} className={`${person.competences.includes(style.key) ? 'has' : ''} ${style.key === brush ? 'focused' : ''}`} style={competenceColor(style)} title={person.competences.includes(style.key) ? style.label : undefined} />
             ))}
           </span>
         </span>
-        <span className="bm-person-week" title={`${hoursText(week.normal)} av ${hoursText(week.capacity)} t tildelt denne uka${week.overtime > EPSILON ? `, og ${hoursText(week.overtime)} t overtid` : ''}`}>
-          <span>
-            <b>{hoursText(week.normal)}</b>/{hoursText(week.capacity)}
-            {week.overtime > EPSILON && <em> +{hoursText(week.overtime)}</em>}
-          </span>
-          <i>
-            <i style={{ width: `${share}%` }} />
-          </i>
-        </span>
+        <WeekMeter week={week} />
       </div>
       {dates.map((date, index) => {
         const cell = cells[index]

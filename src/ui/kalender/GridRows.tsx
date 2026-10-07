@@ -1,5 +1,5 @@
 import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
-import { capacityForDate, formatFte } from '../../domain/calc'
+import { capacityForDate, formatFte, FTE_NOISE } from '../../domain/calc'
 import { addDays, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, Settings, VenuePhase } from '../../domain/types'
@@ -304,7 +304,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
           cells={(date) => {
             const dev = capacityForDate(date, capacity, settings).available - (need.get(date) ?? 0)
             const n = need.get(date) ?? 0
-            return readCell(cols, date, n || dev ? dev : undefined, `sum-cell dev ${dev < -0.05 ? 'neg' : dev > 0.05 && n ? 'pos' : ''}`)
+            return readCell(cols, date, n || dev ? dev : undefined, `sum-cell dev ${dev < -FTE_NOISE ? 'neg' : dev > FTE_NOISE && n ? 'pos' : ''}`)
           }}
         />
       )}
@@ -476,7 +476,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
           <span className="row-slot row-actions">
             <button
               className="row-action"
-              disabled={!window?.size || remaining <= 0.05}
+              disabled={!window?.size || remaining <= FTE_NOISE}
               aria-label="Fordel det som gjenstår over vinduet"
               title={`Fordel det som gjenstår av behovet på ${phaseDays} i hallen. Erstatter det som står på de dagene.`}
               onClick={() => actions.proposePlan([r], true)}

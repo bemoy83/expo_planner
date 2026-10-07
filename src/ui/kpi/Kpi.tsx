@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, mergeKpi, removeKpiRow, replaceKpi, setRate, type KpiDiff, type NewKpiRow } from '../../domain/kpi'
+import { parseDecimal } from '../../domain/numbers'
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -191,7 +192,11 @@ interface AddProps {
   onClose: () => void
 }
 
-const toNumber = (text: string) => (text.trim() === '' ? 0 : Number(text.replace(',', '.')))
+/** An empty rate is 0; text that is no number is NaN. */
+const toNumber = (text: string) => {
+  const n = parseDecimal(text)
+  return n === undefined ? NaN : (n ?? 0)
+}
 
 function AddDialog({ initial, typeNames, exists, onAdd, onClose }: AddProps) {
   const [name, setName] = useState(initial.name ?? '')

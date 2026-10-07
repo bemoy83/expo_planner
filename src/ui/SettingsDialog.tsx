@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { decimalText, parseDecimal } from '../domain/numbers'
 import { useWorkspace } from '../store/workspaceStore'
 
 /** The base crew and the hours of a normal day. */
@@ -6,11 +7,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { workspace, updateSettings } = useWorkspace()
   const settings = workspace!.settings
   const [baseCrew, setBaseCrew] = useState(String(settings.baseCrew))
-  const [hoursPerDay, setHoursPerDay] = useState(String(settings.hoursPerDay).replace('.', ','))
+  const [hoursPerDay, setHoursPerDay] = useState(decimalText(settings.hoursPerDay))
 
-  const crew = Number(baseCrew.replace(',', '.'))
-  const hours = Number(hoursPerDay.replace(',', '.'))
-  const valid = Number.isFinite(crew) && crew >= 0 && Number.isFinite(hours) && hours > 0
+  // An empty crew is none; text that is no number is NaN, which no comparison lets through.
+  const crew = parseDecimal(baseCrew) === null ? 0 : (parseDecimal(baseCrew) ?? NaN)
+  const hours = parseDecimal(hoursPerDay) ?? NaN
+  const valid = crew >= 0 && hours > 0
 
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

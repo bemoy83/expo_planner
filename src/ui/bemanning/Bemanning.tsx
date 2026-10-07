@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
-import { addDays, MONTHS_NB, type ISODate } from '../../domain/dates'
+import { addDays, dayOfMonth, monthShort, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { assignmentStatus, openUnresolved, buildBalance, carry, clearDays, clearSick, freeCapacity, isSick, markSick, removeCarried, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
 import type { Assignment, Unavailability, Workspace } from '../../domain/types'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { useStableActions } from '../kalender/useStableActions'
+import { isTyping } from '../dom'
 import { Toasts, useToasts } from '../Toasts'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { BemanningTools, type ExpandMode } from './BemanningTools'
@@ -17,9 +18,8 @@ import { PersonRow, type RowActions } from './PersonRow'
 import { AbsenceDialog } from './AbsenceDialog'
 import { DayMenu, DemandPopover, PaintAsk } from './Popovers'
 import { strokeRange, TOOL_KEYS, type Stroke, type Tool } from './tools'
-import { hoursText, todayIso, weekDates, weekLabel, weekRange, WEEKDAYS_LONG } from './week'
+import { EPSILON, hoursText, weekDates, weekLabel, weekRange, WEEKDAYS_LONG } from './week'
 
-const EPSILON = 0.05
 /** The highest number a competence can be picked with on the keyboard. */
 const LAST_KEY = 9
 /** Under this window height the demand strip starts folded, to leave room for the people. */
@@ -28,11 +28,6 @@ const FOLD_STRIP_UNDER = 640
 const NO_ASSIGNMENTS: Assignment[] = []
 const NO_ABSENCE: Unavailability[] = []
 const NO_PREVIEW = new Map<ISODate, number>()
-
-const isTyping = (target: EventTarget | null) => {
-  const el = target as HTMLElement | null
-  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
-}
 
 /** The assigned hours of one competence per date. */
 const hoursByDate = (assignments: Assignment[], competence: string, ws: Workspace) => {
@@ -82,12 +77,12 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
   const activeBrush = brush && staffed.some((style) => style.key === brush) ? brush : null
   const activeTool: Tool = tool === 'paint' && !activeBrush ? 'select' : tool
   // The strip shows the competences people have, and any other with demand or assigned hours this week.
+  const keyOf = useMemo(() => new Map(staffed.slice(0, LAST_KEY).map((style, index) => [style.key, index + 1])), [staffed])
   const stripRows = useMemo(() => {
-    const keys = new Map(staffed.slice(0, LAST_KEY).map((style, index) => [style.key, index + 1]))
     const held = new Set(staffed.map((style) => style.key))
     const inWeek = new Set(balance.competences)
-    return [...styles.values()].filter((style) => held.has(style.key) || inWeek.has(style.key)).map((style) => ({ style, key: keys.get(style.key) ?? 0 }))
-  }, [staffed, styles, balance])
+    return [...styles.values()].filter((style) => held.has(style.key) || inWeek.has(style.key)).map((style) => ({ style, key: keyOf.get(style.key) ?? 0 }))
+  }, [staffed, styles, balance, keyOf])
   const capacity = useMemo(() => dates.map((date) => freeCapacity(ws, date, activeBrush ?? undefined)), [ws, dates, activeBrush])
   const uncoverable = useMemo(() => {
     const hours = new Map<string, number>()
@@ -367,7 +362,6 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
   const range = stroke ? strokeRange(stroke) : null
   const strokeMode = stroke ? (stroke.mode === 'erase' ? 'erase' : stroke.half ? 'paint-half' : 'paint') : ''
   const pinned = expand === 'week' && openWeek ? allRows.find(({ person }) => person.id === openWeek) : undefined
-  const keyOf = new Map(staffed.slice(0, LAST_KEY).map((style, index) => [style.key, index + 1]))
   const competencesOf = (personId: string) => {
     const person = persons.find((p) => p.id === personId)
     return staffed.filter((style) => person?.competences.includes(style.key)).map((style) => ({ style, key: keyOf.get(style.key) ?? 0 }))
@@ -513,7 +507,7 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
         <DayMenu
           x={menu.x}
           y={menu.y}
-          title={`${menuPerson.name} · ${dayName(menu.cell.date)} ${Number(menu.cell.date.slice(8))}.`}
+          title={`${menuPerson.name} · ${dayName(menu.cell.date)} ${dayOfMonth(menu.cell.date)}.`}
           competences={staffed.filter((style) => menuPerson.competences.includes(style.key)).map((style) => ({ style, blocked: paintBlock(ws, menu.cell, style.key) !== null }))}
           hasBlocks={(ws.assignments ?? []).some((a) => a.personId === menu.cell.personId && a.date === menu.cell.date)}
           open={isOpen(menu.cell.personId)}
@@ -539,7 +533,7 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
             x={demandPop.x}
             y={demandPop.y}
             style={styles.get(demandPop.competence)!}
-            dayText={`${dayName(demandPop.date)} ${Number(demandPop.date.slice(8))}. ${MONTHS_NB[Number(demandPop.date.slice(5, 7)) - 1].toLowerCase()}`}
+            dayText={`${dayName(demandPop.date)} ${dayOfMonth(demandPop.date)}. ${monthShort(demandPop.date)}`}
             demand={cell.demand}
             assigned={cell.assigned}
             remaining={cell.remaining}

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { formatFte } from '../../domain/calc'
 import { EMPTY_KPI } from '../../domain/kpi'
+import { decimalText } from '../../domain/numbers'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { buildVismaLines, isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
 import { readVismaExport } from '../../import/vismaExport'
@@ -248,7 +249,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                         <span className="muted">
                           {[
                             o.override.inPlan && 'i plan',
-                            o.override.effekt ? `Effekt ${String(o.override.effekt).replace('.', ',')}` : '',
+                            o.override.effekt ? `Effekt ${decimalText(o.override.effekt)}` : '',
                             o.override.workType && `arbeidstype ${o.override.workType}`,
                             o.override.comment && `«${o.override.comment}»`,
                           ]

@@ -1,8 +1,10 @@
 import { formatFte } from '../../domain/calc'
-import { addDays, isoWeek, MONTHS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
+import { dayType } from '../../domain/holidays'
 import type { Minute } from '../../domain/types'
 
-export const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
+/** Hours nearer zero than this are shown as none. */
+export const EPSILON = 0.05
 
 /** Monday to Sunday of the ISO week the date is in. */
 export const weekDates = (date: ISODate): ISODate[] => {
@@ -10,17 +12,17 @@ export const weekDates = (date: ISODate): ISODate[] => {
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i))
 }
 
-const month = (date: ISODate) => MONTHS_NB[Number(date.slice(5, 7)) - 1].toLowerCase()
-const day = (date: ISODate) => String(Number(date.slice(8, 10)))
-
 /** «12.–18. okt», or «28. sep–4. okt» for a week across two months. */
 export const weekRange = (dates: ISODate[]): string => {
   const first = dates[0]
   const last = dates[dates.length - 1]
-  return month(first) === month(last) ? `${day(first)}.–${day(last)}. ${month(last)}` : `${day(first)}. ${month(first)}–${day(last)}. ${month(last)}`
+  return monthShort(first) === monthShort(last) ? `${dayOfMonth(first)}.–${dayOfMonth(last)}. ${monthShort(last)}` : `${dayOfMonth(first)}. ${monthShort(first)}–${dayOfMonth(last)}. ${monthShort(last)}`
 }
 
 export const weekLabel = (dates: ISODate[]): string => `U${isoWeek(dates[0])}`
+
+/** What a day's column is in every row of the grid: narrow in the weekend, a day off, the day in focus. */
+export const dayClass = (date: ISODate, index: number, focusDate: ISODate): string => `${index >= 5 ? 'narrow' : ''} ${dayType(date) !== 'arbeidsdag' ? 'off-day' : ''} ${date === focusDate ? 'focus-day' : ''}`
 
 export const WEEKDAYS_LONG = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag']
 

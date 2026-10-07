@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
+import { parseDecimal } from '../../domain/numbers'
 import type { CompetenceStyle } from '../../domain/types'
+import { competenceColor, inWindow } from '../dom'
 import { useDismiss } from '../useDismiss'
 import { CalendarOff, ChevronsDownUp, ChevronsUpDown, Eraser, HeartPulse, Paintbrush, Thermometer } from 'lucide-react'
 import { hoursText } from './week'
-
-const inWindow = (x: number, y: number, width: number, height: number) => ({ left: Math.max(8, Math.min(x, window.innerWidth - width - 10)), top: Math.max(8, Math.min(y, window.innerHeight - height - 10)) })
 
 interface AskProps {
   x: number
@@ -156,15 +156,15 @@ export function DemandPopover({ x, y, style, dayText, demand, assigned, remainin
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(ref, true, onClose)
   const [amount, setAmount] = useState(DEFAULT_CARRY)
-  const hours = Number(amount.replace(',', '.'))
-  const valid = Number.isFinite(hours) && hours > 0
+  const hours = parseDecimal(amount) ?? 0
+  const valid = hours > 0
   const carry = () => {
     if (!valid) return
     onClose()
     onCarry(hours)
   }
   return (
-    <div className="menu-pop bm-demand-pop" role="dialog" ref={ref} style={{ ...inWindow(x, y + 8, 300, 300), '--cc': `var(--${style.color})` } as React.CSSProperties}>
+    <div className="menu-pop bm-demand-pop" role="dialog" ref={ref} style={{ ...inWindow(x, y + 8, 300, 300), ...competenceColor(style) }}>
       <div className="bm-pop-head">
         <i className="swatch" />
         <b>{style.label}</b>

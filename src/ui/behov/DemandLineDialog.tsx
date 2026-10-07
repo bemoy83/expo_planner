@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { decimalText, parseDecimal } from '../../domain/numbers'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 
@@ -9,12 +10,8 @@ interface Props {
   onClose: () => void
 }
 
-const toNumber = (text: string): number | null => {
-  if (text.trim() === '') return null
-  const n = Number(text.replace(',', '.'))
-  return Number.isFinite(n) ? n : null
-}
-const show = (value: number | null | undefined) => (value === null || value === undefined ? '' : String(Math.round(value * 1000) / 1000).replace('.', ','))
+const toNumber = (text: string): number | null => parseDecimal(text) ?? null
+const show = (value: number | null | undefined) => (value === null || value === undefined ? '' : decimalText(Math.round(value * 1000) / 1000))
 
 /**
  * Adds or edits a ledger line that is the planner's own: a count from the hall map, hours not in Visma, and so on.

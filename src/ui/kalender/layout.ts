@@ -1,3 +1,5 @@
+import { parseDecimal } from '../../domain/numbers'
+
 /** The height of a line of the grid, as in the design mockup. */
 export const ROW_H = 28
 /** A project's line, the top level of the hierarchy, stands a little taller than the lines under it. */
@@ -27,9 +29,4 @@ export const fitSpan = (firstCol: number, days: number, room: number, zoom: Zoom
 }
 
 /** Parses what a planner types into a cell: «1,5», «1.5», «» (clear). */
-export const parseCellInput = (input: string): number | null | undefined => {
-  const trimmed = input.trim().replace(',', '.')
-  if (trimmed === '') return null
-  const n = Number(trimmed)
-  return Number.isFinite(n) ? n : undefined
-}
+export const parseCellInput = parseDecimal

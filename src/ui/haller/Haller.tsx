@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ISODate } from '../../domain/dates'
+import { todayIso, type ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from '../../domain/types'
 import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
 import { anchorDate, VENYOU_ID_PREFIX, venueKey } from '../../domain/venueImport'
@@ -38,7 +38,7 @@ export function Haller() {
   const [onlyUnlinked, setOnlyUnlinked] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
   const listInput = useRef<HTMLInputElement>(null)
-  const [today] = useState(() => new Date().toISOString().slice(0, 10))
+  const [today] = useState(todayIso)
 
   const halls = useMemo(() => [...new Set(ws.venue.map((b) => b.hall))].sort((a, b) => a.localeCompare(b, 'nb')), [ws.venue])
   const statuses = useMemo(() => [...new Set(ws.venue.map((b) => b.status).filter(Boolean))].sort(), [ws.venue])

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { todayIso } from './domain/dates'
 import { DEFAULT_SETTINGS, type Workspace } from './domain/types'
 import { withVenueImport } from './domain/venueImport'
 import { withVismaImports } from './domain/visma'
@@ -15,6 +16,7 @@ import { Bemanning } from './ui/bemanning/Bemanning'
 import { Personell } from './ui/personell/Personell'
 import { Kalender } from './ui/kalender/Kalender'
 import { Menu, Segmented } from './ui/common'
+import { isTyping } from './ui/dom'
 import { errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
@@ -91,8 +93,7 @@ function Shell() {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       const key = e.key.toLowerCase()
       if (key !== 'z' && key !== 'y') return
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      if (isTyping(e.target)) return
       e.preventDefault()
       if (key === 'y' || e.shiftKey) redo()
       else undo()
@@ -140,7 +141,7 @@ function Shell() {
     const blob = new Blob([JSON.stringify(toBackup(workspace))], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `expo-planner-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `expo-planner-${todayIso()}.json`
     a.click()
     URL.revokeObjectURL(a.href)
   }

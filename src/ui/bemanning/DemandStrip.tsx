@@ -1,13 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { ISODate } from '../../domain/dates'
+import { dayOfMonth, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { Balance, FreeCapacity } from '../../domain/staffing'
 import type { CompetenceStyle } from '../../domain/types'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
-import { hoursText, weekLabel, weekRange, WEEKDAYS_LONG } from './week'
-
-/** Hours nearer zero than this are shown as none. */
-const EPSILON = 0.05
+import { competenceColor } from '../dom'
+import { dayClass as dayClassOf, EPSILON, hoursText, weekLabel, weekRange, WEEKDAYS_LONG } from './week'
 
 interface Props {
   dates: ISODate[]
@@ -45,7 +43,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
     return () => cancelAnimationFrame(frame)
   }, [])
   const workdays = dates.filter((date) => dayType(date) === 'arbeidsdag')
-  const dayClass = (date: ISODate, index: number) => `${index >= 5 ? 'narrow' : ''} ${dayType(date) !== 'arbeidsdag' ? 'off-day' : ''} ${date === focusDate ? 'focus-day' : ''}`
+  const dayClass = (date: ISODate, index: number) => dayClassOf(date, index, focusDate)
 
   return (
     <div className="bm-strip">
@@ -57,9 +55,9 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
           </span>
         </div>
         {dates.map((date, index) => (
-          <button key={date} className={`bm-date ${dayClass(date, index)}`} aria-pressed={date === focusDate} title={`${WEEKDAYS_LONG[index]} ${Number(date.slice(8))}.`} onClick={() => onFocusDate(date)}>
+          <button key={date} className={`bm-date ${dayClass(date, index)}`} aria-pressed={date === focusDate} title={`${WEEKDAYS_LONG[index]} ${dayOfMonth(date)}.`} onClick={() => onFocusDate(date)}>
             <span>{WEEKDAYS_LONG[index].slice(0, 3)}</span>
-            <b>{Number(date.slice(8))}</b>
+            <b>{dayOfMonth(date)}</b>
           </button>
         ))}
       </div>
@@ -80,7 +78,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
           if (folded && !on) return null
           const weekRemaining = workdays.reduce((sum, date) => sum + Math.max(0, balance.get(style.key, date).remaining), 0)
           return (
-            <div key={style.key} className={`bm-row bm-demand ${on ? 'on' : brush ? 'dim' : ''}`} style={{ '--cc': `var(--${style.color})` } as React.CSSProperties}>
+            <div key={style.key} className={`bm-row bm-demand ${on ? 'on' : brush ? 'dim' : ''}`} style={competenceColor(style)}>
               <button className="bm-label bm-pick" aria-pressed={on} disabled={!key && !on} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
                 <i className="swatch" />
                 <span className="bm-name">{style.label}</span>

@@ -1,7 +1,7 @@
+import { FTE_NOISE } from '../../domain/calc'
+
 /** Less than this many FTE to spare on a day counts as tight. */
 export const TIGHT_BELOW = 2
-/** A difference this small is rounding, not a shortage. */
-const NOISE = 0.05
 
 export type HeatKind = 'short' | 'tight' | 'spare'
 
@@ -30,7 +30,7 @@ export const heatScale = (deviations: Iterable<number>): { maxShortage: number; 
  * the larger the shortage; amber when little is to spare; green when there is room, a little stronger the more.
  */
 export const heatTile = (deviation: number, maxShortage: number, maxSurplus: number): HeatTile => {
-  if (deviation < -NOISE) {
+  if (deviation < -FTE_NOISE) {
     const share = Math.min(1, -deviation / Math.max(1, maxShortage))
     return { kind: 'short', percent: Math.round(22 + share * 63), strong: share > 0.5 }
   }

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
+import { capacityForDate, dailyNeed, formatFte, FTE_NOISE, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
-import { dateRange, daysBetween, type ISODate } from '../../domain/dates'
+import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
+import { decimalText } from '../../domain/numbers'
 import { dayType } from '../../domain/holidays'
 import { VENUE_PHASES, type AllocationRow } from '../../domain/types'
 import { hallNames, PHASE_CODES, PHASE_LABELS, projectPhases } from '../../domain/venue'
@@ -13,6 +14,7 @@ import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { Segmented, UndoRedoButtons } from '../common'
+import { isTyping } from '../dom'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, BaseCrewRow, CapRow, GroupRow, HallRow, HeadRows, SumRows } from './GridRows'
@@ -21,7 +23,7 @@ import { GroupingMenu } from './GroupingMenu'
 import { heatScale } from './heat'
 import { rowTitle } from './labels'
 import { PlanBar } from './PlanBar'
-import { FilterMenu, ToolSwitch } from './PlanTools'
+import { FilterMenu, PlanToolSwitch } from './PlanTools'
 import { RowInspector, type RowDetails } from './RowInspector'
 import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, projectKey, type Dimension, type GroupNode, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
@@ -40,10 +42,6 @@ interface AllocLane {
 }
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
-
-const todayIso = (): ISODate => new Date().toISOString().slice(0, 10)
-
-const typingIn = (target: EventTarget | null) => target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)
 
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
@@ -660,7 +658,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     } else if (e.key === 'Enter' || e.key === 'F2') {
       e.preventDefault()
       const current = getValue(selection.section, selection.focus.lane, dates[selection.focus.col])
-      setDraft(current === undefined ? '' : String(current).replace('.', ','))
+      setDraft(current === undefined ? '' : decimalText(current))
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
       fillSelection(null)
@@ -679,7 +677,10 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     const lines: string[] = []
     for (let lane = lane0; lane <= lane1; lane++) {
       const cells: string[] = []
-      for (let col = col0; col <= col1; col++) cells.push(String(getValue(selection.section, lane, dates[col]) ?? '').replace('.', ','))
+      for (let col = col0; col <= col1; col++) {
+        const value = getValue(selection.section, lane, dates[col])
+        cells.push(value === undefined ? '' : decimalText(value))
+      }
       lines.push(cells.join('\t'))
     }
     e.clipboardData.setData('text/plain', lines.join('\n'))
@@ -720,7 +721,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     for (const date of new Set([...need.keys(), ...drawn.keys()])) {
       const planned = (need.get(date) ?? 0) + (drawn.get(date) ?? 0)
       const { available } = capacityForDate(date, ws.capacity, settings)
-      if (planned > available + 0.05) days.set(date, { need: planned, available })
+      if (planned > available + FTE_NOISE) days.set(date, { need: planned, available })
     }
     return days
   }, [need, preview, fillCells, getValue, allocLanes, ws.capacity, settings])
@@ -814,7 +815,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       setCellMenu({ x: e.clientX, y: e.clientY, rowId: row.id, col })
     },
     selectRow: (lane) => select('alloc', { lane, col: selection?.section === 'alloc' ? selection.focus.col : firstVisibleCol }, false),
-    editCell: (value) => setDraft(value === undefined ? '' : String(value).replace('.', ',')),
+    editCell: (value) => setDraft(value === undefined ? '' : decimalText(value)),
     setDraft,
     commitDraft: () => commitDraft(),
     draftKey: (e) => {
@@ -868,7 +869,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // V, F and T pick a tool and Escape goes back to «Velg», anywhere on the page but in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || typingIn(e.target) || dialog) return
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || isTyping(e.target) || dialog) return
       if (e.key === 'Escape') {
         if (cellMenu) setCellMenu(null)
         else if (tool !== 'select') setTool('select')
@@ -1065,7 +1066,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
             <PlanBar width={viewport.width} fitKey={`${grouping.join()}|${filterFit.label}|${filterFit.others}|${hints}|${tool}|${collapsed.size > 0}`}>
               <div className="bar-zone">
                 <UndoRedoButtons />
-                <ToolSwitch tool={tool} onChange={setTool} />
+                <PlanToolSwitch tool={tool} onChange={setTool} />
               </div>
               <div className="bar-view">
                 <div className="bar-zone">

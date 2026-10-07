@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { capacityForDate, formatFte, type RowTotals } from '../../domain/calc'
+import { capacityForDate, formatFte, FTE_NOISE, type RowTotals } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
@@ -61,7 +61,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
   const required = totals.requiredFte ?? 0
   const planned = totals.plannedFte
   const rest = required - planned
-  const state = rest > 0.05 ? 'open' : rest < -0.05 ? 'over' : 'done'
+  const state = rest > FTE_NOISE ? 'open' : rest < -FTE_NOISE ? 'over' : 'done'
   const share = required > 0 ? Math.min(100, (planned / required) * 100) : planned > 0 ? 100 : 0
   const windowDays = window ? [...window].sort() : []
   const workdays = windowDays.filter((date) => dayType(date) === 'arbeidsdag').length
@@ -184,7 +184,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
                       </td>
                       <td>{formatFte(row.fte[date])}</td>
                       <td>{formatFte(planNeed)}</td>
-                      <td className={dev < -0.05 ? 'neg' : 'pos'}>{formatFte(dev)}</td>
+                      <td className={dev < -FTE_NOISE ? 'neg' : 'pos'}>{formatFte(dev)}</td>
                     </tr>
                   )
                 })}

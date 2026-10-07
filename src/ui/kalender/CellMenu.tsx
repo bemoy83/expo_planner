@@ -1,7 +1,8 @@
 import { useRef } from 'react'
-import { formatFte } from '../../domain/calc'
+import { formatFte, FTE_NOISE } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import type { AllocationRow } from '../../domain/types'
+import { inWindow } from '../dom'
 import { useDismiss } from '../useDismiss'
 import { fmtDay } from './labels'
 import { ArrowRight, Eraser, PanelRight, Pencil, SquarePen, Trash2, X } from 'lucide-react'
@@ -40,9 +41,9 @@ export function CellMenu({ x, y, row, date, remaining, windowEnd, stored, onClos
     onClose()
     action()
   }
-  const left = remaining > 0.05
+  const left = remaining > FTE_NOISE
   return (
-    <div className="menu-pop cell-menu" role="menu" ref={ref} style={{ left: Math.max(8, Math.min(x, window.innerWidth - MENU_W - 10)), top: Math.max(8, Math.min(y, window.innerHeight - MENU_H)) }} onContextMenu={(e) => e.preventDefault()}>
+    <div className="menu-pop cell-menu" role="menu" ref={ref} style={inWindow(x, y, MENU_W, MENU_H)} onContextMenu={(e) => e.preventDefault()}>
       <span className="menu-group first">
         {row.competence || 'Rad'} · {fmtDay(date)}
       </span>
