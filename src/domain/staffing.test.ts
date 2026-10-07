@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { loadStaffingFixture, withStaffingFixture } from '../dev/staffingFixture'
+import { loadStaffingFixture, withStaffingFixture } from './staffingFixture'
 import { readPlannerWorkbook } from '../import/plannerWorkbook'
 import { dailyNeed } from './calc'
 import {

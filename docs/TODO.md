@@ -17,7 +17,7 @@ All seven phases of `design_docs/bemanning/` are built on the branch: storage, t
 
 Where the code is: the types in `domain/types.ts`; the rules in `domain/staffing.ts` (R1–R15 of RULES.md, with the checks D1–D23 of ACCEPTANCE.md in `staffing.test.ts`) and `domain/competences.ts`; the tables `persons`, `unavailability`, `assignments` and `demandAdjustments` (database version 3) and competence styles in `meta`; undo through `updateStaffing` in the store; the tabs in `ui/bemanning/` and `ui/personell/`; styles in `styles/bemanning.css`.
 
-In a dev build, Innstillinger → «Testdata for Bemanning (utvikling)» loads the mockup's invented people and week 42 2026 (`src/dev/staffingFixture.ts`). Its demand becomes planning rows under the project «Testdata Bemanning». One undo takes it all out again. The data is left out of a production build.
+The mockup's invented people and week 42 2026 are read by the tests only (`domain/staffingFixture.ts`, from `design_docs/bemanning/fixtures/`). The app has no way to load them; the menu item that did is removed.
 
 Choices made where the handoff was open or disagreed with itself
 

@@ -1,7 +1,7 @@
-import type { ISODate } from '../domain/dates'
-import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, Workspace } from '../domain/types'
+import type { ISODate } from './dates'
+import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, Workspace } from './types'
 
-/** The data of the Bemanning mockup: invented people and one week of demand. For development only. */
+/** The data of the Bemanning mockup: invented people and one week of demand. For the tests only; nothing in the app reads it. */
 export interface StaffingFixture {
   persons: Person[]
   competences: CompetenceStyle[]
@@ -14,7 +14,7 @@ export interface StaffingFixture {
 export const FIXTURE_PROJECT = 'Testdata Bemanning'
 const ROW_PREFIX = 'fixture-'
 
-/** Reads the fixture files. The import is dynamic and called in dev builds only, so the data is left out of a production build. */
+/** Reads the fixture files. */
 export const loadStaffingFixture = async (): Promise<StaffingFixture> => {
   const [persons, competences, assignments, unavailability, demand] = await Promise.all([
     import('../../design_docs/bemanning/fixtures/persons.json'),

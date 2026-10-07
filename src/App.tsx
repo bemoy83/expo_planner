@@ -67,7 +67,7 @@ const emptyWorkspace = (): Workspace => ({
 })
 
 function Shell() {
-  const { status, workspace, replaceWorkspace, resetWorkspace, importVenue, updateStaffing, undo, redo } = useWorkspace()
+  const { status, workspace, replaceWorkspace, resetWorkspace, importVenue, undo, redo } = useWorkspace()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
@@ -244,20 +244,6 @@ function Shell() {
               >
                 Gjenopprett …
               </button>
-              {workspace && import.meta.env.DEV && (
-                <button
-                  role="menuitem"
-                  title="Bare i utviklingsmodus: legger inn 20 oppdiktede faste, kompetanser, tildelinger, fravær og behov for uke 42 2026. Kan angres."
-                  onClick={async () => {
-                    close()
-                    const { loadStaffingFixture, withStaffingFixture } = await import('./dev/staffingFixture')
-                    const fixture = await loadStaffingFixture()
-                    updateStaffing((ws) => withStaffingFixture(ws, fixture))
-                  }}
-                >
-                  Testdata for Bemanning (utvikling)
-                </button>
-              )}
               {workspace && (
                 <button
                   role="menuitem"

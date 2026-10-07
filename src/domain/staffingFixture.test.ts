@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { competenceKey, DEFAULT_SETTINGS, type Workspace } from '../domain/types'
+import { competenceKey, DEFAULT_SETTINGS, type Workspace } from './types'
 import { FIXTURE_PROJECT, loadStaffingFixture, withStaffingFixture } from './staffingFixture'
 
 const empty: Workspace = { settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [], capacity: [] }
