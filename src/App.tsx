@@ -11,6 +11,7 @@ import { Behov } from './ui/behov/Behov'
 import { Haller } from './ui/haller/Haller'
 import { Kpi } from './ui/kpi/Kpi'
 import { Produkttyper } from './ui/kpi/Produkttyper'
+import { Personell } from './ui/personell/Personell'
 import { Kalender } from './ui/kalender/Kalender'
 import { Menu, Segmented } from './ui/common'
 import { errorText, takeFile } from './ui/files'
@@ -32,6 +33,7 @@ const TABS = [
   ['haller', 'Haller'],
   ['produkttyper', 'Produkttyper'],
   ['kpi', 'KPI'],
+  ['personell', 'Personell'],
 ] as const
 type View = (typeof TABS)[number][0]
 
@@ -333,6 +335,7 @@ function Shell() {
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
       {status === 'ready' && workspace && view === 'produkttyper' && <Produkttyper onOpenKpi={() => setView('kpi')} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi onOpenProductTypes={() => setView('produkttyper')} />}
+      {status === 'ready' && workspace && view === 'personell' && <Personell />}
       {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={setView} />}
       {settingsOpen && workspace && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>

@@ -1,4 +1,4 @@
-/* The ledgers of Behov, Haller, Produkttyper and KPI: a scrolling page of tables that are edited in place. */
+/* The ledgers of Behov, Haller, Produkttyper, KPI and Personell: a scrolling page of tables that are edited in place. */
 
 .behov{display:flex;flex-direction:column;flex:1;min-height:0}
 .behov-body{flex:1;overflow:auto;padding:12px 16px 32px}
@@ -52,3 +52,25 @@ input.inline.project-no-input.missing{box-shadow:inset 0 0 0 1.5px var(--over)}
 table.ledger.kpi{width:auto;min-width:760px}
 table.ledger.kpi tr.first-of-type td{border-top:1px solid var(--line-strong)}
 table.ledger.kpi tr.alt-unit td{color:var(--muted)}
+
+/* ---- Personell ---- */
+table.ledger.personell{width:auto;min-width:760px}
+table.ledger tr.inactive-row td{color:var(--muted);background:var(--panel)}
+.swatch{flex:none;width:9px;height:9px;border-radius:3px}
+/* the competences a person has, each removed with a click, and the + that opens the list of the rest */
+.comp-toggles{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.comp-toggle{padding:2px 6px 2px 8px;border-radius:6px;font-size:var(--fs-sm);font-weight:600}
+.comp-toggle svg{color:var(--faint)}
+table.ledger tr.inactive-row .comp-toggle{color:var(--muted)}
+.menu-button.comp-add{width:22px;height:22px;padding:0;border-radius:6px;background:transparent;color:var(--muted)}
+.menu-button.comp-add:hover,.menu-button.comp-add[aria-expanded='true']{background:var(--sunken);color:var(--text)}
+.comp-toggles .menu-pop{max-height:320px;overflow:auto}
+input.inline.short-label{min-width:0;width:64px;font-family:var(--font-num);font-size:var(--fs-sm)}
+.color-choice{display:inline-flex;gap:2px}
+.color-choice button{padding:5px;border-radius:6px;background:transparent}
+.color-choice button:hover,.color-choice button.chosen{background:var(--sunken)}
+.color-choice button.chosen{box-shadow:inset 0 0 0 1.5px var(--line-strong)}
+.color-choice .swatch{width:12px;height:12px}
+.reorder{display:inline-flex;align-items:center;gap:2px}
+.reorder .grip{display:inline-flex;padding:4px 2px;color:var(--faint);cursor:grab}
+table.ledger tr.dragging td{opacity:.45}

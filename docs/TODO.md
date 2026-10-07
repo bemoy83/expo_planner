@@ -21,7 +21,11 @@ A new tab where permanent staff are assigned by name to the competence hours the
 - Phase 2, the rules, is built: `domain/staffing.ts` holds R1–R15 of RULES.md as pure functions, with the checks D1–D23 of ACCEPTANCE.md in `staffing.test.ts`. Nothing calls them yet.
 - The lunch break is unpaid on weekends and holidays too, as in the mockup: Saturday 08:00–12:00 counts 3,5 hours. RULES.md's example for R2 says 4.
 - A full-day paint leaves a gap that is all lunch alone, so a day painted as two half days stays two blocks.
-- Phases 3–7 remain: the Personell tab, the read-only tab, painting, hour editing, and sickness and moved hours.
+- Phase 3, the Personell tab, is built (`ui/personell/Personell.tsx`, rules in `domain/competences.ts`): the people with their competences, active and note, and a table of the competences with name, short name, colour and order. The competence colours are the `--line-*` tokens.
+- The list of competences is every competence text on the product types, the demand, the planning rows and the people. With the workbook read in, that includes texts that are not competences (Estimat, Overhead, Ukjent). They cannot be hidden or removed while something uses them.
+- A competence's name in the table is how it is shown; it does not rename the competence on the product types. A competence gets its colour and place when it first appears, and these are stored at the first edit of any competence.
+- People are entered by hand. There is no import of a staff register, and people cannot be reordered.
+- Phases 4–7 remain: the read-only tab, painting, hour editing, and sickness and moved hours.
 
 ## Deferred by the user
 

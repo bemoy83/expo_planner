@@ -35,6 +35,16 @@
   --ph-movingout:color-mix(in oklab,oklch(0.56 0.13 85) 34%,#fff);   /* amber */
   --ph-dismantle:color-mix(in oklab,oklch(0.56 0.13 10) 34%,#fff);   /* rose */
 
+  /* competences in Bemanning: one hue each, picked on Personell */
+  --line-blue:oklch(0.56 0.13 250);
+  --line-teal:oklch(0.53 0.13 185);
+  --line-green:oklch(0.55 0.13 140);
+  --line-amber:oklch(0.56 0.13 85);
+  --line-rose:oklch(0.56 0.13 10);
+  --line-violet:oklch(0.56 0.13 300);
+  --line-slate:oklch(0.52 0.03 250);
+  --line-orange:oklch(0.6 0.14 50);
+
   /* status */
   --neg:#c53637; --neg-bg:#f9e5e2;
   --pos:#287c42; --pos-bg:#e2efe3;
@@ -88,6 +98,15 @@
   --ph-event:color-mix(in oklab,oklch(0.76 0.11 300) 52%,#1f1f1c);
   --ph-movingout:color-mix(in oklab,oklch(0.76 0.11 85) 40%,#1f1f1c);
   --ph-dismantle:color-mix(in oklab,oklch(0.76 0.11 10) 40%,#1f1f1c);
+
+  --line-blue:oklch(0.76 0.11 250);
+  --line-teal:oklch(0.76 0.11 185);
+  --line-green:oklch(0.76 0.11 140);
+  --line-amber:oklch(0.76 0.11 85);
+  --line-rose:oklch(0.76 0.11 10);
+  --line-violet:oklch(0.76 0.11 300);
+  --line-slate:oklch(0.74 0.03 250);
+  --line-orange:oklch(0.78 0.12 50);
 
   --neg:#f97770; --neg-bg:#301615;
   --pos:#6fd087; --pos-bg:#112618;
