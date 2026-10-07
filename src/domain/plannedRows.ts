@@ -1,4 +1,5 @@
-import { PLANNED_BASIS, type AllocationRow, type DemandLine } from './types'
+import { buildDemandIndex, requiredHours } from './calc'
+import { PLANNED_BASIS, type AllocationRow, type DemandLine, type KpiConfig } from './types'
 
 /**
  * Demand the planner has taken into the plan («Planlagt») shows in the Kalender by itself: one row per
@@ -62,4 +63,39 @@ export const suggestedRows = (demand: DemandLine[], allocations: AllocationRow[]
     }
   }
   return [...found.values()]
+}
+
+/**
+ * When a product type is given another competence, its hours move to that competence, and the rows
+ * already planned for them would be left with FTE and no demand. Those rows follow: a row moves when
+ * all its demand went away with the change and there is demand for the same project, phase, hall and
+ * department under exactly one of the competences its product types went to. A row that still has
+ * demand stays, as does one whose new place is already planned by another row.
+ * Returns the rows that move, as they are after the move.
+ */
+export const followCompetence = (rows: AllocationRow[], kpiBefore: KpiConfig, kpiAfter: KpiConfig, demandBefore: DemandLine[], demandAfter: DemandLine[]): AllocationRow[] => {
+  const was = new Map(kpiBefore.workTypes.map((type) => [norm(type.name), type.competence]))
+  const wentTo = new Map<string, Set<string>>()
+  for (const type of kpiAfter.workTypes) {
+    const old = was.get(norm(type.name))
+    if (!old?.trim() || !type.competence.trim() || norm(old) === norm(type.competence)) continue
+    wentTo.set(norm(old), (wentTo.get(norm(old)) ?? new Set()).add(type.competence.trim()))
+  }
+  if (!wentTo.size) return []
+  const before = buildDemandIndex(demandBefore)
+  const after = buildDemandIndex(demandAfter)
+  const taken = new Set(rows.map(rowScope))
+  const moved: AllocationRow[] = []
+  for (const row of rows) {
+    const targets = wentTo.get(norm(row.competence))
+    if (!targets || norm(row.basis) !== norm(PLANNED_BASIS)) continue
+    if (!((requiredHours(before, row) ?? 0) > 0) || (requiredHours(after, row) ?? 0) > 0) continue
+    const withDemand = [...targets].filter((competence) => (requiredHours(after, { ...row, competence }) ?? 0) > 0)
+    if (withDemand.length !== 1) continue
+    const next = { ...row, competence: withDemand[0] }
+    if (taken.has(rowScope(next))) continue
+    taken.add(rowScope(next))
+    moved.push(next)
+  }
+  return moved
 }

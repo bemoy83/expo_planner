@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isSuggestedRow, suggestedRows } from './plannedRows'
-import type { AllocationRow, DemandLine } from './types'
+import { followCompetence, isSuggestedRow, suggestedRows } from './plannedRows'
+import type { AllocationRow, DemandLine, KpiConfig } from './types'
 
 const line = (overrides: Partial<DemandLine>): DemandLine => ({
   id: 'd',
@@ -66,5 +66,47 @@ describe('rows suggested from planned demand', () => {
     const demand = [line({ avdeling: '64' }), line({ id: 'd2', hall: 'Hall D', avdeling: '65' })]
     expect(suggestedRows(demand, [realRow({}), realRow({ id: 'dem', phase: 'Demontering', hall: 'Hall C' })]).map((r) => `${r.phase}/${r.hall}`)).toEqual(['Demontering/Hall D'])
     expect(suggestedRows(demand, [realRow({ hall: 'Hall C', avdeling: '64' })]).map((r) => `${r.phase}/${r.hall}`)).toEqual(['Demontering/Hall C', 'Montering/Hall D', 'Demontering/Hall D'])
+  })
+})
+
+describe('followCompetence', () => {
+  const kpi = (competences: Record<string, string>): KpiConfig => ({ workTypes: Object.entries(competences).map(([name, competence]) => ({ name, productType: name, unit: 'm²', competence })), rates: [] })
+  const before = kpi({ Teppefliser: 'Teppefliser', Gangtepper: 'Teppefliser', Banner: 'Banner' })
+  // What Visma gives for the project, as the ledger holds it under each set-up.
+  const demandOf = (config: KpiConfig) => [
+    line({ id: 'fliser', workType: 'Teppefliser', competence: config.workTypes[0].competence }),
+    line({ id: 'gang', workType: 'Gangtepper', competence: config.workTypes[1].competence, hall: 'Hall D' }),
+  ]
+  const planned = (id: string, overrides: Partial<AllocationRow> = {}) => realRow({ id, basis: 'Planlagt', phase: 'Montering', fte: { '2026-10-06': 2 }, ...overrides })
+
+  it('moves a planned row to the competence its product type was given, with its FTE', () => {
+    const after = kpi({ Teppefliser: 'Gulv', Gangtepper: 'Gulv', Banner: 'Banner' })
+    const row = planned('r')
+    expect(followCompetence([row], before, after, demandOf(before), demandOf(after))).toEqual([{ ...row, competence: 'Gulv' }])
+  })
+
+  it('leaves a row that still has demand under the old competence', () => {
+    // Only Gangtepper in Hall D changes; the row for all halls still plans the Teppefliser in Hall C.
+    const after = kpi({ Teppefliser: 'Teppefliser', Gangtepper: 'Gulv', Banner: 'Banner' })
+    expect(followCompetence([planned('all')], before, after, demandOf(before), demandOf(after))).toEqual([])
+    const hallD = planned('d', { hall: 'Hall D' })
+    expect(followCompetence([planned('c', { hall: 'Hall C' }), hallD], before, after, demandOf(before), demandOf(after))).toEqual([{ ...hallD, competence: 'Gulv' }])
+  })
+
+  it('leaves rows of other competences, other bases, and rows that had no demand', () => {
+    const after = kpi({ Teppefliser: 'Gulv', Gangtepper: 'Gulv', Banner: 'Banner' })
+    const rows = [planned('banner', { competence: 'Banner' }), planned('history', { basis: 'Historikk Timer' }), planned('other', { projectNo: '26100' })]
+    expect(followCompetence(rows, before, after, demandOf(before), demandOf(after))).toEqual([])
+  })
+
+  it('leaves a row when its lines went to two competences, or when the new place is already planned', () => {
+    const split = kpi({ Teppefliser: 'Gulv', Gangtepper: 'Løpere', Banner: 'Banner' })
+    expect(followCompetence([planned('all')], before, split, demandOf(before), demandOf(split))).toEqual([])
+    const after = kpi({ Teppefliser: 'Gulv', Gangtepper: 'Gulv', Banner: 'Banner' })
+    expect(followCompetence([planned('old'), planned('there', { competence: 'Gulv' })], before, after, demandOf(before), demandOf(after))).toEqual([])
+  })
+
+  it('does nothing when no competence changed', () => {
+    expect(followCompetence([planned('r')], before, before, demandOf(before), demandOf(before))).toEqual([])
   })
 })

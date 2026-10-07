@@ -60,6 +60,7 @@ Gaps
 
 Visma and demand
 
+- When a product type is given another competence on Produkttyper, the rows already planned for its lines move to the new competence with their FTE, in the same undo step (`followCompetence` in `domain/plannedRows.ts`). A row stays where it is when it still has demand under the old competence, when its lines went to two competences, or when the new place is already planned by another row; its FTE is then moved by hand. The planner's own lines, lines from the workbook, people's competences and assignments in Bemanning do not follow. Checked by tests only, not yet by hand in the browser.
 - Behov with no project chosen («Alle prosjekter») lists the Visma lines of every project, with the project named on each line. The filter (all, not in the plan, «Uavklart», without hours; `domain/vismaReview.ts`) works there and inside a project, and narrows the project list to the projects with such lines. «Ta alle inn i plan» and «Ta alle ut» act on the lines the filter lets through, across projects, as one undo step. The list shows at most 400 lines at a time; the actions cover them all. The filter does not cover the planner's own lines or lines from the workbook.
 - Lines without a product type are given a work type one by one on Behov. No rule can do it by article number or description (for example the gangtepper lines).
 - The hall rule is fixed in code: first letter of the stand, else the text in `Trans.opplysn. 1`. Department numbers (64, 65, 32) have no names. Neither is editable.

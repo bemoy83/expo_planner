@@ -4,7 +4,7 @@ import type { ISODate } from '../domain/dates'
 import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
-import { rowScope } from '../domain/plannedRows'
+import { followCompetence, rowScope } from '../domain/plannedRows'
 import { locateDemand, withAlias } from '../domain/locations'
 import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
@@ -44,8 +44,8 @@ interface WorkspaceStore {
   importProjects: (projects: ProjectRef[]) => number
   /** Shows or hides hall bookings in the Kalender; keys come from `venueKey`. */
   setVenueHidden: (keys: string[], hidden: boolean) => void
-  /** Replaces the KPI setup and recalculates all Visma lines. */
-  setKpi: (kpi: KpiConfig) => void
+  /** Replaces the KPI setup and recalculates all Visma lines. Returns how many planned rows followed a product type to its new competence. */
+  setKpi: (kpi: KpiConfig) => number
   /** Takes in a Visma export; each project in it replaces that project's earlier Visma lines. Returns the project numbers. */
   importVisma: (rows: VismaRow[], fileName: string) => string[]
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
@@ -415,12 +415,23 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const setKpi = useCallback(
     (kpi: KpiConfig) => {
       const ws = current.current
-      if (!ws) return
+      if (!ws) return 0
       const visma = ws.visma ?? []
       const { demand, write } = withVismaLines(ws, visma.map((v) => v.projectNo), kpi, ws.overrides ?? {}, visma)
-      commitDemand({ ...ws, kpi, demand }, { ...write, kpi })
+      // Rows already planned for a product type that was given another competence follow it there, in the same step.
+      const moved = new Map(followCompetence(ws.allocations, ws.kpi ?? EMPTY_KPI, kpi, ws.demand, demand).map((row) => [row.id, row]))
+      const next = { ...ws, kpi, demand, allocations: moved.size ? ws.allocations.map((row) => moved.get(row.id) ?? row) : ws.allocations }
+      commit(
+        next,
+        () => Promise.all([writeDemand({ ...write, kpi }), ...[...moved.values()].map(rowWrites.put)]),
+        (step) => {
+          recordLedger(step, ws, next)
+          for (const row of ws.allocations) if (moved.has(row.id)) recordAllocation(step, row.id, row, moved.get(row.id)!)
+        },
+      )
+      return moved.size
     },
-    [commitDemand],
+    [commit],
   )
 
   const importVisma = useCallback(

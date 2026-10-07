@@ -46,6 +46,12 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
     }
   }
 
+  /** Says so when rows already planned in the Kalender followed the product type to its new competence. */
+  const changeCompetence = (name: string, unit: string, competence: string) => {
+    const moved = setKpi(setCompetence(kpi, name, unit, competence))
+    if (moved) setMessage({ kind: 'ok', text: `${name} er nå ${competence}. ${moved === 1 ? '1 planlagt rad' : `${moved} planlagte rader`} i Kalender fulgte med til ${competence}, med FTE. Kan angres med Ctrl/Cmd+Z.` })
+  }
+
   const diff = pending ? diffKpi(kpi, pending.incoming).workTypes : null
   const apply = (mode: 'merge' | 'replace') => {
     if (!pending) return
@@ -120,7 +126,7 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
                     <TextField value={row.unit} list="unit-options" onCommit={(value) => setKpi(setActiveUnit(kpi, row.name, value))} />
                   </td>
                   <td>
-                    <TextField value={row.competence} list="competence-options" onCommit={(value) => setKpi(setCompetence(kpi, row.name, row.unit, value))} />
+                    <TextField value={row.competence} list="competence-options" onCommit={(value) => changeCompetence(row.name, row.unit, value)} />
                   </td>
                   <td className="num">{row.lines || ''}</td>
                   <td className="actions">
