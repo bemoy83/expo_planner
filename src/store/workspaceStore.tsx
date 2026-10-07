@@ -9,8 +9,9 @@ import { locateDemand, withAlias } from '../domain/locations'
 import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearAll, db, deleteAllocation, loadWorkspace, putCapacityLine, putSettings, putEventLinks, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
+import { writeQueue } from './writeQueue'
 import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
@@ -83,6 +84,9 @@ const withDay = (values: Record<ISODate, number>, date: ISODate, value: number |
 }
 
 /** True when the cell already holds the value, so the edit would change nothing. */
+/** A fill or paste changes a row once per cell; the row is written once, when the event is over. */
+const rowWrites = writeQueue<AllocationRow>((rows) => db.allocations.bulkPut(rows))
+
 const sameDay = (values: Record<ISODate, number>, date: ISODate, value: number | null) => (values[date] ?? 0) === (value ?? 0)
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
@@ -229,7 +233,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (!ws || !row) return
       const updated = change(row)
       if (updated === row) return
-      commit({ ...ws, allocations: ws.allocations.map((r) => (r.id === rowId ? updated : r)) }, () => putAllocation(updated), (step) => recordAllocation(step, rowId, row, updated))
+      commit({ ...ws, allocations: ws.allocations.map((r) => (r.id === rowId ? updated : r)) }, () => rowWrites.put(updated), (step) => recordAllocation(step, rowId, row, updated))
     },
     [commit],
   )
@@ -248,7 +252,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (existing) return setAllocationFte(existing.id, date, value)
       if (!value) return
       const row: AllocationRow = { ...suggested, id: `row-${crypto.randomUUID()}`, order: Math.max(-1, ...ws.allocations.map((r) => r.order)) + 1, fte: { [date]: value }, notes: {} }
-      commit({ ...ws, allocations: [...ws.allocations, row] }, () => putAllocation(row), (step) => recordAllocation(step, row.id, null, row))
+      commit({ ...ws, allocations: [...ws.allocations, row] }, () => rowWrites.put(row), (step) => recordAllocation(step, row.id, null, row))
     },
     [commit, setAllocationFte],
   )
@@ -276,7 +280,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         fte: {},
         notes: {},
       }
-      commit({ ...ws, allocations: [...ws.allocations, row] }, () => putAllocation(row), (step) => recordAllocation(step, row.id, null, row))
+      commit({ ...ws, allocations: [...ws.allocations, row] }, () => rowWrites.put(row), (step) => recordAllocation(step, row.id, null, row))
       return row
     },
     [commit],
@@ -289,7 +293,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const ws = current.current
       const row = ws?.allocations.find((r) => r.id === rowId)
       if (!ws || !row) return
-      commit({ ...ws, allocations: ws.allocations.filter((r) => r.id !== rowId) }, () => deleteAllocation(rowId), (step) => recordAllocation(step, rowId, row, null))
+      commit({ ...ws, allocations: ws.allocations.filter((r) => r.id !== rowId) }, () => (rowWrites.drop(rowId), deleteAllocation(rowId)), (step) => recordAllocation(step, rowId, row, null))
     },
     [commit],
   )
@@ -365,7 +369,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const next = { ...ws, eventLinks: after, allocations: updated.size ? ws.allocations.map((row) => updated.get(row.id) ?? row) : ws.allocations }
       commit(
         next,
-        () => db.allocations.bulkPut([...updated.values()]).then(() => putEventLinks(after)),
+        () => Promise.all([...updated.values()].map(rowWrites.put)).then(() => putEventLinks(after)),
         (step) => {
           recordEventLinks(step, before, after)
           for (const row of moved) recordAllocation(step, row.id, row, updated.get(row.id)!)

@@ -118,7 +118,6 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
   })
 }
 
-export const putAllocation = (row: AllocationRow) => db.allocations.put(row)
 export const deleteAllocation = (id: string) => db.allocations.delete(id)
 export const putCapacityLine = (line: CapacityLine) => db.capacity.put(line)
 export const putSettings = (settings: Settings) => db.meta.put({ key: 'settings', value: settings })
