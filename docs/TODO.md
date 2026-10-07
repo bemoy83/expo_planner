@@ -18,7 +18,10 @@ A new tab where permanent staff are assigned by name to the competence hours the
 - Phase 1, data model and storage, is built: the types in `domain/types.ts`, the tables `persons`, `unavailability`, `assignments` and `demandAdjustments` (database version 3), competence styles in `meta`, backup, and undo through `updateStaffing` in the store. Nothing of it shows in the app yet.
 - In a dev build, Innstillinger → «Testdata for Bemanning (utvikling)» loads the mockup's invented people and week 42 2026 (`src/dev/staffingFixture.ts`). Its demand becomes planning rows under the project «Testdata Bemanning». One undo takes it all out again. The data is left out of a production build.
 - Reading back from IndexedDB after a reload is checked by hand in the browser; there is no IndexedDB in the test environment.
-- Phases 2–7 remain: the rules, the Personell tab, the read-only tab, painting, hour editing, and sickness and moved hours.
+- Phase 2, the rules, is built: `domain/staffing.ts` holds R1–R15 of RULES.md as pure functions, with the checks D1–D23 of ACCEPTANCE.md in `staffing.test.ts`. Nothing calls them yet.
+- The lunch break is unpaid on weekends and holidays too, as in the mockup: Saturday 08:00–12:00 counts 3,5 hours. RULES.md's example for R2 says 4.
+- A full-day paint leaves a gap that is all lunch alone, so a day painted as two half days stays two blocks.
+- Phases 3–7 remain: the Personell tab, the read-only tab, painting, hour editing, and sickness and moved hours.
 
 ## Deferred by the user
 
