@@ -70,4 +70,4 @@ With `example_data/` present, the local-data tests verify the readers and that r
 
 - Work on a branch, push it, and report. The user says "merge to main"; then fast-forward main, run the tests, push, and delete the branch locally and on GitHub.
 - The user tests in a clean state: Innstillinger → "Slett alt og start på nytt", then reads the sources in one by one.
-- Staffing lines: the absence from Bemanning is in the Kalender (2026-10-07). Lines the planner adds by hand are not built; ask before starting on them.
+- Staffing lines: the absence from Bemanning is in the Kalender (2026-10-07). Lines typed in by hand (Innleid, trade crews, Admin) are deferred: the user will design a system for hired crew like Bemanning, covering the competence demand left after the permanent staff are assigned. Do not start on either until he asks.

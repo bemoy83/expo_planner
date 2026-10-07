@@ -48,7 +48,7 @@ Gaps
 
 - **Fravær is in.** The absence entered in Bemanning shows in the Kalender's Bemanning section as the line «Fravær faste (FTE)», worked out per day (`absenceFte` in `domain/staffing.ts`: a whole day away is 1, a part of the day its share of the normal day, active people on workdays only), and is subtracted from «Tilgjengelig». It is read-only in the Kalender. A workspace read from the planner workbook still has the workbook's own Fravær line; with both filled in for the same day the absence counts twice.
 - **Overtime is in.** The overtime drawn in Bemanning shows as «Overtid faste (FTE)» (`overtimeByDay` and `overtimeLine` in `domain/staffing.ts`: hours outside the normal day, and every paid hour on a weekend or holiday, divided by the hours of an FTE-day) and is added to «Tilgjengelig». Read-only in the Kalender. The same warning applies as for Fravær: the workbook's own overtime lines count on top of it.
-- **Not built.** Adding, renaming and removing the lines the planner types in (Innleid, trade crews, Admin, margin). Without the workbook only «Faste», «Fravær faste» and «Overtid faste» show.
+- **Deferred by the user (2026-10-07): the lines typed in by hand** (Innleid, trade crews, Admin, margin). Do not build adding, renaming or removing them. The user will design another system for hired crew, like Bemanning but for innleid: in his words it is basically every competence demand that is not met after the permanent staff are assigned. Wait for his design. Without the workbook only «Faste», «Fravær faste» and «Overtid faste» show.
 
 ## Still only in the workbook
 
