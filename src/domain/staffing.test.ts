@@ -4,6 +4,12 @@ import { loadStaffingFixture, withStaffingFixture } from '../dev/staffingFixture
 import { readPlannerWorkbook } from '../import/plannerWorkbook'
 import { dailyNeed } from './calc'
 import {
+  absenceSpans,
+  addAbsence,
+  clearSick,
+  isSick,
+  markSick,
+  removeCarried,
   assignmentStatus,
   buildBalance,
   carry,
@@ -428,7 +434,46 @@ describe('sickness', () => {
   })
 })
 
+describe('absence', () => {
+  it('marks a person sick on the workdays that are free of other absence, and takes it back', () => {
+    // Hanne is on holiday from Wednesday; Saturday is no workday.
+    const ill = markSick(ws.unavailability!, HANNE, [MON, TUE, WED, SAT], id)
+    expect(ill.filter((u) => u.personId === HANNE && u.kind === 'syk').map((u) => u.date)).toEqual([MON, TUE])
+    expect(isSick(ill, HANNE, MON)).toBe(true)
+    expect(isSick(ill, HANNE, WED)).toBe(false)
+    const better = clearSick(ill, HANNE, [TUE])
+    expect(isSick(better, HANNE, TUE)).toBe(false)
+    expect(isSick(better, HANNE, MON)).toBe(true)
+    expect(clearSick(ws.unavailability!, HANNE, [MON])).toBe(ws.unavailability)
+  })
+
+  it('adds absence over a stretch of days, replacing what was there', () => {
+    const away = addAbsence(ws.unavailability!, { personId: HANNE, from: TUE, to: THU, kind: 'kurs', note: 'Truck' }, id)
+    const hers = away.filter((u) => u.personId === HANNE).sort((a, b) => a.date.localeCompare(b.date))
+    expect(hers.map((u) => [u.date, u.kind])).toEqual([[TUE, 'kurs'], [WED, 'kurs'], [THU, 'kurs'], [FRI, 'ferie']])
+    expect(away.filter((u) => u.personId !== HANNE)).toEqual(ws.unavailability!.filter((u) => u.personId !== HANNE))
+    expect(addAbsence(ws.unavailability!, { personId: HANNE, from: THU, to: TUE, kind: 'kurs' }, id)).toBe(ws.unavailability)
+  })
+
+  it('adds a part of a day, which leaves the rest of the day open', () => {
+    const away = addAbsence([], { personId: ANDERS, from: MON, to: MON, kind: 'annet', start: t('12:00'), end: t('15:00') }, id)
+    expect(normalWindows(ANDERS, MON, away, wd)).toEqual([iv('07:00', '12:00')])
+  })
+
+  it('lists a person\'s absence as stretches of like days', () => {
+    expect(absenceSpans(ws.unavailability!, HANNE)).toMatchObject([{ from: WED, to: FRI, kind: 'ferie', ids: ['u2', 'u3', 'u4'] }])
+    const mixed = markSick(ws.unavailability!, HANNE, [MON], id)
+    expect(absenceSpans(mixed, HANNE).map((s) => [s.from, s.to, s.kind])).toEqual([[MON, MON, 'syk'], [WED, FRI, 'ferie']])
+  })
+})
+
 describe('carry', () => {
+  it('takes carried hours back', () => {
+    const moved = carry(ws, 'teppefliser', TUE, 3, id)
+    expect(removeCarried(moved, 'teppefliser', WED)).toEqual([])
+    expect(removeCarried(moved, 'foga', WED)).toBe(moved)
+  })
+
   it('D22 adds the hours to the next day and leaves the day they came from', () => {
     const moved: Workspace = { ...ws, demandAdjustments: carry(ws, 'teppefliser', TUE, 3, id) }
     expect(moved.demandAdjustments).toMatchObject([{ competence: 'teppefliser', date: WED, hours: 3, reason: 'carry', fromDate: TUE }])

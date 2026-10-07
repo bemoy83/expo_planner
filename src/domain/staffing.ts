@@ -522,3 +522,76 @@ export const defaultBrush = (ws: Workspace, date: ISODate): CompetenceKey | null
   }
   return best
 }
+
+export interface AbsenceInput {
+  personId: string
+  from: ISODate
+  to: ISODate
+  kind: Unavailability['kind']
+  /** Both unset: whole days. */
+  start?: Minute
+  end?: Minute
+  note?: string
+}
+
+/**
+ * Marks a person away on every day from `from` to `to`, one record per day. What was noted for the person on those days is replaced.
+ * Assignments on the days are kept; they turn unresolved by themselves (R7).
+ */
+export const addAbsence = (unavailability: Unavailability[], input: AbsenceInput, makeId: () => string = () => `abs-${crypto.randomUUID()}`): Unavailability[] => {
+  if (input.to < input.from) return unavailability
+  const partial = input.start !== undefined && input.end !== undefined && input.end > input.start
+  const days: Unavailability[] = []
+  for (let date = input.from; date <= input.to; date = addDays(date, 1)) {
+    days.push({ id: makeId(), personId: input.personId, date, kind: input.kind, ...(partial ? { start: input.start, end: input.end } : {}), ...(input.note ? { note: input.note } : {}) })
+  }
+  return [...unavailability.filter((u) => u.personId !== input.personId || u.date < input.from || u.date > input.to), ...days]
+}
+
+/** Marks a person sick on the given days. Days off, and days the person is already away, are left as they are. */
+export const markSick = (unavailability: Unavailability[], personId: string, dates: ISODate[], makeId?: () => string): Unavailability[] => {
+  let next = unavailability
+  for (const date of dates) {
+    if (dayType(date) !== 'arbeidsdag' || absenceOf(next, personId, date).some(isWholeDay)) continue
+    next = addAbsence(next, { personId, from: date, to: date, kind: 'syk' }, makeId)
+  }
+  return next
+}
+
+/** Takes sickness back for the given days. Assignments on them count again by themselves. */
+export const clearSick = (unavailability: Unavailability[], personId: string, dates: ISODate[]): Unavailability[] => {
+  const days = new Set(dates)
+  const kept = unavailability.filter((u) => !(u.personId === personId && u.kind === 'syk' && days.has(u.date)))
+  return kept.length === unavailability.length ? unavailability : kept
+}
+
+export const isSick = (unavailability: Unavailability[], personId: string, date: ISODate): boolean => absenceOf(unavailability, personId, date).some((u) => u.kind === 'syk' && isWholeDay(u))
+
+/** A person's absence as stretches of days that follow each other and are alike, newest last. */
+export interface AbsenceSpan {
+  ids: string[]
+  from: ISODate
+  to: ISODate
+  kind: Unavailability['kind']
+  start?: Minute
+  end?: Minute
+  note?: string
+}
+
+export const absenceSpans = (unavailability: Unavailability[], personId: string): AbsenceSpan[] => {
+  const spans: AbsenceSpan[] = []
+  for (const u of unavailability.filter((x) => x.personId === personId).sort((a, b) => a.date.localeCompare(b.date))) {
+    const last = spans[spans.length - 1]
+    if (last && addDays(last.to, 1) === u.date && last.kind === u.kind && last.start === u.start && last.end === u.end && (last.note ?? '') === (u.note ?? '')) {
+      last.ids.push(u.id)
+      last.to = u.date
+    } else spans.push({ ids: [u.id], from: u.date, to: u.date, kind: u.kind, start: u.start, end: u.end, note: u.note })
+  }
+  return spans
+}
+
+/** The carried hours taken back: the adjustments for the competence on the date are removed. */
+export const removeCarried = (adjustments: DemandAdjustment[], competence: CompetenceKey, date: ISODate): DemandAdjustment[] => {
+  const kept = adjustments.filter((a) => !(a.competence === competence && a.date === date))
+  return kept.length === adjustments.length ? adjustments : kept
+}

@@ -43,7 +43,8 @@
 .bm-demand .swatch{width:10px;height:10px;background:var(--cc)}
 .bm-week-left{margin-left:auto;font:600 12px var(--font-num);white-space:nowrap}
 .bm-week-left em{font-weight:400;font-style:normal;color:var(--faint)}
-.bm-need{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0;padding:0 10px;border-right:1px solid var(--bm-rule)}
+.bm-need{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:5px;min-width:0;padding:0 10px;border-radius:0;border-right:1px solid var(--bm-rule);background-color:transparent;color:var(--text)}
+button.bm-need:hover{background-image:linear-gradient(color-mix(in srgb,var(--text) 4%,transparent),color-mix(in srgb,var(--text) 4%,transparent))}
 .bm-need.narrow{align-items:center;padding:0 6px}
 .bm-need.narrow .bm-bar{align-self:stretch}
 .bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
@@ -89,6 +90,33 @@
 .bm-brush .row-action{height:22px}
 .bm-hints{display:flex;gap:10px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--faint)}
 .bm-hints b{font-weight:500;color:var(--muted)}
+.bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--neg-bg);color:var(--neg);font-size:13px;font-weight:500}
+.bm-unresolved button{height:22px;padding:0 8px;border-radius:6px;background:transparent;color:inherit;font-size:12px;font-weight:600}
+.bm-unresolved button:hover{background:color-mix(in srgb,var(--neg) 12%,transparent)}
+
+/* what a click on a day of a demand line opens */
+.bm-demand-pop{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:13px}
+.bm-demand-pop p{margin:0}
+.bm-pop-head{display:flex;align-items:center;gap:8px;font-size:14px}
+.bm-pop-head .swatch{width:10px;height:10px;background:var(--cc)}
+.bm-pop-head span{margin-left:auto;font-size:12px;color:var(--muted)}
+.bm-pop-stats{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-radius:8px;background:var(--weekend)}
+.bm-pop-stats div{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.bm-pop-stats div+div{border-left:1px solid var(--line)}
+.bm-pop-stats span{font-size:11px;color:var(--muted)}
+.bm-pop-stats b{font:600 18px var(--font-num);letter-spacing:-.02em}
+.bm-pop-carry{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
+.bm-pop-carry label{font-size:12px;color:var(--muted)}
+.bm-pop-carry div{display:flex;align-items:center;gap:6px}
+.bm-pop-carry input{width:52px;text-align:right;font:500 13px var(--font-num)}
+.bm-pop-carry span{margin-right:auto;font:400 12px var(--font-num);color:var(--faint)}
+
+/* a person's absence */
+.bm-absence{width:min(520px,calc(100vw - 32px))}
+.bm-absence ul{display:flex;flex-direction:column;gap:2px;max-height:180px;margin:0;padding:0;overflow:auto;list-style:none}
+.bm-absence li{display:flex;align-items:center;gap:10px;padding:2px 0 2px 10px;border-radius:6px;background:var(--panel);font-size:var(--fs-md)}
+.bm-absence li span{flex:1;font-family:var(--font-num);font-size:var(--fs-sm);color:var(--muted)}
+
 .bm-ask{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80}
 .bm-ask p{margin:0;font-size:13px;line-height:1.45}
 

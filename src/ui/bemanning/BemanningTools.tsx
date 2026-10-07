@@ -17,12 +17,15 @@ interface Props {
   /** Row mode only: whether any row is open, and the button that opens or folds them all. */
   anyOpen: boolean
   onToggleAll: () => void
+  /** Blocks in the week whose hours are back in the demand, because their person is away or lacks the competence. */
+  unresolved: number
+  onRemoveUnresolved: () => void
 }
 
 export type ExpandMode = 'row' | 'week'
 
 /** The bar above the grid: undo, the tools, and what the brush paints. */
-export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount, expand, onExpand, anyOpen, onToggleAll }: Props) {
+export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount, expand, onExpand, anyOpen, onToggleAll, unresolved, onRemoveUnresolved }: Props) {
   return (
     <div className="toolbar bm-tools">
       <UndoRedoButtons />
@@ -56,6 +59,12 @@ export function BemanningTools({ tool, onTool, brush, onClearBrush, keyCount, ex
         </>
       ) : (
         <span className="bm-hints">Velg en kompetanse i behovet{keyCount ? ` (1–${keyCount})` : ''} for å fokusere og male</span>
+      )}
+      {unresolved > 0 && (
+        <span className="bm-unresolved" title="Blokker der personen er borte eller ikke lenger har kompetansen. Timene er tilbake i behovet.">
+          {unresolved === 1 ? '1 uløst blokk' : `${unresolved} uløste blokker`}
+          <button onClick={onRemoveUnresolved}>Fjern</button>
+        </span>
       )}
       <span className="toolbar-gap" />
       <span className="bm-expand">

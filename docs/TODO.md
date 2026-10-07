@@ -1,6 +1,6 @@
 # Open items
 
-Status as of 2026-10-04. The app covers the Kalender, the demand ledger (Behov), the hall ledger (Haller), product types and KPI, with undo, backup and a clean start from the source files. The current phase is polishing and expanding what is built, not adding new areas.
+Status as of 2026-10-07. The app covers the Kalender, the demand ledger (Behov), Bemanning with Personell, the hall ledger (Haller), product types and KPI, with undo, backup and a clean start from the source files.
 
 ## Clean start: where it stands
 
@@ -11,31 +11,37 @@ Works from an empty workspace, without the planner workbook:
 3. Visma export → demand lines; its product types appear on Produkttyper to be given unit and competence; rates go on KPI.
 4. "I plan" on Behov → rows in the Kalender per phase, hall, competence and Avd., grouped as the planner chooses.
 
-## In progress: Bemanning
+## Bemanning: built, to be tested by the user
 
-A new tab where permanent staff are assigned by name to the competence hours the Kalender has planned. The spec is `design_docs/bemanning/` (README, DOMAIN, RULES, UI, ACCEPTANCE, PHASES, fixtures and a mockup), built in the seven phases of PHASES.md. The table of people gets a tab of its own.
+All seven phases of `design_docs/bemanning/` are built on the branch: storage, the rules, the Personell tab, the Bemanning tab, painting, hour editing, and sickness, absence and moved hours. The handoff's «Later» list is untouched: hired staff and trade crews, automatic suggestions, tying an assignment to a Kalender row, showing moved hours in the Kalender, and feeding overtime into the Kalender's staffing lines.
 
-- Phase 1, data model and storage, is built: the types in `domain/types.ts`, the tables `persons`, `unavailability`, `assignments` and `demandAdjustments` (database version 3), competence styles in `meta`, backup, and undo through `updateStaffing` in the store. Nothing of it shows in the app yet.
-- In a dev build, Innstillinger → «Testdata for Bemanning (utvikling)» loads the mockup's invented people and week 42 2026 (`src/dev/staffingFixture.ts`). Its demand becomes planning rows under the project «Testdata Bemanning». One undo takes it all out again. The data is left out of a production build.
-- Reading back from IndexedDB after a reload is checked by hand in the browser; there is no IndexedDB in the test environment.
-- Phase 2, the rules, is built: `domain/staffing.ts` holds R1–R15 of RULES.md as pure functions, with the checks D1–D23 of ACCEPTANCE.md in `staffing.test.ts`. Nothing calls them yet.
+Where the code is: the types in `domain/types.ts`; the rules in `domain/staffing.ts` (R1–R15 of RULES.md, with the checks D1–D23 of ACCEPTANCE.md in `staffing.test.ts`) and `domain/competences.ts`; the tables `persons`, `unavailability`, `assignments` and `demandAdjustments` (database version 3) and competence styles in `meta`; undo through `updateStaffing` in the store; the tabs in `ui/bemanning/` and `ui/personell/`; styles in `styles/bemanning.css`.
+
+In a dev build, Innstillinger → «Testdata for Bemanning (utvikling)» loads the mockup's invented people and week 42 2026 (`src/dev/staffingFixture.ts`). Its demand becomes planning rows under the project «Testdata Bemanning». One undo takes it all out again. The data is left out of a production build.
+
+Choices made where the handoff was open or disagreed with itself
+
 - The lunch break is unpaid on weekends and holidays too, as in the mockup: Saturday 08:00–12:00 counts 3,5 hours. RULES.md's example for R2 says 4.
 - A full-day paint leaves a gap that is all lunch alone, so a day painted as two half days stays two blocks.
-- Phase 3, the Personell tab, is built (`ui/personell/Personell.tsx`, rules in `domain/competences.ts`): the people with their competences, active and note, and a table of the competences with name, short name, colour and order. The competence colours are the `--line-*` tokens.
-- The list of competences is every competence text on the product types, the demand, the planning rows and the people. With the workbook read in, that includes texts that are not competences (Estimat, Overhead, Ukjent). They cannot be hidden or removed while something uses them.
-- A competence's name in the table is how it is shown; it does not rename the competence on the product types. A competence gets its colour and place when it first appears, and these are stored at the first edit of any competence.
-- People are entered by hand. There is no import of a staff register, and people cannot be reordered.
-- Phase 4, the read-only tab, is built (`ui/bemanning/`, styles in `styles/bemanning.css`): the page header with the week's totals and the week picker, the pinned demand strip with the free capacity, and a row per active person with a small timeline per day. 
-- The demand strip lists the competences an active person has, plus any other with demand or assigned hours in the week. The keys 1–9 follow the competences people have, in the order set on Personell.
+- Hours show quarter hours in full (2,75 t); the mockup rounds to one decimal.
+- The list of competences is every competence text on the product types, the demand, the planning rows and the people. With the workbook read in, that includes texts that are not competences (Estimat, Overhead, Ukjent). The demand strip of Bemanning lists only the competences an active person has, plus any other with demand or assigned hours in the week. The keys 1–9 follow the competences people have, in the order set on Personell.
+- A competence's name on Personell is how it is shown; it does not rename the competence on the product types. A competence gets its colour and place when it first appears, and these are stored at the first edit of any competence.
 - The day in focus is shared with the Kalender through the `planningFocus` preference: the Kalender opens on it and marks it in the date header, and the day of the cell the planner stands on becomes it.
 - A holiday on a weekday keeps its wide column but is shown as a day off, like the weekend.
-- Phase 5, painting, is built: the tools Velg, Pensel and Tøm (V, B, T), a competence in focus that is also the brush (a click on its demand line, or 1–9), whole and half days, strokes over several people and days, the question when a full day meets other work, the «−N» preview in the demand strip, and a right-click menu on a day. With a competence in focus, only the people who have it are shown. Messages show as toasts (`ui/Toasts.tsx`).
-- The painting gestures are tested by hand in the browser; the rules behind them have unit tests.
-- The right-click menu also paints a full day with one of the person's competences, which the handoff's menu does not have.
-- Phase 6, hour editing, is built (`ui/bemanning/TimeTrack.tsx`, `PersonEditor.tsx`). A person opens from the row label, a double-click on a day, E or the day menu. «Utvid: Uke» pins one person at the top with the day from 06 to 21, where blocks are drawn, moved, resized, split with a double-click, recoloured with the brush and removed, and where overtime is made. «Utvid: Rad» opens several people, each with a timeline of the normal day. A drag shows the block as it will be stored, because it runs the same rule the drop does.
+- The right-click menu of a day also paints a full day with one of the person's competences, and opens «Fravær …», the person's absence with a form for a stretch of days, a kind and a part of the day.
+- «N uløste blokker · Fjern» counts and removes the unresolved blocks of the week shown, not of every week.
+- Moved hours can be taken back from the popover of the day they were moved to.
+- Hours moved from a Friday land on the Saturday, as the handoff says; whether the next working day is wanted has been asked.
+
+Gaps
+
+- People are entered by hand. There is no import of a staff register, and people cannot be reordered. Absence is entered from Bemanning only, not from Personell.
+- Competences that are in use cannot be hidden or removed.
+- The Kalender's «Faste» still uses the number under Innstillinger; Bemanning shows a quiet note when the number of active people differs.
 - In the row timeline a block that reaches into overtime cannot be moved or resized; that is done in the week editor.
-- The editors' gestures are tested by hand in the browser.
-- Phase 7 remains: sickness and other absence, «Fjern uløste», and moving hours to the next day.
+- The preview «−N» shows for collapsed days only, not while drawing in an open person.
+- Reading back from IndexedDB after a reload, and every gesture in the two tabs, are checked by hand in the browser. The test environment has no IndexedDB, and there are no component tests for Bemanning beyond the folded day cell.
+- The competence colours include an orange and an amber, and the primary buttons are orange, while orange is otherwise kept for what needs the eye.
 
 ## Deferred by the user
 

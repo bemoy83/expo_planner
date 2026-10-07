@@ -24,7 +24,7 @@ Seven tabs, all in Norwegian:
 - **Haller** – every hall booking from Venyou, with a tick for whether it shows in the Kalender, and the project number per event.
 - **Produkttyper** – how each Visma product type is read: unit and competence.
 - **KPI** – rates (units per person-hour) for montering and demontering.
-- **Bemanning** – who does the work: the permanent staff by name, one week at a time, against the hours that remain per competence and day. It reads its demand from the Kalender's planned FTE. It is being built from `design_docs/bemanning/`; see docs/TODO.md for how far it has come.
+- **Bemanning** – who does the work: the permanent staff by name, one week at a time, against the hours that remain per competence and day. It reads its demand from the Kalender's planned FTE. A competence in focus is also the brush: days are painted whole or half, a person opens for hours and overtime (`TimeTrack.tsx`), and sickness gives a person's hours back to the demand. Built from `design_docs/bemanning/`, which stays the reference for its rules (RULES.md) and look.
 - **Personell** – the permanent staff with their competences, and how each competence is shown (name, short name, colour, order).
 
 Sources read from files: the Venyou export (`location_format_from-…_to-….xlsx`), Visma exports (`utskrift_visma_….xlsx`), and optionally `Prosjekt.xlsx`, `Kpier.xlsx`, `Nøkkeltall Visma …xlsx` and the planner workbook as one-time shortcuts.

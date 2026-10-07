@@ -26,6 +26,8 @@ interface Props {
   onPick: (competence: string) => void
   /** Hours the stroke under the pointer would add for the brush, by date. */
   preview: Map<ISODate, number>
+  /** A click on a day of a demand line. */
+  onDay: (competence: string, date: ISODate, event: React.MouseEvent) => void
 }
 
 /** The remaining hours of a day. It is keyed by its value, so a changed number is a new element, and that one slides in. */
@@ -35,7 +37,7 @@ function Remaining({ live, state, children }: { live: boolean; state: string; ch
 }
 
 /** The pinned top of Bemanning: the days of the week, what remains of the demand per competence, and the free capacity. */
-export function DemandStrip({ dates, competences, balance, uncoverable, capacity, focusDate, onFocusDate, folded, onToggleFolded, brush, onPick, preview }: Props) {
+export function DemandStrip({ dates, competences, balance, uncoverable, capacity, focusDate, onFocusDate, folded, onToggleFolded, brush, onPick, preview, onDay }: Props) {
   // Numbers slide in when they change, but not when the page opens.
   const [live, setLive] = useState(false)
   useEffect(() => {
@@ -114,7 +116,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
                   (cell.carried > EPSILON ? `\n${hoursText(cell.carried)} t er flyttet hit fra dagen før.` : '') +
                   (unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : '')
                 return (
-                  <div key={date} className={`bm-need ${dayClass(date, index)}`} title={title}>
+                  <button key={date} className={`bm-need ${dayClass(date, index)}`} title={title} onClick={(e) => onDay(style.key, date, e)}>
                     <span className="bm-need-value">
                       {on && (preview.get(date) ?? 0) > EPSILON && <span className="bm-preview">−{hoursText(Math.min(preview.get(date)!, Math.max(cell.remaining, 0)) || preview.get(date)!)}</span>}
                       {cell.carried > EPSILON && index < 5 && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
@@ -129,7 +131,7 @@ export function DemandStrip({ dates, competences, balance, uncoverable, capacity
                       {surplus > 0 && <i className="surplus" style={{ left: `${regular + overtime}%`, width: `${surplus}%` }} />}
                       {unc > EPSILON && <i className="uncoverable" style={{ width: `${(unc / base) * 100}%` }} />}
                     </span>
-                  </div>
+                  </button>
                 )
               })}
             </div>

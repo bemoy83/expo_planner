@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
-import { addDays, type ISODate } from '../../domain/dates'
+import { addDays, MONTHS_NB, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, clearDays, freeCapacity, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
+import { assignmentStatus, buildBalance, carry, clearDays, clearSick, freeCapacity, isSick, markSick, removeCarried, okAssignments, paidHours, paintBlock, paintConflicts, paintDays, personWeek, weekTotals, type DayCell as Day, type PaintOptions } from '../../domain/staffing'
 import type { Assignment, Unavailability, Workspace } from '../../domain/types'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -14,7 +14,8 @@ import { ABSENCE_LABELS, dayCell } from './dayCell'
 import { DemandStrip } from './DemandStrip'
 import { TimelineRow, WeekEditor, type EditorActions } from './PersonEditor'
 import { PersonRow, type RowActions } from './PersonRow'
-import { DayMenu, PaintAsk } from './Popovers'
+import { AbsenceDialog } from './AbsenceDialog'
+import { DayMenu, DemandPopover, PaintAsk } from './Popovers'
 import { strokeRange, TOOL_KEYS, type Stroke, type Tool } from './tools'
 import { hoursText, todayIso, weekDates, weekLabel, weekRange, WEEKDAYS_LONG } from './week'
 
@@ -45,7 +46,7 @@ const hoursByDate = (assignments: Assignment[], competence: string, ws: Workspac
  * against the hours that remain per competence and day.
  */
 export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) {
-  const { workspace, updateStaffing } = useWorkspace()
+  const { workspace, updateStaffing, undo } = useWorkspace()
   const ws = workspace!
   // The day in focus is shared with the Kalender, so both open on the same week.
   const [focus, setFocus] = usePref<{ date: ISODate } | null>('planningFocus', null)
@@ -59,6 +60,8 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
   const [shift, setShift] = useState(false)
   const [ask, setAsk] = useState<{ cells: Day[]; competence: string; count: number; x: number; y: number } | null>(null)
   const [menu, setMenu] = useState<{ cell: Day; x: number; y: number } | null>(null)
+  const [demandPop, setDemandPop] = useState<{ competence: string; date: ISODate; x: number; y: number } | null>(null)
+  const [absenceFor, setAbsenceFor] = useState<Day | null>(null)
   // A person opens for editing hours as the week editor, one at a time and pinned at the top, or as a row timeline, several at once.
   const [expand, setExpand] = usePref<ExpandMode>('bemanningExpand', 'week')
   const [openWeek, setOpenWeek] = useState<string | null>(null)
@@ -193,6 +196,32 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     else applyPaint(cells, competence, { span: half ? 'half' : 'full', mode: 'fill' })
   }
 
+  /** The workdays of the week from a day on, for «ut uka». */
+  const restOfWeek = (date: ISODate) => dates.filter((d) => d >= date && dayType(d) === 'arbeidsdag')
+
+  const reportSick = (cell: Day, rest: boolean) => {
+    const days = (rest ? restOfWeek(cell.date) : [cell.date]).filter((date) => !isSick(ws.unavailability ?? [], cell.personId, date))
+    const after = markSick(ws.unavailability ?? [], cell.personId, days)
+    if (after === ws.unavailability) return
+    const sickDays = days.filter((date) => isSick(after, cell.personId, date))
+    const hit = (ws.assignments ?? []).filter((a) => a.personId === cell.personId && sickDays.includes(a.date) && assignmentStatus(a, ws) === 'ok')
+    const hours = hit.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0)
+    updateStaffing((w) => ({ ...w, unavailability: markSick(w.unavailability ?? [], cell.personId, days) }))
+    const span = sickDays.length > 1 ? `${dayName(sickDays[0])}–${dayName(sickDays[sickDays.length - 1])}` : dayName(sickDays[0])
+    const blocks = hit.length ? ` ${hit.length === 1 ? '1 blokk' : `${hit.length} blokker`} (${hoursText(hours)} t) er tilbake i behovet og merket uløst.` : ''
+    toast(`${nameOf(cell.personId)} meldt syk ${span}.${blocks}`, { label: 'Angre', run: undo })
+  }
+  const reportWell = (cell: Day, rest: boolean) => updateStaffing((w) => ({ ...w, unavailability: clearSick(w.unavailability ?? [], cell.personId, rest ? restOfWeek(cell.date) : [cell.date]) }))
+
+  const unresolved = useMemo(() => {
+    const inWeek = new Set(dates)
+    return (ws.assignments ?? []).filter((a) => inWeek.has(a.date) && assignmentStatus(a, ws) === 'unresolved')
+  }, [ws, dates])
+  const removeUnresolved = () => {
+    const gone = new Set(unresolved.map((a) => a.id))
+    updateStaffing((w) => ({ ...w, assignments: (w.assignments ?? []).filter((a) => !gone.has(a.id)) }))
+  }
+
   const clear = (cells: Day[]) => updateStaffing((w) => ({ ...w, assignments: clearDays(w.assignments ?? [], cells) }))
 
   const finishStroke = (s: Stroke, x: number, y: number) => {
@@ -290,7 +319,7 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
       const key = e.key.toLowerCase()
       if (key === 'escape') {
         // A menu or a question that is open takes the key first, and closes itself.
-        if (ask || menu) return
+        if (ask || menu || demandPop || absenceFor) return
         if (stroke) setStroke(null)
         else if (activeBrush || tool !== 'select') clearBrush()
         else setSelected(null)
@@ -374,6 +403,8 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
         }}
         anyOpen={rows.some(({ person }) => openRows.has(person.id))}
         onToggleAll={() => setOpenRows(rows.some(({ person }) => openRows.has(person.id)) ? new Set() : new Set(rows.map(({ person }) => person.id)))}
+        unresolved={unresolved.length}
+        onRemoveUnresolved={removeUnresolved}
       />
 
       <div
@@ -398,6 +429,7 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
             brush={activeBrush}
             onPick={pickFromStrip}
             preview={preview}
+            onDay={(competence, date, event) => setDemandPop({ competence, date, x: event.clientX, y: event.clientY })}
           />
           <div className="bm-row bm-section" onMouseEnter={() => setHover(null)}>
             <div className="bm-label">
@@ -483,9 +515,52 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
           hasBlocks={(ws.assignments ?? []).some((a) => a.personId === menu.cell.personId && a.date === menu.cell.date)}
           open={isOpen(menu.cell.personId)}
           onToggleOpen={() => toggleOpen(menu.cell.personId)}
+          dayName={dayName(menu.cell.date)}
+          sick={dayType(menu.cell.date) === 'arbeidsdag' ? isSick(ws.unavailability ?? [], menu.cell.personId, menu.cell.date) : null}
+          moreDays={restOfWeek(menu.cell.date).length > 1}
+          onSick={(rest) => reportSick(menu.cell, rest)}
+          onWell={(rest) => reportWell(menu.cell, rest)}
+          onAbsence={() => setAbsenceFor(menu.cell)}
           onClose={() => setMenu(null)}
           onPaint={(competence) => paint([menu.cell], competence, false, menu.x, menu.y)}
           onClear={() => clear([menu.cell])}
+        />
+      )}
+      {demandPop && styles.get(demandPop.competence) && (() => {
+        const cell = balance.get(demandPop.competence, demandPop.date)
+        const next = addDays(demandPop.date, 1)
+        const nextName = WEEKDAYS_LONG[(dates.indexOf(demandPop.date) + 1) % 7]
+        const canPaint = staffed.some((style) => style.key === demandPop.competence)
+        return (
+          <DemandPopover
+            x={demandPop.x}
+            y={demandPop.y}
+            style={styles.get(demandPop.competence)!}
+            dayText={`${dayName(demandPop.date)} ${Number(demandPop.date.slice(8))}. ${MONTHS_NB[Number(demandPop.date.slice(5, 7)) - 1].toLowerCase()}`}
+            demand={cell.demand}
+            assigned={cell.assigned}
+            remaining={cell.remaining}
+            carried={cell.carried}
+            free={freeCapacity(ws, demandPop.date, demandPop.competence).hours}
+            nextDay={`${nextName}${dayType(next) !== 'arbeidsdag' ? ' (overtid)' : ''}`}
+            nextDayShort={nextName.slice(0, 3)}
+            painting={activeBrush === demandPop.competence}
+            canPaint={canPaint}
+            onClose={() => setDemandPop(null)}
+            onCarry={(hours) => updateStaffing((w) => ({ ...w, demandAdjustments: carry(w, demandPop.competence, demandPop.date, hours) }))}
+            onRemoveCarried={() => updateStaffing((w) => ({ ...w, demandAdjustments: removeCarried(w.demandAdjustments ?? [], demandPop.competence, demandPop.date) }))}
+            onPaint={() => activeBrush !== demandPop.competence && pickFromStrip(demandPop.competence)}
+          />
+        )
+      })()}
+      {absenceFor && persons.some((p) => p.id === absenceFor.personId) && (
+        <AbsenceDialog
+          person={persons.find((p) => p.id === absenceFor.personId)!}
+          unavailability={ws.unavailability ?? []}
+          workday={ws.settings.workday}
+          date={absenceFor.date}
+          onChange={(change) => updateStaffing((w) => ({ ...w, unavailability: change(w.unavailability ?? []) }))}
+          onClose={() => setAbsenceFor(null)}
         />
       )}
       <Toasts toasts={toasts} onDismiss={dismissToast} />
