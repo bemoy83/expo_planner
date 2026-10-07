@@ -178,7 +178,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
       overlay={
         <>
           {visible.map((bar) => {
-            // The phase letters sit in the middle of the bar; they are left out under an event's name, on a bar of a single day and on the arrangement itself, where the name rests when the days before it are scrolled away.
+            // The phase letters sit in the middle of the bar; they are left out under an event's name and on a bar of a single day.
             const middle = bar.col + bar.span / 2
             // A name held at the edge sits a part of a day further in than its column says; one day more is kept clear for it.
             const underLabel = labels.some((label) => middle >= label.at && middle < label.at + label.covered + (label.at > label.col ? 1 : 0))
@@ -190,7 +190,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
                 title={bar.title}
                 data-project={bar.project}
               >
-                {!underLabel && bar.span > 1 && bar.phase !== 'event' ? PHASE_CODES[bar.phase] : null}
+                {!underLabel && bar.span > 1 ? PHASE_CODES[bar.phase] : null}
               </span>
             )
           })}
