@@ -161,7 +161,6 @@ export function Personell() {
                   <th className="num" title="Aktive faste som har kompetansen">
                     Faste
                   </th>
-                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -186,6 +185,12 @@ export function Personell() {
                         <button className="row-action" title="Flytt ned" disabled={index === styles.length - 1} onClick={() => move(style.key, index + 1)}>
                           <ChevronDown size={13} aria-hidden />
                         </button>
+                        {/* Removing sits here, at the start of the line, so it is in view however narrow the window is. */}
+                        {isUnusedCompetence(ws, style.key) && (
+                          <button className="row-action" title={`Fjern ${style.label}. Ingen bruker den.`} onClick={() => updateStaffing((w) => ({ ...w, competenceStyles: removeCompetence(w, style.key) }))}>
+                            <X size={13} aria-hidden />
+                          </button>
+                        )}
                       </span>
                     </td>
                     <td className="center">{keys.has(style.key) ? <kbd>{keys.get(style.key)}</kbd> : ''}</td>
@@ -205,13 +210,6 @@ export function Personell() {
                       </span>
                     </td>
                     <td className="num">{holders(style.key) || ''}</td>
-                    <td className="actions">
-                      {isUnusedCompetence(ws, style.key) && (
-                        <button className="row-action" title={`Fjern ${style.label}. Ingen bruker den.`} onClick={() => updateStaffing((w) => ({ ...w, competenceStyles: removeCompetence(w, style.key) }))}>
-                          <X size={13} aria-hidden />
-                        </button>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
