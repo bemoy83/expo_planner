@@ -11,8 +11,7 @@ export interface StaffingFixture {
   demand: { competence: string; date: ISODate; hours: number }[]
 }
 
-export const FIXTURE_PROJECT = 'Testdata Bemanning'
-const ROW_PREFIX = 'fixture-'
+const FIXTURE_PROJECT = 'Testdata Bemanning'
 
 /** Reads the fixture files. */
 export const loadStaffingFixture = async (): Promise<StaffingFixture> => {
@@ -33,15 +32,13 @@ export const loadStaffingFixture = async (): Promise<StaffingFixture> => {
 }
 
 /**
- * The workspace with the fixture in place of its people, absence, assignments and moved hours.
- * The demand becomes one planning row per competence under a project of its own, so the rest of the Kalender is left alone.
+ * The workspace with the fixture as its people, absence and assignments.
+ * The demand becomes one planning row per competence, which is where Bemanning reads its demand from.
  */
 export const withStaffingFixture = (workspace: Workspace, fixture: StaffingFixture): Workspace => {
-  const kept = workspace.allocations.filter((row) => !row.id.startsWith(ROW_PREFIX))
-  const firstOrder = Math.max(-1, ...kept.map((row) => row.order)) + 1
   const rows: AllocationRow[] = fixture.competences.map((style, index) => ({
-    id: `${ROW_PREFIX}${style.key}`,
-    order: firstOrder + index,
+    id: `fixture-${style.key}`,
+    order: index,
     projectName: FIXTURE_PROJECT,
     projectNo: '',
     refYear: '',
@@ -54,7 +51,7 @@ export const withStaffingFixture = (workspace: Workspace, fixture: StaffingFixtu
   }))
   return {
     ...workspace,
-    allocations: [...kept, ...rows],
+    allocations: rows,
     persons: fixture.persons,
     unavailability: fixture.unavailability,
     assignments: fixture.assignments,
