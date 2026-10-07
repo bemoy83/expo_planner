@@ -69,6 +69,17 @@ describe('Visma lines', () => {
     expect(print.dismantleHours).toBe(0)
   })
 
+  it('notes the phase a rate is missing for, and flags the line when both are', () => {
+    const print = buildVismaLines(rows, kpi, {}).find((l) => l.workType === 'Print')!
+    expect(print).toMatchObject({ issue: null, missingRate: 'dismantle' })
+    const walls = buildVismaLines(rows, kpi, {}).find((l) => l.workType === 'FOGA-vegger')!
+    expect(walls).toMatchObject({ issue: null, missingRate: null })
+    const noRates: typeof kpi = { ...kpi, rates: kpi.rates.map((rate) => (rate.name === 'Print' ? { ...rate, assembly: 0, dismantle: 0 } : rate)) }
+    expect(buildVismaLines(rows, noRates, {}).find((l) => l.workType === 'Print')).toMatchObject({ issue: 'no-rate', missingRate: null, assemblyHours: 0, dismantleHours: 0 })
+    const montering = { ...kpi, rates: kpi.rates.map((rate) => (rate.name === 'Print' ? { ...rate, assembly: 0, dismantle: 4 } : rate)) }
+    expect(buildVismaLines(rows, montering, {}).find((l) => l.workType === 'Print')).toMatchObject({ issue: null, missingRate: 'assembly' })
+  })
+
   it('flags lines without a product type until the planner picks a work type', () => {
     const key = vismaLineKey('26970', '32', '01_ingen produkttype', 'Møterom hall E1')
     expect(buildVismaLines(rows, kpi, {}).find((l) => l.key === key)).toMatchObject({ issue: 'no-product-type', assemblyHours: 0, competence: 'Ukjent' })

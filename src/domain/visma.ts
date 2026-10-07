@@ -56,6 +56,8 @@ export interface VismaLine {
   dismantleHours: number
   /** Why no hours could be calculated, if so. */
   issue: 'no-product-type' | 'unknown-work-type' | 'no-rate' | null
+  /** The phase the rate table has no rate for, when it has one for the other. That phase gets no hours; it may be meant, so it is no issue. */
+  missingRate: 'assembly' | 'dismantle' | null
 }
 
 interface Group {
@@ -101,7 +103,8 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
     const rate = rule ? rates.get(`${workType.toLowerCase()}|${unit.toLowerCase()}`) : undefined
     const quantity = COUNTED_UNITS.has(unit.toLowerCase()) ? group.locations.size : group.sum
     const effekt = override.effekt ?? 0
-    const issue: VismaLine['issue'] = workType === NO_PRODUCT_TYPE ? 'no-product-type' : !rule ? 'unknown-work-type' : !rate ? 'no-rate' : null
+    const issue: VismaLine['issue'] = workType === NO_PRODUCT_TYPE ? 'no-product-type' : !rule ? 'unknown-work-type' : !rate?.assembly && !rate?.dismantle ? 'no-rate' : null
+    const missingRate: VismaLine['missingRate'] = issue ? null : !rate?.assembly ? 'assembly' : !rate?.dismantle ? 'dismantle' : null
     return {
       key,
       projectNo: group.projectNo,
@@ -122,6 +125,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
       assemblyHours: hoursFor(quantity, rate?.assembly ?? null, effekt),
       dismantleHours: hoursFor(quantity, rate?.dismantle ?? null, effekt),
       issue,
+      missingRate,
     }
   })
 }

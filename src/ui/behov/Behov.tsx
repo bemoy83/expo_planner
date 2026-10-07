@@ -22,6 +22,11 @@ const ISSUE_TEXT: Record<NonNullable<VismaLine['issue']>, string> = {
   'no-rate': 'Mangler sats for denne enheten',
 }
 
+const MISSING_RATE_TEXT: Record<NonNullable<VismaLine['missingRate']>, string> = {
+  assembly: 'Ingen sats for montering',
+  dismantle: 'Ingen sats for demontering',
+}
+
 interface Props {
   projectNo: string
   onProjectChange: (projectNo: string) => void
@@ -305,6 +310,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                             line.workType
                           )}
                           {line.issue && line.issue !== 'no-product-type' && <span className="issue"> {ISSUE_TEXT[line.issue]}</span>}
+                          {line.missingRate && <span className="hint"> {MISSING_RATE_TEXT[line.missingRate]}</span>}
                         </td>
                         <td>{line.hall}</td>
                         <td>{locationCell(line.hall)}</td>
