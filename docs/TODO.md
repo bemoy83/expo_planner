@@ -60,7 +60,7 @@ Gaps
 
 Visma and demand
 
-- Behov has a filter for the Visma lines (all, not in the plan, «Uavklart», without hours) that also narrows the project list to the projects with such lines, and «Ta alle prosjekter inn i plan» for a large import (`domain/vismaReview.ts`). The filter does not cover the planner's own lines or lines from the workbook, and there is no list of the lines of several projects at once: they are gone through project by project.
+- Behov with no project chosen («Alle prosjekter») lists the Visma lines of every project, with the project named on each line. The filter (all, not in the plan, «Uavklart», without hours; `domain/vismaReview.ts`) works there and inside a project, and narrows the project list to the projects with such lines. «Ta alle inn i plan» and «Ta alle ut» act on the lines the filter lets through, across projects, as one undo step. The list shows at most 400 lines at a time; the actions cover them all. The filter does not cover the planner's own lines or lines from the workbook.
 - Lines without a product type are given a work type one by one on Behov. No rule can do it by article number or description (for example the gangtepper lines).
 - The hall rule is fixed in code: first letter of the stand, else the text in `Trans.opplysn. 1`. Department numbers (64, 65, 32) have no names. Neither is editable.
 - A product type cannot be renamed in place; add the new name and delete the old.
