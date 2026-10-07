@@ -4,7 +4,6 @@
 .bm-week-picker{display:flex;align-items:center;gap:2px}
 .bm-week-picker b{padding:0 4px;font:500 var(--fs-md) var(--font-num);white-space:nowrap}
 .bm-week-picker b span{font-weight:400;color:var(--muted)}
-.bm-crew-hint{color:var(--faint)}
 
 .bm-scroll{flex:1;min-height:0;overflow:auto;user-select:none}
 .bm-grid{min-width:1080px;padding-bottom:40px}

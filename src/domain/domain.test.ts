@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDemandIndex, capacityForDate, dailyNeed, referenceProjectNo, requiredHours, rowTotals } from './calc'
+import { buildDemandIndex, capacityForDate, dailyNeed, planningSettings, referenceProjectNo, requiredHours, rowTotals } from './calc'
 import { addDays, dateRange, dayOfMonth, excelSerialToDate, isoWeek, localIso, monthShort, normalizeDate, weekdayIndex } from './dates'
 import { dayType, easterSunday, holidayName } from './holidays'
 import { DEFAULT_SETTINGS, type AllocationRow, type CapacityLine, type DemandLine } from './types'
@@ -144,6 +144,16 @@ describe('capacity', () => {
   it('adds the base crew only on workdays', () => {
     expect(capacityForDate('2026-01-05', lines, DEFAULT_SETTINGS)).toEqual({ base: 21, added: 3, overtime: 2, unavailable: 1.5, available: 24.5 })
     expect(capacityForDate('2026-01-03', lines, DEFAULT_SETTINGS).available).toBe(2)
+  })
+
+  it('counts the active people on Personell as the base crew, once any are entered', () => {
+    const person = (id: string, active: boolean) => ({ id, name: id, order: 0, active, competences: [] })
+    expect(planningSettings({ settings: DEFAULT_SETTINGS })).toBe(DEFAULT_SETTINGS)
+    expect(planningSettings({ settings: DEFAULT_SETTINGS, persons: [] }).baseCrew).toBe(21)
+    const crew = planningSettings({ settings: DEFAULT_SETTINGS, persons: [person('a', true), person('b', true), person('c', false)] })
+    expect(crew).toEqual({ ...DEFAULT_SETTINGS, baseCrew: 2 })
+    expect(capacityForDate('2026-01-05', [], crew).available).toBe(2)
+    expect(planningSettings({ settings: DEFAULT_SETTINGS, persons: [person('c', false)] }).baseCrew).toBe(0)
   })
 
   it('sums daily need across rows', () => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { capacityForDate, dailyNeed, formatFte, requiredHours, rowTotals, sumValues } from '../../domain/calc'
+import { capacityForDate, dailyNeed, formatFte, planningSettings, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { decimalText } from '../../domain/numbers'
@@ -43,7 +43,7 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false,
 export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?: boolean }) {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
-  const { settings } = ws
+  const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [zoom, setZoom] = usePref<Zoom>('zoom', 'normal')
   const [filter, setFilter] = usePref<RowFilter>('filter', EMPTY_FILTER)

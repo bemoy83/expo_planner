@@ -32,17 +32,17 @@ Choices made where the handoff was open or disagreed with itself
 - A block whose person is away or lacks the competence never counts. It is «uløst» only while hours of its competence remain that day (`openUnresolved`). Once others cover the day, it is shown as a faint trace and is no longer counted or flagged; the user asked for this, where RULES.md R7 keeps it unresolved. If the person comes back, the block counts again and the day shows a surplus.
 - «N uløste blokker · Fjern» counts and removes the open unresolved blocks of the week shown, not of every week. The faint traces are removed by hand.
 - Moved hours can be taken back from the popover of the day they were moved to.
-- Hours moved from a Friday land on the Saturday, as the handoff says; whether the next working day is wanted has been asked.
+- Hours moved from a Friday land on the Saturday; the user has confirmed this.
+- The Kalender's «Faste» is the number of active people on Personell (`planningSettings` in `domain/calc.ts`). The number under Innstillinger stands in only until the first person is entered. A person's absence does not lower «Faste»; that is still the staffing lines' job.
+- The competence colours include an orange and an amber, and the primary buttons are orange; the user keeps them for now.
 
 Gaps
 
 - People are entered by hand. There is no import of a staff register, and people cannot be reordered. Absence is entered from Bemanning only, not from Personell.
 - Competences that are in use cannot be hidden or removed.
-- The Kalender's «Faste» still uses the number under Innstillinger; Bemanning shows a quiet note when the number of active people differs.
 - In the row timeline a block that reaches into overtime cannot be moved or resized; that is done in the week editor.
 - The preview «−N» shows for collapsed days only, not while drawing in an open person.
 - Reading back from IndexedDB after a reload, and every gesture in the two tabs, are checked by hand in the browser. The test environment has no IndexedDB, and there are no component tests for Bemanning beyond the folded day cell.
-- The competence colours include an orange and an amber, and the primary buttons are orange, while orange is otherwise kept for what needs the eye.
 
 ## Deferred by the user
 

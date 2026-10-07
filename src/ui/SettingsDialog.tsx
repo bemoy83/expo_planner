@@ -6,6 +6,9 @@ import { useWorkspace } from '../store/workspaceStore'
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { workspace, updateSettings } = useWorkspace()
   const settings = workspace!.settings
+  // Once people are entered on Personell, the active ones are the crew.
+  const people = workspace!.persons?.length ?? 0
+  const active = workspace!.persons?.filter((person) => person.active).length ?? 0
   const [baseCrew, setBaseCrew] = useState(String(settings.baseCrew))
   const [hoursPerDay, setHoursPerDay] = useState(decimalText(settings.hoursPerDay))
 
@@ -26,10 +29,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         }}
       >
         <h2>Bemanning og normaltid</h2>
-        <label>
-          Faste ansatte per arbeidsdag (FTE)
-          <input inputMode="decimal" value={baseCrew} onChange={(e) => setBaseCrew(e.target.value)} />
-        </label>
+        {people ? (
+          <p className="hint">
+            Faste ansatte per arbeidsdag: <b>{active}</b>, de aktive på Personell.
+          </p>
+        ) : (
+          <label>
+            Faste ansatte per arbeidsdag (FTE)
+            <input inputMode="decimal" value={baseCrew} onChange={(e) => setBaseCrew(e.target.value)} />
+            <span className="hint">Gjelder til de faste er lagt inn på Personell; da telles de aktive der.</span>
+          </label>
+        )}
         <label>
           Timer per FTE-dag (normaltid)
           <input inputMode="decimal" value={hoursPerDay} onChange={(e) => setHoursPerDay(e.target.value)} />

@@ -1,6 +1,6 @@
 import type { ISODate } from './dates'
 import { dayType } from './holidays'
-import type { AllocationRow, CapacityLine, DayValues, DemandLine, Settings } from './types'
+import type { AllocationRow, CapacityLine, DayValues, DemandLine, Settings, Workspace } from './types'
 
 /** Excel's SUMIFS matches text case-insensitively; mirror that. */
 const norm = (value: string): string => value.trim().toLowerCase()
@@ -134,6 +134,13 @@ export interface DayCapacity {
   unavailable: number
   available: number
 }
+
+/**
+ * The settings the Kalender plans with. «Faste» is the number of active people on Personell;
+ * the number under Innstillinger stands in only until the first person is entered.
+ */
+export const planningSettings = ({ settings, persons }: Pick<Workspace, 'settings' | 'persons'>): Settings =>
+  persons?.length ? { ...settings, baseCrew: persons.filter((person) => person.active).length } : settings
 
 export const capacityForDate = (date: ISODate, lines: CapacityLine[], settings: Settings): DayCapacity => {
   const base = dayType(date) === 'arbeidsdag' ? settings.baseCrew : 0

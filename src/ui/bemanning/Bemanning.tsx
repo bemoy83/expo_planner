@@ -348,7 +348,6 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
     totals.overtime > EPSILON ? `${hoursText(totals.overtime)} t overtid` : '',
     totals.weekendOpen > EPSILON ? `helg ${hoursText(totals.weekendOpen)} t åpent` : '',
   ].filter(Boolean)
-  const crewDiffers = persons.length > 0 && persons.length !== ws.settings.baseCrew
   const range = stroke ? strokeRange(stroke) : null
   const strokeMode = stroke ? (stroke.mode === 'erase' ? 'erase' : stroke.half ? 'paint-half' : 'paint') : ''
   const pinned = expand === 'week' && openWeek ? allRows.find(({ person }) => person.id === openWeek) : undefined
@@ -364,7 +363,6 @@ export function Bemanning({ onOpenPersonell }: { onOpenPersonell: () => void }) 
         <h2>Bemanning</h2>
         <span className="page-meta">
           {meta.join(' · ')}
-          {crewDiffers && <span className="bm-crew-hint" title="Antallet faste i Kalender settes under Innstillinger → Bemanning og normaltid."> · Kalender regner med {ws.settings.baseCrew} faste</span>}
         </span>
         <span className="bm-week-picker">
           <button className="ghost icon-button" aria-label="Forrige uke" title="Forrige uke" onClick={() => setFocus({ date: addDays(focusDate, -7) })}>
