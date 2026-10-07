@@ -9,9 +9,9 @@ import { locateDemand, withAlias } from '../domain/locations'
 import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHallAliases, putHiddenVenue, saveWorkspace, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearAll, db, deleteAllocation, loadWorkspace, putAllocation, putCapacityLine, putSettings, putEventLinks, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordVenue, type Change, type Direction } from './history'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -58,6 +58,11 @@ interface WorkspaceStore {
   /** Adds or changes a ledger line that does not come from Visma. */
   saveDemandLine: (line: Omit<DemandLine, 'id'> & { id?: string }) => void
   removeDemandLine: (id: string) => void
+  /**
+   * Changes people, absence, assignments, moved hours or competence styles: `change` returns the workspace as it should be.
+   * Planning rows it adds, changes or removes follow in the same undo step.
+   */
+  updateStaffing: (change: (workspace: Workspace) => Workspace) => void
   canUndo: boolean
   canRedo: boolean
   undo: () => void
@@ -170,7 +175,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       syncHistorySize()
       const writes = changeWrites(step, direction)
       track(() =>
-        db.transaction('rw', [db.allocations, db.capacity, db.meta, db.demand, db.visma], async () => {
+        db.transaction('rw', [db.allocations, db.capacity, db.meta, db.demand, db.visma, ...STAFFING_TABLES()], async () => {
           await db.allocations.bulkPut(writes.putAllocations)
           await db.allocations.bulkDelete(writes.deleteAllocations)
           await db.capacity.bulkPut(writes.putCapacity)
@@ -182,6 +187,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           if (writes.overrides) await db.meta.put({ key: 'overrides', value: writes.overrides })
           if (writes.kpi === null) await db.meta.delete('kpi')
           else if (writes.kpi) await db.meta.put({ key: 'kpi', value: writes.kpi })
+          await putStaffing(writes.staffing)
         })
           .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
           .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined))
@@ -482,6 +488,37 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commitDemand],
   )
 
+  const updateStaffing = useCallback<WorkspaceStore['updateStaffing']>(
+    (change) => {
+      const ws = current.current
+      if (!ws) return
+      const next = change(ws)
+      if (next === ws) return
+      const step = emptyChange()
+      recordStaffing(step, ws, next)
+      const rowsBefore = new Map(ws.allocations.map((row) => [row.id, row]))
+      const rowsAfter = new Map(next.allocations.map((row) => [row.id, row]))
+      for (const [id, row] of rowsAfter) if (rowsBefore.get(id) !== row) recordAllocation(step, id, rowsBefore.get(id) ?? null, row)
+      for (const [id, row] of rowsBefore) if (!rowsAfter.has(id)) recordAllocation(step, id, row, null)
+      if (isEmptyChange(step)) return
+      const writes = changeWrites(step, 'redo')
+      commit(
+        next,
+        () =>
+          db.transaction('rw', [db.allocations, db.meta, ...STAFFING_TABLES()], async () => {
+            await db.allocations.bulkDelete(writes.deleteAllocations)
+            await db.allocations.bulkPut(writes.putAllocations)
+            await putStaffing(writes.staffing)
+          }),
+        (open) => {
+          recordStaffing(open, ws, next)
+          for (const [id, delta] of step.allocations) recordAllocation(open, id, delta.before, delta.after)
+        },
+      )
+    },
+    [commit],
+  )
+
   const demand = workspace?.demand
   const venue = workspace?.venue
   // Hours are counted per hall of the hall ledger; demand whose Hall/Sted names none of them is gathered as unresolved.
@@ -520,12 +557,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       removeLineOverride,
       saveDemandLine,
       removeDemandLine,
+      updateStaffing,
       canUndo,
       canRedo,
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, setCapacityValue, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, setCapacityValue, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>

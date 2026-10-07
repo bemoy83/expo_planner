@@ -10,6 +10,40 @@ export interface Settings {
   hoursPerDay: number
   absenceRate: number
   overheadRate: number
+  /** The hours of a normal day, used by Bemanning. */
+  workday: WorkdaySettings
+}
+
+/** Minutes after midnight, 0–1440. Values made by the UI are multiples of `snap`. */
+export type Minute = number
+
+/** Half-open: from `start` up to, not including, `end`. */
+export interface Interval {
+  start: Minute
+  end: Minute
+}
+
+export interface WorkdaySettings {
+  dayStart: Minute
+  dayEnd: Minute
+  /** The lunch break, unpaid. */
+  breakStart: Minute
+  breakEnd: Minute
+  /** The first and last minute overtime can be drawn in. */
+  overtimeEarliest: Minute
+  overtimeLatest: Minute
+  snap: Minute
+}
+
+/** 07:00–15:00 with lunch 11:00–11:30, which is 7,5 paid hours. */
+export const DEFAULT_WORKDAY: WorkdaySettings = {
+  dayStart: 420,
+  dayEnd: 900,
+  breakStart: 660,
+  breakEnd: 690,
+  overtimeEarliest: 360,
+  overtimeLatest: 1260,
+  snap: 15,
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -17,7 +51,15 @@ export const DEFAULT_SETTINGS: Settings = {
   hoursPerDay: 7.5,
   absenceRate: 0.05,
   overheadRate: 0.1,
+  workday: DEFAULT_WORKDAY,
 }
+
+/** Settings stored before a field existed get its default. */
+export const withSettingsDefaults = (settings: Partial<Settings>): Settings => ({
+  ...DEFAULT_SETTINGS,
+  ...settings,
+  workday: { ...DEFAULT_WORKDAY, ...settings.workday },
+})
 
 export type VenuePhase = 'assembly' | 'movingIn' | 'event' | 'movingOut' | 'dismantle'
 export const VENUE_PHASES: VenuePhase[] = ['assembly', 'movingIn', 'event', 'movingOut', 'dismantle']
@@ -171,6 +213,79 @@ export interface LineOverride {
   ref?: { avdeling: string; workType: string; hall: string }
 }
 
+/** A competence text as it is compared: trimmed and in lower case. */
+export type CompetenceKey = string
+
+export const competenceKey = (text: string): CompetenceKey => text.trim().toLowerCase()
+
+export const LINE_COLORS = ['line-blue', 'line-teal', 'line-green', 'line-amber', 'line-rose', 'line-violet', 'line-slate', 'line-orange'] as const
+export type LineColor = (typeof LINE_COLORS)[number]
+
+/** How a competence is shown in Bemanning. */
+export interface CompetenceStyle {
+  key: CompetenceKey
+  label: string
+  /** At most four characters, for narrow blocks. */
+  shortLabel: string
+  color: LineColor
+  /** Order in the demand strip and of the keys 1–9. */
+  order: number
+}
+
+/** One of the permanent staff. */
+export interface Person {
+  id: string
+  name: string
+  order: number
+  /** Inactive people are hidden in Bemanning but keep their history. */
+  active: boolean
+  competences: CompetenceKey[]
+  note?: string
+}
+
+export type UnavailabilityKind = 'syk' | 'ferie' | 'kurs' | 'annet'
+
+/** A day, or a part of one, a person is away. */
+export interface Unavailability {
+  id: string
+  personId: string
+  date: ISODate
+  kind: UnavailabilityKind
+  /** Both unset: the whole day. Set: only this part of the day. */
+  start?: Minute
+  end?: Minute
+  note?: string
+}
+
+/** A person doing work of one competence for a stretch of a day. */
+export interface Assignment {
+  id: string
+  personId: string
+  date: ISODate
+  competence: CompetenceKey
+  start: Minute
+  end: Minute
+  /** `suggested` is kept for assignments the app may propose later. */
+  source: 'manual' | 'suggested'
+  /** Not set yet; kept so an assignment can later be tied to a Kalender row. */
+  projectNo?: string
+  hall?: string
+}
+
+/** Hours added to a day's demand for a competence, on top of what the Kalender plans. */
+export interface DemandAdjustment {
+  id: string
+  competence: CompetenceKey
+  /** The day the hours are added to. */
+  date: ISODate
+  hours: number
+  reason: 'carry'
+  /** The day the work was not finished. */
+  fromDate?: ISODate
+  createdAt: string
+  note?: string
+}
+
 export const PLANNED_BASIS = 'Planlagt'
 export const VISMA_BASIS = 'visma per reg. dato'
 export const VISMA_SOURCE = 'visma per reg. dato'
@@ -196,4 +311,9 @@ export interface Workspace {
   /** Keyed by Visma line key, see `vismaLineKey`. */
   overrides?: Record<string, LineOverride>
   importedFrom?: { fileName: string; importedAt: string }
+  persons?: Person[]
+  unavailability?: Unavailability[]
+  assignments?: Assignment[]
+  demandAdjustments?: DemandAdjustment[]
+  competenceStyles?: Record<CompetenceKey, CompetenceStyle>
 }

@@ -11,6 +11,15 @@ Works from an empty workspace, without the planner workbook:
 3. Visma export → demand lines; its product types appear on Produkttyper to be given unit and competence; rates go on KPI.
 4. "I plan" on Behov → rows in the Kalender per phase, hall, competence and Avd., grouped as the planner chooses.
 
+## In progress: Bemanning
+
+A new tab where permanent staff are assigned by name to the competence hours the Kalender has planned. The spec is `design_docs/bemanning/` (README, DOMAIN, RULES, UI, ACCEPTANCE, PHASES, fixtures and a mockup), built in the seven phases of PHASES.md. The table of people gets a tab of its own.
+
+- Phase 1, data model and storage, is built: the types in `domain/types.ts`, the tables `persons`, `unavailability`, `assignments` and `demandAdjustments` (database version 3), competence styles in `meta`, backup, and undo through `updateStaffing` in the store. Nothing of it shows in the app yet.
+- In a dev build, Innstillinger → «Testdata for Bemanning (utvikling)» loads the mockup's invented people and week 42 2026 (`src/dev/staffingFixture.ts`). Its demand becomes planning rows under the project «Testdata Bemanning». One undo takes it all out again. The data is left out of a production build.
+- Reading back from IndexedDB after a reload is checked by hand in the browser; there is no IndexedDB in the test environment.
+- Phases 2–7 remain: the rules, the Personell tab, the read-only tab, painting, hour editing, and sickness and moved hours.
+
 ## Deferred by the user
 
 - **Staffing lines.** Only the base crew shows without the workbook. Adding, renaming and removing lines (Innleid, trade crews, overtime, Fravær, Admin, margin) is not built. Do not start on this until the user asks.

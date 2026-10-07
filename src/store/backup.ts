@@ -1,4 +1,4 @@
-import type { Workspace } from '../domain/types'
+import { withSettingsDefaults, type Workspace } from '../domain/types'
 
 const FORMAT = 'expo-planner-backup'
 const VERSION = 1
@@ -34,5 +34,6 @@ export const parseBackup = (json: string): Workspace => {
   if (!ws?.settings || !isArray(ws.venue) || !isArray(ws.projects) || !isArray(ws.demand) || !isArray(ws.allocations) || !isArray(ws.capacity)) {
     throw new Error('Sikkerhetskopien mangler data.')
   }
-  return ws as Workspace
+  // A backup made before a setting existed gets its default.
+  return { ...(ws as Workspace), settings: withSettingsDefaults(ws.settings) }
 }

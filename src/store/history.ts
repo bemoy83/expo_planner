@@ -1,4 +1,4 @@
-import type { AllocationRow, CapacityLine, DemandLine, KpiConfig, LineOverride, ProjectRef, Settings, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
+import type { AllocationRow, Assignment, CapacityLine, CompetenceStyle, DemandAdjustment, DemandLine, KpiConfig, LineOverride, Person, ProjectRef, Settings, Unavailability, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface Delta<T> {
   before: T
@@ -27,9 +27,24 @@ export interface Change {
   hallAliases?: Delta<Record<string, string>>
   /** The project list (event name → project number). */
   projects?: Delta<ProjectRef[]>
+  /** The records of Bemanning, `null` where the record did not exist. */
+  persons: Map<string, Delta<Person | null>>
+  unavailability: Map<string, Delta<Unavailability | null>>
+  assignments: Map<string, Delta<Assignment | null>>
+  demandAdjustments: Map<string, Delta<DemandAdjustment | null>>
+  competenceStyles?: Delta<Record<string, CompetenceStyle>>
 }
 
-export const emptyChange = (): Change => ({ allocations: new Map(), capacity: new Map(), demand: new Map(), visma: new Map() })
+export const emptyChange = (): Change => ({
+  allocations: new Map(),
+  capacity: new Map(),
+  demand: new Map(),
+  visma: new Map(),
+  persons: new Map(),
+  unavailability: new Map(),
+  assignments: new Map(),
+  demandAdjustments: new Map(),
+})
 
 /** Several edits to the same record within one step keep the first `before` and the last `after`. */
 const record = <T,>(map: Map<string, Delta<T>>, id: string, before: T, after: T) => {
@@ -93,6 +108,29 @@ export const recordProjects = (change: Change, before: ProjectRef[], after: Proj
   change.projects = { before: change.projects ? change.projects.before : before, after }
 }
 
+/** Notes the records that were added, changed or removed between two lists. */
+const recordList = <T extends { id: string }>(map: Map<string, Delta<T | null>>, before: T[] = [], after: T[] = []) => {
+  if (before === after) return
+  const old = new Map(before.map((item) => [item.id, item]))
+  for (const item of after) {
+    const previous = old.get(item.id) ?? null
+    if (previous !== item) record(map, item.id, previous, item)
+    old.delete(item.id)
+  }
+  for (const [id, item] of old) record(map, id, item, null)
+}
+
+/** Notes what a change to people, absence, assignments and moved hours did, by comparing the workspace before and after it. */
+export const recordStaffing = (change: Change, before: Workspace, after: Workspace) => {
+  recordList(change.persons, before.persons, after.persons)
+  recordList(change.unavailability, before.unavailability, after.unavailability)
+  recordList(change.assignments, before.assignments, after.assignments)
+  recordList(change.demandAdjustments, before.demandAdjustments, after.demandAdjustments)
+  if (before.competenceStyles !== after.competenceStyles) {
+    change.competenceStyles = { before: change.competenceStyles ? change.competenceStyles.before : (before.competenceStyles ?? {}), after: after.competenceStyles ?? {} }
+  }
+}
+
 export const isEmptyChange = (change: Change): boolean =>
   !change.settings &&
   !change.overrides &&
@@ -102,6 +140,8 @@ export const isEmptyChange = (change: Change): boolean =>
   !change.eventLinks &&
   !change.hallAliases &&
   !change.projects &&
+  !change.competenceStyles &&
+  [change.persons, change.unavailability, change.assignments, change.demandAdjustments].every((map) => [...map.values()].every((d) => d.before === d.after)) &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
   [...change.visma.values()].every((d) => d.before === d.after) &&
   [...change.allocations.values()].every((d) => d.before === d.after) &&
@@ -110,6 +150,13 @@ export const isEmptyChange = (change: Change): boolean =>
 export type Direction = 'undo' | 'redo'
 
 const target = <T,>(delta: Delta<T>, direction: Direction): T => (direction === 'undo' ? delta.before : delta.after)
+
+/** The list with the records of the change as they are in the given direction. */
+const applyList = <T extends { id: string }>(list: T[] | undefined, map: Map<string, Delta<T | null>>, direction: Direction): T[] | undefined =>
+  map.size ? [...(list ?? []).filter((item) => !map.has(item.id)), ...[...map.values()].flatMap((delta) => target(delta, direction) ?? [])] : list
+
+const puts = <T,>(map: Map<string, Delta<T | null>>, direction: Direction): T[] => [...map.values()].flatMap((delta) => target(delta, direction) ?? [])
+const deletes = <T,>(map: Map<string, Delta<T | null>>, direction: Direction): string[] => [...map].filter(([, delta]) => target(delta, direction) === null).map(([id]) => id)
 
 /** Returns the workspace with the change reverted (undo) or applied again (redo). */
 export const applyChange = (workspace: Workspace, change: Change, direction: Direction): Workspace => {
@@ -139,6 +186,11 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
     eventLinks: change.eventLinks ? target(change.eventLinks, direction) : workspace.eventLinks,
     hallAliases: change.hallAliases ? target(change.hallAliases, direction) : workspace.hallAliases,
     projects: change.projects ? target(change.projects, direction) : workspace.projects,
+    persons: change.persons.size ? applyList(workspace.persons, change.persons, direction)?.sort((a, b) => a.order - b.order) : workspace.persons,
+    unavailability: applyList(workspace.unavailability, change.unavailability, direction),
+    assignments: applyList(workspace.assignments, change.assignments, direction),
+    demandAdjustments: applyList(workspace.demandAdjustments, change.demandAdjustments, direction),
+    competenceStyles: change.competenceStyles ? target(change.competenceStyles, direction) : workspace.competenceStyles,
   }
 }
 
@@ -160,4 +212,15 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   eventLinks: change.eventLinks ? target(change.eventLinks, direction) : null,
   hallAliases: change.hallAliases ? target(change.hallAliases, direction) : null,
   projects: change.projects ? target(change.projects, direction) : null,
+  staffing: {
+    putPersons: puts(change.persons, direction),
+    deletePersons: deletes(change.persons, direction),
+    putUnavailability: puts(change.unavailability, direction),
+    deleteUnavailability: deletes(change.unavailability, direction),
+    putAssignments: puts(change.assignments, direction),
+    deleteAssignments: deletes(change.assignments, direction),
+    putAdjustments: puts(change.demandAdjustments, direction),
+    deleteAdjustments: deletes(change.demandAdjustments, direction),
+    competenceStyles: change.competenceStyles ? target(change.competenceStyles, direction) : null,
+  },
 })

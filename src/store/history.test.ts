@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, type AllocationRow, type CapacityLine, type Workspace } from '../domain/types'
-import type { DemandLine, VismaImport } from '../domain/types'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings } from './history'
+import type { Assignment, DemandLine, Person, VismaImport } from '../domain/types'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings, recordStaffing } from './history'
 
 const row = (id: string, order: number, fte: Record<string, number> = {}): AllocationRow => ({
   id,
@@ -126,5 +126,51 @@ describe('undo history', () => {
     expect(applyChange({ ...base, kpi }, step, 'undo').kpi).toBeUndefined()
     expect(changeWrites(step, 'undo').kpi).toBeNull()
     expect(changeWrites(step, 'redo').kpi).toBe(kpi)
+  })
+
+  const person = (id: string, order: number, competences: string[] = ['foga']): Person => ({ id, name: id, order, active: true, competences })
+  const block = (id: string, personId: string, start = 420, end = 900): Assignment => ({ id, personId, date: '2026-10-12', competence: 'foga', start, end, source: 'manual' })
+
+  it('undoes a staffing change across people, assignments, absence and moved hours as one step', () => {
+    const anna = person('anna', 0)
+    const before: Workspace = { ...base, persons: [anna, person('ola', 1)], assignments: [block('s1', 'anna'), block('s2', 'ola')], unavailability: [], demandAdjustments: [], competenceStyles: {} }
+    const shorter = block('s1', 'anna', 420, 660)
+    const after: Workspace = {
+      ...before,
+      persons: [anna, person('kari', 2)],
+      assignments: [shorter, block('s3', 'kari')],
+      unavailability: [{ id: 'u1', personId: 'anna', date: '2026-10-13', kind: 'syk' }],
+      demandAdjustments: [{ id: 'd1', competence: 'foga', date: '2026-10-13', hours: 3, reason: 'carry', fromDate: '2026-10-12', createdAt: '' }],
+      competenceStyles: { foga: { key: 'foga', label: 'FOGA', shortLabel: 'FOGA', color: 'line-teal', order: 0 } },
+    }
+    const step = emptyChange()
+    recordStaffing(step, before, after)
+
+    expect(step.persons.has('anna')).toBe(false)
+    const undone = applyChange(after, step, 'undo')
+    expect(undone.persons?.map((p) => p.id)).toEqual(['anna', 'ola'])
+    expect(undone.assignments?.map((a) => a.id).sort()).toEqual(['s1', 's2'])
+    expect(undone.assignments?.find((a) => a.id === 's1')?.end).toBe(900)
+    expect(undone.unavailability).toEqual([])
+    expect(undone.demandAdjustments).toEqual([])
+    expect(undone.competenceStyles).toEqual({})
+    expect(changeWrites(step, 'undo').staffing).toMatchObject({ deletePersons: ['kari'], deleteAssignments: ['s3'], deleteUnavailability: ['u1'], deleteAdjustments: ['d1'], competenceStyles: {} })
+    expect(changeWrites(step, 'undo').staffing.putAssignments.map((a) => a.id).sort()).toEqual(['s1', 's2'])
+
+    const redone = applyChange(undone, step, 'redo')
+    expect(redone.persons).toEqual(after.persons)
+    expect([...(redone.assignments ?? [])].sort((a, b) => a.id.localeCompare(b.id))).toEqual(after.assignments)
+    expect(redone.unavailability).toEqual(after.unavailability)
+    expect(redone.demandAdjustments).toEqual(after.demandAdjustments)
+    expect(redone.competenceStyles).toEqual(after.competenceStyles)
+  })
+
+  it('treats a staffing change that changed nothing as empty', () => {
+    const ws: Workspace = { ...base, persons: [person('anna', 0)], assignments: [block('s1', 'anna')] }
+    const step = emptyChange()
+    recordStaffing(step, ws, { ...ws })
+    expect(isEmptyChange(step)).toBe(true)
+    recordStaffing(step, ws, { ...ws, assignments: [] })
+    expect(isEmptyChange(step)).toBe(false)
   })
 })

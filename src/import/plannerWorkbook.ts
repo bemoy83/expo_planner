@@ -263,6 +263,7 @@ const readSettings = (sheets: Map<string, Sheet>): Settings => {
     hoursPerDay: valueBelowLabel(validation, 'normaltid') ?? DEFAULT_SETTINGS.hoursPerDay,
     absenceRate: valueBelowLabel(validation, 'fravær') ?? DEFAULT_SETTINGS.absenceRate,
     overheadRate: valueBelowLabel(sheets.get('variabler'), 'overhead') ?? DEFAULT_SETTINGS.overheadRate,
+    workday: DEFAULT_SETTINGS.workday,
   }
 }
 
