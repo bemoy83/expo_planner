@@ -52,9 +52,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 @keyframes bm-slide-in{from{transform:translateY(-4px);opacity:.2}}
 .bm-carried{margin-right:auto;font:500 var(--fs-2xs) var(--font-num);color:var(--over)}
 .bar .covered{background:var(--cc)}
-.bar .overtime{background:repeating-linear-gradient(135deg,var(--cc) 0 2px,color-mix(in oklch,var(--cc) 35%,transparent) 2px 4px)}
+/* the hatch of --hatch, a 2px line every 6px, drawn in the bar's own colours */
+.bar .overtime{background:repeating-linear-gradient(135deg,var(--cc) 0 4px,color-mix(in oklch,var(--cc) 35%,transparent) 4px 6px)}
 .bar .surplus{background:var(--over)}
-.bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--neg) 0 1.5px,transparent 1.5px 3.5px)}
+.bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,transparent 0 4px,var(--neg) 4px 6px)}
 
 .bm-capacity{height:30px}
 .bm-free{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px;border-right:1px solid var(--rule);font-family:var(--font-num)}
