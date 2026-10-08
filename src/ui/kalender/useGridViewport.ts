@@ -34,7 +34,8 @@ export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, on
   // Scroll events already arrive once per frame, so the viewport can be read directly.
   const onScroll = useCallback(() => {
     const el = scrollRef.current
-    if (el) setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
+    // A scroll that follows a placing of the left edge tells nothing new, and draws nothing again.
+    if (el) setViewport((v) => (Math.abs(v.left - el.scrollLeft) < 1 && v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight ? v : { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight }))
     onScrolled()
   }, [onScrolled])
 
@@ -84,13 +85,25 @@ export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, on
     prevStart.current = start
   }, [start, colW, onScroll, onPeriodMoved])
 
-  // Keep the same date at the left edge when zooming.
+  // Keep the same date at the left edge when zooming, unless the edge is placed: the switch between the
+  // modes zooms to other days, and says where the edge is on every frame of the way.
+  const placed = useRef<number | null>(null)
+  const [placings, setPlacings] = useState(0)
+  /** Puts the left edge at a position among the days (3,5 is the middle of the fourth day), at the column width that is on its way in. */
+  const placeLeft = useCallback((left: number, atColW: number) => {
+    placed.current = left
+    // What is in view is known at once, so the right days are drawn in the same frame as the new width.
+    setViewport((v) => ({ ...v, left: left * atColW }))
+    setPlacings((n) => n + 1)
+  }, [])
   const prevColW = useRef(colW)
   useLayoutEffect(() => {
     const el = scrollRef.current
-    if (el && prevColW.current !== colW) el.scrollLeft = (el.scrollLeft / prevColW.current) * colW
+    if (el && placed.current !== null) el.scrollLeft = placed.current * colW
+    else if (el && prevColW.current !== colW) el.scrollLeft = (el.scrollLeft / prevColW.current) * colW
+    placed.current = null
     prevColW.current = colW
-  }, [colW])
+  }, [colW, placings])
 
   /** The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */
   const topPinned = topHeight < viewport.height * 0.65
@@ -106,5 +119,5 @@ export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, on
     setGoTo(null)
   }, [goTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { scrollRef, topRef, toolsRef, viewport, topHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan: setGoTo }
+  return { scrollRef, topRef, toolsRef, viewport, topHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
 }

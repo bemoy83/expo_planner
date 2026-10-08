@@ -92,7 +92,8 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* the tool switch of a planning page */
 .tool-switch .segmented button:not(.active):hover{background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text)}
 /* a bar of tools above a grid, in the Kalender and in Bemanning: its controls are one height */
-.bar-controls button,.bar-controls input[type='date']{height:32px;font-size:var(--fs-md)}
+.bar-controls button,.bar-controls input[type='date'],.bar-controls .bar-select{height:32px;font-size:var(--fs-md)}
+.bar-controls .bar-select{width:auto;max-width:220px}
 .bar-controls .segmented{height:32px}
 .bar-controls .segmented button{height:26px}
 

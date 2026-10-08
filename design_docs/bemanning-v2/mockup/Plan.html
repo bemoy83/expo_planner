@@ -1,0 +1,785 @@
+<!DOCTYPE html><html lang="nb"><head><meta charset="utf-8"><title>Expo Planner — Kalender v8</title><link rel="stylesheet" href="ds/styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="ds/_ds_bundle.js"></script><script src="planner-data.js"></script><script src="plan-staff-data.js"></script>
+<style>
+html,body,#root{height:100%}body{margin:0;overflow:hidden;background:rgb(var(--canvas));color:rgb(var(--ink));font-family:var(--font-ui)}
+a{color:rgb(var(--ink));text-decoration:underline;text-decoration-color:rgb(var(--border-strong))}a:hover{color:rgb(var(--accent))}
+.khdr{display:flex;align-items:center;gap:14px;padding:10px 24px;border-bottom:1px solid rgb(var(--border));min-width:0}.ktitle{margin:0;font:700 20px/1.2 var(--font-ui);letter-spacing:-.02em;flex:none}.kmetaline{font:400 12px var(--font-numeric);letter-spacing:.02em;color:rgb(var(--ink-faint));min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.khdr-actions{display:flex;align-items:center;gap:8px;flex:none}
+.kbar-top{display:flex;align-items:center;gap:16px;flex-wrap:nowrap;overflow-x:auto;padding:8px 24px;border-bottom:1px solid rgb(var(--border));scrollbar-width:none}.kbar-top>*{flex:none}
+.kgroupbar{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap}
+.kgb-title{font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--ink-faint));margin-right:4px}
+.kgtrack{display:inline-flex;align-items:center;gap:2px;height:32px;padding:0 3px;box-sizing:border-box;border-radius:8px;background:rgb(var(--sunken))}.kgtrack>svg{margin:0 1px}.kgchip{display:inline-flex;align-items:center;gap:0;height:26px;padding:0 2px;border-radius:6px;background:rgb(var(--surface));font-size:13px;font-weight:600;color:rgb(var(--ink))}
+.kgchip span{padding:0 6px}.kgchip button{display:grid;place-items:center;width:20px;height:20px;border:none;border-radius:5px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;padding:0}
+.kgchip button:hover:not(:disabled){background:rgb(var(--sunken));color:rgb(var(--ink))}.kgchip button:disabled{opacity:.3;cursor:default}
+.kgadd{height:32px;padding:0 10px;border-radius:8px;border:none;background:transparent;font:400 13px var(--font-ui);color:rgb(var(--ink-muted));cursor:pointer;transition:color var(--dur) var(--ease)}.kgadd:hover{color:rgb(var(--ink))}
+.kfilters{margin-left:auto;display:flex;align-items:center;gap:16px;flex-wrap:nowrap;white-space:nowrap;font-size:13px;color:rgb(var(--ink-body))}
+.kfilters label{display:flex;align-items:center;gap:6px;cursor:pointer}.kfilters input[type=checkbox]{accent-color:rgb(var(--accent));width:15px;height:15px;margin:0}
+.kfilters select{height:30px;border:none;border-radius:8px;background:rgb(var(--field));padding:0 28px 0 10px;font:400 13px var(--font-ui);color:rgb(var(--ink));appearance:none;background-image:linear-gradient(45deg,transparent 50%,rgb(var(--ink-muted)) 50%),linear-gradient(135deg,rgb(var(--ink-muted)) 50%,transparent 50%);background-position:calc(100% - 14px) 13px,calc(100% - 10px) 13px;background-size:4px 4px;background-repeat:no-repeat;cursor:pointer}
+.kwork{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);position:relative;overflow:hidden}
+.kwork>.kinsp{position:absolute;top:0;right:0;bottom:0;width:340px;max-width:calc(100% - 48px);z-index:20;box-shadow:-12px 0 32px -12px rgb(var(--ink) / .22);animation:kslide 220ms var(--ease)}
+@keyframes kslide{from{transform:translateX(100%)}to{transform:none}}
+.kwork.noinsp{grid-template-columns:minmax(0,1fr)}
+.kal{overflow:auto;height:100%;outline:none;position:relative;font-size:13px}
+.kinner{position:relative}
+.krow{display:flex;height:28px;position:relative}
+.klab{position:sticky;left:0;z-index:3;width:400px;flex:none;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:0 12px 0 16px;background:rgb(var(--canvas));border-right:1px solid rgb(var(--border));min-width:0}
+.kcell{width:var(--w);flex:none;box-sizing:border-box;border-right:1px solid rgb(var(--border) / .55);display:grid;place-items:center;position:relative;overflow:hidden}
+.kcell.wke{}
+.kcell.we{background:var(--sunken-2)}
+.kcell.today::after{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:rgb(var(--accent));z-index:1}
+.khead{position:sticky;top:0;z-index:6;background:rgb(var(--canvas));border-bottom:1px solid rgb(var(--border-strong))}
+.khead .klab{z-index:7}
+.kdate1 .kcell,.kdate2 .kcell{overflow:visible}
+.kwk{position:absolute;left:5px;top:3px;white-space:nowrap;font:500 11px var(--font-numeric);color:rgb(var(--ink-muted));text-transform:uppercase;letter-spacing:.04em}
+.kdd{display:flex;flex-direction:column;align-items:center;line-height:1.05;font-family:var(--font-numeric)}.kdd span{font-size:10px;color:rgb(var(--ink-faint))}.kdd b{font-size:12.5px;font-weight:500}
+.kdate2 .kcell.today .kdd b{color:rgb(var(--accent));font-weight:700}
+.kdate2{border-bottom:1px solid rgb(var(--border))}
+.keb{font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--ink-faint))}
+.kmeta{font:400 12px var(--font-numeric);color:rgb(var(--ink-muted))}
+.ksec{height:22px;display:flex;border-top:1px solid rgb(var(--border));border-bottom:1px solid rgb(var(--border))}.ksec .klab{gap:12px;align-items:flex-end;padding-bottom:3px}
+.ksectog{display:flex;align-items:center;gap:6px;border:none;background:transparent;padding:0 4px 0 0;margin-left:-4px;cursor:pointer;color:rgb(var(--ink-faint));border-radius:6px}.ksectog:hover .keb{color:rgb(var(--ink))}
+.klegend{display:flex;gap:4px;margin-left:auto}.klegend span{font:400 10.5px var(--font-numeric);color:rgb(var(--ink-faint));padding:1px 5px;border-radius:4px;background:rgb(var(--sunken))}
+.klegend.wp{position:sticky;left:412px;width:0;flex:none;align-self:stretch;align-items:center;gap:14px;margin:0;z-index:2;white-space:nowrap;overflow:visible}.klegend.wp span{background:transparent;padding:0;display:flex;align-items:center;gap:5px;font:400 12px var(--font-ui);color:rgb(var(--ink-muted))}.klegend.wp i{width:10px;height:10px;border-radius:3px}
+.kphase{width:10px;height:10px;border-radius:3px;flex:none;box-sizing:border-box}.kphase.m,.kphase.d{box-shadow:inset 0 0 0 1px rgb(var(--ink) / .35)}
+.koutsw{width:10px;height:10px;border-radius:3px;box-shadow:inset 0 0 0 1.5px rgb(var(--danger))}.kin.koutw:not(.cur){box-shadow:inset 0 0 0 1.5px rgb(var(--danger))}
+:root{--total-1:rgb(var(--sunken));--total-2:var(--sunken-2)}.dark{--total-1:rgb(var(--surface));--total-2:rgb(var(--panel))}
+
+
+.kgroup .ksum{color:rgb(var(--ink));font-weight:500}.kgroup.top .ksum{font-weight:600}
+.khall{height:22px}.khname{font:500 12px var(--font-numeric);color:rgb(var(--ink-muted))}
+.ktrack{position:relative;display:flex;flex:none}.ktrack .kcell{height:22px}
+.kbar{position:absolute;top:3px;height:16px;border-radius:4px;display:flex;align-items:center;padding:0 6px;box-sizing:border-box;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;line-height:16px;z-index:2}
+.kcap{font-size:13px;color:rgb(var(--ink-muted))}.kcap.strong{color:rgb(var(--ink));font-weight:600}
+.krow.ktop{border-top:1px dashed rgb(var(--border-strong))}
+.kv{font:400 11.5px var(--font-numeric);padding:1px 3px;border-radius:4px;color:rgb(var(--ink))}
+.ksum{color:rgb(var(--ink-muted))}
+.kplanhead{height:30px;border-top:1px solid rgb(var(--border))}.kplanhead .knum{font:var(--type-eyebrow);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:rgb(var(--ink-faint))}
+.knums{display:flex;margin-left:auto;position:relative;flex:none;align-self:stretch;align-items:center}
+.knum{width:52px;text-align:right;font:inherit;font-family:var(--font-numeric);font-size:12px}
+.kprog{position:absolute;left:12px;right:0;bottom:3px;height:2px;background:rgb(var(--border));border-radius:2px;overflow:hidden}.kprog span{display:block;height:100%}
+.kname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kmuted{font-size:12px;color:rgb(var(--ink-faint));font-style:italic}
+.kdot{width:8px;height:8px;border-radius:999px;flex:none}
+.kchev{display:grid;place-items:center;width:20px;height:20px;border:none;background:transparent;border-radius:6px;color:rgb(var(--ink-muted));cursor:pointer;padding:0;flex:none}.kchev:hover{background:rgb(var(--sunken))}.kchev:disabled{opacity:.3}
+.kgroup{border-top:1px solid rgb(var(--border))}.kgroup .klab{font-weight:600}
+.kgroup.top{height:34px;border-top:1px solid rgb(var(--border-strong))}.kgroup.top .klab{font-size:14px}
+.kgroup .kcell{background-color:transparent}
+.kgroup.top+.kgroup.sub{border-top-color:rgb(var(--border-strong))}
+.kact{display:flex;gap:2px;opacity:0;transition:opacity var(--dur) var(--ease)}.krow:hover .kact{opacity:1}
+.kact button{display:grid;place-items:center;width:24px;height:24px;border:none;border-radius:6px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;font-size:13px;padding:0}.kact button:hover{background:rgb(var(--sunken));color:rgb(var(--ink))}
+.kleaf .klab{cursor:pointer;color:rgb(var(--ink-body))}.kleaf:hover .klab{background:var(--surface-hover)}
+.kleaf.sel .klab{background:rgb(var(--surface));color:rgb(var(--ink));font-weight:600;box-shadow:inset 3px 0 0 rgb(var(--accent))}
+.kleaf.sel .kcell:not(.kin.cur){box-shadow:inset 0 1px 0 rgb(var(--accent) / .35),inset 0 -1px 0 rgb(var(--accent) / .35)}
+.kin{cursor:cell}.kin.cur{box-shadow:inset 0 0 0 1.5px rgb(var(--accent)),0 0 0 3px var(--accent-soft);z-index:2;overflow:visible}
+.kedit{width:100%;height:100%;box-sizing:border-box;border:none;background:rgb(var(--surface));text-align:center;font:500 12px var(--font-numeric);color:rgb(var(--ink));outline:none;caret-color:rgb(var(--accent));padding:0}
+.kinsp{border-left:1px solid rgb(var(--border));background:rgb(var(--panel));display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.kinsp-body{flex:1;min-height:0;overflow:auto;padding:18px 24px;display:flex;flex-direction:column;gap:20px}
+.konchip{padding:4px 10px;border-radius:999px;font-size:12px;background:var(--on-line-soft)}
+.kinsp .konchip{background:none!important;padding:2px 0!important;border-radius:0;font-size:13px;color:rgb(var(--ink-body))}.kinsp .konchip+.konchip{margin-left:8px}
+.kscope{display:grid;grid-template-columns:90px 1fr;gap:8px 12px;margin:0;font-size:13px}.kscope dt{color:rgb(var(--ink-muted))}.kscope dd{margin:0;color:rgb(var(--ink))}
+.kinsp-p{margin:8px 0 0;font-size:13px;line-height:1.5;color:rgb(var(--ink-body));text-wrap:pretty}.kinsp-p .font-numeric{font-size:12px}
+.ktotals{display:grid;grid-template-columns:1fr 1fr;background:var(--sunken-2);border-radius:10px;padding:12px 0}.ktotals div{display:flex;flex-direction:column;gap:3px;padding:0 14px}.ktotals div+div{border-left:1px solid rgb(var(--border))}
+.ktotals span{font-size:12px;color:rgb(var(--ink-muted))}.ktotals b{font-size:20px;font-weight:600;letter-spacing:-.03em}.ktotals em{font-style:normal;font-size:11px;color:rgb(var(--ink-faint))}
+.kdays{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.kdays th{text-align:right;font:400 11px var(--font-numeric);text-transform:uppercase;letter-spacing:.04em;color:rgb(var(--ink-faint));padding:4px 0;border-bottom:1px solid rgb(var(--border))}
+.kdays th:first-child,.kdays td:first-child{text-align:left}.kdays td{text-align:right;padding:5px 0;border-bottom:1px solid rgb(var(--border));font-family:var(--font-numeric)}
+.kout{color:rgb(var(--draft));font-family:var(--font-ui)}
+.ksave{display:flex;align-items:center;gap:6px;font-size:13px}.ksave i{width:7px;height:7px;border-radius:999px;background:rgb(var(--committed))}
+.kmenu{position:absolute;top:100%;right:0;margin-top:8px;width:268px;background:rgb(var(--surface));border:1px solid rgb(var(--border-strong));border-radius:10px;z-index:50;padding:8px}
+.kmenu button.it{width:100%;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:none;border-radius:8px;background:transparent;font:400 13px var(--font-ui);color:var(--ink-body);cursor:pointer;text-align:left}.kmenu button.it:hover{background:var(--surface-hover)}
+.kmenu .grp{padding:8px 10px 6px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:rgb(var(--ink-faint))}
+.kplaceholder{padding:22px 24px;font-size:14px;color:rgb(var(--ink-muted))}
+.ktoasts{position:fixed;right:16px;bottom:16px;z-index:60;display:flex;flex-direction:column;gap:8px;width:380px}
+.kgroup .kcell,.ktotal .kcell{border-right-color:transparent;border-left-color:transparent;background:none}
+:root{--band-1:color-mix(in oklab,rgb(var(--ink)) 6%,rgb(var(--canvas)));--band-1-we:color-mix(in oklab,rgb(var(--ink)) 10%,rgb(var(--canvas)));--band-2:color-mix(in oklab,rgb(var(--ink)) 3%,rgb(var(--canvas)));--band-2-we:color-mix(in oklab,rgb(var(--ink)) 7%,rgb(var(--canvas)))}
+.dark{--band-1:color-mix(in oklab,rgb(var(--ink)) 8%,rgb(var(--canvas)));--band-1-we:color-mix(in oklab,rgb(var(--ink)) 12%,rgb(var(--canvas)));--band-2:color-mix(in oklab,rgb(var(--ink)) 4%,rgb(var(--canvas)));--band-2-we:color-mix(in oklab,rgb(var(--ink)) 8%,rgb(var(--canvas)))}
+html:is([data-levels="project"],[data-levels="all"]) .kgroup.top,html:is([data-levels="project"],[data-levels="all"]) .kgroup.top .klab{background:var(--band-1)}
+html:is([data-levels="project"],[data-levels="all"]) .kgroup.top .kcell.we{background:var(--band-1-we)}
+html[data-levels="all"] .kgroup.sub,html[data-levels="all"] .kgroup.sub .klab{background:var(--band-2)}
+html[data-levels="all"] .kgroup.sub .kcell.we{background:var(--band-2-we)}
+.kgroup.top{height:36px}.kgroup.top .klab{font-size:14px;font-weight:700}
+.kgroup.sub{border-top:1px solid rgb(var(--border))}.kgroup.sub .klab{font-weight:500;color:rgb(var(--ink-body))}
+.kgroup.sub .kname{font-size:13px}
+.kstrip{position:absolute;top:9px;bottom:9px;z-index:0}
+.kgroup .kv{position:relative;z-index:1}
+.kgroup.top + .kleaf,.kgroup.sub + .kleaf{border-top:1px solid rgb(var(--border))}
+.kleaf .kcell{border-bottom:1px solid rgb(var(--border) / .55)}
+.kleaf .kcell.we{background:var(--sunken-2)}
+:root{--work-m:oklch(0.5 0.035 250);--work-m-ink:#fff;--work-d:oklch(0.8 0.075 42);--work-d-ink:rgb(var(--ink))}
+.dark{--work-m:oklch(0.72 0.035 250);--work-m-ink:rgb(var(--canvas));--work-d:oklch(0.47 0.075 40);--work-d-ink:rgb(var(--ink))}
+.kstrip.work{top:5px;bottom:5px}
+.kgroup.top .kstrip.work{top:8px;bottom:8px}
+.kgroup .kv{background:transparent}
+.kdotw{width:3px;height:3px;border-radius:999px;background:rgb(var(--ink) / .28)}
+.kphase.m,.kphase.d{box-shadow:none}
+html[data-mtone="sand"]{--work-m:oklch(0.82 0.03 80);--work-m-ink:rgb(var(--ink))}.dark[data-mtone="sand"]{--work-m:oklch(0.45 0.03 80);--work-m-ink:rgb(var(--ink))}
+html[data-mtone="olive"]{--work-m:oklch(0.8 0.065 115);--work-m-ink:rgb(var(--ink))}.dark[data-mtone="olive"]{--work-m:oklch(0.45 0.06 115);--work-m-ink:rgb(var(--ink))}
+html[data-mtone="sage"]{--work-m:oklch(0.62 0.045 150);--work-m-ink:#fff}.dark[data-mtone="sage"]{--work-m:oklch(0.72 0.045 150);--work-m-ink:rgb(var(--canvas))}
+html[data-mtone="ink"]{--work-m:#4a4642;--work-m-ink:#f5f2ec}.dark[data-mtone="ink"]{--work-m:#5a5550;--work-m-ink:#f5f2ec}
+.kdd.on{background:var(--accent-soft);border-radius:6px;padding:2px 0;width:calc(var(--w) - 6px)}.kdd.on span,.kdd.on b{color:rgb(var(--accent));font-weight:700}
+.kgadd:hover{background:rgb(var(--sunken))}
+.khdr{justify-content:space-between;padding:14px 24px 10px;border-bottom:none}
+.khdr-title{display:flex;align-items:baseline;gap:14px;min-width:0}.khdr-title .kmetaline{flex:initial}
+.ktools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:6px 24px 10px;border-bottom:1px solid rgb(var(--border));white-space:nowrap}
+.ktools>*{flex:none}
+.kzone{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media (max-width:1100px){.ksave span{display:none}.khaller-l{display:none}.ktools .kzdiv{display:none}}
+.kzdiv{width:1px;height:22px;background:rgb(var(--border-strong));flex:none}
+.kzlab{font-size:13px;color:rgb(var(--ink-muted));margin-right:2px}
+.kseg{display:flex;align-items:center;gap:6px}
+.kfbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:none;border-radius:8px;background:rgb(var(--field));font:400 13px var(--font-ui);color:rgb(var(--ink));cursor:pointer}
+.kfbtn:hover{background:rgb(var(--sunken))}.kfbtn svg{color:rgb(var(--ink-muted))}
+.kfbtn b{font:600 11px var(--font-numeric);padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:rgb(var(--accent))}
+.kfbtn.on svg:first-child{color:rgb(var(--accent))}
+.kfmenu label.it{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--ink-body);cursor:pointer}.kfmenu label.it:hover{background:var(--surface-hover)}
+.kfmenu input[type=checkbox]{accent-color:rgb(var(--accent));width:15px;height:15px;margin:0}
+.kmenu button.it.sel{color:rgb(var(--ink));font-weight:600}
+.kgadd{width:32px;padding:0;display:grid;place-items:center}
+.kfold{border:none;background:transparent;font:400 12px var(--font-ui);color:rgb(var(--ink-muted));cursor:pointer;padding:2px 6px;border-radius:6px;margin-left:6px}.kfold:hover{background:rgb(var(--sunken));color:rgb(var(--ink))}
+.kplanhead .klab{align-items:center}
+.kinsp .kinsp-body{padding:0;gap:0}
+.ki-head{display:flex;align-items:flex-start;gap:8px;padding:16px 12px 14px 20px;border-bottom:1px solid rgb(var(--border));background:var(--total-1)}
+.ki-head-t{flex:1;min-width:0}.ki-title{font:var(--type-line-title);letter-spacing:-.02em;color:rgb(var(--ink))}
+.ki-sub{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:13px;color:rgb(var(--ink-muted));min-width:0}.ki-sep{color:rgb(var(--ink-faint))}.ki-trunc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ki-acts{display:flex;gap:2px;flex:none;margin-top:-2px}
+.ki-sec{padding:16px 20px 18px;border-bottom:1px solid rgb(var(--border))}.ki-sec:last-child{border-bottom:none}
+.ki-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 12px;font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--ink-faint))}.ki-h span{font:400 11px var(--font-numeric);text-transform:none;letter-spacing:0}
+.ki-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.ki-stats div{display:flex;flex-direction:column;gap:2px;min-width:0}.ki-stats div+div{padding-left:14px;border-left:1px solid rgb(var(--border))}.ki-stats div:not(:last-child){padding-right:14px}
+.ki-stats span{font-size:12px;color:rgb(var(--ink-muted))}.ki-stats b{font:600 22px/1.15 var(--font-numeric);letter-spacing:-.03em;color:rgb(var(--ink))}.ki-stats em{font:normal 400 11px var(--font-numeric);color:rgb(var(--ink-faint))}
+.ki-bar{height:4px;border-radius:4px;background:rgb(var(--sunken));margin-top:14px;overflow:hidden}.ki-bar span{display:block;height:100%;border-radius:4px}
+.ki-warn{margin:10px 0 0;font-size:12px;color:rgb(var(--draft))}
+.ki-dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:7px 12px;margin:0;font-size:13px}.ki-dl dt{color:rgb(var(--ink-muted))}.ki-dl dd{margin:0;color:rgb(var(--ink));text-wrap:pretty}
+.ki-foot{flex:none;padding:12px 20px;border-top:1px solid rgb(var(--border));background:rgb(var(--panel));display:flex;align-items:center;min-height:56px;box-sizing:border-box}.ki-foot>button{width:100%;justify-content:center}.ki-done{font-size:13px;font-weight:500}
+.kinsp .kdays{margin-top:0}
+.kheat{position:absolute;inset:3px 2px;border-radius:5px;z-index:0}
+.kdate2 .kcell.red .kdd b,.kdate2 .kcell.red .kdd span{color:rgb(var(--danger))}
+.krow:is(.kleaf,.kgroup,.kdate1,.kdate2) .kcell.red{background-image:linear-gradient(rgb(var(--danger) / .07),rgb(var(--danger) / .07))!important}
+.dark .krow:is(.kleaf,.kgroup,.kdate1,.kdate2) .kcell.red{background-image:linear-gradient(rgb(var(--danger) / .12),rgb(var(--danger) / .12))!important}
+
+.kheatrow{height:30px}.kheatrow .kcell{border-right-color:transparent}
+.kheatlab{display:flex;align-items:center;gap:10px}.kheatlg{display:flex;gap:2px;cursor:help}.kheatlg i{width:10px;height:10px;border-radius:2px}
+.krest{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid rgb(var(--border))}
+.krest-row{display:flex;align-items:baseline;gap:8px;min-width:0}
+.krest-l{font-size:13px;color:rgb(var(--ink-muted))}
+.krest-v{font:600 20px var(--font-numeric);letter-spacing:-.02em}
+.krest-u{font:400 11px var(--font-numeric);color:rgb(var(--ink-faint))}
+.krow.kpbarrow{height:auto;border-top:1px solid rgb(var(--border-strong))}
+.kpbar-in{position:sticky;left:0;z-index:8;flex:none;box-sizing:border-box;background:rgb(var(--canvas));padding:8px 16px;display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px 20px;white-space:nowrap;container-type:inline-size}
+.kpbar-in .kzone{flex-wrap:nowrap;gap:6px}
+.kview{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px 20px;flex-wrap:wrap}
+.kz-time{margin-left:auto}
+.kgbtn-l{overflow:hidden;text-overflow:ellipsis}
+.kpbar-in:not([data-fit="0"]) .kphint-t{display:none}.kpbar-in[data-fit="2"] .kgbtn-l{max-width:240px}.kpbar-in[data-fit="3"] .kgbtn-l,.kpbar-in[data-fit="w160"] .kgbtn-l{max-width:160px}.kpbar-in[data-fit="w240"] .kgbtn-l{max-width:240px}.kpbar-in[data-fit="w110"] .kgbtn-l{max-width:110px}.kpbar-in[data-fit="w70"] .kgbtn-l{max-width:70px}
+.kfbtn>span{overflow:hidden;text-overflow:ellipsis}
+.kglvl{display:flex;align-items:center;gap:4px;height:34px;padding:0 4px 0 10px;border-radius:8px;font-size:13px;color:rgb(var(--ink))}.kglvl:hover{background:var(--surface-hover)}
+.kglvl-n{font:500 11px var(--font-numeric);color:rgb(var(--ink-faint));width:14px}
+.kglvl button{display:grid;place-items:center;width:26px;height:26px;border:none;border-radius:6px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;padding:0}.kglvl button:hover:not(:disabled){background:rgb(var(--sunken));color:rgb(var(--ink))}.kglvl button:disabled{opacity:.3;cursor:default}
+.ktoolslot button[aria-checked="false"]:hover{background:rgb(var(--ink) / .06)!important;color:rgb(var(--ink))!important}
+.ktoolslot button svg{transition:color 120ms var(--ease)}
+@container (max-width:700px){.kpbar-in .kfbtn>span{max-width:110px}.kpbar-in .kphint{display:none}}
+@container (max-width:620px){.kpbar-in .kfbtn>span{max-width:90px}}
+@container (max-width:500px){.kpbar-in .kz-time{margin-left:0}}
+.kseg kbd{font:500 10px/14px var(--font-numeric);padding:0 4px;border-radius:4px;background:rgb(var(--ink) / .07);color:rgb(var(--ink-faint));margin-left:2px}
+.kphint{font-size:12px;color:rgb(var(--ink-faint));display:flex;align-items:center;gap:6px;cursor:help;padding:0 4px}.kphint b{font-weight:500;color:rgb(var(--ink-muted))}
+.kmenu.kctx{position:fixed;top:0;margin:0;width:280px;z-index:70}
+.kmenu .kk{margin-left:auto;font:400 11px var(--font-numeric);color:rgb(var(--ink-faint))}
+.kmenu button.it:disabled{opacity:.4;cursor:default;background:transparent}
+.kal:is([data-t="distribute"],[data-t="clear"]) .kleaf .kin{cursor:crosshair}
+.kal[data-t="distribute"] .kleaf .kin:hover{box-shadow:inset 0 0 0 1.5px rgb(var(--accent) / .6)}
+.kal[data-t="clear"] .kleaf .kin:hover{box-shadow:inset 0 0 0 1.5px rgb(var(--danger) / .7)}
+.kact button:disabled{opacity:.3;cursor:default;background:transparent}
+:root{--hat:repeating-linear-gradient(135deg,rgb(var(--ink) / .1) 0 2.5px,transparent 2.5px 8px)}
+.kinner{animation:kfade 220ms var(--ease)}@keyframes kfade{from{opacity:.35}to{opacity:1}}
+.ps-pl .klab{gap:10px}.ps-pn{font-size:12.5px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-pl.sel .klab{box-shadow:inset 3px 0 0 rgb(var(--accent));background:rgb(var(--surface))}.ps-pl.sel .ps-pn{font-weight:700}
+.ps-pl.dim .kbar{opacity:.35}.ps-pl.dim .ps-pn{color:rgb(var(--ink-muted))}
+.ps-csec .klab{gap:10px;white-space:nowrap}.ps-csec .ksectog,.ps-csec .kmeta{white-space:nowrap;flex:none}
+.ps-scope{display:inline-flex;gap:2px;padding:1px;border-radius:6px;background:rgb(var(--sunken));margin-bottom:-2px}
+.ps-scope button{border:none;background:transparent;font:500 11px var(--font-ui);color:rgb(var(--ink-muted));padding:1px 7px;border-radius:5px;cursor:pointer;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-scope button[aria-checked="true"]{background:rgb(var(--surface));color:rgb(var(--ink));box-shadow:0 0 0 1px rgb(var(--border))}.ps-scope button:disabled{opacity:.5;cursor:default}
+.krow.ps-cr{height:32px}.ps-cr .klab{gap:8px;cursor:pointer}.ps-cr .klab:hover{background:var(--surface-hover)}
+.ps-sw{width:10px;height:10px;border-radius:3px;background:var(--cc);flex:none}.ps-cn{font-weight:500}.ps-tot{margin-left:auto;font:600 12px var(--font-numeric)}
+.ps-cr.on{background:color-mix(in oklch,var(--cc) 7%,rgb(var(--canvas)))}.ps-cr.on .klab{background:color-mix(in oklch,var(--cc) 16%,rgb(var(--canvas)));box-shadow:inset 3px 0 0 var(--cc)}.ps-cr.off .ps-cc>*,.ps-cr.off .klab>*{opacity:.5}
+.ps-cc{cursor:pointer;border-bottom:1px solid rgb(var(--border) / .55)}.ps-cc:hover{background-color:rgb(var(--ink) / .035)}.ps-cc.fd,.ps-c.fd{background-color:transparent}
+.ps-dc{display:flex;flex-direction:column;gap:4px;width:100%;padding:0 7px;box-sizing:border-box}
+.ps-dv{display:flex;align-items:baseline;justify-content:flex-end;gap:5px;white-space:nowrap}.ps-dv em{font:400 10px var(--font-numeric);font-style:normal;color:rgb(var(--ink-faint))}
+.ps-n{font:600 13.5px/1 var(--font-numeric);letter-spacing:-.02em}.ps-n.ok{color:rgb(var(--committed))}.ps-n.over{color:rgb(var(--draft))}.ps-n.unc{color:rgb(var(--danger))}
+.ps-mb{height:4px;border-radius:3px;background:rgb(var(--ink) / .08);overflow:hidden}.ps-mb i{display:block;height:100%;background:var(--cc);transition:width 280ms var(--ease)}
+.krow.ps-pr{height:40px}.ps-pr .klab{gap:8px;cursor:pointer}.ps-pr .klab:hover{background:var(--surface-hover)}.ps-pr.dim{opacity:.4}.ps-pr.dim:hover{opacity:.75}
+.ps-pr.sel .klab{background:rgb(var(--surface));box-shadow:inset 3px 0 0 rgb(var(--accent))}
+.ps-pnw{flex:1;min-width:0;display:flex;align-items:center;gap:10px}.ps-nm{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ps-pr.sel .ps-nm{font-weight:600}
+.ps-pc{display:flex;gap:3px}.ps-pc i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px rgb(var(--border-strong) / .7)}.ps-pc i.has{background:var(--cc);box-shadow:none}
+.ps-pw{font:400 11.5px var(--font-numeric);color:rgb(var(--ink-faint));white-space:nowrap}.ps-pw b{font-weight:600;color:rgb(var(--ink))}.ps-pw em{font-style:normal;font-weight:600;color:rgb(var(--draft))}
+.ps-c{border-bottom:1px solid rgb(var(--border) / .55);cursor:default}
+.ps-people[data-t="paint"] .ps-c:not(.we){cursor:cell}.ps-people[data-t="erase"] .ps-c{cursor:crosshair}.ps-people .ps-c.no{cursor:not-allowed}
+.ps-c.off{background-image:var(--hat)}.ps-offl{font-size:12px;font-style:italic;color:rgb(var(--ink-muted));background:rgb(var(--canvas));padding:0 4px;border-radius:4px}
+.ps-c.sk{background-color:rgb(var(--danger) / .04);background-image:repeating-linear-gradient(135deg,rgb(var(--danger) / .2) 0 2.5px,transparent 2.5px 8px)}
+.ps-b{position:absolute;top:7px;bottom:7px;border-radius:5px;background:var(--cc);color:var(--on-line);display:flex;align-items:center;gap:6px;padding:0 6px;box-sizing:border-box;overflow:hidden;white-space:nowrap;box-shadow:0 0 0 1px rgb(var(--canvas))}
+.ps-b b{font-size:11.5px;font-weight:600}.ps-b em{font:400 10.5px var(--font-numeric);font-style:normal;opacity:.85;margin-left:auto}
+.ps-b.unres{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:rgb(var(--ink))}
+.ps-sick{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:12px;font-style:italic;font-weight:500;color:rgb(var(--danger));background:rgb(var(--canvas));padding:0 4px;border-radius:4px;z-index:1;pointer-events:none}
+.ps-ot{position:absolute;right:1px;top:1px;font:600 9.5px/13px var(--font-numeric);padding:0 4px;border-radius:4px;color:rgb(var(--canvas));background:rgb(var(--ink));z-index:1}.ps-ot.we{position:static;margin-left:3px}
+.ps-wec{display:flex;align-items:center;gap:2px}.ps-wec>i{width:6px;height:20px;border-radius:3px}
+.krow.ps-div{height:30px;border-top:1px solid rgb(var(--border-strong))}.ps-div .klab{gap:8px;font-size:12px;color:rgb(var(--ink-muted))}.ps-div>.kmeta{display:flex;align-items:center;padding-left:12px}
+.ps-brush{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:color-mix(in oklch,var(--cc) 14%,rgb(var(--surface)));font-size:13px;font-weight:600;box-shadow:inset 0 0 0 1.5px var(--cc)}.ps-brush i{width:10px;height:10px;border-radius:3px;background:var(--cc)}.ps-brush button{display:grid;place-items:center;width:22px;height:22px;border:none;border-radius:6px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;font-size:15px;line-height:1}.ps-brush button:hover{background:rgb(var(--ink) / .08)}
+.ps-unres{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:rgb(var(--danger-bg));color:rgb(var(--danger));font-size:13px;font-weight:500}.ps-unres button{border:none;background:transparent;color:inherit;font:600 12px var(--font-ui);padding:4px 8px;border-radius:6px;cursor:pointer}.ps-unres button:hover{background:rgb(var(--danger) / .12)}
+.ps-qc{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}.ps-qc button{display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:none;border-radius:6px;background:rgb(var(--sunken));font:500 12.5px var(--font-ui);color:rgb(var(--ink));cursor:pointer}.ps-qc button i{width:8px;height:8px;border-radius:2px;background:var(--cc)}
+.ps-qc button:hover{background:color-mix(in oklch,var(--cc) 14%,rgb(var(--sunken)))}.ps-qc button.on{background:color-mix(in oklch,var(--cc) 20%,rgb(var(--surface)));font-weight:600}
+.ps-idl{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:0;font-size:12.5px;align-items:center}.ps-idl dt{color:rgb(var(--ink-muted))}.ps-idl dd{margin:0;text-align:right;font-family:var(--font-numeric)}.ps-idl dd.ot{font-weight:600;color:rgb(var(--draft))}
+.ps-weeksec{padding:10px 16px 12px 10px}.ps-wnav{display:flex;align-items:center;justify-content:space-between;padding-left:24px;margin-bottom:4px}
+.ps-wh{display:grid;grid-template-columns:24px repeat(7,1fr);gap:3px;margin-bottom:4px}.ps-wh button{display:flex;flex-direction:column;align-items:center;border:none;background:transparent;border-radius:6px;padding:2px 0;font:400 10px var(--font-numeric);color:rgb(var(--ink-faint));cursor:pointer}.ps-wh button b{font-size:12px;font-weight:500;color:rgb(var(--ink))}.ps-wh button.we b{color:rgb(var(--ink-muted))}.ps-wh button.on{background:var(--accent-soft)}.ps-wh button.on,.ps-wh button.on b{color:rgb(var(--accent));font-weight:700}
+.ps-wb{display:grid;grid-template-columns:24px repeat(7,1fr);gap:3px;user-select:none}
+.ps-wax{position:relative}.ps-wax span{position:absolute;right:4px;transform:translateY(-50%);font:400 10px var(--font-numeric);color:rgb(var(--ink-faint))}.ps-wax span.n{color:rgb(var(--ink));font-weight:600}
+.ps-wc{position:relative;border-radius:5px;background:rgb(var(--sunken));overflow:hidden;cursor:copy}.ps-wc.na{cursor:not-allowed}.ps-wc.fd{box-shadow:none}
+.ps-wot{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,rgb(var(--ink) / .08) 0 1px,transparent 1px 5px);pointer-events:none}
+.ps-wl{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,rgb(var(--ink) / .13) 0 1px,transparent 1px 3px);pointer-events:none}
+.ps-woff{position:absolute;inset:0;display:grid;place-items:center;writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-style:italic;color:rgb(var(--ink-muted));background-image:var(--hat);pointer-events:none}.ps-woff.sick{color:rgb(var(--danger));font-weight:500;background-color:rgb(var(--danger) / .04);background-image:repeating-linear-gradient(135deg,rgb(var(--danger) / .2) 0 2.5px,transparent 2.5px 8px)}
+.ps-wbk{position:absolute;left:2px;right:2px;border-radius:4px;background:var(--cc);color:var(--on-line);padding-top:4px;text-align:center;box-sizing:border-box;overflow:hidden;cursor:pointer;z-index:1}.ps-wbk b{font-size:9.5px;font-weight:600;pointer-events:none}
+.ps-wbk.ot{background:repeating-linear-gradient(135deg,var(--cc) 0 3px,color-mix(in oklch,var(--cc) 55%,transparent) 3px 6px)}
+.ps-wbk.unres{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:rgb(var(--ink))}
+.ps-wbk.sel{box-shadow:0 0 0 2px rgb(var(--panel)),0 0 0 3.5px rgb(var(--accent));z-index:2}.ps-wbk.ghost{opacity:.6;pointer-events:none}
+.ps-wh-h{position:absolute;left:0;right:0;height:6px;cursor:ns-resize}.ps-wh-h.t{top:0}.ps-wh-h.b{bottom:0}
+.ps-hint{margin:8px 0 0 24px;font-size:11.5px;line-height:1.45;color:rgb(var(--ink-faint));text-wrap:pretty}.ps-blk .ps-hint{margin-left:0}
+.ps-blkh{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px}.ps-blkh .kmeta{margin-left:auto}
+.ps-tagdl dd{text-align:right}.ps-sel{height:30px;max-width:190px;border:none;border-radius:8px;background:rgb(var(--field));padding:0 10px;font:400 13px var(--font-ui);color:rgb(var(--ink));cursor:pointer}
+.ps-pin{border-bottom:2px solid rgb(var(--border-strong))}
+.krow.ps-vrow{height:364px}
+.ps-vrow>.klab{align-items:stretch;padding:0;display:grid;grid-template-columns:minmax(0,1fr) 44px;background:rgb(var(--panel))}
+.ps-vl-info{display:flex;flex-direction:column;gap:12px;padding:10px 8px 12px 12px;min-width:0}
+.ps-vl-top{display:flex;align-items:center;gap:6px;margin:-10px -8px 0 -12px;padding:10px 8px 6px 12px;cursor:pointer}.ps-vl-top:hover{background:var(--surface-hover)}.ps-vl-nm{font-size:14px;font-weight:600}
+.ps-vl-info .ps-qc{margin:0;padding-left:20px}.ps-vl-dl{padding-left:20px}
+.ps-vl-nav{display:flex;align-items:flex-start;gap:2px;padding-left:14px}.ps-vl-hint{font-size:11.5px;line-height:1.4;color:rgb(var(--ink-faint));padding:3px 0 0 6px;text-wrap:pretty}
+.ps-vax{position:relative;margin:12px 0}.ps-vax span{position:absolute;right:6px;transform:translateY(-50%);font:400 10px var(--font-numeric);color:rgb(var(--ink-faint))}.ps-vax span.n{color:rgb(var(--ink));font-weight:600}
+.krow .kcell.ps-vc{display:block;border-bottom:1px solid rgb(var(--border-strong))}
+.ps-vt{position:absolute;left:4px;right:4px;top:12px;bottom:12px;border-radius:6px;background:repeating-linear-gradient(180deg,rgb(var(--ink) / .06) 0 1px,transparent 1px 20px) rgb(var(--sunken));cursor:copy;overflow:hidden;user-select:none}.ps-vt.na{cursor:not-allowed}
+.ps-vline{position:absolute;left:0;right:0;border-top:1px solid rgb(var(--ink) / .25);pointer-events:none}
+.ps-vb{position:absolute;left:3px;right:3px;border-radius:5px;background:var(--cc);color:var(--on-line);padding:4px 6px;box-sizing:border-box;overflow:hidden;cursor:grab;display:flex;flex-direction:column;gap:1px;z-index:1;box-shadow:0 0 0 1px rgb(var(--sunken))}
+.ps-vb b{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;pointer-events:none}.ps-vb em{font:400 10px var(--font-numeric);font-style:normal;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:clip;position:relative;pointer-events:auto}
+.ps-vot{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,var(--on-line-soft) 0 2px,transparent 2px 7px);pointer-events:none}
+.ps-vb.sel{box-shadow:0 0 0 2px rgb(var(--canvas)),0 0 0 3.5px rgb(var(--accent));z-index:2}.ps-vb.orig{opacity:.3}.ps-vb.drag{cursor:grabbing;box-shadow:0 6px 16px -6px rgb(var(--ink) / .45);z-index:3;pointer-events:none}.ps-vb.ghost{opacity:.6;pointer-events:none}
+.ps-vb.unres{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:rgb(var(--ink))}
+.krow.ps-ghost{height:30px;cursor:pointer}.ps-ghost .klab{gap:8px;background:var(--accent-soft);color:rgb(var(--accent));border-bottom:1px solid rgb(var(--border) / .55)}.ps-ghost .ps-nm{font-size:12.5px;color:rgb(var(--ink))}
+.ps-ghost-t{flex:none;display:flex;align-items:center;background:var(--accent-soft);border-bottom:1px solid rgb(var(--border) / .55)}.ps-ghost-t span{position:sticky;left:412px;font-size:12px;color:rgb(var(--ink-muted))}
+.ps-ghost:hover .klab,.ps-ghost:hover .ps-ghost-t{background:rgb(var(--accent) / .14)}
+.ps-kind{font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--accent));margin-bottom:4px}
+.ps-st{display:flex;align-items:center;gap:8px}.ps-st .ps-sw{width:12px;height:12px}
+.ps-gchips{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}.ps-gchips button{display:flex;align-items:center;gap:5px;height:26px;padding:0 7px;border:none;border-radius:6px;background:rgb(var(--sunken));font:600 11px var(--font-numeric);color:rgb(var(--ink));cursor:pointer}.ps-gchips button i{width:8px;height:8px;border-radius:2px;background:var(--cc)}.ps-gchips button em{font-style:normal;font-weight:500;color:rgb(var(--danger))}
+.ps-gchips button.on{background:color-mix(in oklch,var(--cc) 20%,rgb(var(--surface)))}.ps-gchips button.on.all{background:rgb(var(--field-raised))}
+.ps-cand,.ps-out,.ps-abs,.ps-proj{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.ps-cand li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid rgb(var(--border))}.ps-cand li:first-child{border-top:none;padding-top:2px}
+.ps-cand-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.ps-cand-t b{font-size:13px;font-weight:500}
+.ps-tags{display:flex;flex-wrap:wrap;gap:4px}.ps-tags span{font:400 11px var(--font-numeric);color:rgb(var(--ink-muted))}.ps-tags span+span::before{content:"·";margin-right:4px;color:rgb(var(--ink-faint))}.ps-tags .g{color:rgb(var(--committed))}.ps-tags .w{color:rgb(var(--draft));font-weight:600}
+.ps-cand-a{display:flex;gap:4px;flex:none}.ps-cand-a button,.ps-rep button{height:28px;padding:0 10px;border:none;border-radius:7px;background:rgb(var(--field));font:500 12px var(--font-ui);color:rgb(var(--ink));cursor:pointer}.ps-cand-a button:hover,.ps-rep button:hover:not(:disabled){background:var(--accent-soft);color:rgb(var(--accent))}
+.ps-empty{margin:0;font-size:12.5px;color:rgb(var(--ink-muted))}
+.ps-outtog{display:flex;align-items:center;gap:6px;width:100%;border:none;background:transparent;padding:0;font:var(--type-eyebrow);text-transform:uppercase;letter-spacing:.06em;color:rgb(var(--ink-faint));cursor:pointer}.ps-outtog span{margin-left:auto;font:400 11px var(--font-numeric);text-transform:none}.ps-outtog:hover{color:rgb(var(--ink))}
+.ps-out{margin-top:10px}.ps-out li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-size:12.5px;color:rgb(var(--ink-muted));border-top:1px solid rgb(var(--border))}.ps-out em{font-style:normal;font-size:12px;color:rgb(var(--ink-faint));text-align:right}
+.ps-bdl{grid-template-columns:90px 1fr;gap:8px 12px}.ps-bdl dd{text-align:left}.ps-otx{color:rgb(var(--draft));font-weight:600}
+.ps-note{width:100%;height:30px;box-sizing:border-box;border:none;border-radius:8px;background:rgb(var(--field));padding:0 10px;font:400 13px var(--font-ui);color:rgb(var(--ink));outline:none}.ps-note:focus{box-shadow:var(--field-focus)}
+.ps-bdl .ps-sel{width:100%;max-width:none}
+.ps-rep{display:flex;flex-direction:column;gap:4px}.ps-rep button{display:flex;justify-content:space-between;align-items:center;height:32px;text-align:left}.ps-rep button em{font:400 11px var(--font-numeric);font-style:normal;color:rgb(var(--ink-faint))}.ps-rep button:disabled{opacity:.45;cursor:default}
+.ps-ptag{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:rgb(var(--ink-body));margin-right:8px}.ps-ptag i{width:8px;height:8px;border-radius:2px;background:var(--cc)}
+.ps-abs li{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid rgb(var(--border));font-size:12.5px;cursor:pointer}.ps-abs li:first-child{border-top:none}.ps-abs li span{font-family:var(--font-numeric);color:rgb(var(--ink-muted))}.ps-abs li b{font-weight:500}.ps-abs li.sick b{color:rgb(var(--danger))}
+.ps-proj li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid rgb(var(--border));cursor:pointer}.ps-proj li:first-child{border-top:none}.ps-proj li:hover b{color:rgb(var(--accent))}
+.ps-proj li>div{display:flex;flex-direction:column;gap:3px;min-width:0}.ps-proj li>div:last-child{align-items:flex-end}.ps-proj b{font-size:13px;font-weight:500}.ps-proj b.none{color:rgb(var(--ink-muted));font-style:italic;font-weight:400}.ps-proj span{font:400 11.5px var(--font-numeric);color:rgb(var(--ink-faint))}.ps-proj em{font:600 12px var(--font-numeric);font-style:normal}
+.ps-comps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.ps-comps li{display:grid;grid-template-columns:10px minmax(0,1fr) 72px 44px 18px;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:7px;font-size:13px}
+.ps-comps li i{width:10px;height:10px;border-radius:3px;background:var(--cc)}
+.ps-comps li.has{cursor:pointer}.ps-comps li.has:hover{background:var(--surface-hover)}.ps-comps li.has .ps-cn{font-weight:500}
+.ps-comps li.on{background:color-mix(in oklch,var(--cc) 16%,rgb(var(--surface)))}
+.ps-comps li.no{color:rgb(var(--ink-faint))}.ps-comps li.no i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--cc);opacity:.6}
+.ps-comps em{font:400 11.5px var(--font-numeric);font-style:normal;text-align:right;color:rgb(var(--ink-muted))}.ps-comps em.ps-cno{grid-column:3/-1;text-align:left;font-family:var(--font-ui);font-size:12px;color:rgb(var(--ink-faint))}
+.ps-cbar{height:4px;border-radius:2px;background:rgb(var(--ink) / .08);overflow:hidden}.ps-cbar b{display:block;height:100%;background:var(--cc)}
+.ps-panel{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ps-pick{flex:none;padding:10px 20px;border-bottom:1px solid rgb(var(--border))}.ps-pick.noblk [role="radio"]:nth-child(3){opacity:.45;cursor:default}
+.ps-side .ps-kind{display:none}
+.ps-gchips button.all{font-family:var(--font-ui)}
+.ps-help{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.ps-help li{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgb(var(--border))}.ps-help li:first-child{border-top:none}
+.ps-hd{display:flex;flex-direction:column;align-items:center;line-height:1.1;border:none;background:transparent;border-radius:6px;padding:3px 0;cursor:pointer;font-family:var(--font-numeric)}.ps-hd span{font-size:10px;color:rgb(var(--ink-faint))}.ps-hd b{font-size:13px;font-weight:500;color:rgb(var(--ink))}.ps-hd:hover{background:var(--surface-hover)}.ps-hd.on{background:var(--accent-soft)}.ps-hd.on b,.ps-hd.on span{color:rgb(var(--accent));font-weight:700}
+.ps-hx{font-style:normal;font-size:12px;color:rgb(var(--ink-faint))}.ps-help li.out .ps-hx{font-style:italic}.ps-help li.out,.ps-help li.busy,.ps-help li.none{opacity:.75}
+.ps-hm{display:flex;flex-direction:column;gap:5px;min-width:0}.ps-hf{font:400 11.5px var(--font-numeric);color:rgb(var(--ink-muted))}
+.ps-hs{display:flex;flex-direction:column;gap:4px}
+.ps-hchip{display:flex;align-items:stretch;height:28px;border-radius:7px;overflow:hidden;background:color-mix(in oklch,var(--cc) 10%,rgb(var(--field)))}
+.ps-hchip button{border:none;background:transparent;padding:0 9px;font:500 12px var(--font-ui);color:rgb(var(--ink));cursor:pointer;border-left:1px solid rgb(var(--canvas))}.ps-hchip button:hover{background:color-mix(in oklch,var(--cc) 22%,transparent)}
+.ps-hgo{flex:1;display:flex;align-items:center;gap:6px;border-left:none!important;font-family:var(--font-numeric)!important;font-weight:600!important;text-align:left}.ps-hgo i{width:8px;height:8px;border-radius:2px;background:var(--cc)}.ps-hgo em{font-style:normal;font-weight:500;color:rgb(var(--danger))}
+.ps-people{position:relative}.ps-people[data-drag]{cursor:grabbing}.ps-people[data-drag] .ps-c{cursor:inherit}
+.ps-selbox{position:absolute;z-index:2;pointer-events:none;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--bc),0 0 0 4px color-mix(in oklch,var(--bc) 13%,transparent);background:color-mix(in oklch,var(--bc) 4%,transparent)}
+.ps-selbox.erase{--bc:rgb(var(--danger));background:rgb(var(--danger) / .03)}.ps-selbox.erase .ps-selpill i{display:none}
+.ps-selpill{position:absolute;left:-1.5px;bottom:calc(100% + 6px);display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 9px;border-radius:7px;background:rgb(var(--ink));color:rgb(var(--canvas));font:500 11.5px var(--font-numeric);white-space:nowrap;box-shadow:0 6px 16px -6px rgb(var(--ink) / .5)}
+.ps-selpill.below{bottom:auto;top:calc(100% + 6px)}.ps-selpill i{width:8px;height:8px;border-radius:2px;background:var(--bc)}.ps-selpill b{font:600 11.5px var(--font-ui)}
+.ps-selpill em{font-style:normal;padding-left:7px;border-left:1px solid rgb(var(--canvas) / .25);opacity:.75}
+.ps-pv{position:absolute;top:7px;bottom:7px;border-radius:5px;pointer-events:none;display:flex;align-items:center;justify-content:flex-end;padding:0 6px;box-sizing:border-box;overflow:hidden;
+  background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--bc) 30%,transparent) 0 5px,color-mix(in oklch,var(--bc) 18%,transparent) 5px 10px);box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--bc) 65%,transparent);animation:pspv 160ms var(--ease) both}
+.ps-pv span{font:600 11px var(--font-numeric);color:rgb(var(--ink));white-space:nowrap}
+@keyframes pspv{from{opacity:0;transform:scaleX(.85)}to{opacity:1;transform:none}}
+.ps-b{animation:psin 220ms var(--ease) both;transform-origin:left center}@keyframes psin{from{opacity:0;transform:scaleX(.7)}to{opacity:1;transform:none}}
+.ps-b.erasing{background:transparent;color:rgb(var(--ink-muted));box-shadow:none;outline:1.5px dashed rgb(var(--ink) / .45);outline-offset:-1.5px}.ps-b.erasing b{color:rgb(var(--ink-muted))}.ps-b.erasing em{opacity:.7}
+.ps-people[data-t="paint"] .ps-c.no:hover{background-image:repeating-linear-gradient(135deg,rgb(var(--ink) / .05) 0 2.5px,transparent 2.5px 8px)}
+.ktoolslot [role="radio"][aria-checked="true"] .lucide-paintbrush,.ktoolslot [aria-checked="true"] svg.lucide-paintbrush{color:var(--brush-c,currentColor)}
+.kseg-brush{display:inline-flex;align-items:center;gap:5px;margin-left:2px;padding-left:8px;border-left:1px solid rgb(var(--ink) / .14);font-weight:600}.kseg-brush i{width:9px;height:9px;border-radius:3px;background:var(--cc)}
+html[data-sel="raised"] .ps-qc button.on,html[data-sel="raised"] .ps-gchips button.on,html[data-sel="raised"] .ps-comps li.on{background:rgb(var(--field-raised));box-shadow:0 1px 2px rgb(var(--ink) / .1)}
+html[data-sel="raised"] .ps-cr.on{background:transparent}html[data-sel="raised"] .ps-cr.on .klab{background:rgb(var(--field-raised))}
+.kdd.hx:not(.on){background:rgb(var(--ink) / .07);border-radius:6px;padding:2px 0;width:calc(var(--w) - 6px)}.kdd.hx:not(.on) b{font-weight:700}
+.ps-cc.hx:not(.fd){background-color:rgb(var(--ink) / .045)}
+.kdd[data-col]{cursor:pointer}.kdd[data-col]:hover:not(.on){background:rgb(var(--ink) / .07);border-radius:6px;padding:2px 0;width:calc(var(--w) - 6px)}
+.kstaff tbody tr{cursor:pointer}.kstaff tbody tr:hover td{background:var(--surface-hover)}
+.krow.ps-sec2{height:30px;border-top:1px solid rgb(var(--border-strong))}.ps-sec2 .klab{gap:0}.ps-sec2>.kmeta{display:flex;align-items:center;padding-left:12px;position:sticky;left:400px}
+.ps-ctag{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:rgb(var(--ink-muted))}.ps-ctag i{width:8px;height:8px;border-radius:2px;background:var(--cc)}
+.ps-crew .klab{cursor:pointer}
+.ps-cb{position:absolute;left:4px;right:4px;top:7px;bottom:7px;border-radius:5px;display:flex;align-items:center;gap:6px;padding:0 7px;box-sizing:border-box;overflow:hidden;white-space:nowrap;background:color-mix(in oklch,var(--cc) 30%,rgb(var(--surface)));color:rgb(var(--ink));animation:psin 220ms var(--ease) both;transform-origin:left center}
+.ps-cb b{font:600 12px var(--font-numeric)}.ps-cb span{font-size:11.5px;color:rgb(var(--ink-muted))}
+.ps-cb.erasing{background:transparent;outline:1.5px dashed rgb(var(--ink) / .45);outline-offset:-1.5px}
+.ps-step{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:none;gap:2px;z-index:1}.ps-crew .ps-c:hover .ps-step{display:flex}
+.ps-step button{width:20px;height:20px;border:none;border-radius:5px;background:rgb(var(--ink));color:rgb(var(--canvas));font:600 13px/1 var(--font-numeric);cursor:pointer;padding:0}.ps-step button:disabled{opacity:.3;cursor:default}
+.ps-hire{font-size:10.5px;font-weight:500;padding:1px 6px;border-radius:999px;background:rgb(var(--sunken));color:rgb(var(--ink-muted))}
+.ps-crewrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid rgb(var(--border))}.ps-crewrow b{font-size:13px;font-weight:500}.ps-crewrow span{flex:1;font:400 11.5px var(--font-numeric);color:rgb(var(--ink-muted))}
+.ps-cdays{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}.ps-cdays li{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgb(var(--border));font-size:12.5px}.ps-cdays li:first-child{border-top:none}.ps-cdays li>span{flex:1;font-family:var(--font-numeric)}.ps-cdays li b{font:600 13px var(--font-numeric);min-width:28px;text-align:center}
+.ps-cdays button{width:24px;height:24px;border:none;border-radius:6px;background:rgb(var(--field));font:600 13px/1 var(--font-numeric);color:rgb(var(--ink));cursor:pointer}.ps-cdays button:disabled{opacity:.35;cursor:default}
+.ps-namerow{display:flex;gap:6px}.ps-namerow .ps-note{flex:1}
+.ps-selbox.select{--bc:rgb(var(--ink) / .7);background:rgb(var(--ink) / .03)}
+.ps-clip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:rgb(var(--field-raised));font-size:12.5px;font-weight:500;color:rgb(var(--ink))}.ps-clip button{width:22px;height:22px;border:none;border-radius:6px;background:transparent;color:rgb(var(--ink-muted));cursor:pointer;font-size:15px;line-height:1}.ps-clip button:hover{background:rgb(var(--ink) / .08)}
+.ps-pw.otw{color:rgb(var(--draft))}.ps-pw.otw em{display:inline-flex;align-items:center;gap:3px;padding:0 5px;border-radius:999px;background:rgb(var(--draft-bg));color:rgb(var(--draft))}
+.ps-otw{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 10px;border-radius:8px;background:rgb(var(--draft-bg));color:rgb(var(--draft));font-size:13px;font-weight:500;border:none;cursor:pointer}
+.ps-sickr{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgb(var(--border));font-size:12.5px}.ps-sickr b{color:rgb(var(--danger));font-weight:500}.ps-sickr span{font-family:var(--font-numeric);color:rgb(var(--ink-muted))}.ps-sickr .ps-sel{height:26px;font-size:12px;padding:0 6px;margin-left:auto;max-width:130px}.ps-sickr button{border:none;background:transparent;font:500 12px var(--font-ui);color:rgb(var(--accent));cursor:pointer;padding:2px 4px}
+.ps-pl .klab{cursor:pointer}.ps-pl .klab:hover{background:var(--surface-hover)}
+.ps-plbox{position:relative}.ps-plbg .klab{background:rgb(var(--canvas))}
+.ps-pl.abs{position:absolute;left:0;transition:top 260ms var(--ease);animation:kfade 260ms var(--ease)}.ps-pl.abs.out{animation:psout 260ms var(--ease) both;pointer-events:none}@keyframes psout{from{opacity:1}to{opacity:0}}.ps-pl.abs .ktrack .kbar{z-index:2}
+.ps-dens{margin:0 -1px 0 6px;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:none;background:none;color:rgb(var(--ink-muted));cursor:pointer;flex:none}.ps-dens:hover{color:rgb(var(--ink))}.ps-dens:focus-visible{outline:2px solid rgb(var(--accent));outline-offset:1px;border-radius:4px}
+.krow.ps-cr.dense{height:14px}.ps-cr.dense .klab{font-size:11px;gap:6px}.ps-cr.dense .ps-sw{width:7px;height:7px;border-radius:2px}.ps-cr.dense .ps-cn{font-weight:500}.ps-cr.dense .ps-tot{font-size:10.5px;font-weight:600}
+.ps-cr.dense .ps-cc{border-bottom:none}
+.ps-dl{position:relative;width:calc(100% - 8px);margin:0 4px;height:6px;border-radius:3px;background:color-mix(in oklch,var(--cc) 22%,rgb(var(--canvas)));overflow:hidden}
+.ps-dl i{position:absolute;right:0;top:0;bottom:0;background:var(--cc);border-radius:3px}
+.ps-dl.ok{background:color-mix(in oklch,var(--cc) 22%,rgb(var(--canvas)))}
+.ps-dl.over{background:repeating-linear-gradient(135deg,rgb(var(--danger) / .55) 0 2.5px,transparent 2.5px 5px),color-mix(in oklch,var(--cc) 22%,rgb(var(--canvas)))}
+.ps-plbox.dense{overflow:hidden}.ps-plbox.dense .krow,.ps-plbox.dense .ktrack .kcell,.ps-plbox.dense .klab{height:12px;min-height:0}.ps-plbox.dense .klab{padding-top:0;padding-bottom:0;line-height:12px;align-items:center}.ps-plbox.dense .klab{font-size:11px;gap:6px}.ps-plbox.dense .ps-pn{font-weight:500}.ps-plbox.dense .khname{font-size:10.5px;line-height:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.ps-plbox.dense .klab{overflow:hidden;white-space:nowrap}
+.ps-plbox.dense .kbar{top:3px;bottom:auto;height:6px;padding:0;font-size:0;line-height:0;border-radius:3px}
+.ksec .klab>.ps-dens{margin:0 0 0 -6px;align-self:center;width:18px;height:18px;transform:translateY(1px)}
+.ps-csec .klab>.ps-dens{margin-left:-4px}
+.ps-vrow .ps-vl-info{gap:0;padding:0 8px 12px 12px;min-height:0;overflow:hidden}
+.ps-vrow .ps-vl-top{display:flex;align-items:center;gap:4px;margin:0 -8px 0 -12px;padding:6px 6px 6px 12px;cursor:default;border-bottom:1px solid rgb(var(--border))}.ps-vrow .ps-vl-top:hover{background:none}
+.ps-vl-fold{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:28px;margin-left:-4px;padding:0 4px;border:none;background:none;border-radius:6px;cursor:pointer;color:rgb(var(--ink));font:inherit;text-align:left}.ps-vl-fold:hover{background:var(--surface-hover)}.ps-vl-fold .ps-vl-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-vrow .ps-vl-nav{display:flex;gap:0;padding:0}
+.ps-vl-tot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px 0 12px 2px;border-bottom:1px solid rgb(var(--border))}
+.ps-vl-tot>div{display:flex;flex-direction:column;gap:3px;min-width:0}.ps-vl-tot span{font-size:11px;color:rgb(var(--ink-muted));white-space:nowrap}
+.ps-vl-tot b{font:600 16px var(--font-numeric);color:rgb(var(--ink));white-space:nowrap}.ps-vl-tot b i{font:400 12px var(--font-numeric);font-style:normal;color:rgb(var(--ink-muted));margin-left:3px}.ps-vl-tot .ot,.ps-vl-tot b i.ot{color:rgb(var(--draft))}
+.ps-vl-comps{list-style:none;margin:8px 0 0 -6px;padding:0;display:flex;flex-direction:column;gap:1px;min-height:0;overflow:auto}
+.ps-vl-comps button{width:100%;display:grid;grid-template-columns:10px minmax(0,1fr) 18px 56px;align-items:center;gap:8px;height:28px;padding:0 6px;border:none;background:none;border-radius:6px;cursor:pointer;font:500 13px var(--font-ui);color:rgb(var(--ink));text-align:left}
+.ps-vl-comps button:hover{background:var(--surface-hover)}.ps-vl-comps button.on{background:color-mix(in oklch,var(--cc) 16%,rgb(var(--surface)))}
+html[data-sel="raised"] .ps-vl-comps button.on{background:rgb(var(--field-raised));box-shadow:0 1px 2px rgb(var(--ink) / .12)}
+.ps-vl-comps i{width:10px;height:10px;border-radius:3px;background:var(--cc)}.ps-vl-comps span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-vl-comps kbd{font:400 10.5px var(--font-numeric);color:rgb(var(--ink-faint));text-align:center}
+.ps-vl-comps em{font:500 12px var(--font-numeric);font-style:normal;text-align:right;color:rgb(var(--ink))}.ps-vl-comps em.z{color:rgb(var(--ink-faint))}
+.ps-vrow .ps-vl-hint{margin:auto 0 0;padding:10px 0 0 2px;border-top:1px solid rgb(var(--border));font-size:11.5px;line-height:1.45;color:rgb(var(--ink-faint));text-wrap:pretty}
+.ps-vrow .ps-vt{left:0;right:0;border-radius:0;background:repeating-linear-gradient(180deg,rgb(var(--ink) / .07) 0 1px,transparent 1px 20px)}
+.ps-vrow .ps-vt.na{background:none}
+.ps-vrow .ps-vline{border-top-color:rgb(var(--ink) / .3)}
+.ps-vrow .ps-vb{left:4px;right:4px}
+.ps-plbox .klab{flex-wrap:nowrap}.ps-plbox .khname{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2 .ps-pl .klab{cursor:default}.v2 .ps-pl .klab:hover{background:none}
+.ps-popx{position:fixed;inset:0;z-index:59}.ps-cpop{position:fixed;z-index:60;width:280px;padding:10px 6px 6px}
+.ps-cpop-h{display:flex;align-items:center;gap:8px;padding:0 8px 8px;font-size:13px}.ps-cpop-h i{width:10px;height:10px;border-radius:3px}.ps-cpop-h span{margin-left:auto;font:400 12px var(--font-numeric);color:rgb(var(--ink-muted))}
+.ps-cpop-s{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px;margin:0 2px 6px;border-radius:8px;background:rgb(var(--sunken))}.ps-cpop-s div{display:flex;flex-direction:column;gap:2px}.ps-cpop-s span{font-size:11px;color:rgb(var(--ink-muted))}.ps-cpop-s b{font:600 14px var(--font-numeric)}.ps-cpop-s b.unc{color:rgb(var(--danger))}.ps-cpop-s b.over{color:rgb(var(--draft))}.ps-cpop-s b.ok{color:rgb(var(--success))}
+.ps-cpop-l{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:12.5px;border-top:1px solid rgb(var(--border))}.ps-cpop-l span{flex:1}.ps-cpop-l button{border:none;background:none;color:rgb(var(--accent));font:500 12px var(--font-ui);cursor:pointer}
+.ps-cpop-e{margin:4px 8px;font-size:12px;color:rgb(var(--ink-faint))}
+.ps-c.mvsrc .ps-b{opacity:.35}
+.ps-absform{display:flex;flex-direction:column;gap:8px;padding:10px;margin-top:8px;border-radius:8px;background:rgb(var(--sunken))}.ps-absform label{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:8px;font-size:12px;color:rgb(var(--ink-muted))}.ps-absform .ps-sel{max-width:none;width:100%}.ps-absform>div{display:flex;gap:6px;justify-content:flex-end}
+.ps-abs li{position:relative}.ps-absx{margin-left:auto;border:none;background:none;color:rgb(var(--ink-faint));cursor:pointer;font-size:15px;line-height:1;padding:0 2px}.ps-absx:hover{color:rgb(var(--ink))}
+</style></head><body><template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#2f5d8a"/><rect x="30" y="30" width="40" height="6" rx="2" fill="#fff" opacity=".6"/><rect x="30" y="42" width="24" height="8" rx="2" fill="#fff"/><rect x="46" y="54" width="24" height="8" rx="2" fill="#fff" opacity=".8"/><rect x="30" y="66" width="30" height="6" rx="2" fill="#fff" opacity=".5"/></svg></template><div id="root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="KalenderGrid v8.jsx"></script>
+<script type="text/babel" src="KalenderPanels v8.jsx"></script>
+<script type="text/babel" src="PlanStaff.jsx"></script>
+<script type="text/babel" src="PlanSide.jsx"></script>
+<script type="text/babel">
+const DS = window.WarmMinimalDesignSystem_58386e;
+const { TopBar, PageHeader, Button, IconButton, Segmented, HeaderDivider, NotificationToastCard, Icon, Breadcrumb } = DS;
+const EPd = window.EP;
+const PS_V2 = true; window.PS_V2 = PS_V2; document.documentElement.classList.toggle('v2', PS_V2);
+const ZOOM = { compact: 26, normal: 36, wide: 52 };
+const TABS = [{ id: 'kalender', label: 'Kalender' }, { id: 'behov', label: 'Behov' }, { id: 'haller', label: 'Haller' }, { id: 's1', separator: true }, { id: 'produkttyper', label: 'Produkttyper' }, { id: 'kpi', label: 'KPI' }];
+const r1 = v => Math.round(v * 10) / 10;
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "projectTotal": "venue",
+  "sums": "folded",
+  "windowDot": true,
+  "mTone": "olive",
+  "levels": "project",
+  "heat": true,
+  "blockLabel": "full",
+  "selStyle": "tint",
+  "otLimit": 10
+}/*EDITMODE-END*/;
+function spread(total, days) {
+  const out = {}; if (total <= 0.05 || !days.length) return out;
+  const n = days.length; let per = Math.round(total / n); if (per * (n - 1) >= total) per = Math.floor(total / n); if (per < 1) per = 1;
+  let left = total; days.forEach((d, k) => { const v = k === n - 1 ? left : Math.min(per, left); if (v > 0.05) out[d] = r1(v); left -= v; });
+  return out;
+}
+function SettingsMenu({ dark, setDark, tooltips, setTooltips, notify }) {
+  const [open, setOpen] = React.useState(false);
+  const act = l => { setOpen(false); notify({ message: l.replace(' …', '') + ' er ikke med i denne skissen.', variant: 'info' }); };
+  return (
+    <div style={{ position: 'relative' }}>
+      <Button variant="ghost" size="sm" icon="settings" onClick={() => setOpen(o => !o)}>Innstillinger</Button>
+      {open && <div data-surface="raised" className="kmenu">
+        <div style={{ padding: '8px 10px' }}><span style={{ display: 'block', fontSize: 12, color: 'rgb(var(--ink-muted))', marginBottom: 6 }}>Utseende</span>
+          <Segmented block size="compact" value={dark ? 'dark' : 'light'} onChange={v => setDark(v === 'dark')} options={[{ value: 'light', label: 'Lys' }, { value: 'dark', label: 'Mørk' }]} /></div>
+        <button className="it" onClick={() => setTooltips(!tooltips)}><Icon name="info" />Hjelpetekster {tooltips ? 'på' : 'av'}</button>
+        <button className="it" onClick={() => act('Bemanning og normaltid …')}><Icon name="users" />Bemanning og normaltid …</button>
+        <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px solid rgb(var(--border))' }}>
+          <div className="grp">Data</div>
+          {[['upload', 'Importer arbeidsbok …'], ['download', 'Last ned sikkerhetskopi'], ['rotate-ccw', 'Gjenopprett …']].map(([ic, l]) => <button key={l} className="it" onClick={() => act(l)}><Icon name={ic} />{l}</button>)}
+        </div>
+      </div>}
+    </div>
+  );
+}
+function App() {
+  const [view, setView] = React.useState('kalender');
+  const [tw, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => { document.documentElement.dataset.mtone = tw.mTone; }, [tw.mTone]);
+  React.useEffect(() => { document.documentElement.dataset.levels = tw.levels; }, [tw.levels]);
+  React.useEffect(() => { document.documentElement.dataset.sel = tw.selStyle; }, [tw.selStyle]);
+  const [dark, setDark] = React.useState(localStorage.getItem('ep-dark') === '1');
+  const [tooltips, setTooltips] = React.useState(true);
+  const [hist, setHist] = React.useState({ cur: { rows: EPd.ROWS, blocks: window.PS.SEED, sick: (() => { const m = {}; for (let d = 16; d < window.EP.DAYS.length; d++) if (window.EP.DAYS[d].type === 'Arbeidsdag') m['p13|' + d] = true; return m; })(), sickR: { p13: [{ from: 16, to: null }] }, abs: {}, carry: [], crews: window.PS.CREWS, hired: window.PS.HIRED_SEED }, past: [], future: [] });
+  const rows = hist.cur.rows;
+  // Bemanning «Innleid» feeds Kalender's Innleid row: crew headcount + named hired people working that day
+  !PS_V2 && (() => { const H = EPd.HIRED; Object.keys(H).forEach(k => delete H[k]); hist.cur.crews.forEach(c => Object.entries(c.counts).forEach(([d, n]) => { H[d] = (H[d] || 0) + n; })); const hs = new Set(hist.cur.hired.map(p => p.id)), seen = new Set(); hist.cur.blocks.forEach(b => { const k = b.pid + '|' + b.day; if (hs.has(b.pid) && !seen.has(k) && !hist.cur.sick[k]) { seen.add(k); H[b.day] = (H[b.day] || 0) + 1; } }); })();
+  const [grouping, setGrouping] = React.useState(['project', 'phase']);
+  const [collapsed, setCollapsed] = React.useState(new Set());
+  const [zoom, setZoom] = React.useState('normal');
+  const [tool, setTool] = React.useState('select');
+  const [project, setProject] = React.useState('');
+  const [hideEmpty, setHideEmpty] = React.useState(false);
+  const [onlyOpen, setOnlyOpen] = React.useState(false);
+  const [selection, setSelection] = React.useState({ rowId: 'r3', col: 3 });
+  const [inspOpen, setInspOpenRaw] = React.useState(true);
+  const setInspOpen = v => { if (supRef.current) return; setInspOpenRaw(v); };
+  const [toasts, setToasts] = React.useState([]);
+  const scrollRef = React.useRef(null);
+  const [mode, setMode] = React.useState('behov');
+  const [brush, setBrush] = React.useState(null);
+  const [sTool, setSTool] = React.useState('select');
+  const [selPid, setSelPid] = React.useState('p1');
+  const [vPid, setVPid] = React.useState('p1');
+  const [side, setSideRaw] = React.useState({ kind: 'gap', comp: 'Vegger', day: 2 });
+  const sideMem = React.useRef({ gap: { kind: 'gap', comp: 'Vegger', day: 2 }, block: null });
+  const [selBlk, setSelBlk] = React.useState(null); const supRef = React.useRef(false);
+  const setSide = s => { if (PS_V2 && s.kind !== 'person') { if (s.kind === 'block') setSelBlk(s.id); supRef.current = true; queueMicrotask(() => { supRef.current = false; }); return; } if (s.kind === 'gap') sideMem.current.gap = s; if (s.kind === 'block') sideMem.current.block = s.id; setSideRaw(s); };
+  const [focusDay, setFocusDay] = React.useState(2);
+  const [selDay, setSelDay] = React.useState(null);
+  const gridOnly = false;
+  const [projDense, setProjDense] = React.useState(() => localStorage.getItem('plan.denseProjects') === '1');
+  React.useEffect(() => { localStorage.setItem('plan.denseProjects', projDense ? '1' : '0'); }, [projDense]);
+  const [denseDem, setDenseDem] = React.useState(() => localStorage.getItem('plan.denseDemand') === '1');
+  React.useEffect(() => { localStorage.setItem('plan.denseDemand', denseDem ? '1' : '0'); }, [denseDem]);
+  const [animW, setAnimW] = React.useState(null);
+  const [modeUi, setModeUi] = React.useState(null);
+  const [carryPop, setCarryPop] = React.useState(null);
+  const [selR, setSelR] = React.useState(null);
+  const [clip, setClip] = React.useState(null);
+  const hoverDayRef = React.useRef(null);
+  const [scope, setScope] = React.useState('sum');
+  const [bemW, setBemW] = React.useState(96);
+  const [pmenu, setPMenu] = React.useState(null);
+  const lastRange = React.useRef(null), pendingScroll = React.useRef(null), latestK = React.useRef({});
+  React.useLayoutEffect(() => { if (pendingScroll.current != null && scrollRef.current) { scrollRef.current.scrollLeft = pendingScroll.current; pendingScroll.current = null; } });
+  React.useEffect(() => { if (!pmenu) return; const c = () => setPMenu(null); window.addEventListener('mousedown', c); return () => window.removeEventListener('mousedown', c); }, [pmenu]);
+  React.useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('ep-dark', dark ? '1' : '0'); }, [dark]);
+  const notify = t => { const id = Math.random(); setToasts(ts => [...ts, { ...t, id }]); setTimeout(() => setToasts(ts => ts.filter(x => x.id !== id)), 7000); };
+  const commitAll = fn => setHist(h => { const next = fn(h.cur); return next === h.cur ? h : { cur: next, past: [...h.past, h.cur].slice(-100), future: [] }; });
+  const commit = fn => commitAll(c => { const r = fn(c.rows); return r === c.rows ? c : { ...c, rows: r }; });
+  const undo = () => setHist(h => h.past.length ? { cur: h.past[h.past.length - 1], past: h.past.slice(0, -1), future: [h.cur, ...h.future] } : h);
+  const redo = () => setHist(h => h.future.length ? { cur: h.future[0], past: [...h.past, h.cur], future: h.future.slice(1) } : h);
+  React.useEffect(() => {
+    const k = e => {
+      if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+      const key = e.key.toLowerCase(), L = latestK.current;
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (L.bem) { const C = window.PS.COMPS; if (key >= '1' && key <= String(C.length)) return L.pickBrush(C[+key - 1].id, true); if (key === 'v' || key === 'escape') { if (key === 'escape' && L.hasSel) { L.clearSel(); return; } setSTool('select'); setBrush(null); setPMenu(null); return; } if (key === 'b') return L.toolX('paint'); if (key === 't') return L.toolX('erase'); if (key === 'e') return L.toggleV(); if (L.vPid && (key === 'arrowup' || key === 'arrowdown')) { e.preventDefault(); return L.stepP(key === 'arrowup' ? -1 : 1); } if ((key === 'delete' || key === 'backspace') && L.selBlockId) { e.preventDefault(); return L.delSel(); } return; }
+        const t = { v: 'select', f: 'distribute', t: 'clear' }[key]; if (t) { setTool(t); return; } if (key === 'escape') setTool('select'); return;
+      }
+      if (L.bem && (e.metaKey || e.ctrlKey) && key === 'c' && L.hasSel) { e.preventDefault(); return L.copySel(); }
+      if (L.bem && (e.metaKey || e.ctrlKey) && key === 'v' && L.hasClip) { e.preventDefault(); return L.paste(); }
+      if (key !== 'z') return; e.preventDefault(); e.shiftKey ? redo() : undo();
+    };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, []);
+  const setFte = (rowId, fn) => commit(rs => rs.map(r => r.id === rowId ? { ...r, fte: fn(r) } : r));
+  const onCommit = (rowId, col, v) => setFte(rowId, r => { const f = { ...r.fte }; if (v === null || v === 0) delete f[col]; else f[col] = v; return f; });
+  const onRange = (rowId, a, b, t = tool) => {
+    if (t === 'clear') return setFte(rowId, r => Object.fromEntries(Object.entries(r.fte).filter(([i]) => +i < a || +i > b)));
+    setFte(rowId, r => {
+      const outside = Object.fromEntries(Object.entries(r.fte).filter(([i]) => +i < a || +i > b));
+      const work = []; for (let i = a; i <= b; i++) if (EPd.DAYS[i].type === 'Arbeidsdag') work.push(i);
+      return { ...outside, ...spread(needF(r) - sumF(outside), work) };
+    });
+  };
+  const onSpread = rowId => setFte(rowId, r => { const outside = Object.fromEntries(Object.entries(r.fte).filter(([i]) => !r.window.includes(+i))); return { ...outside, ...spread(needF(r) - sumF(outside), r.window) }; });
+  const suggest = projectNos => {
+    const targets = rows.filter(r => projectNos.includes(r.projectNo) && sumF(r.fte) === 0);
+    if (!targets.length) return notify({ message: 'Alle radene har FTE allerede. Foreslå plan fyller bare tomme rader.', variant: 'info' });
+    const ids = new Set(targets.map(r => r.id));
+    commit(rs => rs.map(r => ids.has(r.id) ? { ...r, fte: spread(needF(r), r.window) } : r));
+    const names = [...new Set(targets.map(r => r.projectName))];
+    notify({ message: 'Foreslått plan for ' + targets.length + ' rader i ' + (names.length === 1 ? names[0] : names.length + ' prosjekter') + '.', variant: 'success', action: { label: 'Angre', onClick: undo } });
+  };
+  const visible = rows.filter(r => (!project || r.projectNo === project) && (!onlyOpen || sumF(r.fte) < needF(r) - 0.05));
+  const items = buildItems(visible, grouping, collapsed, { hideEmpty: hideEmpty || !!project || onlyOpen });
+  const needByDay = EPd.DAYS.map((d, i) => rows.reduce((a, r) => a + (r.fte[i] || 0), 0));
+  const short = EPd.DAYS.filter((d, i) => ((d.type === 'Arbeidsdag' ? 21 : 0) + (EPd.HIRED[i] || 0) - (EPd.ABSENT[i] || 0)) < needByDay[i]).length;
+  const selRow = rows.find(r => r.id === (selection && selection.rowId));
+  const toggle = key => setCollapsed(s => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const topKeys = items.filter(i => i.kind === 'group' && i.depth === 0).map(i => i.key);
+  const goToday = () => { if (scrollRef.current) scrollRef.current.scrollLeft = 0; };
+  const meta = [EPd.PROJECTS.length + ' prosjekter', rows.length + ' rader', short ? short + (short === 1 ? ' dag' : ' dager') + ' med underdekning' : 'Ingen underdekning', 'Lagret i nettleseren'].filter(Boolean).join(' · ');
+  const T = (t, s) => tooltips ? s : undefined;
+  // —— Bemanning mode ——
+  const PSx = window.PS, bem = mode === 'bemanning';
+  const blocks = hist.cur.blocks, sick = hist.cur.sick;
+  const scopeNo = scope === 'project' && project ? project : null;
+  const dem = React.useMemo(() => { const m = PSx.demand(rows, scopeNo); (hist.cur.carry || []).forEach(c => { if (m[c.comp]) { m[c.comp][c.from] -= c.h; m[c.comp][c.to] += c.h; } }); return m; }, [rows, scopeNo, hist.cur.carry]);
+  const crews = PS_V2 ? [] : hist.cur.crews, hiredP = PS_V2 ? [] : hist.cur.hired, allPeople = [...PSx.PEOPLE, ...hiredP];
+  const asg = React.useMemo(() => { const m = PSx.assigned(blocks, sick, scopeNo); crews.forEach(c => { if (scopeNo && c.proj !== scopeNo) return; Object.entries(c.counts).forEach(([d, n]) => { if (m[c.comp]) m[c.comp][d] += n * 7.5; }); }); return m; }, [blocks, sick, scopeNo, crews]);
+  const byCell = React.useMemo(() => { const m = {}; blocks.forEach(b => (m[b.pid + '|' + b.day] = m[b.pid + '|' + b.day] || []).push(b)); Object.values(m).forEach(a => a.sort((x, y) => x.s - y.s)); return m; }, [blocks]);
+  const blocksOf = (pid, d) => byCell[pid + '|' + d] || [];
+  const isSick = (pid, d) => !!sick[pid + '|' + d];
+  const absM = hist.cur.abs || {};
+  const availOf = (pid, i) => { const k = absM[pid + '|' + i]; if (k === '-') return PSx.we(i) ? { we: true } : { s: PSx.S, e: PSx.E }; if (k && !PSx.we(i)) return { off: k }; return PSx.baseAvail(pid, i); };
+  const personBy = Object.fromEntries(allPeople.map(p => [p.id, p]));
+  const crewBy = Object.fromEntries(crews.map(c => [c.id, c]));
+  const crewTarget = (comp, day, cid) => { const cur = (crewBy[cid] && crewBy[cid].counts[day]) || 0; return cur + Math.max(0, Math.ceil((dem[comp][day] - asg[comp][day]) / 7.5 - 0.01)); };
+  const setCount = (cid, day, n) => commitAll(c => ({ ...c, crews: c.crews.map(x => { if (x.id !== cid) return x; const counts = { ...x.counts }; if (n > 0) counts[day] = n; else delete counts[day]; return { ...x, counts }; }) }));
+  const crewStep = (cid, day, d) => setCount(cid, day, Math.max(0, ((crewBy[cid] && crewBy[cid].counts[day]) || 0) + d));
+  const nameOne = (cid, name) => { const cr = crewBy[cid]; if (!cr || !name.trim()) return; const id = 'h' + Math.random().toString(36).slice(2, 7), days = Object.keys(cr.counts).map(Number); commitAll(c => ({ ...c, hired: [...c.hired, { id, name: name.trim(), comps: [cr.comp], kind: 'hired', supplier: cr.supplier, fromCrew: cid }], crews: c.crews.map(x => { if (x.id !== cid) return x; const counts = {}; Object.entries(x.counts).forEach(([d, n]) => { if (n > 1) counts[d] = n - 1; }); return { ...x, counts }; }), blocks: [...c.blocks, ...days.map(d => ({ id: 'n' + Math.random().toString(36).slice(2, 9), pid: id, day: d, comp: cr.comp, s: PSx.S, e: PSx.E, proj: cr.proj }))] })); notify({ message: name.trim() + ' (' + cr.supplier + ') er lagt til med ' + days.length + ' dager fra mannskapet.', variant: 'success', action: { label: 'Angre', onClick: undo } }); };
+  const wkDays = (() => { let m = focusDay; while (m > 0 && EPd.DAYS[m].wd !== 'man') m--; const o = []; for (let i = m; i < Math.min(EPd.DAYS.length, m + 7); i++) o.push(i); return o; })();
+  const weekOf = pid => { let a = 0, c = 0, ot = 0; wkDays.forEach(i => { const av = availOf(pid, i); if (av.s != null) c += PSx.hrs(av.s, av.e); if (isSick(pid, i)) return; blocksOf(pid, i).forEach(b => { const o = PSx.otH(b, PSx.we(i)); a += PSx.hrs(b.s, b.e) - o; ot += o; }); }); return { a, c, ot }; };
+  const periodOf = pid => { let a = 0, c = 0, ot = 0; EPd.DAYS.forEach((d, i) => { const av = availOf(pid, i); if (av.s != null) c += PSx.hrs(av.s, av.e); if (isSick(pid, i)) return; blocksOf(pid, i).forEach(b => { const o = PSx.otH(b, PSx.we(i)); a += PSx.hrs(b.s, b.e) - o; ot += o; }); }); return { a, c, ot }; };
+  const nid = () => 'n' + Math.random().toString(36).slice(2, 9);
+  const sops = {
+    create: (pid, day, comp, s, e, proj) => commitAll(c => { const free = PSx.freeIv({ s, e }, c.blocks.filter(b => b.pid === pid && b.day === day)); if (!free.length) return c; return { ...c, blocks: PSx.merge([...c.blocks, ...free.map(([a, z]) => ({ id: nid(), pid, day, comp, s: a, e: z, proj }))]) }; }),
+    update: (id, s, e) => commitAll(c => { const b = c.blocks.find(x => x.id === id); if (!b || (b.s === s && b.e === e)) return c; const o = c.blocks.filter(x => x.pid === b.pid && x.day === b.day && x.id !== id); const lo = Math.max(s, PSx.T0, ...o.filter(x => x.e <= b.s).map(x => x.e)), hi = Math.min(e, PSx.T1, ...o.filter(x => x.s >= b.e).map(x => x.s)); return hi - lo < 30 ? c : { ...c, blocks: c.blocks.map(x => x.id === id ? { ...x, s: lo, e: hi } : x) }; }),
+    del: id => commitAll(c => ({ ...c, blocks: c.blocks.filter(b => b.id !== id) })),
+    recolor: (id, comp) => commitAll(c => ({ ...c, blocks: c.blocks.map(b => b.id === id ? { ...b, comp } : b) })),
+    tag: (id, proj) => commitAll(c => ({ ...c, blocks: c.blocks.map(b => b.id === id ? { ...b, proj } : b) })),
+    note: (id, note) => commitAll(c => ({ ...c, blocks: c.blocks.map(b => b.id === id ? { ...b, note } : b) })),
+    move: (id, day, s, e) => { const b = blocks.find(x => x.id === id); if (!b) return; if (blocks.some(x => x.pid === b.pid && x.day === day && x.id !== id && x.s < e && x.e > s)) return notify({ message: 'Ikke plass der. Flytt eller kort ned den andre blokken først.', variant: 'info' }); if (availOf(b.pid, day).off) return notify({ message: personBy[b.pid].name + ' har ' + availOf(b.pid, day).off.toLowerCase() + ' den dagen.', variant: 'info' }); commitAll(c => ({ ...c, blocks: c.blocks.map(x => x.id === id ? { ...x, day, s, e } : x) })); },
+    repeat: (id, days) => { const b = blocks.find(x => x.id === id); if (!b) return; let n = 0; commitAll(c => { const add = []; days.forEach(d => { if (PSx.baseAvail(b.pid, d).off || c.sick[b.pid + '|' + d]) return; PSx.freeIv({ s: b.s, e: b.e }, c.blocks.filter(x => x.pid === b.pid && x.day === d)).forEach(([s, e]) => add.push({ ...b, id: nid(), day: d, s, e })); }); n = add.length; return add.length ? { ...c, blocks: PSx.merge([...c.blocks, ...add]) } : c; }); }
+  };
+  const canPaint = x => personBy[x.pid].comps.includes(brush) && availOf(x.pid, x.day).s != null && !isSick(x.pid, x.day);
+  const paintCells = (cellsAll, half) => {
+    const cc = cellsAll.filter(c => c.crew && crewBy[c.pid] && crewBy[c.pid].comp === brush), cells = cellsAll.filter(c => !c.crew);
+    if (cc.length) { const tg = cc.map(c => [c.pid, c.day, crewTarget(brush, c.day, c.pid)]); commitAll(c => ({ ...c, crews: c.crews.map(x => { const mine = tg.filter(t => t[0] === x.id); if (!mine.length) return x; const counts = { ...x.counts }; mine.forEach(([, d, n]) => { if (n > 0) counts[d] = n; }); return { ...x, counts }; }) })); }
+    if (!cells.length) return;
+    const ok = cells.filter(canPaint);
+    if (!ok.length) { if (cells.length === 1) { const x = cells[0], p = personBy[x.pid], av = availOf(x.pid, x.day); notify({ message: av.off ? p.name + ' har ' + av.off.toLowerCase() + ' ' + EPd.DAYS[x.day].day + '. ' + EPd.DAYS[x.day].month + '.' : isSick(x.pid, x.day) ? p.name + ' er meldt syk denne dagen.' : p.name + ' har ikke ' + brush + '.', variant: 'info' }); } return; }
+    commitAll(c => { const add = []; ok.forEach(({ pid, day }) => { const cb = c.blocks.filter(b => b.pid === pid && b.day === day); let iv = half ? PSx.freeIv({ s: PSx.S, e: PSx.L0 }, cb) : PSx.freeIv({ s: PSx.S, e: PSx.E }, cb); if (half && !iv.length) iv = PSx.freeIv({ s: PSx.L1, e: PSx.E }, cb); iv.forEach(([s, e]) => add.push({ id: nid(), pid, day, comp: brush, s, e, proj: project || undefined })); }); return add.length ? { ...c, blocks: PSx.merge([...c.blocks, ...add]) } : c; });
+  };
+  const assignDay = (pid, day, comp, half) => commitAll(c => { const cb = c.blocks.filter(b => b.pid === pid && b.day === day); let iv = PSx.freeIv(half ? { s: PSx.S, e: PSx.L0 } : { s: PSx.S, e: PSx.E }, cb); if (half && !iv.length) iv = PSx.freeIv({ s: PSx.L1, e: PSx.E }, cb); if (!iv.length) return c; return { ...c, blocks: PSx.merge([...c.blocks, ...iv.map(([s, e]) => ({ id: nid(), pid, day, comp, s, e, proj: project || undefined }))]) }; });
+  const copySel = () => { if (!selR) return; const items = []; selR.pids.forEach(pid => { for (let d = selR.d0; d <= selR.d1; d++) { const bl = blocksOf(pid, d); if (bl.length) items.push({ pid, off: d - selR.d0, blocks: bl.map(b => ({ comp: b.comp, s: b.s, e: b.e, proj: b.proj, note: b.note })) }); } });
+    const n = items.reduce((a, it) => a + it.blocks.length, 0), hh = items.reduce((a, it) => a + it.blocks.reduce((x, b) => x + PSx.hrs(b.s, b.e), 0), 0);
+    if (!n) return notify({ message: 'Utvalget er tomt. Ingenting å kopiere.', variant: 'info' });
+    setClip({ items, src: selR }); notify({ message: 'Kopierte ' + n + ' blokker (' + PSx.fmtH(hh) + ' t). Hold over en dag og trykk ⌘V for å lime inn for de samme personene.', variant: 'info' }); };
+  const pasteAt = anchor => { if (!clip || anchor == null) return; let n = 0, skip = 0;
+    commitAll(c => { let bl = c.blocks.slice(); clip.items.forEach(it => { const d = anchor + it.off; if (d >= NDAYS || PSx.baseAvail(it.pid, d).off || c.sick[it.pid + '|' + d]) { skip += it.blocks.length; return; } it.blocks.forEach(b => { const iv = PSx.freeIv({ s: b.s, e: b.e }, bl.filter(x => x.pid === it.pid && x.day === d)); if (!iv.length) skip++; iv.forEach(([s, e]) => { bl.push({ id: nid(), pid: it.pid, day: d, comp: b.comp, s, e, proj: b.proj, note: b.note }); n++; }); }); }); return n ? { ...c, blocks: PSx.merge(bl) } : c; });
+    setTimeout(() => notify({ message: n ? 'Limte inn ' + n + ' blokker fra ' + EPd.DAYS[anchor].wd + ' ' + EPd.DAYS[anchor].day + '. ' + EPd.DAYS[anchor].month + (skip ? ' · ' + skip + ' hoppet over (opptatt eller fravær)' : '') + '.' : 'Ingenting limt inn: tiden er opptatt eller personene er borte.', variant: n ? 'success' : 'info', action: n ? { label: 'Angre', onClick: undo } : undefined }), 0); };
+  const nextWork = d => { let t = d + 1; while (t < NDAYS && PSx.we(t)) t++; return t < NDAYS ? t : null; };
+  const addCarry = (comp, from, hh) => { const to = nextWork(from); if (to == null) return; commitAll(c => ({ ...c, carry: [...(c.carry || []), { id: nid(), comp, from, to, h: hh }] })); notify({ message: PSx.fmtH(hh) + ' t ' + comp + ' flyttet til ' + EPd.DAYS[to].wd + ' ' + EPd.DAYS[to].day + '. ' + EPd.DAYS[to].month + '.', variant: 'success', action: { label: 'Angre', onClick: undo } }); };
+  const takeBack = id => commitAll(c => ({ ...c, carry: (c.carry || []).filter(x => x.id !== id) }));
+  const moveDay = (fp, fd, tp, td, copy) => { if (fp === tp && fd === td) return; const src = blocksOf(fp, fd); if (!src.length) return; const P = personBy[tp], av = availOf(tp, td);
+    const why = !P ? 'ukjent person' : PSx.we(td) ? 'helg' : av.off ? av.off.toLowerCase() : sick[tp + '|' + td] ? 'syk' : src.some(b => !P.comps.includes(b.comp)) ? P.name + ' mangler kompetansen' : null;
+    if (why) return notify({ message: 'Kan ikke flytte hit: ' + why + '.', variant: 'info' });
+    let n = 0; commitAll(c => { let bl = c.blocks.slice(); src.forEach(b => PSx.freeIv({ s: b.s, e: b.e }, bl.filter(x => x.pid === tp && x.day === td)).forEach(([s, e]) => { bl.push({ id: nid(), pid: tp, day: td, comp: b.comp, s, e }); n++; })); if (!n) return c; if (!copy) { const ids = new Set(src.map(b => b.id)); bl = bl.filter(x => !ids.has(x.id)); } return { ...c, blocks: PSx.merge(bl) }; });
+    setTimeout(() => notify(n ? { message: (copy ? 'Kopierte' : 'Flyttet') + ' til ' + P.name + ' · ' + EPd.DAYS[td].wd + ' ' + EPd.DAYS[td].day + '. ' + EPd.DAYS[td].month + '.', variant: 'success', action: { label: 'Angre', onClick: undo } } : { message: 'Ingen ledig tid på måldagen.', variant: 'info' }), 0); };
+  const addAbs = (pid, from, to, kind) => { if (kind === 'Syk') return editSick(pid, rs => [...rs.filter(r => (r.to == null ? NDAYS : r.to) < from || r.from > to), { from, to }]); commitAll(c => { const a = { ...(c.abs || {}) }; for (let d = from; d <= to; d++) if (!PSx.we(d)) a[pid + '|' + d] = kind; return { ...c, abs: a }; }); };
+  const removeAbs = (pid, from, to) => commitAll(c => { const a = { ...(c.abs || {}) }; for (let d = from; d <= to; d++) if (!PSx.we(d)) a[pid + '|' + d] = '-'; return { ...c, abs: a }; });
+  const openAbs = (p, day, kind) => { setSelPid(p.id); setSide({ kind: 'person', pid: p.id, form: { kind, from: day, to: day, n: Date.now() } }); setInspOpen(true); };
+  const eraseCells = cells => commitAll(c => { const k = new Set(cells.map(x => x.pid + '|' + x.day)); const bl = c.blocks.filter(b => !k.has(b.pid + '|' + b.day)); let ch = bl.length !== c.blocks.length; const cr = c.crews.map(x => { const ks = cells.filter(z => z.crew && z.pid === x.id && x.counts[z.day]); if (!ks.length) return x; ch = true; const counts = { ...x.counts }; ks.forEach(z => delete counts[z.day]); return { ...x, counts }; }); return ch ? { ...c, blocks: bl, crews: cr } : c; });
+  const NDAYS = EPd.DAYS.length;
+  const expandSick = Rg => { const m = {}; Object.entries(Rg).forEach(([pid, rs]) => rs.forEach(r => { const to = r.to == null ? NDAYS - 1 : r.to; for (let d = r.from; d <= to; d++) if (!PSx.we(d)) m[pid + '|' + d] = true; })); return m; };
+  const sickR = hist.cur.sickR || {};
+  const editSick = (pid, fn) => commitAll(c => { const Rg = { ...(c.sickR || {}) }; Rg[pid] = fn((Rg[pid] || []).map(r => ({ ...r }))).filter(r => r.to == null || r.to >= r.from); if (!Rg[pid].length) delete Rg[pid]; return { ...c, sickR: Rg, sick: expandSick(Rg) }; });
+  const sickFrom = (p, day, to) => { const n = blocks.filter(b => b.pid === p.id && b.day >= day && (to == null || b.day <= to)).length; editSick(p.id, rs => [...rs.filter(r => (r.to == null ? NDAYS : r.to) < day || r.from > (to == null ? NDAYS : to)), { from: day, to }]); notify({ message: p.name + ' meldt syk fra ' + EPd.DAYS[day].wd + ' ' + EPd.DAYS[day].day + '. ' + EPd.DAYS[day].month + (to == null ? ' (åpen, til friskmelding)' : to === day ? ' (én dag)' : ' til ' + EPd.DAYS[to].day + '. ' + EPd.DAYS[to].month) + '. ' + (n ? n + ' blokker er tilbake i behovet og merket uløst.' : 'Ingen blokker berørt.'), variant: 'warning', action: { label: 'Angre', onClick: undo } }); };
+  const recover = (p, day) => editSick(p.id, rs => rs.flatMap(r => { const to = r.to == null ? NDAYS - 1 : r.to; if (day < r.from || day > to) return [r]; return r.from >= day ? [] : [{ ...r, to: day - 1 }]; }));
+  const setSickTo = (pid, from, to) => editSick(pid, rs => rs.map(r => r.from === from ? { ...r, to } : r));
+  const setSickDays = (p, ds, on) => {
+    const bl = blocks.filter(b => b.pid === p.id && ds.includes(b.day));
+    commitAll(c => { const s = { ...c.sick }; ds.forEach(d => { if (on) s[p.id + '|' + d] = true; else delete s[p.id + '|' + d]; }); return { ...c, sick: s }; });
+    if (on) notify({ message: p.name + ' meldt syk' + (ds.length > 1 ? ' i ' + ds.length + ' dager' : '') + '. ' + (bl.length ? bl.length + ' blokker (' + PSx.fmtH(bl.reduce((a, b) => a + PSx.hrs(b.s, b.e), 0)) + ' t) er tilbake i behovet og merket uløst.' : 'Ingen blokker berørt.'), variant: 'warning', action: { label: 'Angre', onClick: undo } });
+  };
+  const pickBrush = (id, force) => { if (!force && brush === id && sTool === 'paint') { setBrush(null); setSTool('select'); } else { setBrush(id); setSTool('paint'); } };
+  const toolX = t => { if (t === 'paint' && !brush) setBrush(PSx.COMPS.slice().sort((a, b) => (dem[b.id][focusDay] - asg[b.id][focusDay]) - (dem[a.id][focusDay] - asg[a.id][focusDay]))[0].id); setSTool(sTool === t && t !== 'select' ? 'select' : t); };
+  React.useEffect(() => { const el = scrollRef.current; if (!el || mode !== 'bemanning') return; let raf = 0;
+    const f = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { let a = Math.max(0, Math.floor((el.scrollLeft + 2) / bemW)); while (a < EPd.DAYS.length - 1 && PSx.we(a)) a++; setFocusDay(d => d === a ? d : a); }); };
+    f(); el.addEventListener('scroll', f); return () => { el.removeEventListener('scroll', f); cancelAnimationFrame(raf); }; }, [mode, bemW]);
+  const goDay = i => { const el = scrollRef.current; if (!el) return; const vw = viewW(), a = el.scrollLeft / bemW, n = vw / bemW; if (i < a || i + 1 > a + n) el.scrollLeft = Math.max(0, (i - 1) * bemW); };
+  const markDay = side.kind === 'gap' && !side.pid && side.day != null ? side.day : selDay;
+  const onDay = i => { setSelDay(i); const comp = brush || PSx.COMPS.slice().sort((a, b) => (dem[b.id][i] - asg[b.id][i]) - (dem[a.id][i] - asg[a.id][i]))[0].id; setSide({ kind: 'gap', comp, day: i }); setInspOpen(true); };
+  const viewW = () => { const el = scrollRef.current; return el ? el.clientWidth - 400 - (inspOpen && (!bem || !PS_V2 || side.kind === 'person') ? 340 : 0) : 800; };
+  const animRef = React.useRef(0);
+  const fitW = (a, b) => Math.max(80, Math.min(160, Math.floor(viewW() / (b - a + 1))));
+  const animZoom = (W0, s0, W1, s1, onEnd) => {
+    cancelAnimationFrame(animRef.current);
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(W0 - W1) < 1) { onEnd(); return; }
+    const d0 = s0 / W0, d1 = s1 / W1, t0 = performance.now(), D = 460, lw0 = Math.log(W0), lw1 = Math.log(W1);
+    const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const step = now => { const t = Math.min(1, (now - t0) / D), e = ease(t), w = Math.exp(lw0 + (lw1 - lw0) * e); pendingScroll.current = (d0 + (d1 - d0) * e) * w; setAnimW(w); if (t < 1) animRef.current = requestAnimationFrame(step); else onEnd(); };
+    animRef.current = requestAnimationFrame(step);
+  };
+  const fitTo = (a, b) => { const el = scrollRef.current, W1 = fitW(a, b); if (mode === 'bemanning' && el) { const W0 = bemW; setBemW(W1); animZoom(W0, el.scrollLeft, W1, a * W1, () => { pendingScroll.current = a * W1; setAnimW(null); }); } else { setBemW(W1); pendingScroll.current = a * W1; } };
+  const fitProject = no => { const p = EPd.PROJECTS.find(x => x.no === no); if (p) { const [a, b] = psSpanOf(p); fitTo(a, b); } };
+  const enterBem = (a, b) => { const el = scrollRef.current, W0 = animW || ZOOM[zoom], W1 = fitW(a, b); setBemW(W1); animZoom(W0, el ? el.scrollLeft : 0, W1, a * W1, () => { pendingScroll.current = a * W1; setAnimW(null); setMode('bemanning'); }); };
+  const switchMode = m => {
+    if (m === (modeUi || mode)) return;
+    setModeUi(m); setTimeout(() => setModeUi(null), 520);
+    const el = scrollRef.current, vw = viewW();
+    if (m === 'bemanning') {
+      const p = project && EPd.PROJECTS.find(x => x.no === project), d = selection ? selection.col : null;
+      if (d != null) { setSelDay(d); const r = rows.find(x => x.id === selection.rowId); if (side.kind === 'gap' && !side.pid) setSide({ kind: 'gap', comp: r && psComp[r.competence] ? r.competence : side.comp, day: d }); }
+      const inR = (a, b) => d == null || (d >= a && d <= b);
+      if (p && inR(...psSpanOf(p))) enterBem(...psSpanOf(p));
+      else if (lastRange.current && inR(...lastRange.current)) enterBem(...lastRange.current);
+      else if (d != null) { let a = d; while (a > 0 && EPd.DAYS[a].wd !== 'man') a--; enterBem(a, a + 9); }
+      else { const a = el ? Math.floor(el.scrollLeft / ZOOM[zoom]) : 0; enterBem(a, a + 9); }
+    } else {
+      const a = el ? el.scrollLeft / bemW : 0, n = vw / bemW; lastRange.current = [Math.round(a), Math.max(Math.round(a), Math.round(a + n) - 1)];
+      const Z = ZOOM[zoom], nZ = vw / Z;
+      let center = a + n / 2;
+      if (markDay != null) { setSelection(s => ({ rowId: s ? s.rowId : (rows[0] && rows[0].id), col: markDay })); if (markDay < center - nZ / 2 + 1 || markDay > center + nZ / 2 - 1) center = markDay; }
+      const s1 = Math.max(0, center * Z - vw / 2);
+      setAnimW(bemW); setMode('behov');
+      animZoom(bemW, el ? el.scrollLeft : 0, Z, s1, () => { pendingScroll.current = s1; setAnimW(null); });
+    }
+  };
+  const staffedRow = (row, i) => blocks.reduce((a, b) => a + (b.day === i && b.comp === row.competence && b.proj === row.projectNo && !sick[b.pid + '|' + i] ? PSx.hrs(b.s, b.e) : 0), 0);
+  const fillFromRow = (row, day) => { setProject(row.projectNo); setScope('project'); setSelDay(day); setSide({ kind: 'gap', comp: row.competence, day }); setInspOpen(true); const p = EPd.PROJECTS.find(x => x.no === row.projectNo); if (p) enterBem(...psSpanOf(p)); };
+  const setProjectX = no => { setProject(no); if (bem && no) fitProject(no); if (!no) setScope('sum'); };
+  const selBlockId = PS_V2 ? selBlk : side.kind === 'block' ? side.id : null;
+  const toggleV = pid => { const id = pid || selPid; setVPid(v => v === id ? null : id); if (scrollRef.current) scrollRef.current.scrollTop = 0; };
+  latestK.current = { copySel, paste: () => pasteAt(hoverDayRef.current != null ? hoverDayRef.current : selR && selR.d0), clearSel: () => setSelR(null), hasSel: !!selR, hasClip: !!clip, bem, pickBrush, toolX, vPid, selBlockId, toggleV: () => toggleV(), stepP: d => stepP(d), delSel: () => { sops.del(selBlockId); setSide({ kind: 'person', pid: blocks.find(b => b.id === selBlockId)?.pid || selPid }); } };
+  const unres = blocks.filter(b => sick[b.pid + '|' + b.day]);
+  let bReq = 0, bCov = 0; PSx.COMPS.forEach(c => EPd.DAYS.forEach((d, i) => { bReq += dem[c.id][i]; bCov += Math.min(dem[c.id][i], asg[c.id][i]); }));
+  const metaB = [PSx.PEOPLE.length + ' faste', crews.reduce((a, c) => a + Object.values(c.counts).reduce((x, y) => x + y, 0), 0) + hiredP.length ? crews.length + ' innleide mannskap' + (hiredP.length ? ' + ' + hiredP.length + ' navngitt' : '') : null, (scopeNo ? EPd.PROJECTS.find(p => p.no === scopeNo).name + ': ' : '') + (bReq ? Math.round(bCov / bReq * 100) + ' % av behovet dekket' : 'Ingen behov'), PSx.fmtH(Math.max(0, bReq - bCov)) + ' t gjenstår', 'Lagret i nettleseren'].join(' · ');
+  const selP = personBy[selPid];
+  const otOver = []; allPeople.forEach(p => { for (let m = 0; m < NDAYS; m++) { if (EPd.DAYS[m].wd !== 'man' && m !== 0) continue; let ot = 0; for (let d = m; d < Math.min(NDAYS, m + 7); d++) { if (sick[p.id + '|' + d]) continue; blocksOf(p.id, d).forEach(b => { ot += PSx.otH(b, PSx.we(d)); }); } if (ot > tw.otLimit + 0.05) otOver.push({ pid: p.id, m, ot }); } });
+  function stepP(dir) { const cur = vPid || selPid, i = PSx.PEOPLE.findIndex(p => p.id === cur); const n = PSx.PEOPLE[Math.max(0, Math.min(PSx.PEOPLE.length - 1, i + dir))]; setSelPid(n.id); if (vPid) setVPid(n.id); if (side.kind !== 'gap') setSide({ kind: 'person', pid: n.id }); else if (side.pid) setSide({ kind: 'gap', pid: n.id }); }
+  const modeZone = <div className="kzone kz-mode"><Segmented size="compact" aria-label="Modus" value={modeUi || mode} onChange={switchMode} options={[{ value: 'behov', label: <span className="kseg"><Icon name="calendar" size={14} /><span className="kseg-t">Plan</span></span>, title: 'Fordel behovet per prosjekt og dag' }, { value: 'bemanning', label: <span className="kseg"><Icon name="users" size={14} /><span className="kseg-t">Bemanning</span></span>, title: 'Tildel personell til behovet. Zoomer til valgt prosjekt.' }]} /></div>;
+  const bemBar = <>
+    {modeZone}
+    <div className="kzone kz-edit">
+      <IconButton label="Angre" tooltip="Angre (Ctrl/Cmd+Z)" icon="undo-2" onClick={undo} disabled={!hist.past.length} />
+      <IconButton label="Gjør om" tooltip="Gjør om (Ctrl/Cmd+Shift+Z)" icon="redo-2" onClick={redo} disabled={!hist.future.length} />
+      <span className="ktoolslot"><Segmented size="compact" aria-label="Verktøy" value={sTool} onChange={toolX} options={[{ value: 'select', label: <span className="kseg"><Icon name="mouse-pointer-2" size={14} /><span className="kseg-t">Velg</span><kbd>V</kbd></span> }, { value: 'paint', label: <span className="kseg"><Icon name="paintbrush" size={14} /><span className="kseg-t">Pensel</span>{brush ? <span className="kseg-brush" style={{ '--cc': psComp[brush].color }}><i></i>{brush}</span> : <kbd>B</kbd>}</span>, title: brush ? 'Maler ' + brush + '. Bytt med 1–5, Esc for å slippe.' : 'Mal hele dager. Shift = halv dag.' }, { value: 'erase', label: <span className="kseg"><Icon name="eraser" size={14} /><span className="kseg-t">Tøm</span><kbd>T</kbd></span>, title: 'Dra over dager for å tømme (eller hold Alt)' }]} /></span>
+      {clip ? <span className="ps-clip"><Icon name="clipboard" size={14} />Kopiert · ⌘V<button onClick={() => setClip(null)} aria-label="Tøm utklipp" title="Tøm utklipp">×</button></span> : !brush && <span className="kphint" style={{ cursor: 'default' }}>Velg kompetanse i behovet (1–{PSx.COMPS.length}) · dra med Velg for å kopiere</span>}
+    </div>
+    <div className="kview">
+      <div className="kzone kz-rows">
+        <FilterMenu project={project} setProject={setProjectX} hideEmpty={hideEmpty} setHideEmpty={setHideEmpty} onlyOpen={onlyOpen} setOnlyOpen={setOnlyOpen} />
+        {otOver.length > 0 && <button className="ps-otw" title={otOver.map(o => personBy[o.pid].name + ' · U' + EPd.DAYS[o.m].week + ': ' + PSx.fmtH(o.ot) + ' t').join('\n')} onClick={() => { const o = otOver[0]; setSelPid(o.pid); setSide({ kind: 'person', pid: o.pid }); setInspOpen(true); goDay(o.m); }}><Icon name="triangle-alert" size={14} />{otOver.length} over {tw.otLimit} t overtid/uke</button>}
+        {unres.length > 0 && <span className="ps-unres"><Icon name="triangle-alert" size={14} />{unres.length} uløste<button onClick={() => commitAll(c => ({ ...c, blocks: c.blocks.filter(b => !c.sick[b.pid + '|' + b.day]) }))}>Fjern</button></span>}
+      </div>
+      <div className="kzone kz-time">
+        {tooltips && <span className="kphint" title="Klikk eller dra over dager for å male med valgt kompetanse. Shift = halv dag. Alt-dra tømmer. Høyreklikk en dag for fravær. Klikk et navn for ukeredigering."><Icon name="info" size={14} /><span className="kphint-t"><b>Shift</b> halv dag · <b>Alt</b> tøm · <b>høyreklikk</b></span></span>}
+        <Button variant="ghost" size="sm" onClick={goToday}>I dag</Button>
+                <Button variant="ghost" size="sm" disabled={!project} onClick={() => fitProject(project)} title={T(0, project ? 'Tilpass kolonnene til prosjektets vindu' : 'Velg et prosjekt i filteret')}>Tilpass prosjekt</Button>
+      </div>
+    </div>
+  </>;
+  const staffProps = { projDense, setProjDense, onProjectLeave: no => { if (animW) return; setProject(''); setScope('sum'); const pr = EPd.PROJECTS.find(x => x.no === no); notify({ message: (pr ? pr.name : 'Prosjektet') + ' er ute av utsnittet. Behovet viser igjen sum for alle prosjekter.', variant: 'info' }); }, onProject: no => { if (project === no) { setProjectX(''); } else { setProjectX(no); setScope('project'); } }, compact: gridOnly, focusDay: markDay, onDay, project, brush, people: PSx.PEOPLE,
+    strip: { dense: denseDem, setDense: setDenseDem, dem, asg, brush, onPick: (id, force) => { pickBrush(id, force); if (!force && vPid) { setVPid(null); if (scrollRef.current) scrollRef.current.scrollTop = 0; } }, onCell: (comp, i, e) => { setSelDay(i); if (PS_V2) { const r = e && e.currentTarget.getBoundingClientRect(); setCarryPop({ comp, day: i, x: r ? r.left : 400, y: r ? r.bottom + 4 : 200 }); return; } setSide({ kind: 'gap', comp, day: i }); setInspOpen(true); }, scope, setScope, project, focusDay: null, onFocus: () => {} },
+    peopleProps: { otLimit: tw.otLimit, selRect: selR, onSelRect: r => { const one = q => q && q.pids.length === 1 && q.d0 === q.d1; if (one(r) && one(selR) && r.pids[0] === selR.pids[0] && r.d0 === selR.d0) { setSelR(null); setSelDay(null); } else setSelR(r); }, clip, onHoverDay: j => { hoverDayRef.current = j; }, label: tw.blockLabel, people: PSx.PEOPLE, crews, hired: hiredP, crewTarget, onCrewStep: crewStep, onCrewOpen: cid => { setSide({ kind: 'crew', id: cid }); setInspOpen(true); }, blocksOf, availOf, isSick, brush, tool: sTool, selPid, onSelect: (pid, open) => { setSelPid(pid); sideMem.current.gap = { kind: 'gap', pid }; if (open) { toggleV(pid); setSide({ kind: 'person', pid }); setInspOpen(true); } else if (side.kind === 'gap') setSide({ kind: 'gap', pid }); }, onPaint: paintCells, onErase: eraseCells, onCtx: (p, day, e) => setPMenu({ p, day, x: e.clientX, y: e.clientY }), focusDay: null, onFocus: j => { if (sTool === 'select') setSelDay(j); }, weekOf,
+      vPid, onFold: () => setVPid(null), vrow: vPid ? { label: tw.blockLabel, p: personBy[vPid], blocksOf, availOf, isSick, brush, setBrush: id => pickBrush(id, true), selBlock: selBlockId, onSelBlock: id => { setSide({ kind: 'block', id }); setInspOpen(true); }, ops: sops, project, onFold: () => setVPid(null), onStep: stepP, wk: weekOf(vPid), per: periodOf(vPid), wkNo: EPd.DAYS[wkDays[0]].week } : null } };
+  if (PS_V2) { staffProps.onProject = undefined; staffProps.onProjectLeave = undefined; }
+  staffProps.peopleProps.onMoveDay = moveDay;
+  let screen;
+  if (view !== 'kalender') screen = <><PageHeader title={TABS.find(t => t.id === view).label} /><p className="kplaceholder">Ikke med i denne skissen. Kalender er planleggingsflaten.</p></>;
+  else screen = (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="khdr" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
+        <div className="khdr-title"><h1 className="ktitle">Kalender</h1><span className="kmetaline">{bem ? metaB : meta}</span></div>
+        <div className="khdr-actions">
+        <IconButton label={inspOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer'} icon="panel-right" variant={inspOpen ? 'active' : 'default'} onClick={() => setInspOpen(!inspOpen)} />
+        {!bem && <Button variant="accent" size="sm" onClick={() => suggest(project ? [project] : EPd.PROJECTS.map(p => p.no))} title={T(0, 'Fordel behovet på tomme rader i ' + (project ? 'prosjektet' : 'alle prosjekter') + '. Rader som har FTE røres ikke.')}>{'✦ Foreslå plan' + (project ? '' : ' for alle')}</Button>}
+        </div>
+      </div>
+      <div className={'kwork' + (inspOpen ? '' : ' noinsp')}>
+        <div style={{ minWidth: 0, minHeight: 0 }}>
+          <KalenderGrid planBar={bem ? bemBar : <>
+        {modeZone}
+        <div className="kzone kz-edit">
+          <IconButton label="Angre" tooltip="Angre (Ctrl/Cmd+Z)" icon="undo-2" onClick={undo} disabled={!hist.past.length} />
+          <IconButton label="Gjør om" tooltip="Gjør om (Ctrl/Cmd+Shift+Z)" icon="redo-2" onClick={redo} disabled={!hist.future.length} />
+          <span className="ktoolslot"><Segmented size="compact" aria-label="Verktøy" value={tool} onChange={setTool} options={[{ value: 'select', label: <span className="kseg"><Icon name="mouse-pointer-2" size={14} /><span className="kseg-t">Velg</span><kbd>V</kbd></span>, title: 'Velg og skriv FTE i cellene (V)' }, { value: 'distribute', label: <span className="kseg"><Icon name="pencil" size={14} /><span className="kseg-t">Fordel behov</span><kbd>F</kbd></span>, title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over (F, eller hold Shift)' }, { value: 'clear', label: <span className="kseg"><Icon name="eraser" size={14} /><span className="kseg-t">Tøm</span><kbd>T</kbd></span>, title: 'Tegn over celler for å tømme dem (T, eller hold Alt)' }]} /></span>
+        </div>
+        <div className="kview">
+          <div className="kzone kz-rows">
+            <FilterMenu project={project} setProject={setProject} hideEmpty={hideEmpty} setHideEmpty={setHideEmpty} onlyOpen={onlyOpen} setOnlyOpen={setOnlyOpen} />
+            <GroupingMenu grouping={grouping} onChange={g => { setGrouping(g); setCollapsed(new Set()); }} />
+            <IconButton label={collapsed.size ? 'Utvid alle' : 'Fold sammen'} tooltip={collapsed.size ? 'Utvid alle' : 'Fold sammen'} icon={collapsed.size ? 'chevrons-up-down' : 'chevrons-down-up'} onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(topKeys))} />
+          </div>
+          <div className="kzone kz-time">
+            {tooltips && <span className="kphint" title="Hold Shift og dra for å fordele, Alt og dra for å tømme. Høyreklikk en celle for flere valg."><Icon name="info" size={14} /><span className="kphint-t"><b>Shift</b>/<b>Alt</b>-dra · <b>høyreklikk</b></span></span>}
+            <Button variant="ghost" size="sm" onClick={goToday}>I dag</Button>
+            <Segmented size="compact" aria-label="Kolonnebredde" value={zoom} onChange={setZoom} mono options={[{ value: 'compact', label: 'S' }, { value: 'normal', label: 'M' }, { value: 'wide', label: 'L' }]} />
+          </div>
+        </div>
+          </>} onSpreadRow={onSpread} onShowDetails={() => setInspOpen(true)} items={items} grouping={grouping} rows={rows} W={animW || (bem ? bemW : ZOOM[zoom])} selection={selection} setSelection={s => { setSelection(s); }} onCommit={onCommit} tool={tool} onRange={onRange}
+            onSuggest={no => suggest([no])} onAddRow={() => notify({ message: 'Ny rad: velg kompetanse, fase og grunnlag. Ikke med i denne skissen.', variant: 'info' })} collapsed={collapsed} onToggle={toggle} scrollRef={scrollRef} needByDay={needByDay} onFoldAll={() => setCollapsed(collapsed.size ? new Set() : new Set(topKeys))} foldLabel={collapsed.size ? 'Utvid alle' : 'Fold sammen'} projectTotal={tw.projectTotal} windowDot={tw.windowDot} heat={tw.heat} sums={tw.sums} mode={mode} staff={staffProps} />
+        </div>
+        {inspOpen && (bem ? <PsSide absOps={{ add: addAbs, remove: removeAbs }} sickR={sickR} setSickTo={setSickTo} recoverDay={(pid, day) => recover(personBy[pid], day)} otLimit={tw.otLimit} side={side} setSide={setSide} mem={sideMem.current} selPid={selPid} crews={crews} hired={hiredP} onCrewStep={crewStep} nameOne={nameOne} people={allPeople} personBy={personBy} blocks={blocks} blocksOf={blocksOf} availOf={availOf} isSick={isSick} dem={dem} asg={asg} scopeNo={scopeNo} project={project} weekOf={weekOf} periodOf={periodOf} assignDay={assignDay} ops={sops} onClose={() => setInspOpen(false)} vPid={vPid} toggleV={toggleV} focusDay={focusDay} selDay={markDay} setFocusDay={i => { setSelDay(i); goDay(i); }} brush={brush} setBrush={id => pickBrush(id, true)} /> : <RowInspector staff={PS_V2 ? undefined : { staffed: staffedRow, onFill: fillFromRow }} workStyle="mono" row={selRow} rows={rows} needByDay={needByDay} onSpread={onSpread} onClose={() => setInspOpen(false)} />)}
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <TopBar brand="Expo Planner" tabs={TABS} active={view} onSelect={setView} onBrand={() => setView('kalender')}
+        right={<>
+          <span className="ksave" title="Lagret i nettleseren"><i></i><span>Lagret</span></span>
+          <span className="kzdiv" style={{ height: 18 }}></span>
+          <Button variant="ghost" size="sm" icon="refresh-cw" title={T(0, 'Sist: location_format_from-2026-10-01_to-2026-12-31.xlsx, 2. okt 2026')} onClick={() => notify({ message: 'Hallkalenderen er oppdatert for 1. okt til 31. des: 2 nye arrangementer, 1 endret, 0 borte, 37 uendret. Kan angres med Ctrl/Cmd+Z.', variant: 'success' })}><span className="khaller-l">Haller · 2. okt</span></Button>
+          <SettingsMenu dark={dark} setDark={setDark} tooltips={tooltips} setTooltips={setTooltips} notify={notify} />
+        </>} />
+      <main style={{ flex: 1, minHeight: 0 }}>{screen}</main>
+      {pmenu && (() => { const { p, day } = pmenu, d = EPd.DAYS[day], sk = isSick(p.id, day), weD = PSx.we(day), act = f => () => { f(); setPMenu(null); };
+        const rest = []; for (let i = day; i < EPd.DAYS.length && !(i > day && EPd.DAYS[i].wd === 'man'); i++) if (!PSx.we(i)) rest.push(i);
+        return <div data-surface="raised" className="kmenu kctx" style={{ left: Math.min(pmenu.x, window.innerWidth - 290), top: Math.min(pmenu.y, window.innerHeight - 220) }} onMouseDown={e => e.stopPropagation()}>
+          <div className="grp">{p.name} · {d.wd} {d.day}. {d.month}</div>
+          <button className="it" onClick={act(() => { setSelPid(p.id); setVPid(p.id); setSide({ kind: 'person', pid: p.id }); setInspOpen(true); if (scrollRef.current) scrollRef.current.scrollTop = 0; })}><Icon name="panel-right" size={14} />Brett ut timer</button>
+          <button className="it" disabled={!blocksOf(p.id, day).length} onClick={act(() => eraseCells([{ pid: p.id, day }]))}><Icon name="eraser" size={14} />Tøm dagen</button>
+          <div style={{ borderTop: '1px solid rgb(var(--border))', margin: '4px 0' }}></div>
+          {sk ? <button className="it" onClick={act(() => recover(p, day))}><Icon name="rotate-ccw" size={14} />Friskmeld fra {d.wd} {d.day}.</button>
+            : <><button className="it" disabled={weD || !!availOf(p.id, day).off} onClick={act(() => openAbs(p, day, 'Syk'))} style={{ color: 'rgb(var(--danger))' }}><Icon name="thermometer" size={14} />Meld syk …</button>
+              <button className="it" disabled={weD} onClick={act(() => openAbs(p, day, 'Ferie'))}><Icon name="calendar-x" size={14} />Fravær …</button></>}
+        </div>; })()}
+      {carryPop && (() => { const { comp, day } = carryPop, c = psComp[comp], r = dem[comp][day], a = asg[comp][day], rem = r - a, to = nextWork(day), d = EPd.DAYS[day];
+        const inn = (hist.cur.carry || []).filter(x => x.comp === comp && x.to === day), out = (hist.cur.carry || []).filter(x => x.comp === comp && x.from === day);
+        return <><div className="ps-popx" onMouseDown={() => setCarryPop(null)}></div><div data-surface="raised" className="kmenu ps-cpop" style={{ left: Math.min(carryPop.x, window.innerWidth - 300), top: Math.min(carryPop.y, window.innerHeight - 260) }}>
+          <div className="ps-cpop-h"><i style={{ background: c.color }}></i><b>{comp}</b><span>{d.wd} {d.day}. {d.month}</span></div>
+          <div className="ps-cpop-s"><div><span>Behov</span><b>{PSx.fmtH(r)}</b></div><div><span>Tildelt</span><b>{PSx.fmtH(a)}</b></div><div><span>Gjenstår</span><b className={rem > 0.05 ? 'unc' : rem < -0.05 ? 'over' : 'ok'}>{rem > 0.05 ? PSx.fmtH(rem) : rem < -0.05 ? '+' + PSx.fmtH(-rem) : '✓'}</b></div></div>
+          {rem > 0.05 && to != null && <button className="it" onClick={() => { addCarry(comp, day, rem); setCarryPop(null); }}><Icon name="arrow-right" size={14} />Flytt {PSx.fmtH(rem)} t til {EPd.DAYS[to].wd} {EPd.DAYS[to].day}.</button>}
+          {inn.map(x => <div key={x.id} className="ps-cpop-l"><span>{PSx.fmtH(x.h)} t flyttet hit fra {EPd.DAYS[x.from].wd} {EPd.DAYS[x.from].day}.</span><button onClick={() => takeBack(x.id)}>Ta tilbake</button></div>)}
+          {out.map(x => <div key={x.id} className="ps-cpop-l"><span>{PSx.fmtH(x.h)} t flyttet til {EPd.DAYS[x.to].wd} {EPd.DAYS[x.to].day}.</span><button onClick={() => takeBack(x.id)}>Ta tilbake</button></div>)}
+          {rem <= 0.05 && !inn.length && !out.length && <p className="ps-cpop-e">Ingenting å flytte.</p>}
+        </div></>; })()}
+      <div className="ktoasts">{toasts.map(t => <NotificationToastCard key={t.id} {...t} action={t.action && { ...t.action, onClick: () => { t.action.onClick(); setToasts(ts => ts.filter(x => x.id !== t.id)); } }} showDismissButton onDismiss={() => setToasts(ts => ts.filter(x => x.id !== t.id))} />)}</div>
+      <TweaksPanel>
+        <TweakSection label="Rader" />
+        <TweakRadio label="Montering-farge" value={tw.mTone} options={[{ value: 'slate', label: 'Skifer' }, { value: 'sand', label: 'Sand' }, { value: 'ink', label: 'Blekk' }, { value: 'olive', label: 'Oliven' }, { value: 'sage', label: 'Salvie' }]} onChange={v => setTweak('mTone', v)} />
+        <TweakToggle label="Vindusprikk i tomme celler" value={tw.windowDot} onChange={v => setTweak('windowDot', v)} />
+        <TweakSection label="Bemanning" />
+        <TweakToggle label="Varmekart for avvik" value={tw.heat} onChange={v => setTweak('heat', v)} />
+        <TweakSlider label="Overtidsgrense per uke (t)" value={tw.otLimit} min={2} max={25} step={1} onChange={v => setTweak('otLimit', v)} />
+        <TweakRadio label="Valgt-tilstand" value={tw.selStyle} options={[{ value: 'tint', label: 'Farget' }, { value: 'raised', label: 'Hevet nøytral' }]} onChange={v => setTweak('selStyle', v)} />
+        <TweakRadio label="Navn på blokker" value={tw.blockLabel} options={[{ value: 'auto', label: 'Auto' }, { value: 'short', label: 'Kort' }, { value: 'full', label: 'Fullt' }]} onChange={v => setTweak('blockLabel', v)} />
+        <TweakSection label="Totallinjer" />
+        <TweakRadio label="Nivåmarkering" value={tw.levels} options={[{ value: 'project', label: 'Kun prosjekt' }, { value: 'none', label: 'Ingen' }, { value: 'all', label: 'Alle nivåer' }]} onChange={v => setTweak('levels', v)} />
+        <TweakRadio label="Summer per dag" value={tw.sums} options={[{ value: 'folded', label: 'Når foldet' }, { value: 'always', label: 'Alltid' }]} onChange={v => setTweak('sums', v)} />
+        <TweakRadio label="Farge på totallinjen" value={tw.projectTotal} options={[{ value: 'venue', label: 'Hallfaser' }, { value: 'work', label: 'Mont./Dem.' }, { value: 'neutral', label: 'Nøytral' }]} onChange={v => setTweak('projectTotal', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script></body></html>

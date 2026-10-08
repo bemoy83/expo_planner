@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { capacityForDate, dailyNeed, formatFte, planningSettings, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
@@ -11,9 +11,10 @@ import { absenceLine, overtimeLine } from '../../domain/staffing'
 import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
 import { buildWindows, windowFor } from '../../domain/windows'
-import { usePref, usePrefSet } from '../../store/prefs'
+import { loadPref, savePref, usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
+import { BemanningBar } from '../bemanning/BemanningBar'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
@@ -31,6 +32,8 @@ import { useHallCalendar } from './useHallCalendar'
 import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
+import { useModeZoom } from './useModeZoom'
+import { cleanPlanMode, enterSpan, fitWidth, leaveLeft, spanDays, zoomOf, type DaySpan, type PlanMode } from './zoom'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Selection, type Tool } from './selection'
 
@@ -96,18 +99,32 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // The project whose halls and days the hall calendar is showing, after a click on its name.
   const [located, setLocated] = useState<string | null>(null)
 
-  const colW = ZOOM_WIDTHS[zoom]
   // The period follows the hall bookings, see `calendarRange`.
   const range = useMemo(() => calendarRange({ venue: ws.venue, allocations: ws.allocations }, todayIso()), [ws.venue, ws.allocations])
   const dates = useMemo(() => dateRange(range.start, range.end), [range.start, range.end])
   const today = todayIso()
+  // The day in focus is shared by the two modes (`planningFocus`): the Kalender opens on it, and the day of the cell the planner stands on becomes it.
+  const [planningFocus, setPlanningFocus] = usePref<{ date: ISODate } | null>('planningFocus', null)
+
+  // The rows are the demand plan or the people (`planMode`). `shown` is what is drawn: on the way into
+  // Bemanning the plan zooms in first and the rows change at the end, on the way out they change first.
+  const [planMode, setPlanMode] = usePref<PlanMode>('planMode', 'plan', cleanPlanMode)
+  const [shown, setShown] = useState<PlanMode>(planMode)
+  // Bemanning has no steps of zoom: its days are as wide as the span it shows asks for.
+  // A page that opens in Bemanning opens on the days last seen there.
+  const [openSpan] = useState(() => {
+    const inPeriod = (date: ISODate | undefined) => !!date && date >= range.start && date <= range.end
+    return enterSpan({ period: range, stored: loadPref<DaySpan | null>('bemanningRange', null), leftEdge: inPeriod(planningFocus?.date) ? planningFocus!.date : inPeriod(today) ? today : range.start })
+  })
+  const [bemanningW, setBemanningW] = useState(() => fitWidth(spanDays(openSpan), window.innerWidth - LEFT_W))
+  // The width on its way from one mode to the other, while the switch zooms.
+  const [zoomingW, setZoomingW] = useState<number | null>(null)
+  const colW = zoomingW ?? (shown === 'bemanning' ? bemanningW : ZOOM_WIDTHS[zoom])
 
   const projectHover = useProjectHover(hints)
-  // The day in focus is shared with Bemanning (`planningFocus`): the Kalender opens on it, and the day of the cell the planner stands on becomes it.
-  const [planningFocus, setPlanningFocus] = usePref<{ date: ISODate } | null>('planningFocus', null)
   const closeCellMenu = useCallback(() => setCellMenu(null), [])
   const clearSelection = useCallback(() => setSelection(null), [])
-  const { scrollRef, topRef, toolsRef, viewport, topHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan } = useGridViewport({
+  const { scrollRef, topRef, toolsRef, viewport, topHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
     start: range.start,
     end: range.end,
     openOn: planningFocus?.date ?? today,
@@ -569,10 +586,58 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     },
   })
 
+  // ---- the two modes ---------------------------------------------------------------------------
+  const zoomTo = useModeZoom(scrollRef, setZoomingW, placeLeft)
+  /** The days between the label column and the right edge of the grid, in pixels. */
+  const dayRoom = () => (scrollRef.current?.clientWidth ?? viewport.width) - LEFT_W
+  const projectSpan = (key: string): DaySpan | undefined => allGroups.find((group) => group.key === key)?.venue ?? undefined
+  /** Zooms Bemanning to a span of days: as wide as fills the grid, the first day at the left edge (R18). */
+  const fitBemanning = (span: DaySpan, then?: () => void) => {
+    const width = fitWidth(spanDays(span), dayRoom())
+    zoomTo(colW, { colW: width, left: daysBetween(range.start, span.start) }, () => {
+      setBemanningW(width)
+      then?.()
+    })
+  }
+  const switchMode = (next: PlanMode) => {
+    const el = scrollRef.current
+    if (next === planMode || !el) return
+    setPlanMode(next)
+    setSelection(null)
+    setCellMenu(null)
+    setTool('select')
+    const left = el.scrollLeft / colW
+    const focusCol = planningFocus ? daysBetween(range.start, planningFocus.date) : -1
+    if (next === 'bemanning') {
+      const inView = focusCol >= Math.floor(left) && focusCol < left + dayRoom() / colW
+      const span = enterSpan({ period: range, project: projectSpan(filter.project), stored: loadPref<DaySpan | null>('bemanningRange', null), focus: inView ? planningFocus!.date : undefined, leftEdge: dates[Math.min(dates.length - 1, Math.ceil(left))] })
+      fitBemanning(span, () => setShown('bemanning'))
+    } else {
+      const width = ZOOM_WIDTHS[zoom]
+      setShown('plan')
+      zoomTo(colW, { colW: width, left: leaveLeft({ middle: left + dayRoom() / colW / 2, focusCol: focusCol >= 0 && focusCol < dates.length ? focusCol : undefined, shown: dayRoom() / width }) })
+    }
+  }
+  // The days seen in Bemanning are remembered, for the next time it is opened.
+  // Whole days, so the same days give the same width when they are opened again.
+  const seenFrom = Math.min(dates.length - 1, Math.round(viewport.left / colW))
+  const seenTo = Math.min(dates.length - 1, seenFrom + Math.max(1, Math.round((viewport.width - LEFT_W) / colW)) - 1)
+  const bemanningSpan = shown === 'bemanning' && zoomingW === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
+  useEffect(() => {
+    if (!bemanningSpan) return
+    const [start, end] = bemanningSpan.split('|')
+    const timer = setTimeout(() => savePref('bemanningRange', { start, end }), 300)
+    return () => clearTimeout(timer)
+  }, [bemanningSpan])
+  useLayoutEffect(() => {
+    if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), bemanningW)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const bemanning = shown === 'bemanning'
+
   // ---- tools: keys and modifiers --------------------------------------------------------------
   // Escape first closes the menu, then puts the pencil or the eraser away, then lets go of the project that is lit.
   const modifier = useToolKeys({
-    blocked: !!dialog,
+    blocked: !!dialog || bemanning,
     onTool: setTool,
     onEscape: () => {
       if (cellMenu) setCellMenu(null)
@@ -664,7 +729,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               if (project) actions.findProject(project)
             }}
           >
-            <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={activeDate} />
+            <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} />
 
             <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
@@ -684,9 +749,31 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and stay pinned even when the top block is too tall to be. */}
           <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : 0 }}>
+            {bemanning ? (
+              <BemanningBar
+                width={viewport.width}
+                mode={planMode}
+                onMode={switchMode}
+                projects={projects}
+                project={filter.project}
+                onProject={(key) => {
+                  setFilter({ ...filter, project: key })
+                  const span = projectSpan(key)
+                  if (span) fitBemanning(span)
+                }}
+                onToday={() => scrollToDate(today, 1)}
+                onFit={() => {
+                  const span = projectSpan(filter.project)
+                  if (span) fitBemanning(span)
+                }}
+                fitKey=""
+              />
+            ) : (
             <KalenderBar
               width={viewport.width}
               hints={hints}
+              mode={planMode}
+              onMode={switchMode}
               tool={tool}
               onTool={setTool}
               filter={filter}
@@ -710,10 +797,12 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               zoom={zoom}
               onZoom={setZoom}
             />
-            <PlanningHeading />
+            )}
+            {!bemanning && <PlanningHeading />}
           </div>
 
-          <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
+          {bemanning && <p className="empty-rows">Personellet kommer her.</p>}
+          {!bemanning && <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
             <div style={{ height: rowTops[r0] }} />
             {items.slice(r0, r1).map((item) => {
               if (item.kind === 'row') {
@@ -733,8 +822,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
                   </div>
                 </div>
               ))}
-          </div>
-          {items.length === 0 && (
+          </div>}
+          {!bemanning && items.length === 0 && (
             <p className="empty-rows">{rows.length === 0
                 ? 'Ingen planleggingsrader ennå. Bruk «+ Ny rad» for å legge til en rad for et prosjekt.'
                 : inViewOnly
@@ -743,7 +832,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
           )}
         </div>
       </div>
-      {inspectorOpen && <RowInspector details={details} need={need} capacity={capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
+      {inspectorOpen && !bemanning && <RowInspector details={details} need={need} capacity={capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
       </div>
 
       {cellMenu && menuRow && (

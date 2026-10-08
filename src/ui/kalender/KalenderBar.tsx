@@ -1,4 +1,4 @@
-import { ChevronsDownUp, ChevronsUpDown, Info, PanelRight, Plus } from 'lucide-react'
+import { CalendarDays, ChevronsDownUp, ChevronsUpDown, Info, PanelRight, Plus, Users } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { Segmented, UndoRedoButtons } from '../common'
 import { GroupingMenu } from './GroupingMenu'
@@ -7,12 +7,30 @@ import { PlanBar } from './PlanBar'
 import { FilterMenu, PlanToolSwitch } from './PlanTools'
 import { filterSummary, type Dimension, type RowFilter } from './rows'
 import type { Tool } from './selection'
+import type { PlanMode } from './zoom'
+
+/** What the rows are: the demand plan, or the people who do the work. First in the planning bar of both modes. */
+export function ModeSwitch({ mode, onChange }: { mode: PlanMode; onChange: (mode: PlanMode) => void }) {
+  return (
+    <Segmented
+      label="Visning"
+      value={mode}
+      onChange={onChange}
+      options={[
+        { value: 'plan', label: <><CalendarDays size={14} aria-hidden /> Plan</>, title: 'Plan: fordel behovet på dagene' },
+        { value: 'bemanning', label: <><Users size={14} aria-hidden /> Bemanning</>, title: 'Bemanning: sett de faste på arbeidet som er planlagt' },
+      ]}
+    />
+  )
+}
 
 interface Props {
   /** The width of the grid as it is seen. */
   width: number
   /** The setting «Hjelpetekster». */
   hints: boolean
+  mode: PlanMode
+  onMode: (mode: PlanMode) => void
   tool: Tool
   onTool: (tool: Tool) => void
   filter: RowFilter
@@ -37,11 +55,12 @@ interface Props {
 }
 
 /** The planning bar right above the rows: undo, the tools, what is shown and how, and where in the period. */
-export function KalenderBar({ width, hints, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, grouping, onGrouping, folded, onFold, start, end, onToday, onDate, zoom, onZoom }: Props) {
+export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, grouping, onGrouping, folded, onFold, start, end, onToday, onDate, zoom, onZoom }: Props) {
   const fit = filterSummary(filter, projects)
   return (
     <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hints}|${tool}|${folded}`}>
       <div className="bar-zone">
+        <ModeSwitch mode={mode} onChange={onMode} />
         <UndoRedoButtons />
         <PlanToolSwitch tool={tool} onChange={onTool} />
       </div>
