@@ -8,7 +8,7 @@ import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile } from './heat'
-import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
+import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
 import type { Section } from './selection'
 import { ChevronDown, ChevronRight, Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 
@@ -335,7 +335,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
 })
 
 interface GroupRowProps extends CellEdit {
-  item: Extract<GridItem, { kind: 'group' }>
+  item: GroupItem
   /** The level's place among the lines that take FTE, when it is in entry mode. */
   lane: number
   /** The hall phase of each day of the project, for the strip on a project's line. */
@@ -450,7 +450,7 @@ function PhaseMark({ phase, indent }: { phase: string; indent?: number }) {
 }
 
 interface AllocRowProps extends CellEdit {
-  item: Extract<GridItem, { kind: 'row' }>
+  item: RowItem
   lane: number
   /** The days the row can be worked on, see `windowFor`. */
   window: Set<ISODate> | undefined

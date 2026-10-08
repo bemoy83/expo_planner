@@ -93,6 +93,7 @@ Kalender
 - Notes can be written on planning cells but not on staffing cells; staffing notes from the workbook are shown only.
 - A suggested row cannot carry a note or be edited until FTE is typed into it.
 - With staffing details open, the top block is taller than the screen and stops being pinned.
+- Only the line of a top level stays in view while its lines scroll past; the levels under it scroll away with their rows. A click on an event's bar in the hall calendar finds the project only among the lines that are shown: not when the filter hides it or the levels above it are folded.
 - The banner after a Venyou import stays above every tab until closed.
 
 General
@@ -106,7 +107,7 @@ General
 ## Technical debt
 
 - Few component tests and no end-to-end tests: a smoke test and the grid's row component. The grid as a whole, dialogs and imports are verified by hand in a browser.
-- `Kalender.tsx` (about 770 lines) holds the selection, the cell values and the handlers the rows are given, and lays out the page. What the tools would write is worked out in `kalender/strokes.ts`, with tests; scrolling, the drag across the grid's edges and the tool keys are hooks (`useGridViewport`, `useGridDrag`, `useToolKeys`), and the top block and the planning bar are components (`TopSections.tsx`, `KalenderBar.tsx`). The hooks and the selection itself (clicks, keys, the fill handle) still have no tests and are checked by hand. The lines of the grid are memoized components in `kalender/GridRows.tsx`, drawn again only when something on the line changed. Scrolling sideways still draws every line again each time a new day column comes into view.
+- `Kalender.tsx` (about 840 lines) holds the selection, the cell values and the handlers the rows are given, and lays out the page. What the tools would write is worked out in `kalender/strokes.ts`, with tests; scrolling, the drag across the grid's edges and the tool keys are hooks (`useGridViewport`, `useGridDrag`, `useToolKeys`), and the top block and the planning bar are components (`TopSections.tsx`, `KalenderBar.tsx`). The hooks and the selection itself (clicks, keys, the fill handle) still have no tests and are checked by hand. The lines of the grid are memoized components in `kalender/GridRows.tsx`, drawn again only when something on the line changed. Scrolling sideways still draws every line again each time a new day column comes into view.
 - The style sheets in `src/styles/` name every colour and every text size in `tokens.css`. Still plain values: the 15 px figures of the header and of Bemanning's demand strip, corner radii, and the dark shadow of the row details. The three figures side by side and the thin bar under them are one set of rules in `base.css` (`.stats`, `.bar`), used by the row details and by Bemanning.
 - Numbers typed with a decimal comma are read by one parser (`domain/numbers.ts`), but what an empty field means still differs by place: 0 in the tables and for the crew, nothing in a demand line, invalid for the hours of a day and for hours to move.
 - `design_docs/` is stale and uses the misspelling "Venyoo". `docs/kalender-workbook.md` describes the workbook, not the app.

@@ -48,6 +48,12 @@ export type GridItem =
   | { kind: 'group'; node: GroupNode; collapsed: boolean; /** FTE is typed on this level and shared out to the rows below, which are folded away. */ entry: boolean }
   | { kind: 'row'; row: AllocationRow; totals: RowTotals; project: ProjectGroup; depth: number; /** The value of the lowest level, where the row is alone under it and stands in for that level. */ lead?: string }
 
+export type GroupItem = Extract<GridItem, { kind: 'group' }>
+export type RowItem = Extract<GridItem, { kind: 'row' }>
+
+/** How deep a line sits in the hierarchy, whether it is a level or a row. */
+export const itemDepth = (item: GridItem): number => (item.kind === 'group' ? item.node.depth : item.depth)
+
 /** The value a row is grouped under, and how it reads. Rows without a hall or department cover all of them. */
 export const dimensionValue = (row: AllocationRow, dimension: Exclude<Dimension, 'project'>): { value: string; label: string } => {
   const text = (raw: string | undefined, all: string, none: string, prefix = '') =>
@@ -263,6 +269,7 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
 
 /** A top level with the lines under it, as positions in the list of lines: from its own line up to, not including, `end`. */
 export interface LevelSection {
+  item: GroupItem
   index: number
   end: number
 }
@@ -274,10 +281,10 @@ export interface LevelSection {
 export const levelSections = (items: GridItem[]): LevelSection[] => {
   const list: LevelSection[] = []
   items.forEach((item, index) => {
-    const top = (item.kind === 'group' ? item.node.depth : item.depth) === 0
+    const top = itemDepth(item) === 0
     if (top && list.length) list[list.length - 1].end = index
     // A row that stands in for a top level heads nothing, but ends the stretch before it.
-    if (top && item.kind === 'group') list.push({ index, end: items.length })
+    if (top && item.kind === 'group') list.push({ item, index, end: items.length })
   })
   return list
 }

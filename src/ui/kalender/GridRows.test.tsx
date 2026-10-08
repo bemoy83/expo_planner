@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
 import { buildDemandIndex, rowTotals } from '../../domain/calc'
 import { AllocRow } from './GridRows'
 import type { CellEdit, Columns, GridActions } from './gridTypes'
-import type { GridItem } from './rows'
+import type { RowItem } from './rows'
 import { useStableActions } from './useStableActions'
 
 const row: AllocationRow = {
@@ -20,7 +20,7 @@ const row: AllocationRow = {
   fte: { '2026-10-06': 2 },
   notes: {},
 }
-const item = { kind: 'row', row, totals: rowTotals(buildDemandIndex([]), row, DEFAULT_SETTINGS), project: { key: '26970' }, depth: 0 } as Extract<GridItem, { kind: 'row' }>
+const item = { kind: 'row', row, totals: rowTotals(buildDemandIndex([]), row, DEFAULT_SETTINGS), project: { key: '26970' }, depth: 0 } as RowItem
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07']
 const cols: Columns = { dates, c0: 0, first: 0, colW: 36, classes: new Map(dates.map((date) => [date, 'day'])) }
 const idle: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }

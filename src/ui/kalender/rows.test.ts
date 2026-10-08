@@ -267,17 +267,17 @@ describe('levelSections and projectIndex', () => {
   it('gives every top level the stretch of lines under it', () => {
     const items = groupItems(groups, index, DEFAULT_SETTINGS, new Set(), ['project'])
     const list = levelSections(items)
-    expect(list.map((s) => (items[s.index] as Extract<GridItem, { kind: 'group' }>).node.label)).toEqual(groupsOf(items).map((g) => g.projectName))
+    expect(list.map((s) => s.item.node.label)).toEqual(groupsOf(items).map((g) => g.projectName))
     // The stretches follow each other and cover the whole list.
     expect(list[0].index).toBe(0)
     list.forEach((s, i) => expect(s.end).toBe(list[i + 1]?.index ?? items.length))
-    const vvs = list.find((s) => (items[s.index] as Extract<GridItem, { kind: 'group' }>).node.project?.key === '26970')!
+    const vvs = list.find((s) => s.item.node.project?.key === '26970')!
     expect(vvs.end - vvs.index).toBe(3)
   })
 
   it('gives a folded level its own line alone, and no stretch where there are no levels', () => {
     const items = groupItems(groups, index, DEFAULT_SETTINGS, new Set(['project:26970']), ['project'])
-    const vvs = levelSections(items).find((s) => (items[s.index] as Extract<GridItem, { kind: 'group' }>).node.project?.key === '26970')!
+    const vvs = levelSections(items).find((s) => s.item.node.project?.key === '26970')!
     expect(vvs.end - vvs.index).toBe(1)
     expect(levelSections(groupItems(groups, index, DEFAULT_SETTINGS, new Set(), []))).toEqual([])
   })

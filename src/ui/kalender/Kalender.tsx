@@ -22,7 +22,7 @@ import { heatScale } from './heat'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, levelSections, pathKeys, projectIndex, projectKey, type Dimension, type GridItem, type RowFilter } from './rows'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, itemDepth, levelSections, pathKeys, projectIndex, projectKey, type Dimension, type GroupItem, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
 import { HallSection, PlanningHeading, StaffingSection } from './TopSections'
 import { useGridDrag } from './useGridDrag'
@@ -33,8 +33,6 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
-
-type GroupItem = Extract<GridItem, { kind: 'group' }>
 
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
@@ -231,7 +229,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   /** How much of the rows the line of a top level covers above the line at `index`: nothing above a top level itself. */
   const headOver = (index: number) => {
     const item = items[index]
-    return item && allSections.length && (item.kind === 'group' ? item.node.depth : item.depth) > 0 ? TOP_ROW_H : 0
+    return item && allSections.length && itemDepth(item) > 0 ? TOP_ROW_H : 0
   }
   const r0 = Math.max(0, rowAt(viewport.top - (topPinned ? 0 : topHeight)) - OVERSCAN_ROWS)
   const r1 = Math.min(items.length, rowAt(viewport.top + viewport.height - topHeight) + 1 + OVERSCAN_ROWS)
@@ -767,16 +765,13 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
             })}
             {allSections
               .filter((section) => section.end > r0 && section.index < r1)
-              .map((section) => {
-                const item = items[section.index] as GroupItem
-                return (
-                  <div key={`s:${item.node.key}`} className="level-section" style={{ top: rowTops[section.index], height: rowTops[section.end] - rowTops[section.index] }}>
-                    <div className="level-stick" style={{ top: pinnedHeight }}>
-                      {groupRow(item)}
-                    </div>
+              .map(({ item, index, end }) => (
+                <div key={`s:${item.node.key}`} className="level-section" style={{ top: rowTops[index], height: rowTops[end] - rowTops[index] }}>
+                  <div className="level-stick" style={{ top: pinnedHeight }}>
+                    {groupRow(item)}
                   </div>
-                )
-              })}
+                </div>
+              ))}
           </div>
           {items.length === 0 && (
             <p className="empty-rows">{rows.length === 0
