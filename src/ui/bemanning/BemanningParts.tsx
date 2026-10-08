@@ -1,5 +1,5 @@
-import { ClipboardCopy, Eraser, MousePointer2, Paintbrush, PanelRight, X } from 'lucide-react'
-import { addDays, dayOfMonth, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
+import { ClipboardCopy, Eraser, MousePointer2, Paintbrush, PanelRight, TriangleAlert, X } from 'lucide-react'
+import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
 import { ToolSwitch, type ToolChoice } from '../common'
@@ -67,7 +67,7 @@ interface ToolbarProps {
 
 /** The planning bar in Bemanning, with its tools: Velg, the brush with the competence it paints, and Tøm. */
 export function BemanningToolbar(props: ToolbarProps) {
-  const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip } = useBemanning()
+  const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
   const paste = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V'
   const style = brush ? styles.get(brush) : undefined
   const tools: ToolChoice<Tool>[] = [
@@ -88,9 +88,21 @@ export function BemanningToolbar(props: ToolbarProps) {
     { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
   ]
   return (
-    <BemanningBar {...props} fitKey={`${tool}|${brush}|${unresolved}|${!!clip}`}>
+    <BemanningBar {...props} fitKey={`${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
       <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
       {!brush && <span className="bm-hints">Velg kompetanse i behovet{lastKey ? ` (1–${lastKey})` : ''}</span>}
+      {breaches.length > 0 && (
+        <button
+          className="bm-over-limit"
+          title={`Overtid over grensen:\n${breaches.flatMap((person) => person.weeks.map((week) => `${nameOf(person.personId)} · uke ${isoWeek(week.monday)} · ${hoursText(week.hours)} t`)).join('\n')}\nKlikk for å se den første.`}
+          onClick={() => {
+            setPanel({ personId: breaches[0].personId, week: breaches[0].weeks[0].monday })
+            onShowDate(breaches[0].weeks[0].monday)
+          }}
+        >
+          <TriangleAlert size={14} aria-hidden /> {breaches.length} over {hoursText(overtimeLimit)} t overtid/uke
+        </button>
+      )}
       {clip && (
         <span className="bm-clip" title="Dagene som er kopiert. De limes inn for de samme personene, fra dagen under markøren.">
           <ClipboardCopy size={14} aria-hidden /> Kopiert · {paste}

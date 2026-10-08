@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, clearDays, copyDays, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, weekTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
+import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, weekTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -12,7 +12,7 @@ import { fmtDay } from '../kalender/labels'
 import { LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'
 import { useToasts, type Toast } from '../Toasts'
-import { ABSENCE_LABELS } from './dayCell'
+import { ABSENCE_LABELS, type BlockNames } from './dayCell'
 import type { AbsenceDraft } from './PersonPanel'
 import { DIVIDER_H, PANEL_W, PERSON_H } from './layout'
 import type { ProjectSpan } from './projectsInView'
@@ -51,6 +51,10 @@ interface Props {
   setUnfolded: Dispatch<SetStateAction<string | null>>
   /** Brings a day into view. */
   onShowDate: (date: ISODate) => void
+  /** The setting «Navn på blokker». */
+  blockNames: BlockNames
+  /** The overtime a person may have in a week before it is flagged (R36). */
+  overtimeLimit: number
   children: ReactNode
 }
 
@@ -83,7 +87,7 @@ const NO_GHOST: Ghosts = new Map()
 const NO_PREVIEW = new Map<ISODate, number>()
 const NO_HOURS = new Map<string, number>()
 
-function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, phases, chosenProject, unfolded, setUnfolded, onShowDate }: Omit<Props, 'children'>) {
+function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
   const { workspace, updateStaffing, undo } = useWorkspace()
   const ws = workspace!
   const { colW } = cols
@@ -108,7 +112,6 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const [demandPop, setDemandPop] = useState<{ competence: string; date: ISODate; x: number; y: number } | null>(null)
   /** The person the panel is about, with the absence that is being entered and the week it was opened for. */
   const [panel, setPanel] = useState<{ personId: string; draft?: AbsenceDraft; week?: ISODate } | null>(null)
-  const [overtimeLimit, setOvertimeLimit] = usePref('overtimeLimitPerWeek', 10)
   /** In the open hours: the block that is being dragged to another day, and the block that is selected. */
   const [cross, setCrossState] = useState<CrossMove | null>(null)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
@@ -206,6 +209,17 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   // The person whose hours are open is shown above the list, not in it.
   const listed = useMemo(() => lines.filter((line) => line.person.id !== unfolded), [lines, unfolded])
   const listedAble = activeBrush ? listed.filter((line) => !line.dim).length : listed.length
+
+  // R36: the people with a week of the period above the overtime limit. It flags, and stops nothing.
+  const breaches = useMemo(() => {
+    if (!active || !dates.length) return []
+    const first = weekDates(dates[0])[0]
+    return overtimeBreaches(ws, overtimeLimit)
+      .map((person) => ({ ...person, weeks: person.weeks.filter(({ monday }) => monday >= first && monday <= dates[dates.length - 1]) }))
+      .filter((person) => person.weeks.length > 0)
+  }, [active, ws, overtimeLimit, dates])
+  /** The people whose overtime in the week the lines count is above the limit. */
+  const overLimit = useMemo(() => new Set(breaches.filter((person) => person.weeks.some(({ monday }) => monday === weekStart)).map((person) => person.personId)), [breaches, weekStart])
 
   // ---- where the pointer is --------------------------------------------------------------------------
   /** The line and the day under a point of the window. The pointer is measured against the grid, not the elements, so nothing laid over the grid stops a stroke. */
@@ -460,11 +474,22 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     openPanel: (personId: string) => setPanel((open) => (open?.personId === personId && !open.draft ? null : { personId })),
     /** The pointer moved over the people: the day under it is where the brush would paint. */
     bodyMove: (event: React.MouseEvent) => {
-      if (stroke || !(activeTool === 'paint' || (activeTool === 'select' && clip))) return
       const at = cellAt(event.clientX, event.clientY)
+      // The crosshair: the date and the demand of the day under the pointer are tinted. A style variable on the
+      // grid moves it, so nothing is drawn again for it.
+      const el = scrollRef.current
+      if (el && at) {
+        el.style.setProperty('--cross-x', `${LEFT_W + at.col * colW}px`)
+        el.style.setProperty('--cross-w', `${colW}px`)
+        el.classList.add('crossing')
+      }
+      if (stroke || !(activeTool === 'paint' || (activeTool === 'select' && clip))) return
       setHover((h) => (at && h && h.row === at.row && h.col === at.col ? h : at))
     },
-    bodyLeave: () => setHover(null),
+    bodyLeave: () => {
+      scrollRef.current?.classList.remove('crossing')
+      setHover(null)
+    },
   })
 
   // A stroke follows the pointer wherever it goes, and ends where the button is let go.
@@ -574,7 +599,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     lines, listed, listedAble, able, divided, week, isOk, isOpen, ghost, info, refused, stroke, hover, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,
-    menu, setMenu, demandPop, setDemandPop, panel, setPanel, overtimeLimit, setOvertimeLimit, onShowDate, firstWorkday,
+    menu, setMenu, demandPop, setDemandPop, panel, setPanel, overtimeLimit, breaches, overLimit, blockNames, onShowDate, firstWorkday,
     projectsOpen, setProjectsOpen, projectDensity, setProjectDensity, demandOpen, setDemandOpen, demandDensity, setDemandDensity, idleOpen, setIdleOpen,
     toasts, toast: toast as (text: string, action?: Toast['action']) => void, dismissToast, undo, updateStaffing,
     actions, nameOf, labelOf, dayName,

@@ -84,6 +84,8 @@ input[type='checkbox']{accent-color:var(--accent)}
 .menu-rule{height:1px;margin:4px 0;background:var(--line)}
 /* a choice with its control on one line, as Lys/Mørk under Innstillinger */
 .menu-setting{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 10px 8px;color:var(--muted)}
+.menu-number{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-num)}
+.menu-number input{width:64px;text-align:right;font:500 var(--fs-md) var(--font-num)}
 
 .segmented{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--sunken)}
 .segmented button{background:transparent;padding:4px 10px;border-radius:6px;color:var(--muted);white-space:nowrap}

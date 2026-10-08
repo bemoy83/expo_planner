@@ -18,6 +18,7 @@ import { BemanningHead, BemanningOverlays, BemanningToolbar, BemanningTop } from
 import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
 import { PersonPanel } from '../bemanning/PersonPanel'
+import type { BlockNames } from '../bemanning/dayCell'
 import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
 import { CellMenu } from './CellMenu'
@@ -48,9 +49,10 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false,
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
  * `heat` is the setting «Varmekart for avvik»: the Avvik line as coloured tiles.
+ * `blockNames`, `selectionStyle` and `overtimeLimit` are the settings of Bemanning: what a block says, how what is picked is shown, and the overtime per week that is flagged.
  * `onOpenPersonell` opens the tab where the people are entered, from Bemanning when there are none.
  */
-export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints?: boolean; heat?: boolean; onOpenPersonell: () => void }) {
+export function Kalender({ hints = true, heat = true, blockNames = 'full', selectionStyle = 'tint', overtimeLimit = 10, onOpenPersonell }: { hints?: boolean; heat?: boolean; blockNames?: BlockNames; selectionStyle?: 'tint' | 'raised'; overtimeLimit?: number; onOpenPersonell: () => void }) {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -734,8 +736,8 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
 
   // ---- render ---------------------------------------------------------------------------------
   return (
-    <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`}>
-      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate}>
+    <div className={`kalender ${bemanning ? `bemanning-mode ${selectionStyle === 'raised' ? 'selection-raised' : ''}` : activeTool === 'select' ? '' : activeTool}`}>
+      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
       {bemanning ? <BemanningHead /> : <KalenderHead
         projects={shownGroups.length}
         rows={shownRowCount}
@@ -752,6 +754,7 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
           {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows, unless it would cover most of the screen. */}
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
+            {bemanning && <i className="bm-crosshair" />}
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
           <div

@@ -10,6 +10,15 @@
 .bm-label-end{margin-left:auto}
 .bm-label-text{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+/* how what is picked is shown, the setting «Markering»: a tint of its colour, or raised on a neutral ground. Neither draws a box around it. */
+.kalender.selection-raised{--bm-on-bg:var(--surface);--bm-sel-bg:color-mix(in srgb,var(--surface) 75%,transparent);--bm-on-shadow:0 1px 5px -1px var(--shadow)}
+/* Bemanning comes in softly when the switch has zoomed in */
+.bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:bm-fade-in 220ms var(--ease)}
+/* the crosshair: the date and the demand of the day under the pointer */
+.bm-crosshair{position:absolute;top:0;bottom:0;left:var(--cross-x);z-index:1;display:none;width:var(--cross-w);background:color-mix(in srgb,var(--text) 5%,transparent);pointer-events:none}
+.crossing .bm-crosshair{display:block}
+@media (prefers-reduced-motion:reduce){.bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:none}}
+
 /* ---- the projects in view: a block of a fixed height, each project a line that moves to its place ---- */
 .bm-project-block{position:relative}
 .bm-project-days{border-bottom:0}
@@ -53,7 +62,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* a competence in focus: its line is lit, the others step back */
 .bm-demand.dim{opacity:.5}
 .bm-demand.dim:hover{opacity:.8}
-.bm-demand.on{background:color-mix(in oklch,var(--cc) 7%,var(--bg))}
+.bm-demand.on{background:var(--bm-on-bg,color-mix(in oklch,var(--cc) 7%,var(--bg)));box-shadow:var(--bm-on-shadow,none)}
 .bm-demand.on .bm-pick{background:var(--surface);box-shadow:inset 3px 0 0 var(--cc)}
 /* compact: one thin line per day, the demand as a tint and what remains of it solid from the right */
 .bm-demand.compact .bm-pick{gap:6px}
@@ -73,6 +82,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-hints{font-size:var(--fs-sm);color:var(--faint)}
 .bm-clip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--sunken);font-size:var(--fs-sm);color:var(--muted)}
 .bm-clip .row-action{height:22px}
+.bar-controls .bm-over-limit{height:30px;padding:0 10px;background:color-mix(in srgb,var(--over) 14%,transparent);color:var(--over);font-size:var(--fs-sm);font-weight:500}
 .bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-md);font-weight:500}
 .bm-unresolved button{height:22px;padding:0 8px;border-radius:6px;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:600}
 .bm-unresolved button:hover{background:color-mix(in srgb,var(--neg) 12%,transparent)}
@@ -98,7 +108,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-dots i.focused{outline:1.5px solid var(--cc);outline-offset:1.5px}
 .bm-person-week{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
 .bm-person-week b{font-weight:600;color:var(--text)}
-.bm-person-week em{font-style:normal;color:var(--muted)}
+.bm-person-week em{font-style:normal;color:var(--over)}
+.bm-person-week em.over-limit{margin-left:3px;padding:1px 5px;border-radius:999px;background:var(--over);color:var(--bg);font-weight:600}
 .bm-person-week>i{display:block;width:52px;height:3px;border-radius:2px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
 .bm-person-week>i>i{display:block;height:100%;background:var(--muted);transition:width 280ms var(--ease)}
 .bm-divider{display:flex;align-items:center;border-bottom:1px solid var(--rule);background:var(--sunken)}
@@ -115,6 +126,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
 .bm-block b{overflow:hidden;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
+.bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
 /* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the open hours. */
 .bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other,.bm-off-blocks>i.other{opacity:.28}
@@ -147,7 +159,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-stroke.erase{--cc:var(--neg)}
 .bm-stroke.select{--cc:color-mix(in srgb,var(--text) 70%,transparent)}
 /* the days that are selected: a tint, with no outline */
-.bm-selection{position:absolute;z-index:1;border-radius:7px;background:color-mix(in srgb,var(--accent) 10%,transparent);pointer-events:none}
+.bm-selection{position:absolute;z-index:1;border-radius:7px;background:var(--bm-sel-bg,color-mix(in srgb,var(--accent) 10%,transparent));box-shadow:var(--bm-on-shadow,none);pointer-events:none}
 .bm-pill{position:absolute;left:0;bottom:calc(100% + 8px);display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:8px;background:var(--text);color:var(--bg);font-size:var(--fs-sm);white-space:nowrap}
 .bm-pill.below{top:calc(100% + 8px);bottom:auto}
 .bm-pill b{display:inline-flex;align-items:center;gap:6px;font-weight:600}
@@ -211,7 +223,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-competences{display:flex;flex-direction:column}
 .bm-competences button{flex:none;justify-content:flex-start;gap:8px;height:28px;padding:0 6px;border-radius:6px;background:transparent;font-size:var(--fs-sm)}
 .bm-competences button:hover{background:var(--wash)}
-.bm-competences button.on{background:color-mix(in oklch,var(--cc) 14%,var(--panel))}
+.bm-competences button.on{background:var(--bm-on-bg,color-mix(in oklch,var(--cc) 14%,var(--panel)));box-shadow:var(--bm-on-shadow,none)}
 .bm-competence-hours{margin-left:auto;font:500 var(--fs-sm) var(--font-num)}
 .bm-competence-hours.nil{font-weight:400;color:var(--faint)}
 

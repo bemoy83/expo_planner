@@ -4,17 +4,28 @@ import { overtimeHours, paidHours } from '../../domain/staffing'
 import type { Assignment, Minute, Unavailability, UnavailabilityKind, WorkdaySettings } from '../../domain/types'
 import { clock } from './week'
 
-/** How much of a block's name fits: the name, the short name, or nothing. */
-export type BlockLabel = 'name' | 'short' | 'none'
+/** What a block says: the name with its hours, the name, the short name, or nothing. */
+export type BlockLabel = 'hours' | 'name' | 'short' | 'none'
+/** The setting «Navn på blokker»: the whole name where it fits, the hours too where there is room, or always the short name. */
+export type BlockNames = 'full' | 'auto' | 'short'
+export const cleanBlockNames = (stored: unknown): BlockNames => (stored === 'auto' || stored === 'short' ? stored : 'full')
 
-/** Roughly the width of a letter of a block's name and of its short name, and the room its padding takes. */
+/** Roughly the width of a letter of a block's name, of its short name and of its hours, and the room its padding takes. */
 const NAME_CHAR_W = 6.7
 const SHORT_CHAR_W = 7
+const HOURS_CHAR_W = 6
 const BLOCK_PAD = 13
 
-/** R24: what a block `width` pixels wide has room to say: the competence's whole name, else its short name, else nothing. Never the hours. */
-export const blockLabel = (width: number, name: string, shortName: string): BlockLabel =>
-  width - BLOCK_PAD >= name.length * NAME_CHAR_W ? 'name' : width - BLOCK_PAD >= shortName.length * SHORT_CHAR_W ? 'short' : 'none'
+/**
+ * R24: what a block `width` pixels wide has room to say: the competence's whole name, else its short name,
+ * else nothing. The hours («7,5») show only with the setting «Auto», where they fit after the name.
+ */
+export const blockLabel = (width: number, name: string, shortName: string, names: BlockNames = 'full', hours = ''): BlockLabel => {
+  const room = width - BLOCK_PAD
+  const short = room >= shortName.length * SHORT_CHAR_W ? 'short' : 'none'
+  if (names === 'short' || room < name.length * NAME_CHAR_W) return short
+  return names === 'auto' && room >= name.length * NAME_CHAR_W + hours.length * HOURS_CHAR_W + 6 ? 'hours' : 'name'
+}
 
 /** A stretch of the normal day, as a share of its width. */
 export interface Span {

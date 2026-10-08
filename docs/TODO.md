@@ -11,11 +11,24 @@ The app starts from an empty workspace and the source files. It does not read th
 3. Visma export → demand lines; its product types appear on Produkttyper to be given unit and competence; rates go on KPI.
 4. "I plan" on Behov → rows in the Kalender per phase, hall, competence and Avd., grouped as the planner chooses.
 
-## Bemanning: a mode of the Kalender, being rebuilt from `design_docs/bemanning-v2/`
+## Bemanning: a mode of the Kalender, to be tested by the user
 
-Bemanning was built as a tab of its own from `design_docs/bemanning/`, one week at a time. It is now a mode of the Kalender on the same timeline, over the whole period (v2). The tab, its week picker, the week editor and the «Rad» timelines are gone; the rules, the storage and the undo steps are the same.
+Bemanning was built as a tab of its own from `design_docs/bemanning/`, one week at a time. It is now a mode of the Kalender on the same timeline, over the whole period, built from `design_docs/bemanning-v2/` (all seven phases, 2026-10-09). The tab, its week picker, the week editor, the «Rad» timelines and the absence dialog are gone; the rules, the storage and the undo steps are the same.
 
-Built of v2: the switch between Plan and Bemanning with the zoom between them, the days Bemanning opens on, the projects in view, the demand per competence in a detailed and a compact form, the people as lines of the grid with painting and erasing, and one person's open hours with blocks that can be dragged to another day. Still to build: the Person panel with absence as periods, dragging a day's blocks between days in the folded rows, copy and paste, the overtime limit, the crosshair, and the settings for block names and the look of a selection. Of the first handoff's «Later» list, overtime is fed into the Kalender's staffing lines. Untouched: hired staff and trade crews, automatic suggestions, tying an assignment to a Kalender row, and showing moved hours in the Kalender.
+What v2 added: the switch between Plan and Bemanning with the zoom between them, the days Bemanning opens on, the projects in view, the demand per competence in a detailed and a compact form, the people as lines of the grid with painting and erasing, one person's open hours with blocks that are dragged to another day, a day's blocks dragged between days and people in the folded rows, copy and paste of days, the Person panel with overtime per week and absence as periods, the overtime limit, the crosshair, and the settings «Navn på blokker», «Markering» and the overtime limit under Innstillinger. Of the first handoff's «Later» list, overtime is fed into the Kalender's staffing lines. Untouched, and deferred in `design_docs/bemanning-v2/DEFERRED.md`: hired staff and trade crews, the other views of the side panel, demand per project and tagging an assignment with a project, the row details' Bemanning section, automatic suggestions, and showing moved hours in the Kalender.
+
+Where v2's package disagreed with the app or with itself, and what was done
+
+- The label column is the Kalender's 460 px in both modes; the package says 400.
+- A click on a person's name opens the Person panel. The arrow before the name, a double-click on a day and E open the hours; the package says both of the name.
+- «Ledig kapasitet» is kept as the last line of the detailed demand, and left out of the compact one. The package's header does not have it.
+- The right-click menu keeps «Mal hel dag med …», which the package's list leaves out.
+- «N uløste · Fjern» is in the planning bar only, not in the page header as well.
+- A person's hours in the label are those of the week of the day in focus while it is in view, else of the week of the first workday in view.
+- The days Bemanning opens on keep the day in focus in view only when it is in view in the plan; otherwise the chosen project, the days last seen, or ten days from the plan's left edge, in that order.
+- The days that are selected show as a tint with no outline (the package's decision 4); the outline shows only while a selection is being dragged. The package's §8b asks for an outline on both.
+- The projects in view are those with a booking in the halls the hall calendar shows («Bare messehaller» or all).
+- The date header is pinned in both modes, also when the block under it is too tall to pin.
 
 Where the code is: the types in `domain/types.ts`; the rules in `domain/staffing.ts` (R1–R15 of RULES.md, with the checks D1–D23 of ACCEPTANCE.md in `staffing.test.ts`) and `domain/competences.ts`; the tables `persons`, `unavailability`, `assignments` and `demandAdjustments` (database version 3) and competence styles in `meta`; undo through `updateStaffing` in the store; the mode in `ui/bemanning/`, held together by `BemanningScope.tsx`, and the tab in `ui/personell/`; styles in `styles/bemanning.css`.
 
@@ -30,7 +43,7 @@ Choices made where the handoff was open or disagreed with itself
 - A competence's name on Personell is how it is shown; it does not rename the competence on the product types. A competence gets its colour and place when it first appears, and these are stored at the first edit of any competence.
 - The day in focus is shared with the Kalender through the `planningFocus` preference: the Kalender opens on it and marks it in the date header, and the day of the cell the planner stands on becomes it.
 - A holiday on a weekday is shown as a day off, like the weekend. Every day has the same width; the first build had narrow weekends.
-- The right-click menu of a day also paints a full day with one of the person's competences, and opens «Fravær …», the person's absence with a form for a stretch of days, a kind and a part of the day.
+- The right-click menu of a day also paints a full day with one of the person's competences. «Meld syk …» and «Fravær …» open the form in the Person panel, for a stretch of days, a kind and a part of the day; «Friskmeld fra» ends a sickness on the day before.
 - A block whose person is away or lacks the competence never counts. It is «uløst» only while hours of its competence remain that day (`openUnresolved`). Once others cover the day, it is shown as a faint trace and is no longer counted or flagged; the user asked for this, where RULES.md R7 keeps it unresolved. If the person comes back, the block counts again and the day shows a surplus.
 - «N uløste · Fjern» counts and removes the open unresolved blocks of the whole period. The faint traces are removed by hand.
 - Moved hours can be taken back from the popover of the day they were moved to.
@@ -40,11 +53,16 @@ Choices made where the handoff was open or disagreed with itself
 
 Gaps
 
-- People are entered by hand. There is no import of a staff register, and people cannot be reordered. Absence is entered from Bemanning only, not from Personell.
+- People are entered by hand. There is no import of a staff register, and people cannot be reordered. Absence is entered in Bemanning's Person panel only, not from Personell.
 - Competences that are in use cannot be hidden or removed.
 - The preview «−N» shows for folded days only, not while drawing in a person's open hours.
 - A painted day never replaces what is there (v2); the question «Fyll resten / Erstatt» is gone. The domain still has the replace mode (`paintDays`), which nothing uses.
 - With many competences the detailed demand is too tall to stay pinned on a laptop screen; the compact form fits. Which of them should be the default is open (v2's open question 1).
+- The zoom between the modes draws every visible line again on each frame. It has not been timed on the user's machine; if it stutters, the width can be driven through a style variable instead.
+- The days Bemanning fits to do not make room for an open Person panel; the panel lies over the last days.
+- A new block does not animate in, as the mockup's does: the lines are drawn again while scrolling, and every block would animate then.
+- A day's blocks are dragged as one in the folded rows; one block of several is moved in the open hours.
+- Painting, dragging, the zoom and the panel are checked by hand in the browser; the rules behind them have tests (`staffing.test.ts`, `zoom.test.ts`, `projectsInView.test.ts`, `dayCell.test.ts`).
 - With a competence in focus the people who lack it are dimmed under a divider, not hidden.
 - The top block lets go of its pin while a person's hours are open and would not fit under it.
 - Reading back from IndexedDB after a reload, and every gesture in the two tabs, are checked by hand in the browser. The test environment has no IndexedDB, and there are no component tests for Bemanning beyond the folded day cell.
@@ -109,7 +127,7 @@ General
 ## Technical debt
 
 - Few component tests and no end-to-end tests: a smoke test and the grid's row component. The grid as a whole, dialogs and imports are verified by hand in a browser.
-- `Kalender.tsx` (about 840 lines) holds the selection, the cell values and the handlers the rows are given, and lays out the page. What the tools would write is worked out in `kalender/strokes.ts`, with tests; scrolling, the drag across the grid's edges and the tool keys are hooks (`useGridViewport`, `useGridDrag`, `useToolKeys`), and the top block and the planning bar are components (`TopSections.tsx`, `KalenderBar.tsx`). The hooks and the selection itself (clicks, keys, the fill handle) still have no tests and are checked by hand. The lines of the grid are memoized components in `kalender/GridRows.tsx`, drawn again only when something on the line changed. Scrolling sideways still draws every line again each time a new day column comes into view.
+- `Kalender.tsx` (about 930 lines) holds the selection, the cell values and the handlers the rows are given, lays out the page, and switches between the two modes. `bemanning/BemanningScope.tsx` (about 630 lines) holds the state of Bemanning in one hook; the strokes, the selection and the clipboard in it could be hooks of their own. What the tools would write is worked out in `kalender/strokes.ts`, with tests; scrolling, the drag across the grid's edges and the tool keys are hooks (`useGridViewport`, `useGridDrag`, `useToolKeys`), and the top block and the planning bar are components (`TopSections.tsx`, `KalenderBar.tsx`). The hooks and the selection itself (clicks, keys, the fill handle) still have no tests and are checked by hand. The lines of the grid are memoized components in `kalender/GridRows.tsx`, drawn again only when something on the line changed. Scrolling sideways still draws every line again each time a new day column comes into view.
 - The style sheets in `src/styles/` name every colour and every text size in `tokens.css`. Still plain values: the 15 px figures of the header and of Bemanning's demand strip, corner radii, and the dark shadow of the row details. The three figures side by side and the thin bar under them are one set of rules in `base.css` (`.stats`, `.bar`), used by the row details and by Bemanning.
 - Numbers typed with a decimal comma are read by one parser (`domain/numbers.ts`), but what an empty field means still differs by place: 0 in the tables and for the crew, nothing in a demand line, invalid for the hours of a day and for hours to move.
 - `design_docs/` is stale and uses the misspelling "Venyoo". `docs/kalender-workbook.md` describes the workbook, which the app does not read.

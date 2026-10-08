@@ -66,4 +66,11 @@ describe('folded day cell', () => {
     expect(blockLabel(80, 'Teppefliser', 'TEP')).toBe('short')
     expect(blockLabel(30, 'Vegger', 'VEG')).toBe('none')
   })
+
+  it('adds the hours only when asked to and they fit, and keeps to the short name when asked to (R24)', () => {
+    expect(blockLabel(95, 'Vegger', 'VEG', 'auto', '7,5')).toBe('hours')
+    expect(blockLabel(70, 'Vegger', 'VEG', 'auto', '7,5')).toBe('name')
+    expect(blockLabel(95, 'Vegger', 'VEG', 'full', '7,5')).toBe('name')
+    expect(blockLabel(95, 'Vegger', 'VEG', 'short', '7,5')).toBe('short')
+  })
 })

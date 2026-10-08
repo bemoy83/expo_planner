@@ -164,6 +164,7 @@ export function DemandRows() {
         </div>
       )}
       {open && idleOpen && idle.map(line)}
+      <i className="bm-crosshair" />
       {open && !compact && <CapacityLine cols={cols} capacity={capacity} label={brush ? `Ledig med ${bm.labelOf(brush)}` : 'Ledig kapasitet, faste'} />}
     </div>
   )

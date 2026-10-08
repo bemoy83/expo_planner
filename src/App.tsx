@@ -11,6 +11,7 @@ import { Kpi } from './ui/kpi/Kpi'
 import { Produkttyper } from './ui/kpi/Produkttyper'
 import { Personell } from './ui/personell/Personell'
 import { Kalender } from './ui/kalender/Kalender'
+import { cleanBlockNames, type BlockNames } from './ui/bemanning/dayCell'
 import { Menu, Segmented } from './ui/common'
 import { isTyping } from './ui/dom'
 import { errorText, takeFile } from './ui/files'
@@ -70,6 +71,10 @@ function Shell() {
   const [tooltips, setTooltips] = usePref('tooltips', true)
   // Whether the Avvik line of the Kalender is drawn as a heat map.
   const [heat, setHeat] = usePref('heat', true)
+  // Bemanning: what a block says, how what is picked is shown, and the overtime per week that is flagged.
+  const [blockNames, setBlockNames] = usePref<BlockNames>('blockLabel', 'full', cleanBlockNames)
+  const [selectionStyle, setSelectionStyle] = usePref<'tint' | 'raised'>('selectionStyle', 'tint')
+  const [overtimeLimit, setOvertimeLimit] = usePref('overtimeLimitPerWeek', 10)
   // Light or dark, also a choice for this browser. main.tsx sets it before the first paint.
   const [theme, setTheme] = usePref<'light' | 'dark'>('theme', 'light')
   useEffect(() => {
@@ -197,6 +202,38 @@ function Shell() {
                   Bemanning og normaltid …
                 </button>
               )}
+              <span className="menu-group">Bemanning</span>
+              <span className="menu-setting">
+                Navn på blokker
+                <Segmented
+                  label="Navn på blokker"
+                  value={blockNames}
+                  onChange={setBlockNames}
+                  options={[
+                    { value: 'full', label: 'Fullt', title: 'Hele navnet på kompetansen der det får plass, ellers kortnavnet' },
+                    { value: 'auto', label: 'Auto', title: 'Som Fullt, med timene der det er plass til dem' },
+                    { value: 'short', label: 'Kort', title: 'Alltid kortnavnet' },
+                  ]}
+                />
+              </span>
+              <span className="menu-setting">
+                Markering
+                <Segmented
+                  label="Markering"
+                  value={selectionStyle === 'raised' ? 'raised' : 'tint'}
+                  onChange={setSelectionStyle}
+                  options={[
+                    { value: 'tint', label: 'Farget', title: 'Det som er valgt får en farget bakgrunn' },
+                    { value: 'raised', label: 'Hevet', title: 'Det som er valgt løftes frem på en nøytral flate' },
+                  ]}
+                />
+              </span>
+              <label className="menu-setting" title="En person med mer overtid enn dette i en uke merkes i Bemanning. Grensen stopper ingenting.">
+                Overtid per uke, grense
+                <span className="menu-number">
+                  <input type="number" min={0} step={0.5} value={overtimeLimit} onChange={(e) => e.target.value !== '' && Number(e.target.value) >= 0 && setOvertimeLimit(Number(e.target.value))} /> t
+                </span>
+              </label>
               <span className="menu-group">Data</span>
               {workspace && (
                 <button
@@ -288,7 +325,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} onOpenPersonell={() => setView('personell')} />}
+      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} selectionStyle={selectionStyle === 'raised' ? 'raised' : 'tint'} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
       {status === 'ready' && workspace && view === 'produkttyper' && <Produkttyper onOpenKpi={() => setView('kpi')} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi onOpenProductTypes={() => setView('produkttyper')} />}

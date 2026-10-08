@@ -9,7 +9,7 @@ import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { LEFT_W, ROW_H } from '../kalender/layout'
 import { useBemanning, type GhostBlock, type PersonActions } from './BemanningScope'
-import { dayCell } from './dayCell'
+import { dayCell, type BlockNames } from './dayCell'
 import { DIVIDER_H, PERSON_H } from './layout'
 import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
@@ -35,6 +35,10 @@ interface LineProps {
   brush: string | null
   /** The person lacks the competence in focus. */
   dim: boolean
+  /** The week's overtime is above the limit. */
+  overLimit: boolean
+  /** The setting «Navn på blokker». */
+  names: BlockNames
   /** The tool the days answer to, for what a day shows that the brush cannot fill. */
   painting: boolean
   /** The columns of the line a stroke covers, and what it does to them. */
@@ -49,7 +53,7 @@ interface LineProps {
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, painting, strokeFrom, strokeTo, erasing, refusedCol, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, refusedCol, ghost, actions }: LineProps) {
   const span = workday.dayEnd - workday.dayStart
   return (
     <Line
@@ -68,7 +72,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
               ))}
             </span>
           </span>
-          <WeekMeter week={week} />
+          <WeekMeter week={week} overLimit={overLimit} />
         </>
       }
       cols={cols}
@@ -88,7 +92,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} />
             {gaps && (
               <span className="bm-timeline bm-ghosts">
                 {gaps.map((gap) => (
@@ -172,6 +176,8 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               isOpen={isOpen}
               brush={brush}
               dim={dim}
+              overLimit={bm.overLimit.has(person.id)}
+              names={bm.blockNames}
               painting={tool === 'paint'}
               strokeFrom={inStroke ? range.colFrom : -1}
               strokeTo={inStroke ? range.colTo : -1}
