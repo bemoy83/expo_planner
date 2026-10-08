@@ -13,7 +13,6 @@ const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   competence: 'FOGA',
   phase: 'Montering',
   basis: 'Planlagt',
-  importedHours: null,
   fte: {},
   notes: {},
   ...overrides,

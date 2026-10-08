@@ -19,7 +19,6 @@ const row = (id: string, overrides: Partial<AllocationRow> = {}): AllocationRow 
   competence: 'FOGA',
   phase: 'Montering',
   basis: 'Planlagt',
-  importedHours: null,
   fte: {},
   notes: {},
   ...overrides,
@@ -44,9 +43,9 @@ const demand = (competence: string, assemblyHours: number): DemandLine => ({
 // FOGA needs 5 FTE-days and Print 1,2; Banner has no demand.
 const index = buildDemandIndex([demand('FOGA', 37.5), demand('Print', 9)])
 const settings = DEFAULT_SETTINGS
-const over = (lane0: number, col0: number, lane1: number, col1: number, section: Selection['section'] = 'alloc'): Selection => ({ section, anchor: { lane: lane0, col: col0 }, focus: { lane: lane1, col: col1 } })
+const over = (lane0: number, col0: number, lane1: number, col1: number): Selection => ({ anchor: { lane: lane0, col: col0 }, focus: { lane: lane1, col: col1 } })
 const lanesOf = (...rows: AllocationRow[]): AllocLane[] => rows.map((r, i) => ({ row: r, index: i }))
-const valueOf = (lanes: AllocLane[]) => (_: Selection['section'], lane: number, date: string) => lanes[lane]?.row?.fte[date]
+const valueOf = (lanes: AllocLane[]) => (lane: number, date: string) => lanes[lane]?.row?.fte[date]
 
 describe('pencilStroke', () => {
   it('shares what is left of the demand over the working days drawn across', () => {
@@ -81,8 +80,7 @@ describe('pencilStroke', () => {
     expect(pencilStroke(over(0, 0, 0, 1), dates, [{ node, index: 0 }], index, settings)!.lanes).toEqual([{ lane: 0, parts: [2, 2] }])
   })
 
-  it('is nothing on the staffing lines or without a selection', () => {
-    expect(pencilStroke(over(0, 0, 0, 1, 'cap'), dates, lanesOf(row('a')), index, settings)).toBeNull()
+  it('is nothing without a selection', () => {
     expect(pencilStroke(null, dates, lanesOf(row('a')), index, settings)).toBeNull()
   })
 
@@ -131,13 +129,13 @@ describe('proposal', () => {
 
 describe('the fill handle', () => {
   const lanes = lanesOf(row('a', { fte: { [MON]: 2 } }))
-  const fill = (overrides: Partial<Fill> = {}): Fill => ({ section: 'alloc', lane0: 0, lane1: 0, col0: 0, col1: 0, toCol: 2, stretch: false, ...overrides })
+  const fill = (overrides: Partial<Fill> = {}): Fill => ({ lane0: 0, lane1: 0, col0: 0, col1: 0, toCol: 2, stretch: false, ...overrides })
 
   it('copies the block over the days dragged across', () => {
     const cells = fillPreview(fill(), dates, valueOf(lanes))
     expect(cells.filter((cell) => cell.date !== MON)).toEqual([
-      { section: 'alloc', lane: 0, date: TUE, value: 2 },
-      { section: 'alloc', lane: 0, date: WED, value: 2 },
+      { lane: 0, date: TUE, value: 2 },
+      { lane: 0, date: WED, value: 2 },
     ])
     expect(fillProgress(fill(), cells)).toMatch(/^Fyller \d dager · hold Alt/)
     expect(fillNotice(fill(), cells)).toMatch(/^Fylte \d dager$/)
@@ -161,11 +159,10 @@ describe('the fill handle', () => {
 describe('ghostCells', () => {
   it('shows what a pencil stroke, an eraser stroke and a fill would leave in the cells', () => {
     const preview = pencilStroke(over(0, 0, 0, 1), dates, lanesOf(row('a')), index, settings)
-    expect(ghostCells(preview, null, dates, []).get('alloc|0')).toEqual(new Map([[MON, 3], [TUE, 2]]))
-    expect(ghostCells(null, over(1, 0, 1, 1), dates, []).get('alloc|1')).toEqual(new Map([[MON, 0], [TUE, 0]]))
-    expect(ghostCells(null, over(0, 0, 0, 1, 'cap'), dates, []).size).toBe(0)
-    const filled = ghostCells(null, null, dates, [{ section: 'cap', lane: 2, date: WED, value: null }, { section: 'cap', lane: 2, date: TUE, value: 4 }])
-    expect(filled.get('cap|2')).toEqual(new Map([[WED, 0], [TUE, 4]]))
+    expect(ghostCells(preview, null, dates, []).get(0)).toEqual(new Map([[MON, 3], [TUE, 2]]))
+    expect(ghostCells(null, over(1, 0, 1, 1), dates, []).get(1)).toEqual(new Map([[MON, 0], [TUE, 0]]))
+    const filled = ghostCells(null, null, dates, [{ lane: 2, date: WED, value: null }, { lane: 2, date: TUE, value: 4 }])
+    expect(filled.get(2)).toEqual(new Map([[WED, 0], [TUE, 4]]))
   })
 })
 
@@ -183,9 +180,8 @@ describe('overbookedDays', () => {
     const preview = pencilStroke(over(0, 0, 0, 0), dates, lanes, index, settings)
     // The stroke puts all 5 on Monday in place of the 1 that is there.
     expect(overbookedDays(need, preview, [], lanes, valueOf(lanes), [], crew).get(MON)).toEqual({ need: 5, available: 2 })
-    const dragged = [{ section: 'alloc' as const, lane: 0, date: TUE, value: 3 }]
+    const dragged = [{ lane: 0, date: TUE, value: 3 }]
     expect(overbookedDays(need, null, dragged, lanes, valueOf(lanes), [], crew).get(TUE)).toEqual({ need: 3, available: 2 })
-    expect(overbookedDays(need, null, [{ section: 'cap', lane: 0, date: TUE, value: 9 }], lanes, valueOf(lanes), [], crew).size).toBe(0)
   })
 })
 

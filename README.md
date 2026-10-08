@@ -1,6 +1,6 @@
 # Expo Planner
 
-A browser app for planning crew for exhibition build-up (montering) and tear-down (demontering). It replaces the `Kalender` workbook (`Bemanning_Behov_24 måneder.xlsx`) with:
+A browser app for planning crew for exhibition build-up (montering) and tear-down (demontering). It replaces the `Kalender` workbook (`Bemanning_Behov_24 måneder.xlsx`), which it does not read, with:
 
 - a hall calendar,
 - staffing capacity, and
@@ -11,7 +11,7 @@ all on one continuous date axis, without Excel's limits.
 ## Using it
 
 1. Run `npm run dev` and open the page.
-2. Click **Start uten arbeidsbok** to begin empty and read in the sources one by one, or **Importer arbeidsbok** to bring everything over from the planner workbook once. Everything is read in the browser and saved there (IndexedDB). The Kalender's period follows the hall bookings from Venyou.
+2. Click **Start** to begin empty and read in the sources one by one. Everything is read in the browser and saved there (IndexedDB). The Kalender's period follows the hall bookings from Venyou.
 3. Plan in the Kalender:
    - Type FTE into day cells. Enter moves down, Tab moves right.
    - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes, for this session. This also covers the Behov tab, including a Visma import.
@@ -42,7 +42,7 @@ npm run build   # type check + production build
 
 - [docs/TODO.md](docs/TODO.md) lists what is open: deferred items, gaps and technical debt.
 - [CLAUDE.md](CLAUDE.md) explains how the code fits together and the conventions to follow.
-- [docs/kalender-workbook.md](docs/kalender-workbook.md) describes how the old Excel workbook works.
+- [docs/kalender-workbook.md](docs/kalender-workbook.md) describes how the old Excel workbook works. The app does not read it; the rules for hours and staffing come from it.
 - `design_docs/` holds design notes from an earlier attempt. Treat them as background reading, not binding specs.
 
 The source files in `example_data/` contain real customer data and are not committed.

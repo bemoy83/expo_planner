@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { DemandLine, KpiConfig, VismaRow, Workspace } from './types'
-import { DEFAULT_SETTINGS } from './types'
-import { buildVismaLines, hallOf, harvestOverrides, orphanedDecisions, vismaDemandLines, vismaLineKey, withVismaImports, workTypeName } from './visma'
+import type { KpiConfig, VismaRow } from './types'
+import { buildVismaLines, hallOf, orphanedDecisions, vismaDemandLines, vismaLineKey, workTypeName } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -98,27 +97,6 @@ describe('Visma lines', () => {
   })
 })
 
-const legacyLine = (overrides: Partial<DemandLine>): DemandLine => ({
-  id: 'l',
-  projectNo: '26970',
-  projectName: 'VVS 2026',
-  eventYear: '2026',
-  source: 'visma per reg. dato',
-  workType: 'FOGA-vegger',
-  quantity: 10,
-  unit: 'lm',
-  stand: '',
-  hall: 'Hall C',
-  competence: 'FOGA',
-  basis: 'visma per reg. dato',
-  assemblyHours: 0,
-  dismantleHours: 0,
-  comment: '',
-  avdeling: '65',
-  effekt: 0,
-  ...overrides,
-})
-
 describe('decisions on lines that left the export', () => {
   const gone = vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall E')
   const present = vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')
@@ -139,39 +117,5 @@ describe('decisions on lines that left the export', () => {
         [gone]: { effekt: 0, inPlan: false, comment: '' },
       }),
     ).toEqual([])
-  })
-})
-
-describe('workbook decisions', () => {
-  it('carries Effekt, comments, «Planlagt» and hand-picked work types over', () => {
-    const overrides = harvestOverrides(
-      [
-        legacyLine({ effekt: 1, comment: 'egen opptelling' }),
-        legacyLine({ id: 'p', workType: 'Print', avdeling: '65', hall: 'Hall C', basis: 'Planlagt', quantity: 2 }),
-        legacyLine({ id: 't', workType: 'Teppefliser', avdeling: '32', hall: 'Møterom hall E1', quantity: 100 }),
-        legacyLine({ id: 'm', source: 'Opptelling/hallkart', basis: 'Planlagt', effekt: 0.5 }),
-      ],
-      rows,
-      kpi,
-    )
-    expect(overrides[vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')]).toEqual({ effekt: 1, comment: 'egen opptelling', ref: { avdeling: '65', workType: 'FOGA-vegger', hall: 'Hall C' } })
-    expect(overrides[vismaLineKey('26970', '65', 'Print', 'Hall C')]).toMatchObject({ inPlan: true })
-    expect(overrides[vismaLineKey('26970', '32', '01_ingen produkttype', 'Møterom hall E1')]).toMatchObject({ workType: 'Teppefliser', ref: { workType: '01_ingen produkttype' } })
-    expect(Object.keys(overrides)).toHaveLength(3)
-  })
-
-  it('replaces only Visma rows of imported projects when the workbook is read again', () => {
-    const workspace: Workspace = {
-      settings: DEFAULT_SETTINGS,
-      venue: [],
-      projects: [],
-      allocations: [],
-      capacity: [],
-      demand: [legacyLine({}), legacyLine({ id: 'own', source: 'Opptelling/hallkart', basis: 'Planlagt' }), legacyLine({ id: 'other', projectNo: '26100' })],
-    }
-    const next = withVismaImports(workspace, { kpi, overrides: {}, visma: [{ projectNo: '26970', eventName: 'VVS 2026', fileName: 'x', importedAt: '', rows }] })
-    expect(next.demand.filter((l) => l.origin === 'visma')).toHaveLength(4)
-    expect(next.demand.map((l) => l.id)).toEqual(expect.arrayContaining(['own', 'other']))
-    expect(next.demand.find((l) => l.id === 'l')).toBeUndefined()
   })
 })

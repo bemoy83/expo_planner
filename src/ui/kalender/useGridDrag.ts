@@ -1,13 +1,13 @@
 import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import { LEFT_W } from './layout'
-import type { Cell, Fill, Section, Selection, Tool } from './selection'
+import type { Cell, Fill, Selection, Tool } from './selection'
 
 type Stroke = Exclude<Tool, 'select'>
 
 interface Options {
   scrollRef: RefObject<HTMLDivElement | null>
-  /** The section a drag across cells started in. */
-  dragging: RefObject<Section | null>
+  /** A drag across cells is in progress. */
+  dragging: RefObject<boolean>
   /** The drag of the fill handle in progress. */
   fillRef: RefObject<Fill | null>
   /** The tool of the stroke being drawn. */
@@ -79,14 +79,14 @@ export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, s
         commitFill()
         return
       }
-      const section = dragging.current
+      const dragged = dragging.current
       const drawn = strokeRef.current
-      dragging.current = null
+      dragging.current = false
       strokeRef.current = null
       spring.current = null
       setStroke(null)
-      if (section === 'alloc' && drawn === 'pencil') drawDemand()
-      if (section === 'alloc' && drawn === 'eraser') eraseDrawn()
+      if (dragged && drawn === 'pencil') drawDemand()
+      if (dragged && drawn === 'eraser') eraseDrawn()
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)

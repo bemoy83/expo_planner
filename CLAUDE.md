@@ -1,6 +1,6 @@
 # Expo Planner
 
-A browser app for planning crew for exhibition build-up (montering) and tear-down (demontering). It replaces the planner's Excel workbook (`Bemanning_Behov_24 måneder.xlsx`). The goal is that the workbook is never needed again: the app stands on the source exports alone.
+A browser app for planning crew for exhibition build-up (montering) and tear-down (demontering). It replaces the planner's Excel workbook (`Bemanning_Behov_24 måneder.xlsx`), which it does not read: the app stands on the source exports alone. The workbook was the model for the rules and the test data while the app was built.
 
 Open work is listed in [docs/TODO.md](docs/TODO.md). How the old workbook works is described in [docs/kalender-workbook.md](docs/kalender-workbook.md). The files in `design_docs/` come from an abandoned earlier attempt; read them for background only, they are not requirements.
 
@@ -27,7 +27,7 @@ Seven tabs, all in Norwegian:
 - **Bemanning** – who does the work: the permanent staff by name, one week at a time, against the hours that remain per competence and day. It reads its demand from the Kalender's planned FTE. A competence in focus is also the brush: days are painted whole or half, a person opens for hours and overtime (`TimeTrack.tsx`), and sickness gives a person's hours back to the demand. Built from `design_docs/bemanning/`, which stays the reference for its rules (RULES.md) and look.
 - **Personell** – the permanent staff with their competences, and how each competence is shown (name, short name, colour, order).
 
-Sources read from files: the Venyou export (`location_format_from-…_to-….xlsx`), Visma exports (`utskrift_visma_….xlsx`), and optionally `Prosjekt.xlsx`, `Kpier.xlsx`, `Nøkkeltall Visma …xlsx` and the planner workbook as one-time shortcuts.
+Sources read from files: the Venyou export (`location_format_from-…_to-….xlsx`), Visma exports (`utskrift_visma_….xlsx`), and optionally `Prosjekt.xlsx`, `Kpier.xlsx` and `Nøkkeltall Visma …xlsx` as one-time shortcuts.
 
 ## How it fits together
 
@@ -42,7 +42,7 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
   - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
   - `calendarRange.ts` – the Kalender's period follows the hall bookings.
   - `staffing.ts` – the rules of Bemanning: paid hours and overtime, when a person can work, painting and editing assignments, and the balance of demand and assigned hours per competence and day. `competences.ts` – the list of competences and their styles, and edits to people.
-- `src/import/` – file readers. `xlsx.ts` is a small own reader (cached values and comments only); ExcelJS fails on the planner workbook's tables.
+- `src/import/` – file readers. `xlsx.ts` is a small own reader (cached values and comments only).
 - `src/store/` – `db.ts` (Dexie/IndexedDB), `workspaceStore.tsx` (all mutations, each persisted and recorded for undo), `history.ts` (undo steps), `backup.ts`, `prefs.ts` (view preferences per browser, in localStorage).
 - `src/ui/` – one folder per tab. `kalender/Kalender.tsx` is a custom virtualized grid; `kalender/rows.ts` builds the row hierarchy from the chosen grouping, `kalender/strokes.ts` works out what the pencil, «Foreslå plan», the fill handle and a paste would write, and `kalender/GridRows.tsx` holds the lines of the grid as memoized components. They get the selection as plain values per line (`CellEdit`) and their handlers through `useStableActions`; keep it that way, or every line is drawn again on each scroll frame. What the tabs share is in `common.tsx` (undo buttons, message banner, merge-or-replace dialog), `files.ts`, `fields.tsx` and `ColumnHead.tsx` with `columnFilter.ts` (filters on a table's columns).
 - `src/styles/` – the style sheets, imported in this order by `main.tsx`: `tokens.css` (fonts, colours and text sizes, light and dark), `base.css` (controls, the shell, menus, dialogs), `tables.css` (the ledgers of the other tabs), `kalender.css`, `inspector.css` and `bemanning.css`. Each rule is written once; do not add a later rule that overrides an earlier one, change the rule.
@@ -64,10 +64,10 @@ Everything is stored in the browser (IndexedDB database `expo-planner`). There i
 
 ## Checking against the real files
 
-With `example_data/` present, the local-data tests verify the readers and that recalculated hours, daily need and available staffing match the workbook. To try the app in a browser without file dialogs, start the dev server and load a file through Vite's `/@fs/` path into the hidden file input (see the test notes in docs/TODO.md).
+With `example_data/` present, the local-data tests verify the readers of the Venyou, Visma and KPI files. To try the app in a browser without file dialogs, start the dev server and load a file through Vite's `/@fs/` path into the hidden file input (see the test notes in docs/TODO.md).
 
 ## Working with the user
 
 - Work on a branch, push it, and report. The user says "merge to main"; then fast-forward main, run the tests, push, and delete the branch locally and on GitHub.
 - The user tests in a clean state: Innstillinger → "Slett alt og start på nytt", then reads the sources in one by one.
-- Staffing lines: the absence from Bemanning is in the Kalender (2026-10-07). Lines typed in by hand (Innleid, trade crews, Admin) are deferred: the user will design a system for hired crew like Bemanning, covering the competence demand left after the permanent staff are assigned. Do not start on either until he asks.
+- Staffing lines: the absence from Bemanning is in the Kalender (2026-10-07). Lines typed in by hand (Innleid, trade crews, Admin) came with the workbook only and are removed with it (2026-10-08); the Kalender's staffing lines are «Faste» and the two worked out from Bemanning. A replacement is deferred: the user will design a system for hired crew like Bemanning, covering the competence demand left after the permanent staff are assigned. Do not start on either until he asks.

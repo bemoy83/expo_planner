@@ -17,9 +17,9 @@ const monthEnd = (date: ISODate): ISODate => {
 /**
  * The period the Kalender shows. It follows the hall bookings (the Venyou `location_format` data):
  * from the month of the first booking to the month of the last. It is widened where needed so that
- * today and anything already planned or staffed is never outside it.
+ * today and anything already planned is never outside it.
  */
-export const calendarRange = (workspace: Pick<Workspace, 'venue' | 'allocations' | 'capacity'>, today: ISODate): CalendarRange => {
+export const calendarRange = (workspace: Pick<Workspace, 'venue' | 'allocations'>, today: ISODate): CalendarRange => {
   let min = today
   let max = today
   const include = (date: ISODate) => {
@@ -36,9 +36,5 @@ export const calendarRange = (workspace: Pick<Workspace, 'venue' | 'allocations'
     }
   }
   for (const row of workspace.allocations) for (const date in row.fte) include(date)
-  for (const line of workspace.capacity) {
-    for (const date in line.values) include(date)
-    for (const date in line.hours ?? {}) include(date)
-  }
   return { start: monthStart(min), end: monthEnd(max) }
 }

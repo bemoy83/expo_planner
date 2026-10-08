@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS, type AllocationRow, type CapacityLine, type Workspace } from '../domain/types'
+import { DEFAULT_SETTINGS, type AllocationRow, type Workspace } from '../domain/types'
 import type { Assignment, DemandLine, Person, VismaImport } from '../domain/types'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordLedger, recordSettings, recordStaffing } from './history'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordLedger, recordSettings, recordStaffing } from './history'
 
 const row = (id: string, order: number, fte: Record<string, number> = {}): AllocationRow => ({
   id,
@@ -12,11 +12,9 @@ const row = (id: string, order: number, fte: Record<string, number> = {}): Alloc
   competence: 'FOGA',
   phase: 'Montering',
   basis: 'Planlagt',
-  importedHours: null,
   fte,
   notes: {},
 })
-const line = (values: Record<string, number>): CapacityLine => ({ id: 'hired', order: 0, label: 'Innleid (FTE)', group: 'added', values, notes: {} })
 
 const base: Workspace = {
   settings: DEFAULT_SETTINGS,
@@ -24,7 +22,6 @@ const base: Workspace = {
   projects: [],
   demand: [],
   allocations: [row('a', 0, { '2026-10-05': 2 }), row('b', 1)],
-  capacity: [line({})],
 }
 
 describe('undo history', () => {
@@ -60,16 +57,13 @@ describe('undo history', () => {
     expect(changeWrites(step, 'undo').deleteAllocations).toEqual(['c'])
   })
 
-  it('reverts staffing lines and settings', () => {
+  it('reverts settings', () => {
     const step = emptyChange()
-    const edited = line({ '2026-10-05': 4 })
     const settings = { ...DEFAULT_SETTINGS, baseCrew: 19 }
-    recordCapacity(step, base.capacity[0], edited)
     recordSettings(step, base.settings, settings)
-    const after: Workspace = { ...base, capacity: [edited], settings }
+    const after: Workspace = { ...base, settings }
 
     const undone = applyChange(after, step, 'undo')
-    expect(undone.capacity[0].values).toEqual({})
     expect(undone.settings.baseCrew).toBe(21)
     expect(applyChange(undone, step, 'redo').settings.baseCrew).toBe(19)
   })

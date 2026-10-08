@@ -95,8 +95,6 @@
 .top-section .section-head + .grid-row .cell{border-top-color:transparent}
 .lbl-cap{padding-left:18px}
 .lbl-cap.strong{font-weight:600}
-.lbl-cap.group-overtime{color:var(--overtime)}
-.lbl-cap.group-unavailable{color:var(--neg)}
 .cap-cell{color:var(--text)}
 .sum-cell{font-weight:600}
 /* Avvik as plain figures, with the heat map switched off */

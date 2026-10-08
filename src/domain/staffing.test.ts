@@ -1,7 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { loadStaffingFixture, withStaffingFixture } from './staffingFixture'
-import { readPlannerWorkbook } from '../import/plannerWorkbook'
 import { capacityForDate, dailyNeed, planningSettings } from './calc'
 import {
   ABSENCE_LINE_ID,
@@ -67,7 +65,7 @@ const HANNE = 'p8'
 const MONA = 'p13'
 const PER = 'p16'
 
-const empty: Workspace = { settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [], capacity: [] }
+const empty: Workspace = { settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [] }
 /** The fixture week: 20 people, six competences, week 42 of 2026. */
 let ws: Workspace
 beforeAll(async () => {
@@ -329,7 +327,7 @@ describe('editing blocks', () => {
 
 describe('balance', () => {
   it('reads the demand from the Kalender: FTE × hours per day, per competence', () => {
-    const row = (competence: string, fte: Record<string, number>) => ({ id: competence + Object.keys(fte)[0], order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering' as const, basis: 'Planlagt', importedHours: null, fte, notes: {} })
+    const row = (competence: string, fte: Record<string, number>) => ({ id: competence + Object.keys(fte)[0], order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering' as const, basis: 'Planlagt', fte, notes: {} })
     const small: Workspace = { ...empty, allocations: [row('FOGA', { [MON]: 2, [TUE]: 1 }), row(' foga', { [MON]: 0.5 }), row('Teppefliser', { [MON]: 3 }), row('', { [MON]: 9 })] }
     const balance = buildBalance(small, [MON, TUE])
     expect(balance.get('foga', MON).demand).toBe(18.75)
@@ -337,6 +335,12 @@ describe('balance', () => {
     expect(balance.get('teppefliser', MON).demand).toBe(22.5)
     expect(balance.get('teppefliser', TUE).demand).toBe(0)
     expect(balance.competences).toEqual(['foga', 'teppefliser'])
+    // Over the competences it adds up to the planned daily need in hours, for the rows that name a competence.
+    const need = dailyNeed(small.allocations.filter((r) => competenceKey(r.competence)))
+    for (const date of [MON, TUE]) {
+      const hours = balance.competences.reduce((sum, competence) => sum + balance.get(competence, date).demand, 0)
+      expect(hours).toBeCloseTo(need.get(date)! * small.settings.hoursPerDay, 6)
+    }
   })
 
   it('D15 has 7,5 hours of Teppefliser left on Monday', () => {
@@ -512,24 +516,6 @@ describe('carry', () => {
     const moved: Workspace = { ...ws, demandAdjustments: carry(ws, 'foga', FRI, 4, id) }
     expect(dayBalance(moved, 'foga', SAT).demand).toBe(4)
     expect(weekTotals(moved, WEEK).weekendOpen).toBe(weekTotals(ws, WEEK).weekendOpen + 4)
-  })
-})
-
-const WORKBOOK = 'example_data/Bemanning_Behov_24 måneder.xlsx'
-const available = existsSync(WORKBOOK)
-
-describe.skipIf(!available)('demand from the Kalender (local data)', () => {
-  it('adds up, over the competences, to the planned daily need in hours', () => {
-    const workspace = readPlannerWorkbook(new Uint8Array(readFileSync(WORKBOOK)), 'Bemanning_Behov_24 måneder.xlsx')
-    const need = dailyNeed(workspace.allocations.filter((row) => competenceKey(row.competence)))
-    const dates = [...need.keys()]
-    const balance = buildBalance(workspace, dates)
-    expect(dates.length).toBeGreaterThan(100)
-    expect(balance.competences.length).toBeGreaterThan(1)
-    for (const date of dates) {
-      const hours = balance.competences.reduce((sum, competence) => sum + balance.get(competence, date).demand, 0)
-      expect(hours).toBeCloseTo(need.get(date)! * workspace.settings.hoursPerDay, 6)
-    }
   })
 })
 

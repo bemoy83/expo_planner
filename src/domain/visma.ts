@@ -7,7 +7,6 @@ import {
   type LineOverride,
   type VismaImport,
   type VismaRow,
-  type Workspace,
 } from './types'
 
 /**
@@ -177,54 +176,5 @@ export const vismaDemandLines = (source: VismaImport, kpi: KpiConfig, overrides:
     origin: 'visma',
   }))
 
-/** True for ledger rows a Visma export for the project replaces: earlier exports, in the app or from the workbook. */
-export const isVismaLine = (line: DemandLine): boolean => line.origin === 'visma' || (!line.origin && line.source.trim().toLowerCase() === VISMA_SOURCE)
-
-/**
- * Carries the planner's decisions on the workbook's Visma rows over to the app the first time a project is imported:
- * Effekt, comments, rows relabelled «Planlagt», and work types assigned by hand to lines without a product type.
- */
-export const harvestOverrides = (legacy: DemandLine[], rows: VismaRow[], kpi: KpiConfig): Record<string, LineOverride> => {
-  const overrides: Record<string, LineOverride> = {}
-  const computed = buildVismaLines(rows, kpi, {})
-  const byKey = new Map(computed.map((line) => [line.key, line]))
-  for (const line of legacy.filter(isVismaLine)) {
-    let key = vismaLineKey(line.projectNo, line.avdeling ?? '', line.workType, line.hall)
-    const override: LineOverride = {}
-    if (!byKey.has(key)) {
-      // A line Visma has no product type for, which the planner gave a work type: same department, hall and quantity.
-      const unclassified = computed.find(
-        (c) => c.issue === 'no-product-type' && c.avdeling === (line.avdeling ?? '') && c.hall.toLowerCase() === line.hall.toLowerCase() && c.quantity === line.quantity,
-      )
-      if (!unclassified) continue
-      key = unclassified.key
-      override.workType = line.workType
-    }
-    if (line.effekt) override.effekt = line.effekt
-    if (line.comment) override.comment = line.comment
-    if (line.basis.trim().toLowerCase() === PLANNED_BASIS.toLowerCase()) override.inPlan = true
-    if (Object.keys(override).length) {
-      const target = byKey.get(key)!
-      overrides[key] = { ...overrides[key], ...override, ref: { avdeling: target.avdeling, workType: target.sourceWorkType, hall: target.hall } }
-    }
-  }
-  return overrides
-}
-
-/**
- * Puts the Visma exports held in the app back into a workspace, replacing whatever Visma rows it carries.
- * Used when the planner workbook is imported again, so newer exports and the planner's decisions are kept.
- */
-export const withVismaImports = (workspace: Workspace, kept: Pick<Workspace, 'kpi' | 'overrides' | 'visma'>): Workspace => {
-  const visma = kept.visma ?? []
-  const next = { ...workspace, kpi: kept.kpi, overrides: kept.overrides ?? {}, visma }
-  if (!visma.length) return next
-  const projects = new Set(visma.map((v) => v.projectNo))
-  return {
-    ...next,
-    demand: [
-      ...workspace.demand.filter((line) => !(projects.has(line.projectNo) && isVismaLine(line))),
-      ...visma.flatMap((v) => vismaDemandLines(v, kept.kpi ?? { workTypes: [], rates: [] }, next.overrides)),
-    ],
-  }
-}
+/** True for the ledger lines a Visma export for the project replaces: those of earlier exports. */
+export const isVismaLine = (line: DemandLine): boolean => line.origin === 'visma'

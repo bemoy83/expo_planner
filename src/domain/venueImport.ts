@@ -1,5 +1,5 @@
 import type { ISODate } from './dates'
-import { VENUE_PHASES, type VenueBooking, type VenueImportInfo, type Workspace } from './types'
+import { VENUE_PHASES, type VenueBooking } from './types'
 
 /** Ids of bookings that came from a Venyou export read into the app. */
 export const VENYOU_ID_PREFIX = 'venyou-'
@@ -94,11 +94,4 @@ export const diffVenue = (existing: VenueBooking[], incoming: VenueBooking[], wi
   for (const name of before.keys()) if (!after.has(name)) diff.removed.push(name)
   for (const list of [diff.added, diff.removed, diff.changed]) list.sort((a, b) => a.localeCompare(b, 'nb'))
   return diff
-}
-
-/** Keeps a Venyou export read into the app when the planner workbook is imported again. */
-export const withVenueImport = (workspace: Workspace, kept: { venue: VenueBooking[]; venueImport?: VenueImportInfo }): Workspace => {
-  if (!kept.venueImport) return workspace
-  const window = { from: kept.venueImport.from, to: kept.venueImport.to }
-  return { ...workspace, venueImport: kept.venueImport, venue: mergeVenue(workspace.venue, kept.venue.filter((b) => b.id.startsWith(VENYOU_ID_PREFIX) && inWindow(b, window)), window) }
 }

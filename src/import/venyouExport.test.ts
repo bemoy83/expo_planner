@@ -1,17 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import type { VenueBooking } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue } from '../domain/venueImport'
-import { readPlannerWorkbook } from './plannerWorkbook'
 import { readVenyouExport } from './venyouExport'
 
 /** Runs against the real export, which is kept out of the repository; skipped where it is missing. */
 const EXPORT = 'location_format_from-2026-01-01_to-2026-12-31.xlsx'
-const PLANNER = 'example_data/Bemanning_Behov_24 måneder.xlsx'
-const available = existsSync(`example_data/${EXPORT}`) && existsSync(PLANNER)
+const available = existsSync(`example_data/${EXPORT}`)
 
 describe.skipIf(!available)('Venyou export (local data)', () => {
   const bookings = available ? readVenyouExport(new Uint8Array(readFileSync(`example_data/${EXPORT}`))) : []
-  const workbook = available ? readPlannerWorkbook(new Uint8Array(readFileSync(PLANNER)), 'x').venue : []
 
   it('reads every hall booking with its phase dates', () => {
     expect(bookings).toHaveLength(493)
@@ -22,10 +20,12 @@ describe.skipIf(!available)('Venyou export (local data)', () => {
 
   it('replaces the 2026 bookings and keeps other years', () => {
     const window = exportWindow(EXPORT, bookings)!
-    const merged = mergeVenue(workbook, bookings, window)
-    const diff = diffVenue(workbook, bookings, window)
-    expect(diff.unchanged).toBeGreaterThan(100)
+    // An export speaks for the statuses it holds, so the bookings held from before carry one of them.
+    const held = (id: string, year: number): VenueBooking => ({ id, hall: 'C', eventName: `Testmesse ${year}`, status: bookings[0].status, phases: { event: { start: `${year}-04-10`, end: `${year}-04-12` } } })
+    const before = [held('old-2025', 2025), held('old-2026', 2026), held('old-2027', 2027)]
+    const merged = mergeVenue(before, bookings, window)
+    expect(diffVenue(before, bookings, window).removed).toContain('Testmesse 2026')
     expect(merged.filter((b) => b.id.startsWith('venyou-'))).toHaveLength(493)
-    expect(merged.length).toBeGreaterThan(493)
+    expect(merged.filter((b) => !b.id.startsWith('venyou-')).map((b) => b.id)).toEqual(['old-2025', 'old-2027'])
   })
 })

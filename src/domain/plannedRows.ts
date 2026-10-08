@@ -52,7 +52,6 @@ export const suggestedRows = (demand: DemandLine[], allocations: AllocationRow[]
         basis: PLANNED_BASIS,
         hall: line.hall.trim(),
         avdeling: (line.avdeling ?? '').trim(),
-        importedHours: null,
         fte: {},
         notes: {},
       }

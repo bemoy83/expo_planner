@@ -2,8 +2,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type CapacityLine, type DayValues, type Settings } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
-import { BaseCrewRow, FromBemanningRow, CapRow, HallRow, SumRows } from './GridRows'
-import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
+import { BaseCrewRow, FromBemanningRow, HallRow, SumRows } from './GridRows'
+import type { Columns } from './gridTypes'
 import { LEFT_W, ROW_H } from './layout'
 import type { useHallCalendar } from './useHallCalendar'
 
@@ -61,13 +61,9 @@ interface StaffingSectionProps {
   onOpen: (open: boolean) => void
   detailsOpen: boolean
   onDetailsOpen: (open: boolean) => void
-  capLanes: CapLane[]
-  /** What a staffing line is told about the selection. */
-  editOf: (lane: number) => CellEdit
   cols: Columns
-  actions: GridActions
   need: Map<ISODate, number>
-  /** The staffing lines with those from Bemanning among them. */
+  /** The staffing lines beside «Faste»: those from Bemanning. */
   capacity: CapacityLine[]
   /** The lines that come from Bemanning, in FTE per day; none until people are entered on Personell. */
   fromBemanning: { label: string; title: string; values: DayValues }[]
@@ -77,7 +73,7 @@ interface StaffingSectionProps {
 }
 
 /** Bemanning is framed as the hall calendar is; its heading always has the Avvik line under it. */
-export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, capLanes, editOf, cols, actions, need, capacity, fromBemanning, settings, heat, heatMax }: StaffingSectionProps) {
+export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols, need, capacity, fromBemanning, settings, heat, heatMax }: StaffingSectionProps) {
   return (
     <div className="top-section staffing open">
       <div className="section-head" style={{ width: LEFT_W }}>
@@ -98,9 +94,6 @@ export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, capL
           <BaseCrewRow cols={cols} baseCrew={settings.baseCrew} />
           {fromBemanning.map((line) => (
             <FromBemanningRow key={line.label} cols={cols} {...line} />
-          ))}
-          {capLanes.map((cap, lane) => (
-            <CapRow key={`cap:${cap.line.id}:${cap.field}`} cap={cap} lane={lane} cols={cols} actions={actions} {...editOf(lane)} />
           ))}
         </>
       )}

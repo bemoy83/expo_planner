@@ -30,9 +30,13 @@ export const parseBackup = (json: string): Workspace => {
   const backup = data as Partial<Backup>
   if (backup?.format !== FORMAT) throw new Error('Filen er ikke en Expo Planner-sikkerhetskopi.')
   if (backup.version !== VERSION) throw new Error(`Ukjent versjon av sikkerhetskopien (${backup.version}).`)
-  const ws = backup.workspace as Partial<Workspace> | undefined
-  if (!ws?.settings || !isArray(ws.venue) || !isArray(ws.projects) || !isArray(ws.demand) || !isArray(ws.allocations) || !isArray(ws.capacity)) {
+  const { capacity, importedFrom, ...ws } = (backup.workspace ?? {}) as Partial<Workspace> & { capacity?: unknown; importedFrom?: unknown }
+  if (!ws.settings || !isArray(ws.venue) || !isArray(ws.projects) || !isArray(ws.demand) || !isArray(ws.allocations)) {
     throw new Error('Sikkerhetskopien mangler data.')
+  }
+  // The app no longer reads the planner workbook, and does not take in what came from it: staffing lines typed in by hand and demand lines without an origin.
+  if (importedFrom || (isArray(capacity) && capacity.length) || ws.demand.some((line) => !line.origin)) {
+    throw new Error('Sikkerhetskopien er laget fra planleggingsarbeidsboken og kan ikke gjenopprettes. Start på nytt og les inn kildene fra Venyou og Visma.')
   }
   // A backup made before a setting existed gets its default.
   return { ...(ws as Workspace), settings: withSettingsDefaults(ws.settings) }

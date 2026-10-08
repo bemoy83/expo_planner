@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { followLanes, type LaneKey, type Selection } from './selection'
 
 const keys = (...ids: string[]): LaneKey[] => ids.map((id) => ({ id, scope: id.startsWith('level:') ? undefined : `scope-${id}` }))
-const sel = (anchor: number, focus: number, section: Selection['section'] = 'alloc'): Selection => ({ section, anchor: { lane: anchor, col: 3 }, focus: { lane: focus, col: 5 } })
+const sel = (anchor: number, focus: number): Selection => ({ anchor: { lane: anchor, col: 3 }, focus: { lane: focus, col: 5 } })
 
 describe('followLanes', () => {
   it('is the same selection when its lines stand where they stood', () => {
@@ -12,7 +12,7 @@ describe('followLanes', () => {
 
   it('follows its lines when they move in the list, keeping the days', () => {
     // The project of a and b moves below c when it gets its first planned day.
-    expect(followLanes(sel(0, 1), keys('a', 'b', 'c'), keys('c', 'a', 'b'))).toEqual({ section: 'alloc', anchor: { lane: 1, col: 3 }, focus: { lane: 2, col: 5 } })
+    expect(followLanes(sel(0, 1), keys('a', 'b', 'c'), keys('c', 'a', 'b'))).toEqual({ anchor: { lane: 1, col: 3 }, focus: { lane: 2, col: 5 } })
   })
 
   it('follows a suggested row that became a stored row with a new id', () => {
@@ -33,10 +33,5 @@ describe('followLanes', () => {
   it('is let go of when the line in focus is gone, and gathered on it when the line it started on is gone', () => {
     expect(followLanes(sel(0, 1), keys('a', 'b'), keys('a'))).toBeNull()
     expect(followLanes(sel(0, 1), keys('a', 'b'), keys('c', 'b'))).toMatchObject({ anchor: { lane: 1, col: 3 }, focus: { lane: 1, col: 5 } })
-  })
-
-  it('leaves a selection in the staffing lines alone', () => {
-    const s = sel(0, 1, 'cap')
-    expect(followLanes(s, keys('a', 'b'), keys('b'))).toBe(s)
   })
 })

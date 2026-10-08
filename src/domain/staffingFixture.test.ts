@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { competenceKey, DEFAULT_SETTINGS, type Workspace } from './types'
 import { loadStaffingFixture, withStaffingFixture } from './staffingFixture'
 
-const empty: Workspace = { settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [], capacity: [] }
+const empty: Workspace = { settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [] }
 
 describe('staffing fixture', () => {
   it('holds 20 people whose competences all have a style', async () => {

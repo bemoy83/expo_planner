@@ -4,12 +4,11 @@ import { addDays, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/d
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
-import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
+import type { CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
-import type { Section } from './selection'
 import { ChevronDown, ChevronRight, Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
@@ -49,13 +48,12 @@ interface ValueCell {
   cols: Columns
   edit: CellEdit
   actions: GridActions
-  section: Section
   lane: number
   /** A right-click on the cell opens the cell menu. */
   menu?: boolean
 }
 
-const valueCell = ({ cols, edit, actions, section, lane, menu }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
+const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
   const focus = edit.focusCol === col
   const selected = col >= edit.selFrom && col <= edit.selTo
   // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
@@ -68,8 +66,8 @@ const valueCell = ({ cols, edit, actions, section, lane, menu }: ValueCell, date
       className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined ? edit.ghostClass : ''}`}
       style={{ width: cols.colW }}
       title={note}
-      onMouseDown={(e) => actions.cellDown(section, lane, col, e)}
-      onMouseEnter={() => actions.cellEnter(section, lane, col)}
+      onMouseDown={(e) => actions.cellDown(lane, col, e)}
+      onMouseEnter={() => actions.cellEnter(lane, col)}
       onDoubleClick={() => actions.editCell(value)}
       onContextMenu={menu ? (e) => actions.cellMenu(lane, col, e) : undefined}
     >
@@ -84,7 +82,7 @@ const valueCell = ({ cols, edit, actions, section, lane, menu }: ValueCell, date
         <span
           className="fill-handle"
           title="Dra sidelengs for å kopiere til flere dager, eller tilbake for å tømme. Hold Alt for å strekke: samme sum fordelt på nytt over dagene."
-          onMouseDown={(e) => actions.fillDown(section, e)}
+          onMouseDown={(e) => actions.fillDown(e)}
         />
       )}
     </div>
@@ -229,26 +227,6 @@ export const FromBemanningRow = memo(function FromBemanningRow({ cols, label, ti
   )
 })
 
-interface CapRowProps extends CellEdit {
-  cap: CapLane
-  lane: number
-  cols: Columns
-  actions: GridActions
-}
-
-/** One staffing line that takes numbers. */
-export const CapRow = memo(function CapRow({ cap, lane, cols, actions, ...edit }: CapRowProps) {
-  const cell: ValueCell = { cols, edit, actions, section: 'cap', lane }
-  return (
-    <Line
-      className={`cap-row group-${cap.line.group}`}
-      label={<span className={`lbl-cap group-${cap.line.group}`}>{cap.label}</span>}
-      cols={cols}
-      cells={(date, col) => valueCell(cell, date, col, cap.line[cap.field]?.[date], cap.field === 'values' ? cap.line.notes[date] : undefined, 'cap-cell')}
-    />
-  )
-})
-
 interface SumRowsProps {
   cols: Columns
   need: Map<ISODate, number>
@@ -353,7 +331,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
   const { node } = item
   const project = node.project
   const delta = node.totals.plannedFte - node.totals.requiredFte
-  const cell: ValueCell = { cols, edit, actions, section: 'alloc', lane }
+  const cell: ValueCell = { cols, edit, actions, lane }
   // What the strip shows on a day: the hall phase on a project's line, else the work phase of a folded level.
   const stripOn = (date: ISODate): string | null => {
     const hallPhase = phases?.get(date)
@@ -466,7 +444,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
   const phaseDays = r.phase === 'Demontering' ? 'demonteringsdagene' : 'monteringsdagene'
   const outside = window?.size ? Object.keys(r.fte).filter((date) => r.fte[date] && !window.has(date)) : []
   const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
-  const cell: ValueCell = { cols, edit, actions, section: 'alloc', lane, menu: true }
+  const cell: ValueCell = { cols, edit, actions, lane, menu: true }
   const remaining = (totals.requiredFte ?? 0) - totals.plannedFte
   return (
     <Line

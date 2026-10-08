@@ -1,8 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from 'react'
 import type { ISODate } from '../../domain/dates'
-import type { AllocationRow, CapacityLine } from '../../domain/types'
+import type { AllocationRow } from '../../domain/types'
 import type { GroupNode } from './rows'
-import type { Section } from './selection'
 
 /** The day columns that are drawn: the visible ones and a few to each side. */
 export interface Columns {
@@ -43,17 +42,10 @@ export interface AllocLane {
   node?: GroupNode
 }
 
-/** A staffing line as the grid shows it: overtime has one line for people and one for hours. */
-export interface CapLane {
-  line: CapacityLine
-  field: 'values' | 'hours'
-  label: string
-}
-
 /** What rows and cells ask the grid to do. The object stays the same for the life of the grid. */
 export interface GridActions {
-  cellDown: (section: Section, lane: number, col: number, e: MouseEvent) => void
-  cellEnter: (section: Section, lane: number, col: number) => void
+  cellDown: (lane: number, col: number, e: MouseEvent) => void
+  cellEnter: (lane: number, col: number) => void
   /** A right-click on a planning row's cell. */
   cellMenu: (lane: number, col: number, e: MouseEvent) => void
   /** A click on a planning row's label. */
@@ -62,7 +54,7 @@ export interface GridActions {
   setDraft: (text: string) => void
   commitDraft: () => void
   draftKey: (e: KeyboardEvent) => void
-  fillDown: (section: Section, e: MouseEvent) => void
+  fillDown: (e: MouseEvent) => void
   /** A click on the name of a project that is in the hall calendar. */
   showProject: (key: string) => void
   /** A click on a project's bar in the hall calendar: the rows scroll to the project. */

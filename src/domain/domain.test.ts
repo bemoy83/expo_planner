@@ -81,7 +81,6 @@ const row = (overrides: Partial<AllocationRow>): AllocationRow => ({
   competence: 'FOGA',
   phase: 'Montering',
   basis: 'Historikk Antall',
-  importedHours: null,
   fte: {},
   notes: {},
   ...overrides,
@@ -136,9 +135,9 @@ describe('required hours', () => {
 
 describe('capacity', () => {
   const lines: CapacityLine[] = [
-    { id: 'a', order: 0, label: 'Innleid (FTE)', group: 'added', values: { '2026-01-05': 3, '2026-01-03': 2 }, notes: {} },
-    { id: 'o', order: 1, label: 'Overtid faste', group: 'overtime', values: { '2026-01-05': 4 }, hours: { '2026-01-05': 3.75 }, notes: {} },
-    { id: 'u', order: 2, label: 'Admin (FTE)', group: 'unavailable', values: { '2026-01-05': 1.5 }, notes: {} },
+    { id: 'a', label: 'Innleid (FTE)', group: 'added', values: { '2026-01-05': 3, '2026-01-03': 2 } },
+    { id: 'o', label: 'Overtid faste', group: 'overtime', values: { '2026-01-05': 4 }, hours: { '2026-01-05': 3.75 } },
+    { id: 'u', label: 'Admin (FTE)', group: 'unavailable', values: { '2026-01-05': 1.5 } },
   ]
 
   it('adds the base crew only on workdays', () => {

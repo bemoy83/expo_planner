@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
-import { type AllocationRow, type CapacityLine, type DemandLine, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
+import { type AllocationRow, type DemandLine, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
@@ -9,11 +9,11 @@ import { locateDemand, withAlias } from '../domain/locations'
 import { competenceStyles, replaceCompetence, supersededCompetences } from '../domain/competences'
 import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
-import { harvestOverrides, isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putCapacityLine, putSettings, putEventLinks, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { isVismaLine, vismaDemandLines } from '../domain/visma'
+import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putEventLinks, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
 import { writeQueue } from './writeQueue'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordCapacity, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -32,10 +32,9 @@ interface WorkspaceStore {
   /** Types FTE into a row suggested from planned demand, which turns it into an ordinary planning row. */
   setSuggestedFte: (suggested: AllocationRow, date: ISODate, value: number | null) => void
   setAllocationNote: (rowId: string, date: ISODate, note: string) => void
-  addAllocation: (row: Omit<AllocationRow, 'id' | 'order' | 'fte' | 'notes' | 'importedHours'>) => AllocationRow
+  addAllocation: (row: Omit<AllocationRow, 'id' | 'order' | 'fte' | 'notes'>) => AllocationRow
   updateAllocation: (row: AllocationRow) => void
   removeAllocation: (rowId: string) => void
-  setCapacityValue: (lineId: string, date: ISODate, field: 'values' | 'hours', value: number | null) => void
   updateSettings: (settings: Settings) => void
   /** Takes in a Venyou export: hall bookings in the export's period are replaced, the rest are kept. */
   importVenue: (bookings: VenueBooking[], fileName: string) => VenueDiff & { from: string; to: string }
@@ -183,10 +182,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       syncHistorySize()
       const writes = changeWrites(step, direction)
       track(() =>
-        db.transaction('rw', [db.allocations, db.capacity, db.meta, db.demand, db.visma, ...STAFFING_TABLES()], async () => {
+        db.transaction('rw', [db.allocations, db.meta, db.demand, db.visma, ...STAFFING_TABLES()], async () => {
           await db.allocations.bulkPut(writes.putAllocations)
           await db.allocations.bulkDelete(writes.deleteAllocations)
-          await db.capacity.bulkPut(writes.putCapacity)
           if (writes.settings) await putSettings(writes.settings)
           await db.demand.bulkDelete(writes.deleteDemand)
           await db.demand.bulkPut(writes.putDemand)
@@ -280,7 +278,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         ...fields,
         id: `row-${crypto.randomUUID()}`,
         order: Math.max(-1, ...ws.allocations.map((r) => r.order)) + 1,
-        importedHours: null,
         fte: {},
         notes: {},
       }
@@ -298,17 +295,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const row = ws?.allocations.find((r) => r.id === rowId)
       if (!ws || !row) return
       commit({ ...ws, allocations: ws.allocations.filter((r) => r.id !== rowId) }, () => (rowWrites.drop(rowId), deleteAllocation(rowId)), (step) => recordAllocation(step, rowId, row, null))
-    },
-    [commit],
-  )
-
-  const setCapacityValue = useCallback(
-    (lineId: string, date: ISODate, field: 'values' | 'hours', value: number | null) => {
-      const ws = current.current
-      const line = ws?.capacity.find((l) => l.id === lineId)
-      if (!ws || !line || sameDay(line[field] ?? {}, date, value)) return
-      const updated: CapacityLine = { ...line, [field]: withDay(line[field] ?? {}, date, value) }
-      commit({ ...ws, capacity: ws.capacity.map((l) => (l.id === lineId ? updated : l)) }, () => putCapacityLine(updated), (step) => recordCapacity(step, line, updated))
     },
     [commit],
   )
@@ -454,12 +440,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       for (const row of rows) byProject.set(row.projectNo, [...(byProject.get(row.projectNo) ?? []), row])
       const importedAt = new Date().toISOString()
       const imports: VismaImport[] = [...byProject].map(([projectNo, projectRows]) => ({ projectNo, eventName: projectRows[0].eventName, fileName, importedAt, rows: projectRows }))
-      let overrides = ws.overrides ?? {}
-      for (const item of imports) {
-        // First export for a project in the app: bring along the edits made to its Visma rows in the workbook.
-        const first = !(ws.visma ?? []).some((v) => v.projectNo === item.projectNo)
-        if (first) overrides = { ...harvestOverrides(ws.demand.filter((line) => line.projectNo === item.projectNo), item.rows, kpi), ...overrides }
-      }
+      const overrides = ws.overrides ?? {}
       const visma = [...(ws.visma ?? []).filter((v) => !byProject.has(v.projectNo)), ...imports]
       const { demand, write } = withVismaLines(ws, [...byProject.keys()], kpi, overrides, visma)
       commitDemand({ ...ws, visma, overrides, demand }, { ...write, overrides, visma: imports })
@@ -568,7 +549,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       addAllocation,
       updateAllocation,
       removeAllocation,
-      setCapacityValue,
       updateSettings,
       importVenue,
       setEventProject,
@@ -588,7 +568,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, setCapacityValue, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>

@@ -8,8 +8,6 @@ export interface Settings {
   baseCrew: number
   /** Hours in one FTE-day (`normaltid`). */
   hoursPerDay: number
-  absenceRate: number
-  overheadRate: number
   /** The hours of a normal day, used by Bemanning. */
   workday: WorkdaySettings
 }
@@ -49,8 +47,6 @@ export const DEFAULT_WORKDAY: WorkdaySettings = {
 export const DEFAULT_SETTINGS: Settings = {
   baseCrew: 21,
   hoursPerDay: 7.5,
-  absenceRate: 0.05,
-  overheadRate: 0.1,
   workday: DEFAULT_WORKDAY,
 }
 
@@ -113,7 +109,7 @@ export interface DemandLine {
   avdeling?: string
   /** Share of the calculated hours to leave out: 1 removes the line's hours, negative adds. */
   effekt?: number
-  /** Where the line comes from. Unset for rows that came with the planner workbook. */
+  /** Where the line comes from: a Visma export, or the planner. */
   origin?: 'visma' | 'manual'
 }
 
@@ -133,25 +129,21 @@ export interface AllocationRow {
   hall?: string
   /** The Visma department whose demand the row covers. Unset covers every department; empty is demand without one. */
   avdeling?: string
-  /** Hours the workbook showed at import, kept for comparison. */
-  importedHours: number | null
   fte: DayValues
   notes: Record<ISODate, string>
 }
 
 export type CapacityGroup = 'added' | 'overtime' | 'unavailable'
 
-/** A manually entered staffing line, such as hired help, a trade crew, overtime or absence. */
+/** A staffing line of the Kalender beside «Faste». The lines are worked out from Bemanning (absence, overtime), never stored. */
 export interface CapacityLine {
   id: string
-  order: number
   label: string
   group: CapacityGroup
   /** FTE per day, or for overtime the number of people. */
   values: DayValues
   /** Overtime only: hours per person per day. */
   hours?: DayValues
-  notes: Record<ISODate, string>
 }
 
 /** One booking line of a Visma export (`utskrift_visma`). */
@@ -296,7 +288,6 @@ export interface Workspace {
   projects: ProjectRef[]
   demand: DemandLine[]
   allocations: AllocationRow[]
-  capacity: CapacityLine[]
   /** Project numbers set by hand for Venyou events, keyed by `eventKey`. */
   eventLinks?: Record<string, string>
   /** Halls chosen by hand for Hall/Sted texts, keyed by `aliasKey`. One choice places every line with that text. */
@@ -310,7 +301,6 @@ export interface Workspace {
   kpi?: KpiConfig
   /** Keyed by Visma line key, see `vismaLineKey`. */
   overrides?: Record<string, LineOverride>
-  importedFrom?: { fileName: string; importedAt: string }
   persons?: Person[]
   unavailability?: Unavailability[]
   assignments?: Assignment[]

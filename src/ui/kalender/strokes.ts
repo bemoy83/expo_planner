@@ -6,11 +6,11 @@ import { fillAcross, shareOverDays } from '../../domain/spread'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import { parseCellInput } from './layout'
-import { rangeOf, type Fill, type FillCell, type Section, type Selection } from './selection'
+import { rangeOf, type Fill, type FillCell, type Selection } from './selection'
 
 /** What the grid's tools would write, worked out from the selection and the rows: no state and no storage here. */
 
-type GetValue = (section: Section, lane: number, date: ISODate) => number | undefined
+type GetValue = (lane: number, date: ISODate) => number | undefined
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 const days = (n: number) => count(n, 'dag', 'dager')
@@ -38,7 +38,7 @@ export interface PencilStroke {
  * day. Weekends and holidays inside the span are left as they are, unless the span has no working day at all.
  */
 export const pencilStroke = (sel: Selection | null, dates: ISODate[], allocLanes: AllocLane[], demandIndex: DemandIndex, settings: Settings): PencilStroke | null => {
-  if (!sel || sel.section !== 'alloc') return null
+  if (!sel) return null
   const { lane0, lane1, col0, col1 } = rangeOf(sel)
   const target = workTarget(dates.slice(col0, col1 + 1))
   const lanes: PencilStroke['lanes'] = []
@@ -129,13 +129,13 @@ export const fillPreview = (fill: Fill | null, dates: ISODate[], getValue: GetVa
   const workdays = span.map((date) => dayType(date) === 'arbeidsdag')
   for (let lane = fill.lane0; lane <= fill.lane1; lane++) {
     const result = fillAcross({
-      values: span.map((date) => getValue(fill.section, lane, date)),
+      values: span.map((date) => getValue(lane, date)),
       workdays,
       sourceLength: fill.col1 - fill.col0 + 1,
       length: fill.toCol - fill.col0 + 1,
       mode: fill.stretch ? 'stretch' : 'copy',
     })
-    result.forEach((value, i) => value !== undefined && cells.push({ section: fill.section, lane, date: span[i], value }))
+    result.forEach((value, i) => value !== undefined && cells.push({ lane, date: span[i], value }))
   }
   return cells
 }
@@ -158,22 +158,21 @@ export const fillProgress = (fill: Fill, cells: FillCell[]): string => {
   return cleared ? `Tømmer ${days(cleared)}` : 'Dra sidelengs for å fylle · hold Alt for å strekke'
 }
 
-/** What the cells of each line would hold if the stroke or the drag ended now, keyed by `section|lane`. */
-export const ghostCells = (preview: PencilStroke | null, erasing: Selection | null, dates: ISODate[], fillCells: FillCell[]): Map<string, Map<ISODate, number>> => {
-  const lanes = new Map<string, Map<ISODate, number>>()
-  const set = (section: Section, lane: number, date: ISODate, value: number) => {
-    const key = `${section}|${lane}`
-    let cells = lanes.get(key)
-    if (!cells) lanes.set(key, (cells = new Map()))
+/** What the cells of each line would hold if the stroke or the drag ended now, keyed by lane. */
+export const ghostCells = (preview: PencilStroke | null, erasing: Selection | null, dates: ISODate[], fillCells: FillCell[]): Map<number, Map<ISODate, number>> => {
+  const lanes = new Map<number, Map<ISODate, number>>()
+  const set = (lane: number, date: ISODate, value: number) => {
+    let cells = lanes.get(lane)
+    if (!cells) lanes.set(lane, (cells = new Map()))
     cells.set(date, value)
   }
-  for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => set('alloc', lane, date, parts[i]))
+  for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => set(lane, date, parts[i]))
   // An eraser stroke shows the cells it is about to clear as empty.
-  if (erasing?.section === 'alloc') {
+  if (erasing) {
     const { lane0, lane1, col0, col1 } = rangeOf(erasing)
-    for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) set('alloc', lane, dates[col], 0)
+    for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) set(lane, dates[col], 0)
   }
-  for (const cell of fillCells) set(cell.section, cell.lane, cell.date, cell.value ?? 0)
+  for (const cell of fillCells) set(cell.lane, cell.date, cell.value ?? 0)
   return lanes
 }
 
@@ -195,7 +194,7 @@ export const overbookedDays = (
     const { row, node } = allocLanes[lane] ?? {}
     preview!.target.forEach((date, i) => drawn.set(date, (drawn.get(date) ?? 0) + parts[i] - ((node ? node.daily.get(date) : row?.fte[date]) ?? 0)))
   }
-  for (const cell of fillCells) if (cell.section === 'alloc') drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue('alloc', cell.lane, cell.date) ?? 0))
+  for (const cell of fillCells) drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue(cell.lane, cell.date) ?? 0))
   const result = new Map<ISODate, { need: number; available: number }>()
   for (const date of new Set([...need.keys(), ...drawn.keys()])) {
     const planned = (need.get(date) ?? 0) + (drawn.get(date) ?? 0)
@@ -212,7 +211,7 @@ export const copyText = (sel: Selection, dates: ISODate[], getValue: GetValue): 
   for (let lane = lane0; lane <= lane1; lane++) {
     const cells: string[] = []
     for (let col = col0; col <= col1; col++) {
-      const value = getValue(sel.section, lane, dates[col])
+      const value = getValue(lane, dates[col])
       cells.push(value === undefined ? '' : decimalText(value))
     }
     lines.push(cells.join('\t'))

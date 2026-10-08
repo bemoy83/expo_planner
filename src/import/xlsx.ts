@@ -2,8 +2,8 @@ import { strFromU8, unzipSync } from 'fflate'
 
 /**
  * Minimal .xlsx reader: cached cell values and cell notes only.
- * The planner workbook trips up general-purpose libraries (ExcelJS fails on its tables),
- * and the app never needs formulas or styles, so a small reader is simpler and faster.
+ * The app never needs formulas or styles, so a small reader is simpler and faster than a
+ * general-purpose library.
  */
 
 export type CellValue = string | number | boolean | null

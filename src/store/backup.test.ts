@@ -8,7 +8,6 @@ const workspace: Workspace = {
   projects: [{ name: 'VVS 2026', projectNo: '26970' }],
   demand: [],
   allocations: [],
-  capacity: [],
 }
 
 describe('backup', () => {
@@ -32,6 +31,20 @@ describe('backup', () => {
     const { workday: _workday, ...old } = DEFAULT_SETTINGS
     const restored = parseBackup(JSON.stringify(toBackup({ ...workspace, settings: old as Workspace['settings'] })))
     expect(restored.settings.workday).toEqual(DEFAULT_SETTINGS.workday)
+  })
+
+  it('takes a backup from when the workspace had typed staffing lines, as long as it has none', () => {
+    const old = { ...toBackup(workspace), workspace: { ...workspace, capacity: [] } }
+    expect(parseBackup(JSON.stringify(old))).toEqual(workspace)
+  })
+
+  it('refuses a backup made from the planner workbook', () => {
+    const refused = (extra: object) => () => parseBackup(JSON.stringify({ ...toBackup(workspace), workspace: { ...workspace, ...extra } }))
+    const line = { id: 'l', projectNo: '26970', source: 'Opptelling/hallkart' }
+    expect(refused({ importedFrom: { fileName: 'x.xlsx', importedAt: '2026-10-01T08:00:00Z' } })).toThrow('planleggingsarbeidsboken')
+    expect(refused({ capacity: [{ id: 'hired', label: 'Innleid (FTE)', group: 'added', values: {} }] })).toThrow('planleggingsarbeidsboken')
+    expect(refused({ demand: [line] })).toThrow('planleggingsarbeidsboken')
+    expect(refused({ demand: [{ ...line, origin: 'manual' }] })).not.toThrow()
   })
 
   it('rejects files that are not backups', () => {

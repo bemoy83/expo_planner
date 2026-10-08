@@ -30,7 +30,6 @@ const realRow = (overrides: Partial<AllocationRow>): AllocationRow => ({
   competence: 'Teppefliser',
   phase: 'Montering',
   basis: 'Planlagt',
-  importedHours: null,
   fte: {},
   notes: {},
   ...overrides,

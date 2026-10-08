@@ -1,8 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie'
-import { withSettingsDefaults, type AllocationRow, type Assignment, type CapacityLine, type CompetenceStyle, type DemandAdjustment, type DemandLine, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
+import { withSettingsDefaults, type AllocationRow, type Assignment, type CompetenceStyle, type DemandAdjustment, type DemandLine, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
 
 interface MetaRecord {
-  key: 'settings' | 'importedFrom' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue' | 'eventLinks' | 'hallAliases' | 'competenceStyles'
+  key: 'settings' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue' | 'eventLinks' | 'hallAliases' | 'competenceStyles'
   value: unknown
 }
 
@@ -15,7 +15,6 @@ class PlannerDb extends Dexie {
   projects!: EntityTable<ProjectRecord, 'id'>
   demand!: EntityTable<DemandLine, 'id'>
   allocations!: EntityTable<AllocationRow, 'id'>
-  capacity!: EntityTable<CapacityLine, 'id'>
   visma!: EntityTable<VismaImport, 'projectNo'>
   persons!: EntityTable<Person, 'id'>
   unavailability!: EntityTable<Unavailability, 'id'>
@@ -34,6 +33,8 @@ class PlannerDb extends Dexie {
     })
     this.version(2).stores({ visma: 'projectNo' })
     this.version(3).stores({ persons: 'id', unavailability: 'id, personId, date', assignments: 'id, personId, date', demandAdjustments: 'id, date' })
+    // The staffing lines typed in by hand came with the planner workbook only; their table is dropped.
+    this.version(4).stores({ capacity: null })
   }
 }
 
@@ -42,13 +43,12 @@ export const db = new PlannerDb()
 /** The tables of Bemanning: people, their absence and assignments, and hours moved between days. */
 export const STAFFING_TABLES = () => [db.persons, db.unavailability, db.assignments, db.demandAdjustments]
 
-const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations, db.capacity, db.visma, ...STAFFING_TABLES()]
+const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations, db.visma, ...STAFFING_TABLES()]
 
 export const loadWorkspace = async (): Promise<Workspace | null> => {
   const settings = await db.meta.get('settings')
   if (!settings) return null
-  const [importedFrom, eventLinks, hallAliases, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, capacity, persons, unavailability, assignments, demandAdjustments] = await Promise.all([
-    db.meta.get('importedFrom'),
+  const [eventLinks, hallAliases, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, persons, unavailability, assignments, demandAdjustments] = await Promise.all([
     db.meta.get('eventLinks'),
     db.meta.get('hallAliases'),
     db.meta.get('hiddenVenue'),
@@ -61,7 +61,6 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     db.projects.toArray(),
     db.demand.toArray(),
     db.allocations.toArray(),
-    db.capacity.toArray(),
     db.persons.toArray(),
     db.unavailability.toArray(),
     db.assignments.toArray(),
@@ -69,7 +68,6 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
   ])
   return {
     settings: withSettingsDefaults(settings.value as Partial<Settings>),
-    importedFrom: importedFrom?.value as Workspace['importedFrom'],
     venueImport: venueImport?.value as VenueImportInfo | undefined,
     hiddenVenue: (hiddenVenue?.value as Record<string, true> | undefined) ?? {},
     eventLinks: (eventLinks?.value as Record<string, string> | undefined) ?? {},
@@ -81,7 +79,6 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     projects: projects.map(({ name, projectNo }) => ({ name, projectNo })),
     demand,
     allocations: allocations.sort((a, b) => a.order - b.order),
-    capacity: capacity.sort((a, b) => a.order - b.order),
     persons: persons.sort((a, b) => a.order - b.order),
     unavailability,
     assignments,
@@ -96,7 +93,6 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
     await Promise.all(TABLES().map((table) => table.clear()))
     await db.meta.bulkPut([
       { key: 'settings', value: workspace.settings },
-      ...(workspace.importedFrom ? [{ key: 'importedFrom' as const, value: workspace.importedFrom }] : []),
       ...(workspace.kpi ? [{ key: 'kpi' as const, value: workspace.kpi }] : []),
       ...(workspace.venueImport ? [{ key: 'venueImport' as const, value: workspace.venueImport }] : []),
       { key: 'overrides' as const, value: workspace.overrides ?? {} },
@@ -110,7 +106,6 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
     await db.projects.bulkAdd(workspace.projects.map((p) => ({ ...p })))
     await db.demand.bulkPut(workspace.demand)
     await db.allocations.bulkPut(workspace.allocations)
-    await db.capacity.bulkPut(workspace.capacity)
     await db.persons.bulkPut(workspace.persons ?? [])
     await db.unavailability.bulkPut(workspace.unavailability ?? [])
     await db.assignments.bulkPut(workspace.assignments ?? [])
@@ -119,7 +114,6 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
 }
 
 export const deleteAllocation = (id: string) => db.allocations.delete(id)
-export const putCapacityLine = (line: CapacityLine) => db.capacity.put(line)
 export const putSettings = (settings: Settings) => db.meta.put({ key: 'settings', value: settings })
 
 export interface DemandWrite {

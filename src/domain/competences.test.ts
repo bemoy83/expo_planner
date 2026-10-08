@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
 import { DEFAULT_SETTINGS, LINE_COLORS, type AllocationRow, type Workspace } from './types'
 
-const row = (competence: string): AllocationRow => ({ id: `row-${competence}`, order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering', basis: 'Planlagt', importedHours: null, fte: {}, notes: {} })
+const row = (competence: string): AllocationRow => ({ id: `row-${competence}`, order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering', basis: 'Planlagt', fte: {}, notes: {} })
 
 const base: Workspace = {
   settings: DEFAULT_SETTINGS,
@@ -10,7 +10,6 @@ const base: Workspace = {
   projects: [],
   demand: [],
   allocations: [row('Teppefliser'), row('FOGA'), row(' foga'), row('')],
-  capacity: [],
   kpi: { workTypes: [{ name: 'Skilt', productType: 'Skilt', unit: 'stk', competence: 'Skilting' }], rates: [] },
   persons: [{ id: 'p1', name: 'Anna', order: 0, active: true, competences: ['banner'] }],
 }

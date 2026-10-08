@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { todayIso } from './domain/dates'
 import { DEFAULT_SETTINGS, type Workspace } from './domain/types'
-import { withVenueImport } from './domain/venueImport'
-import { withVismaImports } from './domain/visma'
 import { readVenyouExport } from './import/venyouExport'
-import { importWorkbookFile } from './import/importWorkbook'
 import { parseBackup, toBackup } from './store/backup'
 import { usePref } from './store/prefs'
 import { useSaveState, useWorkspace, WorkspaceProvider } from './store/workspaceStore'
@@ -58,7 +55,6 @@ const emptyWorkspace = (): Workspace => ({
   projects: [],
   demand: [],
   allocations: [],
-  capacity: [],
   overrides: {},
   hiddenVenue: {},
   eventLinks: {},
@@ -83,7 +79,6 @@ function Shell() {
   }, [theme])
   const [view, setView] = useState<View>('kalender')
   const [behovProject, setBehovProject] = useState('')
-  const workbookInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
   const venyouInput = useRef<HTMLInputElement>(null)
 
@@ -113,15 +108,6 @@ function Shell() {
       setBusy(null)
     }
   }
-
-  const importWorkbook = (file: File) =>
-    run('Leser arbeidsboken …', async () => {
-      if (workspace && !confirm('Dette erstatter all planlegging i nettleseren med innholdet i arbeidsboken. Fortsette?')) return
-      const imported = await importWorkbookFile(file)
-      // Visma and Venyou exports, KPI data and decisions made in the app outlive a new workbook import.
-      // Which hall bookings to show is decided in the app once a workbook has been read; the workbook's «Exclude» column only seeds it.
-      await replaceWorkspace(workspace ? { ...withVenueImport(withVismaImports(imported, workspace), workspace), hiddenVenue: Object.keys(workspace.hiddenVenue ?? {}).length ? workspace.hiddenVenue : imported.hiddenVenue, eventLinks: workspace.eventLinks, hallAliases: workspace.hallAliases } : imported)
-    })
 
   const importVenyou = (file: File) =>
     run('Leser Venyou-filen …', async () => {
@@ -214,16 +200,6 @@ function Shell() {
                 </button>
               )}
               <span className="menu-group">Data</span>
-              <button
-                role="menuitem"
-                title={workspace?.importedFrom ? `Sist: ${workspace.importedFrom.fileName}, ${new Date(workspace.importedFrom.importedAt).toLocaleString('nb-NO')}` : undefined}
-                onClick={() => {
-                  close()
-                  workbookInput.current?.click()
-                }}
-              >
-                Importer arbeidsbok …
-              </button>
               {workspace && (
                 <button
                   role="menuitem"
@@ -262,7 +238,6 @@ function Shell() {
           )}
         </Menu>
         <Tooltips enabled={tooltips} />
-        <input ref={workbookInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFile(e, importWorkbook)} />
         <input ref={venyouInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFile(e, importVenyou)} />
         <input ref={backupInput} type="file" accept=".json,application/json" hidden onChange={(e) => takeFile(e, restoreBackup)} />
       </header>
@@ -304,15 +279,10 @@ function Shell() {
             Start med blanke ark og les inn kildene hver for seg: hallbookinger fra Venyou (<code>location_format</code>), KPI-oppsettet og Visma-utskrifter. Kalenderen følger perioden i
             hallbookingene.
           </p>
-          <p className="muted">
-            Du kan også hente alt fra planleggingsarbeidsboken (<code>Bemanning_Behov_24 måneder.xlsx</code>) én gang. Filer leses bare i nettleseren og sendes ingen steder.
-          </p>
+          <p className="muted">Filer leses bare i nettleseren og sendes ingen steder.</p>
           <div className="empty-actions">
             <button className="primary" onClick={() => run('Oppretter …', () => replaceWorkspace(emptyWorkspace()))} disabled={!!busy}>
-              Start uten arbeidsbok
-            </button>
-            <button onClick={() => workbookInput.current?.click()} disabled={!!busy}>
-              Importer arbeidsbok …
+              Start
             </button>
             <button onClick={() => backupInput.current?.click()} disabled={!!busy}>
               Gjenopprett sikkerhetskopi …
@@ -320,7 +290,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {status === 'ready' && workspace && view === 'kalender' && <Kalender key={workspace.importedFrom?.importedAt ?? 'ws'} hints={tooltips} heat={heat} />}
+      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
       {status === 'ready' && workspace && view === 'produkttyper' && <Produkttyper onOpenKpi={() => setView('kpi')} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi onOpenProductTypes={() => setView('produkttyper')} />}

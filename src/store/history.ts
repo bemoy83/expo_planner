@@ -1,4 +1,4 @@
-import type { AllocationRow, Assignment, CapacityLine, CompetenceStyle, DemandAdjustment, DemandLine, KpiConfig, LineOverride, Person, ProjectRef, Settings, Unavailability, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
+import type { AllocationRow, Assignment, CompetenceStyle, DemandAdjustment, DemandLine, KpiConfig, LineOverride, Person, ProjectRef, Settings, Unavailability, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface Delta<T> {
   before: T
@@ -9,7 +9,6 @@ interface Delta<T> {
 export interface Change {
   /** `null` means the row did not exist (before an add, after a delete). */
   allocations: Map<string, Delta<AllocationRow | null>>
-  capacity: Map<string, Delta<CapacityLine>>
   settings?: Delta<Settings>
   /** Ledger lines, `null` where the line did not exist. */
   demand: Map<string, Delta<DemandLine | null>>
@@ -37,7 +36,6 @@ export interface Change {
 
 export const emptyChange = (): Change => ({
   allocations: new Map(),
-  capacity: new Map(),
   demand: new Map(),
   visma: new Map(),
   persons: new Map(),
@@ -54,8 +52,6 @@ const record = <T,>(map: Map<string, Delta<T>>, id: string, before: T, after: T)
 
 export const recordAllocation = (change: Change, id: string, before: AllocationRow | null, after: AllocationRow | null) =>
   record(change.allocations, id, before, after)
-
-export const recordCapacity = (change: Change, before: CapacityLine, after: CapacityLine) => record(change.capacity, before.id, before, after)
 
 export const recordSettings = (change: Change, before: Settings, after: Settings) => {
   change.settings = { before: change.settings ? change.settings.before : before, after }
@@ -144,8 +140,7 @@ export const isEmptyChange = (change: Change): boolean =>
   [change.persons, change.unavailability, change.assignments, change.demandAdjustments].every((map) => [...map.values()].every((d) => d.before === d.after)) &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
   [...change.visma.values()].every((d) => d.before === d.after) &&
-  [...change.allocations.values()].every((d) => d.before === d.after) &&
-  [...change.capacity.values()].every((d) => d.before === d.after)
+  [...change.allocations.values()].every((d) => d.before === d.after)
 
 export type Direction = 'undo' | 'redo'
 
@@ -166,12 +161,6 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
     const restored = [...change.allocations.values()].flatMap((delta) => target(delta, direction) ?? [])
     allocations = [...remaining, ...restored].sort((a, b) => a.order - b.order)
   }
-  const capacity = change.capacity.size
-    ? workspace.capacity.map((line) => {
-        const delta = change.capacity.get(line.id)
-        return delta ? target(delta, direction) : line
-      })
-    : workspace.capacity
   const settings = change.settings ? target(change.settings, direction) : workspace.settings
   const demand = change.demand.size
     ? [...workspace.demand.filter((line) => !change.demand.has(line.id)), ...[...change.demand.values()].flatMap((delta) => target(delta, direction) ?? [])]
@@ -182,7 +171,7 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
   const overrides = change.overrides ? target(change.overrides, direction) : workspace.overrides
   const kpi = change.kpi ? target(change.kpi, direction) : workspace.kpi
   const venue = change.venue ? target(change.venue, direction) : { bookings: workspace.venue, info: workspace.venueImport }
-  return { ...workspace, allocations, capacity, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue,
+  return { ...workspace, allocations, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue,
     eventLinks: change.eventLinks ? target(change.eventLinks, direction) : workspace.eventLinks,
     hallAliases: change.hallAliases ? target(change.hallAliases, direction) : workspace.hallAliases,
     projects: change.projects ? target(change.projects, direction) : workspace.projects,
@@ -198,7 +187,6 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
 export const changeWrites = (change: Change, direction: Direction) => ({
   putAllocations: [...change.allocations.values()].flatMap((delta) => target(delta, direction) ?? []),
   deleteAllocations: [...change.allocations].filter(([, delta]) => target(delta, direction) === null).map(([id]) => id),
-  putCapacity: [...change.capacity.values()].map((delta) => target(delta, direction)),
   settings: change.settings ? target(change.settings, direction) : null,
   putDemand: [...change.demand.values()].flatMap((delta) => target(delta, direction) ?? []),
   deleteDemand: [...change.demand].filter(([, delta]) => target(delta, direction) === null).map(([id]) => id),

@@ -1,19 +1,15 @@
 import type { ISODate } from '../../domain/dates'
 
-/** The grid has two blocks of cells that take numbers: the planning rows and the staffing lines. */
-export type Section = 'alloc' | 'cap'
 export interface Cell {
   lane: number
   col: number
 }
 export interface Selection {
-  section: Section
   anchor: Cell
   focus: Cell
 }
 /** A drag of the fill handle: the block that was selected, how far it has been dragged, and whether it stretches. */
 export interface Fill {
-  section: Section
   lane0: number
   lane1: number
   col0: number
@@ -22,7 +18,6 @@ export interface Fill {
   stretch: boolean
 }
 export interface FillCell {
-  section: Section
   lane: number
   date: ISODate
   /** `null` clears the cell. */
@@ -49,7 +44,6 @@ export interface LaneKey {
  * the line it started on is gone.
  */
 export const followLanes = (sel: Selection, before: LaneKey[], after: LaneKey[]): Selection | null => {
-  if (sel.section !== 'alloc') return sel
   const laneNow = (lane: number): number | undefined => {
     const key = before[lane]
     if (!key) return undefined

@@ -1,5 +1,7 @@
 # How `Bemanning_Behov_24 måneder.xlsx` works today
 
+> The app does not read this workbook (import removed 2026-10-08). This document is kept as background: the rules for required hours, daily need and staffing in `src/domain/` were modelled on what is described here.
+
 This is a read-only inspection of the 3.7 MB workbook (16 sheets, 26 tables), with a focus on the `Kalender` sheet.
 
 ## 1. The Kalender sheet, top to bottom

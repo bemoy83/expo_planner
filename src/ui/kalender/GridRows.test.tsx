@@ -16,7 +16,6 @@ const row: AllocationRow = {
   competence: 'FOGA',
   phase: 'Montering',
   basis: 'Planlagt',
-  importedHours: null,
   fte: { '2026-10-06': 2 },
   notes: {},
 }
@@ -71,7 +70,7 @@ describe('AllocRow', () => {
     const cellDown = vi.fn()
     const { container } = render(view(idle, { ...noActions, cellDown }))
     fireEvent.mouseDown(container.querySelectorAll('.cell')[1])
-    expect(cellDown).toHaveBeenCalledWith('alloc', 0, 1, expect.anything())
+    expect(cellDown).toHaveBeenCalledWith(0, 1, expect.anything())
   })
 })
 

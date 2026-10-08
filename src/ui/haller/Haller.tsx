@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { todayIso, type ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from '../../domain/types'
 import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
-import { anchorDate, VENYOU_ID_PREFIX, venueKey } from '../../domain/venueImport'
+import { anchorDate, venueKey } from '../../domain/venueImport'
 import { readProjectList } from '../../import/venyouExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { MessageBanner, UndoRedoButtons, type Message } from '../common'
@@ -163,7 +163,6 @@ export function Haller() {
                   <th key={phase}>{PHASE_HEADERS[phase]}</th>
                 ))}
                 <th>Status</th>
-                <th>Kilde</th>
               </tr>
             </thead>
             <tbody>
@@ -180,7 +179,7 @@ export function Haller() {
                         onChange={(show) => setVenueHidden(keys, !show)}
                       />
                     </td>
-                    <td colSpan={6}>
+                    <td colSpan={5}>
                       <strong>{group.name}</strong>{' '}
                       <span className="muted">
                         {group.anchor ? `${day(group.anchor)}.${group.anchor.slice(0, 4)}` : ''} · {shown} av {keys.length} {keys.length === 1 ? 'hall' : 'haller'} vises
@@ -216,7 +215,6 @@ export function Haller() {
                           <td key={phase} className="date">{span(booking.phases[phase])}</td>
                         ))}
                         <td>{booking.status}</td>
-                        <td className="muted">{booking.id.startsWith(VENYOU_ID_PREFIX) ? 'Venyou' : 'Arbeidsbok'}</td>
                       </tr>
                     )
                   }),

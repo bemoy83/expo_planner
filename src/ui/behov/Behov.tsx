@@ -121,7 +121,6 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   }, [review])
   const orphans = useMemo(() => (vismaImport ? orphanedDecisions(projectNo, vismaLines, ws.overrides ?? {}) : []), [vismaImport, projectNo, vismaLines, ws.overrides])
   const projectLines = useMemo(() => ws.demand.filter((l) => l.projectNo === projectNo), [ws.demand, projectNo])
-  const legacyVisma = useMemo(() => (vismaImport ? [] : projectLines.filter(isVismaLine)), [projectLines, vismaImport])
   const ownLines = useMemo(
     () => projectLines.filter((l) => !isVismaLine(l)).sort((a, b) => a.basis.localeCompare(b.basis, 'nb') || a.competence.localeCompare(b.competence, 'nb')),
     [projectLines],
@@ -448,11 +447,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
               {vismaImport ? (
                 vismaTable(false)
               ) : (
-                <p className="muted">
-                  {legacyVisma.length
-                    ? `Prosjektet har ${legacyVisma.length} Visma-linjer fra arbeidsboken. Importer en Visma-utskrift for å erstatte dem; Effekt, kommentarer og «Planlagt» fra arbeidsboken følger med.`
-                    : 'Ingen Visma-utskrift er lest inn for prosjektet.'}
-                </p>
+                <p className="muted">Ingen Visma-utskrift er lest inn for prosjektet.</p>
               )}
             </section>
 

@@ -9,7 +9,7 @@ export interface FocusInfo {
   date: ISODate
   value: number | undefined
   note: string
-  /** The stored planning row the cell belongs to, which can take a note; null on levels, suggested rows and staffing lines. */
+  /** The stored planning row the cell belongs to, which can take a note; null on levels and suggested rows. */
   rowId: string | null
 }
 

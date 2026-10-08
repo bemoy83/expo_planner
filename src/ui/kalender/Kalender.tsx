@@ -17,7 +17,7 @@ import { AllocationDialog } from '../AllocationDialog'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
-import type { AllocLane, CapLane, CellEdit, Columns, GridActions } from './gridTypes'
+import type { AllocLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
@@ -32,7 +32,7 @@ import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
-import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
+import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Selection, type Tool } from './selection'
 
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
@@ -42,13 +42,13 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false,
  * `heat` is the setting «Varmekart for avvik»: the Avvik line as coloured tiles.
  */
 export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?: boolean }) {
-  const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setCapacityValue, setAllocationNote, removeAllocation } = useWorkspace()
+  const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
-  // The staffing lines the planner types in, and after them what comes from Bemanning: absence and overtime, which are worked out.
+  // The staffing lines come from Bemanning: absence and overtime, which are worked out.
   const absence = useMemo(() => absenceLine(ws), [ws.persons, ws.unavailability, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
   const overtime = useMemo(() => overtimeLine(ws), [ws.persons, ws.unavailability, ws.assignments, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
-  const capacity = useMemo(() => [...ws.capacity, absence, overtime], [ws.capacity, absence, overtime])
+  const capacity = useMemo(() => [absence, overtime], [absence, overtime])
   const fromBemanning = useMemo(() => {
     if (!ws.persons?.length) return []
     const overtimeFte = Object.fromEntries(Object.entries(overtime.values).map(([date, people]) => [date, Math.round(((people * (overtime.hours?.[date] ?? 0)) / settings.hoursPerDay) * 100) / 100]))
@@ -73,7 +73,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // With the eraser, drawing across cells clears them.
   const [tool, setTool] = useState<Tool>('select')
   const [notice, setNotice] = useState<string | null>(null)
-  const dragging = useRef<Section | null>(null)
+  const dragging = useRef(false)
   // The tool of the stroke being drawn. Shift or Alt held when the mouse goes down picks the pencil or the
   // eraser for that one stroke, whatever tool is chosen.
   const [stroke, setStroke] = useState<Exclude<Tool, 'select'> | null>(null)
@@ -98,7 +98,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
   const colW = ZOOM_WIDTHS[zoom]
   // The period follows the hall bookings, see `calendarRange`.
-  const range = useMemo(() => calendarRange({ venue: ws.venue, allocations: ws.allocations, capacity: ws.capacity }, todayIso()), [ws.venue, ws.allocations, ws.capacity])
+  const range = useMemo(() => calendarRange({ venue: ws.venue, allocations: ws.allocations }, todayIso()), [ws.venue, ws.allocations])
   const dates = useMemo(() => dateRange(range.start, range.end), [range.start, range.end])
   const today = todayIso()
 
@@ -157,21 +157,9 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       setReveal(followed && { cell: followed.focus, takeKeys: false })
     }
   }
-  // The details panel keeps its row when the selection is cleared or moves to a level or a staffing line.
-  const focusRowId = selection?.section === 'alloc' ? (allocLanes[selection.focus.lane]?.row?.id ?? null) : null
+  // The details panel keeps its row when the selection is cleared or moves to a level.
+  const focusRowId = selection ? (allocLanes[selection.focus.lane]?.row?.id ?? null) : null
   if (focusRowId && focusRowId !== detailId) setDetailId(focusRowId)
-  const capLanes = useMemo<CapLane[]>(
-    () =>
-      ws.capacity.flatMap((line) =>
-        line.group === 'overtime'
-          ? [
-              { line, field: 'values' as const, label: `${line.label} (personer)` },
-              { line, field: 'hours' as const, label: `${line.label} (timer)` },
-            ]
-          : [{ line, field: 'values' as const, label: line.label }],
-      ),
-    [ws.capacity],
-  )
   const allGroups = useMemo(() => buildGroups(rows, events, demandIndex, settings), [rows, events, demandIndex, settings])
   const projects = useMemo(
     () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
@@ -235,20 +223,18 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const r1 = Math.min(items.length, rowAt(viewport.top + viewport.height - topHeight) + 1 + OVERSCAN_ROWS)
 
   const ensureVisible = useCallback(
-    (section: Section, cell: Cell) => {
+    (cell: Cell) => {
       const el = scrollRef.current
       if (!el) return
       const x = cell.col * colW
       if (x < el.scrollLeft) el.scrollLeft = x
       else if (x + colW > el.scrollLeft + el.clientWidth - LEFT_W) el.scrollLeft = x + colW - (el.clientWidth - LEFT_W)
-      if (section === 'alloc') {
-        const index = allocLanes[cell.lane]?.index ?? 0
-        const y = rowTops[index] ?? 0
-        const bottom = rowTops[index + 1] ?? y + ROW_H
-        const pinned = pinnedHeight + headOver(index)
-        if (topHeight + y < el.scrollTop + pinned) el.scrollTop = topHeight + y - pinned
-        else if (topHeight + bottom > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + bottom - el.clientHeight
-      }
+      const index = allocLanes[cell.lane]?.index ?? 0
+      const y = rowTops[index] ?? 0
+      const bottom = rowTops[index + 1] ?? y + ROW_H
+      const pinned = pinnedHeight + headOver(index)
+      if (topHeight + y < el.scrollTop + pinned) el.scrollTop = topHeight + y - pinned
+      else if (topHeight + bottom > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + bottom - el.clientHeight
     },
     [scrollRef, colW, allocLanes, rowTops, topHeight, pinnedHeight, items, allSections], // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -258,30 +244,24 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   if (pendingLane !== undefined) {
     const cell = { lane: pendingLane, col: firstVisibleCol }
     setPendingFocus(null)
-    setSelection({ section: 'alloc', anchor: cell, focus: cell })
+    setSelection({ anchor: cell, focus: cell })
     setReveal({ cell, takeKeys: true })
   }
   useEffect(() => {
     if (!reveal) return
-    ensureVisible('alloc', reveal.cell)
+    ensureVisible(reveal.cell)
     if (reveal.takeKeys) scrollRef.current?.focus({ preventScroll: true })
   }, [reveal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- cell values ----------------------------------------------------------------------------
-  const laneCount = (section: Section) => (section === 'alloc' ? allocLanes.length : capLanes.length)
-
   const getValue = useCallback(
-    (section: Section, lane: number, date: ISODate): number | undefined => {
-      if (section === 'alloc') {
-        const { row, node } = allocLanes[lane] ?? {}
-        // A level's value is a sum of rounded parts; keep float noise out of the editor and the clipboard.
-        const sum = node?.daily.get(date)
-        return node ? (sum === undefined ? undefined : Math.round(sum * 100) / 100) : row?.fte[date]
-      }
-      const cap = capLanes[lane]
-      return cap?.line[cap.field]?.[date]
+    (lane: number, date: ISODate): number | undefined => {
+      const { row, node } = allocLanes[lane] ?? {}
+      // A level's value is a sum of rounded parts; keep float noise out of the editor and the clipboard.
+      const sum = node?.daily.get(date)
+      return node ? (sum === undefined ? undefined : Math.round(sum * 100) / 100) : row?.fte[date]
     },
-    [allocLanes, capLanes],
+    [allocLanes],
   )
 
   const setRowFte = useCallback(
@@ -290,31 +270,26 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   )
 
   const setValue = useCallback(
-    (section: Section, lane: number, date: ISODate, value: number | null) => {
-      if (section === 'alloc') {
-        const { row, node } = allocLanes[lane] ?? {}
-        if (row) setRowFte(row, date, value)
-        else if (node) {
-          // A number typed on a level replaces that day for every row below it, shared out by their required hours.
-          const parts = value === null ? [] : spread(value, node.rows.map((r) => requiredHours(demandIndex, r) ?? 0))
-          node.rows.forEach((r, i) => {
-            const part = parts[i] || null
-            if (part !== null || r.fte[date] !== undefined) setRowFte(r, date, part)
-          })
-        }
-      } else {
-        const cap = capLanes[lane]
-        if (cap) setCapacityValue(cap.line.id, date, cap.field, value)
+    (lane: number, date: ISODate, value: number | null) => {
+      const { row, node } = allocLanes[lane] ?? {}
+      if (row) setRowFte(row, date, value)
+      else if (node) {
+        // A number typed on a level replaces that day for every row below it, shared out by their required hours.
+        const parts = value === null ? [] : spread(value, node.rows.map((r) => requiredHours(demandIndex, r) ?? 0))
+        node.rows.forEach((r, i) => {
+          const part = parts[i] || null
+          if (part !== null || r.fte[date] !== undefined) setRowFte(r, date, part)
+        })
       }
     },
-    [allocLanes, capLanes, setRowFte, demandIndex, setCapacityValue],
+    [allocLanes, setRowFte, demandIndex],
   )
 
   const fillSelection = useCallback(
     (value: number | null) => {
       if (!selection) return
       const { lane0, lane1, col0, col1 } = rangeOf(selection)
-      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) setValue(selection.section, lane, dates[col], value)
+      for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) setValue(lane, dates[col], value)
     },
     [selection, setValue, dates],
   )
@@ -323,13 +298,12 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     (dLane: number, dCol: number, extend = false) => {
       setSelection((sel) => {
         if (!sel) return sel
-        const lanes = laneCount(sel.section)
         const focus = {
-          lane: Math.min(lanes - 1, Math.max(0, sel.focus.lane + dLane)),
+          lane: Math.min(allocLanes.length - 1, Math.max(0, sel.focus.lane + dLane)),
           col: Math.min(dates.length - 1, Math.max(0, sel.focus.col + dCol)),
         }
-        ensureVisible(sel.section, focus)
-        return { section: sel.section, anchor: extend ? sel.anchor : focus, focus }
+        ensureVisible(focus)
+        return { anchor: extend ? sel.anchor : focus, focus }
       })
     },
     [dates.length, ensureVisible], // eslint-disable-line react-hooks/exhaustive-deps
@@ -347,10 +321,10 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     [scrollRef, draft, selection, fillSelection],
   )
 
-  const select = (section: Section, cell: Cell, extend: boolean) => {
+  const select = (cell: Cell, extend: boolean) => {
     if (draft !== null) commitDraft()
     setNotice(null)
-    setSelection((sel) => (extend && sel?.section === section ? { ...sel, focus: cell } : { section, anchor: cell, focus: cell }))
+    setSelection((sel) => (extend && sel ? { ...sel, focus: cell } : { anchor: cell, focus: cell }))
     scrollRef.current?.focus({ preventScroll: true })
   }
 
@@ -363,7 +337,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const drawDemand = useCallback((over: Selection | null = selectionRef.current) => {
     const drawn = strokeFor(over)
     if (!drawn) return
-    for (const { lane, parts } of drawn.lanes) drawn.target.forEach((date, i) => setValue('alloc', lane, date, parts[i] || null))
+    for (const { lane, parts } of drawn.lanes) drawn.target.forEach((date, i) => setValue(lane, date, parts[i] || null))
     setNotice(pencilNotice(drawn))
   }, [strokeFor, setValue])
 
@@ -380,15 +354,15 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   /** The eraser: clears every cell drawn across. On a level in entry mode, that day is cleared for the rows below. */
   const eraseDrawn = useCallback(() => {
     const sel = selectionRef.current
-    if (!sel || sel.section !== 'alloc') return
+    if (!sel) return
     const { lane0, lane1, col0, col1 } = rangeOf(sel)
     let erased = 0
     for (let lane = lane0; lane <= lane1; lane++)
       for (let col = col0; col <= col1; col++) {
-        const value = getValue('alloc', lane, dates[col])
+        const value = getValue(lane, dates[col])
         if (value === undefined) continue
         erased += value
-        setValue('alloc', lane, dates[col], null)
+        setValue(lane, dates[col], null)
       }
     setNotice(erased ? `Visket ut ${formatFte(erased, 1)} FTE-dager` : 'Ingenting å viske ut her')
   }, [dates, getValue, setValue])
@@ -408,13 +382,13 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     fillRef.current = null
     setFill(null)
     if (!done) return
-    for (const cell of cells) setValue(cell.section, cell.lane, cell.date, cell.value)
+    for (const cell of cells) setValue(cell.lane, cell.date, cell.value)
     // The block is now what was dragged out, so it can be dragged on from there.
-    setSelection({ section: done.section, anchor: { lane: done.lane0, col: done.col0 }, focus: { lane: done.lane1, col: done.toCol } })
+    setSelection({ anchor: { lane: done.lane0, col: done.col0 }, focus: { lane: done.lane1, col: done.toCol } })
     setNotice(fillNotice(done, cells))
   }, [setValue])
 
-  // What the cells of each line would hold if the stroke or the drag ended now, keyed by section and lane.
+  // What the cells of each line would hold if the stroke or the drag ended now, keyed by lane.
   const ghost = useMemo(() => ghostCells(preview, stroke === 'eraser' ? selection : null, dates, fillCells), [preview, stroke, selection, dates, fillCells])
 
   useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, setFill, setSelection, setStroke, drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length })
@@ -431,7 +405,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       move(0, e.shiftKey ? -1 : 1)
     } else if (e.key === 'Enter' || e.key === 'F2') {
       e.preventDefault()
-      const current = getValue(selection.section, selection.focus.lane, dates[selection.focus.col])
+      const current = getValue(selection.focus.lane, dates[selection.focus.col])
       setDraft(current === undefined ? '' : decimalText(current))
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
@@ -456,7 +430,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     const textData = e.clipboardData.getData('text/plain')
     if (!textData) return
     e.preventDefault()
-    for (const cell of pasteCells(textData, selection, dates, laneCount(selection.section))) setValue(selection.section, cell.lane, cell.date, cell.value)
+    for (const cell of pasteCells(textData, selection, dates, allocLanes.length)) setValue(cell.lane, cell.date, cell.value)
   }
 
   const selectionRange = selection ? rangeOf(selection) : null
@@ -499,45 +473,44 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
   // ---- what the rows are given ---------------------------------------------------------------
   const actions = useStableActions<GridActions>({
-    cellDown: (section, lane, col, e) => {
+    cellDown: (lane, col, e) => {
       e.preventDefault()
       const drags = e.button === 0 && !(e.target instanceof HTMLInputElement)
-      const plans = drags && section === 'alloc'
       // Alt clears and Shift shares out demand for this one stroke. With «Velg», Shift still extends the
       // selection on a click; the stroke starts once the mouse is dragged on.
-      const erases = plans && e.altKey
-      const extends_ = e.shiftKey && !erases && (!plans || tool === 'select')
-      select(section, { lane, col }, extends_)
+      const erases = drags && e.altKey
+      const extends_ = e.shiftKey && !erases && (!drags || tool === 'select')
+      select({ lane, col }, extends_)
       if (!drags) return
-      dragging.current = section
-      spring.current = plans && extends_ ? { lane, col } : null
-      const started = !plans || spring.current ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
+      dragging.current = true
+      spring.current = extends_ ? { lane, col } : null
+      const started = spring.current ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
       strokeRef.current = started
       setStroke(started)
     },
-    cellEnter: (section, lane, col) => {
-      if (fillRef.current?.section === section) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
-      else if (dragging.current === section && spring.current) {
+    cellEnter: (lane, col) => {
+      if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
+      else if (dragging.current && spring.current) {
         const anchor = spring.current
         spring.current = null
         strokeRef.current = 'pencil'
         setStroke('pencil')
-        setSelection({ section, anchor, focus: { lane, col } })
-      } else if (dragging.current === section) setSelection((sel) => (sel?.section === section ? { ...sel, focus: { lane, col } } : sel))
+        setSelection({ anchor, focus: { lane, col } })
+      } else if (dragging.current) setSelection((sel) => sel && { ...sel, focus: { lane, col } })
     },
     cellMenu: (lane, col, e) => {
       const row = allocLanes[lane]?.row
       if (!row) return
       e.preventDefault()
       // The press that asked for the menu is no drag.
-      dragging.current = null
+      dragging.current = false
       strokeRef.current = null
       spring.current = null
       setStroke(null)
-      select('alloc', { lane, col }, false)
+      select({ lane, col }, false)
       setCellMenu({ x: e.clientX, y: e.clientY, rowId: row.id, col })
     },
-    selectRow: (lane) => select('alloc', { lane, col: selection?.section === 'alloc' ? selection.focus.col : firstVisibleCol }, false),
+    selectRow: (lane) => select({ lane, col: selection ? selection.focus.col : firstVisibleCol }, false),
     editCell: (value) => setDraft(value === undefined ? '' : decimalText(value)),
     setDraft,
     commitDraft: () => commitDraft(),
@@ -555,11 +528,11 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
         scrollRef.current?.focus({ preventScroll: true })
       }
     },
-    fillDown: (section, e) => {
+    fillDown: (e) => {
       e.preventDefault()
       e.stopPropagation()
       if (!selectionRange) return
-      const started: Fill = { section, ...selectionRange, toCol: selectionRange.col1, stretch: e.altKey }
+      const started: Fill = { ...selectionRange, toCol: selectionRange.col1, stretch: e.altKey }
       fillRef.current = started
       setFill(started)
     },
@@ -617,9 +590,9 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
   // What one line of cells is told about the selection: plain values, so only the lines it touches are drawn again.
   const ghostClass = stroke === 'eraser' ? 'erasing' : 'drawn'
-  const editOf = (section: Section, lane: number): CellEdit => {
-    const selected = selection?.section === section && !!selectionRange && lane >= selectionRange.lane0 && lane <= selectionRange.lane1
-    const focused = selection?.section === section && selection.focus.lane === lane
+  const editOf = (lane: number): CellEdit => {
+    const selected = !!selectionRange && lane >= selectionRange.lane0 && lane <= selectionRange.lane1
+    const focused = selection?.focus.lane === lane
     return {
       selFrom: selected ? selectionRange.col0 : -1,
       selTo: selected ? selectionRange.col1 : -1,
@@ -627,7 +600,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       // The fill handle sits on the last cell of the selection, as in Excel.
       handle: selected && tool === 'select' && draft === null && selectionRange.lane1 === lane,
       draft: focused ? draft : null,
-      ghost: ghost.get(`${section}|${lane}`),
+      ghost: ghost.get(lane),
       ghostClass,
     }
   }
@@ -636,22 +609,17 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const focusInfo = ((): FocusInfo | null => {
     if (!selection) return null
     const date = dates[selection.focus.col]
-    if (selection.section === 'alloc') {
-      const { row: r, node } = allocLanes[selection.focus.lane] ?? {}
-      if (node) return { title: `${node.label} · fordeles på ${node.rows.length} ${node.rows.length === 1 ? 'rad' : 'rader'}`, date, value: node.daily.get(date), note: '', rowId: null }
-      if (!r) return null
-      return { title: rowTitle(r), date, value: r.fte[date], note: r.notes[date] ?? '', rowId: isSuggestedRow(r) ? null : r.id }
-    }
-    const cap = capLanes[selection.focus.lane]
-    if (!cap) return null
-    return { title: cap.label, date, value: cap.line[cap.field]?.[date], note: cap.line.notes[date] ?? '', rowId: null }
+    const { row: r, node } = allocLanes[selection.focus.lane] ?? {}
+    if (node) return { title: `${node.label} · fordeles på ${node.rows.length} ${node.rows.length === 1 ? 'rad' : 'rader'}`, date, value: node.daily.get(date), note: '', rowId: null }
+    if (!r) return null
+    return { title: rowTitle(r), date, value: r.fte[date], note: r.notes[date] ?? '', rowId: isSuggestedRow(r) ? null : r.id }
   })()
   const selectionSum = (() => {
     if (!selection) return null
     const { lane0, lane1, col0, col1 } = rangeOf(selection)
     if (lane0 === lane1 && col0 === col1) return null
     let sum = 0
-    for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) sum += getValue(selection.section, lane, dates[col]) ?? 0
+    for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) sum += getValue(lane, dates[col]) ?? 0
     return sum
   })()
 
@@ -667,7 +635,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const groupRow = (item: GroupItem) => {
     // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
     const lane = item.entry ? laneOfRow.get(`level:${item.node.key}`)! : -1
-    return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project ? phasesOfProject.get(item.node.project.key) : undefined} cols={cols} actions={actions} {...(item.entry ? editOf('alloc', lane) : NO_EDIT)} />
+    return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project ? phasesOfProject.get(item.node.project.key) : undefined} cols={cols} actions={actions} {...(item.entry ? editOf(lane) : NO_EDIT)} />
   }
 
   // ---- render ---------------------------------------------------------------------------------
@@ -701,17 +669,10 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
             <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
-              onOpen={(open) => {
-                // A selection in the staffing lines has nowhere to be once they are folded away.
-                if (!open && selection?.section === 'cap') setSelection(null)
-                setStaffingOpen(open)
-              }}
+              onOpen={setStaffingOpen}
               detailsOpen={capacityOpen}
               onDetailsOpen={setCapacityOpen}
-              capLanes={capLanes}
-              editOf={(lane) => editOf('cap', lane)}
               cols={cols}
-              actions={actions}
               need={need}
               capacity={capacity}
               fromBemanning={fromBemanning}
@@ -757,7 +718,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
             {items.slice(r0, r1).map((item) => {
               if (item.kind === 'row') {
                 const lane = laneOfRow.get(item.row.id)!
-                return <AllocRow key={item.row.id} item={item} lane={lane} window={windowOf(item.row)} rowDimensions={rowDimensions} cols={cols} actions={actions} {...editOf('alloc', lane)} />
+                return <AllocRow key={item.row.id} item={item} lane={lane} window={windowOf(item.row)} rowDimensions={rowDimensions} cols={cols} actions={actions} {...editOf(lane)} />
               }
               // A top level's line is drawn in its section below; here it only takes up its place.
               if (item.node.depth === 0) return <div key={`g:${item.node.key}`} style={{ height: TOP_ROW_H }} />
@@ -798,7 +759,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
           onSpread={() => proposePlan([menuRow], true)}
           onSpreadFromHere={() => {
             const lane = laneOfRow.get(menuRow.id)
-            if (lane !== undefined && menuWindowEnd) drawDemand({ section: 'alloc', anchor: { lane, col: cellMenu.col }, focus: { lane, col: daysBetween(range.start, menuWindowEnd) } })
+            if (lane !== undefined && menuWindowEnd) drawDemand({ anchor: { lane, col: cellMenu.col }, focus: { lane, col: daysBetween(range.start, menuWindowEnd) } })
           }}
           onClearCell={() => setRowFte(menuRow, dates[cellMenu.col], null)}
           onClearRow={() => actions.clearRow(menuRow)}

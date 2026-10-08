@@ -89,11 +89,9 @@ export const absenceFte = ({ persons, unavailability, settings }: Pick<Workspace
 export const ABSENCE_LINE_ID = 'absence:bemanning'
 export const absenceLine = (ws: Pick<Workspace, 'persons' | 'unavailability' | 'settings'>): CapacityLine => ({
   id: ABSENCE_LINE_ID,
-  order: Number.MAX_SAFE_INTEGER,
   label: 'Fravær faste',
   group: 'unavailable',
   values: absenceFte(ws),
-  notes: {},
 })
 
 /** R4: where blocks may be placed by hand. Overtime is open on any day the person is not away for a part or all of. */
@@ -260,7 +258,7 @@ export const overtimeByDay = (ws: Workspace): Map<ISODate, { hours: number; peop
   return new Map([...perPerson].map(([date, day]) => [date, { hours: [...day.values()].reduce((sum, h) => sum + h, 0), people: day.size }]))
 }
 
-/** The overtime from Bemanning as a staffing line of the Kalender: people and hours per person, as the typed overtime lines have them. Worked out, never stored. */
+/** The overtime from Bemanning as a staffing line of the Kalender: people and hours per person. Worked out, never stored. */
 export const OVERTIME_LINE_ID = 'overtime:bemanning'
 export const overtimeLine = (ws: Workspace): CapacityLine => {
   const values: DayValues = {}
@@ -269,7 +267,7 @@ export const overtimeLine = (ws: Workspace): CapacityLine => {
     values[date] = day.people
     hours[date] = day.hours / day.people
   }
-  return { id: OVERTIME_LINE_ID, order: Number.MAX_SAFE_INTEGER, label: 'Overtid faste', group: 'overtime', values, hours, notes: {} }
+  return { id: OVERTIME_LINE_ID, label: 'Overtid faste', group: 'overtime', values, hours }
 }
 
 export const unresolvedAssignments = (ws: Workspace): Assignment[] => {

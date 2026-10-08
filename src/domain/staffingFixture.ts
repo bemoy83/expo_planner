@@ -45,7 +45,6 @@ export const withStaffingFixture = (workspace: Workspace, fixture: StaffingFixtu
     competence: style.label,
     phase: 'Montering',
     basis: '',
-    importedHours: null,
     fte: Object.fromEntries(fixture.demand.filter((d) => d.competence === style.key).map((d) => [d.date, d.hours / workspace.settings.hoursPerDay])),
     notes: {},
   }))
