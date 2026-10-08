@@ -159,9 +159,6 @@ export const putStaffing = async (change: StaffingWrite) => {
   if (change.competenceStyles) await db.meta.put({ key: 'competenceStyles', value: change.competenceStyles })
 }
 
-/** Writes one change to people, absence, assignments and moved hours in a single transaction. */
-export const writeStaffing = (change: StaffingWrite) => db.transaction('rw', [...STAFFING_TABLES(), db.meta], () => putStaffing(change))
-
 /** Replaces the hall bookings and the note of which Venyou export they came from. */
 export const writeVenue = (venue: VenueBooking[], info: VenueImportInfo | undefined) =>
   db.transaction('rw', [db.venue, db.meta], async () => {

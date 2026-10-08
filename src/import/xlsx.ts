@@ -1,7 +1,7 @@
 import { strFromU8, unzipSync } from 'fflate'
 
 /**
- * Minimal .xlsx reader: cached cell values and cell notes only.
+ * Minimal .xlsx reader: cached cell values only.
  * The app never needs formulas or styles, so a small reader is simpler and faster than a
  * general-purpose library.
  */
@@ -12,33 +12,31 @@ export interface Sheet {
   name: string
   /** Row number (1-based) → column index (0-based) → value. */
   rows: Map<number, Map<number, CellValue>>
-  /** Cell reference such as `EB42` → note text. */
-  notes: Map<string, string>
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 
-export const decodeXml = (text: string): string =>
+const decodeXml = (text: string): string =>
   text.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (match, code: string) => {
     if (code.startsWith('#x')) return String.fromCodePoint(parseInt(code.slice(2), 16))
     if (code.startsWith('#')) return String.fromCodePoint(parseInt(code.slice(1), 10))
     return ENTITIES[code] ?? match
   })
 
-/** Concatenates every <t> run inside a fragment (shared strings, inline strings, notes). */
+/** Concatenates every <t> run inside a fragment (shared strings, inline strings). */
 const textRuns = (fragment: string): string => {
   let out = ''
   for (const m of fragment.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)) out += m[1]
   return decodeXml(out)
 }
 
-export const columnIndex = (letters: string): number => {
+const columnIndex = (letters: string): number => {
   let n = 0
   for (const ch of letters) n = n * 26 + ch.charCodeAt(0) - 64
   return n - 1
 }
 
-export const splitRef = (ref: string): { col: number; row: number } => {
+const splitRef = (ref: string): { col: number; row: number } => {
   const m = /^([A-Z]+)(\d+)$/.exec(ref)
   if (!m) throw new Error(`Bad cell reference ${ref}`)
   return { col: columnIndex(m[1]), row: Number(m[2]) }
@@ -95,27 +93,7 @@ const parseCells = (xml: string, shared: string[]): Sheet['rows'] => {
   return rows
 }
 
-const parseNotes = (xml: string): Map<string, string> => {
-  const notes = new Map<string, string>()
-  for (const m of xml.matchAll(/<comment\b([^>]*)>([\s\S]*?)<\/comment>/g)) {
-    const ref = attr(m[1], 'ref')
-    if (ref) notes.set(ref, textRuns(m[2]).trim())
-  }
-  return notes
-}
-
-/** Modern Excel comments; replies to the same cell are joined line by line. */
-const parseThreadedComments = (xml: string): Map<string, string> => {
-  const notes = new Map<string, string>()
-  for (const m of xml.matchAll(/<threadedComment\b([^>]*)>([\s\S]*?)<\/threadedComment>/g)) {
-    const ref = attr(m[1], 'ref')
-    const body = decodeXml(/<text>([\s\S]*?)<\/text>/.exec(m[2])?.[1] ?? '').trim()
-    if (ref && body) notes.set(ref, notes.has(ref) ? `${notes.get(ref)}\n${body}` : body)
-  }
-  return notes
-}
-
-export const readXlsx = (bytes: Uint8Array, wanted?: string[]): Map<string, Sheet> => {
+export const readXlsx = (bytes: Uint8Array): Map<string, Sheet> => {
   const files = unzipSync(bytes)
   const read = (path: string) => (files[path] ? strFromU8(files[path]) : '')
   const shared = [...read('xl/sharedStrings.xml').matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => textRuns(m[1]))
@@ -125,16 +103,8 @@ export const readXlsx = (bytes: Uint8Array, wanted?: string[]): Map<string, Shee
     const name = decodeXml(attr(m[0], 'name') ?? '')
     const rid = attr(m[0], 'r:id')
     const path = rid ? workbookRels.get(rid) : undefined
-    if (!path || (wanted && !wanted.includes(name))) continue
-    let notes = new Map<string, string>()
-    let threaded = new Map<string, string>()
-    for (const target of relsOf(files, path).values()) {
-      if (target.includes('threadedComment')) threaded = parseThreadedComments(read(target))
-      else if (/comments\d*\.xml$/.test(target)) notes = parseNotes(read(target))
-    }
-    // Legacy notes duplicate threaded comments with boilerplate text; prefer the threaded version.
-    for (const [ref, body] of threaded) notes.set(ref, body)
-    sheets.set(name, { name, rows: parseCells(read(path), shared), notes })
+    if (!path) continue
+    sheets.set(name, { name, rows: parseCells(read(path), shared) })
   }
   return sheets
 }

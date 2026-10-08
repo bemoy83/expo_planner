@@ -62,7 +62,6 @@
   --neg-wash:color-mix(in srgb,var(--neg) 13%,transparent);   /* a day planned above the crew */
   --on-neg:#ffffff;        /* text on a strong red tile */
   --warn-bg:#fff6e0; --warn-line:#f0d58a;   /* a line with an issue */
-  --overtime:#6a4c93;      /* the overtime line in Bemanning */
 
   /* the band of a project's line, the only tinted level */
   --band:color-mix(in oklab,#171613 6%,#f2f0eb);
@@ -137,7 +136,6 @@
   --over:#f2b54f;
   --neg-wash:color-mix(in srgb,var(--neg) 18%,transparent);
   --warn-bg:#2b200d; --warn-line:#503b16;
-  --overtime:#c2b1f8;
 
   --band:color-mix(in oklab,#f3f2ee 8%,#0f0f0e);
   --band-we:color-mix(in oklab,#f3f2ee 12%,#0f0f0e);

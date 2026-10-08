@@ -65,7 +65,7 @@ export interface DateSpan {
   end: ISODate
 }
 
-/** One Venyoo row: an event occupying a hall, with its phase periods. */
+/** One Venyou row: an event occupying a hall, with its phase periods. */
 export interface VenueBooking {
   id: string
   hall: string
