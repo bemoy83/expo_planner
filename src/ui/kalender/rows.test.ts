@@ -97,6 +97,7 @@ describe('rows as a hierarchy', () => {
       ['Hall D', '64', 45],
     ].map(([hall, avdeling, hours], i) => ({
       id: `d${i}`,
+      origin: 'manual' as const,
       projectNo: '26970',
       projectName: 'VVS 2026',
       eventYear: '2026',

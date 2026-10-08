@@ -79,6 +79,7 @@ describe('undo history', () => {
 
   const demandLine = (id: string, basis: string): DemandLine => ({
     id,
+    origin: 'manual',
     projectNo: '26970',
     projectName: 'VVS 2026',
     eventYear: '2026',

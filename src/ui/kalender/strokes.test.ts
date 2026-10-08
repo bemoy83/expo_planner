@@ -25,6 +25,7 @@ const row = (id: string, overrides: Partial<AllocationRow> = {}): AllocationRow 
 })
 const demand = (competence: string, assemblyHours: number): DemandLine => ({
   id: competence,
+  origin: 'manual',
   projectNo: '26970',
   projectName: 'VVS 2026',
   eventYear: '2026',

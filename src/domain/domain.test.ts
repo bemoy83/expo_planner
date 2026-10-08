@@ -55,6 +55,7 @@ describe('holidays', () => {
 
 const demandLine = (overrides: Partial<DemandLine>): DemandLine => ({
   id: 'd',
+  origin: 'manual',
   projectNo: '24970',
   projectName: '',
   eventYear: '2024',

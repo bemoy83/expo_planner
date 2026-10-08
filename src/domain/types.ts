@@ -110,7 +110,7 @@ export interface DemandLine {
   /** Share of the calculated hours to leave out: 1 removes the line's hours, negative adds. */
   effekt?: number
   /** Where the line comes from: a Visma export, or the planner. */
-  origin?: 'visma' | 'manual'
+  origin: 'visma' | 'manual'
 }
 
 /** One planning row in the Kalender: required hours for a scope, and FTE typed per day. */

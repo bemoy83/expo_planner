@@ -479,7 +479,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (fields) => {
       const ws = current.current
       if (!ws) return
-      const line: DemandLine = { ...fields, id: fields.id ?? `manual-${crypto.randomUUID()}`, origin: fields.origin ?? 'manual' }
+      const line: DemandLine = { ...fields, id: fields.id ?? `manual-${crypto.randomUUID()}` }
       const exists = ws.demand.some((l) => l.id === line.id)
       commitDemand({ ...ws, demand: exists ? ws.demand.map((l) => (l.id === line.id ? line : l)) : [...ws.demand, line] }, { putLines: [line] })
     },

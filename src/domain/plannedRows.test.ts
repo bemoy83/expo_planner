@@ -4,6 +4,7 @@ import type { AllocationRow, DemandLine, KpiConfig } from './types'
 
 const line = (overrides: Partial<DemandLine>): DemandLine => ({
   id: 'd',
+  origin: 'manual',
   projectNo: '26970',
   projectName: 'VVS 2026',
   eventYear: '2026',
