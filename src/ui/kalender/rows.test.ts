@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, pathKeys, workPhaseOn, type Dimension, type GridItem } from './rows'
+import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, levelSections, pathKeys, projectIndex, workPhaseOn, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -257,5 +257,37 @@ describe('filterSummary', () => {
 
   it('falls back to all projects when the chosen project is gone', () => {
     expect(filterSummary({ ...EMPTY_FILTER, project: 'x' }, projects).label).toBe('Alle prosjekter')
+  })
+})
+
+describe('levelSections and projectIndex', () => {
+  const events = [event('VVS 2026', '26970', '2026-10-05', '2026-10-09'), event('Hage 2026', '26100', '2026-04-01', '2026-04-05')]
+  const groups = filterGroups(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, ['project'])
+
+  it('gives every top level the stretch of lines under it', () => {
+    const items = groupItems(groups, index, DEFAULT_SETTINGS, new Set(), ['project'])
+    const list = levelSections(items)
+    expect(list.map((s) => (items[s.index] as Extract<GridItem, { kind: 'group' }>).node.label)).toEqual(groupsOf(items).map((g) => g.projectName))
+    // The stretches follow each other and cover the whole list.
+    expect(list[0].index).toBe(0)
+    list.forEach((s, i) => expect(s.end).toBe(list[i + 1]?.index ?? items.length))
+    const vvs = list.find((s) => (items[s.index] as Extract<GridItem, { kind: 'group' }>).node.project?.key === '26970')!
+    expect(vvs.end - vvs.index).toBe(3)
+  })
+
+  it('gives a folded level its own line alone, and no stretch where there are no levels', () => {
+    const items = groupItems(groups, index, DEFAULT_SETTINGS, new Set(['project:26970']), ['project'])
+    const vvs = levelSections(items).find((s) => (items[s.index] as Extract<GridItem, { kind: 'group' }>).node.project?.key === '26970')!
+    expect(vvs.end - vvs.index).toBe(1)
+    expect(levelSections(groupItems(groups, index, DEFAULT_SETTINGS, new Set(), []))).toEqual([])
+  })
+
+  it('finds a project by its own line, else by its first row', () => {
+    const byProject = groupItems(groups, index, DEFAULT_SETTINGS, new Set(), ['project'])
+    const at = projectIndex(byProject, '26970')
+    expect(byProject[at]).toMatchObject({ kind: 'group', node: { project: { key: '26970' } } })
+    const byCompetence = groupItems(groups, index, DEFAULT_SETTINGS, new Set(), ['competence'])
+    expect(byCompetence[projectIndex(byCompetence, '26100')]).toMatchObject({ kind: 'row', row: { id: 'c' } })
+    expect(projectIndex(byProject, 'unknown')).toBe(-1)
   })
 })

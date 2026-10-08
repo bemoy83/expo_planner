@@ -70,7 +70,7 @@
 .lbl-hall{margin-left:auto;font-family:var(--font-num);font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
 .hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:var(--fs-2xs);color:color-mix(in srgb,var(--text) 60%,transparent)}
 /* a day two events share */
-/* an event's bar pins its project's total over the planning rows */
+/* a click on an event's bar scrolls the planning rows to its project */
 .hall-bar[data-project]{cursor:pointer}
 .hall-bar.shared{background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px)!important}
 /* An event's name, anchored to the first day of the arrangement in the hall. */
@@ -185,7 +185,12 @@
 /* ---- the planning rows ---- */
 /* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
    every rule sits exactly on the boundary between two lines: a level's hairline above it, a cell's rule above it. */
+.grid-alloc{position:relative}
 .grid-alloc .grid-row{border-bottom:0}
+/* A top level's line stays at the top of the rows while the lines under it scroll past. It is laid over its
+   stretch of lines, which stay within reach beneath the box, and closes with a hairline when lines are under it. */
+.level-section{position:absolute;left:0;right:0;pointer-events:none}
+.level-stick{position:sticky;z-index:2;pointer-events:auto;box-shadow:0 1px 0 var(--line)}
 /* The last line closes the list with a hairline of its own, since no level follows to draw one. It sits
    outside the height the rows fill. */
 .grid-alloc:has(.grid-row){box-sizing:content-box;border-bottom:1px solid var(--line)}
@@ -249,9 +254,6 @@
 .strip-dismantle::before{background:var(--ph-dismantle)}
 .strip-mon::before{background:var(--mon)}
 .strip-dem::before{background:var(--dem)}
-/* The project in focus, pinned at the foot of the planning bar: marked as its halls are in the hall calendar. */
-.pinned-project .grid-label{box-shadow:inset 3px 0 0 var(--text)}
-.pinned-project .twisty{color:var(--text)}
 /* A level that takes FTE itself instead of only summing its rows. */
 .group-row .row-action.level-mode.entry{visibility:visible;color:var(--accent);font-weight:600}
 .group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}

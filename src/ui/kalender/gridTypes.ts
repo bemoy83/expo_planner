@@ -65,12 +65,8 @@ export interface GridActions {
   fillDown: (section: Section, e: MouseEvent) => void
   /** A click on the name of a project that is in the hall calendar. */
   showProject: (key: string) => void
-  /** A click on a project's bar in the hall calendar: its total is pinned over the rows, or let go of. */
-  pinProject: (key: string) => void
-  /** A click on the name of the pinned project: its days are brought into view. */
-  revealProject: (key: string) => void
-  /** Lets go of the pinned project. */
-  releaseProject: () => void
+  /** A click on a project's bar in the hall calendar: the rows scroll to the project. */
+  findProject: (key: string) => void
   toggleGroup: (key: string) => void
   toggleEntry: (key: string) => void
   proposePlan: (rows: AllocationRow[], replace: boolean) => void

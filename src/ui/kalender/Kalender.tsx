@@ -22,7 +22,7 @@ import { heatScale } from './heat'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, pinnedProject, projectKey, type Dimension, type RowFilter } from './rows'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, levelSections, pathKeys, projectIndex, projectKey, type Dimension, type GridItem, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
 import { HallSection, PlanningHeading, StaffingSection } from './TopSections'
 import { useGridDrag } from './useGridDrag'
@@ -33,6 +33,8 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Section, type Selection, type Tool } from './selection'
+
+type GroupItem = Extract<GridItem, { kind: 'group' }>
 
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
@@ -93,8 +95,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
   // The cell to scroll to, and whether the grid takes the keys, once it is selected.
   const [reveal, setReveal] = useState<{ cell: Cell; takeKeys: boolean } | null>(null)
-  // The project in focus, after a click on its name or on one of its bars in the hall calendar: its halls
-  // and bars stay lit, and its total is pinned over the rows.
+  // The project whose halls and days the hall calendar is showing, after a click on its name.
   const [located, setLocated] = useState<string | null>(null)
 
   const colW = ZOOM_WIDTHS[zoom]
@@ -178,12 +179,6 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
     [allGroups],
   )
-  // The pinned line is made from the project alone, so it costs one line however long the list is, and
-  // changes only when the planning rows or the hall bookings do.
-  const pinned = useMemo(() => {
-    const group = located ? allGroups.find((g) => g.key === located) : undefined
-    return group ? pinnedProject(group) : null
-  }, [allGroups, located])
   // The days each row can be worked on: its project's build-up or tear-down days in its hall.
   // The same lookup gives the hall phase of each day of a project, for the strip on its line.
   const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf])
@@ -227,6 +222,17 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     }
     return lo
   }
+  // A top level's line stays at the top of the rows while the lines under it scroll past, and is pushed
+  // out by the next one. Each is drawn in a box as tall as its stretch of lines and sticks inside it, so
+  // the browser moves it while scrolling and nothing is worked out per frame.
+  const allSections = useMemo(() => levelSections(items), [items])
+  /** What stays pinned over the rows: the whole top block, or only the planning bar when the block is too tall to pin. */
+  const pinnedHeight = topPinned ? topHeight : barHeight
+  /** How much of the rows the line of a top level covers above the line at `index`: nothing above a top level itself. */
+  const headOver = (index: number) => {
+    const item = items[index]
+    return item && allSections.length && (item.kind === 'group' ? item.node.depth : item.depth) > 0 ? TOP_ROW_H : 0
+  }
   const r0 = Math.max(0, rowAt(viewport.top - (topPinned ? 0 : topHeight)) - OVERSCAN_ROWS)
   const r1 = Math.min(items.length, rowAt(viewport.top + viewport.height - topHeight) + 1 + OVERSCAN_ROWS)
 
@@ -241,13 +247,12 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
         const index = allocLanes[cell.lane]?.index ?? 0
         const y = rowTops[index] ?? 0
         const bottom = rowTops[index + 1] ?? y + ROW_H
-        // What stays pinned over the rows: the whole top block, or only the planning bar when the block is too tall to pin.
-        const pinned = topPinned ? topHeight : barHeight
+        const pinned = pinnedHeight + headOver(index)
         if (topHeight + y < el.scrollTop + pinned) el.scrollTop = topHeight + y - pinned
         else if (topHeight + bottom > el.scrollTop + el.clientHeight) el.scrollTop = topHeight + bottom - el.clientHeight
       }
     },
-    [scrollRef, colW, allocLanes, rowTops, topHeight, barHeight, topPinned],
+    [scrollRef, colW, allocLanes, rowTops, topHeight, pinnedHeight, items, allSections], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // Select the first visible day of a row that was just added or edited, once it is among the lines.
@@ -494,20 +499,6 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     setEntry((prev) => toggled(prev, key))
   }
 
-  const focusProject = (key: string | null) => {
-    setLocated(key)
-    projectHover.pin(key)
-  }
-  /** Brings a project's days into view, in narrower columns if they do not fit. */
-  const revealProject = (key: string) => {
-    const span = allGroups.find((group) => group.key === key)?.venue
-    if (!span) return
-    const el = scrollRef.current
-    const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
-    if (fit.zoom !== zoom) setZoom(fit.zoom)
-    showSpan(span)
-  }
-
   // ---- what the rows are given ---------------------------------------------------------------
   const actions = useStableActions<GridActions>({
     cellDown: (section, lane, col, e) => {
@@ -575,16 +566,23 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       setFill(started)
     },
     // Shows where and when a project is: its days are brought into view, in narrower columns if they do not
-    // fit, its halls and bars stay lit and its total is pinned over the rows. A click on the same project again lets go of it.
+    // fit, and its halls and bars stay lit. A click on the same project again lets go of it.
     showProject: (key) => {
-      const shown = located !== key && !!allGroups.find((group) => group.key === key)?.venue
-      focusProject(shown ? key : null)
-      if (shown) revealProject(key)
+      const span = located === key ? undefined : allGroups.find((group) => group.key === key)?.venue
+      setLocated(span ? key : null)
+      projectHover.pin(span ? key : null)
+      if (!span) return
+      const el = scrollRef.current
+      const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
+      if (fit.zoom !== zoom) setZoom(fit.zoom)
+      showSpan(span)
     },
-    // From the hall calendar the project's days are already in view, so nothing scrolls.
-    pinProject: (key) => focusProject(located !== key && allGroups.some((group) => group.key === key) ? key : null),
-    revealProject,
-    releaseProject: () => focusProject(null),
+    // The list keeps its order, so what comes before and after the project is still there to see.
+    findProject: (key) => {
+      const index = projectIndex(items, key)
+      if (index < 0) return setNotice('Prosjektet er ikke blant radene som vises. Se filteret, eller åpne nivåene over det.')
+      scrollRef.current?.scrollTo({ top: topHeight + rowTops[index] - pinnedHeight - headOver(index), behavior: 'smooth' })
+    },
     toggleGroup,
     toggleEntry,
     proposePlan,
@@ -608,7 +606,10 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     onEscape: () => {
       if (cellMenu) setCellMenu(null)
       else if (tool !== 'select') setTool('select')
-      else if (located) focusProject(null)
+      else if (located) {
+        setLocated(null)
+        projectHover.pin(null)
+      }
     },
   })
   const activeTool = stroke ?? modifier ?? tool
@@ -665,6 +666,12 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   if (selectedDate && selectedDate !== planningFocus?.date) setPlanningFocus({ date: selectedDate })
   const activeDate = selectedDate ?? planningFocus?.date
 
+  const groupRow = (item: GroupItem) => {
+    // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
+    const lane = item.entry ? laneOfRow.get(`level:${item.node.key}`)! : -1
+    return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project ? phasesOfProject.get(item.node.project.key) : undefined} cols={cols} actions={actions} {...(item.entry ? editOf('alloc', lane) : NO_EDIT)} />
+  }
+
   // ---- render ---------------------------------------------------------------------------------
   return (
     <div className={`kalender ${activeTool === 'select' ? '' : activeTool}`}>
@@ -688,7 +695,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
             ref={topRef}
             onClick={(e) => {
               const project = e.target instanceof Element ? e.target.closest<HTMLElement>('.hall-bar[data-project]')?.dataset.project : undefined
-              if (project) actions.pinProject(project)
+              if (project) actions.findProject(project)
             }}
           >
             <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={activeDate} />
@@ -745,7 +752,6 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               onZoom={setZoom}
             />
             <PlanningHeading />
-            {pinned && <GroupRow item={pinned} lane={-1} phases={phasesOfProject.get(pinned.node.project!.key)} pinned cols={cols} actions={actions} {...NO_EDIT} />}
           </div>
 
           <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
@@ -755,10 +761,22 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
                 const lane = laneOfRow.get(item.row.id)!
                 return <AllocRow key={item.row.id} item={item} lane={lane} window={windowOf(item.row)} rowDimensions={rowDimensions} cols={cols} actions={actions} {...editOf('alloc', lane)} />
               }
-              // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
-              const lane = item.entry ? laneOfRow.get(`level:${item.node.key}`)! : -1
-              return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project ? phasesOfProject.get(item.node.project.key) : undefined} cols={cols} actions={actions} {...(item.entry ? editOf('alloc', lane) : NO_EDIT)} />
+              // A top level's line is drawn in its section below; here it only takes up its place.
+              if (item.node.depth === 0) return <div key={`g:${item.node.key}`} style={{ height: TOP_ROW_H }} />
+              return groupRow(item)
             })}
+            {allSections
+              .filter((section) => section.end > r0 && section.index < r1)
+              .map((section) => {
+                const item = items[section.index] as GroupItem
+                return (
+                  <div key={`s:${item.node.key}`} className="level-section" style={{ top: rowTops[section.index], height: rowTops[section.end] - rowTops[section.index] }}>
+                    <div className="level-stick" style={{ top: pinnedHeight }}>
+                      {groupRow(item)}
+                    </div>
+                  </div>
+                )
+              })}
           </div>
           {items.length === 0 && (
             <p className="empty-rows">{rows.length === 0

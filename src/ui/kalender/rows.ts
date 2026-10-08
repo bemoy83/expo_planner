@@ -261,16 +261,35 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
   return items
 }
 
+/** A top level with the lines under it, as positions in the list of lines: from its own line up to, not including, `end`. */
+export interface LevelSection {
+  index: number
+  end: number
+}
+
 /**
- * A project's total as a line of its own, for pinning over the rows: the whole project whatever the
- * filter and the grouping are, folded, so it shows its sum per day.
+ * The top levels of the hierarchy, each with the stretch of lines it heads. Its line stays in view at
+ * the top for as long as any of that stretch is, see the Kalender.
  */
-export const pinnedProject = (group: ProjectGroup): Extract<GridItem, { kind: 'group' }> => ({
-  kind: 'group',
-  node: { key: `pinned:${group.key}`, dimension: 'project', label: group.projectName, depth: 0, rows: group.rows, totals: group.totals, daily: group.daily, project: group, projectKey: group.venue ? group.key : undefined },
-  collapsed: true,
-  entry: false,
-})
+export const levelSections = (items: GridItem[]): LevelSection[] => {
+  const list: LevelSection[] = []
+  items.forEach((item, index) => {
+    const top = (item.kind === 'group' ? item.node.depth : item.depth) === 0
+    if (top && list.length) list[list.length - 1].end = index
+    // A row that stands in for a top level heads nothing, but ends the stretch before it.
+    if (top && item.kind === 'group') list.push({ index, end: items.length })
+  })
+  return list
+}
+
+/**
+ * Where a project is in the list of lines: its own line where projects are the top level, else the first
+ * line that belongs to it. -1 when it is not among the lines.
+ */
+export const projectIndex = (items: GridItem[], key: string): number => {
+  const own = items.findIndex((item) => item.kind === 'group' && item.node.project?.key === key)
+  return own >= 0 ? own : items.findIndex((item) => item.kind === 'row' && item.project.key === key)
+}
 
 /** The grid's lines from the planning rows: `filterGroups`, the projects inside `window` where one is given, then `groupItems`. */
 export const buildItems = (

@@ -10,7 +10,7 @@ import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './l
 import { HEAT_LABELS, heatFigure, heatTile } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
-import { ChevronDown, ChevronRight, Eraser, Pencil, Pin, Plus, TriangleAlert } from 'lucide-react'
+import { ChevronDown, ChevronRight, Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
@@ -340,8 +340,6 @@ interface GroupRowProps extends CellEdit {
   lane: number
   /** The hall phase of each day of the project, for the strip on a project's line. */
   phases: Map<ISODate, VenuePhase> | undefined
-  /** The line is the project pinned over the rows, see `pinnedProject`: it cannot be folded or typed on, and it is let go of where the others fold. */
-  pinned?: boolean
   cols: Columns
   actions: GridActions
 }
@@ -351,7 +349,7 @@ interface GroupRowProps extends CellEdit {
  * its sums on a strip in the colour of the work phase. In entry mode it always shows cells to type in.
  * A project's line carries the hall-phase strip either way.
  */
-export const GroupRow = memo(function GroupRow({ item, lane, phases, pinned, cols, actions, ...edit }: GroupRowProps) {
+export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actions, ...edit }: GroupRowProps) {
   const { node } = item
   const project = node.project
   const delta = node.totals.plannedFte - node.totals.requiredFte
@@ -367,26 +365,20 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, pinned, col
   }
   return (
     <Line
-      className={`group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''} ${pinned ? 'pinned-project' : ''}`}
+      className={`group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`}
       height={node.depth === 0 ? TOP_ROW_H : ROW_H}
       project={node.projectKey}
       cols={cols}
       label={
         <>
-          {pinned ? (
-            <button className="twisty" aria-pressed onClick={actions.releaseProject} aria-label="Løsne prosjektet" title="Festet over radene. Klikk for å løsne (Esc).">
-              <Pin size={14} aria-hidden />
-            </button>
-          ) : (
-            <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => (item.entry ? actions.toggleEntry(node.key) : actions.toggleGroup(node.key))} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
-              {item.collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
-            </button>
-          )}
+          <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => (item.entry ? actions.toggleEntry(node.key) : actions.toggleGroup(node.key))} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
+            {item.collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          </button>
           {project ? (
             <span
               className={`lbl-project ${project.venue ? 'locatable' : ''}`}
-              onClick={project.venue ? () => (pinned ? actions.revealProject(project.key) : actions.showProject(project.key)) : undefined}
-              title={`${project.venue ? (pinned ? 'Klikk for å hente prosjektets dager inn i visningen. ' : 'Klikk for å vise prosjektets haller og dager i hallkalenderen. ') : ''}${project.projectName}${project.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}${project.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Sett prosjektnummeret på arrangementet på Haller-fanen.'}`}
+              onClick={project.venue ? () => actions.showProject(project.key) : undefined}
+              title={`${project.venue ? 'Klikk for å vise prosjektets haller og dager i hallkalenderen. ' : ''}${project.projectName}${project.projectNo ? '' : ' – uten prosjektnummer, settes på Haller-fanen'}${project.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Sett prosjektnummeret på arrangementet på Haller-fanen.'}`}
             >
               {project.projectName} <span className="muted">{project.projectNo || 'uten nr.'}</span>
               {!project.venue && <span className="unlinked"> ikke i hallkalenderen</span>}
@@ -409,7 +401,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, pinned, col
             <span className="muted small no-rows">ingen rader</span>
           )}
           <span className="row-slot">
-            {node.rows.length > 0 && !pinned && (
+            {node.rows.length > 0 && (
               <button
                 className={`row-action level-mode ${item.entry ? 'entry' : ''}`}
                 aria-pressed={item.entry}
