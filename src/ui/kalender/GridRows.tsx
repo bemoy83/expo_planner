@@ -7,7 +7,7 @@ import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import type { CapLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
-import { HEAT_LABELS, heatTile } from './heat'
+import { HEAT_LABELS, heatFigure, heatTile } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GridItem } from './rows'
 import type { Section } from './selection'
 import { ChevronDown, ChevronRight, Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
@@ -313,7 +313,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
             return (
               <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} style={{ width: cols.colW }} title={`${HEAT_LABELS[tile.kind]} ${formatFte(dev)} FTE`}>
                 <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
-                <span className="heat-value">{formatFte(dev)}</span>
+                <span className="heat-value">{heatFigure(dev, cols.colW)}</span>
               </div>
             )
           }}

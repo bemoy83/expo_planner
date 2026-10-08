@@ -1,4 +1,5 @@
-import { FTE_NOISE } from '../../domain/calc'
+import { formatFte, FTE_NOISE } from '../../domain/calc'
+import { ZOOM_WIDTHS } from './layout'
 
 /** Less than this many FTE to spare on a day counts as tight. */
 export const TIGHT_BELOW = 2
@@ -40,3 +41,9 @@ export const heatTile = (deviation: number, maxShortage: number, maxSurplus: num
 }
 
 export const HEAT_LABELS: Record<HeatKind, string> = { short: 'Underdekning', tight: 'Stramt', spare: 'Ledig' }
+
+/**
+ * The figure on a tile: one decimal in wide columns, a whole number in narrower ones, where a figure
+ * such as −11,8 does not fit on the tile. The exact figure is in the cell's tooltip.
+ */
+export const heatFigure = (deviation: number, colW: number): string => (colW >= ZOOM_WIDTHS.wide ? formatFte(deviation) : formatFte(Math.round(deviation) || 0, 0))
