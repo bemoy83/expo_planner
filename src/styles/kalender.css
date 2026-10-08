@@ -177,6 +177,8 @@
 .section-head .phase-legend{margin:0 -10px 0 auto}
 .phase-legend i.mon{background:var(--mon)}
 .phase-legend i.dem{background:var(--dem)}
+/* the hatch itself is set with the cells it stands for; alone on the page it needs a frame to be seen */
+.phase-legend i.outside{box-shadow:inset 0 0 0 1px var(--line-strong)}
 
 /* ---- the planning rows ---- */
 /* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
