@@ -22,7 +22,7 @@ import { heatScale } from './heat'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, projectKey, type Dimension, type RowFilter } from './rows'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, pathKeys, pinnedProject, projectKey, type Dimension, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
 import { HallSection, PlanningHeading, StaffingSection } from './TopSections'
 import { useGridDrag } from './useGridDrag'
@@ -93,7 +93,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
   // The cell to scroll to, and whether the grid takes the keys, once it is selected.
   const [reveal, setReveal] = useState<{ cell: Cell; takeKeys: boolean } | null>(null)
-  // The project whose halls and days the hall calendar is showing, after a click on its name.
+  // The project in focus, after a click on its name or on one of its bars in the hall calendar: its halls
+  // and bars stay lit, and its total is pinned over the rows.
   const [located, setLocated] = useState<string | null>(null)
 
   const colW = ZOOM_WIDTHS[zoom]
@@ -177,6 +178,12 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
     [allGroups],
   )
+  // The pinned line is made from the project alone, so it costs one line however long the list is, and
+  // changes only when the planning rows or the hall bookings do.
+  const pinned = useMemo(() => {
+    const group = located ? allGroups.find((g) => g.key === located) : undefined
+    return group ? pinnedProject(group) : null
+  }, [allGroups, located])
   // The days each row can be worked on: its project's build-up or tear-down days in its hall.
   // The same lookup gives the hall phase of each day of a project, for the strip on its line.
   const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf])
@@ -487,6 +494,20 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     setEntry((prev) => toggled(prev, key))
   }
 
+  const focusProject = (key: string | null) => {
+    setLocated(key)
+    projectHover.pin(key)
+  }
+  /** Brings a project's days into view, in narrower columns if they do not fit. */
+  const revealProject = (key: string) => {
+    const span = allGroups.find((group) => group.key === key)?.venue
+    if (!span) return
+    const el = scrollRef.current
+    const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
+    if (fit.zoom !== zoom) setZoom(fit.zoom)
+    showSpan(span)
+  }
+
   // ---- what the rows are given ---------------------------------------------------------------
   const actions = useStableActions<GridActions>({
     cellDown: (section, lane, col, e) => {
@@ -554,17 +575,16 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       setFill(started)
     },
     // Shows where and when a project is: its days are brought into view, in narrower columns if they do not
-    // fit, and its halls and bars stay lit. A click on the same project again lets go of it.
+    // fit, its halls and bars stay lit and its total is pinned over the rows. A click on the same project again lets go of it.
     showProject: (key) => {
-      const span = located === key ? undefined : allGroups.find((group) => group.key === key)?.venue
-      setLocated(span ? key : null)
-      projectHover.pin(span ? key : null)
-      if (!span) return
-      const el = scrollRef.current
-      const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
-      if (fit.zoom !== zoom) setZoom(fit.zoom)
-      showSpan(span)
+      const shown = located !== key && !!allGroups.find((group) => group.key === key)?.venue
+      focusProject(shown ? key : null)
+      if (shown) revealProject(key)
     },
+    // From the hall calendar the project's days are already in view, so nothing scrolls.
+    pinProject: (key) => focusProject(located !== key && allGroups.some((group) => group.key === key) ? key : null),
+    revealProject,
+    releaseProject: () => focusProject(null),
     toggleGroup,
     toggleEntry,
     proposePlan,
@@ -588,10 +608,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     onEscape: () => {
       if (cellMenu) setCellMenu(null)
       else if (tool !== 'select') setTool('select')
-      else if (located) {
-        setLocated(null)
-        projectHover.pin(null)
-      }
+      else if (located) focusProject(null)
     },
   })
   const activeTool = stroke ?? modifier ?? tool
@@ -665,7 +682,15 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
           {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
-          <div className={`grid-top ${topPinned ? 'pinned' : ''}`} ref={topRef}>
+          {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
+          <div
+            className={`grid-top ${topPinned ? 'pinned' : ''}`}
+            ref={topRef}
+            onClick={(e) => {
+              const project = e.target instanceof Element ? e.target.closest<HTMLElement>('.hall-bar[data-project]')?.dataset.project : undefined
+              if (project) actions.pinProject(project)
+            }}
+          >
             <HeadRows cols={cols} zoom={zoom} overbooked={overbooked} activeDate={activeDate} />
 
             <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
@@ -720,6 +745,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               onZoom={setZoom}
             />
             <PlanningHeading />
+            {pinned && <GroupRow item={pinned} lane={-1} phases={phasesOfProject.get(pinned.node.project!.key)} pinned cols={cols} actions={actions} {...NO_EDIT} />}
           </div>
 
           <div className="grid-alloc" style={{ height: rowTops[items.length] }}>

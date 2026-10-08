@@ -70,6 +70,8 @@
 .lbl-hall{margin-left:auto;font-family:var(--font-num);font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
 .hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:var(--fs-2xs);color:color-mix(in srgb,var(--text) 60%,transparent)}
 /* a day two events share */
+/* an event's bar pins its project's total over the planning rows */
+.hall-bar[data-project]{cursor:pointer}
 .hall-bar.shared{background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px)!important}
 /* An event's name, anchored to the first day of the arrangement in the hall. */
 /* an event's name: the run is the stretch it may move in, and the name sticks to the left edge of the days inside it */
@@ -247,6 +249,9 @@
 .strip-dismantle::before{background:var(--ph-dismantle)}
 .strip-mon::before{background:var(--mon)}
 .strip-dem::before{background:var(--dem)}
+/* The project in focus, pinned at the foot of the planning bar: marked as its halls are in the hall calendar. */
+.pinned-project .grid-label{box-shadow:inset 3px 0 0 var(--text)}
+.pinned-project .twisty{color:var(--text)}
 /* A level that takes FTE itself instead of only summing its rows. */
 .group-row .row-action.level-mode.entry{visibility:visible;color:var(--accent);font-weight:600}
 .group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}

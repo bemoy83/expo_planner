@@ -261,6 +261,17 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
   return items
 }
 
+/**
+ * A project's total as a line of its own, for pinning over the rows: the whole project whatever the
+ * filter and the grouping are, folded, so it shows its sum per day.
+ */
+export const pinnedProject = (group: ProjectGroup): Extract<GridItem, { kind: 'group' }> => ({
+  kind: 'group',
+  node: { key: `pinned:${group.key}`, dimension: 'project', label: group.projectName, depth: 0, rows: group.rows, totals: group.totals, daily: group.daily, project: group, projectKey: group.venue ? group.key : undefined },
+  collapsed: true,
+  entry: false,
+})
+
 /** The grid's lines from the planning rows: `filterGroups`, the projects inside `window` where one is given, then `groupItems`. */
 export const buildItems = (
   rows: AllocationRow[],

@@ -2,9 +2,9 @@ import { fireEvent, render, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
 import { buildDemandIndex, rowTotals } from '../../domain/calc'
-import { AllocRow } from './GridRows'
+import { AllocRow, GroupRow } from './GridRows'
 import type { CellEdit, Columns, GridActions } from './gridTypes'
-import type { GridItem } from './rows'
+import { buildGroups, pinnedProject, type GridItem } from './rows'
 import { useStableActions } from './useStableActions'
 
 const row: AllocationRow = {
@@ -72,6 +72,28 @@ describe('AllocRow', () => {
     const { container } = render(view(idle, { ...noActions, cellDown }))
     fireEvent.mouseDown(container.querySelectorAll('.cell')[1])
     expect(cellDown).toHaveBeenCalledWith('alloc', 0, 1, expect.anything())
+  })
+})
+
+describe('GroupRow as the pinned project', () => {
+  const group = buildGroups([row], [{ key: 'vvs 2026|2026', name: 'VVS 2026', projectNo: '26970', linkSource: 'list', ambiguous: false, start: '2026-10-05', end: '2026-10-07', halls: ['C'] }], buildDemandIndex([]), DEFAULT_SETTINGS)[0]
+  const view = (actions: GridActions) => <GroupRow item={pinnedProject(group)} lane={-1} phases={undefined} pinned cols={cols} actions={actions} {...idle} />
+
+  it('shows the sum of the whole project per day', () => {
+    const { container } = render(view(noActions))
+    expect([...container.querySelectorAll('.cell')].map((cell) => cell.textContent)).toEqual(['', '2', ''])
+  })
+
+  it('brings the days into view from the name and is let go of from the pin, and cannot be folded', () => {
+    const calls = { revealProject: vi.fn(), releaseProject: vi.fn(), showProject: vi.fn(), toggleGroup: vi.fn() }
+    const { container } = render(view({ ...noActions, ...calls }))
+    fireEvent.click(container.querySelector('.lbl-project')!)
+    expect(calls.revealProject).toHaveBeenCalledWith('26970')
+    fireEvent.click(container.querySelector('.twisty')!)
+    expect(calls.releaseProject).toHaveBeenCalledTimes(1)
+    expect(calls.showProject).not.toHaveBeenCalled()
+    expect(calls.toggleGroup).not.toHaveBeenCalled()
+    expect(container.querySelector('.level-mode')).toBeNull()
   })
 })
 
