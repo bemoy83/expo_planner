@@ -86,12 +86,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-pop-carry input{width:52px;text-align:right;font:500 var(--fs-md) var(--font-num)}
 .bm-pop-carry span{margin-right:auto;font:400 var(--fs-sm) var(--font-num);color:var(--faint)}
 
-/* a person's absence */
-.bm-absence{width:min(520px,calc(100vw - 32px))}
-.bm-absence ul{display:flex;flex-direction:column;gap:2px;max-height:180px;margin:0;padding:0;overflow:auto;list-style:none}
-.bm-absence li{display:flex;align-items:center;gap:10px;padding:2px 0 2px 10px;border-radius:6px;background:var(--panel);font-size:var(--fs-md)}
-.bm-absence li span{flex:1;font-family:var(--font-num);font-size:var(--fs-sm);color:var(--muted)}
-
 /* ---- the people ---- */
 .bm-people{position:relative;padding-bottom:40px;user-select:none}
 .bm-person.dim{opacity:.4}
@@ -168,12 +162,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-unfolded .stats b{font-size:var(--fs-base)}
 .bm-unfolded .stats em{font-weight:400;color:var(--muted)}
 .bm-unfolded .stats em.over{color:var(--over)}
-.bm-unfolded-list{flex:1;min-height:0;display:flex;flex-direction:column;padding:6px;overflow:auto}
-.bm-unfolded-list button{flex:none;justify-content:flex-start;gap:8px;height:28px;padding:0 6px;border-radius:6px;background:transparent;font-size:var(--fs-sm)}
-.bm-unfolded-list button:hover{background:var(--wash)}
-.bm-unfolded-list button.on{background:color-mix(in oklch,var(--cc) 14%,var(--panel))}
-.bm-unfolded-hours{margin-left:auto;font:500 var(--fs-sm) var(--font-num)}
-.bm-unfolded-hours.nil{font-weight:400;color:var(--faint)}
+.bm-unfolded .bm-competences{flex:1;min-height:0;padding:6px;overflow:auto}
 .bm-unfolded-hint{margin:0;padding:8px 12px;border-top:1px solid var(--line);font-size:var(--fs-xs);color:var(--faint);text-wrap:pretty}
 .bm-axis{position:relative;margin:12px 0}
 .bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
@@ -212,3 +201,33 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-block-remove:hover{background:var(--on-line-rule)}
 .bm-edit-block:hover .bm-block-remove{display:inline-flex}
 .bm-edit-block.unresolved .bm-block-remove{background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--text)}
+
+/* a person's competences with the hours worked on each; a click picks the brush. In the open hours and in the Person panel. */
+.bm-competences{display:flex;flex-direction:column}
+.bm-competences button{flex:none;justify-content:flex-start;gap:8px;height:28px;padding:0 6px;border-radius:6px;background:transparent;font-size:var(--fs-sm)}
+.bm-competences button:hover{background:var(--wash)}
+.bm-competences button.on{background:color-mix(in oklch,var(--cc) 14%,var(--panel))}
+.bm-competence-hours{margin-left:auto;font:500 var(--fs-sm) var(--font-num)}
+.bm-competence-hours.nil{font-weight:400;color:var(--faint)}
+
+/* ---- the Person panel: overtime per week and absence as periods, in the frame of the row details ---- */
+.bm-person-name{cursor:pointer}
+.bm-person-name:hover .bm-name{text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
+.pp-weeks{margin-top:14px}
+.pp-weeks tr{cursor:pointer}
+.pp-weeks tr:hover td{background:var(--wash)}
+.pp-weeks td span{margin-left:6px;color:var(--faint)}
+.pp-weeks tr.over td{color:var(--over);font-weight:600}
+.pp-weeks tr.lit td{background:color-mix(in srgb,var(--over) 10%,transparent)}
+.pp-periods{display:flex;flex-direction:column;gap:2px;margin:0 -6px;padding:0;list-style:none}
+.pp-periods li{display:flex;align-items:center;gap:2px}
+.pp-period{flex:1;min-width:0;justify-content:flex-start;gap:8px;padding:5px 6px;border-radius:6px;background:transparent;font-size:var(--fs-md)}
+.pp-period:hover{background:var(--wash)}
+.pp-period b{font-weight:600}
+.pp-period span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-sm) var(--font-num);color:var(--muted)}
+.pp-periods li.sick .pp-period b{color:var(--neg)}
+.pp-add{margin:8px 0 0 -6px;padding:5px 8px}
+.pp-form{display:flex;flex-direction:column;gap:10px;margin-top:10px;padding:12px;border-radius:8px;background:var(--surface)}
+.pp-form label{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);color:var(--muted)}
+.pp-form label.radio{flex-direction:row;align-items:center;gap:6px;font-size:var(--fs-md);color:var(--text)}
+.pp-form input:not([type='checkbox']),.pp-form select{width:100%;box-sizing:border-box}

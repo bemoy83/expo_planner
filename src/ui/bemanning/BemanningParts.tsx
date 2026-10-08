@@ -1,23 +1,24 @@
 import { Eraser, MousePointer2, Paintbrush, PanelRight } from 'lucide-react'
 import { addDays, dayOfMonth, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { carry, clearSick, freeCapacity, isSick, markSick, paintBlock, removeCarried } from '../../domain/staffing'
+import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
 import { ToolSwitch, type ToolChoice } from '../common'
 import { competenceColor } from '../dom'
 import type { PlanMode } from '../kalender/zoom'
 import { Toasts } from '../Toasts'
-import { AbsenceDialog } from './AbsenceDialog'
 import { BemanningBar } from './BemanningBar'
 import { useBemanning } from './BemanningScope'
 import { DemandRows } from './DemandRows'
 import { DayMenu, DemandPopover } from './Popovers'
 import { ProjectLines } from './ProjectLines'
 import type { Tool } from './tools'
-import { EPSILON, hoursText, weekDates, WEEKDAYS_LONG } from './week'
+import { EPSILON, hoursText, WEEKDAYS_LONG } from './week'
 
 /** The page header in Bemanning: how far the people cover the demand of the period. */
 export function BemanningHead() {
-  const { persons, totals } = useBemanning()
+  const { persons, totals, panel, setPanel, selected, unfolded } = useBemanning()
+  // The panel opens on the person of the selected day, else the one whose hours are open, else the first.
+  const subject = selected?.personId ?? unfolded ?? persons[0]?.id
   const meta = [
     `${persons.length} faste`,
     totals.coveredShare !== null ? `${Math.round(totals.coveredShare * 100)} % av behovet dekket` : '',
@@ -29,7 +30,14 @@ export function BemanningHead() {
     <div className="page-head">
       <h2>Kalender</h2>
       <span className="page-meta">{meta.join(' · ')}</span>
-      <button className="ghost icon-button" disabled aria-label="Vis persondetaljer" title="Klikk et navn for detaljer om personen">
+      <button
+        className={`ghost icon-button ${panel ? 'active' : ''}`}
+        aria-pressed={!!panel}
+        disabled={!subject}
+        aria-label={panel ? 'Skjul persondetaljer' : 'Vis persondetaljer'}
+        title={panel ? 'Skjul persondetaljer' : 'Vis persondetaljer: timer, overtid og fravær. Klikk et navn for å åpne dem for personen.'}
+        onClick={() => setPanel(panel ? null : subject ? { personId: subject } : null)}
+      >
         <PanelRight size={16} aria-hidden />
       </button>
     </div>
@@ -95,10 +103,8 @@ export function BemanningToolbar(props: ToolbarProps) {
 /** What opens over the grid in Bemanning: the menu of a day, the balance of a day of the demand, a person's absence, and the messages. */
 export function BemanningOverlays() {
   const bm = useBemanning()
-  const { ws, persons, staffed, styles, balance, brush, menu, demandPop, absenceFor, updateStaffing, dayName } = bm
+  const { ws, persons, staffed, styles, balance, brush, menu, demandPop, updateStaffing, dayName } = bm
   const menuPerson = menu ? persons.find((p) => p.id === menu.cell.personId) : undefined
-  /** The workdays of the week from a day on, for «ut uka». */
-  const restOfWeek = (date: ISODate) => weekDates(date).filter((d) => d >= date && dayType(d) === 'arbeidsdag')
   const dayText = (date: ISODate) => `${dayName(date)} ${dayOfMonth(date)}. ${monthShort(date)}`
   return (
     <>
@@ -111,12 +117,11 @@ export function BemanningOverlays() {
           hasBlocks={(ws.assignments ?? []).some((a) => a.personId === menu.cell.personId && a.date === menu.cell.date)}
           open={bm.unfolded === menu.cell.personId}
           onToggleOpen={() => bm.toggleUnfolded(menu.cell.personId)}
-          dayName={dayName(menu.cell.date)}
           sick={dayType(menu.cell.date) === 'arbeidsdag' ? isSick(ws.unavailability ?? [], menu.cell.personId, menu.cell.date) : null}
-          moreDays={restOfWeek(menu.cell.date).length > 1}
-          onSick={(rest) => updateStaffing((w) => ({ ...w, unavailability: markSick(w.unavailability ?? [], menu.cell.personId, rest ? restOfWeek(menu.cell.date) : [menu.cell.date]) }))}
-          onWell={(rest) => updateStaffing((w) => ({ ...w, unavailability: clearSick(w.unavailability ?? [], menu.cell.personId, rest ? restOfWeek(menu.cell.date) : [menu.cell.date]) }))}
-          onAbsence={() => bm.setAbsenceFor(menu.cell)}
+          dayShort={`${dayName(menu.cell.date).slice(0, 3)} ${dayOfMonth(menu.cell.date)}.`}
+          onSick={() => bm.setPanel({ personId: menu.cell.personId, draft: { kind: 'syk', from: menu.cell.date, to: menu.cell.date } })}
+          onWell={() => updateStaffing((w) => ({ ...w, unavailability: clearSickFrom(w.unavailability ?? [], menu.cell.personId, menu.cell.date) }))}
+          onAbsence={() => bm.setPanel({ personId: menu.cell.personId, draft: { kind: 'ferie', from: menu.cell.date, to: menu.cell.date } })}
           onClose={() => bm.setMenu(null)}
           onPaint={(competence) => bm.paint([menu.cell], competence, false)}
           onClear={() => bm.clear([menu.cell])}
@@ -150,16 +155,6 @@ export function BemanningOverlays() {
             />
           )
         })()}
-      {absenceFor && persons.some((p) => p.id === absenceFor.personId) && (
-        <AbsenceDialog
-          person={persons.find((p) => p.id === absenceFor.personId)!}
-          unavailability={ws.unavailability ?? []}
-          workday={ws.settings.workday}
-          date={absenceFor.date}
-          onChange={(change) => updateStaffing((w) => ({ ...w, unavailability: change(w.unavailability ?? []) }))}
-          onClose={() => bm.setAbsenceFor(null)}
-        />
-      )}
       <Toasts toasts={bm.toasts} onDismiss={bm.dismissToast} />
     </>
   )

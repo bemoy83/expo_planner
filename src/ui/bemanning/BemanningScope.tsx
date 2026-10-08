@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
-import { addDays, weekdayIndex, type ISODate } from '../../domain/dates'
+import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { buildBalance, clearDays, defaultBrush, deleteBlock, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, weekTotals, type Balance, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
@@ -12,7 +12,8 @@ import { LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'
 import { useToasts, type Toast } from '../Toasts'
 import { ABSENCE_LABELS } from './dayCell'
-import { DIVIDER_H, PERSON_H } from './layout'
+import type { AbsenceDraft } from './PersonPanel'
+import { DIVIDER_H, PANEL_W, PERSON_H } from './layout'
 import type { ProjectSpan } from './projectsInView'
 import type { CrossMove } from './TimeTrack'
 import { strokeRange, TOOL_KEYS, type Stroke, type Tool } from './tools'
@@ -47,6 +48,8 @@ interface Props {
   /** The person whose hours are open, above the others. The grid keeps it, to leave the open hours room. */
   unfolded: string | null
   setUnfolded: Dispatch<SetStateAction<string | null>>
+  /** Brings a day into view. */
+  onShowDate: (date: ISODate) => void
   children: ReactNode
 }
 
@@ -76,7 +79,7 @@ const NO_GHOST = new Map<string, Map<ISODate, Interval[]>>()
 const NO_PREVIEW = new Map<ISODate, number>()
 const NO_HOURS = new Map<string, number>()
 
-function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, phases, chosenProject, unfolded, setUnfolded }: Omit<Props, 'children'>) {
+function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, phases, chosenProject, unfolded, setUnfolded, onShowDate }: Omit<Props, 'children'>) {
   const { workspace, updateStaffing, undo } = useWorkspace()
   const ws = workspace!
   const { colW } = cols
@@ -92,11 +95,14 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     setStrokeState(next)
   }
   const endStroke = useRef<(() => void) | null>(null)
+  const panelOpen = useRef(false)
   const [hover, setHover] = useState<{ row: number; col: number } | null>(null)
   const [shift, setShift] = useState(false)
   const [menu, setMenu] = useState<{ cell: Day; x: number; y: number } | null>(null)
   const [demandPop, setDemandPop] = useState<{ competence: string; date: ISODate; x: number; y: number } | null>(null)
-  const [absenceFor, setAbsenceFor] = useState<Day | null>(null)
+  /** The person the panel is about, with the absence that is being entered and the week it was opened for. */
+  const [panel, setPanel] = useState<{ personId: string; draft?: AbsenceDraft; week?: ISODate } | null>(null)
+  const [overtimeLimit, setOvertimeLimit] = usePref('overtimeLimitPerWeek', 10)
   /** In the open hours: the block that is being dragged to another day, and the block that is selected. */
   const [cross, setCrossState] = useState<CrossMove | null>(null)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
@@ -108,6 +114,10 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const { toasts, show: toast, dismiss: dismissToast } = useToasts()
   const bodyRef = useRef<HTMLDivElement>(null)
   const pointer = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    panelOpen.current = panel !== null
+  }, [panel])
 
   // ---- the people and the competences -------------------------------------------------------------
   const persons = useMemo(() => (active ? (ws.persons ?? []).filter((p) => p.active) : []), [active, ws.persons])
@@ -134,7 +144,8 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   }, [staffed, styles, remainingOf, keyOf])
 
   // ---- what is in view ---------------------------------------------------------------------------------
-  const room = Math.max(colW, viewport.width - LEFT_W)
+  // The days that are seen: those the panel does not lie over.
+  const room = Math.max(colW, viewport.width - LEFT_W - (panel ? PANEL_W : 0))
   const viewFrom = Math.max(0, Math.floor(viewport.left / colW))
   const viewTo = Math.min(dates.length - 1, Math.floor((viewport.left + room - 1) / colW))
   const firstWorkday = useMemo(() => {
@@ -367,6 +378,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       setMenu({ cell: { personId, date }, x: event.clientX, y: event.clientY })
     },
     unfold: toggleUnfolded,
+    openPanel: (personId: string) => setPanel((open) => (open?.personId === personId && !open.draft ? null : { personId })),
     /** The pointer moved over the people: the day under it is where the brush would paint. */
     bodyMove: (event: React.MouseEvent) => {
       if (stroke || activeTool !== 'paint') return
@@ -399,7 +411,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       const at = pointer.current
       if (!el || !at) return
       const box = el.getBoundingClientRect()
-      const dx = at.x > box.right - SCROLL_NEAR_RIGHT ? 1 : at.x < box.left + LEFT_W + SCROLL_NEAR_LEFT ? -1 : 0
+      const dx = at.x > box.right - SCROLL_NEAR_RIGHT - (panelOpen.current ? PANEL_W : 0) ? 1 : at.x < box.left + LEFT_W + SCROLL_NEAR_LEFT ? -1 : 0
       const dy = at.y > box.bottom - SCROLL_NEAR_BOTTOM ? 1 : 0
       if (!dx && !dy) return
       el.scrollLeft += dx * 40
@@ -425,11 +437,12 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       const key = e.key.toLowerCase()
       if (key === 'escape') {
         // A menu or a popover that is open takes the key first, and closes itself.
-        if (menu || demandPop || absenceFor) return
+        if (menu || demandPop) return
         if (stroke) cancelStroke()
         else if (selectedBlock) setSelectedBlock(null)
         else if (selected) setSelected(null)
         else if (activeBrush || tool !== 'select') clearBrush()
+        else if (panel) setPanel(null)
         else setUnfolded(null)
       } else if (TOOL_KEYS[key] && !e.altKey) pickTool(TOOL_KEYS[key])
       else if (/^[1-9]$/.test(key) && staffed[Number(key) - 1]) pickBrush(staffed[Number(key) - 1].key)
@@ -472,11 +485,10 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     lines, listed, listedAble, able, divided, week, isOk, isOpen, ghost, info, stroke, hover, selected, setSelected,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,
-    menu, setMenu, demandPop, setDemandPop, absenceFor, setAbsenceFor,
+    menu, setMenu, demandPop, setDemandPop, panel, setPanel, overtimeLimit, setOvertimeLimit, onShowDate, firstWorkday,
     projectsOpen, setProjectsOpen, projectDensity, setProjectDensity, demandOpen, setDemandOpen, demandDensity, setDemandDensity, idleOpen, setIdleOpen,
     toasts, toast: toast as (text: string, action?: Toast['action']) => void, dismissToast, undo, updateStaffing,
     actions, nameOf, labelOf, dayName,
-    nextDay: (date: ISODate) => addDays(date, 1),
   }
 }
 

@@ -19,19 +19,20 @@ interface MenuProps {
   onClose: () => void
   onPaint: (competence: string) => void
   onClear: () => void
-  /** The weekday of the menu's day, as in «Meld syk tirsdag». */
-  dayName: string
   /** `null` on a day that is no workday, where nobody is reported sick. */
   sick: boolean | null
-  /** Whether there are more workdays after this one in the week. */
-  moreDays: boolean
-  onSick: (restOfWeek: boolean) => void
-  onWell: (restOfWeek: boolean) => void
+  /** «tir 20.», the day sickness would end from. */
+  dayShort: string
+  /** Opens the absence form with sickness from the day. */
+  onSick: () => void
+  /** Ends the sickness on the day before. */
+  onWell: () => void
+  /** Opens the absence form on the day. */
   onAbsence: () => void
 }
 
 /** The menu a right-click on a person's day opens. */
-export function DayMenu({ x, y, title, competences, hasBlocks, open, onToggleOpen, onClose, onPaint, onClear, dayName, sick, moreDays, onSick, onWell, onAbsence }: MenuProps) {
+export function DayMenu({ x, y, title, competences, hasBlocks, open, onToggleOpen, onClose, onPaint, onClear, sick, dayShort, onSick, onWell, onAbsence }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(ref, true, onClose)
   const run = (action: () => void) => () => {
@@ -61,32 +62,16 @@ export function DayMenu({ x, y, title, competences, hasBlocks, open, onToggleOpe
       </button>
       <span className="menu-rule" />
       {sick === false && (
-        <>
-          <button role="menuitem" onClick={run(() => onSick(false))}>
-            <Thermometer size={14} aria-hidden />
-            Meld syk {dayName}
-          </button>
-          {moreDays && (
-            <button role="menuitem" onClick={run(() => onSick(true))}>
-              <Thermometer size={14} aria-hidden />
-              Meld syk ut uka
-            </button>
-          )}
-        </>
+        <button role="menuitem" className="danger" onClick={run(onSick)}>
+          <Thermometer size={14} aria-hidden />
+          Meld syk …
+        </button>
       )}
       {sick === true && (
-        <>
-          <button role="menuitem" onClick={run(() => onWell(false))}>
-            <HeartPulse size={14} aria-hidden />
-            Friskmeld {dayName}
-          </button>
-          {moreDays && (
-            <button role="menuitem" onClick={run(() => onWell(true))}>
-              <HeartPulse size={14} aria-hidden />
-              Friskmeld ut uka
-            </button>
-          )}
-        </>
+        <button role="menuitem" onClick={run(onWell)}>
+          <HeartPulse size={14} aria-hidden />
+          Friskmeld fra {dayShort}
+        </button>
       )}
       <button role="menuitem" onClick={run(onAbsence)}>
         <CalendarOff size={14} aria-hidden />

@@ -98,13 +98,13 @@ function Unfolded({ line: { person, assignments, week } }: { line: PersonLine })
                   </b>
                 </div>
               </div>
-              <div className="bm-unfolded-list">
+              <div className="bm-competences">
                 {own.map((style) => (
                   <button key={style.key} className={style.key === brush ? 'on' : ''} aria-pressed={style.key === brush} style={competenceColor(style)} title={`Tegn med ${style.label}`} onClick={() => (style.key === brush ? bm.clearBrush() : bm.pickBrush(style.key))}>
                     <i className="swatch" />
                     <span className="bm-name">{style.label}</span>
                     {keyOf.has(style.key) && <kbd>{keyOf.get(style.key)}</kbd>}
-                    <span className={`bm-unfolded-hours ${worked.has(style.key) ? '' : 'nil'}`}>{worked.has(style.key) ? `${hoursText(worked.get(style.key)!)} t` : '–'}</span>
+                    <span className={`bm-competence-hours ${worked.has(style.key) ? '' : 'nil'}`}>{worked.has(style.key) ? `${hoursText(worked.get(style.key)!)} t` : '–'}</span>
                   </button>
                 ))}
               </div>

@@ -17,6 +17,7 @@ import { AllocationDialog } from '../AllocationDialog'
 import { BemanningHead, BemanningOverlays, BemanningToolbar, BemanningTop } from '../bemanning/BemanningParts'
 import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
+import { PersonPanel } from '../bemanning/PersonPanel'
 import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
 import { CellMenu } from './CellMenu'
@@ -660,6 +661,7 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
     })
   }, [bemanning, events, allGroups, phasesOfProject, range.start, halls])
   const focusDay = useCallback((date: ISODate) => setPlanningFocus({ date }), [setPlanningFocus])
+  const showDate = useCallback((date: ISODate) => scrollToDate(date, 1), [scrollToDate])
 
   // ---- tools: keys and modifiers --------------------------------------------------------------
   // Escape first closes the menu, then puts the pencil or the eraser away, then lets go of the project that is lit.
@@ -733,7 +735,7 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
   // ---- render ---------------------------------------------------------------------------------
   return (
     <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`}>
-      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded}>
+      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate}>
       {bemanning ? <BemanningHead /> : <KalenderHead
         projects={shownGroups.length}
         rows={shownRowCount}
@@ -863,6 +865,7 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
           )}
         </div>
       </div>
+      {bemanning && <PersonPanel />}
       {inspectorOpen && !bemanning && <RowInspector details={details} need={need} capacity={capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
       </div>
 

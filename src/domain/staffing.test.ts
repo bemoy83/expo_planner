@@ -11,6 +11,10 @@ import {
   absenceSpans,
   addAbsence,
   clearSick,
+  clearSickFrom,
+  editAbsence,
+  overtimeBreaches,
+  overtimeByWeek,
   isSick,
   openUnresolved,
   markSick,
@@ -532,6 +536,54 @@ describe('absence', () => {
     expect(absenceSpans(ws.unavailability!, HANNE)).toMatchObject([{ from: WED, to: FRI, kind: 'ferie', ids: ['u2', 'u3', 'u4'] }])
     const mixed = markSick(ws.unavailability!, HANNE, [MON], id)
     expect(absenceSpans(mixed, HANNE).map((s) => [s.from, s.to, s.kind])).toEqual([[MON, MON, 'syk'], [WED, FRI, 'ferie']])
+  })
+})
+
+describe('absence as periods (R35)', () => {
+  let n = 0
+  const abs = () => `abs-${n++}`
+
+  it('B35 writes a period as one record per day, and reads it back as one period', () => {
+    const list = addAbsence([], { personId: ANDERS, from: '2026-10-21', to: '2026-10-23', kind: 'ferie' }, abs)
+    expect(list.map((u) => u.date)).toEqual(['2026-10-21', '2026-10-22', '2026-10-23'])
+    expect(absenceSpans(list, ANDERS)).toMatchObject([{ from: '2026-10-21', to: '2026-10-23', kind: 'ferie' }])
+  })
+  it('B35 drops the days a shortened period leaves out', () => {
+    const list = addAbsence([], { personId: ANDERS, from: '2026-10-21', to: '2026-10-23', kind: 'ferie' }, abs)
+    const shorter = editAbsence(list, absenceSpans(list, ANDERS)[0], { personId: ANDERS, from: '2026-10-21', to: '2026-10-22', kind: 'ferie' }, abs)
+    expect(shorter.map((u) => u.date).sort()).toEqual(['2026-10-21', '2026-10-22'])
+    // A period can change kind and move, too.
+    const moved = editAbsence(list, absenceSpans(list, ANDERS)[0], { personId: ANDERS, from: '2026-10-26', to: '2026-10-26', kind: 'kurs' }, abs)
+    expect(absenceSpans(moved, ANDERS)).toMatchObject([{ from: '2026-10-26', to: '2026-10-26', kind: 'kurs' }])
+  })
+  it('D46 ends a sickness on the day before the day the person is well from', () => {
+    const sickDays = addAbsence([], { personId: ANDERS, from: '2026-10-20', to: '2026-10-23', kind: 'syk' }, abs)
+    expect(clearSickFrom(sickDays, ANDERS, '2026-10-22').map((u) => u.date)).toEqual(['2026-10-20', '2026-10-21'])
+    // A day the person is not sick ends nothing, and another kind of absence is left alone.
+    expect(clearSickFrom(sickDays, ANDERS, '2026-10-26')).toBe(sickDays)
+    const holiday = addAbsence([], { personId: ANDERS, from: '2026-10-20', to: '2026-10-23', kind: 'ferie' }, abs)
+    expect(clearSickFrom(holiday, ANDERS, '2026-10-22')).toBe(holiday)
+  })
+})
+
+describe('overtime per week (R36)', () => {
+  const tep = (id: string, date: string, from: string, to: string): Assignment => ({ id, personId: ANDERS, date, competence: 'teppefliser', ...iv(from, to), source: 'manual' })
+
+  it('sums a person\'s overtime per ISO week, with a weekend in the week it ends', () => {
+    const own = withAssignments([tep('a', '2026-10-06', '07:00', '17:00'), tep('b', '2026-10-08', '15:00', '16:00'), tep('c', SAT, '08:00', '12:00'), tep('d', MON, '07:00', '15:00')])
+    expect([...overtimeByWeek(own, ANDERS)]).toEqual([
+      ['2026-10-05', 3],
+      ['2026-10-12', 3.5],
+    ])
+  })
+  it('D47 flags the weeks above the limit, and only those', () => {
+    const own = withAssignments([tep('a', '2026-10-06', '07:00', '17:00'), tep('b', '2026-10-08', '15:00', '16:00')])
+    expect(overtimeBreaches(own, 2)).toEqual([{ personId: ANDERS, weeks: [{ monday: '2026-10-05', hours: 3 }] }])
+    expect(overtimeBreaches(own, 3)).toEqual([])
+  })
+  it('leaves out the overtime of a block that does not count', () => {
+    const own = { ...withAssignments([tep('a', '2026-10-06', '07:00', '17:00')]), unavailability: sick(ANDERS, ['2026-10-06']) }
+    expect(overtimeByWeek(own, ANDERS).size).toBe(0)
   })
 })
 

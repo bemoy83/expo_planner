@@ -1,5 +1,5 @@
 import { staffedCompetences } from './competences'
-import { addDays, type ISODate } from './dates'
+import { addDays, weekdayIndex, type ISODate } from './dates'
 import { dayType, type DayType } from './holidays'
 import { competenceKey, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type WorkdaySettings, type Workspace } from './types'
 
@@ -689,6 +689,48 @@ export const absenceSpans = (unavailability: Unavailability[], personId: string)
   }
   return spans
 }
+
+/**
+ * R35: changes a stretch of absence: its days are replaced by the days of `input`. A stretch made shorter
+ * loses the days that are left out.
+ */
+export const editAbsence = (unavailability: Unavailability[], span: AbsenceSpan, input: AbsenceInput, makeId?: () => string): Unavailability[] => {
+  if (input.to < input.from) return unavailability
+  const old = new Set(span.ids)
+  return addAbsence(unavailability.filter((u) => !old.has(u.id)), input, makeId)
+}
+
+/** R35 «Friskmeld fra»: ends the sickness a day is in on the day before: that day and the sick days that follow it are taken back. */
+export const clearSickFrom = (unavailability: Unavailability[], personId: string, date: ISODate): Unavailability[] => {
+  const span = absenceSpans(unavailability, personId).find((s) => s.kind === 'syk' && s.from <= date && date <= s.to)
+  if (!span) return unavailability
+  const ids = new Set(span.ids)
+  return unavailability.filter((u) => !(ids.has(u.id) && u.date >= date))
+}
+
+/**
+ * R36: a person's overtime per ISO week, keyed by the week's Monday: the hours outside the normal day and
+ * all paid hours of a weekend or holiday, of the blocks that count. Weeks without overtime are left out.
+ */
+export const overtimeByWeek = (ws: Workspace, personId: string): Map<ISODate, number> => {
+  const wd = ws.settings.workday
+  const weeks = new Map<ISODate, number>()
+  for (const a of okAssignments(ws)) {
+    if (a.personId !== personId) continue
+    const hours = overtimeHours(a, dayType(a.date), wd)
+    if (hours <= 0) continue
+    const monday = addDays(a.date, -weekdayIndex(a.date))
+    weeks.set(monday, (weeks.get(monday) ?? 0) + hours)
+  }
+  return new Map([...weeks].sort((a, b) => a[0].localeCompare(b[0])))
+}
+
+/** R36: the people with a week above the limit, each with those weeks. The limit flags; it never stops an edit. */
+export const overtimeBreaches = (ws: Workspace, limit: number): { personId: string; weeks: { monday: ISODate; hours: number }[] }[] =>
+  (ws.persons ?? [])
+    .filter((p) => p.active)
+    .map((p) => ({ personId: p.id, weeks: [...overtimeByWeek(ws, p.id)].filter(([, hours]) => hours > limit).map(([monday, hours]) => ({ monday, hours })) }))
+    .filter((person) => person.weeks.length > 0)
 
 /** The carried hours taken back: the adjustments for the competence on the date are removed. */
 export const removeCarried = (adjustments: DemandAdjustment[], competence: CompetenceKey, date: ISODate): DemandAdjustment[] => {

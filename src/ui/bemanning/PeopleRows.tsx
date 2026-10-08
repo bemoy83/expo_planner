@@ -60,7 +60,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
           <button className="row-action" aria-expanded={false} aria-label="Brett ut timer" title="Brett ut timer (E)" onClick={() => actions.unfold(person.id)}>
             <ChevronRight size={14} aria-hidden />
           </button>
-          <span className="bm-person-name">
+          <span className="bm-person-name" title="Vis timer, overtid og fravær" onClick={() => actions.openPanel(person.id)}>
             <span className="bm-name">{person.name}</span>
             <span className="bm-dots">
               {competences.map((style) => (
@@ -116,7 +116,7 @@ export function PeopleHeading() {
         <span className="bm-label-note bm-label-end">uke · normal/kap.</span>
       </div>
       <span className="phase-legend" style={{ left: LEFT_W }}>
-        <span>Klikk pilen eller dobbeltklikk en dag for å brette ut timer (E) · høyreklikk en dag for fravær</span>
+        <span>Klikk et navn for detaljer · dobbeltklikk en dag for å brette ut timer (E) · høyreklikk en dag for fravær</span>
       </span>
     </div>
   )
