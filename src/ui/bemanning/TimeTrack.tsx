@@ -1,20 +1,29 @@
 import { useRef, useState } from 'react'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, type EditOptions } from '../../domain/staffing'
+import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, moveTarget, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, type EditOptions } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Minute, Person, Workspace } from '../../domain/types'
 import { X } from 'lucide-react'
 import { ABSENCE_LABELS } from './dayCell'
+import { HOUR_PX } from './layout'
 import type { Tool } from './tools'
 import { competenceColor } from '../dom'
-import { clock, EPSILON, hoursText } from './week'
+import { clock, EPSILON, hoursText, spanText } from './week'
 
-/** The pixel heights from which a block in the week editor has room for its name, its time and its hours. */
+/** The pixel heights from which a block has room for its name, its time and its hours. */
 const NAME_FROM_PX = 18
 const TIME_FROM_PX = 34
 const HOURS_FROM_PX = 50
-/** The pixels per hour of the week editor. */
-export const WEEK_HOUR_PX = 28
+/** A day's column shows whole names from this width, and whole times from the next. */
+const NAME_FROM_W = 90
+const TIME_FROM_W = 112
+
+/** A block on its way to another day: where it would start there (R19). */
+export interface CrossMove {
+  id: string
+  date: ISODate
+  start: Minute
+}
 
 /** A change to the assignments, worked out from the workspace as it is when the change is made. */
 export type AssignmentChange = (ws: Workspace) => Assignment[]
@@ -23,30 +32,41 @@ interface Props {
   ws: Workspace
   person: Person
   date: ISODate
-  /** `week` runs down the whole day with overtime; `row` runs across the normal day only. */
-  layout: 'week' | 'row'
-  /** A narrow column: short names only. */
-  narrow?: boolean
+  /** The width of the day's column. */
+  colW: number
   styles: Map<string, CompetenceStyle>
   brush: string | null
   tool: Tool
   onChange: (change: AssignmentChange) => void
-  /** The pointer went down in the day: it becomes the day in focus. */
+  /** The pointer went down in an empty part of the day. */
   onTouch: (date: ISODate) => void
+  /** The day under a point of the window, so a block can be dragged to another day. */
+  dateAt: (clientX: number) => ISODate | null
+  /** The block that is being dragged to another day, from this track or another. */
+  cross: CrossMove | null
+  onCross: (cross: CrossMove | null) => void
+  /** The button was let go with a block over another day. */
+  onCrossEnd: () => void
+  /** The selected block, which Delete removes. */
+  selectedId: string | null
+  onSelect: (id: string | null) => void
 }
 
 /** What the pointer is doing to the track, as the times it has reached. Shown as it would be stored. */
 type Draft = { kind: 'move'; id: string; start: Minute } | { kind: 'start' | 'end'; id: string; t: Minute } | { kind: 'draw'; from: Minute; to: Minute }
 
-/** One person's day as a track of time, where blocks are drawn, moved, resized, split, recoloured and removed (R8). */
-export function TimeTrack({ ws, person, date, layout, narrow = false, styles, brush, tool, onChange, onTouch }: Props) {
+/**
+ * One person's day as a track of time from the first to the last hour of overtime, where blocks are
+ * drawn, moved, resized, split, recoloured and removed (R8), and dragged on to another day (R19).
+ */
+export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChange, onTouch, dateAt, cross, onCross, onCrossEnd, selectedId, onSelect }: Props) {
   const track = useRef<HTMLSpanElement>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const latest = useRef<Draft | null>(null)
   const wd = ws.settings.workday
-  const week = layout === 'week'
-  const range: Interval = week ? { start: wd.overtimeEarliest, end: wd.overtimeLatest } : { start: wd.dayStart, end: wd.dayEnd }
-  const opts: EditOptions = week ? { pullToDay: true } : { bounds: range }
+  const range: Interval = { start: wd.overtimeEarliest, end: wd.overtimeLatest }
+  const opts: EditOptions = { pullToDay: true }
+  const narrow = colW < NAME_FROM_W
   const cell = { personId: person.id, date }
   const offDay = dayType(date) !== 'arbeidsdag'
   const absence = (ws.unavailability ?? []).filter((u) => u.personId === person.id && u.date === date)
@@ -66,11 +86,10 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
   const stillOpen = new Set(stored.length ? openUnresolved(ws).map((a) => a.id) : [])
 
   const share = (t: Minute) => ((t - range.start) / (range.end - range.start)) * 100
-  const place = (from: Minute, to: Minute): React.CSSProperties => (week ? { top: `${share(from)}%`, height: `${share(to) - share(from)}%` } : { left: `${share(from)}%`, width: `${share(to) - share(from)}%` })
+  const place = (from: Minute, to: Minute): React.CSSProperties => ({ top: `${share(from)}%`, height: `${share(to) - share(from)}%` })
   const minuteAt = (e: { clientX: number; clientY: number }): Minute => {
     const box = track.current!.getBoundingClientRect()
-    const along = week ? (e.clientY - box.top) / box.height : (e.clientX - box.left) / box.width
-    return range.start + along * (range.end - range.start)
+    return range.start + ((e.clientY - box.top) / box.height) * (range.end - range.start)
   }
 
   /** Follows the pointer until the button is let go. */
@@ -97,17 +116,33 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
     if (e.button !== 0) return
     e.stopPropagation()
     e.preventDefault()
-    onTouch(date)
     if (tool === 'erase' || e.altKey) return onChange((w) => deleteBlock(w.assignments ?? [], block.id))
-    if (assignmentStatus(block, ws) === 'unresolved') return
+    if (assignmentStatus(block, ws) === 'unresolved') return onSelect(block.id)
     if (tool === 'paint' && brush && brush !== block.competence && grip === 'move') return onChange((w) => recolourBlock(w, block.id, brush))
     const t0 = minuteAt(e)
+    let dragged = false
+    let away = false
     follow(
       (ev) => {
+        dragged = true
         const moved = minuteAt(ev) - t0
-        set(grip === 'move' ? { kind: 'move', id: block.id, start: block.start + moved } : { kind: grip, id: block.id, t: (grip === 'start' ? block.start : block.end) + moved })
+        const over = grip === 'move' ? (dateAt(ev.clientX) ?? date) : date
+        away = over !== date
+        // Over another day the block is on its way there; the grid shows it in that day's track.
+        if (away) {
+          set(null)
+          onCross({ id: block.id, date: over, start: block.start + moved })
+        } else {
+          onCross(null)
+          set(grip === 'move' ? { kind: 'move', id: block.id, start: block.start + moved } : { kind: grip, id: block.id, t: (grip === 'start' ? block.start : block.end) + moved })
+        }
       },
-      commit,
+      () => {
+        if (away) onCrossEnd()
+        else commit()
+        // A press that does not move the block selects it.
+        if (!dragged) onSelect(selectedId === block.id ? null : block.id)
+      },
     )
   }
 
@@ -115,6 +150,7 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
     if (e.button !== 0) return
     e.preventDefault()
     onTouch(date)
+    onSelect(null)
     if (!canDraw) return
     const t0 = minuteAt(e)
     follow(
@@ -134,8 +170,8 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
   const firstAway = absence.find((u) => u.start !== undefined)
 
   return (
-    <span className={`bm-track ${layout} ${canDraw ? 'drawable' : ''}`} ref={track} onMouseDown={trackDown}>
-      {week && (offDay ? <i className="bm-band overtime" style={place(range.start, range.end)} /> : (
+    <span className={`bm-track week ${canDraw ? 'drawable' : ''}`} ref={track} onMouseDown={trackDown}>
+      {(offDay ? <i className="bm-band overtime" style={place(range.start, range.end)} /> : (
         <>
           <i className="bm-band overtime" style={place(range.start, wd.dayStart)} />
           <i className="bm-band overtime" style={place(wd.dayEnd, range.end)} />
@@ -154,14 +190,13 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
           <>
             {away(range.start, normal[0]?.start ?? range.end, 'before')}
             {away(normal[normal.length - 1]?.end ?? range.start, range.end, 'after')}
-            {firstAway && week && <span className="bm-track-note" style={{ top: `${share(firstAway.end! >= wd.dayEnd ? firstAway.start! : range.start)}%` }}>{firstAway.note || (firstAway.end! >= wd.dayEnd ? `Går ${clock(firstAway.start!)}` : `Fra ${clock(firstAway.end!)}`)}</span>}
+            {firstAway && <span className="bm-track-note" style={{ top: `${share(firstAway.end! >= wd.dayEnd ? firstAway.start! : range.start)}%` }}>{firstAway.note || (firstAway.end! >= wd.dayEnd ? `Går ${clock(firstAway.start!)}` : `Fra ${clock(firstAway.end!)}`)}</span>}
           </>
         )
       )}
       {shown.map((block) => {
         const style = styles.get(block.competence)
         const name = style?.label ?? block.competence
-        // The row timeline shows the part of a block that is inside the normal day.
         const from = Math.max(block.start, range.start)
         const to = Math.min(block.end, range.end)
         if (to <= from) return null
@@ -172,13 +207,13 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
         const replaced = unresolved && !stillOpen.has(block.id)
         const ghost = !storedIds.has(block.id)
         const dragging = draft !== null && draft.kind !== 'draw' && draft.id === block.id
-        const px = week ? (length / 60) * WEEK_HOUR_PX : Infinity
+        const px = (length / 60) * HOUR_PX
         const early = !offDay && block.start < wd.dayStart ? ((Math.min(block.end, wd.dayStart) - block.start) / length) * 100 : 0
         const late = !offDay && block.end > wd.dayEnd ? ((Math.max(block.start, wd.dayEnd) - block.start) / length) * 100 : 100
         return (
           <span
             key={block.id}
-            className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
+            className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${cross?.id === block.id ? 'leaving' : ''} ${selectedId === block.id ? 'selected' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
             style={{ ...place(from, to), ...competenceColor(style) }}
             title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
             onMouseDown={(e) => blockDown(e, block, 'move')}
@@ -188,9 +223,9 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
               onChange((w) => splitBlock(w, block.id, t))
             }}
           >
-            {week && offDay && <i className="bm-ot-part" style={{ top: 0, height: '100%' }} />}
-            {week && early > 0 && <i className="bm-ot-part" style={{ top: 0, height: `${early}%` }} />}
-            {week && late < 100 && <i className="bm-ot-part" style={{ top: `${late}%`, height: `${100 - late}%` }} />}
+            {offDay && <i className="bm-ot-part" style={{ top: 0, height: '100%' }} />}
+            {early > 0 && <i className="bm-ot-part" style={{ top: 0, height: `${early}%` }} />}
+            {late < 100 && <i className="bm-ot-part" style={{ top: `${late}%`, height: `${100 - late}%` }} />}
             {!ghost && !unresolved && (
               <>
                 <i className="bm-grip start" onMouseDown={(e) => blockDown(e, block, 'start')} />
@@ -198,17 +233,12 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
               </>
             )}
             {px >= NAME_FROM_PX && <b>{narrow ? (style?.shortLabel ?? name) : name}</b>}
-            {px >= TIME_FROM_PX && (
-              <em>
-                {clock(block.start)}–{clock(block.end)}
-              </em>
-            )}
-            {week && px >= HOURS_FROM_PX && !narrow && (
+            {px >= TIME_FROM_PX && <em>{spanText(block.start, block.end, colW < TIME_FROM_W)}</em>}
+            {px >= HOURS_FROM_PX && !narrow && (
               <em>
                 {hoursText(total - overtime)} t{overtime > EPSILON ? ` + ${hoursText(overtime)} OT` : ''}
               </em>
             )}
-            {!week && overtime > EPSILON && <span className="bm-ot-tag">+{hoursText(overtime)}</span>}
             {!ghost && (
               <button
                 className="bm-block-remove"
@@ -226,6 +256,19 @@ export function TimeTrack({ ws, person, date, layout, narrow = false, styles, br
           </span>
         )
       })}
+      {cross?.date === date &&
+        (() => {
+          // A block from another day, where it would land here. Nothing shows where it cannot go.
+          const target = moveTarget(ws, cross.id, date, cross.start)
+          if (!target || typeof target === 'string') return null
+          const style = styles.get(target.competence)
+          return (
+            <span className="bm-edit-block ghost" style={{ ...place(target.start, target.end), ...competenceColor(style) }}>
+              <b>{narrow ? (style?.shortLabel ?? target.competence) : (style?.label ?? target.competence)}</b>
+              <em>{spanText(target.start, target.end, colW < TIME_FROM_W)}</em>
+            </span>
+          )
+        })()}
       {awayAllDay?.kind === 'syk' && <span className="bm-sick">Syk{stored.some((a) => stillOpen.has(a.id)) ? ` · ${stored.filter((a) => stillOpen.has(a.id)).length} uløst` : ''}</span>}
     </span>
   )

@@ -6,34 +6,6 @@ import { useDismiss } from '../useDismiss'
 import { CalendarOff, ChevronsDownUp, ChevronsUpDown, Eraser, HeartPulse, Paintbrush, Thermometer } from 'lucide-react'
 import { hoursText } from './week'
 
-interface AskProps {
-  x: number
-  y: number
-  /** How many of the days hold work of another competence. */
-  count: number
-  onCancel: () => void
-  onFill: () => void
-  onReplace: () => void
-}
-
-/** Asked at the pointer when a full-day paint meets days that already hold other work. */
-export function PaintAsk({ x, y, count, onCancel, onFill, onReplace }: AskProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  useDismiss(ref, true, onCancel)
-  return (
-    <div className="menu-pop bm-ask" role="dialog" ref={ref} style={inWindow(x, y + 8, 300, 150)}>
-      <p>{count === 1 ? 'Dagen har allerede andre oppgaver.' : `${count} av dagene har allerede andre oppgaver.`} Vil du fylle den ledige tiden, eller erstatte alt?</p>
-      <div className="dialog-actions">
-        <button onClick={onCancel}>Avbryt</button>
-        <button onClick={onReplace}>Erstatt</button>
-        <button className="primary" autoFocus onClick={onFill}>
-          Fyll resten
-        </button>
-      </div>
-    </div>
-  )
-}
-
 interface MenuProps {
   x: number
   y: number
@@ -71,7 +43,7 @@ export function DayMenu({ x, y, title, competences, hasBlocks, open, onToggleOpe
       <span className="menu-group first">{title}</span>
       <button role="menuitem" onClick={run(onToggleOpen)}>
         {open ? <ChevronsDownUp size={14} aria-hidden /> : <ChevronsUpDown size={14} aria-hidden />}
-        {open ? 'Fold sammen' : 'Utvid til timer'}
+        {open ? 'Brett sammen' : 'Brett ut timer'}
         <span className="menu-key">E</span>
       </button>
       <span className="menu-rule" />

@@ -28,7 +28,9 @@ import {
   freeIntervals,
   invariantBreaches,
   mergeAdjacent,
+  moveAssignment,
   moveBlock,
+  moveTarget,
   normalWindows,
   overtimeHours,
   paidHours,
@@ -256,6 +258,42 @@ describe('editing blocks', () => {
     expect(of(moveBlock(ws, morning.id, t('05:00')), PER, WED)[0]).toEqual({ competence: 'innredning', ...iv('06:00', '09:00') })
     // In the row timeline a block stays inside the normal day.
     expect(moveBlock(ws, morning.id, t('05:00'), { bounds: iv('07:00', '15:00') })).toBe(ws.assignments)
+  })
+
+  describe('to another day or person (R19)', () => {
+    const tep = (id: string, personId: string, date: string, from: string, to: string): Assignment => ({ id, personId, date, competence: 'teppefliser', ...iv(from, to), source: 'manual' })
+    const day = tep('a', ANDERS, MON, '07:00', '15:00')
+    const morning = tep('b', ANDERS, TUE, '07:00', '11:00')
+    const afternoon = tep('c', ANDERS, WED, '11:00', '15:00')
+    let own: Workspace
+    beforeAll(() => {
+      own = withAssignments([day, morning, afternoon])
+    })
+
+    it('moves a block to another day with its length and competence, on the grid', () => {
+      expect(of(moveAssignment(own, 'a', THU, t('07:10')), ANDERS, THU)).toEqual([{ competence: 'teppefliser', ...iv('07:15', '15:15') }])
+      expect(of(moveAssignment(own, 'a', THU, t('07:10')), ANDERS, MON)).toEqual([])
+    })
+    it('keeps the block inside the hours overtime can be drawn in', () => {
+      expect(of(moveAssignment(own, 'a', THU, t('19:00')), ANDERS, THU)).toEqual([{ competence: 'teppefliser', start: wd.overtimeLatest - 8 * 60, end: wd.overtimeLatest }])
+    })
+    it('D36 refuses a day where the person has other work then, and changes nothing', () => {
+      expect(moveTarget(own, 'a', TUE, t('07:00'))).toBe('overlap')
+      expect(moveAssignment(own, 'a', TUE, t('07:00'))).toBe(own.assignments)
+    })
+    it('refuses a day the person is away, and a person without the competence', () => {
+      expect(moveTarget(own, 'a', THU, t('07:00'), HANNE)).toBe('away')
+      expect(moveTarget(own, 'a', THU, t('07:00'), MONA)).toBe('ineligible')
+      expect(moveAssignment(own, 'a', THU, t('07:00'), MONA)).toBe(own.assignments)
+    })
+    it('moves a block to another person who has the competence and is free', () => {
+      expect(of(moveAssignment(own, 'a', MON, t('07:00'), PER), PER, MON)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+    })
+    it('joins the block to one of the same competence it comes to touch', () => {
+      const joined = moveAssignment(own, 'b', WED, t('07:00'))
+      expect(of(joined, ANDERS, WED)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+      expect(joined.find((a) => a.date === WED)?.id).toBe('b')
+    })
   })
 
   it('splits a block only when both parts get half an hour, and leaves the parts apart', () => {

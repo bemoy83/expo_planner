@@ -1,265 +1,16 @@
-/* Bemanning: one week of people against the demand per competence. A grid of a label column, five days and a narrow weekend. */
+/* Bemanning: a mode of the Kalender. Its lines are lines of the Kalender's grid: the projects in view, the demand per competence, and the people. */
 
-.bemanning{display:flex;flex-direction:column;flex:1;min-height:0}
-.bm-week-picker{display:flex;align-items:center;gap:2px}
-.bm-week-picker b{padding:0 4px;font:500 var(--fs-md) var(--font-num);white-space:nowrap}
-.bm-week-picker b span{font-weight:400;color:var(--muted)}
-
-.bm-scroll{flex:1;min-height:0;overflow:auto;user-select:none}
-.bm-grid{min-width:1080px;padding-bottom:40px}
-.bm-row{display:grid;grid-template-columns:268px repeat(5,minmax(136px,1fr)) repeat(2,64px)}
-.bm-label{position:sticky;left:0;z-index:3;display:flex;align-items:center;gap:8px;min-width:0;padding:0 12px 0 16px;background:var(--bg);border-right:1px solid var(--line)}
-.bm-label-note{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
-.bm-label-end{margin-left:auto}
-.bm-label-text{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bm-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md);font-weight:500}
-
-/* days off, and the day in focus, look the same in every row */
-.bm-date.off-day,.bm-need.off-day,.bm-free.off-day{background-color:var(--weekend)}
-.bm-need.focus-day,.bm-free.focus-day,.bm-cell.focus-day{background-color:color-mix(in srgb,var(--accent) 5%,transparent)}
-
-/* ---- the pinned top: dates, demand, free capacity ---- */
-.bm-strip{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line-strong);box-shadow:0 10px 18px -16px var(--shadow)}
-.bm-strip .bm-label{z-index:11}
-.bm-dates{height:40px;border-bottom:1px solid var(--line)}
-.bm-dates .bm-label{gap:10px}
-/* a day's head is a button here; how it looks is the Kalender's .day-head */
-.bm-date{position:relative;gap:1px;padding:0;border-radius:0;border-right:1px solid var(--rule);background:transparent;font-family:var(--font-num)}
-.bm-date:not(.off-day):hover{background:var(--wash)}
-
-.bm-section{height:22px;border-bottom:1px solid var(--line)}
-.bm-section .bm-label{align-items:flex-end;gap:10px;padding-bottom:3px}
-.bm-section-hint{grid-column:2/-1;display:flex;align-items:flex-end;padding:0 12px 3px;font-size:var(--fs-sm);color:var(--faint)}
-.bm-section-toggle{gap:4px;margin-left:-6px;padding:0 4px 0 0;border-radius:6px;background:transparent;color:var(--faint)}
-.bm-section-toggle:hover{background:transparent}
-.bm-section-toggle:hover .bm-eyebrow{color:var(--text)}
-
-.bm-demand{height:38px;border-bottom:1px solid var(--rule);transition:opacity 160ms var(--ease)}
-.bm-week-left{margin-left:auto;font:600 var(--fs-sm) var(--font-num);white-space:nowrap}
-.bm-week-left em{font-weight:400;font-style:normal;color:var(--faint)}
-.bm-need{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:5px;min-width:0;padding:0 10px;border-radius:0;border-right:1px solid var(--rule);background-color:transparent;color:var(--text)}
-button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
-.bm-need.narrow{align-items:center;padding:0 6px}
-.bm-need.narrow .bar{align-self:stretch}
-.bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
-.bm-need-value em{font:400 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint)}
-.bm-number{display:inline-flex;font:600 15px/1 var(--font-num);letter-spacing:-.02em}
-.bm-number.nil{font-weight:400;color:color-mix(in srgb,var(--faint) 60%,transparent)}
-.bm-number.ok{color:var(--pos)}
-.bm-number.over{color:var(--over)}
-.bm-number.uncoverable{color:var(--neg)}
-.bm-number.slide-in{animation:bm-slide-in 600ms var(--ease)}
-@keyframes bm-slide-in{from{transform:translateY(-4px);opacity:.2}}
-.bm-carried{margin-right:auto;font:500 var(--fs-2xs) var(--font-num);color:var(--over)}
-.bar .covered{background:var(--cc)}
-/* the stripes of --hatch, 4px and 2px. Overtime is a 2px line of the competence's colour on a light ground; what cannot be covered is red with a 2px gap. */
-.bar .overtime{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 35%,transparent) 0 4px,var(--cc) 4px 6px)}
-.bar .surplus{background:var(--over)}
-.bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--neg) 0 4px,transparent 4px 6px)}
-
-.bm-capacity{height:30px}
-.bm-free{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px;border-right:1px solid var(--rule);font-family:var(--font-num)}
-.bm-free b{font-size:var(--fs-sm);font-weight:500}
-.bm-free em{font-size:var(--fs-2xs);font-style:normal;color:var(--faint)}
-
-/* a competence in focus: its line is lit, the others step back */
-.bm-pick{border-radius:0;font:inherit;text-align:left;justify-content:flex-start;cursor:pointer}
-.bm-pick:hover,.bm-person-label:hover{background:var(--wash-bg)}
-.bm-pick:disabled{opacity:1;cursor:default}
-.bm-pick:disabled:hover{background:var(--bg)}
-.bm-demand.dim{opacity:.42}
-.bm-demand.dim:hover{opacity:.8}
-.bm-demand.on{background:color-mix(in oklch,var(--cc) 7%,var(--bg))}
-.bm-demand.on .bm-pick{background:var(--surface);box-shadow:inset 3px 0 0 var(--cc)}
-.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklch,var(--cc) 14%,transparent);color:var(--cc);font:600 var(--fs-xs) var(--font-num)}
-
-/* ---- the bar with the tools and the brush ---- */
-.bm-brush{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:color-mix(in oklch,var(--cc) 14%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--cc);font-size:var(--fs-md);font-weight:600}
-.bm-brush .row-action{height:22px}
-.bm-hints{display:flex;gap:10px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--faint)}
-.bm-hints b{font-weight:500;color:var(--muted)}
-.bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-md);font-weight:500}
-.bm-unresolved button{height:22px;padding:0 8px;border-radius:6px;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:600}
-.bm-unresolved button:hover{background:color-mix(in srgb,var(--neg) 12%,transparent)}
-
-/* what opens at the pointer: the balance of a day of a demand line, and the question a full-day paint asks */
-.bm-demand-pop,.bm-ask{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:var(--fs-md)}
-.bm-demand-pop p,.bm-ask p{margin:0}
-.bm-ask p{line-height:1.45}
-.bm-pop-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-base)}
-.bm-pop-head span{margin-left:auto;font-size:var(--fs-sm);color:var(--muted)}
-.bm-pop-carry{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
-.bm-pop-carry label{font-size:var(--fs-sm);color:var(--muted)}
-.bm-pop-carry div{display:flex;align-items:center;gap:6px}
-.bm-pop-carry input{width:52px;text-align:right;font:500 var(--fs-md) var(--font-num)}
-.bm-pop-carry span{margin-right:auto;font:400 var(--fs-sm) var(--font-num);color:var(--faint)}
-
-/* a person's absence */
-.bm-absence{width:min(520px,calc(100vw - 32px))}
-.bm-absence ul{display:flex;flex-direction:column;gap:2px;max-height:180px;margin:0;padding:0;overflow:auto;list-style:none}
-.bm-absence li{display:flex;align-items:center;gap:10px;padding:2px 0 2px 10px;border-radius:6px;background:var(--panel);font-size:var(--fs-md)}
-.bm-absence li span{flex:1;font-family:var(--font-num);font-size:var(--fs-sm);color:var(--muted)}
-
-/* ---- the people ---- */
-.bm-person{height:46px}
-.bm-person .bm-label,.bm-timeline-row .bm-label{gap:6px;border-bottom:1px solid var(--rule)}
-.bm-person-label{padding-left:10px;cursor:pointer}
-.bm-person-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-.bm-dots{display:flex;gap:3px}
-.bm-dots i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line-strong) 70%,transparent)}
-.bm-dots i.has{background:var(--cc);box-shadow:none}
-.bm-dots i.focused{outline:1.5px solid var(--cc);outline-offset:1.5px}
-.bm-person-week{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
-.bm-person-week b{font-weight:600;color:var(--text)}
-.bm-person-week em{font-style:normal;color:var(--muted)}
-.bm-person-week>i{display:block;width:52px;height:3px;border-radius:2px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
-.bm-person-week>i>i{display:block;height:100%;background:var(--muted);transition:width 280ms var(--ease)}
-
-.bm-cell{position:relative;min-width:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
-.bm-cell.off-day{background:var(--weekend) var(--hatch)}
-.bm-cell.away{background-image:var(--hatch)}
-.bm-cell.sick{background-color:color-mix(in srgb,var(--neg) 4%,transparent)}
-.bm-timeline{position:absolute;inset:7px 5px}
-.bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
-.bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
-.bm-block b{overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);font-weight:600}
-.bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
-/* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the editors. */
-.bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
-.bm-block.other,.bm-edit-block.other,.bm-off-blocks>i.other{opacity:.28}
-
-/* what the pointer does to a day: the brush outlines it in its colour (dashed for half a day), the eraser in red */
-.bm-scroll[data-tool='paint'] .bm-cell{cursor:cell}
-.bm-scroll[data-tool='erase'] .bm-cell{cursor:crosshair}
-.bm-scroll[data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
-.bm-cell.selected{z-index:1;box-shadow:inset 0 0 0 1.5px var(--line-strong);background-color:var(--wash)}
-.bm-scroll[data-tool='paint']:not([data-half]) .bm-cell:not(.blocked):not(.stroke):hover{box-shadow:inset 0 0 0 1.5px var(--bc)}
-.bm-scroll[data-tool='paint'][data-half] .bm-cell:not(.blocked):not(.stroke):hover,.bm-cell.stroke.paint-half:not(.blocked){outline:1.5px dashed var(--bc);outline-offset:-3px}
-.bm-cell.stroke.paint:not(.blocked){background-color:color-mix(in oklch,var(--bc) 12%,transparent);box-shadow:inset 0 0 0 2px var(--bc)}
-.bm-cell.stroke.paint-half:not(.blocked){background-color:color-mix(in oklch,var(--bc) 8%,transparent)}
-.bm-cell.stroke.erase{background-color:color-mix(in srgb,var(--neg) 7%,transparent);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--neg) 70%,transparent)}
-
-/* unresolved, but the day is covered by others: a faint trace of what was planned */
-.bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 60%,transparent)}
-.bm-off-blocks>i.replaced{opacity:.4}
-.bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-style:italic;color:var(--muted)}
-.bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
-.bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
-.bm-ot-tag{position:absolute;right:-2px;top:-6px;z-index:3;padding:0 4px;border-radius:4px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line-strong);font:600 var(--fs-2xs)/13px var(--font-num)}
-.bm-off-blocks{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px}
-.bm-off-blocks>i{width:6px;height:22px;border-radius:3px;background:var(--cc)}
-.bm-off-blocks>i.unresolved{background:transparent;box-shadow:inset 0 0 0 1.5px var(--cc)}
-.bm-off-blocks .bm-ot-tag{position:static;margin-left:2px}
-
-.bm-empty{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:720px;margin:24px 16px;padding:12px 16px;border-radius:6px;background:var(--surface);color:var(--muted)}
-.bm-empty strong{color:var(--text)}
-
-/* ---- an open person: the week editor pinned at the top, or a row timeline in the list ---- */
-.bm-expand{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--muted)}
-.bm-pinned{border-bottom:2px solid var(--line-strong)}
-.bm-ghost{height:30px;cursor:pointer}
-.bm-ghost .bm-label{gap:8px;padding-left:12px;border-bottom:1px solid var(--rule);background:var(--sunken);color:var(--muted)}
-.bm-ghost>span{grid-column:2/-1;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--rule);background:var(--sunken);font-size:var(--fs-sm);color:var(--muted)}
-.bm-ghost:hover .bm-label,.bm-ghost:hover>span{color:var(--text)}
-
-/* the competences an open person is painted with */
-.bm-quick{display:flex;flex-wrap:wrap;gap:4px}
-.bm-quick button{justify-content:flex-start;height:22px;padding:0 6px;border-radius:6px;font-size:var(--fs-xs);font-weight:500;white-space:nowrap}
-.bm-quick button .swatch{width:8px;height:8px;border-radius:2px}
-.bm-quick button:hover{background:color-mix(in oklch,var(--cc) 14%,var(--sunken))}
-.bm-quick button.on{background:color-mix(in oklch,var(--cc) 16%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--cc);font-weight:600}
-.bm-quick.long{flex-direction:column;align-items:stretch;padding-left:20px}
-.bm-quick.long button{height:28px;padding:0 8px;font-size:var(--fs-sm)}
-.bm-quick.long kbd{margin-left:auto}
-
-.bm-week-editor{height:calc(var(--bm-track-h) + 24px)}
-.bm-week-editor .bm-label{display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:stretch;gap:0;padding:0;background:var(--surface);border-bottom:1px solid var(--line-strong)}
-.bm-editor-info{display:flex;flex-direction:column;gap:10px;min-width:0;padding:0 8px 12px 10px}
-.bm-editor-head{justify-content:flex-start;gap:6px;margin:0 -8px 0 -10px;padding:12px 8px 6px 10px;border-radius:0;background:transparent}
-.bm-editor-head:hover{background:var(--wash)}
-.bm-editor-head .bm-name{font-size:var(--fs-base);font-weight:600}
-.bm-editor-info dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;padding-left:20px;font-size:var(--fs-sm)}
-.bm-editor-info dt{color:var(--muted)}
-.bm-editor-info dd{margin:0;font-family:var(--font-num);text-align:right}
-.bm-editor-info dd.has{font-weight:600}
-.bm-editor-step{display:flex;gap:2px;padding-left:16px}
-.bm-editor-hint{padding-left:20px;font-size:var(--fs-xs);color:var(--faint);text-wrap:pretty}
-.bm-axis{position:relative;margin:12px 0}
-.bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
-.bm-axis span.day-edge{color:var(--text);font-weight:600}
-.bm-week-editor .bm-cell{border-bottom:1px solid var(--line-strong)}
-.bm-editor-cell.off-day{background-image:none}
-
-.bm-timeline-row{height:96px}
-.bm-timeline-row .bm-label{align-items:flex-start;padding-top:12px;background:var(--surface)}
-.bm-ruler{position:absolute;left:6px;right:6px;top:4px;height:14px}
-.bm-ruler span{position:absolute;transform:translateX(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
-.bm-ruler span:first-child{transform:none}
-.bm-ruler span:last-child{transform:translateX(-100%)}
-.bm-overtime-only{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:var(--faint);writing-mode:vertical-rl;transform:rotate(180deg)}
-
-/* the track of a day: a recessed strip with hour lines, hatched where time is overtime, lunch, or away */
-.bm-track{position:absolute;border-radius:6px;background-color:var(--sunken)}
-.bm-track.week{left:5px;right:5px;top:12px;bottom:12px;background-image:repeating-linear-gradient(180deg,color-mix(in srgb,var(--text) 6%,transparent) 0 1px,transparent 1px 28px)}
-.bm-track.row{left:6px;right:6px;top:20px;bottom:8px;background-image:repeating-linear-gradient(90deg,color-mix(in srgb,var(--text) 6%,transparent) 0 1px,transparent 1px calc(100% / 8))}
-.bm-track.drawable{cursor:copy}
-.bm-band{position:absolute;pointer-events:none}
-.bm-track.week .bm-band{left:0;right:0}
-.bm-track.row .bm-band{top:0;bottom:0}
-.bm-band.overtime{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 7%,transparent) 0 1px,transparent 1px 6px)}
-.bm-band.lunch{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 10%,transparent) 0 1px,transparent 1px 3px)}
-.bm-band.away{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 16%,transparent) 0 1px,transparent 1px 4px) color-mix(in srgb,var(--text) 4%,transparent)}
-.bm-rule{position:absolute;left:0;right:0;height:0;border-top:1px solid color-mix(in srgb,var(--text) 28%,transparent);pointer-events:none}
-.bm-track-away{position:absolute;top:40%;left:0;right:0;text-align:center;font-size:var(--fs-sm);font-style:italic;color:var(--muted);pointer-events:none}
-.bm-track.row .bm-track-away{top:0;bottom:0;display:flex;align-items:center;justify-content:center}
-.bm-track-note{position:absolute;left:6px;margin-top:4px;font:400 var(--fs-2xs) var(--font-num);color:var(--muted);pointer-events:none}
-.bm-track .bm-sick{top:12px;transform:none}
-
-.bm-edit-block{position:absolute;display:flex;flex-direction:column;gap:1px;overflow:hidden;border-radius:5px;background:var(--cc);color:var(--on-line);cursor:grab;transition:opacity 160ms var(--ease)}
-.bm-track.week .bm-edit-block{left:3px;right:3px;padding:4px 7px}
-.bm-track.row .bm-edit-block{top:3px;bottom:3px;justify-content:center;padding:0 8px;white-space:nowrap;box-shadow:0 0 0 1px var(--bg)}
-.bm-edit-block b{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);font-weight:600}
-.bm-edit-block em{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.9}
-.bm-edit-block.ghost{opacity:.6}
-.bm-edit-block.dragging{z-index:3;cursor:grabbing;box-shadow:0 6px 16px -6px var(--shadow)}
-.bm-edit-block.unresolved{cursor:default}
-.bm-scroll[data-tool='erase'] .bm-edit-block{cursor:crosshair}
-.bm-ot-part{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,var(--on-line-soft) 0 2px,transparent 2px 7px);pointer-events:none}
-.bm-grip{position:absolute;z-index:2}
-.bm-track.week .bm-grip{left:0;right:0;height:7px;cursor:ns-resize}
-.bm-track.week .bm-grip.start{top:0}
-.bm-track.week .bm-grip.end{bottom:0}
-.bm-track.row .bm-grip{top:0;bottom:0;width:7px;cursor:ew-resize}
-.bm-track.row .bm-grip.start{left:0}
-.bm-track.row .bm-grip.end{right:0}
-.bm-grip::after{content:'';position:absolute;border-radius:2px;background:var(--on-line-rule);opacity:0}
-.bm-track.week .bm-grip::after{left:35%;right:35%;top:2px;height:2px}
-.bm-track.row .bm-grip::after{top:30%;bottom:30%;left:2px;width:2px}
-.bm-edit-block:hover .bm-grip::after{opacity:1}
-.bm-block-remove{position:absolute;top:2px;right:6px;z-index:3;display:none;width:16px;height:16px;padding:0;border-radius:4px;background:var(--on-line-soft);color:var(--on-line)}
-.bm-block-remove:hover{background:var(--on-line-rule)}
-.bm-edit-block:hover .bm-block-remove{display:inline-flex}
-.bm-edit-block.unresolved .bm-block-remove{background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--text)}
-.bm-edit-block .bm-ot-tag{top:1px;right:1px;color:var(--text)}
-
-/* a short window: tighter rows in the pinned top */
-@media (max-height:820px){
-  .bm-dates{height:36px}
-  .bm-demand{height:30px}
-  .bm-need{gap:3px}
-  .bm-number{font-size:var(--fs-md)}
-  .bm-need-value em{display:none}
-  .bm-capacity{height:24px}
-}
-
-/* ---- Bemanning as a mode of the Kalender: its lines are lines of the Kalender's grid ---- */
 .section-line{display:flex}
 .section-meta-end{margin-left:auto}
 .bm-density{width:18px;height:18px;padding:0;border-radius:4px;background:none;color:var(--muted)}
 .bm-density:hover{background:none;color:var(--text)}
 .day-head.pickable{cursor:pointer}
+.bm-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md);font-weight:500}
+.bm-label-note{min-width:0;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
+.bm-label-end{margin-left:auto}
+.bm-label-text{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* the projects in view: a block of a fixed height, each project a line that moves to its place */
+/* ---- the projects in view: a block of a fixed height, each project a line that moves to its place ---- */
 .bm-project-block{position:relative}
 .bm-project-days{border-bottom:0}
 .bm-project-days .grid-label{z-index:0}
@@ -276,11 +27,35 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-projects.compact .bm-project-halls{font-size:var(--fs-2xs)}
 @media (prefers-reduced-motion:reduce){.bm-project-line{transition:none;animation:none}}
 
-/* the demand per competence */
-.grid-label>.bm-pick{flex:1;align-self:stretch;min-width:0;gap:8px;margin:0 -12px 0 -10px;padding:0 12px 0 36px}
-.bm-demand .bm-need{gap:4px;padding:0 6px}
-.bm-demand .bm-number{font-size:var(--fs-md)}
+/* ---- the demand per competence ---- */
+.bm-demand{transition:opacity 160ms var(--ease)}
+.grid-label>.bm-pick{flex:1;align-self:stretch;min-width:0;justify-content:flex-start;gap:8px;margin:0 -12px 0 -10px;padding:0 12px 0 36px;border-radius:0;background:transparent;font:inherit;text-align:left}
+.bm-pick:hover{background:var(--wash-bg)}
+.bm-pick:disabled{opacity:1;cursor:default}
+.bm-pick:disabled:hover{background:transparent}
+.bm-week-left{display:inline-flex;align-items:center;margin-left:auto;font:600 var(--fs-sm) var(--font-num);white-space:nowrap}
+.bm-need{flex-direction:column;align-items:stretch;justify-content:center;gap:4px;min-width:0;padding:0 6px;border-radius:0;background-color:transparent;color:var(--text)}
 .bm-need.helg,.bm-need.helligdag,.bm-free.helg,.bm-free.helligdag{background-color:var(--weekend)}
+button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
+.bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
+.bm-need-value em{font:400 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint)}
+.bm-number{display:inline-flex;font:600 var(--fs-md)/1 var(--font-num);letter-spacing:-.02em}
+.bm-number.ok{color:var(--pos)}
+.bm-number.over{color:var(--over)}
+.bm-number.uncoverable{color:var(--neg)}
+.bm-carried{margin-right:auto;font:500 var(--fs-2xs) var(--font-num);color:var(--over)}
+.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklch,var(--cc) 14%,transparent);color:var(--cc);font:600 var(--fs-xs) var(--font-num)}
+.bar .covered{background:var(--cc)}
+/* the stripes of --hatch, 4px and 2px. Overtime is a 2px line of the competence's colour on a light ground; what cannot be covered is red with a 2px gap. */
+.bar .overtime{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 35%,transparent) 0 4px,var(--cc) 4px 6px)}
+.bar .surplus{background:var(--over)}
+.bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--neg) 0 4px,transparent 4px 6px)}
+/* a competence in focus: its line is lit, the others step back */
+.bm-demand.dim{opacity:.5}
+.bm-demand.dim:hover{opacity:.8}
+.bm-demand.on{background:color-mix(in oklch,var(--cc) 7%,var(--bg))}
+.bm-demand.on .bm-pick{background:var(--surface);box-shadow:inset 3px 0 0 var(--cc)}
+/* compact: one thin line per day, the demand as a tint and what remains of it solid from the right */
 .bm-demand.compact .bm-pick{gap:6px}
 .bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
 .bm-demand.compact .bm-name,.bm-demand.compact .bm-week-left{font-size:var(--fs-xs)}
@@ -290,17 +65,81 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-need-line.over{background-image:repeating-linear-gradient(135deg,var(--neg) 0 2.5px,transparent 2.5px 8px)}
 .bm-idle-head{color:var(--faint)}
 .bm-capacity .grid-label{padding-left:36px}
+.bm-free{justify-content:flex-end;gap:4px;padding:0 10px}
+.bm-free b{font-size:var(--fs-sm);font-weight:500}
+.bm-free em{font-size:var(--fs-2xs);font-style:normal;color:var(--faint)}
 
-/* the people */
+/* ---- the planning bar ---- */
+.bm-hints{font-size:var(--fs-sm);color:var(--faint)}
+.bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-md);font-weight:500}
+.bm-unresolved button{height:22px;padding:0 8px;border-radius:6px;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:600}
+.bm-unresolved button:hover{background:color-mix(in srgb,var(--neg) 12%,transparent)}
+
+/* what opens at the pointer: the balance of a day of a demand line */
+.bm-demand-pop{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:var(--fs-md)}
+.bm-demand-pop p{margin:0}
+.bm-pop-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-base)}
+.bm-pop-head span{margin-left:auto;font-size:var(--fs-sm);color:var(--muted)}
+.bm-pop-carry{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
+.bm-pop-carry label{font-size:var(--fs-sm);color:var(--muted)}
+.bm-pop-carry div{display:flex;align-items:center;gap:6px}
+.bm-pop-carry input{width:52px;text-align:right;font:500 var(--fs-md) var(--font-num)}
+.bm-pop-carry span{margin-right:auto;font:400 var(--fs-sm) var(--font-num);color:var(--faint)}
+
+/* a person's absence */
+.bm-absence{width:min(520px,calc(100vw - 32px))}
+.bm-absence ul{display:flex;flex-direction:column;gap:2px;max-height:180px;margin:0;padding:0;overflow:auto;list-style:none}
+.bm-absence li{display:flex;align-items:center;gap:10px;padding:2px 0 2px 10px;border-radius:6px;background:var(--panel);font-size:var(--fs-md)}
+.bm-absence li span{flex:1;font-family:var(--font-num);font-size:var(--fs-sm);color:var(--muted)}
+
+/* ---- the people ---- */
 .bm-people{position:relative;padding-bottom:40px;user-select:none}
-.bm-people-head .bm-label-note{margin-left:8px}
 .bm-person.dim{opacity:.4}
+.bm-person-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.bm-dots{display:flex;gap:3px}
+.bm-dots i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line-strong) 70%,transparent)}
+.bm-dots i.has{background:var(--cc);box-shadow:none}
+.bm-dots i.focused{outline:1.5px solid var(--cc);outline-offset:1.5px}
+.bm-person-week{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
+.bm-person-week b{font-weight:600;color:var(--text)}
+.bm-person-week em{font-style:normal;color:var(--muted)}
+.bm-person-week>i{display:block;width:52px;height:3px;border-radius:2px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
+.bm-person-week>i>i{display:block;height:100%;background:var(--muted);transition:width 280ms var(--ease)}
 .bm-divider{display:flex;align-items:center;border-bottom:1px solid var(--rule);background:var(--sunken)}
 .bm-divider span{position:sticky;left:0;box-sizing:border-box;padding:0 12px 0 36px;font-size:var(--fs-xs);color:var(--muted)}
-.bm-people[data-tool='paint'] .bm-cell{cursor:cell}
-.bm-people[data-tool='erase'] .bm-cell{cursor:crosshair}
-.bm-people[data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
-.bm-people[data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
+.bm-empty{position:sticky;left:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:720px;margin:24px 16px;padding:12px 16px;border-radius:6px;background:var(--surface);color:var(--muted)}
+.bm-empty strong{color:var(--text)}
+
+/* a folded day: a small timeline of the normal day */
+.bm-cell{min-width:0;border-bottom:1px solid var(--rule)}
+.bm-cell.off-day{background:var(--weekend) var(--hatch)}
+.bm-cell.away{background-image:var(--hatch)}
+.bm-cell.sick{background-color:color-mix(in srgb,var(--neg) 4%,transparent)}
+.bm-cell.selected{z-index:1;box-shadow:inset 0 0 0 1.5px var(--line-strong);background-color:var(--wash)}
+.bm-timeline{position:absolute;inset:7px 5px}
+.bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
+.bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
+.bm-block b{overflow:hidden;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
+/* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the open hours. */
+.bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
+.bm-block.other,.bm-edit-block.other,.bm-off-blocks>i.other{opacity:.28}
+/* unresolved, but the day is covered by others: a faint trace of what was planned */
+.bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 60%,transparent)}
+.bm-off-blocks>i.replaced{opacity:.4}
+.bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:var(--fs-sm);font-style:italic;color:var(--muted)}
+.bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
+.bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
+.bm-ot-tag{position:absolute;right:-2px;top:-6px;z-index:1;padding:0 4px;border-radius:4px;background:var(--text);color:var(--bg);font:600 var(--fs-2xs)/13px var(--font-num)}
+.bm-off-blocks{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px}
+.bm-off-blocks>i{width:6px;height:22px;border-radius:3px;background:var(--cc)}
+.bm-off-blocks>i.unresolved{background:transparent;box-shadow:inset 0 0 0 1.5px var(--cc)}
+.bm-off-blocks .bm-ot-tag{position:static;margin-left:2px}
+
+/* what the pointer does to a day */
+[data-tool='paint'] .bm-cell{cursor:cell}
+[data-tool='erase'] .bm-cell{cursor:crosshair}
+[data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
+[data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
 /* where the brush would put time: striped in its colour, with the hours it gives */
 .bm-ghosts{pointer-events:none}
 .bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 5px,color-mix(in oklch,var(--cc) 18%,transparent) 5px 10px);box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 65%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
@@ -315,3 +154,61 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-pill b{display:inline-flex;align-items:center;gap:6px;font-weight:600}
 .bm-pill span{font-family:var(--font-num)}
 .bm-pill span+span{padding-left:10px;border-left:1px solid color-mix(in srgb,var(--bg) 30%,transparent)}
+
+/* ---- the open hours of one person: a tall line above the others, every day a track of time ---- */
+.bm-unfolded{border-bottom:2px solid var(--line-strong);user-select:none}
+.bm-unfolded-row .grid-label{align-items:stretch;gap:0;padding:0;background:var(--panel);white-space:normal}
+.bm-unfolded-label{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 44px}
+.bm-unfolded-info{display:flex;flex-direction:column;min-width:0;min-height:0}
+.bm-unfolded-head{display:flex;align-items:center;gap:2px;height:40px;padding:0 8px 0 4px;border-bottom:1px solid var(--line)}
+.bm-unfolded-name{flex:1;min-width:0;justify-content:flex-start;gap:8px;padding:6px;background:transparent}
+.bm-unfolded-name:hover{background:var(--wash)}
+.bm-unfolded-name .bm-name{font-size:var(--fs-base);font-weight:600}
+.bm-unfolded .stats{padding:10px 12px;border-bottom:1px solid var(--line)}
+.bm-unfolded .stats b{font-size:var(--fs-base)}
+.bm-unfolded .stats em{font-weight:400;color:var(--muted)}
+.bm-unfolded .stats em.over{color:var(--over)}
+.bm-unfolded-list{flex:1;min-height:0;display:flex;flex-direction:column;padding:6px;overflow:auto}
+.bm-unfolded-list button{flex:none;justify-content:flex-start;gap:8px;height:28px;padding:0 6px;border-radius:6px;background:transparent;font-size:var(--fs-sm)}
+.bm-unfolded-list button:hover{background:var(--wash)}
+.bm-unfolded-list button.on{background:color-mix(in oklch,var(--cc) 14%,var(--panel))}
+.bm-unfolded-hours{margin-left:auto;font:500 var(--fs-sm) var(--font-num)}
+.bm-unfolded-hours.nil{font-weight:400;color:var(--faint)}
+.bm-unfolded-hint{margin:0;padding:8px 12px;border-top:1px solid var(--line);font-size:var(--fs-xs);color:var(--faint);text-wrap:pretty}
+.bm-axis{position:relative;margin:12px 0}
+.bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
+.bm-axis span.day-edge{color:var(--text);font-weight:600}
+.bm-editor-cell{border-bottom:0}
+.bm-editor-cell.off-day{background-image:none}
+
+/* the track of a day: the day's own cell with hour lines, hatched where time is overtime, lunch, or away */
+.bm-track{position:absolute;left:0;right:0;top:12px;bottom:12px;background-image:repeating-linear-gradient(180deg,color-mix(in srgb,var(--text) 7%,transparent) 0 1px,transparent 1px 20px)}
+.bm-track.drawable{cursor:copy}
+.bm-band{position:absolute;left:0;right:0;pointer-events:none}
+.bm-band.overtime{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 7%,transparent) 0 1px,transparent 1px 6px)}
+.bm-band.lunch{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 10%,transparent) 0 1px,transparent 1px 3px)}
+.bm-band.away{background:var(--hatch) color-mix(in srgb,var(--text) 4%,transparent)}
+.bm-rule{position:absolute;left:0;right:0;height:0;border-top:1px solid color-mix(in srgb,var(--text) 30%,transparent);pointer-events:none}
+.bm-track-away{position:absolute;top:40%;left:0;right:0;text-align:center;font-family:var(--font-ui);font-size:var(--fs-sm);font-style:italic;color:var(--muted);pointer-events:none}
+.bm-track-note{position:absolute;left:6px;margin-top:4px;font:400 var(--fs-2xs) var(--font-num);color:var(--muted);pointer-events:none}
+.bm-track .bm-sick{top:12px;transform:none}
+
+.bm-edit-block{position:absolute;left:4px;right:4px;display:flex;flex-direction:column;gap:1px;padding:4px 7px;overflow:hidden;border-radius:5px;background:var(--cc);color:var(--on-line);cursor:grab;transition:opacity 160ms var(--ease)}
+.bm-edit-block b{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
+.bm-edit-block em{position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.9}
+.bm-edit-block.ghost{opacity:.6;pointer-events:none}
+.bm-edit-block.dragging{z-index:3;cursor:grabbing;box-shadow:0 6px 16px -6px var(--shadow)}
+.bm-edit-block.leaving{opacity:.3}
+.bm-edit-block.selected{z-index:2;box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--accent)}
+.bm-edit-block.unresolved{cursor:default}
+[data-tool='erase'] .bm-edit-block{cursor:crosshair}
+.bm-ot-part{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,var(--on-line-soft) 0 2px,transparent 2px 7px);pointer-events:none}
+.bm-grip{position:absolute;left:0;right:0;z-index:2;height:6px;cursor:ns-resize}
+.bm-grip.start{top:0}
+.bm-grip.end{bottom:0}
+.bm-grip::after{content:'';position:absolute;left:35%;right:35%;top:2px;height:2px;border-radius:2px;background:var(--on-line-rule);opacity:0}
+.bm-edit-block:hover .bm-grip::after{opacity:1}
+.bm-block-remove{position:absolute;top:2px;right:6px;z-index:3;display:none;width:16px;height:16px;padding:0;border-radius:4px;background:var(--on-line-soft);color:var(--on-line)}
+.bm-block-remove:hover{background:var(--on-line-rule)}
+.bm-edit-block:hover .bm-block-remove{display:inline-flex}
+.bm-edit-block.unresolved .bm-block-remove{background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--text)}

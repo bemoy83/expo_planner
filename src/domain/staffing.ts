@@ -327,6 +327,37 @@ export const moveBlock = (ws: Workspace, id: string, start: Minute, opts: EditOp
   return withBlock(ws, block, { ...block, start: to, end: to + length(block) })
 }
 
+/** Why a block cannot be moved to another day or person (R19). */
+export type MoveRefusal = 'overlap' | 'away' | 'ineligible'
+
+/**
+ * R19: a block as it would be on another day, or with another person, starting at `toStart`: the same
+ * length and competence, on the grid, inside the hours overtime can be drawn in. Refused when the person
+ * lacks the competence, is away then, or has other work then.
+ */
+export const moveTarget = (ws: Workspace, id: string, toDate: ISODate, toStart: Minute, toPerson?: string): Assignment | MoveRefusal | null => {
+  const wd = ws.settings.workday
+  const block = blockById(ws, id)
+  if (!block) return null
+  const personId = toPerson ?? block.personId
+  if (!isEligible(ws.persons?.find((p) => p.id === personId), block.competence)) return 'ineligible'
+  const start = clamp(Math.round(toStart / wd.snap) * wd.snap, wd.overtimeEarliest, wd.overtimeLatest - length(block))
+  const moved: Assignment = { ...block, personId, date: toDate, start, end: start + length(block) }
+  if (absenceOf(ws.unavailability ?? [], personId, toDate).some((u) => isWholeDay(u) || overlap(moved, { start: u.start!, end: u.end! }) > 0)) return 'away'
+  if (blocksOf(ws.assignments ?? [], personId, toDate).some((a) => a.id !== id && overlap(a, moved) > 0)) return 'overlap'
+  return moved
+}
+
+/** R19: moves a block to another day or person, see `moveTarget`. A move that is refused changes nothing. */
+export const moveAssignment = (ws: Workspace, id: string, toDate: ISODate, toStart: Minute, toPerson?: string): Assignment[] => {
+  const all = ws.assignments ?? []
+  const moved = moveTarget(ws, id, toDate, toStart, toPerson)
+  if (!moved || typeof moved === 'string') return all
+  const block = blockById(ws, id)!
+  if (moved.personId === block.personId && moved.date === block.date && moved.start === block.start) return all
+  return mergeAdjacent(all.map((a) => (a.id === id ? moved : a)), new Set([keyOf(moved)]))
+}
+
 /** R8: drags one edge of a block to `t`. The block keeps at least the length of `snap`. */
 export const resizeBlock = (ws: Workspace, id: string, edge: 'start' | 'end', t: Minute, opts: EditOptions = {}): Assignment[] => {
   const wd = ws.settings.workday

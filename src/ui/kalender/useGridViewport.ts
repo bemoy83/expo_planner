@@ -10,6 +10,8 @@ interface Options {
   openOn: ISODate
   zoom: Zoom
   colW: number
+  /** The height the rows must be left with for the top block to stay pinned, such as a person's open hours in Bemanning. */
+  reserve?: number
   /** Called on every scroll. Must keep its identity. */
   onScrolled: () => void
   /** Called when the period grows at the start, so the columns count from another day. Must keep its identity. */
@@ -20,7 +22,7 @@ interface Options {
  * The scrolling of the grid: what part of it is in view, how tall the block pinned above the rows is,
  * and keeping the same days in view when the period or the column width changes.
  */
-export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, onPeriodMoved }: Options) {
+export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, onScrolled, onPeriodMoved }: Options) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const headRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
@@ -111,7 +113,7 @@ export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, on
   }, [colW, placings])
 
   /** The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. The date header is pinned whatever its height. */
-  const topPinned = topHeight < viewport.height * 0.65
+  const topPinned = topHeight < viewport.height * 0.65 && viewport.height - topHeight >= reserve
   // Bring a span of days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
   useLayoutEffect(() => {
     const el = scrollRef.current

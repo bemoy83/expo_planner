@@ -11,8 +11,9 @@ import { LEFT_W, ROW_H } from '../kalender/layout'
 import { useBemanning, type PersonActions } from './BemanningScope'
 import { dayCell } from './dayCell'
 import { DIVIDER_H, PERSON_H } from './layout'
-import { FoldedDay, WeekMeter } from './PersonRow'
+import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
+import { UnfoldedPerson } from './UnfoldedPerson'
 import { hoursText } from './week'
 
 const NO_ASSIGNMENTS: Assignment[] = []
@@ -132,6 +133,8 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
   const pillStyle = brush ? competenceColor(styles.get(brush)) : undefined
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
   return (
+    <>
+    <UnfoldedPerson />
     <div
       className="bm-people"
       ref={bodyRef}
@@ -208,5 +211,6 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
         </div>
       )}
     </div>
+    </>
   )
 }

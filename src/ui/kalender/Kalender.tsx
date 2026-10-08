@@ -17,6 +17,7 @@ import { AllocationDialog } from '../AllocationDialog'
 import { BemanningHead, BemanningOverlays, BemanningToolbar, BemanningTop } from '../bemanning/BemanningParts'
 import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
+import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
@@ -124,6 +125,8 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
   // The width on its way from one mode to the other, while the switch zooms.
   const [zoomingW, setZoomingW] = useState<number | null>(null)
   const colW = zoomingW ?? (shown === 'bemanning' ? bemanningW : ZOOM_WIDTHS[zoom])
+  // The person whose hours are open in Bemanning. The top block lets go of its pin when it would leave them no room.
+  const [unfolded, setUnfolded] = useState<string | null>(null)
 
   const projectHover = useProjectHover(hints)
   const closeCellMenu = useCallback(() => setCellMenu(null), [])
@@ -134,6 +137,7 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
     openOn: planningFocus?.date ?? today,
     zoom,
     colW,
+    reserve: shown === 'bemanning' && unfolded ? unfoldedHeight(ws.settings.workday) : 0,
     onScrolled: closeCellMenu,
     onPeriodMoved: clearSelection,
   })
@@ -729,7 +733,7 @@ export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints
   // ---- render ---------------------------------------------------------------------------------
   return (
     <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`}>
-      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project}>
+      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded}>
       {bemanning ? <BemanningHead /> : <KalenderHead
         projects={shownGroups.length}
         rows={shownRowCount}
