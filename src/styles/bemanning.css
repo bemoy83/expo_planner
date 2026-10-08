@@ -251,3 +251,67 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
   .bm-need-value em{display:none}
   .bm-capacity{height:24px}
 }
+
+/* ---- Bemanning as a mode of the Kalender: its lines are lines of the Kalender's grid ---- */
+.section-line{display:flex}
+.section-meta-end{margin-left:auto}
+.bm-density{width:18px;height:18px;padding:0;border-radius:4px;background:none;color:var(--muted)}
+.bm-density:hover{background:none;color:var(--text)}
+.day-head.pickable{cursor:pointer}
+
+/* the projects in view: a block of a fixed height, each project a line that moves to its place */
+.bm-project-block{position:relative}
+.bm-project-days{border-bottom:0}
+.bm-project-days .grid-label{z-index:0}
+.bm-project-line{position:absolute;left:0;right:0;display:flex;transition:top 260ms var(--ease),opacity 260ms var(--ease);animation:bm-fade-in 260ms var(--ease)}
+.bm-project-line.leaving{opacity:0}
+.bm-project-line.dim{opacity:.35}
+@keyframes bm-fade-in{from{opacity:0}}
+.bm-project-line .grid-label{gap:10px;padding-left:36px}
+.bm-project-name{flex:none;max-width:60%;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);font-weight:500}
+.bm-project-halls{min-width:0;margin-left:auto;overflow:hidden;text-overflow:ellipsis;font:400 var(--fs-xs) var(--font-num);color:var(--muted)}
+.bm-projects .hall-bar{padding:0 5px;white-space:nowrap;text-overflow:ellipsis}
+.bm-projects.compact .hall-bar{height:6px;padding:0;border-radius:3px}
+.bm-projects.compact .bm-project-name{font-size:var(--fs-xs)}
+.bm-projects.compact .bm-project-halls{font-size:var(--fs-2xs)}
+@media (prefers-reduced-motion:reduce){.bm-project-line{transition:none;animation:none}}
+
+/* the demand per competence */
+.grid-label>.bm-pick{flex:1;align-self:stretch;min-width:0;gap:8px;margin:0 -12px 0 -10px;padding:0 12px 0 36px}
+.bm-demand .bm-need{gap:4px;padding:0 6px}
+.bm-demand .bm-number{font-size:var(--fs-md)}
+.bm-need.helg,.bm-need.helligdag,.bm-free.helg,.bm-free.helligdag{background-color:var(--weekend)}
+.bm-demand.compact .bm-pick{gap:6px}
+.bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
+.bm-demand.compact .bm-name,.bm-demand.compact .bm-week-left{font-size:var(--fs-xs)}
+.bm-demand.compact .bm-need{padding:0 4px}
+.bm-need-line{position:relative;display:block;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklch,var(--cc) 22%,var(--bg))}
+.bm-need-line>i{position:absolute;top:0;right:0;bottom:0;border-radius:3px;background:var(--cc)}
+.bm-need-line.over{background-image:repeating-linear-gradient(135deg,var(--neg) 0 2.5px,transparent 2.5px 8px)}
+.bm-idle-head{color:var(--faint)}
+.bm-capacity .grid-label{padding-left:36px}
+
+/* the people */
+.bm-people{position:relative;padding-bottom:40px;user-select:none}
+.bm-people-head .bm-label-note{margin-left:8px}
+.bm-person.dim{opacity:.4}
+.bm-divider{display:flex;align-items:center;border-bottom:1px solid var(--rule);background:var(--sunken)}
+.bm-divider span{position:sticky;left:0;box-sizing:border-box;padding:0 12px 0 36px;font-size:var(--fs-xs);color:var(--muted)}
+.bm-people[data-tool='paint'] .bm-cell{cursor:cell}
+.bm-people[data-tool='erase'] .bm-cell{cursor:crosshair}
+.bm-people[data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
+.bm-people[data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
+/* where the brush would put time: striped in its colour, with the hours it gives */
+.bm-ghosts{pointer-events:none}
+.bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 5px,color-mix(in oklch,var(--cc) 18%,transparent) 5px 10px);box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 65%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
+/* what the eraser would take: its blocks as dashed outlines */
+.bm-cell.erasing .bm-block{background:transparent;box-shadow:none;outline:1.5px dashed color-mix(in srgb,var(--text) 45%,transparent);outline-offset:-1.5px;color:var(--muted)}
+.bm-cell.erasing .bm-off-blocks>i{background:transparent;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--text) 45%,transparent)}
+/* a stroke: one outline over all its days, and what it will do on a pill */
+.bm-stroke{position:absolute;z-index:1;border-radius:7px;background:color-mix(in oklch,var(--cc) 4%,transparent);box-shadow:inset 0 0 0 1.5px var(--cc),0 0 0 4px color-mix(in oklch,var(--cc) 13%,transparent);pointer-events:none}
+.bm-stroke.erase{--cc:var(--neg)}
+.bm-pill{position:absolute;left:0;bottom:calc(100% + 8px);display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:8px;background:var(--text);color:var(--bg);font-size:var(--fs-sm);white-space:nowrap}
+.bm-pill.below{top:calc(100% + 8px);bottom:auto}
+.bm-pill b{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.bm-pill span{font-family:var(--font-num)}
+.bm-pill span+span{padding-left:10px;border-left:1px solid color-mix(in srgb,var(--bg) 30%,transparent)}

@@ -22,11 +22,13 @@ interface Options {
  */
 export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, onPeriodMoved }: Options) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const headRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
   const toolsRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200, height: 800 })
-  // The height of everything above the planning rows, and of the planning bar with the heading row at the foot of it.
+  // The height of everything above the planning rows, of the date header at the top of it, and of the planning bar with the heading row at the foot of it.
   const [topHeight, setTopHeight] = useState(0)
+  const [headHeight, setHeadHeight] = useState(0)
   const [barHeight, setBarHeight] = useState(0)
   // The days to bring into view, once the column width that fits them is in place.
   const [goTo, setGoTo] = useState<{ start: ISODate; end: ISODate } | null>(null)
@@ -41,15 +43,18 @@ export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, on
 
   useLayoutEffect(() => {
     const el = scrollRef.current
+    const head = headRef.current
     const top = topRef.current
     const tools = toolsRef.current
-    if (!el || !top || !tools) return
+    if (!el || !head || !top || !tools) return
     const observer = new ResizeObserver(() => {
       setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
-      setTopHeight(top.offsetHeight + tools.offsetHeight)
+      setTopHeight(head.offsetHeight + top.offsetHeight + tools.offsetHeight)
+      setHeadHeight(head.offsetHeight)
       setBarHeight(tools.offsetHeight)
     })
     observer.observe(el)
+    observer.observe(head)
     observer.observe(top)
     observer.observe(tools)
     return () => observer.disconnect()
@@ -105,7 +110,7 @@ export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, on
     prevColW.current = colW
   }, [colW, placings])
 
-  /** The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */
+  /** The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. The date header is pinned whatever its height. */
   const topPinned = topHeight < viewport.height * 0.65
   // Bring a span of days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
   useLayoutEffect(() => {
@@ -119,5 +124,5 @@ export function useGridViewport({ start, end, openOn, zoom, colW, onScrolled, on
     setGoTo(null)
   }, [goTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { scrollRef, topRef, toolsRef, viewport, topHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
+  return { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
 }

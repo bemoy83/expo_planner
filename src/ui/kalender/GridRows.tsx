@@ -4,7 +4,7 @@ import { addDays, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/d
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
-import type { CellEdit, Columns, GridActions } from './gridTypes'
+import { dayClass, type CellEdit, type Columns, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile } from './heat'
@@ -23,9 +23,9 @@ const INDENT = 14
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
 /** One line of the grid: the label column, then a cell per drawn day. */
-function Line({ className = '', label, cols, cells, overlay, height = ROW_H, project, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string; /** On a hall's line: its projects, see `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
+export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, style, project, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string; /** On a hall's line: its projects, see `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
   return (
-    <div className={`grid-row ${className}`} style={{ height }} data-project={project} data-projects={projects}>
+    <div className={`grid-row ${className}`} style={style ? { ...style, height } : { height }} data-project={project} data-projects={projects}>
       <div className="grid-label" style={{ width: LEFT_W }} onClick={onLabelClick}>
         {label}
       </div>
@@ -36,7 +36,6 @@ function Line({ className = '', label, cols, cells, overlay, height = ROW_H, pro
   )
 }
 
-const dayClass = (cols: Columns, date: ISODate) => cols.classes.get(date) ?? 'day'
 
 const readCell = (cols: Columns, date: ISODate, value: number | undefined, className = '', title?: string) => (
   <div key={date} className={`${dayClass(cols, date)} cell ${className}`} style={{ width: cols.colW }} title={title}>
@@ -90,7 +89,7 @@ const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate
 }
 
 /** The two header lines: week and month, then weekday and date. `activeDate` is the day of the focused cell. */
-export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeDate }: { cols: Columns; zoom: Zoom; overbooked: Map<ISODate, { need: number; available: number }>; activeDate: ISODate | undefined }) {
+export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeDate, onDate }: { cols: Columns; zoom: Zoom; overbooked: Map<ISODate, { need: number; available: number }>; activeDate: ISODate | undefined; /** A click on a date, where it picks the day in focus. Must keep its identity. */ onDate?: (date: ISODate) => void }) {
   return (
     <>
       <Line
@@ -114,8 +113,9 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
         cells={(date) => (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell head day-head ${date === activeDate ? 'active' : ''}`}
+            className={`${dayClass(cols, date)} cell head day-head ${date === activeDate ? 'active' : ''} ${onDate ? 'pickable' : ''}`}
             style={{ width: cols.colW }}
+            onClick={onDate && (() => onDate(date))}
             title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}`}
           >
             <span className="wd">{WEEKDAYS_NB[weekdayIndex(date)].slice(0, zoom === 'compact' ? 1 : 3).toLowerCase()}</span>

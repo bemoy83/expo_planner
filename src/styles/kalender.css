@@ -6,8 +6,9 @@
 .grid-scroll{flex:1;overflow:auto;position:relative;outline:none;background:var(--bg);overscroll-behavior:contain}
 .grid-canvas{position:relative}
 /* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows, unless they would cover most of the screen */
+.grid-head{position:sticky;top:0;z-index:4;background:var(--bg)}
 .grid-top{position:relative;z-index:3;background:var(--bg)}
-.grid-top.pinned{position:sticky;top:0}
+.grid-top.pinned{position:sticky}
 
 /* ---- a line and its cells ---- */
 .grid-row{display:flex;flex-wrap:nowrap;border-bottom:1px solid var(--rule);font-size:var(--fs-md)}

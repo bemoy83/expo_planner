@@ -59,7 +59,13 @@ export function WeekMeter({ week }: { week: PersonWeek }) {
   )
 }
 
-function FoldedDay({ cell, styles, brush }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null }) {
+/** Roughly the width of a letter of a block's name, of its short name, and the room a block's padding takes (R24). */
+const NAME_CHAR_W = 6.7
+const SHORT_CHAR_W = 7
+const BLOCK_PAD = 13
+
+/** `width` is the day's width in pixels where the grid knows it: a block then shows its whole name if it fits, else the short one (R24). */
+export function FoldedDay({ cell, styles, brush, width }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width?: number }) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
   if (cell.offDay) {
@@ -88,7 +94,13 @@ function FoldedDay({ cell, styles, brush }: { cell: DayCell; styles: Map<string,
             style={{ left: `${block.left}%`, width: `${block.width}%`, ...colorOf(styles, block.competence) }}
             title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : ''}`}
           >
-            {block.label === 'full' ? (
+            {width !== undefined ? (
+              ((width - 10) * block.width) / 100 - BLOCK_PAD >= name.length * NAME_CHAR_W ? (
+                <b>{name}</b>
+              ) : style && ((width - 10) * block.width) / 100 - BLOCK_PAD >= style.shortLabel.length * SHORT_CHAR_W ? (
+                <b>{style.shortLabel}</b>
+              ) : null
+            ) : block.label === 'full' ? (
               <>
                 <b>{name}</b>
                 <em>hel dag</em>

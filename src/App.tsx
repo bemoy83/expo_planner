@@ -290,7 +290,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} />}
+      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} onOpenPersonell={() => setView('personell')} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
       {status === 'ready' && workspace && view === 'produkttyper' && <Produkttyper onOpenKpi={() => setView('kpi')} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi onOpenProductTypes={() => setView('produkttyper')} />}

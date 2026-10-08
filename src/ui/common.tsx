@@ -53,7 +53,7 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
 export interface ToolChoice<T extends string> {
   value: T
   icon: ReactNode
-  name: string
+  name: ReactNode
   /** The key that picks the tool, shown on its button. */
   shortcut: string
   title: string

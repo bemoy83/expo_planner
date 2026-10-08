@@ -15,6 +15,9 @@ export interface Columns {
   classes: Map<ISODate, string>
 }
 
+/** The classes of a day's cell on any line. */
+export const dayClass = (cols: Columns, date: ISODate) => cols.classes.get(date) ?? 'day'
+
 /**
  * What one line of cells needs to know about the selection and the editing in progress. Kept to plain
  * values, so a line is drawn again only when something on that line changed.

@@ -14,7 +14,10 @@ import { buildWindows, windowFor } from '../../domain/windows'
 import { loadPref, savePref, usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
-import { BemanningBar } from '../bemanning/BemanningBar'
+import { BemanningHead, BemanningOverlays, BemanningToolbar, BemanningTop } from '../bemanning/BemanningParts'
+import { BemanningScope } from '../bemanning/BemanningScope'
+import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
+import type { ProjectSpan } from '../bemanning/projectsInView'
 import { CellMenu } from './CellMenu'
 import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
@@ -43,8 +46,9 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false,
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
  * `heat` is the setting «Varmekart for avvik»: the Avvik line as coloured tiles.
+ * `onOpenPersonell` opens the tab where the people are entered, from Bemanning when there are none.
  */
-export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?: boolean }) {
+export function Kalender({ hints = true, heat = true, onOpenPersonell }: { hints?: boolean; heat?: boolean; onOpenPersonell: () => void }) {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,7 +128,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   const projectHover = useProjectHover(hints)
   const closeCellMenu = useCallback(() => setCellMenu(null), [])
   const clearSelection = useCallback(() => setSelection(null), [])
-  const { scrollRef, topRef, toolsRef, viewport, topHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
+  const { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
     start: range.start,
     end: range.end,
     openOn: planningFocus?.date ?? today,
@@ -229,8 +233,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
   // out by the next one. Each is drawn in a box as tall as its stretch of lines and sticks inside it, so
   // the browser moves it while scrolling and nothing is worked out per frame.
   const allSections = useMemo(() => levelSections(items), [items])
-  /** What stays pinned over the rows: the whole top block, or only the planning bar when the block is too tall to pin. */
-  const pinnedHeight = topPinned ? topHeight : barHeight
+  /** What stays pinned over the rows: the whole top block, or only the date header and the planning bar when the block is too tall to pin. */
+  const pinnedHeight = topPinned ? topHeight : headHeight + barHeight
   /** How much of the rows the line of a top level covers above the line at `index`: nothing above a top level itself. */
   const headOver = (index: number) => {
     const item = items[index]
@@ -633,6 +637,25 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
     if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), bemanningW)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const bemanning = shown === 'bemanning'
+  // The projects as Bemanning lists them: their days in the hall calendar, from the first phase to the last.
+  const projectSpans = useMemo<ProjectSpan[]>(() => {
+    if (!bemanning) return []
+    const hallsOf = new Map<string, Set<string>>()
+    for (const event of events) {
+      const key = projectKey({ projectNo: event.projectNo, projectName: event.name })
+      hallsOf.set(key, new Set([...(hallsOf.get(key) ?? []), ...event.halls]))
+    }
+    // As in the hall calendar: only the projects with a booking in one of the halls it shows.
+    const shownHalls = new Set(halls)
+    return allGroups.flatMap((group): ProjectSpan[] => {
+      const days = [...(phasesOfProject.get(group.key) ?? [])].sort((a, b) => a[0].localeCompare(b[0]))
+      if (!days.length || ![...(hallsOf.get(group.key) ?? [])].some((hall) => shownHalls.has(hall))) return []
+      const start = daysBetween(range.start, days[0][0])
+      const event = days.find(([, phase]) => phase === 'event')
+      return [{ key: group.key, name: group.projectName, halls: [...(hallsOf.get(group.key) ?? [])].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true })), start, end: daysBetween(range.start, days[days.length - 1][0]), eventStart: event ? daysBetween(range.start, event[0]) : start }]
+    })
+  }, [bemanning, events, allGroups, phasesOfProject, range.start, halls])
+  const focusDay = useCallback((date: ISODate) => setPlanningFocus({ date }), [setPlanningFocus])
 
   // ---- tools: keys and modifiers --------------------------------------------------------------
   // Escape first closes the menu, then puts the pencil or the eraser away, then lets go of the project that is lit.
@@ -705,8 +728,9 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
 
   // ---- render ---------------------------------------------------------------------------------
   return (
-    <div className={`kalender ${activeTool === 'select' ? '' : activeTool}`}>
-      <KalenderHead
+    <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`}>
+      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project}>
+      {bemanning ? <BemanningHead /> : <KalenderHead
         projects={shownGroups.length}
         rows={shownRowCount}
         overbooked={overbooked.size}
@@ -714,23 +738,26 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
         onInspector={setInspectorOpen}
         onNewRow={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}
         onPropose={() => proposePlan(shownGroups.flatMap((group) => group.rows), false)}
-      />
+      />}
 
       <div className="kal-work">
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
-          {/* The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. */}
+          {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows, unless it would cover most of the screen. */}
+          <div className="grid-head" ref={headRef}>
+            <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
+          </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
           <div
             className={`grid-top ${topPinned ? 'pinned' : ''}`}
             ref={topRef}
+            style={topPinned ? { top: headHeight } : undefined}
             onClick={(e) => {
               const project = e.target instanceof Element ? e.target.closest<HTMLElement>('.hall-bar[data-project]')?.dataset.project : undefined
               if (project) actions.findProject(project)
             }}
           >
-            <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} />
-
+            {bemanning ? <BemanningTop /> : <>
             <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
@@ -745,12 +772,13 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               heat={heat}
               heatMax={heatMax}
             />
+            </>}
           </div>
 
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and stay pinned even when the top block is too tall to be. */}
-          <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : 0 }}>
+          <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : headHeight }}>
             {bemanning ? (
-              <BemanningBar
+              <BemanningToolbar
                 width={viewport.width}
                 mode={planMode}
                 onMode={switchMode}
@@ -766,7 +794,6 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
                   const span = projectSpan(filter.project)
                   if (span) fitBemanning(span)
                 }}
-                fitKey=""
               />
             ) : (
             <KalenderBar
@@ -798,10 +825,10 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
               onZoom={setZoom}
             />
             )}
-            {!bemanning && <PlanningHeading />}
+            {bemanning ? <PeopleHeading /> : <PlanningHeading />}
           </div>
 
-          {bemanning && <p className="empty-rows">Personellet kommer her.</p>}
+          {bemanning && <PeopleRows onOpenPersonell={onOpenPersonell} />}
           {!bemanning && <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
             <div style={{ height: rowTops[r0] }} />
             {items.slice(r0, r1).map((item) => {
@@ -858,7 +885,8 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
         />
       )}
 
-      <StatusBar focus={focusInfo} selectionSum={selectionSum} notice={notice} progress={progress} onSaveNote={setAllocationNote} />
+      {bemanning && <BemanningOverlays />}
+      {!bemanning && <StatusBar focus={focusInfo} selectionSum={selectionSum} notice={notice} progress={progress} onSaveNote={setAllocationNote} />}
 
       {dialog && (
         <AllocationDialog
@@ -882,6 +910,7 @@ export function Kalender({ hints = true, heat = true }: { hints?: boolean; heat?
           }}
         />
       )}
+      </BemanningScope>
     </div>
   )
 }

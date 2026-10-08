@@ -170,30 +170,33 @@ export interface PaintOptions {
 }
 
 /**
- * R6: gives each cell's person work of the competence in the free part of their normal day, or of its first free half.
- * Cells of people without the competence, and days without normal time, are skipped: painting never makes overtime.
+ * R6: the time a paint would give a person on a day: the free part of their normal day, or of its first
+ * free half. Nothing for a person without the competence or a day without normal time: painting never makes overtime.
  */
-export const paintDays = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, opts: PaintOptions, makeId: () => string = newId): Assignment[] => {
+export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKey, span: PaintOptions['span'], assignments: Assignment[] = ws.assignments ?? []): Interval[] => {
+  if (paintBlock(ws, cell, competence)) return []
   const wd = ws.settings.workday
+  const normal = normalWindows(cell.personId, cell.date, ws.unavailability ?? [], wd)
+  const taken = blocksOf(assignments, cell.personId, cell.date)
+  // A gap that is all lunch gives no hours, so it is not work to hand out.
+  const free = (target: Interval[]) => freeIntervals(target, taken, wd.snap).filter((iv) => paidHours(iv, wd) > 0)
+  if (span === 'full') return free(normal)
+  const halves = [{ start: wd.dayStart, end: wd.breakStart }, { start: wd.breakEnd, end: wd.dayEnd }].map((half) => normal.flatMap((iv) => intersect(iv, half) ?? []))
+  return halves.map(free).find((found) => found.length) ?? []
+}
+
+/** R6: gives each cell's person work of the competence in the time `paintGaps` finds. Cells that have none are skipped. */
+export const paintDays = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, opts: PaintOptions, makeId: () => string = newId): Assignment[] => {
   const before = ws.assignments ?? []
   let assignments = before
   const touched = new Set<string>()
   for (const cell of cells) {
     if (paintBlock(ws, cell, competence)) continue
-    const normal = normalWindows(cell.personId, cell.date, ws.unavailability ?? [], wd)
     if (opts.mode === 'replace' && blocksOf(assignments, cell.personId, cell.date).length) {
       assignments = assignments.filter((a) => keyOf(a) !== keyOf(cell))
       touched.add(keyOf(cell))
     }
-    const taken = blocksOf(assignments, cell.personId, cell.date)
-    // A gap that is all lunch gives no hours, so it is not work to hand out.
-    const free = (target: Interval[]) => freeIntervals(target, taken, wd.snap).filter((iv) => paidHours(iv, wd) > 0)
-    let gaps: Interval[]
-    if (opts.span === 'full') gaps = free(normal)
-    else {
-      const halves = [{ start: wd.dayStart, end: wd.breakStart }, { start: wd.breakEnd, end: wd.dayEnd }].map((half) => normal.flatMap((iv) => intersect(iv, half) ?? []))
-      gaps = halves.map(free).find((found) => found.length) ?? []
-    }
+    const gaps = paintGaps(ws, cell, competence, opts.span, assignments)
     if (!gaps.length) continue
     assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, start: gap.start, end: gap.end, source: 'manual' }))]
     touched.add(keyOf(cell))
