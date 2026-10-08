@@ -20,7 +20,7 @@
   --wash-bg:color-mix(in srgb,var(--text) 5%,var(--bg));          /* the same, on a pinned label that must stay opaque */
   --shadow:color-mix(in srgb,var(--text) 35%,transparent);        /* under what floats: the pinned top, a toast, a block being dragged */
   --scrim:rgba(15,20,30,.35);                                     /* behind a dialog */
-  --hatch:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px);   /* laid over a fill that holds for two things: a hall day two events share, FTE outside a row's window */
+  --hatch:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px);   /* the one hatch, laid over a fill: a hall day two events share, FTE outside a row's window, a day off or away in Bemanning */
   --tip-bg:#4a4642; --tip-text:#f5f2ec;                           /* the tooltip */
 
   /* accent: signal orange (selection, focus, today, active tab) */

@@ -1,6 +1,6 @@
 /* Bemanning: one week of people against the demand per competence. A grid of a label column, five days and a narrow weekend. */
 
-.bemanning{display:flex;flex-direction:column;flex:1;min-height:0;--bm-hatch:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 12%,transparent) 0 1px,transparent 1px 5px)}
+.bemanning{display:flex;flex-direction:column;flex:1;min-height:0}
 .bm-week-picker{display:flex;align-items:center;gap:2px}
 .bm-week-picker b{padding:0 4px;font:500 var(--fs-md) var(--font-num);white-space:nowrap}
 .bm-week-picker b span{font-weight:400;color:var(--muted)}
@@ -115,11 +115,11 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-person-week>i>i{display:block;height:100%;background:var(--muted);transition:width 280ms var(--ease)}
 
 .bm-cell{position:relative;min-width:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
-.bm-cell.off-day{background:var(--weekend) var(--bm-hatch)}
-.bm-cell.away{background-image:var(--bm-hatch)}
+.bm-cell.off-day{background:var(--weekend) var(--hatch)}
+.bm-cell.away{background-image:var(--hatch)}
 .bm-cell.sick{background-color:color-mix(in srgb,var(--neg) 4%,transparent)}
 .bm-timeline{position:absolute;inset:7px 5px}
-.bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--bm-hatch)}
+.bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
 .bm-block b{overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);font-weight:600}
 .bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
