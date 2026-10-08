@@ -1,5 +1,5 @@
 import { staffedCompetences } from './competences'
-import { addDays, weekdayIndex, type ISODate } from './dates'
+import { addDays, daysBetween, weekdayIndex, type ISODate } from './dates'
 import { dayType, type DayType } from './holidays'
 import { competenceKey, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type WorkdaySettings, type Workspace } from './types'
 
@@ -356,6 +356,110 @@ export const moveAssignment = (ws: Workspace, id: string, toDate: ISODate, toSta
   const block = blockById(ws, id)!
   if (moved.personId === block.personId && moved.date === block.date && moved.start === block.start) return all
   return mergeAdjacent(all.map((a) => (a.id === id ? moved : a)), new Set([keyOf(moved)]))
+}
+
+/** A block without its place: what is copied, and what a move carries to another day. */
+export interface BlockShape {
+  competence: CompetenceKey
+  start: Minute
+  end: Minute
+}
+
+/** Where a block's time is free on a person's day: inside the hours the person is there, clear of other work. */
+export const landingGaps = (ws: Workspace, cell: DayCell, shape: Interval, assignments: Assignment[] = ws.assignments ?? []): Interval[] => {
+  const wd = ws.settings.workday
+  const open = editableWindows(cell.personId, cell.date, ws.unavailability ?? [], wd).flatMap((iv) => intersect(iv, shape) ?? [])
+  return freeIntervals(open, blocksOf(assignments, cell.personId, cell.date), wd.snap)
+}
+
+const isAwayAllDay = (ws: Workspace, cell: DayCell): boolean => absenceOf(ws.unavailability ?? [], cell.personId, cell.date).some(isWholeDay)
+
+export interface DayMove {
+  from: DayCell
+  to: DayCell
+  /** The blocks of the day that are moved. */
+  blockIds: string[]
+  /** Leaves the blocks where they were. */
+  copy?: boolean
+}
+
+/**
+ * R38: moves a day's blocks to another day or person, at the same times. Only free time on the day they
+ * come to is filled, and only what found room there leaves the day they came from. Refused when the
+ * person they come to lacks a competence of theirs or is away that day, or when nothing found room.
+ */
+export const moveDay = (ws: Workspace, move: DayMove, makeId: () => string = newId): Assignment[] | MoveRefusal => {
+  const all = ws.assignments ?? []
+  const blocks = blocksOf(all, move.from.personId, move.from.date).filter((a) => move.blockIds.includes(a.id))
+  if (!blocks.length || (move.from.personId === move.to.personId && move.from.date === move.to.date)) return all
+  const person = ws.persons?.find((p) => p.id === move.to.personId)
+  if (blocks.some((block) => !isEligible(person, block.competence))) return 'ineligible'
+  if (isAwayAllDay(ws, move.to)) return 'away'
+  let next = all
+  let landed = false
+  for (const block of blocks) {
+    const gaps = landingGaps(ws, move.to, block, next)
+    if (!gaps.length) continue
+    landed = true
+    // What found room leaves the day it came from; the rest of the block stays there.
+    const left = move.copy ? [block] : subtract([block], gaps).map((iv, i): Assignment => ({ ...block, id: i === 0 ? block.id : makeId(), start: iv.start, end: iv.end }))
+    next = [...next.filter((a) => a.id !== block.id), ...left, ...gaps.map((gap): Assignment => ({ ...block, id: makeId(), personId: move.to.personId, date: move.to.date, start: gap.start, end: gap.end }))]
+  }
+  if (!landed) return isAwayAt(ws, move.to, blocks) ? 'away' : 'overlap'
+  return mergeAdjacent(next, new Set([keyOf(move.from), keyOf(move.to)]))
+}
+
+/** Whether the person is away for all the time of the blocks, on a day they are there for a part of. */
+const isAwayAt = (ws: Workspace, cell: DayCell, blocks: Interval[]): boolean => {
+  const open = editableWindows(cell.personId, cell.date, ws.unavailability ?? [], ws.settings.workday)
+  return blocks.every((block) => open.every((iv) => overlap(iv, block) === 0))
+}
+
+/** What is copied: the blocks of some days of some people, each day counted from the first day copied. */
+export interface Clipboard {
+  from: ISODate
+  items: { personId: string; dayOffset: number; blocks: BlockShape[] }[]
+}
+
+/** R34: copies the blocks of the given days. Days without blocks are left out. */
+export const copyDays = (ws: Workspace, cells: DayCell[]): Clipboard | null => {
+  const from = cells.map((cell) => cell.date).sort()[0]
+  const items = cells
+    .map((cell) => ({ personId: cell.personId, dayOffset: daysBetween(from, cell.date), blocks: blocksOf(ws.assignments ?? [], cell.personId, cell.date).map(({ competence, start, end }) => ({ competence, start, end })) }))
+    .filter((item) => item.blocks.length > 0)
+  return items.length ? { from, items } : null
+}
+
+/** Where a paste would put each copied day: the day it lands on, and the time its blocks find free there. A day the person is away has none. */
+export const pasteTargets = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate): { cell: DayCell; blocks: BlockShape[] }[] => {
+  let assignments = ws.assignments ?? []
+  return clip.items.flatMap((item) => {
+    const cell = { personId: item.personId, date: addDays(anchor, item.dayOffset) }
+    if (cell.date > lastDate) return []
+    const person = ws.persons?.find((p) => p.id === item.personId)
+    const blocks = isAwayAllDay(ws, cell)
+      ? []
+      : item.blocks.flatMap((block) => {
+          if (!isEligible(person, block.competence)) return []
+          const gaps = landingGaps(ws, cell, block, assignments).map((gap) => ({ competence: block.competence, start: gap.start, end: gap.end }))
+          // What is placed takes its time, so two copied blocks never land on each other.
+          assignments = [...assignments, ...gaps.map((gap): Assignment => ({ ...gap, id: '', personId: cell.personId, date: cell.date, source: 'manual' }))]
+          return gaps
+        })
+    return [{ cell, blocks }]
+  })
+}
+
+/**
+ * R34: pastes what was copied, for the same people, with the first copied day on `anchor`. Only free time
+ * is filled. Days past the end of the period are left out, and days the person is away are skipped.
+ */
+export const pasteDays = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate, makeId: () => string = newId): { assignments: Assignment[]; pasted: number; skipped: number } => {
+  const all = ws.assignments ?? []
+  const targets = pasteTargets(ws, clip, anchor, lastDate)
+  const added = targets.flatMap(({ cell, blocks }) => blocks.map((block): Assignment => ({ ...block, id: makeId(), personId: cell.personId, date: cell.date, source: 'manual' })))
+  if (!added.length) return { assignments: all, pasted: 0, skipped: targets.length }
+  return { assignments: mergeAdjacent([...all, ...added], new Set(targets.map(({ cell }) => keyOf(cell)))), pasted: added.length, skipped: targets.filter(({ blocks }) => !blocks.length).length }
 }
 
 /** R8: drags one edge of a block to `t`. The block keeps at least the length of `snap`. */

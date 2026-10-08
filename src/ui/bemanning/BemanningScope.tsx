@@ -2,12 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, clearDays, defaultBrush, deleteBlock, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, weekTotals, type Balance, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
+import { buildBalance, clearDays, copyDays, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, weekTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
 import type { Columns } from '../kalender/gridTypes'
+import { fmtDay } from '../kalender/labels'
 import { LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'
 import { useToasts, type Toast } from '../Toasts'
@@ -16,7 +17,7 @@ import type { AbsenceDraft } from './PersonPanel'
 import { DIVIDER_H, PANEL_W, PERSON_H } from './layout'
 import type { ProjectSpan } from './projectsInView'
 import type { CrossMove } from './TimeTrack'
-import { strokeRange, TOOL_KEYS, type Stroke, type Tool } from './tools'
+import { strokeRange, TOOL_KEYS, type Rect, type Stroke, type Tool } from './tools'
 import { EPSILON, weekDates, WEEKDAYS_LONG } from './week'
 
 /** The highest number a competence can be picked with on the keyboard. */
@@ -65,7 +66,7 @@ export interface PersonLine {
 
 /** What a stroke, or the brush over a day, would do: shown before the button is let go. */
 export interface StrokeInfo {
-  mode: 'paint' | 'erase'
+  mode: 'paint' | 'erase' | 'select'
   half: boolean
   /** Person-days that get time, or lose their blocks. */
   days: number
@@ -75,7 +76,10 @@ export interface StrokeInfo {
   skipped: number
 }
 
-const NO_GHOST = new Map<string, Map<ISODate, Interval[]>>()
+/** Time a stroke would give a day; with the competence it is of when that is not the brush. */
+export type GhostBlock = Interval & { competence?: string }
+type Ghosts = Map<string, Map<ISODate, GhostBlock[]>>
+const NO_GHOST: Ghosts = new Map()
 const NO_PREVIEW = new Map<ISODate, number>()
 const NO_HOURS = new Map<string, number>()
 
@@ -86,7 +90,9 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const [tool, setTool] = useState<Tool>('select')
   /** The competence in focus, which is also what the brush paints. */
   const [brush, setBrush] = useState<string | null>(null)
-  const [selected, setSelected] = useState<Day | null>(null)
+  /** The days selected with «Velg», as lines and columns of the people shown, and what was copied from them. */
+  const [selection, setSelection] = useState<Rect | null>(null)
+  const [clip, setClip] = useState<Clipboard | null>(null)
   // The stroke under way is kept beside the state too, so the button let go right after it went down still ends it.
   const [stroke, setStrokeState] = useState<Stroke | null>(null)
   const strokeRef = useRef<Stroke | null>(null)
@@ -237,6 +243,13 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     return move
   }, [setCross])
   const dayAt = (row: number, col: number): Day => ({ personId: listed[row].person.id, date: dates[col] })
+  /** The day a selection started in: the person «E» opens, and the day a new absence starts on. */
+  const selected: Day | null = selection && selection.row0 < listed.length ? dayAt(selection.row0, selection.col0) : null
+  const selectDay = (day: Day | null) => {
+    const row = day ? listed.findIndex((line) => line.person.id === day.personId) : -1
+    const col = day ? dates.indexOf(day.date) : -1
+    setSelection(row >= 0 && col >= 0 ? { row0: row, col0: col, row1: row, col1: col } : null)
+  }
   const strokeCells = (s: Stroke): Day[] => {
     const { rowFrom, rowTo, colFrom, colTo } = strokeRange(s)
     const cells: Day[] = []
@@ -245,17 +258,45 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   }
 
   // ---- what a stroke, or the brush over a day, would do ------------------------------------------------
-  const { ghost, info } = useMemo((): { ghost: Map<string, Map<ISODate, Interval[]>>; info: StrokeInfo | null } => {
-    if (!active) return { ghost: NO_GHOST, info: null }
-    if (stroke?.mode === 'erase') {
-      const blocks = strokeCells(stroke).flatMap((cell) => lines.find((line) => line.person.id === cell.personId)?.assignments?.get(cell.date) ?? [])
-      return { ghost: NO_GHOST, info: { mode: 'erase', half: false, days: new Set(blocks.map((a) => `${a.personId}|${a.date}`)).size, hours: blocks.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0), people: new Set(blocks.map((a) => a.personId)).size, skipped: 0 } }
+  const blocksOn = (cell: Day): Assignment[] => lines.find((line) => line.person.id === cell.personId)?.assignments?.get(cell.date) ?? []
+  const { ghost, info, refused } = useMemo((): { ghost: Ghosts; info: StrokeInfo | null; refused: Day | null } => {
+    const none = { ghost: NO_GHOST, info: null, refused: null }
+    if (!active) return none
+    const lastDate = dates[dates.length - 1]
+    const found: Ghosts = new Map()
+    const put = (cell: Day, blocks: GhostBlock[]) => {
+      if (!blocks.length) return
+      if (!found.has(cell.personId)) found.set(cell.personId, new Map())
+      found.get(cell.personId)!.set(cell.date, blocks)
     }
-    if (activeTool !== 'paint' || !activeBrush) return { ghost: NO_GHOST, info: null }
+    if (stroke?.mode === 'erase') {
+      const blocks = strokeCells(stroke).flatMap(blocksOn)
+      return { ...none, info: { mode: 'erase', half: false, days: new Set(blocks.map((a) => `${a.personId}|${a.date}`)).size, hours: blocks.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0), people: new Set(blocks.map((a) => a.personId)).size, skipped: 0 } }
+    }
+    if (stroke?.mode === 'select') {
+      const { rowFrom, rowTo, colFrom, colTo } = strokeRange(stroke)
+      return { ...none, info: { mode: 'select', half: false, days: colTo - colFrom + 1, hours: 0, people: rowTo - rowFrom + 1, skipped: 0 } }
+    }
+    if (stroke?.mode === 'move') {
+      // The day's blocks on their way to another day or person: where they would land, or that they cannot.
+      if (stroke.row0 === stroke.row1 && stroke.col0 === stroke.col1) return none
+      const from = dayAt(stroke.row0, stroke.col0)
+      const to = dayAt(stroke.row1, stroke.col1)
+      const blocks = blocksOn(from)
+      if (typeof moveDay(ws, { from, to, blockIds: blocks.map((a) => a.id) }) === 'string') return { ...none, refused: to }
+      put(to, blocks.flatMap((block) => landingGaps(ws, to, block).map((gap) => ({ ...gap, competence: block.competence }))))
+      return { ...none, ghost: found }
+    }
+    if (activeTool === 'select') {
+      // What was copied, where a paste would put it: for the same people, from the day under the pointer.
+      if (!clip || !hover || stroke) return none
+      for (const { cell, blocks } of pasteTargets(ws, clip, dates[hover.col], lastDate)) put(cell, blocks)
+      return { ...none, ghost: found }
+    }
+    if (activeTool !== 'paint' || !activeBrush) return none
     const cells = stroke ? strokeCells(stroke) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
-    if (!cells.length) return { ghost: NO_GHOST, info: null }
+    if (!cells.length) return none
     const half = stroke ? stroke.half : shift
-    const found = new Map<string, Map<ISODate, Interval[]>>()
     const stats: StrokeInfo = { mode: 'paint', half, days: 0, hours: 0, people: 0, skipped: 0 }
     for (const cell of cells) {
       const gaps = paintGaps(ws, cell, activeBrush, half ? 'half' : 'full')
@@ -263,22 +304,21 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
         if (dayType(cell.date) === 'arbeidsdag') stats.skipped += 1
         continue
       }
-      if (!found.has(cell.personId)) found.set(cell.personId, new Map())
-      found.get(cell.personId)!.set(cell.date, gaps)
+      put(cell, gaps)
       stats.days += 1
       stats.hours += gaps.reduce((sum, gap) => sum + paidHours(gap, ws.settings.workday), 0)
     }
     stats.people = found.size
-    return { ghost: found, info: stroke ? stats : null }
-    // `strokeCells` and `dayAt` read `listed` and `dates`.
-  }, [active, ws, lines, listed, dates, activeTool, activeBrush, stroke, hover, shift]) // eslint-disable-line react-hooks/exhaustive-deps
+    return { ghost: found, info: stroke ? stats : null, refused: null }
+    // `strokeCells`, `dayAt` and `blocksOn` read `lines`, `listed` and `dates`.
+  }, [active, ws, lines, listed, dates, activeTool, activeBrush, stroke, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
   /** The hours the stroke would add for the brush, by date: shown in the demand before the button is let go. */
   const preview = useMemo(() => {
-    if (!ghost.size) return NO_PREVIEW
+    if (!ghost.size || activeTool !== 'paint') return NO_PREVIEW
     const added = new Map<ISODate, number>()
     for (const days of ghost.values()) for (const [date, gaps] of days) added.set(date, (added.get(date) ?? 0) + gaps.reduce((sum, gap) => sum + paidHours(gap, ws.settings.workday), 0))
     return added
-  }, [ghost, ws.settings.workday])
+  }, [ghost, activeTool, ws.settings.workday])
 
   // ---- what the tools do ------------------------------------------------------------------------------
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
@@ -313,29 +353,72 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     setStroke(null)
     pointer.current = null
   }
-  const finishStroke = (s: Stroke) => {
+  const finishStroke = (s: Stroke, copy: boolean) => {
     cancelStroke()
-    const cells = strokeCells(s)
-    if (s.mode === 'erase') clear(cells)
-    else if (activeBrush) paint(cells, activeBrush, s.half)
+    const dragged = s.row0 !== s.row1 || s.col0 !== s.col1
+    if (s.mode === 'erase') clear(strokeCells(s))
+    else if (s.mode === 'paint') {
+      if (activeBrush) paint(strokeCells(s), activeBrush, s.half)
+    } else if (!dragged) {
+      // A press that goes nowhere is a click: it selects the day, and lets go of it when it was the one selected.
+      const same = selection !== null && selection.row0 === s.row0 && selection.col0 === s.col0 && selection.row1 === s.row0 && selection.col1 === s.col0
+      setSelection(same ? null : { row0: s.row0, col0: s.col0, row1: s.row0, col1: s.col0 })
+      if (!same) onFocusDate(dates[s.col0])
+    } else if (s.mode === 'select') setSelection({ row0: s.row0, col0: s.col0, row1: s.row1, col1: s.col1 })
+    else moveBlocks(dayAt(s.row0, s.col0), dayAt(s.row1, s.col1), copy)
+  }
+  /** R38: moves the blocks of a day to another day or person, or copies them there. */
+  const moveBlocks = (from: Day, to: Day, copy: boolean) => {
+    const move = { from, to, blockIds: blocksOn(from).map((a) => a.id), copy }
+    const result = moveDay(ws, move)
+    if (result === 'ineligible') return toast(`${nameOf(to.personId)} har ikke kompetansen for arbeidet.`)
+    if (result === 'away') return toast(`${nameOf(to.personId)} er borte ${dayName(to.date)}.`)
+    if (result === 'overlap') return toast(`${nameOf(to.personId)} har ingen ledig tid da ${dayName(to.date)}.`)
+    updateStaffing((w) => {
+      const moved = moveDay(w, move)
+      return typeof moved === 'string' ? w : { ...w, assignments: moved }
+    })
+  }
+  const selectionCells = (): Day[] => (selection ? strokeCells({ mode: 'select', half: false, ...selection }) : [])
+  const copySelection = () => {
+    const copied = copyDays(ws, selectionCells())
+    if (!copied) return toast(selection ? 'Ingen blokker å kopiere i det som er valgt.' : 'Velg dager med «Velg» for å kopiere dem.')
+    setClip(copied)
+  }
+  /** R34: pastes at the day under the pointer, else at the first selected day. */
+  const pasteClip = () => {
+    const anchor = hover ? dates[hover.col] : selection ? dates[Math.min(selection.col0, selection.col1)] : undefined
+    if (!clip || !anchor) return
+    const lastDate = dates[dates.length - 1]
+    const { pasted, skipped } = pasteDays(ws, clip, anchor, lastDate)
+    const skippedText = skipped ? ` · ${skipped} hoppet over` : ''
+    if (!pasted) return toast(`Ingenting ble limt inn fra ${fmtDay(anchor)}: dagene er opptatt eller personen er borte.`)
+    updateStaffing((w) => ({ ...w, assignments: pasteDays(w, clip, anchor, lastDate).assignments }))
+    toast(`Limte inn ${pasted === 1 ? '1 blokk' : `${pasted} blokker`} fra ${fmtDay(anchor)}${skippedText}`, { label: 'Angre', run: undo })
   }
 
-  const toggleUnfolded = (personId: string) => setUnfolded((current) => (current === personId ? null : personId))
+  // A selection is lines of the list as it is, so it is let go of when the list changes.
+  const toggleUnfolded = (personId: string) => {
+    setSelection(null)
+    setUnfolded((current) => (current === personId ? null : personId))
+  }
   /** Moves the open hours to the person before or after in the list. */
   const stepUnfolded = (delta: number) => {
     const at = lines.findIndex((line) => line.person.id === unfolded)
     const next = lines[Math.min(Math.max(at + delta, 0), lines.length - 1)]
+    setSelection(null)
     if (next) setUnfolded(next.person.id)
   }
 
   const pickBrush = (competence: string) => {
     setBrush(competence)
     setTool('paint')
-    setSelected(null)
+    setSelection(null)
   }
   const clearBrush = () => {
     setBrush(null)
     setTool('select')
+    setSelection(null)
   }
   const pickTool = (next: Tool) => {
     if (next === 'paint' && !activeBrush) {
@@ -354,19 +437,15 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   }
 
   const actions = useStableActions({
-    cellDown: (personId: string, date: ISODate, event: React.MouseEvent) => {
+    cellDown: (event: React.MouseEvent) => {
       if (event.button !== 0) return
       const at = cellAt(event.clientX, event.clientY)
-      const mode = event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : null
-      if (!mode || !at) {
-        // With «Velg», a click on the selected day lets go of it.
-        const same = selected?.personId === personId && selected.date === date
-        setSelected(same ? null : { personId, date })
-        if (!same) onFocusDate(date)
-        return
-      }
+      if (!at) return
+      // With «Velg», a press on a block can drag the day's blocks to another day; a press beside them selects days.
+      const onBlock = event.target instanceof Element && event.target.closest('.bm-block, .bm-off-blocks > i') !== null
+      const mode = event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : onBlock ? 'move' : 'select'
       event.preventDefault()
-      setSelected(null)
+      if (mode === 'paint' || mode === 'erase') setSelection(null)
       pointer.current = { x: event.clientX, y: event.clientY }
       setStroke({ mode, half: mode === 'paint' && event.shiftKey, row0: at.row, col0: at.col, row1: at.row, col1: at.col })
       followStroke()
@@ -374,14 +453,14 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     cellMenu: (personId: string, date: ISODate, event: React.MouseEvent) => {
       event.preventDefault()
       cancelStroke()
-      setSelected({ personId, date })
+      selectDay({ personId, date })
       setMenu({ cell: { personId, date }, x: event.clientX, y: event.clientY })
     },
     unfold: toggleUnfolded,
     openPanel: (personId: string) => setPanel((open) => (open?.personId === personId && !open.draft ? null : { personId })),
     /** The pointer moved over the people: the day under it is where the brush would paint. */
     bodyMove: (event: React.MouseEvent) => {
-      if (stroke || activeTool !== 'paint') return
+      if (stroke || !(activeTool === 'paint' || (activeTool === 'select' && clip))) return
       const at = cellAt(event.clientX, event.clientY)
       setHover((h) => (at && h && h.row === at.row && h.col === at.col ? h : at))
     },
@@ -395,7 +474,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       const s = strokeRef.current
       if (at && s && (s.row1 !== at.row || s.col1 !== at.col)) setStroke({ ...s, row1: at.row, col1: at.col })
     },
-    finish: () => strokeRef.current && finishStroke(strokeRef.current),
+    finish: (copy: boolean) => strokeRef.current && finishStroke(strokeRef.current, copy),
   })
   /** Listens for the pointer from the moment the button goes down, until it is let go or the stroke is called off. */
   const followStroke = () => {
@@ -404,7 +483,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       pointer.current = { x: e.clientX, y: e.clientY }
       strokeEnv.move(e.clientX, e.clientY)
     }
-    const onUp = () => strokeEnv.finish()
+    const onUp = (e: MouseEvent) => strokeEnv.finish(e.altKey)
     // Near the edges of the days the grid scrolls on under a still pointer.
     const timer = setInterval(() => {
       const el = scrollRef.current
@@ -433,14 +512,24 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     down: (e: KeyboardEvent) => {
       if (!active) return
       if (e.key === 'Shift') setShift(true)
-      if (isTyping(e.target) || e.metaKey || e.ctrlKey) return
+      if (isTyping(e.target)) return
       const key = e.key.toLowerCase()
+      if (e.metaKey || e.ctrlKey) {
+        if (key === 'c' && selection) {
+          e.preventDefault()
+          copySelection()
+        } else if (key === 'v' && clip) {
+          e.preventDefault()
+          pasteClip()
+        }
+        return
+      }
       if (key === 'escape') {
         // A menu or a popover that is open takes the key first, and closes itself.
         if (menu || demandPop) return
         if (stroke) cancelStroke()
         else if (selectedBlock) setSelectedBlock(null)
-        else if (selected) setSelected(null)
+        else if (selection) setSelection(null)
         else if (activeBrush || tool !== 'select') clearBrush()
         else if (panel) setPanel(null)
         else setUnfolded(null)
@@ -452,12 +541,12 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       } else if ((key === 'arrowup' || key === 'arrowdown') && unfolded) {
         e.preventDefault()
         stepUnfolded(key === 'arrowup' ? -1 : 1)
-      } else if ((key === 'delete' || key === 'backspace') && (selectedBlock || selected)) {
+      } else if ((key === 'delete' || key === 'backspace') && (selectedBlock || selection)) {
         e.preventDefault()
         if (selectedBlock) {
           updateStaffing((w) => ({ ...w, assignments: deleteBlock(w.assignments ?? [], selectedBlock) }))
           setSelectedBlock(null)
-        } else if (selected) clear([selected])
+        } else clear(selectionCells())
       }
     },
     up: (e: KeyboardEvent) => {
@@ -482,7 +571,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
     balance, totals, remainingOf, demandRows, capacity, uncoverable, preview,
-    lines, listed, listedAble, able, divided, week, isOk, isOpen, ghost, info, stroke, hover, selected, setSelected,
+    lines, listed, listedAble, able, divided, week, isOk, isOpen, ghost, info, refused, stroke, hover, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,
     menu, setMenu, demandPop, setDemandPop, panel, setPanel, overtimeLimit, setOvertimeLimit, onShowDate, firstWorkday,

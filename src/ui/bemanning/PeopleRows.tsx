@@ -2,13 +2,13 @@ import { memo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { paidHours } from '../../domain/staffing'
-import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, WorkdaySettings } from '../../domain/types'
+import type { Assignment, CompetenceStyle, Person, Unavailability, WorkdaySettings } from '../../domain/types'
 import type { PersonWeek } from '../../domain/staffing'
 import { competenceColor } from '../dom'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { LEFT_W, ROW_H } from '../kalender/layout'
-import { useBemanning, type PersonActions } from './BemanningScope'
+import { useBemanning, type GhostBlock, type PersonActions } from './BemanningScope'
 import { dayCell } from './dayCell'
 import { DIVIDER_H, PERSON_H } from './layout'
 import { FoldedDay, WeekMeter } from './FoldedDay'
@@ -41,15 +41,15 @@ interface LineProps {
   strokeFrom: number
   strokeTo: number
   erasing: boolean
-  /** The selected column of the line, or -1. */
-  selected: number
-  /** Where the brush would put time on the line's days. */
-  ghost: Map<ISODate, Interval[]> | undefined
+  /** The column of the line where blocks dragged from another day cannot go, or -1. */
+  refusedCol: number
+  /** Where the brush, a paste or blocks dragged from another day would put time on the line's days. */
+  ghost: Map<ISODate, GhostBlock[]> | undefined
   actions: PersonActions
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, painting, strokeFrom, strokeTo, erasing, selected, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, painting, strokeFrom, strokeTo, erasing, refusedCol, ghost, actions }: LineProps) {
   const span = workday.dayEnd - workday.dayStart
   return (
     <Line
@@ -78,13 +78,13 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         const gaps = ghost?.get(date)
         // A day the brush cannot fill says so under the pointer, and inside a stroke.
         const blocked = painting && !gaps && (cell.offDay || cell.away !== null || dim)
-        const refused = painting && !gaps && inStroke && !erasing
+        const refused = refusedCol === col || (painting && !gaps && inStroke && !erasing)
         return (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${cell.away === 'syk' ? 'sick' : cell.away ? 'away' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${selected === col ? 'selected' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
+            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${cell.away === 'syk' ? 'sick' : cell.away ? 'away' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
             style={{ width: cols.colW }}
-            onMouseDown={(e) => actions.cellDown(person.id, date, e)}
+            onMouseDown={actions.cellDown}
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
@@ -92,7 +92,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             {gaps && (
               <span className="bm-timeline bm-ghosts">
                 {gaps.map((gap) => (
-                  <i key={gap.start} style={{ left: `${((gap.start - workday.dayStart) / span) * 100}%`, width: `${((gap.end - gap.start) / span) * 100}%` }}>
+                  <i key={gap.start} style={{ left: `${(Math.max(0, gap.start - workday.dayStart) / span) * 100}%`, width: `${((Math.min(gap.end, workday.dayEnd) - Math.max(gap.start, workday.dayStart)) / span) * 100}%`, ...(gap.competence ? competenceColor(styles.get(gap.competence)) : undefined) }}>
                     +{hoursText(paidHours(gap, workday))}
                   </i>
                 ))}
@@ -125,11 +125,15 @@ export function PeopleHeading() {
 /** The people, one line each, with what a stroke under way covers laid over them. */
 export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void }) {
   const bm = useBemanning()
-  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, selected, ghost, info, actions, bodyRef, dates, shift } = bm
-  const range = stroke ? strokeRange(stroke) : null
-  const selectedCol = selected ? dates.indexOf(selected.date) : -1
+  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, selection, clip, refused, ghost, info, actions, bodyRef, dates, shift } = bm
   const gap = listedAble < listed.length && brush ? DIVIDER_H : 0
   const topOf = (row: number) => row * PERSON_H + (row >= listedAble ? gap : 0)
+  // A stroke that moves a day's blocks has no outline: the blocks show where they would land.
+  const range = stroke && stroke.mode !== 'move' ? strokeRange(stroke) : null
+  const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
+  const refusedCol = refused ? dates.indexOf(refused.date) : -1
+  const shortcut = (key: string) => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`)
+  const box = (r: { rowFrom: number; rowTo: number; colFrom: number; colTo: number }) => ({ left: LEFT_W + r.colFrom * cols.colW, width: (r.colTo - r.colFrom + 1) * cols.colW, top: topOf(r.rowFrom), height: topOf(Math.min(r.rowTo, listed.length - 1)) + PERSON_H - topOf(r.rowFrom) })
   const pillStyle = brush ? competenceColor(styles.get(brush)) : undefined
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
   return (
@@ -172,7 +176,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               strokeFrom={inStroke ? range.colFrom : -1}
               strokeTo={inStroke ? range.colTo : -1}
               erasing={inStroke && stroke!.mode === 'erase'}
-              selected={selected?.personId === person.id ? selectedCol : -1}
+              refusedCol={refused?.personId === person.id ? refusedCol : -1}
               ghost={ghost.get(person.id)}
               actions={actions}
             />
@@ -181,25 +185,48 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
       })}
       {range && (
         // One outline over all the days of the stroke, and what it will do on a pill above it.
-        <div
-          className={`bm-stroke ${stroke!.mode}`}
-          style={{ left: LEFT_W + range.colFrom * cols.colW, width: (range.colTo - range.colFrom + 1) * cols.colW, top: topOf(range.rowFrom), height: topOf(Math.min(range.rowTo, listed.length - 1)) + PERSON_H - topOf(range.rowFrom) }}
-        >
+        <div className={`bm-stroke ${stroke!.mode}`} style={box(range)}>
           {info && (
             <span className={`bm-pill ${topOf(range.rowFrom) < 34 ? 'below' : ''}`}>
-              {info.mode === 'erase' ? (
+              {info.mode === 'select' ? null : info.mode === 'erase' ? (
                 <b>Tøm</b>
               ) : (
                 <b>
                   <i className="swatch" /> {bm.labelOf(brush!)}
                 </b>
               )}
-              <span>
-                {plural(info.days, 'dag', 'dager')} · {info.mode === 'paint' ? '+' : ''}
-                {hoursText(info.hours)} t{info.mode === 'paint' ? ` · ${info.people} pers.` : ''}
-              </span>
+              {info.mode === 'select' ? (
+                <span>
+                  {plural(info.days, 'dag', 'dager')} × {plural(info.people, 'rad', 'rader')}
+                </span>
+              ) : (
+                <span>
+                  {plural(info.days, 'dag', 'dager')} · {info.mode === 'paint' ? '+' : ''}
+                  {hoursText(info.hours)} t{info.mode === 'paint' ? ` · ${info.people} pers.` : ''}
+                </span>
+              )}
               {info.half && <span>halv dag</span>}
               {info.skipped > 0 && <span>{info.skipped} hoppes over</span>}
+            </span>
+          )}
+        </div>
+      )}
+      {chosen && (
+        // The days that are selected: a tint with no outline, and what can be done with them.
+        <div className="bm-selection" style={box(chosen)}>
+          {(chosen.rowFrom !== chosen.rowTo || chosen.colFrom !== chosen.colTo || clip) && (
+            <span className={`bm-pill ${topOf(chosen.rowFrom) < 34 ? 'below' : ''}`}>
+              {clip ? (
+                <span>Kopiert · {shortcut('V')} limer inn ved markøren</span>
+              ) : (
+                <>
+                  <span>
+                    {plural(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
+                  </span>
+                  <span>{shortcut('C')} kopier</span>
+                  <span>Esc fjern</span>
+                </>
+              )}
             </span>
           )}
         </div>

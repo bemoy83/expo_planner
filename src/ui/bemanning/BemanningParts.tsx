@@ -1,4 +1,4 @@
-import { Eraser, MousePointer2, Paintbrush, PanelRight } from 'lucide-react'
+import { ClipboardCopy, Eraser, MousePointer2, Paintbrush, PanelRight, X } from 'lucide-react'
 import { addDays, dayOfMonth, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
@@ -67,10 +67,11 @@ interface ToolbarProps {
 
 /** The planning bar in Bemanning, with its tools: Velg, the brush with the competence it paints, and Tøm. */
 export function BemanningToolbar(props: ToolbarProps) {
-  const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen } = useBemanning()
+  const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip } = useBemanning()
+  const paste = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V'
   const style = brush ? styles.get(brush) : undefined
   const tools: ToolChoice<Tool>[] = [
-    { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg en dag (V).' },
+    { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager: klikk en dag, eller dra over flere for å kopiere dem. Dra en blokk til en annen dag eller person for å flytte dagens blokker, med Alt for å kopiere (V).' },
     {
       value: 'paint',
       icon: <Paintbrush size={14} aria-hidden />,
@@ -87,9 +88,17 @@ export function BemanningToolbar(props: ToolbarProps) {
     { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
   ]
   return (
-    <BemanningBar {...props} fitKey={`${tool}|${brush}|${unresolved}`}>
+    <BemanningBar {...props} fitKey={`${tool}|${brush}|${unresolved}|${!!clip}`}>
       <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
       {!brush && <span className="bm-hints">Velg kompetanse i behovet{lastKey ? ` (1–${lastKey})` : ''}</span>}
+      {clip && (
+        <span className="bm-clip" title="Dagene som er kopiert. De limes inn for de samme personene, fra dagen under markøren.">
+          <ClipboardCopy size={14} aria-hidden /> Kopiert · {paste}
+          <button className="row-action" aria-label="Tøm utklippet" title="Tøm utklippet" onClick={() => setClip(null)}>
+            <X size={13} aria-hidden />
+          </button>
+        </span>
+      )}
       {unresolved > 0 && (
         <span className="bm-unresolved" title="Blokker der personen er borte eller ikke lenger har kompetansen. Timene er tilbake i behovet.">
           {unresolved === 1 ? '1 uløst' : `${unresolved} uløste`}

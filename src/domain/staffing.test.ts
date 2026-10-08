@@ -12,6 +12,9 @@ import {
   addAbsence,
   clearSick,
   clearSickFrom,
+  copyDays,
+  moveDay,
+  pasteDays,
   editAbsence,
   overtimeBreaches,
   overtimeByWeek,
@@ -536,6 +539,75 @@ describe('absence', () => {
     expect(absenceSpans(ws.unavailability!, HANNE)).toMatchObject([{ from: WED, to: FRI, kind: 'ferie', ids: ['u2', 'u3', 'u4'] }])
     const mixed = markSick(ws.unavailability!, HANNE, [MON], id)
     expect(absenceSpans(mixed, HANNE).map((s) => [s.from, s.to, s.kind])).toEqual([[MON, MON, 'syk'], [WED, FRI, 'ferie']])
+  })
+})
+
+describe('moving a day in the folded rows (R38)', () => {
+  const tep = (id: string, personId: string, date: string, from: string, to: string, competence = 'teppefliser'): Assignment => ({ id, personId, date, competence, ...iv(from, to), source: 'manual' })
+  const moved = (base: Workspace, move: Parameters<typeof moveDay>[1]) => moveDay(base, move, id) as Assignment[]
+
+  it('D48 moves a day to another day of the same person', () => {
+    const own = withAssignments([tep('a', ANDERS, TUE, '07:00', '15:00')])
+    const after = moved(own, { from: { personId: ANDERS, date: TUE }, to: { personId: ANDERS, date: THU }, blockIds: ['a'] })
+    expect(of(after, ANDERS, TUE)).toEqual([])
+    expect(of(after, ANDERS, THU)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+  })
+  it('D48 moves a day to another person who has the competence, and refuses one who does not', () => {
+    const own = withAssignments([tep('a', ANDERS, TUE, '07:00', '15:00')])
+    expect(of(moved(own, { from: { personId: ANDERS, date: TUE }, to: { personId: PER, date: THU }, blockIds: ['a'] }), PER, THU)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+    expect(moveDay(own, { from: { personId: ANDERS, date: TUE }, to: { personId: MONA, date: THU }, blockIds: ['a'] })).toBe('ineligible')
+  })
+  it('refuses a day the person is away, and a day with no free time', () => {
+    const own = withAssignments([tep('a', ANDERS, TUE, '07:00', '15:00'), tep('b', PER, THU, '07:00', '15:00')])
+    expect(moveDay(own, { from: { personId: ANDERS, date: TUE }, to: { personId: HANNE, date: THU }, blockIds: ['a'] })).toBe('away')
+    expect(moveDay(own, { from: { personId: ANDERS, date: TUE }, to: { personId: PER, date: THU }, blockIds: ['a'] })).toBe('overlap')
+  })
+  it('fills only the free time, and leaves what found no room where it was', () => {
+    const own = withAssignments([tep('a', ANDERS, TUE, '07:00', '15:00'), tep('b', ANDERS, THU, '07:00', '11:00', 'foga')])
+    const after = moved(own, { from: { personId: ANDERS, date: TUE }, to: { personId: ANDERS, date: THU }, blockIds: ['a'] })
+    expect(of(after, ANDERS, THU)).toEqual([
+      { competence: 'foga', ...iv('07:00', '11:00') },
+      { competence: 'teppefliser', ...iv('11:00', '15:00') },
+    ])
+    expect(of(after, ANDERS, TUE)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '11:00') }])
+  })
+  it('D48 copies instead of moving when asked to', () => {
+    const own = withAssignments([tep('a', ANDERS, TUE, '07:00', '15:00')])
+    const after = moved(own, { from: { personId: ANDERS, date: TUE }, to: { personId: ANDERS, date: THU }, blockIds: ['a'], copy: true })
+    expect(of(after, ANDERS, TUE)).toEqual(of(after, ANDERS, THU))
+    expect(of(after, ANDERS, TUE)).toHaveLength(1)
+  })
+})
+
+describe('copy and paste (R34)', () => {
+  const tep = (id: string, personId: string, date: string, from: string, to: string): Assignment => ({ id, personId, date, competence: 'teppefliser', ...iv(from, to), source: 'manual' })
+  const NEXT_MON = '2026-10-19'
+  const days = (personId: string, dates: string[]) => dates.map((date) => ({ personId, date }))
+
+  it('D45 pastes the same blocks a week later for the same people', () => {
+    const own = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', ANDERS, WED, '07:00', '11:00'), tep('c', PER, TUE, '11:30', '15:00')])
+    const clip = copyDays(own, [...days(ANDERS, [MON, TUE, WED]), ...days(PER, [MON, TUE, WED])])!
+    expect(clip.items.map((item) => [item.personId, item.dayOffset])).toEqual([[ANDERS, 0], [ANDERS, 2], [PER, 1]])
+    const { assignments, pasted, skipped } = pasteDays(own, clip, NEXT_MON, '2026-12-31', id)
+    expect(of(assignments, ANDERS, NEXT_MON)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+    expect(of(assignments, ANDERS, '2026-10-21')).toEqual([{ competence: 'teppefliser', ...iv('07:00', '11:00') }])
+    expect(of(assignments, PER, '2026-10-20')).toEqual([{ competence: 'teppefliser', ...iv('11:30', '15:00') }])
+    expect({ pasted, skipped }).toEqual({ pasted: 3, skipped: 0 })
+  })
+  it('D45 fills only free time, and skips and counts the days a person is away', () => {
+    const base = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', ANDERS, TUE, '07:00', '15:00'), tep('x', ANDERS, NEXT_MON, '07:00', '11:00')])
+    const own = { ...base, unavailability: [...(base.unavailability ?? []), ...sick(ANDERS, ['2026-10-20'])] }
+    const clip = copyDays(own, days(ANDERS, [MON, TUE]))!
+    const { assignments, pasted, skipped } = pasteDays(own, clip, NEXT_MON, '2026-12-31', id)
+    expect(of(assignments, ANDERS, NEXT_MON)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+    expect(of(assignments, ANDERS, '2026-10-20')).toEqual([])
+    expect({ pasted, skipped }).toEqual({ pasted: 1, skipped: 1 })
+  })
+  it('leaves out the days past the end of the period, and copies nothing from empty days', () => {
+    const own = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', ANDERS, TUE, '07:00', '15:00')])
+    const clip = copyDays(own, days(ANDERS, [MON, TUE]))!
+    expect(pasteDays(own, clip, NEXT_MON, NEXT_MON, id).pasted).toBe(1)
+    expect(copyDays(own, days(ANDERS, [THU, FRI]))).toBeNull()
   })
 })
 
