@@ -7,15 +7,16 @@ import { dayClass } from '../kalender/gridTypes'
 import { LEFT_W } from '../kalender/layout'
 import { useBemanning } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
-import { PHASE_NAME_MIN_W, PROJECT_COMPACT_H, PROJECT_H } from './layout'
+import { PHASE_NAME_MIN_W, PROJECT_COMPACT_H, PROJECT_H, PROJECT_MAX_LINES } from './layout'
 import { phaseBars, projectSlots, projectsInView, type ProjectSpan } from './projectsInView'
 
 /** How long a project that leaves the list takes to fade out. */
 const LEAVE_MS = 260
 
 /**
- * The projects in view, for context: one line per project with its phases as the hall calendar draws
- * them and its halls in the label. The block keeps its height while the days scroll (R37).
+ * The projects in view that have planned FTE, for context: one line per project with its phases as the
+ * hall calendar draws them and its halls in the label. The block keeps its height while the days scroll
+ * (R37), and is never taller than six lines: projects that do not fit are counted beside the heading.
  */
 export function ProjectLines() {
   const { projects, phases, chosenProject, cols, dates, viewFrom, viewTo, room, projectsOpen: open, setProjectsOpen, projectDensity, setProjectDensity } = useBemanning()
@@ -43,7 +44,9 @@ export function ProjectLines() {
 
   // As many lines as the fullest stretch of days needs; it changes with the column width and the room, not with the scrolling.
   const visible = Math.ceil(room / colW) + 1
-  const slots = useMemo(() => projectSlots(projects, visible, dates.length), [projects, visible, dates.length])
+  const slots = Math.min(PROJECT_MAX_LINES, useMemo(() => projectSlots(projects, visible, dates.length), [projects, visible, dates.length]))
+  // The first of them by the start of the event have a line; no project is left out without being counted.
+  const hidden = listed.slice(slots)
   const bars = useMemo(() => new Map(projects.map((project) => [project.key, phaseBars(phases.get(project.key) ?? new Map(), dates[0])])), [projects, phases, dates])
 
   const line = (project: ProjectSpan, slot: number, gone: boolean) => (
@@ -76,8 +79,9 @@ export function ProjectLines() {
           </button>
           Prosjekter
           {open && <DensityToggle compact={compact} onChange={(next) => setProjectDensity(next ? 'compact' : 'detail')} />}
-          <span className="section-meta">
-            {listed.length} av {projects.length}
+          <span className="section-meta" title={hidden.length ? `Vises ikke, fordi listen har plass til ${slots}:\n${hidden.map((project) => project.name).join('\n')}` : 'Prosjekter med planlagt FTE i dagene som vises, av alle med planlagt FTE'}>
+            {listed.length - hidden.length} av {projects.length}
+            {hidden.length > 0 && <b className="bm-more"> · +{hidden.length}</b>}
           </span>
         </div>
         {open && (
@@ -94,8 +98,8 @@ export function ProjectLines() {
         <div className="bm-project-block" style={{ height: slots * rowH }}>
           {/* The days behind the lines, so the weekends run through the empty lines too. */}
           <Line className="bm-project-days" height={slots * rowH} label={null} cols={cols} cells={(date) => <div key={date} className={`${dayClass(cols, date)} cell hall`} style={{ width: colW }} />} />
-          {listed.map((project, slot) => line(project, slot, false))}
-          {leaving.map(({ project, slot }) => line(project, slot, true))}
+          {listed.slice(0, slots).map((project, slot) => line(project, slot, false))}
+          {leaving.filter(({ slot }) => slot < slots).map(({ project, slot }) => line(project, slot, true))}
         </div>
       )}
     </div>

@@ -637,7 +637,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   useEffect(() => {
     if (!bemanningSpan) return
     const [start, end] = bemanningSpan.split('|')
-    const timer = setTimeout(() => savePref('bemanningRange', { start, end }), 300)
+    // Not while the grid has no width of its own (a page opened out of sight): the days it seems to show then are not the days seen.
+    const timer = setTimeout(() => (scrollRef.current?.clientWidth ?? 0) > LEFT_W && savePref('bemanningRange', { start, end }), 300)
     return () => clearTimeout(timer)
   }, [bemanningSpan])
   useLayoutEffect(() => {
@@ -652,10 +653,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
       const key = projectKey({ projectNo: event.projectNo, projectName: event.name })
       hallsOf.set(key, new Set([...(hallsOf.get(key) ?? []), ...event.halls]))
     }
-    // As in the hall calendar: only the projects with a booking in one of the halls it shows.
+    // As in the hall calendar: only the projects with a booking in one of the halls it shows. And only
+    // those with FTE planned somewhere in the period: a project without has nothing to staff.
     const shownHalls = new Set(halls)
     return allGroups.flatMap((group): ProjectSpan[] => {
       const days = [...(phasesOfProject.get(group.key) ?? [])].sort((a, b) => a[0].localeCompare(b[0]))
+      if (![...group.daily.values()].some((fte) => fte > 0)) return []
       if (!days.length || ![...(hallsOf.get(group.key) ?? [])].some((hall) => shownHalls.has(hall))) return []
       const start = daysBetween(range.start, days[0][0])
       const event = days.find(([, phase]) => phase === 'event')

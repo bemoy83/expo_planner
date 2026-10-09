@@ -20,6 +20,7 @@
 @media (prefers-reduced-motion:reduce){.bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:none}}
 
 /* ---- the projects in view: a block of a fixed height, each project a line that moves to its place ---- */
+.bm-more{font-weight:600;color:var(--over)}
 .bm-project-block{position:relative}
 .bm-project-days{border-bottom:0}
 .bm-project-days .grid-label{z-index:0}
