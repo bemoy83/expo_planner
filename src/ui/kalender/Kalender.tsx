@@ -638,9 +638,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     if (!bemanningSpan) return
     const [start, end] = bemanningSpan.split('|')
     // Not while the grid has no width of its own (a page opened out of sight): the days it seems to show then are not the days seen.
-    const timer = setTimeout(() => (scrollRef.current?.clientWidth ?? 0) > LEFT_W && savePref('bemanningRange', { start, end }), 300)
+    const timer = setTimeout(() => {
+      const el = scrollRef.current
+      if (el && el.clientWidth > LEFT_W) savePref('bemanningRange', { start, end })
+    }, 300)
     return () => clearTimeout(timer)
-  }, [bemanningSpan])
+  }, [bemanningSpan, scrollRef])
   useLayoutEffect(() => {
     if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), bemanningW)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
