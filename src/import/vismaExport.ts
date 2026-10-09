@@ -1,4 +1,4 @@
-import { NO_PRODUCT_TYPE, workTypeName } from '../domain/visma'
+import { NO_PRODUCT_TYPE, withProjectNames, workTypeName } from '../domain/visma'
 import type { KpiConfig, KpiRate, VismaRow, WorkTypeRule } from '../domain/types'
 import { num, readXlsx, text, type CellValue, type Sheet } from './xlsx'
 
@@ -19,7 +19,7 @@ const findHeader = (sheet: Sheet, required: string[]): { row: number; columns: M
 
 const dataRows = (sheet: Sheet, headerRow: number) => [...sheet.rows.keys()].filter((r) => r > headerRow).sort((a, b) => a - b)
 
-/** Reads a Visma booking export (`utskrift_visma`). The total row and rows without a project are left out. */
+/** Reads a Visma booking export (`utskrift_visma`). The total row and rows without a project are left out; every project must have its name, see `withProjectNames`. */
 export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
   for (const sheet of readXlsx(bytes).values()) {
     const header = findHeader(sheet, ['prosjekt', 'totalt antall', 'produkttype 2'])
@@ -47,7 +47,7 @@ export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
         productType: text(cell(row, 'produkttype 2')),
       })
     }
-    if (rows.length) return rows
+    if (rows.length) return withProjectNames(rows)
   }
   throw new VismaFormatError('Fant ingen Visma-ordrelinjer. Filen må ha kolonnene «Prosjekt», «Totalt antall» og «Produkttype 2».')
 }

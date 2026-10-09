@@ -26,6 +26,18 @@ export const workTypeName = (productType: string): string => {
 /** «C04-44» → «Hall C»; without a stand, the free-text location is the hall. */
 export const hallOf = (row: Pick<VismaRow, 'stand' | 'transInfo'>): string => (row.stand ? `Hall ${row.stand[0]}` : row.transInfo)
 
+/**
+ * Every line of a Visma export belongs to a project with a number and a name. A line that lacks the name
+ * takes it from the other lines of its project; a project no line names cannot be read.
+ */
+export const withProjectNames = (rows: VismaRow[]): VismaRow[] => {
+  const names = new Map<string, string>()
+  for (const row of rows) if (row.eventName.trim() && !names.has(row.projectNo)) names.set(row.projectNo, row.eventName.trim())
+  const unnamed = [...new Set(rows.map((row) => row.projectNo))].filter((projectNo) => !names.has(projectNo))
+  if (unnamed.length) throw new Error(`Visma-filen mangler prosjektnavn (kolonnen «Navn2») for prosjekt ${unnamed.join(', ')}.`)
+  return rows.map((row) => (row.eventName.trim() ? row : { ...row, eventName: names.get(row.projectNo)! }))
+}
+
 export const vismaLineKey = (projectNo: string, avdeling: string, workType: string, hall: string): string =>
   [projectNo, avdeling, workType, hall].map((part) => part.trim().toLowerCase()).join('|')
 

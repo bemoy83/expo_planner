@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
-import { buildVismaLines, hallOf, orphanedDecisions, vismaDemandLines, vismaLineKey, workTypeName } from './visma'
+import { buildVismaLines, hallOf, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames, workTypeName } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -117,5 +117,16 @@ describe('decisions on lines that left the export', () => {
         [gone]: { effekt: 0, inPlan: false, comment: '' },
       }),
     ).toEqual([])
+  })
+})
+
+describe('withProjectNames', () => {
+  it('gives a line without the name the name of its project', () => {
+    const rows = withProjectNames([row({ eventName: '' }), row({}), row({ projectNo: '26100', eventName: 'Hage 2026' })])
+    expect(rows.map((r) => r.eventName)).toEqual(['VVS 2026', 'VVS 2026', 'Hage 2026'])
+  })
+
+  it('refuses a project that no line names', () => {
+    expect(() => withProjectNames([row({}), row({ projectNo: '26100', eventName: ' ' })])).toThrow('26100')
   })
 })
