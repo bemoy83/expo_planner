@@ -17,6 +17,9 @@ const HALL_LABEL_MAX_W = 260
 const HALL_LABEL_MAX_COLS = 10
 /** Roughly the width of one letter of an event's name. */
 const HALL_LABEL_CHAR_W = 6.6
+/** The width of one letter of a phase on a bar, and the air the letters need at the bar's ends. */
+const PHASE_CODE_CHAR_W = 6
+const PHASE_CODE_AIR = 4
 
 /** How far each level of the hierarchy is indented in the label column. */
 const INDENT = 14
@@ -178,7 +181,9 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
       overlay={
         <>
           {visible.map((bar) => {
-            // The phase letters sit in the middle of the bar; they are left out under an event's name and on a bar of a single day.
+            // The phase letters sit in the middle of the bar; they are left out under an event's name and on a bar too narrow for them, such as half a day in narrow columns.
+            const code = PHASE_CODES[bar.phase]
+            const fits = bar.span * colW - 2 >= code.length * PHASE_CODE_CHAR_W + PHASE_CODE_AIR
             const middle = bar.col + bar.span / 2
             // A name held at the edge sits a part of a day further in than its column says; one day more is kept clear for it.
             const underLabel = labels.some((label) => middle >= label.at && middle < label.at + label.covered + (label.at > label.col ? 1 : 0))
@@ -190,7 +195,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
                 title={bar.title}
                 data-project={bar.project}
               >
-                {!underLabel && bar.span > 1 ? PHASE_CODES[bar.phase] : null}
+                {!underLabel && fits ? code : null}
               </span>
             )
           })}

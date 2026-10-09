@@ -2,7 +2,8 @@ import { fireEvent, render, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
 import { buildDemandIndex, rowTotals } from '../../domain/calc'
-import { AllocRow } from './GridRows'
+import type { HallSegment } from '../../domain/venue'
+import { AllocRow, HallRow } from './GridRows'
 import type { CellEdit, Columns, GridActions } from './gridTypes'
 import type { RowItem } from './rows'
 import { useStableActions } from './useStableActions'
@@ -71,6 +72,20 @@ describe('AllocRow', () => {
     const { container } = render(view(idle, { ...noActions, cellDown }))
     fireEvent.mouseDown(container.querySelectorAll('.cell')[1])
     expect(cellDown).toHaveBeenCalledWith(0, 1, expect.anything())
+  })
+})
+
+describe('HallRow', () => {
+  const bar = (phase: HallSegment['phase'], col: number, span: number): HallSegment => ({ eventName: 'VVS 2026', phase, col, span, shared: span < 1, title: '' })
+  const letters = (colW: number, bars: HallSegment[]) => [...render(<HallRow hall="C" bars={bars} runs={undefined} projects={undefined} cols={{ ...cols, colW }} />).container.querySelectorAll('.hall-bar')].map((el) => el.textContent)
+
+  it('writes the phase letters on a bar of a single day, in the narrowest columns too', () => {
+    expect(letters(26, [bar('assembly', 0, 1), bar('movingIn', 1, 1), bar('dismantle', 2, 1)])).toEqual(['A', 'MI', 'D'])
+  })
+
+  it('leaves the letters out where half a day has no room for them', () => {
+    expect(letters(26, [bar('assembly', 0, 0.5), bar('movingIn', 0.5, 0.5)])).toEqual(['A', ''])
+    expect(letters(52, [bar('assembly', 0, 0.5), bar('movingIn', 0.5, 0.5)])).toEqual(['A', 'MI'])
   })
 })
 
