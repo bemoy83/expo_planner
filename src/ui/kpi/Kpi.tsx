@@ -18,7 +18,7 @@ interface PendingImport {
 
 const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
 
-/** Whether the row is the first of its product type among the rows shown: what holds for the type is shown once. */
+/** Whether the row is the first of its product type among the rows shown: what holds for the type is shown once, and its name in bold. */
 const firstOfType = (row: KpiRow, index: number, rows: KpiRow[]) => index === 0 || rows[index - 1].name !== row.name
 
 const LACKING_TEXT: Record<Lacking, string> = {
@@ -92,7 +92,7 @@ export function Kpi() {
   const diff = pending ? diffKpi(kpi, pending.incoming) : null
 
   const columns: Column<KpiRow>[] = [
-    { key: 'name', head: 'Produkttype', text: (row) => row.name, cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : '') },
+    { key: 'name', head: 'Produkttype', text: (row) => row.name, cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : row.name) },
     {
       key: 'productType',
       head: 'I Visma',
