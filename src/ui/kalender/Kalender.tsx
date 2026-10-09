@@ -607,9 +607,17 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     const width = fitWidth(spanDays(span), dayRoom())
     zoomTo(colW, { colW: width, left: daysBetween(range.start, span.start) }, () => setBemanningW(width))
   }
+  // The two modes have rows of their own, so each keeps how far down it was scrolled: the plan is found
+  // again where it was left, and the people do not open partway down their list.
+  const scrolledTo = useRef<Record<PlanMode, number>>({ plan: 0, bemanning: 0 })
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = scrolledTo.current[shown]
+  }, [shown, scrollRef])
   const switchMode = (next: PlanMode) => {
     const el = scrollRef.current
     if (next === planMode || !el) return
+    scrolledTo.current[shown] = el.scrollTop
     setPlanMode(next)
     setSelection(null)
     setCellMenu(null)
