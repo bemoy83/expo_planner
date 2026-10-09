@@ -8,7 +8,7 @@
 .section-title{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
 .badge{font-size:var(--fs-sm);padding:1px 6px;border-radius:8px;background:var(--pos-bg);color:var(--pos)}
 
-/* the fill and the pointer's wash are those of a person's open hours in Bemanning (.bm-unfolded-row, .bm-competences) */
+/* the fill is that of a person's open hours in Bemanning (.bm-unfolded-row) */
 table.ledger{border-collapse:collapse;background:var(--panel);font-size:var(--fs-md);width:100%}
 table.ledger.summary{width:auto}
 table.ledger th,table.ledger td{border:1px solid var(--line);padding:3px 8px;text-align:left;white-space:nowrap}
@@ -17,8 +17,6 @@ table.ledger tr.sub th{font-weight:400;color:var(--muted);position:static}
 table.ledger .num{text-align:right;font-variant-numeric:tabular-nums}
 table.ledger .center{text-align:center}
 table.ledger td.actions{width:1%}
-/* the wash lies over the row's own fill, so a line in the plan or with an issue keeps its colour under the pointer */
-table.ledger tbody tr:hover td{background-image:linear-gradient(var(--wash),var(--wash))}
 table.ledger tr.in-plan td,table.ledger .planned{background:var(--pos-bg)}
 table.ledger tr.has-issue td{background:var(--warn-bg)}
 /* numbers and dates are set as in the Kalender */
@@ -40,18 +38,20 @@ th.filtered .menu-button.col-filter{background:var(--accent);color:var(--surface
 .col-filter-list label span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .col-filter-list em{font:normal 400 var(--fs-xs) var(--font-num);color:var(--faint)}
 
-/* a field edited in place, see fields.tsx: it reads as the text of the table and shows its frame when pointed at or typed in */
+/* a field edited in place, see fields.tsx: it reads as the text of the table, gets the wash of Bemanning's lists (.bm-competences) under the pointer, and shows its frame when typed in */
 input.inline{width:100%;min-width:120px;border:none;border-radius:4px;background:transparent;padding:2px 4px}
 input.inline.num{min-width:0;width:52px;text-align:right}
-input.inline:hover,input.inline:focus{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-strong)}
+input.inline:hover{background:var(--wash)}
+input.inline:focus{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-strong)}
 
 /* Visma lines that no longer have a line behind them */
 .orphans{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:6px;padding:8px 12px;margin-bottom:8px}
 .orphans ul{margin:6px 0 0;padding-left:18px}
 .orphans li span{margin-right:10px}
 
-/* A dropdown in a table is bare too. */
+/* A dropdown in a table is bare too, with the same wash under the pointer. */
 table.ledger select{padding:0 2px;background-color:transparent}
+table.ledger select:hover{background-color:var(--wash)}
 /* Where a demand line counts in the Kalender. */
 table.ledger select.location{color:var(--muted)}
 table.ledger select.location.chosen{color:var(--text);font-weight:600}
