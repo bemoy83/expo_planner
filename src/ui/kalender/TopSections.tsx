@@ -56,7 +56,7 @@ export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, pinTop,
       </div>
       {open && empty && (
         <div className="section-hint" style={{ width: LEFT_W }}>
-          Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn haller» øverst til høyre.
+          Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn VenYou» øverst til høyre.
         </div>
       )}
       {open && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} cols={cols} />)}

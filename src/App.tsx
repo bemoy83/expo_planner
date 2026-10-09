@@ -161,7 +161,7 @@ function Shell() {
                 : 'Les inn location_format fra Venyou'
             }
           >
-            <RefreshCw size={14} aria-hidden /> {workspace.venueImport ? `Haller · ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}` : 'Les inn haller'}
+            <RefreshCw size={14} aria-hidden /> {workspace.venueImport ? `VenYou · ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}` : 'Les inn VenYou'}
           </button>
         )}
         <Menu
