@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, weekTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
+import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -139,24 +139,27 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
 
   // ---- the balance of the whole period, worked out once per change ---------------------------------
   const balance = useMemo<Balance>(() => buildBalance(ws, active ? dates : []), [active, ws, dates])
-  const totals = useMemo<WeekTotals>(() => (active ? weekTotals(ws, dates) : { coveredShare: null, remaining: 0, overtime: 0, weekendOpen: 0 }), [active, ws, dates])
-  /** Per competence: the hours that remain in the period. A competence with neither demand nor assigned hours is not in it. */
+  // ---- what is in view ---------------------------------------------------------------------------------
+  // The days that are seen: those the panel does not lie over.
+  const room = Math.max(colW, viewport.width - LEFT_W - (panel ? PANEL_W : 0))
+  const viewFrom = Math.max(0, Math.floor(viewport.left / colW))
+  const viewTo = Math.min(dates.length - 1, Math.floor((viewport.left + room - 1) / colW))
+  // The hours that remain are those of the days in view. Summed over the whole period they would count
+  // every project that is read in, and say nothing of the days the planner is staffing.
+  const viewDates = useMemo(() => (active ? dates.slice(viewFrom, viewTo + 1) : []), [active, dates, viewFrom, viewTo])
+  const totals = useMemo<WeekTotals>(() => balanceTotals(balance, viewDates), [balance, viewDates])
+  /** Per competence: the hours that remain in the days in view. A competence with neither demand nor assigned hours in the period is not in it. */
   const remainingOf = useMemo(() => {
     const remaining = new Map<string, number>()
-    for (const competence of balance.competences) remaining.set(competence, dates.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0))
+    for (const competence of balance.competences) remaining.set(competence, viewDates.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0))
     return remaining
-  }, [balance, dates])
+  }, [balance, viewDates])
   // The demand lists the competences people have, and any other with demand or assigned hours in the period.
   const demandRows = useMemo(() => {
     const held = new Set(staffed.map((style) => style.key))
     return [...styles.values()].filter((style) => held.has(style.key) || remainingOf.has(style.key)).map((style) => ({ style, key: keyOf.get(style.key) ?? 0 }))
   }, [staffed, styles, remainingOf, keyOf])
 
-  // ---- what is in view ---------------------------------------------------------------------------------
-  // The days that are seen: those the panel does not lie over.
-  const room = Math.max(colW, viewport.width - LEFT_W - (panel ? PANEL_W : 0))
-  const viewFrom = Math.max(0, Math.floor(viewport.left / colW))
-  const viewTo = Math.min(dates.length - 1, Math.floor((viewport.left + room - 1) / colW))
   const firstWorkday = useMemo(() => {
     for (let col = Math.min(dates.length - 1, Math.ceil(viewport.left / colW)); col < dates.length; col++) if (dayType(dates[col]) === 'arbeidsdag') return dates[col]
     return dates[dates.length - 1]

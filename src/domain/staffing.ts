@@ -675,8 +675,10 @@ export interface WeekTotals {
 }
 
 /** R13: the totals of the page header, over the given dates. */
-export const weekTotals = (ws: Workspace, dates: ISODate[]): WeekTotals => {
-  const balance = buildBalance(ws, dates)
+export const weekTotals = (ws: Workspace, dates: ISODate[]): WeekTotals => balanceTotals(buildBalance(ws, dates), dates)
+
+/** The totals of some of the days of a balance that is already worked out, such as the days in view. */
+export const balanceTotals = (balance: Balance, dates: ISODate[]): WeekTotals => {
   let demand = 0
   let covered = 0
   let remaining = 0

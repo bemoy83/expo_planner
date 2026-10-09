@@ -23,6 +23,7 @@ import {
   markSick,
   removeCarried,
   assignmentStatus,
+  balanceTotals,
   buildBalance,
   carry,
   clearDays,
@@ -429,6 +430,16 @@ describe('balance', () => {
     expect(Math.round(totals.coveredShare! * 100)).toBe(19)
     expect(totals).toMatchObject({ remaining: 495, overtime: 0, weekendOpen: 37.5 })
     expect(weekTotals(empty, WEEK).coveredShare).toBeNull()
+  })
+
+  it('totals some of the days of a balance, as for the days in view', () => {
+    const balance = buildBalance(ws, WEEK)
+    expect(balanceTotals(balance, WEEK)).toEqual(weekTotals(ws, WEEK))
+    const [first, rest] = [balanceTotals(balance, [MON, TUE]), balanceTotals(balance, [WED, THU, FRI, SAT, SUN])]
+    expect(first.remaining + rest.remaining).toBe(495)
+    expect(first.weekendOpen).toBe(0)
+    expect(rest.weekendOpen).toBe(37.5)
+    expect(balanceTotals(balance, [])).toEqual({ coveredShare: null, remaining: 0, overtime: 0, weekendOpen: 0 })
   })
 
   it('totals a person: normal hours against their normal time, and overtime', () => {

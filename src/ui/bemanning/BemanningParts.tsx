@@ -14,7 +14,7 @@ import { ProjectLines } from './ProjectLines'
 import type { Tool } from './tools'
 import { EPSILON, hoursText, WEEKDAYS_LONG } from './week'
 
-/** The page header in Bemanning: how far the people cover the demand of the period. */
+/** The page header in Bemanning: how far the people cover the demand of the days in view. */
 export function BemanningHead() {
   const { persons, totals, panel, setPanel, selected, unfolded } = useBemanning()
   // The panel opens on the person of the selected day, else the one whose hours are open, else the first.
@@ -29,7 +29,7 @@ export function BemanningHead() {
   return (
     <div className="page-head">
       <h2>Kalender</h2>
-      <span className="page-meta">{meta.join(' · ')}</span>
+      <span className="page-meta" title="Behov, overtid og åpne timer gjelder dagene som vises">{meta.join(' · ')}</span>
       <button
         className={`ghost icon-button ${panel ? 'active' : ''}`}
         aria-pressed={!!panel}

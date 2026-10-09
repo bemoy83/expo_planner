@@ -19,7 +19,7 @@ interface LineProps {
   balance: Balance
   /** By `competence|date`: the remaining hours the people with the competence have no free normal time for. */
   uncoverable: Map<string, number>
-  /** The hours that remain in the whole period. */
+  /** The hours that remain in the days in view. */
   remaining: number
   compact: boolean
   /** The competence in focus, if any. */
@@ -30,7 +30,7 @@ interface LineProps {
   onDay: (competence: string, date: ISODate, event: React.MouseEvent) => void
 }
 
-/** One competence's line: its name with what is left in the period, and each day's hours. */
+/** One competence's line: its name with what is left in the days in view, and each day's hours. */
 const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance, uncoverable, remaining, compact, brush, preview, onPick, onDay }: LineProps) {
   const on = style.key === brush
   const label = (
@@ -151,7 +151,7 @@ export function DemandRows() {
         </button>
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
-        <span className="section-meta section-meta-end">{open ? 't igjen' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
+        <span className="section-meta section-meta-end" title={open ? 'Timer som gjenstår i dagene som vises' : undefined}>{open ? 't igjen' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
       </div>
       {busy.map(line)}
       {open && idle.length > 0 && (
