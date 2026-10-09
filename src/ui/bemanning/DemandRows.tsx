@@ -55,10 +55,10 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         const over = cell.remaining < -EPSILON
         const what = over ? `+${hoursText(-cell.remaining)} t over` : left > EPSILON ? `${hoursText(left)} t igjen av ${hoursText(cell.demand)}` : 'dekket'
         if (compact) {
-          // One line: the demand as a tint, and what remains of it solid from the right.
+          // One line: the demand as a tint, filled solid from the left as it is covered.
           return (
             <button key={date} className={classes} style={{ width: cols.colW }} title={`${style.label} · ${what}`} onClick={(e) => onDay(style.key, date, e)}>
-              {cell.demand > EPSILON || over ? <i className={`bm-need-line ${over ? 'over' : ''}`}>{left > EPSILON && <i style={{ width: `${Math.min(1, left / cell.demand) * 100}%` }} />}</i> : null}
+              {cell.demand > EPSILON || over ? <i className={`bm-need-line ${over ? 'over' : ''}`}>{cell.assigned > EPSILON && cell.demand > EPSILON && <i style={{ width: `${Math.min(1, cell.assigned / cell.demand) * 100}%` }} />}</i> : null}
             </button>
           )
         }

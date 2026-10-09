@@ -65,13 +65,13 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-demand.dim:hover{opacity:.8}
 .bm-demand.on{background:var(--bm-on-bg,color-mix(in oklch,var(--cc) 7%,var(--bg)));box-shadow:var(--bm-on-shadow,none)}
 .bm-demand.on .bm-pick{background:var(--surface);box-shadow:inset 3px 0 0 var(--cc)}
-/* compact: one thin line per day, the demand as a tint and what remains of it solid from the right */
+/* compact: one thin line per day, the demand as a tint that fills solid from the left as it is covered */
 .bm-demand.compact .bm-pick{gap:6px}
 .bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
 .bm-demand.compact .bm-name,.bm-demand.compact .bm-week-left{font-size:var(--fs-xs)}
 .bm-demand.compact .bm-need{padding:0 4px}
 .bm-need-line{position:relative;display:block;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklch,var(--cc) 22%,var(--bg))}
-.bm-need-line>i{position:absolute;top:0;right:0;bottom:0;border-radius:3px;background:var(--cc)}
+.bm-need-line>i{position:absolute;top:0;left:0;bottom:0;border-radius:3px;background:var(--cc);transition:width 280ms var(--ease)}
 .bm-need-line.over{background-image:repeating-linear-gradient(135deg,var(--neg) 0 2.5px,transparent 2.5px 8px)}
 .bm-idle-head{color:var(--faint)}
 .bm-capacity .grid-label{padding-left:36px}
