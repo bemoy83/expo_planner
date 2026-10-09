@@ -8,6 +8,9 @@ export interface ColumnSort {
 /** What a cell is sorted by: text in alphabetical order, or a number. */
 export type SortValue = string | number
 
+/** The sorting after a direction is picked for `key` in its menu: that direction, or none when it was the one in use. */
+export const pickSort = (sort: ColumnSort | null, key: string, direction: ColumnSort['direction']): ColumnSort | null => (sort?.key === key && sort.direction === direction ? null : { key, direction })
+
 /** The sorting after a click on the heading of `key`. */
 export const nextSort = (sort: ColumnSort | null, key: string): ColumnSort | null => (sort?.key !== key ? { key, direction: 'asc' } : sort.direction === 'asc' ? { key, direction: 'desc' } : null)
 

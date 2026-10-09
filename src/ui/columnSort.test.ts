@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextSort, sortRows } from './columnSort'
+import { nextSort, pickSort, sortRows } from './columnSort'
 
 describe('column sorting', () => {
   it('goes from ascending to descending and back to the table\'s own order', () => {
@@ -10,6 +10,13 @@ describe('column sorting', () => {
     expect(nextSort(desc, 'name')).toBeNull()
     // Another column starts over.
     expect(nextSort(desc, 'unit')).toEqual({ key: 'unit', direction: 'asc' })
+  })
+
+  it('takes the direction picked in the menu, and lets go of it when it is picked again', () => {
+    expect(pickSort(null, 'name', 'desc')).toEqual({ key: 'name', direction: 'desc' })
+    expect(pickSort({ key: 'unit', direction: 'desc' }, 'name', 'asc')).toEqual({ key: 'name', direction: 'asc' })
+    expect(pickSort({ key: 'name', direction: 'asc' }, 'name', 'desc')).toEqual({ key: 'name', direction: 'desc' })
+    expect(pickSort({ key: 'name', direction: 'asc' }, 'name', 'asc')).toBeNull()
   })
 
   it('sorts text as Norwegian, with the numbers in it as numbers', () => {

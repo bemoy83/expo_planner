@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, ListFilter } from 'lucide-react'
+import { ArrowDown, ArrowDownAZ, ArrowUp, ArrowUpZA, ListFilter } from 'lucide-react'
 import { Menu } from './common'
 import type { ColumnSort } from './columnSort'
 import type { ColumnFilter } from './useTable'
@@ -10,34 +10,34 @@ interface Props {
   filter?: ColumnFilter
   /** The direction the table is sorted by this column, if it is. */
   sorted?: ColumnSort['direction']
-  /** A click on the heading sorts by the column; a column without it cannot be sorted. */
-  onSort?: () => void
+  /** A click on the heading sorts by the column, and the filter's menu picks a direction; a column without it cannot be sorted. */
+  onSort?: (direction?: ColumnSort['direction']) => void
   className?: string
   title?: string
 }
 
 /**
- * A column heading of `DataTable`. A click on it sorts by the column, and its filter is a list of the
- * column's values to tick, with a field to search in them.
+ * A column heading of `DataTable`. A click on it sorts by the column, and its filter is a menu as Excel's:
+ * the two directions to sort in, and a list of the column's values to tick, with a field to search in them.
  */
 export function ColumnHead({ children, filter, sorted, onSort, className, title }: Props) {
   return (
     <th className={`${className ?? ''} ${filter?.kept ? 'filtered' : ''}`} title={title} aria-sort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined}>
       {onSort ? (
-        <button className="col-sort" onClick={onSort}>
+        <button className="col-sort" onClick={() => onSort()}>
           {children}
           {sorted && (sorted === 'asc' ? <ArrowUp size={11} aria-label="Sortert stigende" /> : <ArrowDown size={11} aria-label="Sortert synkende" />)}
         </button>
       ) : (
         children
       )}
-      {filter && <FilterMenu filter={filter} align={className?.split(' ').includes('num') ? 'right' : 'left'} />}
+      {filter && <FilterMenu filter={filter} sorted={sorted} onSort={onSort} align={className?.split(' ').includes('num') ? 'right' : 'left'} />}
     </th>
   )
 }
 
 /** The list opens from the button's right edge in a column of numbers, which is narrow and often the table's last. */
-function FilterMenu({ filter, align }: { filter: ColumnFilter; align: 'left' | 'right' }) {
+function FilterMenu({ filter, sorted, onSort, align }: Pick<Props, 'sorted' | 'onSort'> & { filter: ColumnFilter; align: 'left' | 'right' }) {
   const [search, setSearch] = useState('')
   const { offered, kept, toggle, keep } = filter
   const q = search.trim().toLowerCase()
@@ -47,6 +47,16 @@ function FilterMenu({ filter, align }: { filter: ColumnFilter; align: 'left' | '
     <Menu label={<ListFilter size={12} aria-hidden />} ariaLabel="Filtrer kolonnen" title={kept ? `Filtrert: viser ${kept.length} av ${offered.length} verdier` : 'Filtrer kolonnen'} className="col-filter" align={align}>
       {() => (
         <div className="col-filter-pop">
+          {onSort && (
+            <div className="col-filter-sort">
+              <button role="menuitemradio" aria-checked={sorted === 'asc'} onClick={() => onSort('asc')}>
+                <ArrowDownAZ size={14} aria-hidden /> Sorter stigende
+              </button>
+              <button role="menuitemradio" aria-checked={sorted === 'desc'} onClick={() => onSort('desc')}>
+                <ArrowUpZA size={14} aria-hidden /> Sorter synkende
+              </button>
+            </div>
+          )}
           <input type="search" placeholder="Søk i verdiene" value={search} autoFocus onChange={(e) => setSearch(e.target.value)} />
           <div className="col-filter-all">
             <button className="link small" onClick={() => keep(q ? listed.map((o) => o.value) : offered.map((o) => o.value))}>

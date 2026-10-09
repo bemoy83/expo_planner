@@ -50,6 +50,18 @@ describe('DataTable', () => {
     expect(names()).toEqual(['Vegger', 'Tepper', 'Skilt', 'Dører (sist)'])
   })
 
+  it('sorts from the filter\'s menu too, in the direction picked there', () => {
+    render(<Rates />)
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrer kolonnen' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Sorter synkende' }))
+    expect(names()).toEqual(['Skilt', 'Dører', 'Tepper', 'Vegger (sist)'])
+    expect(screen.getByRole('menuitemradio', { name: 'Sorter synkende' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Sorter stigende' }))
+    expect(names()).toEqual(['Vegger', 'Tepper', 'Skilt', 'Dører (sist)'])
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Sorter stigende' }))
+    expect(names()).toEqual(['Vegger', 'Tepper', 'Skilt', 'Dører (sist)'])
+  })
+
   it('offers a filter and a sorting for a column with text, a sorting alone for one sorted by something else, and neither for the rest', () => {
     render(<Rates />)
     const heads = screen.getAllByRole('columnheader')

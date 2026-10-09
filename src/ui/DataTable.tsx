@@ -34,7 +34,7 @@ export function DataTable<T>({ table, rowKey, rowProps, className, empty = 'Inge
               title={column.title}
               filter={filter(column.key)}
               sorted={sort?.key === column.key ? sort.direction : undefined}
-              onSort={isSortable(column) ? () => sortBy(column.key) : undefined}
+              onSort={isSortable(column) ? (direction) => sortBy(column.key, direction) : undefined}
             >
               {column.head}
             </ColumnHead>

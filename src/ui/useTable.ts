@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode, type TdHTMLAttributes } from 'react'
 import { columnValues, filterRows, toggleValue, withValues, type ColumnFilters, type ColumnValues } from './columnFilter'
-import { nextSort, sortRows, type ColumnSort, type SortValue } from './columnSort'
+import { nextSort, pickSort, sortRows, type ColumnSort, type SortValue } from './columnSort'
 
 /** One column of a table: its heading, what a row shows in it, and what it is filtered and sorted by. */
 export interface Column<T> {
@@ -34,8 +34,8 @@ export interface TableView<T> {
   /** The rows the filters let through, in the order chosen. */
   rows: T[]
   sort: ColumnSort | null
-  /** A click on a heading: ascending, descending, then the table's own order again. */
-  sortBy: (key: string) => void
+  /** A click on a heading: ascending, descending, then the table's own order again. With a direction, as picked in the column's menu: that one, or none when it is picked again. */
+  sortBy: (key: string, direction?: ColumnSort['direction']) => void
   /** What the heading of a filtered column is given, or `undefined` for a column without a filter. */
   filter: (key: string) => ColumnFilter | undefined
   /** How many columns are filtered. */
@@ -88,7 +88,7 @@ export function useTable<T>(all: T[], columns: Column<T>[]): TableView<T> {
     rows,
     // A sorting by a column that is no longer there is none.
     sort: sort && columns.some((column) => column.key === sort.key) ? sort : null,
-    sortBy: (key) => setSort((s) => nextSort(s, key)),
+    sortBy: (key, direction) => setSort((s) => (direction ? pickSort(s, key, direction) : nextSort(s, key))),
     filter,
     filtered: Object.keys(filters).filter((key) => values[key]).length,
     clearFilters: () => setFilters({}),
