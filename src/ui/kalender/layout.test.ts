@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitSpan, ZOOM_WIDTHS } from './layout'
+import { fitSpan, overscanCols, ZOOM_WIDTHS } from './layout'
 
 describe('fitSpan', () => {
   it('centres a span that fits and keeps the column width', () => {
@@ -23,5 +23,16 @@ describe('fitSpan', () => {
 
   it('does not scroll before the first day', () => {
     expect(fitSpan(1, 4, 20 * ZOOM_WIDTHS.normal, 'normal').leftCol).toBe(0)
+  })
+})
+
+describe('overscanCols', () => {
+  it('draws six days out of sight at each of the plan\'s widths', () => {
+    expect([ZOOM_WIDTHS.compact, ZOOM_WIDTHS.normal, ZOOM_WIDTHS.wide].map(overscanCols)).toEqual([6, 6, 6])
+  })
+  it('draws fewer of Bemanning\'s wide days, and never fewer than two', () => {
+    expect(overscanCols(80)).toBe(4)
+    expect(overscanCols(160)).toBe(2)
+    expect(overscanCols(400)).toBe(2)
   })
 })

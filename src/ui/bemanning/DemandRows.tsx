@@ -9,6 +9,7 @@ import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { fmtDay } from '../kalender/labels'
 import { LEFT_W } from '../kalender/layout'
+import { useStableActions } from '../kalender/useStableActions'
 import { useBemanning, type DemandRow } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
 import { DEMAND_COMPACT_H, DEMAND_H } from './layout'
@@ -140,9 +141,11 @@ export function DemandRows() {
     onFocusDate(date)
     setDemandPop({ competence, date, x: event.clientX, y: event.clientY })
   }
+  // The lines are memoized, and are handed the same handlers every time, or each of them is drawn again whenever the grid is.
+  const handlers = useStableActions({ onPick: pickFromDemand, onDay })
   const line = (row: DemandRow) =>
     !open && row.style.key !== brush ? null : (
-      <DemandLine key={row.style.key} row={row} cols={cols} balance={balance} uncoverable={uncoverable} remaining={remainingOf.get(row.style.key) ?? 0} compact={compact} brush={brush} preview={row.style.key === brush ? preview : undefined} onPick={pickFromDemand} onDay={onDay} />
+      <DemandLine key={row.style.key} row={row} cols={cols} balance={balance} uncoverable={uncoverable} remaining={remainingOf.get(row.style.key) ?? 0} compact={compact} brush={brush} preview={row.style.key === brush ? preview : undefined} onPick={handlers.onPick} onDay={handlers.onDay} />
     )
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>

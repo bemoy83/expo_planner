@@ -9,7 +9,14 @@ export const HALL_ROW_H = 22
 /** The Avvik line as a heat map: room for a tile with air around it. */
 export const HEAT_ROW_H = 30
 export const LEFT_W = 460
-export const OVERSCAN_COLS = 6
+/** The days drawn out of sight to each side: as many as the widest of the plan's columns need to cover this far, never fewer than two. */
+const OVERSCAN_PX = 312
+const OVERSCAN_MAX_COLS = 6
+/**
+ * How many days are drawn out of sight to each side at a column width. Bemanning's days are up to three
+ * times as wide as the plan's, and as many of them would be more cells out of sight than in it.
+ */
+export const overscanCols = (colW: number): number => Math.min(OVERSCAN_MAX_COLS, Math.max(2, Math.ceil(OVERSCAN_PX / colW)))
 export const OVERSCAN_ROWS = 8
 
 /**

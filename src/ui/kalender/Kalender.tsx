@@ -22,7 +22,7 @@ import type { BlockNames } from '../bemanning/dayCell'
 import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
 import { CellMenu } from './CellMenu'
-import { daysWide, fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
+import { daysWide, fitSpan, LEFT_W, OVERSCAN_ROWS, overscanCols, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
 import type { AllocLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
@@ -220,8 +220,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const competences = useMemo(() => [...new Set(rows.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [rows])
 
   // ---- virtualization ------------------------------------------------------------------------
-  const c0 = Math.max(0, (held ? held.from : Math.floor(viewport.left / colW)) - OVERSCAN_COLS)
-  const c1 = Math.min(dates.length - 1, (held ? held.to : Math.ceil((viewport.left + viewport.width - LEFT_W) / colW)) + OVERSCAN_COLS)
+  const overscan = overscanCols(colW)
+  const c0 = Math.max(0, (held ? held.from : Math.floor(viewport.left / colW)) - overscan)
+  const c1 = Math.min(dates.length - 1, (held ? held.to : Math.ceil((viewport.left + viewport.width - LEFT_W) / colW)) + overscan)
   const visibleDates = useMemo(() => dates.slice(c0, c1 + 1), [dates, c0, c1])
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
   // Where each line starts: the top level's lines are taller than the rest. One entry more than there are lines, the last being the full height.

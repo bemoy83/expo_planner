@@ -562,7 +562,8 @@ export const buildBalance = (ws: Workspace, dates: ISODate[]): Balance => {
   for (const row of ws.allocations) {
     const competence = competenceKey(row.competence)
     if (!competence) continue
-    for (const date of dates) if (row.fte[date]) cell(competence, date).demand += row.fte[date] * ws.settings.hoursPerDay
+    // A row has FTE on a few days and the period has hundreds: the row's own days are gone through, not the period's.
+    for (const date in row.fte) if (row.fte[date] && wanted.has(date)) cell(competence, date).demand += row.fte[date] * ws.settings.hoursPerDay
   }
   for (const adjustment of ws.demandAdjustments ?? []) {
     if (!wanted.has(adjustment.date)) continue
