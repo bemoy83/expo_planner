@@ -76,7 +76,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
         value={place.chosen ? place.hall : ''}
         aria-label={`Plassering for ${text}`}
-        title={`${place.chosen ? 'Valgt for hånd.' : place.hall === UNRESOLVED_HALL ? 'Hall/sted finnes ikke blant hallene på Haller-fanen. Behovet teller med under «Uavklart» til du velger en hall.' : 'Lest fra Hall/sted.'} Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`}
+        title={`${place.chosen ? 'Valgt for hånd.' : place.hall === UNRESOLVED_HALL ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «Uavklart» til du velger en hall.' : 'Lest fra Hall/sted.'} Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`}
         onChange={(e) => setHallAlias(text, e.target.value || undefined)}
       >
         <option value="">{auto} (auto)</option>
@@ -327,7 +327,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
             options={[
               { value: 'all', label: 'Alle', title: 'Alle prosjekter og alle Visma-linjer' },
               { value: 'open', label: `Ikke i plan ${totals.open}`, title: 'Linjer som ikke er tatt inn i plan, og prosjektene som har slike' },
-              { value: 'unresolved', label: `Uavklart ${totals.unresolved}`, title: 'Linjer der Hall/sted ikke er en hall på Haller-fanen, og prosjektene som har slike' },
+              { value: 'unresolved', label: `Uavklart ${totals.unresolved}`, title: 'Linjer der Hall/sted ikke er en hall på VenYou-fanen, og prosjektene som har slike' },
               { value: 'issue', label: `Uten timer ${totals.issue}`, title: 'Linjer som ikke gir timer fordi produkttype eller sats mangler, og prosjektene som har slike' },
             ]}
           />

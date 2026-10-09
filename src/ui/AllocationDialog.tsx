@@ -99,7 +99,7 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
               <option key={name} value={name} />
             ))}
           </datalist>
-          <span className="hint">{projectNo ? `Prosjektnummer ${projectNo}` : project ? 'Uten prosjektnummer. Sett nummeret på Haller-fanen for å hente behov fra Visma og tidligere år.' : ''}</span>
+          <span className="hint">{projectNo ? `Prosjektnummer ${projectNo}` : project ? 'Uten prosjektnummer. Sett nummeret på VenYou-fanen for å hente behov fra Visma og tidligere år.' : ''}</span>
         </label>
 
         <label>

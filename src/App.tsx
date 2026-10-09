@@ -30,7 +30,7 @@ export default function App() {
 const TABS = [
   ['kalender', 'Kalender'],
   ['behov', 'Behov'],
-  ['haller', 'Haller'],
+  ['haller', 'VenYou'],
   ['kpi', 'KPI'],
   ['personell', 'Personell'],
   ['kompetanser', 'Kompetanser'],
