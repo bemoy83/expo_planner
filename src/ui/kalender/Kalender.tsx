@@ -134,7 +134,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const projectHover = useProjectHover(hints)
   const closeCellMenu = useCallback(() => setCellMenu(null), [])
   const clearSelection = useCallback(() => setSelection(null), [])
-  const { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
+  const { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, measure, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
     start: range.start,
     end: range.end,
     openOn: planningFocus?.date ?? today,
@@ -613,13 +613,17 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   }
   // The two modes have rows of their own, so each keeps how far down it was scrolled: the plan is found
   // again where it was left, and the people do not open partway down their list. The plan is put back
-  // once more when the zoom out has ended, should the list have changed on the way.
+  // once more when the zoom out has ended, should the list have changed on the way. The modes also have
+  // blocks of different heights above the rows; they are measured here and now, or the first frame would
+  // draw the rows of the other mode's place under the other mode's heights.
   const scrolledTo = useRef<Record<PlanMode, number>>({ plan: 0, bemanning: 0 })
   const [zoomsEnded, setZoomsEnded] = useState(0)
   useLayoutEffect(() => {
     const el = scrollRef.current
-    if (el) el.scrollTop = scrolledTo.current[shown]
-  }, [shown, zoomsEnded, scrollRef])
+    if (!el) return
+    el.scrollTop = scrolledTo.current[shown]
+    measure()
+  }, [shown, zoomsEnded, scrollRef, measure])
   const switchMode = (next: PlanMode) => {
     const el = scrollRef.current
     if (next === planMode || !el) return

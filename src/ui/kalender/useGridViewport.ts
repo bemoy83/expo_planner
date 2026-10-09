@@ -43,24 +43,36 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     onScrolled()
   }, [onScrolled])
 
+  /**
+   * Reads what is in view and the heights of what is pinned. The grid does this by itself when a size
+   * changes, but a frame late: whoever swaps the block above the rows and moves the rows in one go calls
+   * it in a layout effect, so the first frame is drawn from the new heights and the new place.
+   */
+  const measure = useCallback(() => {
+    const el = scrollRef.current
+    const head = headRef.current
+    const top = topRef.current
+    const tools = toolsRef.current
+    if (!el || !head || !top || !tools) return
+    setViewport((v) => (v.left === el.scrollLeft && v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight ? v : { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight }))
+    setTopHeight(head.offsetHeight + top.offsetHeight + tools.offsetHeight)
+    setHeadHeight(head.offsetHeight)
+    setBarHeight(tools.offsetHeight)
+  }, [])
+
   useLayoutEffect(() => {
     const el = scrollRef.current
     const head = headRef.current
     const top = topRef.current
     const tools = toolsRef.current
     if (!el || !head || !top || !tools) return
-    const observer = new ResizeObserver(() => {
-      setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight })
-      setTopHeight(head.offsetHeight + top.offsetHeight + tools.offsetHeight)
-      setHeadHeight(head.offsetHeight)
-      setBarHeight(tools.offsetHeight)
-    })
+    const observer = new ResizeObserver(measure)
     observer.observe(el)
     observer.observe(head)
     observer.observe(top)
     observer.observe(tools)
     return () => observer.disconnect()
-  }, [])
+  }, [measure])
 
   const scrollToDate = useCallback(
     (date: ISODate, offsetDays = 7) => {
@@ -131,5 +143,5 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     setGoTo(null)
   }, [goTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
+  return { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, measure, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
 }
