@@ -38,7 +38,7 @@ const MISSING_RATE_TEXT: Record<NonNullable<VismaLine['missingRate']>, string> =
 interface Props {
   projectNo: string
   onProjectChange: (projectNo: string) => void
-  onOpenSetup: (tab: 'produkttyper' | 'kpi') => void
+  onOpenSetup: () => void
 }
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
@@ -346,10 +346,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         {withIssue > 0 && (
           <p className="notice">
             {withIssue === 1 ? '1 Visma-linje' : `${withIssue} Visma-linjer`} gir ingen timer ennå fordi produkttypen mangler enhet, kompetanse eller sats.{' '}
-            <button className="link" onClick={() => onOpenSetup('produkttyper')}>
-              Åpne Produkttyper
-            </button>{' '}
-            <button className="link" onClick={() => onOpenSetup('kpi')}>
+            <button className="link" onClick={onOpenSetup}>
               Åpne KPI
             </button>
           </p>

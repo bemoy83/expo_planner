@@ -8,7 +8,6 @@ import { useSaveState, useWorkspace, WorkspaceProvider } from './store/workspace
 import { Behov } from './ui/behov/Behov'
 import { Haller } from './ui/haller/Haller'
 import { Kpi } from './ui/kpi/Kpi'
-import { Produkttyper } from './ui/kpi/Produkttyper'
 import { Kompetanser } from './ui/personell/Kompetanser'
 import { Personell } from './ui/personell/Personell'
 import { Kalender } from './ui/kalender/Kalender'
@@ -32,7 +31,6 @@ const TABS = [
   ['kalender', 'Kalender'],
   ['behov', 'Behov'],
   ['haller', 'Haller'],
-  ['produkttyper', 'Produkttyper'],
   ['kpi', 'KPI'],
   ['personell', 'Personell'],
   ['kompetanser', 'Kompetanser'],
@@ -329,11 +327,10 @@ function Shell() {
       )}
       {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} selectionStyle={selectionStyle === 'raised' ? 'raised' : 'tint'} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller />}
-      {status === 'ready' && workspace && view === 'produkttyper' && <Produkttyper onOpenKpi={() => setView('kpi')} />}
-      {status === 'ready' && workspace && view === 'kpi' && <Kpi onOpenProductTypes={() => setView('produkttyper')} />}
+      {status === 'ready' && workspace && view === 'kpi' && <Kpi />}
       {status === 'ready' && workspace && view === 'personell' && <Personell onOpenCompetences={() => setView('kompetanser')} />}
       {status === 'ready' && workspace && view === 'kompetanser' && <Kompetanser onOpenPersonell={() => setView('personell')} />}
-      {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={setView} />}
+      {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={() => setView('kpi')} />}
       {settingsOpen && workspace && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )

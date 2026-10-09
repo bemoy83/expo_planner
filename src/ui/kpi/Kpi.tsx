@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, mergeKpi, removeKpiRow, replaceKpi, setRate, type KpiDiff, type KpiRow, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiDiff, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
@@ -8,7 +8,7 @@ import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
-import { NumberField } from '../fields'
+import { NumberField, TextField } from '../fields'
 import { X } from 'lucide-react'
 
 interface PendingImport {
@@ -18,11 +18,23 @@ interface PendingImport {
 
 const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
 
-/** Whether the row is the first of its product type among the rows shown: the type is named once. */
+/** Whether the row is the first of its product type among the rows shown: what holds for the type is shown once. */
 const firstOfType = (row: KpiRow, index: number, rows: KpiRow[]) => index === 0 || rows[index - 1].name !== row.name
 
-/** The KPI rates: how many units one person does per hour, for each product type and unit. */
-export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) {
+const LACKING_TEXT: Record<Lacking, string> = {
+  new: 'Ny fra Visma',
+  'no-unit-in-use': 'Velg enhet i bruk',
+  unit: 'Mangler enhet',
+  competence: 'Mangler kompetanse',
+  rate: 'Mangler sats',
+}
+
+/**
+ * How each Visma product type is read, and its rates: the unit it is counted in, the competence it belongs to,
+ * and how many units one person does per hour. The table fills itself with the product types found in the
+ * Visma exports, so nothing has to be imported to get started.
+ */
+export function Kpi() {
   const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
@@ -32,13 +44,17 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
   const [message, setMessage] = useState<Message | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const rows = useMemo(() => kpiRows(kpi), [kpi])
+  const rows = useMemo(() => kpiRows(kpi, ws.visma ?? []), [kpi, ws.visma])
   const found = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return q ? rows.filter((row) => `${row.name} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
+    return q ? rows.filter((row) => `${row.name} ${row.productType} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
   }, [rows, search])
-  const typeNames = useMemo(() => kpi.workTypes.map((rule) => rule.name).sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
-  const missing = rows.filter((row) => row.missingRate).length
+  const typeNames = useMemo(() => [...new Set(rows.map((row) => row.name))], [rows])
+  const competences = useMemo(() => [...new Set(kpi.workTypes.map((rule) => rule.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
+  const units = useMemo(() => [...new Set([...kpi.workTypes.map((rule) => rule.unit), ...kpi.rates.map((rate) => rate.unit)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi])
+  // Rates read in for a product type that no export names yet lack nothing the planner has to act on.
+  const unfinished = useMemo(() => new Set(rows.filter((row) => row.lacking && (row.configured || row.lines > 0)).map((row) => row.name)).size, [rows])
+  const untyped = useMemo(() => linesWithoutProductType(ws.visma ?? []), [ws.visma])
 
   const onFiles = async (files: File[]) => {
     if (!files.length) return
@@ -64,20 +80,51 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
     setPending(null)
   }
 
+  /** Says so when rows already planned in the Kalender followed the product type to its new competence. */
+  const changeCompetence = (name: string, unit: string, competence: string) => {
+    const { rows, replaced } = setKpi(setCompetence(kpi, name, unit, competence))
+    if (!rows && !replaced.length) return
+    const followed = rows ? ` ${rows === 1 ? '1 planlagt rad' : `${rows} planlagte rader`} i Kalender fulgte med til ${competence}, med FTE.` : ''
+    const people = replaced.length ? ` ${replaced.join(', ')} finnes ikke lenger: de som hadde den har nå ${competence}, og blokkene deres i Bemanning fulgte med.` : ''
+    setMessage({ kind: 'ok', text: `${name} er nå ${competence}.${followed}${people} Kan angres med Ctrl/Cmd+Z.` })
+  }
+
   const diff = pending ? diffKpi(kpi, pending.incoming) : null
 
   const columns: Column<KpiRow>[] = [
     { key: 'name', head: 'Produkttype', text: (row) => row.name, cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : '') },
-    { key: 'unit', head: 'Enhet', text: (row) => row.unit, cell: (row) => row.unit },
+    {
+      key: 'productType',
+      head: 'I Visma',
+      title: 'Produkttype 2 slik den står i Visma',
+      text: (row) => row.productType,
+      cell: (row, index, shown) => (firstOfType(row, index, shown) ? row.productType : ''),
+      cellProps: () => ({ className: 'muted' }),
+    },
+    {
+      key: 'unit',
+      head: 'Enhet',
+      title: '«ordre» og «stands» teller antall stands; andre enheter summerer antall',
+      text: (row) => row.unit,
+      // An emptied field is left as it was: a rate cannot be without a unit.
+      cell: (row) => <TextField value={row.unit} list="unit-options" ariaLabel={`Enhet for ${row.name}`} onCommit={(value) => value && setKpi(renameUnit(kpi, row.name, row.unit, value))} />,
+    },
     {
       key: 'active',
       head: 'I bruk',
-      title: 'Enheten Visma-linjer av denne produkttypen regnes med. Velges på Produkttyper.',
+      title: 'Enheten Visma-linjer av denne produkttypen regnes med',
       className: 'center',
       text: (row) => (row.active ? 'Ja' : 'Nei'),
-      cell: (row) => (row.active ? <span className="badge">i bruk</span> : ''),
+      cell: (row) =>
+        row.unit ? <input type="radio" checked={row.active} aria-label={`Regn ${row.name} i ${row.unit}`} onChange={() => setKpi(setActiveUnit(kpi, row.name, row.unit))} /> : '',
     },
-    { key: 'competence', head: 'Kompetanse', text: (row) => row.competence, cell: (row, index, shown) => (firstOfType(row, index, shown) ? row.competence : ''), cellProps: () => ({ className: 'muted' }) },
+    {
+      key: 'competence',
+      head: 'Kompetanse (nøkkelområde)',
+      text: (row) => row.competence,
+      cell: (row, index, shown) =>
+        firstOfType(row, index, shown) ? <TextField value={row.competence} list="competence-options" ariaLabel={`Kompetanse for ${row.name}`} onCommit={(value) => changeCompetence(row.name, row.unit, value)} /> : '',
+    },
     {
       key: 'assembly',
       head: 'Montering',
@@ -85,7 +132,7 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
       className: 'num',
       text: (row) => (row.assembly ? decimalText(row.assembly) : ''),
       sort: (row) => row.assembly,
-      cell: (row) => <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { assembly: value }))} />,
+      cell: (row) => (row.unit ? <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { assembly: value }))} /> : ''),
     },
     {
       key: 'dismantle',
@@ -94,20 +141,34 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
       className: 'num',
       text: (row) => (row.dismantle ? decimalText(row.dismantle) : ''),
       sort: (row) => row.dismantle,
-      cell: (row) => <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { dismantle: value }))} />,
+      cell: (row) => (row.unit ? <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { dismantle: value }))} /> : ''),
     },
     {
-      key: 'actions',
+      key: 'lines',
+      head: 'Linjer',
+      title: 'Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn',
+      className: 'num',
+      text: (row) => (row.lines ? String(row.lines) : ''),
+      sort: (row) => row.lines,
+      cell: (row, index, shown) => (firstOfType(row, index, shown) && row.lines) || '',
+    },
+    {
+      key: 'lacking',
+      head: 'Mangler',
+      title: 'Det som gjenstår før linjene av produkttypen gir timer. Til da er timene ukjente, ikke 0.',
       className: 'actions',
-      cell: (row) => (
+      text: (row) => (row.lacking ? LACKING_TEXT[row.lacking] : ''),
+      cell: (row, index, shown) => (
         <>
-          {row.missingRate && <span className="issue">Mangler sats </span>}
-          <button className="row-action" title={`Legg til sats for en annen enhet for ${row.name}`} onClick={() => setAdding({ name: row.name })}>
+          {row.lacking && firstOfType(row, index, shown) && <span className="issue">{LACKING_TEXT[row.lacking]} </span>}
+          <button className="row-action" title={`Legg til en annen enhet for ${row.name}`} onClick={() => setAdding({ name: row.name })}>
             +
           </button>
-          <button className="row-action" title="Slett" onClick={() => confirm(`Slette ${row.name} (${row.unit})?`) && setKpi(removeKpiRow(kpi, row.name, row.unit))}>
-            <X size={13} aria-hidden />
-          </button>
+          {row.lacking !== 'new' && (
+            <button className="row-action" title="Slett" onClick={() => confirm(`Slette ${row.name}${row.unit ? ` (${row.unit})` : ''}?`) && setKpi(removeKpiRow(kpi, row.name, row.unit))}>
+              <X size={13} aria-hidden />
+            </button>
+          )}
         </>
       ),
     },
@@ -117,15 +178,17 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
   return (
     <div className="behov">
       <div className="toolbar">
-        <input className="search" type="search" placeholder="Søk arbeidstype" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="search" type="search" placeholder="Søk produkttype" value={search} onChange={(e) => setSearch(e.target.value)} />
         <span className="muted small">
-          {kpi.rates.length} satser
+          {kpi.workTypes.length} produkttyper satt opp · {kpi.rates.length} satser
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <button onClick={() => fileInput.current?.click()}>Importer KPI-filer</button>
+        <button onClick={() => fileInput.current?.click()} title="Valgfritt: les inn Kpier.xlsx (satser) og Nøkkeltall Visma-arbeidsboken (enhet og kompetanse) én gang">
+          Importer fra fil
+        </button>
         <button className="primary" onClick={() => setAdding({})}>
-          + Ny sats
+          + Ny produkttype
         </button>
         <input
           ref={fileInput}
@@ -141,17 +204,15 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
 
       <div className="behov-body">
         <p className="hint">
-          Timer = antall ÷ sats. Satsen er hvor mange enheter én person gjør på en time. En produkttype kan ha satser for flere enheter; enheten merket «i bruk» er den som er valgt på{' '}
-          <button className="link" onClick={onOpenProductTypes}>
-            Produkttyper
-          </button>
-          . Endringer her regner om Visma-linjene med én gang.
+          Slik leses Visma-utskriften: ordrelinjene grupperes per prosjekt, avdeling, produkttype og hall, og timer = antall ÷ sats. <strong>Enhet</strong> bestemmer hvordan antallet regnes: «ordre»
+          og «stands» teller antall stands, alle andre enheter summerer «Totalt antall». En produkttype kan ha satser for flere enheter; den som er merket <strong>i bruk</strong> regnes det med.{' '}
+          <strong>Kompetanse</strong> er nøkkelområdet timene havner under. Satsen er hvor mange enheter én person gjør på en time. Endringer her regner om Visma-linjene med én gang.
         </p>
 
-        {missing > 0 && (
+        {unfinished > 0 && (
           <div className="orphans" role="alert">
-            <strong>{missing === 1 ? '1 produkttype' : `${missing} produkttyper`} mangler sats for enheten som er i bruk</strong> og gir ingen timer. De står merket i tabellen; skriv inn satsene
-            der.
+            <strong>{unfinished === 1 ? '1 produkttype' : `${unfinished} produkttyper`} er ikke ferdig satt opp.</strong> Det som gjenstår står i kolonnen «Mangler». Uten enhet og sats er timene
+            for linjene ukjente, ikke 0.
           </div>
         )}
 
@@ -160,22 +221,35 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
             table={table}
             className="kpi"
             rowKey={(row) => `${row.name}|${row.unit}`}
-            rowProps={(row, index, shown) => ({ className: `${firstOfType(row, index, shown) ? 'first-of-type' : ''} ${row.active ? '' : 'alt-unit'} ${row.missingRate ? 'has-issue' : ''}` })}
-            empty="Ingen satser passer søket eller filteret."
+            rowProps={(row, index, shown) => ({ className: `${firstOfType(row, index, shown) ? 'first-of-type' : ''} ${row.active || !row.configured ? '' : 'alt-unit'} ${row.lacking && (row.configured || row.lines > 0) ? 'has-issue' : ''}` })}
+            empty="Ingen produkttyper passer søket eller filteret."
           />
         ) : (
           <p className="notice">
-Ingen satser ennå. Legg dem inn med «Ny sats», eller les inn <code>Kpier.xlsx</code> én gang med «Importer KPI-filer».
+            Tabellen er tom. Den fyller seg selv: les inn en Visma-utskrift på Behov-fanen, så kommer produkttypene i utskriften opp her, klare til å få enhet, kompetanse og sats. Du kan også
+            legge dem inn med «Ny produkttype», eller lese inn <code>Kpier.xlsx</code> og Nøkkeltall Visma-arbeidsboken én gang med «Importer fra fil».
           </p>
         )}
+
+        {untyped > 0 && <p className="hint">{untyped} ordrelinjer i utskriftene har ingen produkttype i Visma. De får arbeidstype én og én på Behov-fanen.</p>}
+        <datalist id="unit-options">
+          {units.map((u) => (
+            <option key={u} value={u} />
+          ))}
+        </datalist>
+        <datalist id="competence-options">
+          {competences.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
       </div>
 
       {pending && diff && (
         <MergeReplaceDialog
           title="Importer KPI"
           source={pending.files.join(' og ')}
-          results={[pending.incoming.workTypes && describeDiff('Arbeidstyper', diff.workTypes), pending.incoming.rates && describeDiff('Satser', diff.rates)].filter((line): line is string => !!line)}
-          replaceText={`${[pending.incoming.workTypes && 'arbeidstypene', pending.incoming.rates && 'satsene'].filter(Boolean).join(' og ')} i appen byttes helt ut med filen${
+          results={[pending.incoming.workTypes && describeDiff('Produkttyper', diff.workTypes), pending.incoming.rates && describeDiff('Satser', diff.rates)].filter((line): line is string => !!line)}
+          replaceText={`${[pending.incoming.workTypes && 'produkttypene', pending.incoming.rates && 'satsene'].filter(Boolean).join(' og ')} i appen byttes helt ut med filen${
             diff.workTypes.onlyInApp + diff.rates.onlyInApp > 0 ? `; ${diff.workTypes.onlyInApp + diff.rates.onlyInApp} rader som bare finnes i appen forsvinner` : ''
           }`}
           onCancel={() => setPending(null)}
@@ -187,7 +261,8 @@ Ingen satser ennå. Legg dem inn med «Ny sats», eller les inn <code>Kpier.xlsx
         <AddDialog
           initial={adding}
           typeNames={typeNames}
-          exists={(name, unit) => rows.some((row) => row.name.toLowerCase() === name.trim().toLowerCase() && row.unit.toLowerCase() === unit.trim().toLowerCase())}
+          setUp={(name) => kpi.workTypes.find((rule) => rule.name.toLowerCase() === name.trim().toLowerCase())?.competence}
+          exists={(name, unit) => rows.some((row) => row.unit !== '' && row.name.toLowerCase() === name.trim().toLowerCase() && row.unit.toLowerCase() === unit.trim().toLowerCase())}
           onClose={() => setAdding(null)}
           onAdd={(row) => {
             setKpi(addKpiRow(kpi, row))
@@ -202,6 +277,8 @@ Ingen satser ennå. Legg dem inn med «Ny sats», eller les inn <code>Kpier.xlsx
 interface AddProps {
   initial: Partial<NewKpiRow>
   typeNames: string[]
+  /** The competence of a product type that is set up already, where it cannot be given another here. */
+  setUp: (name: string) => string | undefined
   exists: (name: string, unit: string) => boolean
   onAdd: (row: NewKpiRow) => void
   onClose: () => void
@@ -213,9 +290,11 @@ const toNumber = (text: string) => {
   return n === undefined ? NaN : (n ?? 0)
 }
 
-function AddDialog({ initial, typeNames, exists, onAdd, onClose }: AddProps) {
+function AddDialog({ initial, typeNames, setUp, exists, onAdd, onClose }: AddProps) {
   const [name, setName] = useState(initial.name ?? '')
   const [unit, setUnit] = useState('')
+  const [competence, setCompetence] = useState('')
+  const fixed = setUp(name)
   const [assembly, setAssembly] = useState('')
   const [dismantle, setDismantle] = useState('')
   const duplicate = name.trim() !== '' && unit.trim() !== '' && exists(name, unit)
@@ -227,14 +306,14 @@ function AddDialog({ initial, typeNames, exists, onAdd, onClose }: AddProps) {
         className="dialog"
         onSubmit={(e) => {
           e.preventDefault()
-          if (valid) onAdd({ name, unit, competence: '', assembly: toNumber(assembly), dismantle: toNumber(dismantle) })
+          if (valid) onAdd({ name, unit, competence, assembly: toNumber(assembly), dismantle: toNumber(dismantle) })
         }}
       >
-        <h2>Ny sats</h2>
+        <h2>{initial.name ? `Ny enhet for ${initial.name}` : 'Ny produkttype'}</h2>
         <div className="field-row">
           <label>
             Produkttype
-            <input list="kpi-type-names" value={name} autoFocus={!initial.name} onChange={(e) => setName(e.target.value)} />
+            <input list="kpi-type-names" value={name} autoFocus={!initial.name} onChange={(e) => setName(e.target.value)} placeholder="Som i klammene i Visma, f.eks. FOGA-vegger" />
             <datalist id="kpi-type-names">
               {typeNames.map((t) => (
                 <option key={t} value={t} />
@@ -243,9 +322,13 @@ function AddDialog({ initial, typeNames, exists, onAdd, onClose }: AddProps) {
           </label>
           <label className="narrow">
             Enhet
-            <input value={unit} autoFocus={!!initial.name} onChange={(e) => setUnit(e.target.value)} placeholder="stk, lm, m², ordre" />
+            <input list="unit-options" value={unit} autoFocus={!!initial.name} onChange={(e) => setUnit(e.target.value)} placeholder="stk, lm, m², ordre" />
           </label>
         </div>
+        <label>
+          Kompetanse (nøkkelområde)
+          <input list="competence-options" value={fixed ?? competence} disabled={fixed !== undefined} onChange={(e) => setCompetence(e.target.value)} />
+        </label>
         <div className="field-row">
           <label>
             Montering, enheter per time
@@ -256,7 +339,7 @@ function AddDialog({ initial, typeNames, exists, onAdd, onClose }: AddProps) {
             <input inputMode="decimal" value={dismantle} onChange={(e) => setDismantle(e.target.value)} />
           </label>
         </div>
-        {duplicate && <span className="issue">Denne produkttypen har allerede en sats for enheten.</span>}
+        {duplicate && <span className="issue">Produkttypen har allerede denne enheten.</span>}
         <div className="dialog-actions">
           <button type="button" onClick={onClose}>
             Avbryt

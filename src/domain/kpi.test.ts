@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, addWorkType, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, removeWorkType, replaceKpi, setActiveUnit, setCompetence, setRate, workTypeRows } from './kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
@@ -19,7 +19,7 @@ describe('KPI table', () => {
   it('shows one row per work type and unit, marking the unit in use', () => {
     const rows = kpiRows(kpi)
     expect(rows.map((r) => `${r.name}/${r.unit}/${r.active ? 'i bruk' : '-'}`)).toEqual(['FOGA-dragere/lm/i bruk', 'FOGA-dragere/stk/-', 'Print/ordre/i bruk', 'Skilt/stk/i bruk'])
-    expect(rows.find((r) => r.name === 'Skilt')).toMatchObject({ missingRate: true, competence: 'Skilting' })
+    expect(rows.find((r) => r.name === 'Skilt')).toMatchObject({ lacking: 'rate', competence: 'Skilting', assembly: 0 })
     expect(rows[1].competence).toBe('FOGA')
   })
 
@@ -95,36 +95,55 @@ const vismaRow = (productType: string): VismaRow => ({
 })
 const exportWith = (...types: string[]): VismaImport[] => [{ projectNo: '26970', eventName: 'VVS 2026', fileName: 'x', importedAt: '', rows: types.map(vismaRow) }]
 
-describe('product-type table', () => {
+describe('product types in the KPI table', () => {
   it('lists the product types of an export before anything is set up', () => {
-    const rows = workTypeRows(EMPTY_KPI, exportWith('14 [FOGA-vegger]', '14 [FOGA-vegger]', '23 [Print]', '0'))
+    const rows = kpiRows(EMPTY_KPI, exportWith('14 [FOGA-vegger]', '14 [FOGA-vegger]', '23 [Print]', '0'))
     expect(rows).toEqual([
-      { name: 'FOGA-vegger', productType: '14 [FOGA-vegger]', unit: '', competence: '', lines: 2, configured: false, hasRate: false },
-      { name: 'Print', productType: '23 [Print]', unit: '', competence: '', lines: 1, configured: false, hasRate: false },
+      { name: 'FOGA-vegger', productType: '14 [FOGA-vegger]', unit: '', competence: '', assembly: 0, dismantle: 0, active: false, lines: 2, configured: false, lacking: 'new' },
+      { name: 'Print', productType: '23 [Print]', unit: '', competence: '', assembly: 0, dismantle: 0, active: false, lines: 1, configured: false, lacking: 'new' },
     ])
     expect(linesWithoutProductType(exportWith('0', '14 [FOGA-vegger]', ''))).toBe(2)
   })
 
-  it('sets a type up by giving it a unit or a competence', () => {
-    const withUnit = setActiveUnit(EMPTY_KPI, 'FOGA-vegger', 'lm')
+  it('sets a type up by giving it a unit or a competence, and puts the types not set up first', () => {
+    const withUnit = renameUnit(EMPTY_KPI, 'FOGA-vegger', '', 'lm')
+    expect(kpiRows(withUnit)[0]).toMatchObject({ unit: 'lm', active: true, lacking: 'competence' })
     const withBoth = setCompetence(withUnit, 'FOGA-vegger', 'lm', 'FOGA')
     expect(withBoth.workTypes).toEqual([{ name: 'FOGA-vegger', productType: '[FOGA-vegger]', unit: 'lm', competence: 'FOGA' }])
-    const rows = workTypeRows(withBoth, exportWith('14 [FOGA-vegger]', '23 [Print]'))
+    const rows = kpiRows(withBoth, exportWith('14 [FOGA-vegger]', '23 [Print]'))
     expect(rows.map((r) => `${r.name}:${r.configured}`)).toEqual(['Print:false', 'FOGA-vegger:true'])
-    expect(rows[1]).toMatchObject({ productType: '14 [FOGA-vegger]', lines: 1, hasRate: false })
+    expect(rows[1]).toMatchObject({ productType: '14 [FOGA-vegger]', lines: 1, lacking: 'rate' })
   })
 
-  it('shows which types have a rate for the unit in use', () => {
-    const rows = workTypeRows(kpi, [])
-    expect(rows.map((r) => `${r.name}:${r.hasRate}`)).toEqual(['FOGA-dragere:true', 'Print:true', 'Skilt:false'])
+  it('says what each type lacks: a missing rate is flagged, not read as no work', () => {
+    const lacking = (config: KpiConfig) => Object.fromEntries(kpiRows(config).map((r) => [r.name, r.lacking]))
+    expect(lacking(kpi)).toEqual({ 'FOGA-dragere': null, Print: null, Skilt: 'rate' })
+    // A rate of 0 for both phases is no rate.
+    expect(lacking(setRate(kpi, 'Skilt', 'stk', { assembly: 0 })).Skilt).toBe('rate')
+    expect(lacking(setRate(kpi, 'Skilt', 'stk', { assembly: 20 })).Skilt).toBeNull()
+    expect(lacking(setActiveUnit(kpi, 'Skilt', '')).Skilt).toBe('unit')
+    expect(lacking(setCompetence(kpi, 'Print', 'ordre', '')).Print).toBe('competence')
   })
 
-  it('adds and removes types without touching the rates', () => {
-    const added = addWorkType(kpi, { name: 'Gangtepper', unit: 'm²', competence: 'Gangtepper' })
-    expect(added.workTypes).toHaveLength(4)
-    expect(addWorkType(added, { name: 'gangtepper', unit: 'stk', competence: '' })).toBe(added)
-    const removed = removeWorkType(kpi, 'Print')
-    expect(removed.workTypes.map((t) => t.name)).toEqual(['FOGA-dragere', 'Skilt'])
-    expect(removed.rates).toBe(kpi.rates)
+  it('shows rates read in before any unit is chosen, with none in use', () => {
+    const rows = kpiRows({ workTypes: [], rates: kpi.rates }, exportWith('23 [Print]'))
+    expect(rows.map((r) => `${r.name}/${r.unit}/${r.active}/${r.lacking}`)).toEqual(['FOGA-dragere/lm/false/no-unit-in-use', 'FOGA-dragere/stk/false/no-unit-in-use', 'Print/ordre/false/no-unit-in-use'])
+    expect(rows[2]).toMatchObject({ lines: 1, productType: '23 [Print]' })
+  })
+
+  it('renames a unit with its rates, and hands over to a unit that is already there', () => {
+    const renamed = renameUnit(kpi, 'FOGA-dragere', 'lm', 'm')
+    expect(renamed.workTypes[0].unit).toBe('m')
+    expect(renamed.rates[0]).toEqual({ name: 'FOGA-dragere', unit: 'm', assembly: 35, dismantle: 35 })
+    const other = renameUnit(kpi, 'FOGA-dragere', 'stk', 'par')
+    expect(other.workTypes).toEqual(kpi.workTypes)
+    expect(other.rates[1].unit).toBe('par')
+    const handed = renameUnit(kpi, 'FOGA-dragere', 'lm', 'stk')
+    expect(handed.workTypes[0].unit).toBe('stk')
+    expect(handed.rates).toEqual(kpi.rates)
+    expect(renameUnit(kpi, 'FOGA-dragere', 'stk', 'lm')).toBe(kpi)
+    // The unit of a rate with no unit in use is renamed without choosing it.
+    const ratesOnly = { workTypes: [], rates: kpi.rates }
+    expect(renameUnit(ratesOnly, 'Print', 'ordre', 'stands')).toEqual({ workTypes: [], rates: [...kpi.rates.slice(0, 2), { ...kpi.rates[2], unit: 'stands' }] })
   })
 })
