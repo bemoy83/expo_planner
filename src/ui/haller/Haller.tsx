@@ -8,7 +8,9 @@ import { readProjectList } from '../../import/venyouExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { MessageBanner, Twisty, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFile } from '../files'
+import { ColumnHead } from '../ColumnHead'
 import { TextField } from '../fields'
+import { useTable, type Column } from '../useTable'
 
 const PHASE_HEADERS: Record<VenuePhase, string> = { assembly: 'Montering', movingIn: 'Innflytting', event: 'Arrangement', movingOut: 'Utflytting', dismantle: 'Demontering' }
 
@@ -26,7 +28,37 @@ interface EventGroup {
   event?: VenueEvent
 }
 
-type Visibility = 'all' | 'shown' | 'hidden'
+/** A hall booking as the columns' filters read it. */
+interface BookingRow {
+  booking: VenueBooking
+  key: string
+  hidden: boolean
+  anchor: ISODate
+  event?: VenueEvent
+}
+
+/** The months a phase touches, as «2026-10»: what its column is filtered by. */
+const months = (s?: DateSpan): string[] => {
+  if (!s) return []
+  const out: string[] = []
+  for (let month = s.start.slice(0, 7); month <= s.end.slice(0, 7); ) {
+    out.push(month)
+    const [y, m] = month.split('-').map(Number)
+    month = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+  }
+  return out
+}
+
+/** The table is drawn by the page, as events with their halls under them; the columns here say what each is filtered by. */
+const drawnByPage = () => null
+const COLUMNS: Column<BookingRow>[] = [
+  { key: 'show', text: (row) => (row.hidden ? 'Skjult' : 'Vises'), cell: drawnByPage },
+  { key: 'event', text: (row) => row.booking.eventName, cell: drawnByPage },
+  { key: 'hall', text: (row) => row.booking.hall, cell: drawnByPage },
+  ...VENUE_PHASES.map((phase): Column<BookingRow> => ({ key: phase, text: (row) => months(row.booking.phases[phase]), cell: drawnByPage })),
+  { key: 'status', text: (row) => row.booking.status, cell: drawnByPage },
+  { key: 'projectNo', text: (row) => row.event?.projectNo ?? '', cell: drawnByPage },
+]
 
 /** The hall ledger: every hall booking, with a tick for whether it shows in the Kalender. */
 export function Haller() {
@@ -34,19 +66,12 @@ export function Haller() {
   const ws = workspace!
   const hidden = useMemo(() => ws.hiddenVenue ?? {}, [ws.hiddenVenue])
   const [search, setSearch] = useState('')
-  const [hall, setHall] = useState('')
-  const [status, setStatus] = useState('')
-  const [visibility, setVisibility] = useState<Visibility>('all')
   const [includePast, setIncludePast] = useState(false)
-  const [onlyUnlinked, setOnlyUnlinked] = useState(false)
   /** The events whose halls are folded away, for as long as the tab is open. */
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set())
   const [message, setMessage] = useState<Message | null>(null)
   const listInput = useRef<HTMLInputElement>(null)
   const [today] = useState(todayIso)
-
-  const halls = useMemo(() => [...new Set(ws.venue.map((b) => b.hall))].sort((a, b) => a.localeCompare(b, 'nb')), [ws.venue])
-  const statuses = useMemo(() => [...new Set(ws.venue.map((b) => b.status).filter(Boolean))].sort(), [ws.venue])
 
   const events = useMemo(() => new Map(venueEvents(ws.venue, ws.eventLinks, ws.projects).map((event) => [event.key, event])), [ws.venue, ws.eventLinks, ws.projects])
   const unlinkedCount = useMemo(() => [...events.values()].filter((event) => !event.projectNo).length, [events])
@@ -60,21 +85,25 @@ export function Haller() {
     }
   }
 
-  const groups = useMemo(() => {
+  /** The bookings the search and «Ta med tidligere» let through; the columns' filters take it from there. */
+  const bookings = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const byEvent = new Map<string, EventGroup>()
+    const rows: BookingRow[] = []
     for (const booking of ws.venue) {
-      if (hall && booking.hall !== hall) continue
-      if (status && booking.status !== status) continue
       if (q && !`${booking.eventName} ${booking.hall}`.toLowerCase().includes(q)) continue
       if (!includePast && lastDate(booking) < today) continue
-      const isHidden = !!hidden[venueKey(booking)]
-      if (visibility === 'shown' && isHidden) continue
-      if (visibility === 'hidden' && !isHidden) continue
+      const key = venueKey(booking)
       const anchor = anchorDate(booking) ?? ''
       // Events with the same name in different periods (two years, two editions) are separate entries.
-      const event = events.get(eventKey(booking.eventName, anchor))
-      if (onlyUnlinked && event?.projectNo) continue
+      rows.push({ booking, key, hidden: !!hidden[key], anchor, event: events.get(eventKey(booking.eventName, anchor)) })
+    }
+    return rows
+  }, [ws.venue, hidden, search, includePast, today, events])
+  const table = useTable(bookings, COLUMNS)
+
+  const groups = useMemo(() => {
+    const byEvent = new Map<string, EventGroup>()
+    for (const { booking, anchor, event } of table.rows) {
       const key = `${booking.eventName}|${anchor.slice(0, 7)}`
       const group = byEvent.get(key) ?? { key, name: booking.eventName, anchor, bookings: [], event }
       group.bookings.push(booking)
@@ -84,7 +113,7 @@ export function Haller() {
     const list = [...byEvent.values()].sort((a, b) => a.anchor.localeCompare(b.anchor) || a.name.localeCompare(b.name, 'nb'))
     for (const group of list) group.bookings.sort((a, b) => a.hall.localeCompare(b.hall, 'nb'))
     return list
-  }, [ws.venue, hidden, search, hall, status, visibility, includePast, today, events, onlyUnlinked])
+  }, [table.rows])
 
   const rowCount = groups.reduce((n, g) => n + g.bookings.length, 0)
   const hiddenCount = useMemo(() => ws.venue.filter((b) => hidden[venueKey(b)]).length, [ws.venue, hidden])
@@ -102,40 +131,15 @@ export function Haller() {
     <div className="behov">
       <div className="toolbar">
         <input className="search" type="search" placeholder="Søk arrangement eller hall" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <label>
-          Hall
-          <select value={hall} onChange={(e) => setHall(e.target.value)}>
-            <option value="">Alle</option>
-            {halls.map((h) => (
-              <option key={h}>{h}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Status
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">Alle</option>
-            {statuses.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Vis
-          <select value={visibility} onChange={(e) => setVisibility(e.target.value as Visibility)}>
-            <option value="all">Alle</option>
-            <option value="shown">Bare de som vises i Kalender</option>
-            <option value="hidden">Bare de som er skjult</option>
-          </select>
-        </label>
         <label className="check">
           <input type="checkbox" checked={includePast} onChange={(e) => setIncludePast(e.target.checked)} />
           Ta med tidligere
         </label>
-        <label className="check" title="Vis bare arrangementer som mangler prosjektnummer">
-          <input type="checkbox" checked={onlyUnlinked} onChange={(e) => setOnlyUnlinked(e.target.checked)} />
-          Uten prosjektnr.
-        </label>
+        {table.filtered > 0 && (
+          <button className="ghost" onClick={table.clearFilters} title="Fjerner filtrene i kolonnene">
+            Nullstill filtre
+          </button>
+        )}
         <span className="toolbar-gap" />
         <button onClick={() => listInput.current?.click()} title="Les inn Prosjekt.xlsx: navn og prosjektnummer">
           Importer prosjektliste
@@ -160,25 +164,38 @@ export function Haller() {
           {ws.venue.length} bookinger totalt, {hiddenCount} skjult.
           {ws.venueImport && ` Sist oppdatert fra ${ws.venueImport.fileName} (${ws.venueImport.from} til ${ws.venueImport.to}).`}
         </p>
-        {rowCount ? (
+        {bookings.length ? (
           <table className="ledger halls">
             <thead>
               <tr>
-                <th className="center" title="Vises i Kalender. Haken her viser eller skjuler alle bookingene i listen.">
+                <ColumnHead className="center" title="Vises i Kalender. Haken her viser eller skjuler alle bookingene i listen." filter={table.filter('show')}>
                   <TriCheckbox checked={listedShown === listed.length} partial={listedShown > 0 && listedShown < listed.length} label="Vis alle i listen" onChange={(show) => setVenueHidden(listed, !show)} />
-                </th>
-                <th>
+                </ColumnHead>
+                <ColumnHead filter={table.filter('event')}>
                   <Twisty open={!allFolded} show="Vis hallene under hvert arrangement" hide="Vis bare én rad per arrangement" onToggle={() => setFolded(allFolded ? new Set() : new Set(groups.map((g) => g.key)))} />
-                  Arrangement / hall
-                </th>
+                  Navn
+                </ColumnHead>
+                <ColumnHead filter={table.filter('hall')}>Hall</ColumnHead>
                 {VENUE_PHASES.map((phase) => (
-                  <th key={phase}>{PHASE_HEADERS[phase]}</th>
+                  <ColumnHead key={phase} title="Filteret går på månedene fasen berører" filter={table.filter(phase)}>
+                    {PHASE_HEADERS[phase]}
+                  </ColumnHead>
                 ))}
-                <th>Status</th>
-                <th title="Prosjektnummeret i Visma">Prosjektnr.</th>
+                <ColumnHead filter={table.filter('status')}>Status</ColumnHead>
+                <ColumnHead title="Prosjektnummeret i Visma. Velg (tom) i filteret for arrangementene som mangler nummer." filter={table.filter('projectNo')}>
+                  Prosjektnr.
+                </ColumnHead>
               </tr>
             </thead>
             <tbody>
+              {/* The headings stay, so that a filter that lets nothing through can be changed. */}
+              {rowCount === 0 && (
+                <tr>
+                  <td colSpan={COLUMNS.length} className="muted">
+                    Ingen bookinger passer filteret.
+                  </td>
+                </tr>
+              )}
               {groups.map((group, index) => {
                 const keys = group.bookings.map(venueKey)
                 const shown = keys.filter((key) => !hidden[key]).length
@@ -200,10 +217,10 @@ export function Haller() {
                     </td>
                     <td className="event-name">
                       <Twisty open={open} show={`Vis hallene til ${group.name}`} hide={`Skjul hallene til ${group.name}`} onToggle={() => toggleFold(group.key)} />
-                      <strong>{group.name}</strong>{' '}
-                      <span className="muted">
-                        {group.anchor ? `${day(group.anchor)}.${group.anchor.slice(0, 4)}` : ''} · {shown} av {keys.length} {keys.length === 1 ? 'hall' : 'haller'} vises
-                      </span>
+                      <strong>{group.name}</strong> <span className="muted">{group.anchor ? `${day(group.anchor)}.${group.anchor.slice(0, 4)}` : ''}</span>
+                    </td>
+                    <td className="muted">
+                      {shown} av {keys.length} {keys.length === 1 ? 'hall' : 'haller'} vises
                     </td>
                     {/* The event's days over all its halls that are listed. */}
                     {VENUE_PHASES.map((phase) => (
@@ -243,6 +260,7 @@ export function Haller() {
                         <td className="center">
                           <input type="checkbox" checked={!hidden[key]} onChange={(e) => setVenueHidden([key], !e.target.checked)} aria-label={`Vis ${booking.eventName} i ${booking.hall}`} />
                         </td>
+                        <td />
                         <td className="hall-name">{booking.hall}</td>
                         {VENUE_PHASES.map((phase) => (
                           <td key={phase} className="date">{span(booking.phases[phase])}</td>
@@ -257,7 +275,7 @@ export function Haller() {
             </tbody>
           </table>
         ) : (
-          <p className="muted">Ingen bookinger passer filteret.</p>
+          <p className="muted">Ingen bookinger passer søket.</p>
         )}
       </div>
     </div>

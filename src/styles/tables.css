@@ -72,7 +72,7 @@ table.ledger td.event-name .twisty,table.ledger.halls th .twisty{vertical-align:
 /* a booking left out of the Kalender, and a person who is no longer active */
 table.ledger tr.hidden-row td,table.ledger tr.inactive-row td{color:var(--muted);background:var(--bg)}
 table.ledger tr.hidden-row td.hall-name{text-decoration:line-through}
-table.ledger td.hall-name{padding-left:20px;font-weight:600}
+table.ledger td.hall-name{font-weight:600}
 input.inline.project-no-input{width:90px;min-width:0}
 /* an event that has no project number yet */
 input.inline.project-no-input.missing{box-shadow:inset 0 0 0 1.5px var(--over)}
