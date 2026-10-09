@@ -72,6 +72,20 @@ describe('KPI import', () => {
     expect(merged.workTypes).toEqual(kpi.workTypes)
   })
 
+  it('keeps the unit the planner has chosen when a file is read again', () => {
+    const chosen = setActiveUnit(kpi, 'FOGA-dragere', 'stk')
+    // As the KPI file is read: several units, so none in use; and a competence of its own.
+    const again: KpiConfig = { workTypes: [{ name: 'FOGA-dragere', productType: '12 [FOGA-dragere]', unit: '', competence: 'Vegger' }], rates: kpi.rates.slice(0, 2) }
+    expect(mergeKpi(chosen, again).workTypes[0]).toMatchObject({ unit: 'stk', competence: 'Vegger' })
+    expect(replaceKpi(chosen, again).workTypes).toEqual([{ name: 'FOGA-dragere', productType: '12 [FOGA-dragere]', unit: 'stk', competence: 'Vegger' }])
+    expect(diffKpi(chosen, again).workTypes).toMatchObject({ changed: 1, unchanged: 0 })
+    expect(diffKpi(chosen, { ...again, workTypes: [{ ...again.workTypes[0], competence: 'FOGA' }] }).workTypes).toMatchObject({ changed: 0, unchanged: 1 })
+    // A chosen unit the file no longer has rates for is not kept when the file replaces the table.
+    const without: KpiConfig = { workTypes: [{ ...again.workTypes[0], unit: 'lm' }], rates: kpi.rates.slice(0, 1) }
+    expect(replaceKpi(chosen, without).workTypes[0].unit).toBe('lm')
+    expect(mergeKpi(chosen, without).workTypes[0].unit).toBe('stk')
+  })
+
   it('replaces only the parts the file contains', () => {
     const replaced = replaceKpi(kpi, file)
     expect(replaced.rates).toEqual(file.rates)
@@ -129,6 +143,14 @@ describe('product types in the KPI table', () => {
     const rows = kpiRows({ workTypes: [], rates: kpi.rates }, exportWith('23 [Print]'))
     expect(rows.map((r) => `${r.name}/${r.unit}/${r.active}/${r.lacking}`)).toEqual(['FOGA-dragere/lm/false/no-unit-in-use', 'FOGA-dragere/stk/false/no-unit-in-use', 'Print/ordre/false/no-unit-in-use'])
     expect(rows[2]).toMatchObject({ lines: 1, productType: '23 [Print]' })
+  })
+
+  it('lists a type whose unit is still to be chosen by its rates, with its competence', () => {
+    const read: KpiConfig = { workTypes: [{ ...kpi.workTypes[0], unit: '' }], rates: kpi.rates.slice(0, 2) }
+    const rows = kpiRows(read)
+    expect(rows.map((r) => `${r.unit}/${r.active}/${r.competence}/${r.lacking}`)).toEqual(['lm/false/FOGA/no-unit-in-use', 'stk/false/FOGA/no-unit-in-use'])
+    const chosen = kpiRows(setActiveUnit(read, 'FOGA-dragere', 'stk'))
+    expect(chosen.map((r) => `${r.unit}/${r.active}/${r.competence}/${r.lacking}`)).toEqual(['stk/true/FOGA/null', 'lm/false/FOGA/null'])
   })
 
   it('renames a unit with its rates, and hands over to a unit that is already there', () => {

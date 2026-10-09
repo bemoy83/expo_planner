@@ -53,42 +53,36 @@ export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
 }
 
 /**
- * Reads KPI reference data from either workbook the planner keeps:
- * the mapping (product type → unit and nøkkelområde) and/or the rates (montering and demontering per unit).
+ * Reads the KPI file (`Kpier.xlsx`): a row per product type and unit with the rates, and the competence where the
+ * file has a «Kompetansegruppe» column. A product type with one unit in the file is counted in it; one with several
+ * is left without a unit in use, for the planner to choose.
  */
-export const readKpiWorkbook = (bytes: Uint8Array): Partial<KpiConfig> => {
-  const result: Partial<KpiConfig> = {}
+export const readKpiWorkbook = (bytes: Uint8Array): KpiConfig => {
   for (const sheet of readXlsx(bytes).values()) {
-    const rateHeader = findHeader(sheet, ['produkttype 2', 'enhet', 'montering', 'demontering'])
-    if (rateHeader && !result.rates) {
-      const rates: KpiRate[] = []
-      for (const row of dataRows(sheet, rateHeader.row)) {
-        const get = (name: string) => sheet.rows.get(row)?.get(rateHeader.columns.get(name)!) ?? null
-        const productType = text(get('produkttype 2'))
-        if (!productType || workTypeName(productType) === NO_PRODUCT_TYPE) continue
-        rates.push({ name: workTypeName(productType), unit: text(get('enhet')), assembly: num(get('montering')) ?? 0, dismantle: num(get('demontering')) ?? 0 })
+    const header = findHeader(sheet, ['produkttype 2', 'enhet', 'montering', 'demontering'])
+    if (!header) continue
+    const rates: KpiRate[] = []
+    const types = new Map<string, WorkTypeRule & { units: Set<string> }>()
+    for (const row of dataRows(sheet, header.row)) {
+      const get = (name: string) => {
+        const col = header.columns.get(name)
+        return col === undefined ? null : (sheet.rows.get(row)?.get(col) ?? null)
       }
-      if (rates.length) result.rates = rates
-      continue
+      const productType = text(get('produkttype 2'))
+      const name = workTypeName(productType)
+      // Rows without a bracketed type name cannot be matched to Visma lines.
+      if (!productType || name === NO_PRODUCT_TYPE) continue
+      const unit = text(get('enhet'))
+      rates.push({ name, unit, assembly: num(get('montering')) ?? 0, dismantle: num(get('demontering')) ?? 0 })
+      const type = types.get(name.toLowerCase()) ?? { name, productType, unit: '', competence: '', units: new Set<string>() }
+      type.competence ||= text(get('kompetansegruppe'))
+      if (unit) type.units.add(unit.toLowerCase())
+      if (type.units.size === 1) type.unit ||= unit
+      types.set(name.toLowerCase(), type)
     }
-    const mapHeader = findHeader(sheet, ['produkttype 2', 'enhet', 'nøkkelområder'])
-    if (mapHeader && !result.workTypes) {
-      const seen = new Set<string>()
-      const workTypes: WorkTypeRule[] = []
-      for (const row of dataRows(sheet, mapHeader.row)) {
-        const get = (name: string) => sheet.rows.get(row)?.get(mapHeader.columns.get(name)!) ?? null
-        const productType = text(get('produkttype 2'))
-        const name = workTypeName(productType)
-        // Rows without a bracketed type name cannot be matched to Visma lines.
-        if (!productType || name === NO_PRODUCT_TYPE || seen.has(name.toLowerCase())) continue
-        seen.add(name.toLowerCase())
-        workTypes.push({ name, productType, unit: text(get('enhet')), competence: text(get('nøkkelområder')) })
-      }
-      if (workTypes.length) result.workTypes = workTypes
-    }
+    if (!rates.length) continue
+    const workTypes = [...types.values()].map(({ units, ...rule }): WorkTypeRule => (units.size > 1 ? { ...rule, unit: '' } : rule))
+    return { workTypes, rates }
   }
-  if (!result.rates && !result.workTypes) {
-    throw new VismaFormatError('Fant ingen KPI-tabell. Filen må ha «Produkttype 2» og «Enhet» sammen med «Nøkkelområder» eller «Montering»/«Demontering».')
-  }
-  return result
+  throw new VismaFormatError('Fant ingen KPI-tabell. Filen må ha kolonnene «Produkttype 2», «Enhet», «Montering» og «Demontering».')
 }

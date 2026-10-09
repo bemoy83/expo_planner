@@ -49,8 +49,9 @@ export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => 
   const rates = new Map(kpi.rates.map((rate) => [rateKey(rate.name, rate.unit), rate]))
   const lackingOf = (name: string): Lacking | null => {
     const rule = rules.get(name.toLowerCase())
-    if (!rule) return kpi.rates.some((rate) => same(rate.name, name)) ? 'no-unit-in-use' : 'new'
-    if (!rule.unit) return 'unit'
+    const rated = kpi.rates.some((rate) => same(rate.name, name))
+    if (!rule) return rated ? 'no-unit-in-use' : 'new'
+    if (!rule.unit) return rated ? 'no-unit-in-use' : 'unit'
     if (!rule.competence) return 'competence'
     const rate = rates.get(rateKey(rule.name, rule.unit))
     return !rate?.assembly && !rate?.dismantle ? 'rate' : null
@@ -62,9 +63,11 @@ export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => 
   }
   const rows = kpi.rates.map((rate) => row(rate.name, rate.unit, rate.assembly, rate.dismantle))
   for (const rule of kpi.workTypes) if (!rates.has(rateKey(rule.name, rule.unit))) rows.push(row(rule.name, rule.unit, 0, 0))
+  // A product type whose unit is still to be chosen among its rates has no row of its own.
+  const chosen = rows.filter((r) => r.unit !== '' || !kpi.rates.some((rate) => same(rate.name, r.name)))
   const listed = new Set(rows.map((r) => r.name.toLowerCase()))
-  for (const [key, entry] of seen) if (!listed.has(key)) rows.push(row(entry.name, '', 0, 0))
-  return rows.sort((a, b) => Number(a.configured) - Number(b.configured) || a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
+  for (const [key, entry] of seen) if (!listed.has(key)) chosen.push(row(entry.name, '', 0, 0))
+  return chosen.sort((a, b) => Number(a.configured) - Number(b.configured) || a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
 }
 
 const ruleFor = (name: string, unit: string, competence: string): WorkTypeRule => ({ name: name.trim(), productType: `[${name.trim()}]`, unit: unit.trim(), competence: competence.trim() })
@@ -135,20 +138,32 @@ export const removeKpiRow = (kpi: KpiConfig, name: string, unit: string): KpiCon
   return { workTypes, rates }
 }
 
+/**
+ * The product types of a file as they are taken in: the unit the planner has chosen for a product type is kept
+ * for as long as it has rates. The file says which units there are; which one is in use is the planner's decision.
+ */
+const keepChosenUnits = (existing: KpiConfig, incoming: WorkTypeRule[], rates: KpiRate[]): WorkTypeRule[] => {
+  const rated = new Set(rates.map((rate) => rateKey(rate.name, rate.unit)))
+  return incoming.map((rule) => {
+    const chosen = existing.workTypes.find((old) => same(old.name, rule.name))?.unit
+    return chosen && rated.has(rateKey(rule.name, chosen)) ? { ...rule, unit: chosen } : rule
+  })
+}
+
 /** Rows from a file win over rows already in the app; rows only in the app are kept. */
 export const mergeKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): KpiConfig => {
-  const types = new Map(existing.workTypes.map((rule) => [rule.name.toLowerCase(), rule]))
-  for (const rule of incoming.workTypes ?? []) types.set(rule.name.toLowerCase(), rule)
   const rates = new Map(existing.rates.map((rate) => [rateKey(rate.name, rate.unit), rate]))
   for (const rate of incoming.rates ?? []) rates.set(rateKey(rate.name, rate.unit), rate)
+  const types = new Map(existing.workTypes.map((rule) => [rule.name.toLowerCase(), rule]))
+  for (const rule of keepChosenUnits(existing, incoming.workTypes ?? [], [...rates.values()])) types.set(rule.name.toLowerCase(), rule)
   return { workTypes: [...types.values()], rates: [...rates.values()] }
 }
 
 /** The parts the file contains replace those parts in the app; a part the file lacks is left as it is. */
-export const replaceKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): KpiConfig => ({
-  workTypes: incoming.workTypes ?? existing.workTypes,
-  rates: incoming.rates ?? existing.rates,
-})
+export const replaceKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): KpiConfig => {
+  const rates = incoming.rates ?? existing.rates
+  return { workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming.workTypes, rates) : existing.workTypes, rates }
+}
 
 export interface KpiDiff {
   added: number
@@ -178,7 +193,8 @@ const diffPart = <T,>(existing: T[], incoming: T[] | undefined, key: (item: T) =
 
 /** What a KPI file would change, for the work types and for the rates. */
 export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): { workTypes: KpiDiff; rates: KpiDiff } => ({
-  workTypes: diffPart(existing.workTypes, incoming.workTypes, (rule) => rule.name.toLowerCase(), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
+  // Counted as they would be taken in: a unit the planner has chosen is no change.
+  workTypes: diffPart(existing.workTypes, incoming.workTypes && keepChosenUnits(existing, incoming.workTypes, [...existing.rates, ...(incoming.rates ?? [])]), (rule) => rule.name.toLowerCase(), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
   rates: diffPart(existing.rates, incoming.rates, (rate) => rateKey(rate.name, rate.unit), (a, b) => a.assembly === b.assembly && a.dismantle === b.dismantle),
 })
 

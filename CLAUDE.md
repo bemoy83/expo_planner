@@ -27,7 +27,7 @@ Six tabs, all in Norwegian:
 - **Personell** – the permanent staff with their competences.
 - **Kompetanser** – how each competence is shown (name, short name, colour, order), and what names it.
 
-Sources read from files: the Venyou export (`location_format_from-…_to-….xlsx`), Visma exports (`utskrift_visma_….xlsx`), and optionally `Prosjekt.xlsx`, `Kpier.xlsx` and `Nøkkeltall Visma …xlsx` as one-time shortcuts.
+Sources read from files: the Venyou export (`location_format_from-…_to-….xlsx`), Visma exports (`utskrift_visma_….xlsx`), and optionally `Prosjekt.xlsx` and `Kpier.xlsx` as one-time shortcuts. `Kpier.xlsx` is the only file KPI reads: product types, units, competence («Kompetansegruppe») and rates. The Nøkkeltall workbook is not read (2026-10-09); which unit is in use for a product type with several is chosen in the app.
 
 ## How it fits together
 

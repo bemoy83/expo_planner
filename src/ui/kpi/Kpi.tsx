@@ -7,13 +7,13 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { errorText, takeFiles } from '../files'
+import { errorText, takeFile } from '../files'
 import { NumberField, TextField } from '../fields'
 import { X } from 'lucide-react'
 
 interface PendingImport {
-  files: string[]
-  incoming: Partial<KpiConfig>
+  file: string
+  incoming: KpiConfig
 }
 
 const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
@@ -56,18 +56,15 @@ export function Kpi() {
   const unfinished = useMemo(() => new Set(rows.filter((row) => row.lacking && (row.configured || row.lines > 0)).map((row) => row.name)).size, [rows])
   const untyped = useMemo(() => linesWithoutProductType(ws.visma ?? []), [ws.visma])
 
-  const onFiles = async (files: File[]) => {
-    if (!files.length) return
+  const onFile = async (file: File) => {
     try {
-      let incoming: Partial<KpiConfig> = {}
-      for (const file of files) incoming = { ...incoming, ...readKpiWorkbook(new Uint8Array(await file.arrayBuffer())) }
-      const names = files.map((file) => file.name)
-      // Nothing to merge with when the parts the files bring are still empty in the app.
-      const nothingToReplace = (!incoming.rates || !kpi.rates.length) && (!incoming.workTypes || !kpi.workTypes.length)
-      if (nothingToReplace) {
+      const incoming = readKpiWorkbook(new Uint8Array(await file.arrayBuffer()))
+      // Nothing to merge with while the table is empty.
+      if (!kpi.rates.length && !kpi.workTypes.length) {
         setKpi(replaceKpi(kpi, incoming))
-        setMessage({ kind: 'ok', text: `${names.join(' og ')} lest inn.` })
-      } else setPending({ files: names, incoming })
+        const toChoose = incoming.workTypes.filter((rule) => !rule.unit).length
+        setMessage({ kind: 'ok', text: `${file.name} lest inn: ${incoming.workTypes.length} produkttyper og ${incoming.rates.length} satser.${toChoose ? ` ${toChoose} produkttyper har flere enheter; velg hvilken som er i bruk.` : ''}` })
+      } else setPending({ file: file.name, incoming })
     } catch (e) {
       setMessage({ kind: 'error', text: errorText(e) })
     }
@@ -76,7 +73,7 @@ export function Kpi() {
   const apply = (mode: 'merge' | 'replace') => {
     if (!pending) return
     setKpi(mode === 'merge' ? mergeKpi(kpi, pending.incoming) : replaceKpi(kpi, pending.incoming))
-    setMessage({ kind: 'ok', text: `${pending.files.join(' og ')} ${mode === 'merge' ? 'slått sammen med oppsettet' : 'har erstattet oppsettet'}. Kan angres med Ctrl/Cmd+Z.` })
+    setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med oppsettet' : 'har erstattet oppsettet'}. Kan angres med Ctrl/Cmd+Z.` })
     setPending(null)
   }
 
@@ -184,7 +181,7 @@ export function Kpi() {
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <button onClick={() => fileInput.current?.click()} title="Valgfritt: les inn Kpier.xlsx (satser) og Nøkkeltall Visma-arbeidsboken (enhet og kompetanse) én gang">
+        <button onClick={() => fileInput.current?.click()} title="Valgfritt: les inn Kpier.xlsx én gang. Den gir produkttypene med enheter, kompetanse og satser.">
           Importer fra fil
         </button>
         <button className="primary" onClick={() => setAdding({})}>
@@ -194,9 +191,8 @@ export function Kpi() {
           ref={fileInput}
           type="file"
           accept=".xlsx"
-          multiple
           hidden
-          onChange={(e) => takeFiles(e, onFiles)}
+          onChange={(e) => takeFile(e, onFile)}
         />
       </div>
 
@@ -227,7 +223,8 @@ export function Kpi() {
         ) : (
           <p className="notice">
             Tabellen er tom. Den fyller seg selv: les inn en Visma-utskrift på Behov-fanen, så kommer produkttypene i utskriften opp her, klare til å få enhet, kompetanse og sats. Du kan også
-            legge dem inn med «Ny produkttype», eller lese inn <code>Kpier.xlsx</code> og Nøkkeltall Visma-arbeidsboken én gang med «Importer fra fil».
+            legge dem inn med «Ny produkttype», eller lese inn <code>Kpier.xlsx</code> én gang med «Importer fra fil».
+            Har en produkttype flere enheter i filen, velger du selv hvilken som er i bruk.
           </p>
         )}
 
@@ -247,9 +244,9 @@ export function Kpi() {
       {pending && diff && (
         <MergeReplaceDialog
           title="Importer KPI"
-          source={pending.files.join(' og ')}
-          results={[pending.incoming.workTypes && describeDiff('Produkttyper', diff.workTypes), pending.incoming.rates && describeDiff('Satser', diff.rates)].filter((line): line is string => !!line)}
-          replaceText={`${[pending.incoming.workTypes && 'produkttypene', pending.incoming.rates && 'satsene'].filter(Boolean).join(' og ')} i appen byttes helt ut med filen${
+          source={pending.file}
+          results={[describeDiff('Produkttyper', diff.workTypes), describeDiff('Satser', diff.rates)]}
+          replaceText={`produkttypene og satsene i appen byttes helt ut med filen; enheten du har valgt for en produkttype beholdes så lenge den har sats${
             diff.workTypes.onlyInApp + diff.rates.onlyInApp > 0 ? `; ${diff.workTypes.onlyInApp + diff.rates.onlyInApp} rader som bare finnes i appen forsvinner` : ''
           }`}
           onCancel={() => setPending(null)}
