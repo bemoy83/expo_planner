@@ -1,8 +1,8 @@
 import { FTE_NOISE, rowTotals, type DemandIndex, type RowTotals } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import { UNRESOLVED_HALL } from '../../domain/locations'
-import { normalizeName, type VenueEvent } from '../../domain/projects'
-import type { AllocationRow, Settings, WorkPhase } from '../../domain/types'
+import { normalizeName, projectNamesIndex, type VenueEvent } from '../../domain/projects'
+import type { AllocationRow, ProjectRef, Settings, WorkPhase } from '../../domain/types'
 
 export interface ProjectGroup {
   key: string
@@ -113,12 +113,20 @@ const newGroup = (key: string, projectName: string, projectNo: string): ProjectG
 
 /**
  * One group per project. Projects come from the Venyou events, so they are listed even without any rows;
- * planning rows join their event by project number, or by name where the event has no number.
+ * planning rows join their event by project number, or by name where the event has no number: the row's
+ * own name, or one the project list (`projects`) has for the row's number.
  * Rows that match no event (older plans, internal work) get a group of their own.
  */
-export const buildGroups = (rows: AllocationRow[], events: VenueEvent[], index: DemandIndex, settings: Settings): ProjectGroup[] => {
+export const buildGroups = (rows: AllocationRow[], events: VenueEvent[], index: DemandIndex, settings: Settings, projects: ProjectRef[] = []): ProjectGroup[] => {
   const groups = new Map<string, ProjectGroup>()
   const byName = new Map<string, string>()
+  const listed = projectNamesIndex(projects)
+  /** The event without a number that carries one of the names of the row's project, where there is exactly one. */
+  const eventByName = (row: AllocationRow): string | undefined => {
+    const names = new Set([normalizeName(row.projectName), ...(listed.get(row.projectNo.trim()) ?? [])])
+    const keys = new Set([...names].flatMap((name) => byName.get(name) ?? []).filter((key) => ['', row.projectNo.trim()].includes(groups.get(key)!.projectNo)))
+    return keys.size === 1 ? [...keys][0] : undefined
+  }
   for (const event of events) {
     const key = projectKey({ projectNo: event.projectNo, projectName: event.name })
     let group = groups.get(key)
@@ -131,13 +139,15 @@ export const buildGroups = (rows: AllocationRow[], events: VenueEvent[], index: 
   }
   for (const row of rows) {
     // A row made before its event got a project number still belongs to that event.
-    const key = groups.has(projectKey(row)) ? projectKey(row) : ((!row.projectNo.trim() && byName.get(normalizeName(row.projectName))) || projectKey(row))
+    const key = groups.has(projectKey(row)) ? projectKey(row) : ((!row.projectNo.trim() && byName.get(normalizeName(row.projectName))) || eventByName(row) || projectKey(row))
     let group = groups.get(key)
     if (!group) {
       group = newGroup(key, row.projectName || '(uten prosjekt)', row.projectNo)
       groups.set(key, group)
     }
     group.rows.push(row)
+    // An event that has no number of its own shows the number of the rows that found it by name.
+    if (!group.projectNo) group.projectNo = row.projectNo.trim()
     const t = rowTotals(index, row, settings)
     group.totals.requiredFte += t.requiredFte ?? 0
     group.totals.plannedFte += t.plannedFte
@@ -185,14 +195,14 @@ const PHASE_ORDER: Record<string, number> = { montering: 0, demontering: 1 }
  * The projects the filter leaves, each with the rows that match it.
  * Projects without rows are kept only where the project is the top level.
  */
-export const filterGroups = (rows: AllocationRow[], events: VenueEvent[], index: DemandIndex, settings: Settings, filter: RowFilter, grouping: Dimension[] = ['project']): ProjectGroup[] => {
+export const filterGroups = (rows: AllocationRow[], events: VenueEvent[], index: DemandIndex, settings: Settings, filter: RowFilter, grouping: Dimension[] = ['project'], projects: ProjectRef[] = []): ProjectGroup[] => {
   const narrowsRows = !!filter.competence || !!filter.search || !!filter.onlyUncovered || !!filter.onlyWithoutDemand
   const lacksPlan = (row: AllocationRow) => {
     const { requiredFte, plannedFte } = rowTotals(index, row, settings)
     return (requiredFte ?? 0) > plannedFte + FTE_NOISE
   }
   const lacksDemand = (row: AllocationRow) => !((rowTotals(index, row, settings).requiredFte ?? 0) > FTE_NOISE)
-  let groups = buildGroups(rows.filter((row) => rowMatches(row, filter) && (!filter.onlyUncovered || lacksPlan(row)) && (!filter.onlyWithoutDemand || lacksDemand(row))), events, index, settings)
+  let groups = buildGroups(rows.filter((row) => rowMatches(row, filter) && (!filter.onlyUncovered || lacksPlan(row)) && (!filter.onlyWithoutDemand || lacksDemand(row))), events, index, settings, projects)
   if (filter.project) groups = groups.filter((group) => group.key === filter.project)
   // A competence or text filter is about rows, so projects without a matching row drop out, unless the text matches the project itself.
   if (narrowsRows) {

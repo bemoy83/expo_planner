@@ -42,6 +42,18 @@ export const projectListIndex = (projects: ProjectRef[]): Map<string, Set<string
   return index
 }
 
+/** project number → the names the project list has for it, normalized. */
+export const projectNamesIndex = (projects: ProjectRef[]): Map<string, Set<string>> => {
+  const index = new Map<string, Set<string>>()
+  for (const project of projects) {
+    const name = normalizeName(project.name)
+    const projectNo = project.projectNo.trim()
+    if (!name || !projectNo) continue
+    index.set(projectNo, (index.get(projectNo) ?? new Set()).add(name))
+  }
+  return index
+}
+
 /** One entry per event in the hall bookings, with its period, halls and project number. */
 export const venueEvents = (bookings: VenueBooking[], links: Record<string, string> | undefined, projects: ProjectRef[]): VenueEvent[] => {
   const index = projectListIndex(projects)

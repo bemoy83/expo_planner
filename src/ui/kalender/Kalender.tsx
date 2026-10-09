@@ -163,7 +163,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases)
     return [...placed, ...suggestedRows(locatedDemand, placed)]
   }, [ws.allocations, ws.venue, ws.hallAliases, locatedDemand])
-  const filtered = useMemo(() => filterGroups(rows, events, demandIndex, settings, filter, grouping), [rows, events, demandIndex, settings, filter, grouping])
+  const filtered = useMemo(() => filterGroups(rows, events, demandIndex, settings, filter, grouping, ws.projects), [rows, events, demandIndex, settings, filter, grouping, ws.projects])
   // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
   // The visible dates change with every column scrolled, the projects they hold seldom do; the hierarchy is
   // built again only when that list of projects changes.
@@ -193,7 +193,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // The details panel keeps its row when the selection is cleared or moves to a level.
   const focusRowId = selection ? (allocLanes[selection.focus.lane]?.row?.id ?? null) : null
   if (focusRowId && focusRowId !== detailId) setDetailId(focusRowId)
-  const allGroups = useMemo(() => buildGroups(rows, events, demandIndex, settings), [rows, events, demandIndex, settings])
+  const allGroups = useMemo(() => buildGroups(rows, events, demandIndex, settings, ws.projects), [rows, events, demandIndex, settings, ws.projects])
   const projects = useMemo(
     () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
     [allGroups],

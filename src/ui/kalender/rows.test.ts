@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, levelSections, pathKeys, projectIndex, workPhaseOn, type Dimension, type GridItem } from './rows'
+import { buildGroups, buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, levelSections, pathKeys, projectIndex, workPhaseOn, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -87,6 +87,38 @@ describe('projects from the Venyou calendar', () => {
   it('finds a project by name even when it has no rows', () => {
     expect(groupsOf(build(events, { ...EMPTY_FILTER, search: 'motor' })).map((g) => g.projectName)).toEqual(['OSLO MOTOR SHOW 2026'])
     expect(groupsOf(build(events, { ...EMPTY_FILTER, competence: 'FOGA' })).map((g) => g.projectName)).toEqual(['Hage 2026', 'VVS DAGENE 2026', 'Ny messe'])
+  })
+})
+
+describe('rows whose number no event has', () => {
+  const list = [
+    { name: 'VVS 2026', projectNo: '26970' },
+    { name: 'VVS Dagene 2026', projectNo: '26970' },
+    { name: 'VVS Dagene 2026', projectNo: '26971' },
+  ]
+  const vvs = [row('a', {}), row('b', { competence: 'Banner' })]
+  const groups = (events: VenueEvent[], projects = list) => buildGroups(vvs, events, index, DEFAULT_SETTINGS, projects).map((g) => `${g.key}:${g.projectNo}:${g.rows.length}`)
+
+  it('join the event that carries a name the project list has for the number', () => {
+    // The list has two numbers under the event's name, so the event has none of its own.
+    expect(groups([event('VVS DAGENE 2026', '', '2026-09-28', '2026-10-21')])).toEqual(['navn:vvs dagene 2026:26970:2'])
+  })
+
+  it('join the event that carries their own name', () => {
+    expect(groups([event('VVS 2026', '', '2026-09-28', '2026-10-21')], [])).toEqual(['navn:vvs 2026:26970:2'])
+  })
+
+  it('stay apart from an event that has another number', () => {
+    expect(groups([event('VVS DAGENE 2026', '26971', '2026-09-28', '2026-10-21')])).toEqual(['26970:26970:2', '26971:26971:0'])
+  })
+
+  it('stay apart where the names point to more than one event', () => {
+    const events = [event('VVS 2026', '', '2026-09-28', '2026-10-21'), event('VVS DAGENE 2026', '', '2026-09-28', '2026-10-21')]
+    expect(groups(events)).toEqual(['26970:26970:2', 'navn:vvs 2026::0', 'navn:vvs dagene 2026::0'])
+  })
+
+  it('stay apart without a name to go by', () => {
+    expect(groups([event('VVS DAGENE 2026', '', '2026-09-28', '2026-10-21')], [])).toEqual(['26970:26970:2', 'navn:vvs dagene 2026::0'])
   })
 })
 
