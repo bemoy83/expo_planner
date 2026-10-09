@@ -149,8 +149,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallCount } = useHallCalendar(ws, range.start, zoom === 'wide', allHalls)
 
   const need = useMemo(() => dailyNeed(ws.allocations), [ws.allocations])
-  const winFrom = dates[Math.max(0, Math.floor(viewport.left / colW))]
-  const winTo = dates[Math.max(0, Math.min(dates.length - 1, Math.floor((viewport.left + viewport.width - LEFT_W) / colW)))]
+  // While the switch between the modes zooms, the days in view are held at those the plan shows at its own
+  // width. The zoom passes through fewer days, and the projects listed would come and go with them,
+  // moving the rows under the planner.
+  const [heldWindow, setHeldWindow] = useState<DaySpan | null>(null)
+  const winFrom = heldWindow?.start ?? dates[Math.max(0, Math.floor(viewport.left / colW))]
+  const winTo = heldWindow?.end ?? dates[Math.max(0, Math.min(dates.length - 1, Math.floor((viewport.left + viewport.width - LEFT_W) / colW)))]
   // Rows without demand are looked for in the whole period, wherever their days are.
   const inViewOnly = onlyInView && !filter.project && !filter.search && !filter.onlyWithoutDemand
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
@@ -609,8 +613,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   }
   // The two modes have rows of their own, so each keeps how far down it was scrolled: the plan is found
   // again where it was left, and the people do not open partway down their list. The plan is put back
-  // once more when the zoom out has ended: until then fewer days are in view, so fewer projects are
-  // listed, and the place it was left at is not the same place, or is not there at all.
+  // once more when the zoom out has ended, should the list have changed on the way.
   const scrolledTo = useRef<Record<PlanMode, number>>({ plan: 0, bemanning: 0 })
   const [zoomsEnded, setZoomsEnded] = useState(0)
   useLayoutEffect(() => {
@@ -631,16 +634,21 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     // The two modes share the timeline: the day at the left edge of the one is the day at the left edge
     // of the other. Only the width of a day differs, and Bemanning keeps the width it was last seen in.
     const left = Math.floor(el.scrollLeft / colW + 0.01)
+    setHeldWindow({ start: dates[left], end: dates[Math.min(dates.length - 1, left + Math.floor(dayRoom() / ZOOM_WIDTHS[zoom]))] })
     if (next === 'bemanning') {
       const stored = loadPref<DaySpan | null>('bemanningRange', null)
       const width = fitWidth(stored && stored.start <= stored.end ? spanDays(stored) : BEMANNING_DAYS, dayRoom())
       zoomTo(colW, { colW: width, left }, () => {
         setBemanningW(width)
         setShown('bemanning')
+        setHeldWindow(null)
       })
     } else {
       setShown('plan')
-      zoomTo(colW, { colW: ZOOM_WIDTHS[zoom], left }, () => setZoomsEnded((n) => n + 1))
+      zoomTo(colW, { colW: ZOOM_WIDTHS[zoom], left }, () => {
+        setHeldWindow(null)
+        setZoomsEnded((n) => n + 1)
+      })
     }
   }
   // The days seen in Bemanning are remembered, for the next time it is opened.
