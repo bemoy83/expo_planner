@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, mergeKpi, removeKpiRow, replaceKpi, setRate, type KpiDiff, type KpiRow, type NewKpiRow } from '../../domain/kpi'
-import { parseDecimal } from '../../domain/numbers'
+import { decimalText, parseDecimal } from '../../domain/numbers'
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -67,7 +67,7 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
   const diff = pending ? diffKpi(kpi, pending.incoming) : null
 
   const columns: Column<KpiRow>[] = [
-    { key: 'name', head: 'Produkttype', sort: (row) => row.name, cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : '') },
+    { key: 'name', head: 'Produkttype', text: (row) => row.name, cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : '') },
     { key: 'unit', head: 'Enhet', text: (row) => row.unit, cell: (row) => row.unit },
     {
       key: 'active',
@@ -83,6 +83,7 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
       head: 'Montering',
       title: 'Enheter per persontime',
       className: 'num',
+      text: (row) => (row.assembly ? decimalText(row.assembly) : ''),
       sort: (row) => row.assembly,
       cell: (row) => <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { assembly: value }))} />,
     },
@@ -91,6 +92,7 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
       head: 'Demontering',
       title: 'Enheter per persontime. Tomt betyr ingen demontering.',
       className: 'num',
+      text: (row) => (row.dismantle ? decimalText(row.dismantle) : ''),
       sort: (row) => row.dismantle,
       cell: (row) => <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { dismantle: value }))} />,
     },

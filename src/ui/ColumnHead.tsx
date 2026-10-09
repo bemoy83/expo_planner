@@ -31,19 +31,20 @@ export function ColumnHead({ children, filter, sorted, onSort, className, title 
       ) : (
         children
       )}
-      {filter && <FilterMenu filter={filter} />}
+      {filter && <FilterMenu filter={filter} align={className?.split(' ').includes('num') ? 'right' : 'left'} />}
     </th>
   )
 }
 
-function FilterMenu({ filter }: { filter: ColumnFilter }) {
+/** The list opens from the button's right edge in a column of numbers, which is narrow and often the table's last. */
+function FilterMenu({ filter, align }: { filter: ColumnFilter; align: 'left' | 'right' }) {
   const [search, setSearch] = useState('')
   const { offered, kept, toggle, keep } = filter
   const q = search.trim().toLowerCase()
   const listed = q ? offered.filter((o) => o.value.toLowerCase().includes(q)) : offered
   const ticked = new Set(kept ?? offered.map((o) => o.value))
   return (
-    <Menu label={<ListFilter size={12} aria-hidden />} ariaLabel="Filtrer kolonnen" title={kept ? `Filtrert: viser ${kept.length} av ${offered.length} verdier` : 'Filtrer kolonnen'} className="col-filter">
+    <Menu label={<ListFilter size={12} aria-hidden />} ariaLabel="Filtrer kolonnen" title={kept ? `Filtrert: viser ${kept.length} av ${offered.length} verdier` : 'Filtrer kolonnen'} className="col-filter" align={align}>
       {() => (
         <div className="col-filter-pop">
           <input type="search" placeholder="Søk i verdiene" value={search} autoFocus onChange={(e) => setSearch(e.target.value)} />

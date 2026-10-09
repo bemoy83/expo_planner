@@ -11,7 +11,7 @@ export interface Column<T> {
   className?: string
   /** The cell as text: the values the column's filter lists, and what it is sorted by. Several values for a cell that holds several. */
   text?: (row: T) => string | string[]
-  /** What the column is sorted by where that is not its text: a number, or text for a column that is sorted but not filtered. */
+  /** What the column is sorted by where that is not its text: a number, so that 9 comes before 10. */
   sort?: (row: T) => SortValue
   /** The cell. `rows` are the rows that are shown, in their order, with this one at `index`. */
   cell: (row: T, index: number, rows: T[]) => ReactNode

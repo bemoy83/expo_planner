@@ -68,8 +68,8 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
   /** What a product type still lacks before its lines give hours. */
   const lacking = (row: WorkTypeRow) => (!row.configured ? 'Ny fra Visma' : !row.unit ? 'Mangler enhet' : !row.competence ? 'Mangler kompetanse' : !row.hasRate ? 'Mangler sats' : '')
   const columns: Column<WorkTypeRow>[] = [
-    { key: 'name', head: 'Produkttype', sort: (row) => row.name, cell: (row) => <strong>{row.name}</strong> },
-    { key: 'productType', head: 'I Visma', title: 'Produkttype 2 slik den står i Visma', sort: (row) => row.productType, cell: (row) => row.productType, cellProps: () => ({ className: 'muted' }) },
+    { key: 'name', head: 'Produkttype', text: (row) => row.name, cell: (row) => <strong>{row.name}</strong> },
+    { key: 'productType', head: 'I Visma', title: 'Produkttype 2 slik den står i Visma', text: (row) => row.productType, cell: (row) => row.productType, cellProps: () => ({ className: 'muted' }) },
     {
       key: 'unit',
       head: 'Enhet',
@@ -88,6 +88,7 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
       head: 'Linjer',
       title: 'Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn',
       className: 'num',
+      text: (row) => (row.lines ? String(row.lines) : ''),
       sort: (row) => row.lines,
       cell: (row) => row.lines || '',
     },

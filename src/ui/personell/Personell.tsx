@@ -37,7 +37,7 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
     {
       key: 'name',
       head: 'Navn',
-      sort: (person) => person.name,
+      text: (person) => person.name,
       cell: (person) => <TextField value={person.name} ariaLabel="Navn" onCommit={(name) => name && setPersons((list) => updatePerson(list, person.id, { name }))} />,
     },
     {
@@ -82,7 +82,7 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
     {
       key: 'note',
       head: 'Notat',
-      sort: (person) => person.note ?? '',
+      text: (person) => person.note ?? '',
       cell: (person) => <TextField value={person.note ?? ''} ariaLabel="Notat" onCommit={(note) => setPersons((list) => updatePerson(list, person.id, { note: note || undefined }))} />,
     },
     {
