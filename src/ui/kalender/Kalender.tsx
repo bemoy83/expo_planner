@@ -760,7 +760,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
       <div className="kal-work">
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
-          {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows; too tall, its upper part slides in under the header. */}
+          {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows; too tall, it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
             {bemanning && <i className="bm-crosshair" />}
@@ -776,7 +776,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
             }}
           >
             {bemanning ? <BemanningTop /> : <>
-            <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
+            <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
               onOpen={setStaffingOpen}

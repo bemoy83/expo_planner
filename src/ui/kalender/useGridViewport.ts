@@ -113,8 +113,9 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
   }, [colW, placings])
 
   // The top block stays pinned like Excel's frozen rows. When it would cover most of the screen, or leave the
-  // rows less than they are promised, its upper part gives way: that much of it slides in under the date header
-  // as the rows scroll, and the rest stays. The date header and the planning bar never give way.
+  // rows less than they are promised, it gives way: it moves up by that much as the rows scroll, and the rest
+  // stays. What it holds says which part is lost: the hall calendar stays under the date header, and the
+  // staffing lines slide in under it. The date header and the planning bar never give way.
   const room = Math.min(viewport.height * 0.65, viewport.height - reserve)
   const tucked = Math.round(Math.max(0, Math.min(topHeight - room, topHeight - headHeight - barHeight)))
   // Bring a span of days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
@@ -123,7 +124,7 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     if (!el || !goTo) return
     const { leftCol } = fitSpan(daysBetween(start, goTo.start), daysBetween(goTo.start, goTo.end) + 1, el.clientWidth - LEFT_W, zoom)
     el.scrollLeft = leftCol * colW
-    // The upper part of the hall calendar is out of sight once the rows are scrolled, when it is too tall to pin whole.
+    // Part of the top block is out of sight once the rows are scrolled, when it is too tall to pin whole.
     if (tucked) el.scrollTop = 0
     onScroll()
     setGoTo(null)

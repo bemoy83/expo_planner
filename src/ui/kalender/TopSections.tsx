@@ -18,13 +18,18 @@ interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'h
   onAllHalls: (all: boolean) => void
   /** No hall bookings are read in. */
   empty: boolean
+  /** Where the hall calendar stays while the rows scroll: right under the date header. */
+  pinTop: number
   cols: Columns
 }
 
-/** The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too. */
-export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
+/**
+ * The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too.
+ * It stays under the date header whatever the height of the top block: when the block is too tall to pin whole, the staffing lines slide in under it.
+ */
+export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, pinTop, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
   return (
-    <div className={`top-section ${open ? 'open' : ''}`}>
+    <div className={`top-section halls ${open ? 'open' : ''}`} style={{ top: pinTop }}>
       <div className="section-head" style={{ width: LEFT_W }}>
         <button className="twisty" aria-expanded={open} aria-label={open ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => onOpen(!open)}>
           {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
