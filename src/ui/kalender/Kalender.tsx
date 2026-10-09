@@ -608,12 +608,15 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     zoomTo(colW, { colW: width, left: daysBetween(range.start, span.start) }, () => setBemanningW(width))
   }
   // The two modes have rows of their own, so each keeps how far down it was scrolled: the plan is found
-  // again where it was left, and the people do not open partway down their list.
+  // again where it was left, and the people do not open partway down their list. The plan is put back
+  // once more when the zoom out has ended: until then fewer days are in view, so fewer projects are
+  // listed, and the place it was left at is not the same place, or is not there at all.
   const scrolledTo = useRef<Record<PlanMode, number>>({ plan: 0, bemanning: 0 })
+  const [zoomsEnded, setZoomsEnded] = useState(0)
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = scrolledTo.current[shown]
-  }, [shown, scrollRef])
+  }, [shown, zoomsEnded, scrollRef])
   const switchMode = (next: PlanMode) => {
     const el = scrollRef.current
     if (next === planMode || !el) return
@@ -637,7 +640,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
       })
     } else {
       setShown('plan')
-      zoomTo(colW, { colW: ZOOM_WIDTHS[zoom], left })
+      zoomTo(colW, { colW: ZOOM_WIDTHS[zoom], left }, () => setZoomsEnded((n) => n + 1))
     }
   }
   // The days seen in Bemanning are remembered, for the next time it is opened.
