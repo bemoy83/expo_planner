@@ -7,7 +7,7 @@ import type { PersonWeek } from '../../domain/staffing'
 import { competenceColor } from '../dom'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { LEFT_W, ROW_H } from '../kalender/layout'
+import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
 import { useBemanning, type GhostBlock, type PersonActions } from './BemanningScope'
 import { dayCell, type BlockNames } from './dayCell'
 import { DIVIDER_H, PERSON_H } from './layout'
@@ -87,7 +87,6 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
           <div
             key={date}
             className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${cell.away === 'syk' ? 'sick' : cell.away ? 'away' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
-            style={{ width: cols.colW }}
             onMouseDown={actions.cellDown}
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
@@ -137,7 +136,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
   const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
   const refusedCol = refused ? dates.indexOf(refused.date) : -1
   const shortcut = (key: string) => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`)
-  const box = (r: { rowFrom: number; rowTo: number; colFrom: number; colTo: number }) => ({ left: LEFT_W + r.colFrom * cols.colW, width: (r.colTo - r.colFrom + 1) * cols.colW, top: topOf(r.rowFrom), height: topOf(Math.min(r.rowTo, listed.length - 1)) + PERSON_H - topOf(r.rowFrom) })
+  const box = (r: { rowFrom: number; rowTo: number; colFrom: number; colTo: number }) => ({ left: daysWide(r.colFrom, LEFT_W), width: daysWide(r.colTo - r.colFrom + 1), top: topOf(r.rowFrom), height: topOf(Math.min(r.rowTo, listed.length - 1)) + PERSON_H - topOf(r.rowFrom) })
   const pillStyle = brush ? competenceColor(styles.get(brush)) : undefined
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
   return (

@@ -35,11 +35,21 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
   // The days to bring into view, once the column width that fits them is in place.
   const [goTo, setGoTo] = useState<{ start: ISODate; end: ISODate } | null>(null)
 
+  // The width of a day goes to the page as the style variable `--col-w`, which every cell and bar is
+  // laid out by. A zoom writes it frame by frame (`zoomStep`), so the lines are not drawn again on the
+  // way; until it ends, the width in `colW` is only the one the lines were drawn at.
+  const liveColW = useRef(colW)
+  const zooming = useRef(false)
+  // Where the left edge is to be, among the days, when it is placed and not kept.
+  const placed = useRef<number | null>(null)
+  const [placings, setPlacings] = useState(0)
+
   // Scroll events already arrive once per frame, so the viewport can be read directly.
   const onScroll = useCallback(() => {
     const el = scrollRef.current
     // A scroll that follows a placing of the left edge tells nothing new, and draws nothing again.
-    if (el) setViewport((v) => (Math.abs(v.left - el.scrollLeft) < 1 && v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight ? v : { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight }))
+    // Nor does a frame of a zoom: what is in view is told when it ends.
+    if (el && !zooming.current) setViewport((v) => (Math.abs(v.left - el.scrollLeft) < 1 && v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight ? v : { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight }))
     onScrolled()
   }, [onScrolled])
 
@@ -54,7 +64,10 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     const top = topRef.current
     const tools = toolsRef.current
     if (!el || !head || !top || !tools) return
-    setViewport((v) => (v.left === el.scrollLeft && v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight ? v : { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight }))
+    setViewport((v) => {
+      const left = zooming.current ? v.left : el.scrollLeft
+      return v.left === left && v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight ? v : { left, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight }
+    })
     setTopHeight(head.offsetHeight + top.offsetHeight + tools.offsetHeight)
     setHeadHeight(head.offsetHeight)
     setBarHeight(tools.offsetHeight)
@@ -84,6 +97,48 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     [start, colW, onScroll],
   )
 
+  /** Puts the left edge at a position among the days (3,5 is the middle of the fourth day), at the column width that is on its way in. It ends a zoom. */
+  const placeLeft = useCallback((left: number, atColW: number) => {
+    placed.current = left
+    zooming.current = false
+    // What is in view is known at once, so the right days are drawn in the same frame as the new width.
+    setViewport((v) => ({ ...v, left: left * atColW }))
+    setPlacings((n) => n + 1)
+  }, [])
+  /** Where a zoom starts: the width of a day on screen, the place of the left edge among the days, and the room the days have. */
+  const zoomFrom = useCallback(() => {
+    const el = scrollRef.current
+    return { colW: liveColW.current, left: (el?.scrollLeft ?? 0) / liveColW.current, room: (el?.clientWidth ?? 0) - LEFT_W }
+  }, [])
+  /**
+   * One frame of a zoom: the width of a day and the place of the left edge go straight to the page, and
+   * nothing is drawn again. The caller sees to it that the days the zoom passes are drawn, and ends it
+   * with `placeLeft`.
+   */
+  const zoomStep = useCallback((left: number, atColW: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    zooming.current = true
+    liveColW.current = atColW
+    el.style.setProperty('--col-w', `${atColW}px`)
+    el.scrollLeft = left * atColW
+  }, [])
+
+  // The width of a day, and with it the same date at the left edge, unless the edge is placed. Before
+  // the first scroll below, which needs the grid to have its width. Not while a zoom has the width.
+  const prevColW = useRef(colW)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el && !zooming.current) {
+      el.style.setProperty('--col-w', `${colW}px`)
+      liveColW.current = colW
+      if (placed.current !== null) el.scrollLeft = placed.current * colW
+      else if (prevColW.current !== colW) el.scrollLeft = (el.scrollLeft / prevColW.current) * colW
+    }
+    placed.current = null
+    prevColW.current = colW
+  }, [colW, placings])
+
   // Start near the day asked for, once.
   const didInitialScroll = useRef(false)
   useLayoutEffect(() => {
@@ -104,26 +159,6 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     prevStart.current = start
   }, [start, colW, onScroll, onPeriodMoved])
 
-  // Keep the same date at the left edge when zooming, unless the edge is placed: the switch between the
-  // modes zooms to other days, and says where the edge is on every frame of the way.
-  const placed = useRef<number | null>(null)
-  const [placings, setPlacings] = useState(0)
-  /** Puts the left edge at a position among the days (3,5 is the middle of the fourth day), at the column width that is on its way in. */
-  const placeLeft = useCallback((left: number, atColW: number) => {
-    placed.current = left
-    // What is in view is known at once, so the right days are drawn in the same frame as the new width.
-    setViewport((v) => ({ ...v, left: left * atColW }))
-    setPlacings((n) => n + 1)
-  }, [])
-  const prevColW = useRef(colW)
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (el && placed.current !== null) el.scrollLeft = placed.current * colW
-    else if (el && prevColW.current !== colW) el.scrollLeft = (el.scrollLeft / prevColW.current) * colW
-    placed.current = null
-    prevColW.current = colW
-  }, [colW, placings])
-
   // The top block stays pinned like Excel's frozen rows, however much of the screen it covers: its sections are
   // how the planner finds the way, and stay within reach. It gives way only where the rows would be left with
   // less than they are promised, or with no more than a few lines: it then moves up by that much as the rows
@@ -131,7 +166,7 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
   // staffing lines slide in under it. The date header and the planning bar never give way.
   const room = viewport.height - Math.max(reserve, 3 * ROW_H)
   const tucked = Math.round(Math.max(0, Math.min(topHeight - room, topHeight - headHeight - barHeight)))
-  // Bring a span of days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
+  // Bring a span of days into view. Declared after the effect of the width above, so it has the last word on a change of column width.
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el || !goTo) return
@@ -143,5 +178,5 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     setGoTo(null)
   }, [goTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, measure, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
+  return { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, measure, onScroll, scrollToDate, showSpan: setGoTo, placeLeft, zoomFrom, zoomStep }
 }

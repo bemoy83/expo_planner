@@ -3,7 +3,7 @@ import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { Twisty } from '../common'
 import { Line } from '../kalender/GridRows'
 import { dayClass } from '../kalender/gridTypes'
-import { LEFT_W } from '../kalender/layout'
+import { daysWide, LEFT_W } from '../kalender/layout'
 import { PhaseLegend } from '../kalender/TopSections'
 import { useBemanning } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
@@ -62,7 +62,7 @@ export function ProjectLines() {
           // The event's bar carries the project's name; the others their phase, in full where there is room.
           const text = compact ? null : bar.phase === 'event' ? project.name : width >= PHASE_NAME_MIN_W ? PHASE_LABELS[bar.phase] : PHASE_CODES[bar.phase]
           return (
-            <span key={`${bar.phase}:${bar.col}`} className={`hall-bar ph-${bar.phase}`} style={{ left: LEFT_W + bar.col * colW + 1, width }} title={`${project.name} · ${PHASE_LABELS[bar.phase]}`}>
+            <span key={`${bar.phase}:${bar.col}`} className={`hall-bar ph-${bar.phase}`} style={{ left: daysWide(bar.col, LEFT_W + 1), width: daysWide(bar.span, -2) }} title={`${project.name} · ${PHASE_LABELS[bar.phase]}`}>
               {text}
             </span>
           )
@@ -85,7 +85,7 @@ export function ProjectLines() {
       {open && (
         <div className="bm-project-block" style={{ height: slots * rowH }}>
           {/* The days behind the lines, so the weekends run through the empty lines too. */}
-          <Line className="bm-project-days" height={slots * rowH} label={null} cols={cols} cells={(date) => <div key={date} className={`${dayClass(cols, date)} cell hall`} style={{ width: colW }} />} />
+          <Line className="bm-project-days" height={slots * rowH} label={null} cols={cols} cells={(date) => <div key={date} className={`${dayClass(cols, date)} cell hall`} />} />
           {listed.slice(0, slots).map((project, slot) => line(project, slot, false))}
           {leaving.filter(({ slot }) => slot < slots).map(({ project, slot }) => line(project, slot, true))}
         </div>

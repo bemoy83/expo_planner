@@ -9,7 +9,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
 import type { Columns } from '../kalender/gridTypes'
 import { fmtDay } from '../kalender/labels'
-import { LEFT_W } from '../kalender/layout'
+import { daysWide, LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'
 import { useToasts, type Toast } from '../Toasts'
 import { ABSENCE_LABELS, type BlockNames } from './dayCell'
@@ -482,8 +482,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       // grid moves it, so nothing is drawn again for it.
       const el = scrollRef.current
       if (el && at) {
-        el.style.setProperty('--cross-x', `${LEFT_W + at.col * colW}px`)
-        el.style.setProperty('--cross-w', `${colW}px`)
+        el.style.setProperty('--cross-x', daysWide(at.col, LEFT_W))
         el.classList.add('crossing')
       }
       if (stroke || !(activeTool === 'paint' || (activeTool === 'select' && clip))) return

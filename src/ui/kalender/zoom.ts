@@ -65,3 +65,25 @@ export const zoomFrame = (from: ZoomPoint, to: ZoomPoint, progress: number): Zoo
   const e = easeInOutCubic(Math.min(1, Math.max(0, progress)))
   return { colW: Math.exp(Math.log(from.colW) + (Math.log(to.colW) - Math.log(from.colW)) * e), left: from.left + (to.left - from.left) * e }
 }
+
+/** The days that are drawn while a zoom is on its way: from the first to the last it passes, and the day the left edge ends on. */
+export interface HeldColumns {
+  from: number
+  to: number
+  left: number
+}
+
+/** A zoom draws at most this many times the days of its wider end. */
+const HELD_VIEWS = 3
+
+/**
+ * The days a zoom between two points passes, in a grid with `room` pixels for the days: they are drawn
+ * once, before it starts, so that no frame of it draws a line again. Nothing when the way is too long
+ * for that, as from one end of the year to the other; the grid then goes there in one step.
+ */
+export const heldColumns = (from: ZoomPoint, to: ZoomPoint, room: number): HeldColumns | null => {
+  const first = Math.floor(Math.min(from.left, to.left) + 0.01)
+  const last = Math.ceil(Math.max(from.left + room / from.colW, to.left + room / to.colW))
+  const widest = Math.ceil(room / Math.min(from.colW, to.colW))
+  return last - first > HELD_VIEWS * widest ? null : { from: first, to: last, left: Math.floor(to.left + 0.01) }
+}

@@ -120,7 +120,7 @@ function Unfolded({ line: { person, assignments, week } }: { line: PersonLine })
         }
         cols={cols}
         cells={(date) => (
-          <div key={date} className={`${dayClass(cols, date)} cell bm-cell bm-editor-cell`} style={{ width: cols.colW }} onContextMenu={(e) => actions.cellMenu(person.id, date, e)}>
+          <div key={date} className={`${dayClass(cols, date)} cell bm-cell bm-editor-cell`} onContextMenu={(e) => actions.cellMenu(person.id, date, e)}>
             <TimeTrack
               ws={ws}
               person={person}

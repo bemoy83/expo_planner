@@ -10,10 +10,11 @@
 .grid-top{position:sticky;z-index:3;background:var(--bg)}
 
 /* ---- a line and its cells ---- */
+/* A day is as wide as --col-w, which the grid sets where it scrolls, see useGridViewport. */
 .grid-row{display:flex;flex-wrap:nowrap;border-bottom:1px solid var(--rule);font-size:var(--fs-md)}
 .grid-label{position:sticky;left:0;z-index:2;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;background:var(--bg);border-right:1px solid var(--line);overflow:hidden;white-space:nowrap}
 .grid-spacer{flex:none}
-.cell{flex:none;position:relative;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--rule);font-family:var(--font-num);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cell{flex:none;width:var(--col-w);position:relative;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--rule);font-family:var(--font-num);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
 
 /* what every cell of a day shares */
 .day.helg,.day.helligdag{background:var(--weekend)}

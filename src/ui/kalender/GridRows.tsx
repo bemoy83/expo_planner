@@ -6,7 +6,7 @@ import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import { dayClass, type CellEdit, type Columns, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
-import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
+import { daysWide, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
 import { Twisty } from '../common'
@@ -30,7 +30,7 @@ export function Line({ className = '', label, cols, cells, overlay, height = ROW
       <div className="grid-label" style={{ width: LEFT_W }} onClick={onLabelClick}>
         {label}
       </div>
-      <div className="grid-spacer" style={{ width: cols.c0 * cols.colW }} />
+      <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />
       {cols.dates.map((date, i) => cells(date, cols.c0 + i))}
       {overlay}
     </div>
@@ -39,7 +39,7 @@ export function Line({ className = '', label, cols, cells, overlay, height = ROW
 
 
 const readCell = (cols: Columns, date: ISODate, value: number | undefined, className = '', title?: string) => (
-  <div key={date} className={`${dayClass(cols, date)} cell ${className}`} style={{ width: cols.colW }} title={title}>
+  <div key={date} className={`${dayClass(cols, date)} cell ${className}`} title={title}>
     {formatFte(value)}
   </div>
 )
@@ -64,7 +64,6 @@ const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate
     <div
       key={date}
       className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined ? edit.ghostClass : ''}`}
-      style={{ width: cols.colW }}
       title={note}
       onMouseDown={(e) => actions.cellDown(lane, col, e)}
       onMouseEnter={() => actions.cellEnter(lane, col)}
@@ -100,7 +99,7 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
         cells={(date) => {
           const { month, week } = headLabel(date, cols.colW)
           return (
-            <div key={date} className={`${dayClass(cols, date)} cell head`} style={{ width: cols.colW }}>
+            <div key={date} className={`${dayClass(cols, date)} cell head`}>
               {month && <span className="month-label">{month}</span>}
               {week && <span className="week-label">{month ? `· ${week}` : week}</span>}
             </div>
@@ -115,7 +114,6 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
           <div
             key={date}
             className={`${dayClass(cols, date)} cell head day-head ${date === activeDate ? 'active' : ''} ${onDate ? 'pickable' : ''}`}
-            style={{ width: cols.colW }}
             onClick={onDate && (() => onDate(date))}
             title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}`}
           >
@@ -163,7 +161,10 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
       const covered = Math.ceil(Math.min(width, run.eventName.length * HALL_LABEL_CHAR_W + 6) / colW)
       // Where the name is now: on its first day, or held at the left edge of the days, at most to the end of the stretch it may move in.
       const at = Math.min(Math.max(run.col, cols.first), run.col + Math.max(run.span, Math.ceil(width / colW)) - covered)
-      return { ...run, width, covered, at }
+      // The same width for the page, which follows the width of a day through a zoom.
+      const widest = `max(${daysWide(run.span)}, ${HALL_LABEL_MAX_W}px)`
+      const maxWidth = `calc(${Number.isFinite(run.room) ? `min(${daysWide(run.room)}, ${widest})` : widest} - 2px)`
+      return { ...run, maxWidth, covered, at }
     })
   const visible = (bars ?? []).filter((bar) => bar.col <= c1 && bar.col + bar.span > c0)
   return (
@@ -173,7 +174,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
       projects={projects}
       label={<span className="lbl-hall">{hall}</span>}
       cols={cols}
-      cells={(date) => <div key={date} className={`${dayClass(cols, date)} cell hall`} style={{ width: colW }} />}
+      cells={(date) => <div key={date} className={`${dayClass(cols, date)} cell hall`} />}
       overlay={
         <>
           {visible.map((bar) => {
@@ -185,7 +186,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
               <span
                 key={`${bar.eventName}:${bar.phase}:${bar.col}`}
                 className={`hall-bar ph-${bar.phase} ${bar.shared ? 'shared' : ''}`}
-                style={{ left: LEFT_W + bar.col * colW + 1, width: bar.span * colW - 2 }}
+                style={{ left: daysWide(bar.col, LEFT_W + 1), width: daysWide(bar.span, -2) }}
                 title={bar.title}
                 data-project={bar.project}
               >
@@ -195,8 +196,8 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
           })}
           {labels.map((label) => (
             // The name starts on its day and stays at the left edge of the days for as long as its event is in view.
-            <span key={`${label.eventName}:${label.col}`} className="hall-label-run" style={{ left: LEFT_W + label.col * colW, width: Math.max(label.span * colW, label.width) }}>
-              <span className="hall-label" data-project={label.project} style={{ left: LEFT_W, maxWidth: label.width }}>
+            <span key={`${label.eventName}:${label.col}`} className="hall-label-run" style={{ left: daysWide(label.col, LEFT_W), width: `max(${daysWide(label.span)}, ${label.maxWidth})` }}>
+              <span className="hall-label" data-project={label.project} style={{ left: LEFT_W, maxWidth: label.maxWidth }}>
                 {label.eventName}
               </span>
             </span>
@@ -286,11 +287,11 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
             const available = capacityForDate(date, capacity, settings).available
             const n = need.get(date) ?? 0
             // A day with no crew and nothing planned has nothing to show.
-            if (!available && !n) return <div key={date} className={`${dayClass(cols, date)} cell sum-cell`} style={{ width: cols.colW }} />
+            if (!available && !n) return <div key={date} className={`${dayClass(cols, date)} cell sum-cell`} />
             const dev = available - n
             const tile = heatTile(dev, maxShortage, maxSurplus)
             return (
-              <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} style={{ width: cols.colW }} title={`${HEAT_LABELS[tile.kind]} ${formatFte(dev)} FTE`}>
+              <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} title={`${HEAT_LABELS[tile.kind]} ${formatFte(dev)} FTE`}>
                 <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
                 <span className="heat-value">{heatFigure(dev, cols.colW)}</span>
               </div>

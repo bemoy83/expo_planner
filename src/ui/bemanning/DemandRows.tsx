@@ -51,14 +51,14 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
       cells={(date) => {
         const cell = balance.get(style.key, date)
         const classes = `${dayClass(cols, date)} cell bm-need`
-        if (cell.demand < EPSILON && cell.assigned < EPSILON) return <div key={date} className={classes} style={{ width: cols.colW }} />
+        if (cell.demand < EPSILON && cell.assigned < EPSILON) return <div key={date} className={classes} />
         const left = Math.max(0, cell.remaining)
         const over = cell.remaining < -EPSILON
         const what = over ? `+${hoursText(-cell.remaining)} t over` : left > EPSILON ? `${hoursText(left)} t igjen av ${hoursText(cell.demand)}` : 'dekket'
         if (compact) {
           // One line: the demand as a tint, filled solid from the left as it is covered.
           return (
-            <button key={date} className={classes} style={{ width: cols.colW }} title={`${style.label} · ${what}`} onClick={(e) => onDay(style.key, date, e)}>
+            <button key={date} className={classes} title={`${style.label} · ${what}`} onClick={(e) => onDay(style.key, date, e)}>
               {cell.demand > EPSILON || over ? <i className={`bm-need-line ${over ? 'over' : ''}`}>{cell.assigned > EPSILON && cell.demand > EPSILON && <i style={{ width: `${Math.min(1, cell.assigned / cell.demand) * 100}%` }} />}</i> : null}
             </button>
           )
@@ -77,7 +77,7 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
           (cell.carried > EPSILON ? `\n${hoursText(cell.carried)} t er flyttet hit fra dagen før.` : '') +
           (unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : '')
         return (
-          <button key={date} className={classes} style={{ width: cols.colW }} title={title} onClick={(e) => onDay(style.key, date, e)}>
+          <button key={date} className={classes} title={title} onClick={(e) => onDay(style.key, date, e)}>
             <span className="bm-need-value">
               {added > EPSILON && <span className="bm-preview">−{hoursText(Math.min(added, left) || added)}</span>}
               {cell.carried > EPSILON && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
@@ -108,7 +108,7 @@ const CapacityLine = memo(function CapacityLine({ cols, capacity, label }: { col
       cells={(date) => {
         const free = capacity.get(date)
         return (
-          <div key={date} className={`${dayClass(cols, date)} cell bm-free`} style={{ width: cols.colW }}>
+          <div key={date} className={`${dayClass(cols, date)} cell bm-free`}>
             {free && dayType(date) === 'arbeidsdag' && (
               <>
                 <b>{hoursText(free.hours)}</b>

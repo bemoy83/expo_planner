@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanPlanMode, enterSpan, fitWidth, zoomFrame, zoomOf } from './zoom'
+import { cleanPlanMode, enterSpan, fitWidth, heldColumns, zoomFrame, zoomOf } from './zoom'
 
 const period = { start: '2026-09-01', end: '2026-12-31' }
 
@@ -56,5 +56,23 @@ describe('cleanPlanMode', () => {
   it('falls back to the plan', () => {
     expect(cleanPlanMode('bemanning')).toBe('bemanning')
     expect(cleanPlanMode(undefined)).toBe('plan')
+  })
+})
+
+describe('heldColumns', () => {
+  it('holds the days of the wider end when the left edge stays', () => {
+    // 1140 pixels of days: 32 days at 36 pixels, 8 at 160.
+    expect(heldColumns({ colW: 36, left: 40 }, { colW: 160, left: 40 }, 1140)).toEqual({ from: 40, to: 72, left: 40 })
+    expect(heldColumns({ colW: 160, left: 40 }, { colW: 36, left: 40 }, 1140)).toEqual({ from: 40, to: 72, left: 40 })
+  })
+  it('holds the days from the one place to the other when the edge moves', () => {
+    expect(heldColumns({ colW: 100, left: 40 }, { colW: 80, left: 30 }, 1200)).toEqual({ from: 30, to: 52, left: 30 })
+  })
+  it('counts the day at the edge as whole when the page has scrolled a fraction short of it', () => {
+    expect(heldColumns({ colW: 36, left: 39.999 }, { colW: 160, left: 40 }, 1140)?.from).toBe(40)
+  })
+  it('holds nothing when the way is longer than three times the days of the wider end', () => {
+    expect(heldColumns({ colW: 100, left: 40 }, { colW: 100, left: 64 }, 1200)).toEqual({ from: 40, to: 76, left: 64 })
+    expect(heldColumns({ colW: 100, left: 40 }, { colW: 100, left: 65 }, 1200)).toBeNull()
   })
 })

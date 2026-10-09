@@ -12,6 +12,13 @@ export const LEFT_W = 460
 export const OVERSCAN_COLS = 6
 export const OVERSCAN_ROWS = 8
 
+/**
+ * A length of `days` day columns and `px` pixels more, for a style. A day is as wide as the grid's
+ * `--col-w` says, so a zoom changes that one variable and no line is drawn again for it. What a line
+ * writes in a day, which depends on the room, is still worked out from the width the lines are drawn at.
+ */
+export const daysWide = (days: number, px = 0): string => `calc(var(--col-w) * ${days}${px ? ` ${px < 0 ? '-' : '+'} ${Math.abs(px)}px` : ''})`
+
 export const ZOOM_WIDTHS = { compact: 26, normal: 36, wide: 52 } as const
 export type Zoom = keyof typeof ZOOM_WIDTHS
 

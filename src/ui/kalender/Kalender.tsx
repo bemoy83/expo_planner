@@ -22,7 +22,7 @@ import type { BlockNames } from '../bemanning/dayCell'
 import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
 import { CellMenu } from './CellMenu'
-import { fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
+import { daysWide, fitSpan, LEFT_W, OVERSCAN_COLS, OVERSCAN_ROWS, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
 import type { AllocLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
@@ -39,7 +39,7 @@ import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
-import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type PlanMode } from './zoom'
+import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode } from './zoom'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Selection, type Tool } from './selection'
 
@@ -125,16 +125,17 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     return enterSpan({ period: range, stored: loadPref<DaySpan | null>('bemanningRange', null), leftEdge: inPeriod(planningFocus?.date) ? planningFocus!.date : inPeriod(today) ? today : range.start })
   })
   const [bemanningW, setBemanningW] = useState(() => fitWidth(spanDays(openSpan), window.innerWidth - LEFT_W))
-  // The width on its way from one mode to the other, while the switch zooms.
-  const [zoomingW, setZoomingW] = useState<number | null>(null)
-  const colW = zoomingW ?? (shown === 'bemanning' ? bemanningW : ZOOM_WIDTHS[zoom])
+  // The width the lines are drawn at. While the switch zooms, the width on screen is on its way from
+  // one mode's to the other's (`useModeZoom`), and the days it passes are held drawn.
+  const colW = shown === 'bemanning' ? bemanningW : ZOOM_WIDTHS[zoom]
+  const [held, setHeld] = useState<HeldColumns | null>(null)
   // The person whose hours are open in Bemanning. The top block gives way by as much as they need.
   const [unfolded, setUnfolded] = useState<string | null>(null)
 
   const projectHover = useProjectHover(hints)
   const closeCellMenu = useCallback(() => setCellMenu(null), [])
   const clearSelection = useCallback(() => setSelection(null), [])
-  const { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, measure, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
+  const { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, measure, onScroll, scrollToDate, showSpan, placeLeft, zoomFrom, zoomStep } = useGridViewport({
     start: range.start,
     end: range.end,
     openOn: planningFocus?.date ?? today,
@@ -219,8 +220,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const competences = useMemo(() => [...new Set(rows.map((r) => r.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [rows])
 
   // ---- virtualization ------------------------------------------------------------------------
-  const c0 = Math.max(0, Math.floor(viewport.left / colW) - OVERSCAN_COLS)
-  const c1 = Math.min(dates.length - 1, Math.ceil((viewport.left + viewport.width - LEFT_W) / colW) + OVERSCAN_COLS)
+  const c0 = Math.max(0, (held ? held.from : Math.floor(viewport.left / colW)) - OVERSCAN_COLS)
+  const c1 = Math.min(dates.length - 1, (held ? held.to : Math.ceil((viewport.left + viewport.width - LEFT_W) / colW)) + OVERSCAN_COLS)
   const visibleDates = useMemo(() => dates.slice(c0, c1 + 1), [dates, c0, c1])
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
   // Where each line starts: the top level's lines are taller than the rest. One entry more than there are lines, the last being the full height.
@@ -481,7 +482,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     }
     return classes
   }, [visibleDates, today, overbooked, heat])
-  const leftCol = Math.floor(viewport.left / colW)
+  const leftCol = held ? held.left : Math.floor(viewport.left / colW)
   const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, first: leftCol, colW, classes: dayClasses }), [visibleDates, c0, leftCol, colW, dayClasses])
 
   // What the stroke or the drag in progress would do, for the status bar.
@@ -602,14 +603,14 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   })
 
   // ---- the two modes ---------------------------------------------------------------------------
-  const zoomTo = useModeZoom(scrollRef, setZoomingW, placeLeft)
+  const zoomTo = useModeZoom(zoomFrom, zoomStep, setHeld, placeLeft)
   /** The days between the label column and the right edge of the grid, in pixels. */
   const dayRoom = () => (scrollRef.current?.clientWidth ?? viewport.width) - LEFT_W
   const projectSpan = (key: string): DaySpan | undefined => allGroups.find((group) => group.key === key)?.venue ?? undefined
   /** Zooms Bemanning to a span of days: as wide as fills the grid, the first day at the left edge (R18). */
   const fitBemanning = (span: DaySpan) => {
     const width = fitWidth(spanDays(span), dayRoom())
-    zoomTo(colW, { colW: width, left: daysBetween(range.start, span.start) }, () => setBemanningW(width))
+    zoomTo({ colW: width, left: daysBetween(range.start, span.start) }, () => setBemanningW(width))
   }
   // The two modes have rows of their own, so each keeps how far down it was scrolled: the plan is found
   // again where it was left, and the people do not open partway down their list. The plan is put back
@@ -637,19 +638,19 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     projectHover.pin(null)
     // The two modes share the timeline: the day at the left edge of the one is the day at the left edge
     // of the other. Only the width of a day differs, and Bemanning keeps the width it was last seen in.
-    const left = Math.floor(el.scrollLeft / colW + 0.01)
+    const left = Math.floor(zoomFrom().left + 0.01)
     setHeldWindow({ start: dates[left], end: dates[Math.min(dates.length - 1, left + Math.floor(dayRoom() / ZOOM_WIDTHS[zoom]))] })
     if (next === 'bemanning') {
       const stored = loadPref<DaySpan | null>('bemanningRange', null)
       const width = fitWidth(stored && stored.start <= stored.end ? spanDays(stored) : BEMANNING_DAYS, dayRoom())
-      zoomTo(colW, { colW: width, left }, () => {
+      zoomTo({ colW: width, left }, () => {
         setBemanningW(width)
         setShown('bemanning')
         setHeldWindow(null)
       })
     } else {
       setShown('plan')
-      zoomTo(colW, { colW: ZOOM_WIDTHS[zoom], left }, () => {
+      zoomTo({ colW: ZOOM_WIDTHS[zoom], left }, () => {
         setHeldWindow(null)
         setZoomsEnded((n) => n + 1)
       })
@@ -659,7 +660,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // Whole days, so the same days give the same width when they are opened again.
   const seenFrom = Math.min(dates.length - 1, Math.round(viewport.left / colW))
   const seenTo = Math.min(dates.length - 1, seenFrom + Math.max(1, Math.round((viewport.width - LEFT_W) / colW)) - 1)
-  const bemanningSpan = shown === 'bemanning' && zoomingW === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
+  const bemanningSpan = shown === 'bemanning' && held === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
   useEffect(() => {
     if (!bemanningSpan) return
     const [start, end] = bemanningSpan.split('|')
@@ -782,7 +783,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
 
       <div className="kal-work">
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
-        <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
+        <div className="grid-canvas" style={{ width: daysWide(dates.length, LEFT_W) }}>
           {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows. Where it leaves the rows no room it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
