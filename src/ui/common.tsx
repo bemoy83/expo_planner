@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { useDismiss } from './useDismiss'
-import { Redo2, Undo2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, PanelRight, Redo2, Undo2 } from 'lucide-react'
 
 interface MenuProps {
   label: ReactNode
@@ -152,5 +152,23 @@ export function MergeReplaceDialog({ title, source, results, replaceText, onCanc
         </div>
       </div>
     </div>
+  )
+}
+
+/** The arrow that folds a section or a level. `show` and `hide` say what a click does. */
+export function Twisty({ open, show, hide, onToggle, style }: { open: boolean; show: string; hide: string; onToggle: () => void; style?: React.CSSProperties }) {
+  return (
+    <button className="twisty" style={style} aria-expanded={open} aria-label={open ? hide : show} onClick={onToggle}>
+      {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+    </button>
+  )
+}
+
+/** The button in the page header that slides the details panel in over the grid. `what` names the details: «raddetaljer». */
+export function PanelToggle({ open, what, hint, disabled, onToggle }: { open: boolean; what: string; hint: string; disabled?: boolean; onToggle: () => void }) {
+  return (
+    <button className={`ghost icon-button ${open ? 'active' : ''}`} aria-pressed={open} disabled={disabled} aria-label={open ? `Skjul ${what}` : `Vis ${what}`} title={open ? `Skjul ${what}` : `Vis ${what}: ${hint}`} onClick={onToggle}>
+      <PanelRight size={16} aria-hidden />
+    </button>
   )
 }

@@ -1,6 +1,6 @@
-import { CalendarDays, ChevronsDownUp, ChevronsUpDown, Info, PanelRight, Plus, Users } from 'lucide-react'
+import { CalendarDays, ChevronsDownUp, ChevronsUpDown, Info, Plus, Users } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
-import { Segmented, UndoRedoButtons } from '../common'
+import { PanelToggle, Segmented, UndoRedoButtons } from '../common'
 import { GroupingMenu } from './GroupingMenu'
 import type { Zoom } from './layout'
 import { PlanBar } from './PlanBar'
@@ -124,15 +124,7 @@ export function KalenderHead({ projects, rows, overbooked, inspectorOpen, onInsp
       <button className="ghost" onClick={onNewRow}>
         <Plus size={14} aria-hidden /> Ny rad
       </button>
-      <button
-        className={`ghost icon-button ${inspectorOpen ? 'active' : ''}`}
-        aria-pressed={inspectorOpen}
-        aria-label={inspectorOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer'}
-        title={inspectorOpen ? 'Skjul raddetaljer' : 'Vis raddetaljer: behov, vindu og dager for raden du står på'}
-        onClick={() => onInspector(!inspectorOpen)}
-      >
-        <PanelRight size={16} aria-hidden />
-      </button>
+      <PanelToggle open={inspectorOpen} what="raddetaljer" hint="behov, vindu og dager for raden du står på" onToggle={() => onInspector(!inspectorOpen)} />
       <button
         className="primary"
         disabled={rows === 0}

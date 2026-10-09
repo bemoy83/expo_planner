@@ -9,7 +9,8 @@ import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
-import { ChevronDown, ChevronRight, Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
+import { Twisty } from '../common'
+import { Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
@@ -349,9 +350,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
       cols={cols}
       label={
         <>
-          <button className="twisty" style={{ marginLeft: node.depth * INDENT }} onClick={() => (item.entry ? actions.toggleEntry(node.key) : actions.toggleGroup(node.key))} aria-label={item.collapsed ? 'Vis rader' : 'Skjul rader'}>
-            {item.collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
-          </button>
+          <Twisty open={!item.collapsed} show="Vis rader" hide="Skjul rader" style={{ marginLeft: node.depth * INDENT }} onToggle={() => (item.entry ? actions.toggleEntry(node.key) : actions.toggleGroup(node.key))} />
           {project ? (
             <span
               className={`lbl-project ${project.venue ? 'locatable' : ''}`}

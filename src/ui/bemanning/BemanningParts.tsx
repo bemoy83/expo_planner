@@ -1,12 +1,13 @@
-import { ClipboardCopy, Eraser, MousePointer2, Paintbrush, PanelRight, TriangleAlert, X } from 'lucide-react'
+import { ClipboardCopy, Eraser, Maximize2, MousePointer2, Paintbrush, TriangleAlert, X } from 'lucide-react'
 import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
-import { ToolSwitch, type ToolChoice } from '../common'
+import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor } from '../dom'
+import { ModeSwitch } from '../kalender/KalenderBar'
+import { PlanBar } from '../kalender/PlanBar'
 import type { PlanMode } from '../kalender/zoom'
 import { Toasts } from '../Toasts'
-import { BemanningBar } from './BemanningBar'
 import { useBemanning } from './BemanningScope'
 import { DemandRows } from './DemandRows'
 import { DayMenu, DemandPopover } from './Popovers'
@@ -30,16 +31,7 @@ export function BemanningHead() {
     <div className="page-head">
       <h2>Kalender</h2>
       <span className="page-meta" title="Behov, overtid og åpne timer gjelder dagene som vises">{meta.join(' · ')}</span>
-      <button
-        className={`ghost icon-button ${panel ? 'active' : ''}`}
-        aria-pressed={!!panel}
-        disabled={!subject}
-        aria-label={panel ? 'Skjul persondetaljer' : 'Vis persondetaljer'}
-        title={panel ? 'Skjul persondetaljer' : 'Vis persondetaljer: timer, overtid og fravær. Klikk et navn for å åpne dem for personen.'}
-        onClick={() => setPanel(panel ? null : subject ? { personId: subject } : null)}
-      >
-        <PanelRight size={16} aria-hidden />
-      </button>
+      <PanelToggle open={!!panel} what="persondetaljer" hint="timer, overtid og fravær. Klikk et navn for å åpne dem for personen." disabled={!subject} onToggle={() => setPanel(panel ? null : subject ? { personId: subject } : null)} />
     </div>
   )
 }
@@ -55,18 +47,24 @@ export function BemanningTop() {
 }
 
 interface ToolbarProps {
+  /** The width of the grid as it is seen. */
   width: number
   mode: PlanMode
   onMode: (mode: PlanMode) => void
+  /** Every project, as key and name, and the one chosen in the filter. */
   projects: [key: string, name: string][]
   project: string
   onProject: (key: string) => void
   onToday: () => void
+  /** Sizes the days so the chosen project fills the grid. */
   onFit: () => void
 }
 
-/** The planning bar in Bemanning, with its tools: Velg, the brush with the competence it paints, and Tøm. */
-export function BemanningToolbar(props: ToolbarProps) {
+/**
+ * The planning bar in Bemanning: the mode, undo, the tools (Velg, the brush with the competence it paints,
+ * and Tøm), the project, and where in the period.
+ */
+export function BemanningToolbar({ width, mode, onMode, projects, project, onProject, onToday, onFit }: ToolbarProps) {
   const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
   const paste = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V'
   const style = brush ? styles.get(brush) : undefined
@@ -88,36 +86,58 @@ export function BemanningToolbar(props: ToolbarProps) {
     { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
   ]
   return (
-    <BemanningBar {...props} fitKey={`${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
-      <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
-      {!brush && <span className="bm-hints">Velg kompetanse i behovet{lastKey ? ` (1–${lastKey})` : ''}</span>}
-      {breaches.length > 0 && (
-        <button
-          className="bm-over-limit"
-          title={`Overtid over grensen:\n${breaches.flatMap((person) => person.weeks.map((week) => `${nameOf(person.personId)} · uke ${isoWeek(week.monday)} · ${hoursText(week.hours)} t`)).join('\n')}\nKlikk for å se den første.`}
-          onClick={() => {
-            setPanel({ personId: breaches[0].personId, week: breaches[0].weeks[0].monday })
-            onShowDate(breaches[0].weeks[0].monday)
-          }}
-        >
-          <TriangleAlert size={14} aria-hidden /> {breaches.length} over {hoursText(overtimeLimit)} t overtid/uke
-        </button>
-      )}
-      {clip && (
-        <span className="bm-clip" title="Dagene som er kopiert. De limes inn for de samme personene, fra dagen under markøren.">
-          <ClipboardCopy size={14} aria-hidden /> Kopiert · {paste}
-          <button className="row-action" aria-label="Tøm utklippet" title="Tøm utklippet" onClick={() => setClip(null)}>
-            <X size={13} aria-hidden />
+    <PlanBar width={width} fitKey={`${project}|${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
+      <div className="bar-zone">
+        <ModeSwitch mode={mode} onChange={onMode} />
+        <UndoRedoButtons />
+        <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
+        {!brush && <span className="bm-hints">Velg kompetanse i behovet{lastKey ? ` (1–${lastKey})` : ''}</span>}
+        {breaches.length > 0 && (
+          <button
+            className="bm-over-limit"
+            title={`Overtid over grensen:\n${breaches.flatMap((person) => person.weeks.map((week) => `${nameOf(person.personId)} · uke ${isoWeek(week.monday)} · ${hoursText(week.hours)} t`)).join('\n')}\nKlikk for å se den første.`}
+            onClick={() => {
+              setPanel({ personId: breaches[0].personId, week: breaches[0].weeks[0].monday })
+              onShowDate(breaches[0].weeks[0].monday)
+            }}
+          >
+            <TriangleAlert size={14} aria-hidden /> {breaches.length} over {hoursText(overtimeLimit)} t overtid/uke
           </button>
-        </span>
-      )}
-      {unresolved > 0 && (
-        <span className="bm-unresolved" title="Blokker der personen er borte eller ikke lenger har kompetansen. Timene er tilbake i behovet.">
-          {unresolved === 1 ? '1 uløst' : `${unresolved} uløste`}
-          <button onClick={removeOpen}>Fjern</button>
-        </span>
-      )}
-    </BemanningBar>
+        )}
+        {clip && (
+          <span className="bm-clip" title="Dagene som er kopiert. De limes inn for de samme personene, fra dagen under markøren.">
+            <ClipboardCopy size={14} aria-hidden /> Kopiert · {paste}
+            <button className="row-action" aria-label="Tøm utklippet" title="Tøm utklippet" onClick={() => setClip(null)}>
+              <X size={13} aria-hidden />
+            </button>
+          </span>
+        )}
+        {unresolved > 0 && (
+          <span className="bm-unresolved" title="Blokker der personen er borte eller ikke lenger har kompetansen. Timene er tilbake i behovet.">
+            {unresolved === 1 ? '1 uløst' : `${unresolved} uløste`}
+            <button onClick={removeOpen}>Fjern</button>
+          </span>
+        )}
+      </div>
+      <div className="bar-view">
+        <div className="bar-zone bar-zone-end">
+          <select className="bar-select" aria-label="Prosjekt" title="Prosjekt: dagene tilpasses prosjektet, og de andre prosjektene dempes" value={project} onChange={(e) => onProject(e.target.value)}>
+            <option value="">Alle prosjekter</option>
+            {projects.map(([key, name]) => (
+              <option key={key} value={key}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <button className="ghost" onClick={onToday}>
+            I dag
+          </button>
+          <button className="ghost" disabled={!project} title={project ? 'Tilpass dagene til prosjektet' : 'Velg et prosjekt for å tilpasse dagene til det'} onClick={onFit}>
+            <Maximize2 size={14} aria-hidden /> Tilpass prosjekt
+          </button>
+        </div>
+      </div>
+    </PlanBar>
   )
 }
 

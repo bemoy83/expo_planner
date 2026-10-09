@@ -59,7 +59,7 @@ Gaps
 - People are entered by hand. There is no import of a staff register, and people cannot be reordered. Absence is entered in Bemanning's Person panel only, not from Personell.
 - Competences that are in use cannot be hidden or removed.
 - The preview «−N» shows for folded days only, not while drawing in a person's open hours.
-- A painted day never replaces what is there (v2); the question «Fyll resten / Erstatt» is gone. The domain still has the replace mode (`paintDays`), which nothing uses.
+- A painted day never replaces what is there (v2); the question «Fyll resten / Erstatt» is gone, and so is the replace mode of `paintDays`.
 - With many competences the detailed demand leaves the people little room on a laptop screen, since it stays pinned; the compact form fits. Which of them should be the default is open (v2's open question 1).
 - The zoom between the modes draws every visible line again on each frame. It has not been timed on the user's machine; if it stutters, the width can be driven through a style variable instead.
 - The days Bemanning fits to do not make room for an open Person panel; the panel lies over the last days.

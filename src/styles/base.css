@@ -13,7 +13,7 @@ kbd{font:500 var(--fs-2xs)/14px var(--font-num);padding:0 4px;border-radius:4px;
 .issue,button.link.issue{color:var(--over)}
 
 /* small uppercase headings: one recipe for the section heads of the Kalender and of Bemanning, the «Planlegging» heading, the menu groups and row details */
-.section-head,.col-head .grid-label,.menu-group,.insp-eyebrow,.insp-h,.bm-eyebrow{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.section-head,.col-head .grid-label,.menu-group,.insp-eyebrow,.insp-h{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
 
 /* ---- buttons ---- */
 button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;background:var(--sunken);padding:7px 12px;cursor:pointer;transition:background .12s}

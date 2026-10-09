@@ -1,7 +1,7 @@
-import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type CapacityLine, type DayValues, type Settings } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { Twisty } from '../common'
 import { BaseCrewRow, FromBemanningRow, HallRow, SumRows } from './GridRows'
 import type { Columns } from './gridTypes'
 import { LEFT_W, ROW_H } from './layout'
@@ -10,6 +10,19 @@ import type { useHallCalendar } from './useHallCalendar'
 /** The blocks pinned above the planning rows: the hall calendar, the staffing lines and the heading of the planning rows. */
 
 type HallCalendar = ReturnType<typeof useHallCalendar>
+
+/** What the colours of the hall phases mean. With `codes`, each mark holds the letter the hall bars write. */
+export function PhaseLegend({ codes = false, left }: { codes?: boolean; left?: number }) {
+  return (
+    <span className="phase-legend" style={{ left }}>
+      {VENUE_PHASES.map((phase) => (
+        <span key={phase}>
+          <i className={`ph-${phase}`}>{codes && PHASE_CODES[phase]}</i> {PHASE_LABELS[phase]}
+        </span>
+      ))}
+    </span>
+  )
+}
 
 interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'hallBars' | 'hallLabels' | 'hallProjectLists'> {
   open: boolean
@@ -31,9 +44,7 @@ export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, pinTop,
   return (
     <div className={`top-section halls ${open ? 'open' : ''}`} style={{ top: pinTop }}>
       <div className="section-head" style={{ width: LEFT_W }}>
-        <button className="twisty" aria-expanded={open} aria-label={open ? 'Skjul hallkalenderen' : 'Vis hallkalenderen'} onClick={() => onOpen(!open)}>
-          {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-        </button>
+        <Twisty open={open} show="Vis hallkalenderen" hide="Skjul hallkalenderen" onToggle={() => onOpen(!open)} />
         Haller
         {!open && <span className="section-meta">{halls.length} skjult</span>}
         {open && (
@@ -41,15 +52,7 @@ export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, pinTop,
             {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
           </button>
         )}
-        {open && (
-          <span className="phase-legend">
-            {VENUE_PHASES.map((phase) => (
-              <span key={phase}>
-                <i className={`ph-${phase}`}>{PHASE_CODES[phase]}</i> {PHASE_LABELS[phase]}
-              </span>
-            ))}
-          </span>
-        )}
+        {open && <PhaseLegend codes />}
       </div>
       {open && empty && (
         <div className="section-hint" style={{ width: LEFT_W }}>
@@ -82,9 +85,7 @@ export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols
   return (
     <div className="top-section staffing open">
       <div className="section-head" style={{ width: LEFT_W }}>
-        <button className="twisty" aria-expanded={open} aria-label={open ? 'Skjul bemanningen' : 'Vis bemanningen'} onClick={() => onOpen(!open)}>
-          {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-        </button>
+        <Twisty open={open} show="Vis bemanningen" hide="Skjul bemanningen" onToggle={() => onOpen(!open)} />
         Bemanning <span className="muted">(FTE)</span>
         {open ? (
           <button className="link small" onClick={() => onDetailsOpen(!detailsOpen)}>

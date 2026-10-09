@@ -3,7 +3,7 @@ import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
-import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
+import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
@@ -360,7 +360,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       if (cells.length === 1) toast(blockText(cells[0], competence))
       return
     }
-    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence, { span, mode: 'fill' }) }))
+    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence, span) }))
   }
   const clear = (cells: Day[]) => updateStaffing((w) => ({ ...w, assignments: clearDays(w.assignments ?? [], cells) }))
   const removeOpen = () => updateStaffing((w) => ({ ...w, assignments: removeUnresolved(w, dates) }))
@@ -595,16 +595,16 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   }, [keys])
 
   return {
-    ws, dates, cols, room, viewFrom, viewTo, bodyRef, focusDate, onFocusDate, projects, phases, chosenProject,
+    ws, dates, cols, room, viewFrom, viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
     balance, totals, remainingOf, demandRows, capacity, uncoverable, preview,
-    lines, listed, listedAble, able, divided, week, isOk, isOpen, ghost, info, refused, stroke, hover, selected, selection, clip, setClip,
+    lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,
     menu, setMenu, demandPop, setDemandPop, panel, setPanel, overtimeLimit, breaches, overLimit, blockNames, onShowDate, firstWorkday,
     projectsOpen, setProjectsOpen, projectDensity, setProjectDensity, demandOpen, setDemandOpen, demandDensity, setDemandDensity, idleOpen, setIdleOpen,
-    toasts, toast: toast as (text: string, action?: Toast['action']) => void, dismissToast, undo, updateStaffing,
+    toasts, toast: toast as (text: string, action?: Toast['action']) => void, dismissToast, updateStaffing,
     actions, nameOf, labelOf, dayName,
   }
 }
@@ -613,7 +613,6 @@ export type BemanningState = ReturnType<typeof useBemanningState>
 /** What the days of a person's line tell the grid; the handlers keep their identity (see `useStableActions`). */
 export type PersonActions = BemanningState['actions']
 export type DemandRow = { style: CompetenceStyle; key: number }
-export type { Workspace }
 
 const BemanningContext = createContext<BemanningState | null>(null)
 

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { VENUE_PHASES } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { Twisty } from '../common'
 import { Line } from '../kalender/GridRows'
 import { dayClass } from '../kalender/gridTypes'
 import { LEFT_W } from '../kalender/layout'
+import { PhaseLegend } from '../kalender/TopSections'
 import { useBemanning } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
 import { PHASE_NAME_MIN_W, PROJECT_COMPACT_H, PROJECT_H, PROJECT_MAX_LINES } from './layout'
@@ -74,9 +74,7 @@ export function ProjectLines() {
     <div className={`top-section bm-projects ${open ? 'open' : ''} ${compact ? 'compact' : ''}`}>
       <div className="section-line">
         <div className="section-head" style={{ width: LEFT_W }}>
-          <button className="twisty" aria-expanded={open} aria-label={open ? 'Skjul prosjektene' : 'Vis prosjektene'} onClick={() => setProjectsOpen(!open)}>
-            {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-          </button>
+          <Twisty open={open} show="Vis prosjektene" hide="Skjul prosjektene" onToggle={() => setProjectsOpen(!open)} />
           Prosjekter
           {open && <DensityToggle compact={compact} onChange={(next) => setProjectDensity(next ? 'compact' : 'detail')} />}
           <span className="section-meta" title={hidden.length ? `Vises ikke, fordi listen har plass til ${slots}:\n${hidden.map((project) => project.name).join('\n')}` : 'Prosjekter med planlagt FTE i dagene som vises, av alle med planlagt FTE'}>
@@ -84,15 +82,7 @@ export function ProjectLines() {
             {hidden.length > 0 && <b className="bm-more"> · +{hidden.length}</b>}
           </span>
         </div>
-        {open && (
-          <span className="phase-legend" style={{ left: LEFT_W }}>
-            {VENUE_PHASES.map((phase) => (
-              <span key={phase}>
-                <i className={`ph-${phase}`} /> {PHASE_LABELS[phase]}
-              </span>
-            ))}
-          </span>
-        )}
+        {open && <PhaseLegend left={LEFT_W} />}
       </div>
       {open && (
         <div className="bm-project-block" style={{ height: slots * rowH }}>

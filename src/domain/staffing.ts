@@ -160,20 +160,14 @@ export const paintBlock = (ws: Workspace, cell: DayCell, competence: CompetenceK
   return normalWindows(cell.personId, cell.date, ws.unavailability ?? [], ws.settings.workday).length ? null : 'unavailable'
 }
 
-/** The cells a full-day paint would have to ask about: those that can be painted and hold work of another competence. */
-export const paintConflicts = (ws: Workspace, cells: DayCell[], competence: CompetenceKey): DayCell[] =>
-  cells.filter((cell) => !paintBlock(ws, cell, competence) && blocksOf(ws.assignments ?? [], cell.personId, cell.date).some((a) => a.competence !== competence))
-
-export interface PaintOptions {
-  span: 'full' | 'half'
-  mode: 'fill' | 'replace'
-}
+/** A paint fills a whole day, or the first half of it that is free. */
+export type PaintSpan = 'full' | 'half'
 
 /**
  * R6: the time a paint would give a person on a day: the free part of their normal day, or of its first
  * free half. Nothing for a person without the competence or a day without normal time: painting never makes overtime.
  */
-export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKey, span: PaintOptions['span'], assignments: Assignment[] = ws.assignments ?? []): Interval[] => {
+export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKey, span: PaintSpan, assignments: Assignment[] = ws.assignments ?? []): Interval[] => {
   if (paintBlock(ws, cell, competence)) return []
   const wd = ws.settings.workday
   const normal = normalWindows(cell.personId, cell.date, ws.unavailability ?? [], wd)
@@ -186,35 +180,18 @@ export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKe
 }
 
 /** R6: gives each cell's person work of the competence in the time `paintGaps` finds. Cells that have none are skipped. */
-export const paintDays = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, opts: PaintOptions, makeId: () => string = newId): Assignment[] => {
+export const paintDays = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, span: PaintSpan, makeId: () => string = newId): Assignment[] => {
   const before = ws.assignments ?? []
   let assignments = before
   const touched = new Set<string>()
   for (const cell of cells) {
     if (paintBlock(ws, cell, competence)) continue
-    if (opts.mode === 'replace' && blocksOf(assignments, cell.personId, cell.date).length) {
-      assignments = assignments.filter((a) => keyOf(a) !== keyOf(cell))
-      touched.add(keyOf(cell))
-    }
-    const gaps = paintGaps(ws, cell, competence, opts.span, assignments)
+    const gaps = paintGaps(ws, cell, competence, span, assignments)
     if (!gaps.length) continue
     assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, start: gap.start, end: gap.end, source: 'manual' }))]
     touched.add(keyOf(cell))
   }
-  if (!touched.size) return before
-  const merged = mergeAdjacent(assignments, touched)
-  // A replace that puts back what was there is no change.
-  return sameBlocks(before, merged, touched) ? before : merged
-}
-
-const sameBlocks = (a: Assignment[], b: Assignment[], days: Set<string>): boolean => {
-  const shape = (list: Assignment[]) =>
-    list
-      .filter((x) => days.has(keyOf(x)))
-      .map((x) => `${keyOf(x)}|${x.start}|${x.end}|${x.competence}`)
-      .sort()
-      .join(';')
-  return shape(a) === shape(b)
+  return touched.size ? mergeAdjacent(assignments, touched) : before
 }
 
 /** The eraser: removes every assignment in the cells. */
@@ -752,23 +729,6 @@ export const addAbsence = (unavailability: Unavailability[], input: AbsenceInput
     days.push({ id: makeId(), personId: input.personId, date, kind: input.kind, ...(partial ? { start: input.start, end: input.end } : {}), ...(input.note ? { note: input.note } : {}) })
   }
   return [...unavailability.filter((u) => u.personId !== input.personId || u.date < input.from || u.date > input.to), ...days]
-}
-
-/** Marks a person sick on the given days. Days off, and days the person is already away, are left as they are. */
-export const markSick = (unavailability: Unavailability[], personId: string, dates: ISODate[], makeId?: () => string): Unavailability[] => {
-  let next = unavailability
-  for (const date of dates) {
-    if (dayType(date) !== 'arbeidsdag' || absenceOf(next, personId, date).some(isWholeDay)) continue
-    next = addAbsence(next, { personId, from: date, to: date, kind: 'syk' }, makeId)
-  }
-  return next
-}
-
-/** Takes sickness back for the given days. Assignments on them count again by themselves. */
-export const clearSick = (unavailability: Unavailability[], personId: string, dates: ISODate[]): Unavailability[] => {
-  const days = new Set(dates)
-  const kept = unavailability.filter((u) => !(u.personId === personId && u.kind === 'syk' && days.has(u.date)))
-  return kept.length === unavailability.length ? unavailability : kept
 }
 
 export const isSick = (unavailability: Unavailability[], personId: string, date: ISODate): boolean => absenceOf(unavailability, personId, date).some((u) => u.kind === 'syk' && isWholeDay(u))

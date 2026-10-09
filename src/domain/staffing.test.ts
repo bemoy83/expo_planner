@@ -10,7 +10,6 @@ import {
   absenceLine,
   absenceSpans,
   addAbsence,
-  clearSick,
   clearSickFrom,
   copyDays,
   moveDay,
@@ -20,7 +19,6 @@ import {
   overtimeByWeek,
   isSick,
   openUnresolved,
-  markSick,
   removeCarried,
   assignmentStatus,
   balanceTotals,
@@ -43,7 +41,6 @@ import {
   overtimeHours,
   paidHours,
   paintBlock,
-  paintConflicts,
   paintDays,
   personWeek,
   recolourBlock,
@@ -147,8 +144,8 @@ describe('availability', () => {
 })
 
 describe('painting', () => {
-  const full = { span: 'full', mode: 'fill' } as const
-  const half = { span: 'half', mode: 'fill' } as const
+  const full = 'full'
+  const half = 'half'
 
   it('D7 does nothing for a person without the competence', () => {
     expect(paintDays(ws, [{ personId: GEIR, date: MON }], 'teppefliser', full, id)).toBe(ws.assignments)
@@ -162,16 +159,13 @@ describe('painting', () => {
     expect(dayBalance(withAssignments(painted), 'teppefliser', WED).assigned).toBe(before + 7.5)
   })
 
-  it('D9 fills nothing on a day that is full, and replaces it when asked to', () => {
+  it('D9 fills nothing on a day that is full', () => {
     const cell = { personId: PER, date: TUE }
     expect(of(ws.assignments!, PER, TUE)).toEqual([
       { competence: 'teppefliser', ...iv('07:00', '11:00') },
       { competence: 'foga', ...iv('11:30', '15:00') },
     ])
-    expect(paintConflicts(ws, [cell], 'innredning')).toEqual([cell])
     expect(paintDays(ws, [cell], 'innredning', full, id)).toBe(ws.assignments)
-    const replaced = paintDays(ws, [cell], 'innredning', { span: 'full', mode: 'replace' }, id)
-    expect(of(replaced, PER, TUE)).toEqual([{ competence: 'innredning', ...iv('07:00', '15:00') }])
   })
 
   it('D10 paints the morning, then the afternoon, then nothing', () => {
@@ -201,11 +195,10 @@ describe('painting', () => {
     expect(painted.length).toBe(ws.assignments!.length + 3)
   })
 
-  it('fills the rest of a day that already holds the same competence, without a question', () => {
+  it('fills the rest of a day that already holds the same competence', () => {
     const cell = { personId: HANNE, date: MON }
     const morning = paintDays(ws, [cell], 'teppefliser', half, id)
     const base = withAssignments(morning)
-    expect(paintConflicts(base, [cell], 'teppefliser')).toEqual([])
     expect(of(paintDays(base, [cell], 'teppefliser', full, id), HANNE, MON)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
   })
 
@@ -354,9 +347,8 @@ describe('editing blocks', () => {
       state = withAssignments(assignments)
       expect(invariantBreaches(state.assignments!, wd)).toEqual([])
     }
-    step(paintDays(state, cells, 'extra', { span: 'half', mode: 'fill' }, id))
-    step(paintDays(state, cells, 'foga', { span: 'full', mode: 'fill' }, id))
-    step(paintDays(state, cells.slice(0, 40), 'innredning', { span: 'full', mode: 'replace' }, id))
+    step(paintDays(state, cells, 'extra', 'half', id))
+    step(paintDays(state, cells, 'foga', 'full', id))
     for (const a of state.assignments!.slice(0, 30)) {
       step(resizeBlock(state, a.id, 'end', a.end + 97, { pullToDay: true }))
       step(moveBlock(state, a.id, a.start - 133))
@@ -395,7 +387,7 @@ describe('balance', () => {
 
   it('D16 shows a surplus as negative remaining, and blocks nothing', () => {
     const cells = [HANNE, PER].map((personId) => ({ personId, date: MON }))
-    const painted = paintDays(ws, cells, 'teppefliser', { span: 'full', mode: 'fill' }, id)
+    const painted = paintDays(ws, cells, 'teppefliser', 'full', id)
     expect(dayBalance(withAssignments(painted), 'teppefliser', MON)).toMatchObject({ assigned: 45, remaining: -7.5, covered: 37.5 })
   })
 
@@ -490,11 +482,11 @@ describe('sickness', () => {
     const ill: Workspace = { ...ws, unavailability: [...ws.unavailability!, ...sick(ANDERS, [MON])] }
     expect(openUnresolved(ill).map((a) => a.personId)).toEqual([ANDERS])
     // Hanne covers half of it: still open.
-    const half = withAssignmentsOf(ill, paintDays(ill, [{ personId: HANNE, date: MON }], 'teppefliser', { span: 'full', mode: 'fill' }, id))
+    const half = withAssignmentsOf(ill, paintDays(ill, [{ personId: HANNE, date: MON }], 'teppefliser', 'full', id))
     expect(dayBalance(half, 'teppefliser', MON).remaining).toBe(7.5)
     expect(openUnresolved(half)).toHaveLength(1)
     // Per covers the rest: the demand is met, so nothing is left to solve, though the block still does not count.
-    const covered = withAssignmentsOf(half, paintDays(half, [{ personId: PER, date: MON }], 'teppefliser', { span: 'full', mode: 'fill' }, id))
+    const covered = withAssignmentsOf(half, paintDays(half, [{ personId: PER, date: MON }], 'teppefliser', 'full', id))
     expect(dayBalance(covered, 'teppefliser', MON).remaining).toBe(0)
     expect(openUnresolved(covered)).toEqual([])
     expect(unresolvedAssignments(covered)).toHaveLength(1)
@@ -521,18 +513,6 @@ describe('sickness', () => {
 })
 
 describe('absence', () => {
-  it('marks a person sick on the workdays that are free of other absence, and takes it back', () => {
-    // Hanne is on holiday from Wednesday; Saturday is no workday.
-    const ill = markSick(ws.unavailability!, HANNE, [MON, TUE, WED, SAT], id)
-    expect(ill.filter((u) => u.personId === HANNE && u.kind === 'syk').map((u) => u.date)).toEqual([MON, TUE])
-    expect(isSick(ill, HANNE, MON)).toBe(true)
-    expect(isSick(ill, HANNE, WED)).toBe(false)
-    const better = clearSick(ill, HANNE, [TUE])
-    expect(isSick(better, HANNE, TUE)).toBe(false)
-    expect(isSick(better, HANNE, MON)).toBe(true)
-    expect(clearSick(ws.unavailability!, HANNE, [MON])).toBe(ws.unavailability)
-  })
-
   it('adds absence over a stretch of days, replacing what was there', () => {
     const away = addAbsence(ws.unavailability!, { personId: HANNE, from: TUE, to: THU, kind: 'kurs', note: 'Truck' }, id)
     const hers = away.filter((u) => u.personId === HANNE).sort((a, b) => a.date.localeCompare(b.date))
@@ -548,7 +528,9 @@ describe('absence', () => {
 
   it('lists a person\'s absence as stretches of like days', () => {
     expect(absenceSpans(ws.unavailability!, HANNE)).toMatchObject([{ from: WED, to: FRI, kind: 'ferie', ids: ['u2', 'u3', 'u4'] }])
-    const mixed = markSick(ws.unavailability!, HANNE, [MON], id)
+    const mixed = addAbsence(ws.unavailability!, { personId: HANNE, from: MON, to: MON, kind: 'syk' }, id)
+    expect(isSick(mixed, HANNE, MON)).toBe(true)
+    expect(isSick(mixed, HANNE, WED)).toBe(false)
     expect(absenceSpans(mixed, HANNE).map((s) => [s.from, s.to, s.kind])).toEqual([[MON, MON, 'syk'], [WED, FRI, 'ferie']])
   })
 })

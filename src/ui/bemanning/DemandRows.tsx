@@ -1,8 +1,9 @@
 import { memo } from 'react'
-import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { Check } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { Balance, FreeCapacity } from '../../domain/staffing'
+import { Twisty } from '../common'
 import { competenceColor } from '../dom'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
@@ -146,9 +147,7 @@ export function DemandRows() {
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
       <div className="section-head" style={{ width: LEFT_W }}>
-        <button className="twisty" aria-expanded={open} aria-label={open ? 'Vis bare kompetansen i fokus' : 'Vis alle kompetanser'} onClick={() => bm.setDemandOpen(!open)}>
-          {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-        </button>
+        <Twisty open={open} show="Vis alle kompetanser" hide="Vis bare kompetansen i fokus" onToggle={() => bm.setDemandOpen(!open)} />
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
         <span className="section-meta section-meta-end" title={open ? 'Timer som gjenstår i dagene som vises' : undefined}>{open ? 't igjen' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
@@ -156,9 +155,7 @@ export function DemandRows() {
       {busy.map(line)}
       {open && idle.length > 0 && (
         <div className="section-head bm-idle-head" style={{ width: LEFT_W }}>
-          <button className="twisty" aria-expanded={idleOpen} aria-label={idleOpen ? 'Skjul kompetansene uten behov' : 'Vis kompetansene uten behov'} onClick={() => bm.setIdleOpen(!idleOpen)}>
-            {idleOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-          </button>
+          <Twisty open={idleOpen} show="Vis kompetansene uten behov" hide="Skjul kompetansene uten behov" onToggle={() => bm.setIdleOpen(!idleOpen)} />
           Uten behov
           <span className="section-meta">{idle.length}</span>
         </div>

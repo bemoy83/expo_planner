@@ -252,8 +252,6 @@
 .strip-event::before{background:var(--ph-event)}
 .strip-movingOut::before{background:var(--ph-movingout)}
 .strip-dismantle::before{background:var(--ph-dismantle)}
-.strip-mon::before{background:var(--mon)}
-.strip-dem::before{background:var(--dem)}
 /* A level that takes FTE itself instead of only summing its rows. */
 .group-row .row-action.level-mode.entry{visibility:visible;color:var(--accent);font-weight:600}
 .group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}
