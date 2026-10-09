@@ -18,7 +18,7 @@ interface PendingImport {
 
 const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
 
-/** Whether the row is the first of its product type among the rows shown: what holds for the type is shown once, and its name in bold. */
+/** Whether the row is the first of its product type among the rows shown: its name is in bold, and a line is drawn above it. */
 const firstOfType = (row: KpiRow, index: number, rows: KpiRow[]) => index === 0 || rows[index - 1].name !== row.name
 
 const LACKING_TEXT: Record<Lacking, string> = {
@@ -98,7 +98,7 @@ export function Kpi() {
       head: 'I Visma',
       title: 'Produkttype 2 slik den står i Visma',
       text: (row) => row.productType,
-      cell: (row, index, shown) => (firstOfType(row, index, shown) ? row.productType : ''),
+      cell: (row) => row.productType,
       cellProps: () => ({ className: 'muted' }),
     },
     {
@@ -122,8 +122,8 @@ export function Kpi() {
       key: 'competence',
       head: 'Kompetanse (nøkkelområde)',
       text: (row) => row.competence,
-      cell: (row, index, shown) =>
-        firstOfType(row, index, shown) ? <TextField value={row.competence} list="competence-options" ariaLabel={`Kompetanse for ${row.name}`} onCommit={(value) => changeCompetence(row.name, row.unit, value)} /> : '',
+      // The competence is that of the product type: changed on one row, it changes on all its units.
+      cell: (row) => <TextField value={row.competence} list="competence-options" ariaLabel={`Kompetanse for ${row.name}`} onCommit={(value) => changeCompetence(row.name, row.unit, value)} />,
     },
     {
       key: 'assembly',
@@ -150,7 +150,7 @@ export function Kpi() {
       className: 'num',
       text: (row) => (row.lines ? String(row.lines) : ''),
       sort: (row) => row.lines,
-      cell: (row, index, shown) => (firstOfType(row, index, shown) && row.lines) || '',
+      cell: (row) => row.lines || '',
     },
     {
       key: 'lacking',
@@ -158,9 +158,9 @@ export function Kpi() {
       title: 'Det som gjenstår før linjene av produkttypen gir timer. Til da er timene ukjente, ikke 0.',
       className: 'actions',
       text: (row) => (row.lacking ? LACKING_TEXT[row.lacking] : ''),
-      cell: (row, index, shown) => (
+      cell: (row) => (
         <>
-          {row.lacking && firstOfType(row, index, shown) && <span className="issue">{LACKING_TEXT[row.lacking]} </span>}
+          {row.lacking && <span className="issue">{LACKING_TEXT[row.lacking]} </span>}
           <button className="row-action" title={`Legg til en annen enhet for ${row.name}`} onClick={() => setAdding({ name: row.name })}>
             +
           </button>
