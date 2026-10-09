@@ -11,13 +11,13 @@ import type { useHallCalendar } from './useHallCalendar'
 
 type HallCalendar = ReturnType<typeof useHallCalendar>
 
-/** What the colours of the hall phases mean. With `codes`, each mark holds the letter the hall bars write. */
-export function PhaseLegend({ codes = false, left }: { codes?: boolean; left?: number }) {
+/** What the colours of the hall phases mean, each with the letter the bars write. It ends a section's heading, and stays beside the label column. */
+export function PhaseLegend() {
   return (
-    <span className="phase-legend" style={{ left }}>
+    <span className="phase-legend">
       {VENUE_PHASES.map((phase) => (
         <span key={phase}>
-          <i className={`ph-${phase}`}>{codes && PHASE_CODES[phase]}</i> {PHASE_LABELS[phase]}
+          <i className={`ph-${phase}`}>{PHASE_CODES[phase]}</i> {PHASE_LABELS[phase]}
         </span>
       ))}
     </span>
@@ -52,7 +52,7 @@ export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, pinTop,
             {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
           </button>
         )}
-        {open && <PhaseLegend codes />}
+        {open && <PhaseLegend />}
       </div>
       {open && empty && (
         <div className="section-hint" style={{ width: LEFT_W }}>

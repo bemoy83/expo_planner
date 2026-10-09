@@ -1,6 +1,5 @@
 /* Bemanning: a mode of the Kalender. Its lines are lines of the Kalender's grid: the projects in view, the demand per competence, and the people. */
 
-.section-line{display:flex}
 .section-meta-end{margin-left:auto}
 .bm-density{width:18px;height:18px;padding:0;border-radius:4px;background:none;color:var(--muted)}
 .bm-density:hover{background:none;color:var(--text)}
