@@ -23,8 +23,8 @@
 .bm-more{font-weight:600;color:var(--over)}
 .bm-project-block{position:relative}
 .bm-project-days{border-bottom:0}
-.bm-project-days .grid-label{z-index:0}
-.bm-project-line{position:absolute;left:0;right:0;display:flex;transition:top 260ms var(--ease),opacity 260ms var(--ease);animation:bm-fade-in 260ms var(--ease)}
+/* a project's line lies over the days behind it, whose label column fills the lines that are empty */
+.bm-project-line{position:absolute;left:0;right:0;z-index:3;display:flex;transition:top 260ms var(--ease),opacity 260ms var(--ease);animation:bm-fade-in 260ms var(--ease)}
 .bm-project-line.leaving{opacity:0}
 .bm-project-line.dim{opacity:.35}
 @keyframes bm-fade-in{from{opacity:0}}
