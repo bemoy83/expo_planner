@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { daysBetween, type ISODate } from '../../domain/dates'
-import { fitSpan, LEFT_W, type Zoom } from './layout'
+import { fitSpan, LEFT_W, ROW_H, type Zoom } from './layout'
 
 interface Options {
   /** The period shown. */
@@ -112,11 +112,12 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     prevColW.current = colW
   }, [colW, placings])
 
-  // The top block stays pinned like Excel's frozen rows. When it would cover most of the screen, or leave the
-  // rows less than they are promised, it gives way: it moves up by that much as the rows scroll, and the rest
-  // stays. What it holds says which part is lost: the hall calendar stays under the date header, and the
+  // The top block stays pinned like Excel's frozen rows, however much of the screen it covers: its sections are
+  // how the planner finds the way, and stay within reach. It gives way only where the rows would be left with
+  // less than they are promised, or with no more than a few lines: it then moves up by that much as the rows
+  // scroll. What it holds says which part is lost: the hall calendar stays under the date header, and the
   // staffing lines slide in under it. The date header and the planning bar never give way.
-  const room = Math.min(viewport.height * 0.65, viewport.height - reserve)
+  const room = viewport.height - Math.max(reserve, 3 * ROW_H)
   const tucked = Math.round(Math.max(0, Math.min(topHeight - room, topHeight - headHeight - barHeight)))
   // Bring a span of days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
   useLayoutEffect(() => {

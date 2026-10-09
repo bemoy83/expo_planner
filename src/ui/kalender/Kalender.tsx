@@ -240,7 +240,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // out by the next one. Each is drawn in a box as tall as its stretch of lines and sticks inside it, so
   // the browser moves it while scrolling and nothing is worked out per frame.
   const allSections = useMemo(() => levelSections(items), [items])
-  /** What stays pinned over the rows once they are scrolled: the top block, less the part of it that gives way when it is too tall. */
+  /** What stays pinned over the rows once they are scrolled: the top block, less the part of it that gives way where the rows have no room. */
   const pinnedHeight = topHeight - tucked
   /** How much of the rows the line of a top level covers above the line at `index`: nothing above a top level itself. */
   const headOver = (index: number) => {
@@ -760,7 +760,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
       <div className="kal-work">
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
-          {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows; too tall, it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
+          {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows. Where it leaves the rows no room it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
             {bemanning && <i className="bm-crosshair" />}

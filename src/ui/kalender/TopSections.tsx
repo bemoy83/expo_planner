@@ -25,7 +25,7 @@ interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'h
 
 /**
  * The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too.
- * It stays under the date header whatever the height of the top block: when the block is too tall to pin whole, the staffing lines slide in under it.
+ * It stays under the date header whatever the height of the top block: where the block has to give way, the staffing lines slide in under it.
  */
 export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, pinTop, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
   return (

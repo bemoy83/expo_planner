@@ -5,7 +5,7 @@
 .kal-work{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .grid-scroll{flex:1;overflow:auto;position:relative;outline:none;background:var(--bg);overscroll-behavior:contain}
 .grid-canvas{position:relative}
-/* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows. Too tall, the block under the dates moves up by what does not fit. */
+/* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows. Only where the rows would be left with no room does the block under the dates move up, by what does not fit. */
 .grid-head{position:sticky;top:0;z-index:4;background:var(--bg)}
 .grid-top{position:sticky;z-index:3;background:var(--bg)}
 
@@ -55,7 +55,7 @@
 .top-section.open::after{content:'';position:absolute;top:26px;left:0;right:0;height:1px;background:var(--line);z-index:1;pointer-events:none}
 /* Bemanning: the hairline under it is the one above the «Planlegging» heading */
 .top-section.staffing{border-bottom:0}
-/* The hall calendar stays under the date header when the top block is too tall to pin whole; the staffing lines slide in under it. */
+/* The hall calendar stays under the date header where the top block has to give way; the staffing lines slide in under it. */
 .top-section.halls{position:sticky;z-index:3;background:var(--bg)}
 /* what sits in a heading beside its name is ordinary text */
 .section-head .phase-legend,.section-head button.link,.section-head .muted{font-family:var(--font-ui);font-weight:400;text-transform:none;letter-spacing:0}
