@@ -11,6 +11,8 @@
 
 /* how what is picked is shown, the setting «Markering»: a tint of its colour, or raised on a neutral ground. Neither draws a box around it. */
 .kalender.selection-raised{--bm-on-bg:var(--surface);--bm-sel-bg:color-mix(in srgb,var(--surface) 75%,transparent);--bm-on-shadow:0 1px 5px -1px var(--shadow)}
+/* Bemanning comes in softly when the switch has zoomed in, as the plan does when it comes back, see kalender.css */
+.bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:bm-fade-in var(--mode-fade) var(--ease)}
 /* the crosshair: the date and the demand of the day under the pointer */
 .bm-crosshair{position:absolute;top:0;bottom:0;left:var(--cross-x);z-index:1;display:none;width:var(--col-w);background:color-mix(in srgb,var(--text) 5%,transparent);pointer-events:none}
 .crossing .bm-crosshair{display:block}
@@ -31,7 +33,7 @@
 .bm-projects.compact .hall-bar{height:6px;padding:0;border-radius:3px}
 .bm-projects.compact .bm-project-name{font-size:var(--fs-xs)}
 .bm-projects.compact .bm-project-halls{font-size:var(--fs-2xs)}
-@media (prefers-reduced-motion:reduce){.bm-project-line{transition:none;animation:none}}
+@media (prefers-reduced-motion:reduce){.bm-project-line{transition:none;animation:none}.bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:none}}
 
 /* ---- the demand per competence ---- */
 .bm-demand{transition:opacity 160ms var(--ease)}

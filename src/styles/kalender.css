@@ -1,6 +1,6 @@
 /* The Kalender: a grid of lines, each a pinned label column and a cell per day. See kalender/Kalender.tsx and GridRows.tsx. */
 
-.kalender{display:flex;flex-direction:column;flex:1;min-height:0}
+.kalender{display:flex;flex-direction:column;flex:1;min-height:0;--mode-fade:220ms}
 /* the grid and the row details that slide in over its right edge */
 .kal-work{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .grid-scroll{flex:1;overflow:auto;position:relative;outline:none;background:var(--bg);overscroll-behavior:contain}
@@ -8,6 +8,11 @@
 /* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows. Only where the rows would be left with no room does the block under the dates move up, by what does not fit. */
 .grid-head{position:sticky;top:0;z-index:4;background:var(--bg)}
 .grid-top{position:sticky;z-index:3;background:var(--bg)}
+/* What a mode brings with it comes in softly when the modes are switched: the plan's top block and rows here, Bemanning's in bemanning.css.
+   The two have keyframes of their own, or the top block, which both modes use, would not fade a second time. */
+.kalender:not(.bemanning-mode) .grid-top,.grid-alloc{animation:plan-fade-in var(--mode-fade) var(--ease)}
+@keyframes plan-fade-in{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.kalender:not(.bemanning-mode) .grid-top,.grid-alloc{animation:none}}
 
 /* ---- a line and its cells ---- */
 /* A day is as wide as --col-w, which the grid sets where it scrolls, see useGridViewport. */
