@@ -15,10 +15,8 @@ import { Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
 const HALL_LABEL_MAX_COLS = 10
-/** Roughly the width of one letter of an event's name. */
-const HALL_LABEL_CHAR_W = 6.6
-/** The width of one letter of a phase on a bar, and the air the letters need at the bar's ends. */
-const PHASE_CODE_CHAR_W = 6
+/** The width of one letter on a hall bar, of an event's name and of a phase alike, and the air a phase's letters need at the bar's ends. */
+const BAR_CHAR_W = 6
 const PHASE_CODE_AIR = 4
 
 /** How far each level of the hierarchy is indented in the label column. */
@@ -161,7 +159,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
     .map((run) => {
       const width = Math.min(run.room * colW, Math.max(run.span * colW, HALL_LABEL_MAX_W)) - 2
       // Roughly the columns the text covers, so the phase letters under it can be left out.
-      const covered = Math.ceil(Math.min(width, run.eventName.length * HALL_LABEL_CHAR_W + 6) / colW)
+      const covered = Math.ceil(Math.min(width, run.eventName.length * BAR_CHAR_W + 6) / colW)
       // Where the name is now: on its first day, or held at the left edge of the days, at most to the end of the stretch it may move in.
       const at = Math.min(Math.max(run.col, cols.first), run.col + Math.max(run.span, Math.ceil(width / colW)) - covered)
       // The same width for the page, which follows the width of a day through a zoom.
@@ -183,7 +181,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
           {visible.map((bar) => {
             // The phase letters sit in the middle of the bar; they are left out under an event's name and on a bar too narrow for them, such as half a day in narrow columns.
             const code = PHASE_CODES[bar.phase]
-            const fits = bar.span * colW - 2 >= code.length * PHASE_CODE_CHAR_W + PHASE_CODE_AIR
+            const fits = bar.span * colW - 2 >= code.length * BAR_CHAR_W + PHASE_CODE_AIR
             const middle = bar.col + bar.span / 2
             // A name held at the edge sits a part of a day further in than its column says; one day more is kept clear for it.
             const underLabel = labels.some((label) => middle >= label.at && middle < label.at + label.covered + (label.at > label.col ? 1 : 0))
