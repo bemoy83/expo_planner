@@ -23,6 +23,8 @@ export interface VenueEvent {
   linkSource: LinkSource
   /** More than one number in the project list carries this name, so none is picked. */
   ambiguous: boolean
+  /** The numbers the project list has under this name, to pick from where there are several. */
+  candidates: string[]
   start: ISODate
   end: ISODate
   halls: string[]
@@ -57,6 +59,7 @@ export const venueEvents = (bookings: VenueBooking[], links: Record<string, stri
         projectNo: manual || fromList,
         linkSource: manual ? 'manual' : fromList ? 'list' : 'none',
         ambiguous: !manual && (listed?.size ?? 0) > 1,
+        candidates: [...(listed ?? [])].sort(),
         start: '9999-12-31',
         end: '0000-01-01',
         halls: [],

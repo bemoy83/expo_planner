@@ -89,6 +89,7 @@ export function Haller() {
   const rowCount = groups.reduce((n, g) => n + g.bookings.length, 0)
   const hiddenCount = useMemo(() => ws.venue.filter((b) => hidden[venueKey(b)]).length, [ws.venue, hidden])
   const listed = useMemo(() => groups.flatMap((g) => g.bookings.map(venueKey)), [groups])
+  const listedShown = listed.filter((key) => !hidden[key]).length
   const allFolded = groups.length > 0 && groups.every((g) => folded.has(g.key))
   const toggleFold = (key: string) =>
     setFolded((before) => {
@@ -147,15 +148,6 @@ export function Haller() {
           onChange={(e) => takeFile(e, onProjectList)}
         />
         <UndoRedoButtons />
-        <button onClick={() => setFolded(allFolded ? new Set() : new Set(groups.map((g) => g.key)))} disabled={!rowCount} title={allFolded ? 'Vis hallene under hvert arrangement' : 'Vis bare én rad per arrangement'}>
-          {allFolded ? 'Åpne alle' : 'Fold alle'}
-        </button>
-        <button onClick={() => setVenueHidden(listed, false)} disabled={!rowCount}>
-          Vis alle i listen
-        </button>
-        <button onClick={() => setVenueHidden(listed, true)} disabled={!rowCount}>
-          Skjul alle i listen
-        </button>
       </div>
 
       <MessageBanner message={message} onClose={() => setMessage(null)} />
@@ -164,7 +156,7 @@ export function Haller() {
         <p className="hint">
           Hvert arrangement er et prosjekt i Kalender. Prosjektnummeret kobler det til Visma; det hentes fra prosjektlisten når navnet er likt, ellers skriver du det inn her.{' '}
           {unlinkedCount > 0 && `${unlinkedCount} arrangementer mangler nummer. `}
-          Haken bestemmer om bookingen vises i hallkalenderen. Skjulte bookinger blir liggende her, og valget beholdes når du leser inn en ny Venyou-fil.{' '}
+          Haken bestemmer om bookingen vises i hallkalenderen; haken i overskriften gjelder alle i listen. Skjulte bookinger blir liggende her, og valget beholdes når du leser inn en ny Venyou-fil.{' '}
           {ws.venue.length} bookinger totalt, {hiddenCount} skjult.
           {ws.venueImport && ` Sist oppdatert fra ${ws.venueImport.fileName} (${ws.venueImport.from} til ${ws.venueImport.to}).`}
         </p>
@@ -172,8 +164,13 @@ export function Haller() {
           <table className="ledger halls">
             <thead>
               <tr>
-                <th title="Vises i Kalender">Vis</th>
-                <th>Arrangement / hall</th>
+                <th className="center" title="Vises i Kalender. Haken her viser eller skjuler alle bookingene i listen.">
+                  <TriCheckbox checked={listedShown === listed.length} partial={listedShown > 0 && listedShown < listed.length} label="Vis alle i listen" onChange={(show) => setVenueHidden(listed, !show)} />
+                </th>
+                <th>
+                  <Twisty open={!allFolded} show="Vis hallene under hvert arrangement" hide="Vis bare én rad per arrangement" onToggle={() => setFolded(allFolded ? new Set() : new Set(groups.map((g) => g.key)))} />
+                  Arrangement / hall
+                </th>
                 {VENUE_PHASES.map((phase) => (
                   <th key={phase}>{PHASE_HEADERS[phase]}</th>
                 ))}
@@ -182,11 +179,15 @@ export function Haller() {
               </tr>
             </thead>
             <tbody>
-              {groups.map((group) => {
+              {groups.map((group, index) => {
                 const keys = group.bookings.map(venueKey)
                 const shown = keys.filter((key) => !hidden[key]).length
                 const open = !folded.has(group.key)
                 const spans = phaseSpans(group.bookings)
+                // Shown once, on the event, when its halls agree; else on each hall.
+                const status = group.bookings.every((b) => b.status === group.bookings[0].status) ? group.bookings[0].status : null
+                const candidates = group.event && group.event.candidates.length > 1 ? group.event.candidates : null
+                const candidatesId = `project-candidates-${index}`
                 return [
                   <tr key={`${group.name}|${group.anchor}`} className={group.event && !group.event.projectNo ? 'event-row has-issue' : 'event-row'}>
                     <td className="center">
@@ -208,7 +209,7 @@ export function Haller() {
                     {VENUE_PHASES.map((phase) => (
                       <td key={phase} className="date">{span(spans[phase])}</td>
                     ))}
-                    <td />
+                    <td>{status}</td>
                     <td className="project-no">
                       {group.event && (
                         <>
@@ -216,13 +217,21 @@ export function Haller() {
                           <TextField
                             className={`project-no-input ${group.event.projectNo ? '' : 'missing'}`}
                             placeholder="Prosjektnr."
+                            list={candidates ? candidatesId : undefined}
                             ariaLabel={`Prosjektnummer for ${group.event.name}`}
                             value={group.event.projectNo}
                             onCommit={(value) => setEventProject(group.event!, value)}
                           />
                           <span className="muted small">
-                            {group.event.linkSource === 'list' ? ' fra listen' : group.event.ambiguous ? ' flere treff i listen' : group.event.linkSource === 'none' ? '' : ' satt for hånd'}
+                            {group.event.linkSource === 'list' ? ' fra listen' : group.event.ambiguous ? ` velg blant ${group.event.candidates.length} i listen` : group.event.linkSource === 'none' ? '' : ' satt for hånd'}
                           </span>
+                          {candidates && (
+                            <datalist id={candidatesId}>
+                              {candidates.map((no) => (
+                                <option key={no} value={no} />
+                              ))}
+                            </datalist>
+                          )}
                         </>
                       )}
                     </td>
@@ -238,7 +247,7 @@ export function Haller() {
                         {VENUE_PHASES.map((phase) => (
                           <td key={phase} className="date">{span(booking.phases[phase])}</td>
                         ))}
-                        <td>{booking.status}</td>
+                        <td>{status === null ? booking.status : ''}</td>
                         <td />
                       </tr>
                     )

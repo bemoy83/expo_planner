@@ -24,6 +24,7 @@ const event = (name: string, projectNo: string, start: string, end: string): Ven
   projectNo,
   linkSource: projectNo ? 'list' : 'none',
   ambiguous: false,
+  candidates: [],
   start,
   end,
   halls: ['C'],

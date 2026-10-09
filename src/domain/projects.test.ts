@@ -29,12 +29,12 @@ describe('projects from Venyou events', () => {
     const events = venueEvents(bookings, {}, list)
     expect(events.find((e) => e.name === 'VVS DAGENE 2026')).toMatchObject({ projectNo: '26970', linkSource: 'list' })
     expect(events.find((e) => e.name.startsWith('Oslo'))).toMatchObject({ projectNo: '26400', linkSource: 'list' })
-    expect(events.find((e) => e.name === 'HAGE 2026')).toMatchObject({ projectNo: '', linkSource: 'none', ambiguous: true })
+    expect(events.find((e) => e.name === 'HAGE 2026')).toMatchObject({ projectNo: '', linkSource: 'none', ambiguous: true, candidates: ['26100', '26101'] })
   })
 
   it('lets a number set by hand win', () => {
     const key = eventKey('HAGE 2026', '2026-04-10')
-    expect(venueEvents(bookings, { [key]: '26100' }, list).find((e) => e.key === key)).toMatchObject({ projectNo: '26100', linkSource: 'manual', ambiguous: false })
+    expect(venueEvents(bookings, { [key]: '26100' }, list).find((e) => e.key === key)).toMatchObject({ projectNo: '26100', linkSource: 'manual', ambiguous: false, candidates: ['26100', '26101'] })
   })
 
   it('merges a project list file into the list, without duplicates', () => {
