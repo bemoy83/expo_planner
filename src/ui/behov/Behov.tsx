@@ -9,9 +9,8 @@ import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { placeOf, resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallNames } from '../../domain/venue'
-import { ColumnHead } from '../ColumnHead'
-import { useColumnFilters } from '../useColumnFilters'
-import type { ColumnValues } from '../columnFilter'
+import { DataTable } from '../DataTable'
+import { useTable, type Column } from '../useTable'
 import { MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { NumberField, TextField } from '../fields'
@@ -97,24 +96,6 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   // With no project chosen, the lines of every project are in scope, in the order of the project list.
   const scopeLines = useMemo(() => (projectNo ? vismaLines : projects.flatMap(([no]) => review.get(no)?.lines ?? [])), [projectNo, vismaLines, projects, review])
   const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases)), [scopeLines, filter, halls, ws.hallAliases])
-  // On top of that, the filters on the table's columns.
-  const lineColumns = useMemo<ColumnValues<VismaLine>>(
-    () => ({
-      inPlan: (line) => (line.inPlan ? 'Ja' : 'Nei'),
-      project: (line) => projectNames.get(line.projectNo) ?? line.projectNo,
-      competence: (line) => line.competence,
-      workType: (line) => line.workType,
-      hall: (line) => line.hall,
-      place: (line) => placeOf(line.hall, halls, ws.hallAliases).hall,
-      avdeling: (line) => line.avdeling,
-      unit: (line) => line.unit,
-    }),
-    [projectNames, halls, ws.hallAliases],
-  )
-  const { rows: shownLines, filter: columnFilter, active: columnFilters, clear: clearColumnFilters } = useColumnFilters(matchedLines, lineColumns)
-  const narrowed = filter !== 'all' || columnFilters > 0
-  // A long list is cut: every line holds fields and a list of halls, and thousands of them make the page slow.
-  const listedLines = useMemo(() => shownLines.slice(0, LIST_LIMIT), [shownLines])
   const totals = useMemo(() => {
     const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
     return { all: sum('all'), open: sum('open'), unresolved: sum('unresolved'), issue: sum('issue'), ready: [...review.values()].reduce((n, project) => n + project.ready, 0) }
@@ -166,6 +147,129 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const override = (line: VismaLine, patch: Parameters<typeof setLineOverride>[2]) => setLineOverride(line.projectNo, line.key, withRef(line, patch))
   /** Takes the given lines in or out of the plan in one go, so the project is recalculated once. */
   const setInPlan = (lines: VismaLine[], inPlan: boolean) => setLineOverrides([...new Set(lines.map((line) => line.projectNo))], lines.map((line) => ({ key: line.key, patch: withRef(line, { inPlan }) })))
+  // The Visma lines as a table, with filters on its columns on top of the filter above. Across all projects each line also names its project.
+  const lineColumns: Column<VismaLine>[] = [
+    {
+      key: 'inPlan',
+      head: 'I plan',
+      title: 'Linjen teller med i «Planlagt»',
+      className: 'center',
+      text: (line) => (line.inPlan ? 'Ja' : 'Nei'),
+      cell: (line) => <input type="checkbox" checked={line.inPlan} onChange={(e) => override(line, { inPlan: e.target.checked })} aria-label="I plan" />,
+    },
+    ...(projectNo
+      ? []
+      : [
+          {
+            key: 'project',
+            head: 'Prosjekt',
+            text: (line) => projectNames.get(line.projectNo) ?? line.projectNo,
+            cell: (line) => (
+              <button className="link" title="Åpne prosjektet" onClick={() => onProjectChange(line.projectNo)}>
+                {projectNames.get(line.projectNo) ?? line.eventName} <span className="muted">{line.projectNo}</span>
+              </button>
+            ),
+          } satisfies Column<VismaLine>,
+        ]),
+    { key: 'competence', head: 'Kompetanse', text: (line) => line.competence, cell: (line) => line.competence },
+    {
+      key: 'workType',
+      head: 'Arbeidstype',
+      text: (line) => line.workType,
+      cell: (line) => (
+        <>
+          {line.sourceWorkType === NO_PRODUCT_TYPE ? (
+            <select value={line.workType === NO_PRODUCT_TYPE ? '' : line.workType} onChange={(e) => override(line, { workType: e.target.value || undefined })}>
+              <option value="">Uten produkttype …</option>
+              {kpi.workTypes.map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.name} ({t.unit})
+                </option>
+              ))}
+            </select>
+          ) : (
+            line.workType
+          )}
+          {line.issue && line.issue !== 'no-product-type' && <span className="issue"> {ISSUE_TEXT[line.issue]}</span>}
+          {line.missingRate && <span className="hint"> {MISSING_RATE_TEXT[line.missingRate]}</span>}
+        </>
+      ),
+    },
+    { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
+    { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOf(line.hall, halls, ws.hallAliases).hall, cell: (line) => locationCell(line.hall) },
+    { key: 'avdeling', head: 'Avd.', text: (line) => line.avdeling, cell: (line) => line.avdeling },
+    { key: 'quantity', head: 'Antall', className: 'num', sort: (line) => line.quantity, cell: (line) => formatFte(line.quantity, 1), cellProps: (line) => ({ title: `${line.rowCount} ordrelinjer` }) },
+    { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
+    {
+      key: 'effekt',
+      head: 'Effekt',
+      title: 'Andel av timene som trekkes fra: 1 fjerner alt, 0,9 beholder 10 %, negativt tall legger til',
+      className: 'num',
+      sort: (line) => line.effekt,
+      cell: (line) => <NumberField value={line.effekt} onCommit={(effekt) => override(line, { effekt })} />,
+    },
+    {
+      key: 'assembly',
+      head: 'Mont. t',
+      className: 'num',
+      sort: (line) => line.assemblyHours,
+      cell: (line) => hours(line.assemblyHours),
+      cellProps: (line) => ({ title: line.rateAssembly ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateAssembly, 2)}` : '' }),
+    },
+    {
+      key: 'dismantle',
+      head: 'Demont. t',
+      className: 'num',
+      sort: (line) => line.dismantleHours,
+      cell: (line) => hours(line.dismantleHours),
+      cellProps: (line) => ({ title: line.rateDismantle ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateDismantle, 2)}` : '' }),
+    },
+    { key: 'comment', head: 'Kommentar', sort: (line) => line.comment, cell: (line) => <TextField value={line.comment} onCommit={(comment) => override(line, { comment })} /> },
+  ]
+  const lineTable = useTable(matchedLines, lineColumns)
+  const shownLines = lineTable.rows
+  const columnFilters = lineTable.filtered
+  const narrowed = filter !== 'all' || columnFilters > 0
+  // A long list is cut: every line holds fields and a list of halls, and thousands of them make the page slow.
+  const vismaTable = (
+    <DataTable
+      table={lineTable}
+      limit={LIST_LIMIT}
+      rowKey={(line) => line.key}
+      rowProps={(line) => ({ className: `${line.inPlan ? 'in-plan' : ''} ${line.issue ? 'has-issue' : ''}` })}
+      empty={projectNo ? 'Ingen linjer i dette prosjektet passer filteret.' : 'Ingen linjer passer filteret.'}
+    />
+  )
+
+  const ownColumns: Column<DemandLine>[] = [
+    { key: 'basis', head: 'Grunnlag', text: (line) => line.basis, cell: (line) => line.basis },
+    { key: 'competence', head: 'Kompetanse', text: (line) => line.competence, cell: (line) => line.competence },
+    { key: 'workType', head: 'Arbeidstype', text: (line) => line.workType, cell: (line) => line.workType },
+    { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
+    { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOf(line.hall, halls, ws.hallAliases).hall, cell: (line) => locationCell(line.hall) },
+    { key: 'source', head: 'Kilde', text: (line) => line.source, cell: (line) => line.source },
+    { key: 'quantity', head: 'Antall', className: 'num', sort: (line) => line.quantity ?? NaN, cell: (line) => (line.quantity === null ? '' : formatFte(line.quantity, 1)) },
+    { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
+    { key: 'assembly', head: 'Mont. t', className: 'num', sort: (line) => line.assemblyHours, cell: (line) => hours(line.assemblyHours) },
+    { key: 'dismantle', head: 'Demont. t', className: 'num', sort: (line) => line.dismantleHours, cell: (line) => hours(line.dismantleHours) },
+    { key: 'comment', head: 'Kommentar', sort: (line) => line.comment, cell: (line) => line.comment },
+    {
+      key: 'actions',
+      className: 'actions',
+      cell: (line) => (
+        <>
+          <button className="row-action" title="Endre" onClick={() => setDialog({ line })}>
+            <Pencil size={13} aria-hidden />
+          </button>
+          <button className="row-action" title="Slett" onClick={() => confirm(`Slette linjen ${line.competence} · ${line.workType}?`) && removeDemandLine(line.id)}>
+            <X size={13} aria-hidden />
+          </button>
+        </>
+      ),
+    },
+  ]
+  const ownTable = useTable(ownLines, ownColumns)
+
   const lineCount = (n: number) => `${n} ${n === 1 ? 'linje' : 'linjer'}`
   const skippedText = (skipped: number) => (skipped ? ` ${lineCount(skipped)} gir ingen timer og ble stående: de mangler produkttype eller sats.` : '')
   /** Takes the lines that are shown into the plan, in one project or in all of them. It leaves the lines that give no hours, and says how many. */
@@ -191,99 +295,11 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
       <button onClick={takeShownIn}>{narrowed ? 'Ta de viste inn i plan' : 'Ta alle inn i plan'}</button>
       <button onClick={() => setInPlan(shownLines.filter((l) => l.inPlan), false)}>{narrowed ? 'Ta de viste ut' : 'Ta alle ut'}</button>
       {columnFilters > 0 && (
-        <button className="ghost" onClick={clearColumnFilters} title="Fjerner filtrene i kolonnene">
+        <button className="ghost" onClick={lineTable.clearFilters} title="Fjerner filtrene i kolonnene">
           Nullstill kolonnefilter ({columnFilters})
         </button>
       )}
     </>
-  )
-
-  /** The Visma lines that are shown, as a table; across all projects each line also names its project. */
-  const vismaTable = (withProject: boolean) => (
-        <table className="ledger">
-          <thead>
-            <tr>
-              <ColumnHead filter={columnFilter('inPlan')} title="Linjen teller med i «Planlagt»">
-                I plan
-              </ColumnHead>
-              {withProject && <ColumnHead filter={columnFilter('project')}>Prosjekt</ColumnHead>}
-              <ColumnHead filter={columnFilter('competence')}>Kompetanse</ColumnHead>
-              <ColumnHead filter={columnFilter('workType')}>Arbeidstype</ColumnHead>
-              <ColumnHead filter={columnFilter('hall')}>Hall / sted</ColumnHead>
-              <ColumnHead filter={columnFilter('place')} title="Hallen linjen teller under i Kalender">
-                Plassering
-              </ColumnHead>
-              <ColumnHead filter={columnFilter('avdeling')}>Avd.</ColumnHead>
-              <th className="num">Antall</th>
-              <ColumnHead filter={columnFilter('unit')}>Enhet</ColumnHead>
-              <th className="num" title="Andel av timene som trekkes fra: 1 fjerner alt, 0,9 beholder 10 %, negativt tall legger til">
-                Effekt
-              </th>
-              <th className="num">Mont. t</th>
-              <th className="num">Demont. t</th>
-              <th>Kommentar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shownLines.length === 0 && (
-              <tr>
-                <td colSpan={withProject ? 13 : 12} className="muted">
-                  {withProject ? 'Ingen linjer passer filteret.' : 'Ingen linjer i dette prosjektet passer filteret.'}
-                </td>
-              </tr>
-            )}
-            {listedLines.map((line) => (
-              <tr key={line.key} className={`${line.inPlan ? 'in-plan' : ''} ${line.issue ? 'has-issue' : ''}`}>
-                <td className="center">
-                  <input type="checkbox" checked={line.inPlan} onChange={(e) => override(line, { inPlan: e.target.checked })} aria-label="I plan" />
-                </td>
-                {withProject && (
-                  <td>
-                    <button className="link" title="Åpne prosjektet" onClick={() => onProjectChange(line.projectNo)}>
-                      {projectNames.get(line.projectNo) ?? line.eventName} <span className="muted">{line.projectNo}</span>
-                    </button>
-                  </td>
-                )}
-                <td>{line.competence}</td>
-                <td>
-                  {line.sourceWorkType === NO_PRODUCT_TYPE ? (
-                    <select value={line.workType === NO_PRODUCT_TYPE ? '' : line.workType} onChange={(e) => override(line, { workType: e.target.value || undefined })}>
-                      <option value="">Uten produkttype …</option>
-                      {kpi.workTypes.map((t) => (
-                        <option key={t.name} value={t.name}>
-                          {t.name} ({t.unit})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    line.workType
-                  )}
-                  {line.issue && line.issue !== 'no-product-type' && <span className="issue"> {ISSUE_TEXT[line.issue]}</span>}
-                  {line.missingRate && <span className="hint"> {MISSING_RATE_TEXT[line.missingRate]}</span>}
-                </td>
-                <td>{line.hall}</td>
-                <td>{locationCell(line.hall)}</td>
-                <td>{line.avdeling}</td>
-                <td className="num" title={`${line.rowCount} ordrelinjer`}>
-                  {formatFte(line.quantity, 1)}
-                </td>
-                <td>{line.unit}</td>
-                <td className="num">
-                  <NumberField value={line.effekt} onCommit={(effekt) => override(line, { effekt })} />
-                </td>
-                <td className="num" title={line.rateAssembly ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateAssembly, 2)}` : ''}>
-                  {hours(line.assemblyHours)}
-                </td>
-                <td className="num" title={line.rateDismantle ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateDismantle, 2)}` : ''}>
-                  {hours(line.dismantleHours)}
-                </td>
-                <td>
-                  <TextField value={line.comment} onCommit={(comment) => override(line, { comment })} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
   )
 
   return (
@@ -348,10 +364,10 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
               {bulkButtons}
             </div>
             <p className="hint">Velg et prosjekt i listen eller klikk på navnet for timer per kompetanse, egne linjer og historikk.</p>
-            {vismaTable(true)}
-            {shownLines.length > listedLines.length && (
+            {vismaTable}
+            {shownLines.length > LIST_LIMIT && (
               <p className="muted">
-                Viser de første {listedLines.length} av {shownLines.length} linjer. Handlingene over gjelder alle {shownLines.length}; bruk filteret eller velg et prosjekt for å se resten.
+                Viser de første {LIST_LIMIT} av {shownLines.length} linjer. Handlingene over gjelder alle {shownLines.length}; bruk filteret eller velg et prosjekt for å se resten.
               </p>
             )}
           </section>
@@ -445,7 +461,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                 </div>
               )}
               {vismaImport ? (
-                vismaTable(false)
+                vismaTable
               ) : (
                 <p className="muted">Ingen Visma-utskrift er lest inn for prosjektet.</p>
               )}
@@ -458,49 +474,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
                 <button onClick={() => setDialog({})}>+ Ny linje</button>
               </div>
               {ownLines.length ? (
-                <table className="ledger">
-                  <thead>
-                    <tr>
-                      <th>Grunnlag</th>
-                      <th>Kompetanse</th>
-                      <th>Arbeidstype</th>
-                      <th>Hall / sted</th>
-                      <th title="Hallen linjen teller under i Kalender">Plassering</th>
-                      <th>Kilde</th>
-                      <th className="num">Antall</th>
-                      <th>Enhet</th>
-                      <th className="num">Mont. t</th>
-                      <th className="num">Demont. t</th>
-                      <th>Kommentar</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ownLines.map((line) => (
-                      <tr key={line.id} className={line.basis === PLANNED_BASIS ? 'in-plan' : ''}>
-                        <td>{line.basis}</td>
-                        <td>{line.competence}</td>
-                        <td>{line.workType}</td>
-                        <td>{line.hall}</td>
-                        <td>{locationCell(line.hall)}</td>
-                        <td>{line.source}</td>
-                        <td className="num">{line.quantity === null ? '' : formatFte(line.quantity, 1)}</td>
-                        <td>{line.unit}</td>
-                        <td className="num">{hours(line.assemblyHours)}</td>
-                        <td className="num">{hours(line.dismantleHours)}</td>
-                        <td>{line.comment}</td>
-                        <td className="actions">
-                          <button className="row-action" title="Endre" onClick={() => setDialog({ line })}>
-                            <Pencil size={13} aria-hidden />
-                          </button>
-                          <button className="row-action" title="Slett" onClick={() => confirm(`Slette linjen ${line.competence} · ${line.workType}?`) && removeDemandLine(line.id)}>
-                            <X size={13} aria-hidden />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <DataTable table={ownTable} rowKey={(line) => line.id} rowProps={(line) => ({ className: line.basis === PLANNED_BASIS ? 'in-plan' : undefined })} />
               ) : (
                 <p className="muted">Ingen egne linjer. Bruk «Ny linje» for egen opptelling eller timer som ikke ligger i Visma.</p>
               )}

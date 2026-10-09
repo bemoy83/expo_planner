@@ -36,4 +36,16 @@ describe('column filters', () => {
     expect(withValues({ competence: ['FOGA'] }, 'hall', [], offered)).toEqual({ competence: ['FOGA'], hall: [] })
     expect(withValues({ hall: ['C'] }, 'hall', offered, offered)).toEqual({})
   })
+
+  it('reads a cell with several values as each of them, and one with none as empty', () => {
+    const people = [
+      { name: 'A', competences: ['FOGA', 'Print'] },
+      { name: 'B', competences: ['Print'] },
+      { name: 'C', competences: [] },
+    ]
+    const has: ColumnValues<(typeof people)[number]> = { competences: (person) => person.competences }
+    expect(columnValues(people, has, {}, 'competences')).toEqual([{ value: '', count: 1 }, { value: 'FOGA', count: 1 }, { value: 'Print', count: 2 }])
+    expect(filterRows(people, has, { competences: ['Print'] }).map((person) => person.name)).toEqual(['A', 'B'])
+    expect(filterRows(people, has, { competences: ['', 'FOGA'] }).map((person) => person.name)).toEqual(['A', 'C'])
+  })
 })

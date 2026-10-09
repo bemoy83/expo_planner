@@ -1,4 +1,4 @@
-/* The ledgers of Behov, Haller, Produkttyper, KPI and Personell: a scrolling page of tables that are edited in place. */
+/* The ledgers of Behov, Haller, Produkttyper, KPI, Personell and Kompetanser: a scrolling page of tables that are edited in place. */
 
 .behov{display:flex;flex-direction:column;flex:1;min-height:0}
 .behov-body{flex:1;overflow:auto;padding:12px 16px 32px}
@@ -21,7 +21,10 @@ table.ledger tr.has-issue td{background:var(--warn-bg)}
 /* numbers and dates are set as in the Kalender */
 table.ledger .num,table.ledger .date,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
 
-/* a column's filter, see ColumnHead.tsx: a small button in the heading and a list of the column's values under it */
+/* a column's heading, see ColumnHead.tsx: a click on its name sorts by it, with an arrow for the direction */
+button.col-sort{padding:0;gap:3px;border-radius:4px;background:transparent;font-weight:inherit}
+button.col-sort:hover{background:transparent;color:var(--accent)}
+/* a column's filter: a small button in the heading and a list of the column's values under it */
 table.ledger th:has(.menu-pop){z-index:3}
 .menu-button.col-filter{margin-left:4px;padding:2px;border-radius:4px;background:transparent;color:var(--faint);vertical-align:middle}
 .menu-button.col-filter:hover,.menu-button.col-filter[aria-expanded='true']{background:var(--sunken);color:var(--text)}
@@ -67,7 +70,7 @@ table.ledger.kpi{width:auto;min-width:760px}
 table.ledger.kpi tr.first-of-type td{border-top:1px solid var(--line-strong)}
 table.ledger.kpi tr.alt-unit td{color:var(--muted)}
 
-/* ---- Personell ---- */
+/* ---- Personell and Kompetanser ---- */
 table.ledger.personell{width:auto;min-width:760px}
 /* the competences a person has, each removed with a click, and the + that opens the list of the rest */
 .comp-toggles{display:flex;align-items:center;gap:4px;flex-wrap:wrap}

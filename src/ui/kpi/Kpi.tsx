@@ -4,9 +4,8 @@ import { parseDecimal } from '../../domain/numbers'
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { ColumnHead } from '../ColumnHead'
-import { useColumnFilters } from '../useColumnFilters'
-import type { ColumnValues } from '../columnFilter'
+import { DataTable } from '../DataTable'
+import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { NumberField } from '../fields'
@@ -19,10 +18,10 @@ interface PendingImport {
 
 const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
 
-/** The KPI rates: how many units one person does per hour, for each product type and unit. */
-/** The columns that can be filtered. */
-const COLUMNS: ColumnValues<KpiRow> = { unit: (row) => row.unit, competence: (row) => row.competence }
+/** Whether the row is the first of its product type among the rows shown: the type is named once. */
+const firstOfType = (row: KpiRow, index: number, rows: KpiRow[]) => index === 0 || rows[index - 1].name !== row.name
 
+/** The KPI rates: how many units one person does per hour, for each product type and unit. */
 export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) {
   const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
@@ -38,7 +37,6 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
     const q = search.trim().toLowerCase()
     return q ? rows.filter((row) => `${row.name} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
   }, [rows, search])
-  const { rows: shown, filter: columnFilter } = useColumnFilters(found, COLUMNS)
   const typeNames = useMemo(() => kpi.workTypes.map((rule) => rule.name).sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
   const missing = rows.filter((row) => row.missingRate).length
 
@@ -67,6 +65,52 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
   }
 
   const diff = pending ? diffKpi(kpi, pending.incoming) : null
+
+  const columns: Column<KpiRow>[] = [
+    { key: 'name', head: 'Produkttype', sort: (row) => row.name, cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : '') },
+    { key: 'unit', head: 'Enhet', text: (row) => row.unit, cell: (row) => row.unit },
+    {
+      key: 'active',
+      head: 'I bruk',
+      title: 'Enheten Visma-linjer av denne produkttypen regnes med. Velges på Produkttyper.',
+      className: 'center',
+      text: (row) => (row.active ? 'Ja' : 'Nei'),
+      cell: (row) => (row.active ? <span className="badge">i bruk</span> : ''),
+    },
+    { key: 'competence', head: 'Kompetanse', text: (row) => row.competence, cell: (row, index, shown) => (firstOfType(row, index, shown) ? row.competence : ''), cellProps: () => ({ className: 'muted' }) },
+    {
+      key: 'assembly',
+      head: 'Montering',
+      title: 'Enheter per persontime',
+      className: 'num',
+      sort: (row) => row.assembly,
+      cell: (row) => <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { assembly: value }))} />,
+    },
+    {
+      key: 'dismantle',
+      head: 'Demontering',
+      title: 'Enheter per persontime. Tomt betyr ingen demontering.',
+      className: 'num',
+      sort: (row) => row.dismantle,
+      cell: (row) => <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { dismantle: value }))} />,
+    },
+    {
+      key: 'actions',
+      className: 'actions',
+      cell: (row) => (
+        <>
+          {row.missingRate && <span className="issue">Mangler sats </span>}
+          <button className="row-action" title={`Legg til sats for en annen enhet for ${row.name}`} onClick={() => setAdding({ name: row.name })}>
+            +
+          </button>
+          <button className="row-action" title="Slett" onClick={() => confirm(`Slette ${row.name} (${row.unit})?`) && setKpi(removeKpiRow(kpi, row.name, row.unit))}>
+            <X size={13} aria-hidden />
+          </button>
+        </>
+      ),
+    },
+  ]
+  const table = useTable(found, columns)
 
   return (
     <div className="behov">
@@ -110,51 +154,13 @@ export function Kpi({ onOpenProductTypes }: { onOpenProductTypes: () => void }) 
         )}
 
         {rows.length ? (
-          <table className="ledger kpi">
-            <thead>
-              <tr>
-                <th>Produkttype</th>
-                <ColumnHead filter={columnFilter('unit')}>Enhet</ColumnHead>
-                <th title="Enheten Visma-linjer av denne produkttypen regnes med. Velges på Produkttyper.">I bruk</th>
-                <ColumnHead filter={columnFilter('competence')}>Kompetanse</ColumnHead>
-                <th className="num" title="Enheter per persontime">
-                  Montering
-                </th>
-                <th className="num" title="Enheter per persontime. Tomt betyr ingen demontering.">
-                  Demontering
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((row, index) => {
-                const first = index === 0 || shown[index - 1].name !== row.name
-                return (
-                  <tr key={`${row.name}|${row.unit}`} className={`${first ? 'first-of-type' : ''} ${row.active ? '' : 'alt-unit'} ${row.missingRate ? 'has-issue' : ''}`}>
-                    <td>{first ? <strong>{row.name}</strong> : ''}</td>
-                    <td>{row.unit}</td>
-                    <td className="center">{row.active ? <span className="badge">i bruk</span> : ''}</td>
-                    <td className="muted">{first ? row.competence : ''}</td>
-                    <td className="num">
-                      <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { assembly: value }))} />
-                    </td>
-                    <td className="num">
-                      <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { dismantle: value }))} />
-                    </td>
-                    <td className="actions">
-                      {row.missingRate && <span className="issue">Mangler sats </span>}
-                      <button className="row-action" title={`Legg til sats for en annen enhet for ${row.name}`} onClick={() => setAdding({ name: row.name })}>
-                        +
-                      </button>
-                      <button className="row-action" title="Slett" onClick={() => confirm(`Slette ${row.name} (${row.unit})?`) && setKpi(removeKpiRow(kpi, row.name, row.unit))}>
-                        <X size={13} aria-hidden />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <DataTable
+            table={table}
+            className="kpi"
+            rowKey={(row) => `${row.name}|${row.unit}`}
+            rowProps={(row, index, shown) => ({ className: `${firstOfType(row, index, shown) ? 'first-of-type' : ''} ${row.active ? '' : 'alt-unit'} ${row.missingRate ? 'has-issue' : ''}` })}
+            empty="Ingen satser passer søket eller filteret."
+          />
         ) : (
           <p className="notice">
 Ingen satser ennå. Legg dem inn med «Ny sats», eller les inn <code>Kpier.xlsx</code> én gang med «Importer KPI-filer».

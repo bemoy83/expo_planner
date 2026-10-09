@@ -3,9 +3,8 @@ import { addWorkType, diffKpi, EMPTY_KPI, linesWithoutProductType, mergeKpi, rem
 import type { KpiConfig } from '../../domain/types'
 import { readKpiWorkbook } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { ColumnHead } from '../ColumnHead'
-import { useColumnFilters } from '../useColumnFilters'
-import type { ColumnValues } from '../columnFilter'
+import { DataTable } from '../DataTable'
+import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFile } from '../files'
 import { TextField } from '../fields'
@@ -16,9 +15,6 @@ import { X } from 'lucide-react'
  * This is the planner's own parser setup. It fills itself with the product types found in the Visma
  * exports, so nothing has to be imported to get started.
  */
-/** The columns that can be filtered. */
-const COLUMNS: ColumnValues<WorkTypeRow> = { unit: (row) => row.unit, competence: (row) => row.competence }
-
 export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
   const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
@@ -34,7 +30,6 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
     const q = search.trim().toLowerCase()
     return q ? rows.filter((row) => `${row.name} ${row.productType} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
   }, [rows, search])
-  const { rows: shown, filter: columnFilter } = useColumnFilters(found, COLUMNS)
   const competences = useMemo(() => [...new Set(kpi.workTypes.map((rule) => rule.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
   const units = useMemo(() => [...new Set([...kpi.workTypes.map((rule) => rule.unit), ...kpi.rates.map((rate) => rate.unit)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi])
   const fresh = rows.filter((row) => !row.configured).length
@@ -69,6 +64,58 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
     setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med tabellen' : 'har erstattet tabellen'}. Kan angres med Ctrl/Cmd+Z.` })
     setPending(null)
   }
+
+  /** What a product type still lacks before its lines give hours. */
+  const lacking = (row: WorkTypeRow) => (!row.configured ? 'Ny fra Visma' : !row.unit ? 'Mangler enhet' : !row.competence ? 'Mangler kompetanse' : !row.hasRate ? 'Mangler sats' : '')
+  const columns: Column<WorkTypeRow>[] = [
+    { key: 'name', head: 'Produkttype', sort: (row) => row.name, cell: (row) => <strong>{row.name}</strong> },
+    { key: 'productType', head: 'I Visma', title: 'Produkttype 2 slik den står i Visma', sort: (row) => row.productType, cell: (row) => row.productType, cellProps: () => ({ className: 'muted' }) },
+    {
+      key: 'unit',
+      head: 'Enhet',
+      title: '«ordre» og «stands» teller antall stands; andre enheter summerer antall',
+      text: (row) => row.unit,
+      cell: (row) => <TextField value={row.unit} list="unit-options" onCommit={(value) => setKpi(setActiveUnit(kpi, row.name, value))} />,
+    },
+    {
+      key: 'competence',
+      head: 'Kompetanse (nøkkelområde)',
+      text: (row) => row.competence,
+      cell: (row) => <TextField value={row.competence} list="competence-options" onCommit={(value) => changeCompetence(row.name, row.unit, value)} />,
+    },
+    {
+      key: 'lines',
+      head: 'Linjer',
+      title: 'Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn',
+      className: 'num',
+      sort: (row) => row.lines,
+      cell: (row) => row.lines || '',
+    },
+    {
+      key: 'lacking',
+      head: 'Mangler',
+      title: 'Det som gjenstår før linjene av produkttypen gir timer',
+      className: 'actions',
+      text: lacking,
+      cell: (row) => (
+        <>
+          {lacking(row) === 'Mangler sats' ? (
+            <button className="link issue" onClick={onOpenKpi} title="Åpne KPI for å legge inn sats">
+              Mangler sats
+            </button>
+          ) : (
+            lacking(row) && <span className="issue">{lacking(row)} </span>
+          )}
+          {row.configured && (
+            <button className="row-action" title="Fjern fra oppsettet" onClick={() => confirm(`Fjerne ${row.name} fra oppsettet?`) && setKpi(removeWorkType(kpi, row.name))}>
+              <X size={13} aria-hidden />
+            </button>
+          )}
+        </>
+      ),
+    },
+  ]
+  const table = useTable(found, columns)
 
   return (
     <div className="behov">
@@ -112,55 +159,7 @@ export function Produkttyper({ onOpenKpi }: { onOpenKpi: () => void }) {
         )}
 
         {rows.length ? (
-          <table className="ledger kpi">
-            <thead>
-              <tr>
-                <th>Produkttype</th>
-                <th title="Produkttype 2 slik den står i Visma">I Visma</th>
-                <ColumnHead filter={columnFilter('unit')} title="«ordre» og «stands» teller antall stands; andre enheter summerer antall">
-                  Enhet
-                </ColumnHead>
-                <ColumnHead filter={columnFilter('competence')}>Kompetanse (nøkkelområde)</ColumnHead>
-                <th className="num" title="Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn">
-                  Linjer
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((row) => (
-                <tr key={row.name} className={row.configured ? '' : 'has-issue'}>
-                  <td>
-                    <strong>{row.name}</strong>
-                  </td>
-                  <td className="muted">{row.productType}</td>
-                  <td>
-                    <TextField value={row.unit} list="unit-options" onCommit={(value) => setKpi(setActiveUnit(kpi, row.name, value))} />
-                  </td>
-                  <td>
-                    <TextField value={row.competence} list="competence-options" onCommit={(value) => changeCompetence(row.name, row.unit, value)} />
-                  </td>
-                  <td className="num">{row.lines || ''}</td>
-                  <td className="actions">
-                    {!row.configured ? (
-                      <span className="issue">Ny fra Visma</span>
-                    ) : !row.unit || !row.competence ? (
-                      <span className="issue">Mangler {!row.unit ? 'enhet' : 'kompetanse'} </span>
-                    ) : !row.hasRate ? (
-                      <button className="link issue" onClick={onOpenKpi} title="Åpne KPI for å legge inn sats">
-                        Mangler sats
-                      </button>
-                    ) : null}
-                    {row.configured && (
-                      <button className="row-action" title="Fjern fra oppsettet" onClick={() => confirm(`Fjerne ${row.name} fra oppsettet?`) && setKpi(removeWorkType(kpi, row.name))}>
-                        <X size={13} aria-hidden />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable table={table} className="kpi" rowKey={(row) => row.name} rowProps={(row) => ({ className: row.configured ? undefined : 'has-issue' })} empty="Ingen produkttyper passer søket eller filteret." />
         ) : (
           <p className="notice">
             Tabellen er tom. Den fyller seg selv: les inn en Visma-utskrift på Behov-fanen, så kommer produkttypene i utskriften opp her, klare til å få enhet og kompetanse. Du kan også legge
