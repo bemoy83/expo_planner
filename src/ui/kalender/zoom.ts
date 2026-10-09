@@ -1,4 +1,4 @@
-import { addDays, daysBetween, weekdayIndex, type ISODate } from '../../domain/dates'
+import { addDays, daysBetween, type ISODate } from '../../domain/dates'
 import { ZOOM_WIDTHS, type Zoom } from './layout'
 
 /** The two things the rows of the Kalender can be: the demand plan, or the people who do the work. */
@@ -25,55 +25,29 @@ export const fitWidth = (days: number, room: number): number => Math.min(BEMANNI
 /** What the date header writes at a column width: letters for the weekdays in narrow columns, the hall calendar's split days in wide ones. */
 export const zoomOf = (colW: number): Zoom => (colW < (ZOOM_WIDTHS.compact + ZOOM_WIDTHS.normal) / 2 ? 'compact' : colW < (ZOOM_WIDTHS.normal + ZOOM_WIDTHS.wide) / 2 ? 'normal' : 'wide')
 
-const contains = (span: DaySpan, date: ISODate) => date >= span.start && date <= span.end
 const daysFrom = (start: ISODate): DaySpan => ({ start, end: addDays(start, BEMANNING_DAYS - 1) })
 
-interface Entering {
+interface Opening {
   /** The period of the Kalender. */
   period: DaySpan
-  /** The days of the project chosen in the filter, from its first phase to its last. */
-  project?: DaySpan
   /** The days last seen in Bemanning. */
   stored?: DaySpan | null
-  /** The day in focus, when it is among the days seen in the plan. */
-  focus?: ISODate
-  /** The day at the left edge of the plan. */
+  /** The day to start on when no days are remembered. */
   leftEdge: ISODate
 }
 
 /**
- * The days Bemanning opens on (R18, R29): the chosen project's, else those last seen there, else ten days
- * from the left edge of the plan. A day in focus that is in view stays in view: a span without it is
- * passed over, and with none left the ten days start on the Monday of its week.
+ * The days a page that opens in Bemanning opens on: those last seen there, else ten days from `leftEdge`.
+ * Days remembered for another period are forgotten. A switch from the plan does not ask: the two modes
+ * share the timeline, so Bemanning starts on the day at the plan's left edge.
  */
-export const enterSpan = ({ period, project, stored, focus, leftEdge }: Entering): DaySpan => {
-  const inPeriod = (span: DaySpan | null | undefined) => (span && span.start <= span.end && span.start >= period.start && span.start <= period.end ? span : undefined)
-  const spans = [inPeriod(project), inPeriod(stored)].filter((span) => span !== undefined)
-  const picked = focus ? (spans.find((span) => contains(span, focus)) ?? daysFrom(addDays(focus, -weekdayIndex(focus)))) : (spans[0] ?? daysFrom(leftEdge))
+export const enterSpan = ({ period, stored, leftEdge }: Opening): DaySpan => {
+  const picked = stored && stored.start <= stored.end && stored.start >= period.start && stored.start <= period.end ? stored : daysFrom(leftEdge)
   const start = picked.start < period.start ? period.start : picked.start
   return { start, end: picked.end > period.end ? period.end : picked.end < start ? start : picked.end }
 }
 
 export const spanDays = (span: DaySpan): number => daysBetween(span.start, span.end) + 1
-
-interface Leaving {
-  /** The middle of what is seen in Bemanning, as a position among the days: 3,5 is the middle of the fourth day. */
-  middle: number
-  /** The column of the day in focus. */
-  focusCol?: number
-  /** How many days of the plan fit in the grid. */
-  shown: number
-}
-
-/**
- * Where the plan's left edge goes when Bemanning is left, as a position among the days: the same day in
- * the middle, unless that leaves the day in focus out of view, which is then put in the middle (R29).
- */
-export const leaveLeft = ({ middle, focusCol, shown }: Leaving): number => {
-  const left = middle - shown / 2
-  const centre = focusCol !== undefined && (focusCol < left || focusCol + 1 > left + shown) ? focusCol + 0.5 : middle
-  return Math.max(0, centre - shown / 2)
-}
 
 /** A column width, and the position among the days of the grid's left edge. */
 export interface ZoomPoint {

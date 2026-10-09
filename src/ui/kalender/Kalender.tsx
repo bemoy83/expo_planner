@@ -39,7 +39,7 @@ import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
-import { cleanPlanMode, enterSpan, fitWidth, leaveLeft, spanDays, zoomOf, type DaySpan, type PlanMode } from './zoom'
+import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type PlanMode } from './zoom'
 import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Selection, type Tool } from './selection'
 
@@ -603,12 +603,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const dayRoom = () => (scrollRef.current?.clientWidth ?? viewport.width) - LEFT_W
   const projectSpan = (key: string): DaySpan | undefined => allGroups.find((group) => group.key === key)?.venue ?? undefined
   /** Zooms Bemanning to a span of days: as wide as fills the grid, the first day at the left edge (R18). */
-  const fitBemanning = (span: DaySpan, then?: () => void) => {
+  const fitBemanning = (span: DaySpan) => {
     const width = fitWidth(spanDays(span), dayRoom())
-    zoomTo(colW, { colW: width, left: daysBetween(range.start, span.start) }, () => {
-      setBemanningW(width)
-      then?.()
-    })
+    zoomTo(colW, { colW: width, left: daysBetween(range.start, span.start) }, () => setBemanningW(width))
   }
   const switchMode = (next: PlanMode) => {
     const el = scrollRef.current
@@ -620,16 +617,19 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     // A project kept lit in the plan would leave every other project's bars faint in Bemanning, where Escape does not let go of it.
     setLocated(null)
     projectHover.pin(null)
-    const left = el.scrollLeft / colW
-    const focusCol = planningFocus ? daysBetween(range.start, planningFocus.date) : -1
+    // The two modes share the timeline: the day at the left edge of the one is the day at the left edge
+    // of the other. Only the width of a day differs, and Bemanning keeps the width it was last seen in.
+    const left = Math.floor(el.scrollLeft / colW + 0.01)
     if (next === 'bemanning') {
-      const inView = focusCol >= Math.floor(left) && focusCol < left + dayRoom() / colW
-      const span = enterSpan({ period: range, project: projectSpan(filter.project), stored: loadPref<DaySpan | null>('bemanningRange', null), focus: inView ? planningFocus!.date : undefined, leftEdge: dates[Math.min(dates.length - 1, Math.ceil(left))] })
-      fitBemanning(span, () => setShown('bemanning'))
+      const stored = loadPref<DaySpan | null>('bemanningRange', null)
+      const width = fitWidth(stored && stored.start <= stored.end ? spanDays(stored) : BEMANNING_DAYS, dayRoom())
+      zoomTo(colW, { colW: width, left }, () => {
+        setBemanningW(width)
+        setShown('bemanning')
+      })
     } else {
-      const width = ZOOM_WIDTHS[zoom]
       setShown('plan')
-      zoomTo(colW, { colW: width, left: leaveLeft({ middle: left + dayRoom() / colW / 2, focusCol: focusCol >= 0 && focusCol < dates.length ? focusCol : undefined, shown: dayRoom() / width }) })
+      zoomTo(colW, { colW: ZOOM_WIDTHS[zoom], left })
     }
   }
   // The days seen in Bemanning are remembered, for the next time it is opened.

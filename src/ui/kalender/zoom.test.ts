@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { cleanPlanMode, enterSpan, fitWidth, leaveLeft, zoomFrame, zoomOf } from './zoom'
+import { cleanPlanMode, enterSpan, fitWidth, zoomFrame, zoomOf } from './zoom'
 
 const period = { start: '2026-09-01', end: '2026-12-31' }
-const hage = { start: '2026-10-19', end: '2026-10-28' }
 
 describe('fitWidth (R18)', () => {
   it('sizes the days to fill the room', () => {
@@ -16,37 +15,15 @@ describe('fitWidth (R18)', () => {
   })
 })
 
-describe('enterSpan (R18, R29)', () => {
-  it('opens on the chosen project', () => {
-    expect(enterSpan({ period, project: hage, stored: { start: '2026-10-05', end: '2026-10-14' }, leftEdge: '2026-10-01' })).toEqual(hage)
-  })
-  it('opens on the days last seen in Bemanning when no project is chosen', () => {
+describe('enterSpan', () => {
+  it('opens on the days last seen in Bemanning', () => {
     expect(enterSpan({ period, stored: { start: '2026-10-05', end: '2026-10-14' }, leftEdge: '2026-10-01' })).toEqual({ start: '2026-10-05', end: '2026-10-14' })
   })
-  it('opens on ten days from the left edge of the plan the first time', () => {
+  it('opens on ten days from the day given the first time', () => {
     expect(enterSpan({ period, stored: null, leftEdge: '2026-10-01' })).toEqual({ start: '2026-10-01', end: '2026-10-10' })
-  })
-  it('passes over a span that leaves the day in focus out of view', () => {
-    expect(enterSpan({ period, project: hage, stored: { start: '2026-10-05', end: '2026-10-14' }, focus: '2026-10-07', leftEdge: '2026-10-01' })).toEqual({ start: '2026-10-05', end: '2026-10-14' })
-  })
-  it('starts on the Monday of the week of the day in focus when no span holds it', () => {
-    expect(enterSpan({ period, project: hage, focus: '2026-11-05', leftEdge: '2026-10-01' })).toEqual({ start: '2026-11-02', end: '2026-11-11' })
   })
   it('forgets days stored for another period, and stops at the end of the period', () => {
     expect(enterSpan({ period, stored: { start: '2025-03-01', end: '2025-03-10' }, leftEdge: '2026-12-28' })).toEqual({ start: '2026-12-28', end: '2026-12-31' })
-  })
-})
-
-describe('leaveLeft (R29)', () => {
-  it('keeps the same day in the middle', () => {
-    expect(leaveLeft({ middle: 50, shown: 30 })).toBe(35)
-    expect(leaveLeft({ middle: 50, focusCol: 48, shown: 30 })).toBe(35)
-  })
-  it('puts the day in focus in the middle when it would be out of view', () => {
-    expect(leaveLeft({ middle: 50, focusCol: 90, shown: 30 })).toBe(75.5)
-  })
-  it('does not go before the first day', () => {
-    expect(leaveLeft({ middle: 5, shown: 30 })).toBe(0)
   })
 })
 
