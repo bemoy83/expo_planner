@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { todayIso, type ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from '../../domain/types'
 import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
+import { phaseSpans } from '../../domain/venue'
 import { anchorDate, venueKey } from '../../domain/venueImport'
 import { readProjectList } from '../../import/venyouExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { MessageBanner, Twisty, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFile } from '../files'
 import { TextField } from '../fields'
 
@@ -16,6 +17,8 @@ const span = (s?: DateSpan) => (!s ? '' : s.start === s.end ? day(s.start) : `${
 const lastDate = (booking: VenueBooking): ISODate => VENUE_PHASES.flatMap((phase) => booking.phases[phase]?.end ?? []).sort().at(-1) ?? ''
 
 interface EventGroup {
+  /** The event among those listed: its name and the month it takes place. */
+  key: string
   name: string
   anchor: ISODate
   bookings: VenueBooking[]
@@ -36,6 +39,8 @@ export function Haller() {
   const [visibility, setVisibility] = useState<Visibility>('all')
   const [includePast, setIncludePast] = useState(false)
   const [onlyUnlinked, setOnlyUnlinked] = useState(false)
+  /** The events whose halls are folded away, for as long as the tab is open. */
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set())
   const [message, setMessage] = useState<Message | null>(null)
   const listInput = useRef<HTMLInputElement>(null)
   const [today] = useState(todayIso)
@@ -71,7 +76,7 @@ export function Haller() {
       const event = events.get(eventKey(booking.eventName, anchor))
       if (onlyUnlinked && event?.projectNo) continue
       const key = `${booking.eventName}|${anchor.slice(0, 7)}`
-      const group = byEvent.get(key) ?? { name: booking.eventName, anchor, bookings: [], event }
+      const group = byEvent.get(key) ?? { key, name: booking.eventName, anchor, bookings: [], event }
       group.bookings.push(booking)
       if (anchor < group.anchor) group.anchor = anchor
       byEvent.set(key, group)
@@ -84,6 +89,13 @@ export function Haller() {
   const rowCount = groups.reduce((n, g) => n + g.bookings.length, 0)
   const hiddenCount = useMemo(() => ws.venue.filter((b) => hidden[venueKey(b)]).length, [ws.venue, hidden])
   const listed = useMemo(() => groups.flatMap((g) => g.bookings.map(venueKey)), [groups])
+  const allFolded = groups.length > 0 && groups.every((g) => folded.has(g.key))
+  const toggleFold = (key: string) =>
+    setFolded((before) => {
+      const next = new Set(before)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
 
   return (
     <div className="behov">
@@ -135,6 +147,9 @@ export function Haller() {
           onChange={(e) => takeFile(e, onProjectList)}
         />
         <UndoRedoButtons />
+        <button onClick={() => setFolded(allFolded ? new Set() : new Set(groups.map((g) => g.key)))} disabled={!rowCount} title={allFolded ? 'Vis hallene under hvert arrangement' : 'Vis bare én rad per arrangement'}>
+          {allFolded ? 'Åpne alle' : 'Fold alle'}
+        </button>
         <button onClick={() => setVenueHidden(listed, false)} disabled={!rowCount}>
           Vis alle i listen
         </button>
@@ -163,14 +178,17 @@ export function Haller() {
                   <th key={phase}>{PHASE_HEADERS[phase]}</th>
                 ))}
                 <th>Status</th>
+                <th title="Prosjektnummeret i Visma">Prosjektnr.</th>
               </tr>
             </thead>
             <tbody>
               {groups.map((group) => {
                 const keys = group.bookings.map(venueKey)
                 const shown = keys.filter((key) => !hidden[key]).length
+                const open = !folded.has(group.key)
+                const spans = phaseSpans(group.bookings)
                 return [
-                  <tr key={`${group.name}|${group.anchor}`} className="event-row">
+                  <tr key={`${group.name}|${group.anchor}`} className={group.event && !group.event.projectNo ? 'event-row has-issue' : 'event-row'}>
                     <td className="center">
                       <TriCheckbox
                         checked={shown === keys.length}
@@ -179,13 +197,19 @@ export function Haller() {
                         onChange={(show) => setVenueHidden(keys, !show)}
                       />
                     </td>
-                    <td colSpan={5}>
+                    <td className="event-name">
+                      <Twisty open={open} show={`Vis hallene til ${group.name}`} hide={`Skjul hallene til ${group.name}`} onToggle={() => toggleFold(group.key)} />
                       <strong>{group.name}</strong>{' '}
                       <span className="muted">
                         {group.anchor ? `${day(group.anchor)}.${group.anchor.slice(0, 4)}` : ''} · {shown} av {keys.length} {keys.length === 1 ? 'hall' : 'haller'} vises
                       </span>
                     </td>
-                    <td colSpan={2} className="project-no">
+                    {/* The event's days over all its halls that are listed. */}
+                    {VENUE_PHASES.map((phase) => (
+                      <td key={phase} className="date">{span(spans[phase])}</td>
+                    ))}
+                    <td />
+                    <td className="project-no">
                       {group.event && (
                         <>
                           {/* Clearing a hand-set number goes back to the match from the project list. */}
@@ -203,7 +227,7 @@ export function Haller() {
                       )}
                     </td>
                   </tr>,
-                  ...group.bookings.map((booking) => {
+                  ...(open ? group.bookings : []).map((booking) => {
                     const key = venueKey(booking)
                     return (
                       <tr key={booking.id} className={hidden[key] ? 'hidden-row' : ''}>
@@ -215,6 +239,7 @@ export function Haller() {
                           <td key={phase} className="date">{span(booking.phases[phase])}</td>
                         ))}
                         <td>{booking.status}</td>
+                        <td />
                       </tr>
                     )
                   }),

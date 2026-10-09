@@ -1,5 +1,5 @@
 import { dateRange, daysBetween, type ISODate } from './dates'
-import { VENUE_PHASES, type VenueBooking, type VenuePhase } from './types'
+import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from './types'
 
 export interface HallDayEntry {
   eventName: string
@@ -202,4 +202,18 @@ export const projectsOfHalls = (bookings: VenueBooking[], projectOf: (booking: V
     if (project !== null) halls.set(booking.hall, (halls.get(booking.hall) ?? new Set()).add(project))
   }
   return halls
+}
+
+/** The days each phase takes over several bookings, as the halls of one event: from the first hall's start to the last hall's end. */
+export const phaseSpans = (bookings: VenueBooking[]): Partial<Record<VenuePhase, DateSpan>> => {
+  const spans: Partial<Record<VenuePhase, DateSpan>> = {}
+  for (const booking of bookings) {
+    for (const phase of VENUE_PHASES) {
+      const span = booking.phases[phase]
+      if (!span) continue
+      const sofar = spans[phase]
+      spans[phase] = sofar ? { start: span.start < sofar.start ? span.start : sofar.start, end: span.end > sofar.end ? span.end : sofar.end } : { ...span }
+    }
+  }
+  return spans
 }

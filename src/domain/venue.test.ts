@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHallCalendar, dominantEntry, hallNames, hallProjects, hallRuns, projectsOfHalls, hallSegments, projectPhases, splitEntries, type HallDayEntry } from './venue'
+import { buildHallCalendar, dominantEntry, hallNames, hallProjects, hallRuns, projectsOfHalls, hallSegments, phaseSpans, projectPhases, splitEntries, type HallDayEntry } from './venue'
 import type { VenueBooking } from './types'
 
 const booking = (overrides: Partial<VenueBooking>): VenueBooking => ({
@@ -146,5 +146,20 @@ describe('hall projects', () => {
   it('gives nothing for an event that is no project, or outside its days', () => {
     expect(project('C', 'OSLO MOTOR SHOW', '2026-10-20')).toBeUndefined()
     expect(project('C', 'VVS DAGENE 2026', '2026-11-01')).toBeUndefined()
+  })
+})
+
+describe('phases of an event over its halls', () => {
+  it('spans each phase from the first hall to start to the last to end', () => {
+    const spans = phaseSpans([
+      booking({ phases: { assembly: { start: '2026-09-28', end: '2026-10-07' }, event: { start: '2026-10-14', end: '2026-10-16' } } }),
+      booking({ id: 'b2', hall: 'D1', phases: { assembly: { start: '2026-09-30', end: '2026-10-08' }, event: { start: '2026-10-14', end: '2026-10-16' }, dismantle: { start: '2026-10-20', end: '2026-10-21' } } }),
+    ])
+    expect(spans).toEqual({
+      assembly: { start: '2026-09-28', end: '2026-10-08' },
+      event: { start: '2026-10-14', end: '2026-10-16' },
+      dismantle: { start: '2026-10-20', end: '2026-10-21' },
+    })
+    expect(phaseSpans([])).toEqual({})
   })
 })
