@@ -128,13 +128,13 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // The width on its way from one mode to the other, while the switch zooms.
   const [zoomingW, setZoomingW] = useState<number | null>(null)
   const colW = zoomingW ?? (shown === 'bemanning' ? bemanningW : ZOOM_WIDTHS[zoom])
-  // The person whose hours are open in Bemanning. The top block lets go of its pin when it would leave them no room.
+  // The person whose hours are open in Bemanning. The top block gives way by as much as they need.
   const [unfolded, setUnfolded] = useState<string | null>(null)
 
   const projectHover = useProjectHover(hints)
   const closeCellMenu = useCallback(() => setCellMenu(null), [])
   const clearSelection = useCallback(() => setSelection(null), [])
-  const { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
+  const { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, onScroll, scrollToDate, showSpan, placeLeft } = useGridViewport({
     start: range.start,
     end: range.end,
     openOn: planningFocus?.date ?? today,
@@ -240,14 +240,14 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // out by the next one. Each is drawn in a box as tall as its stretch of lines and sticks inside it, so
   // the browser moves it while scrolling and nothing is worked out per frame.
   const allSections = useMemo(() => levelSections(items), [items])
-  /** What stays pinned over the rows: the whole top block, or only the date header and the planning bar when the block is too tall to pin. */
-  const pinnedHeight = topPinned ? topHeight : headHeight + barHeight
+  /** What stays pinned over the rows once they are scrolled: the top block, less the part of it that gives way when it is too tall. */
+  const pinnedHeight = topHeight - tucked
   /** How much of the rows the line of a top level covers above the line at `index`: nothing above a top level itself. */
   const headOver = (index: number) => {
     const item = items[index]
     return item && allSections.length && itemDepth(item) > 0 ? TOP_ROW_H : 0
   }
-  const r0 = Math.max(0, rowAt(viewport.top - (topPinned ? 0 : topHeight)) - OVERSCAN_ROWS)
+  const r0 = Math.max(0, rowAt(viewport.top - tucked) - OVERSCAN_ROWS)
   const r1 = Math.min(items.length, rowAt(viewport.top + viewport.height - topHeight) + 1 + OVERSCAN_ROWS)
 
   const ensureVisible = useCallback(
@@ -760,16 +760,16 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
       <div className="kal-work">
       <div className="grid-scroll" ref={scrollRef} tabIndex={0} onScroll={onScroll} onMouseOver={projectHover.onMouseOver} onMouseLeave={projectHover.onMouseLeave} onKeyDown={onKeyDown} onCopy={onCopy} onPaste={onPaste}>
         <div className="grid-canvas" style={{ width: LEFT_W + dates.length * colW }}>
-          {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows, unless it would cover most of the screen. */}
+          {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows; too tall, its upper part slides in under the header. */}
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
             {bemanning && <i className="bm-crosshair" />}
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
           <div
-            className={`grid-top ${topPinned ? 'pinned' : ''}`}
+            className="grid-top"
             ref={topRef}
-            style={topPinned ? { top: headHeight } : undefined}
+            style={{ top: headHeight - tucked }}
             onClick={(e) => {
               const project = e.target instanceof Element ? e.target.closest<HTMLElement>('.hall-bar[data-project]')?.dataset.project : undefined
               if (project) actions.findProject(project)
@@ -793,8 +793,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
             </>}
           </div>
 
-          {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and stay pinned even when the top block is too tall to be. */}
-          <div className="grid-tools" ref={toolsRef} style={{ top: topPinned ? topHeight - barHeight : headHeight }}>
+          {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and follow the top block when part of it gives way. */}
+          <div className="grid-tools" ref={toolsRef} style={{ top: pinnedHeight - barHeight }}>
             {bemanning ? (
               <BemanningToolbar
                 width={viewport.width}

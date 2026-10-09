@@ -5,10 +5,9 @@
 .kal-work{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .grid-scroll{flex:1;overflow:auto;position:relative;outline:none;background:var(--bg);overscroll-behavior:contain}
 .grid-canvas{position:relative}
-/* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows, unless they would cover most of the screen */
+/* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows. Too tall, the block under the dates slides partly in under them. */
 .grid-head{position:sticky;top:0;z-index:4;background:var(--bg)}
-.grid-top{position:relative;z-index:3;background:var(--bg)}
-.grid-top.pinned{position:sticky}
+.grid-top{position:sticky;z-index:3;background:var(--bg)}
 
 /* ---- a line and its cells ---- */
 .grid-row{display:flex;flex-wrap:nowrap;border-bottom:1px solid var(--rule);font-size:var(--fs-md)}

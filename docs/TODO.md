@@ -28,7 +28,7 @@ Where v2's package disagreed with the app or with itself, and what was done
 - The two modes share the timeline (the user, 2026-10-09): on a switch, the day at the left edge of the one is the day at the left edge of the other, and only the width of a day changes. Bemanning keeps the width it was last seen in. The package's order (the chosen project, the days last seen, ten days from the plan's edge, R18 and R29) is not followed; «Tilpass prosjekt» and a choice of project in Bemanning still fit the days to the project. A page that opens in Bemanning opens on the days last seen there; one that opens in the plan opens on the day in focus.
 - The days that are selected show as a tint with no outline (the package's decision 4); the outline shows only while a selection is being dragged. The package's §8b asks for an outline on both.
 - The projects in view are those with a booking in the halls the hall calendar shows («Bare messehaller» or all) and with FTE planned somewhere in the period: a project without has nothing to staff (the user, 2026-10-09). The list is at most six lines tall in both forms; projects that do not fit are counted as «+n» beside the heading, with their names in its tooltip, so no work is hidden unseen. A project with FTE but no booking in a shown hall has no line; its hours are in the demand per competence.
-- The date header is pinned in both modes, also when the block under it is too tall to pin.
+- The date header is pinned in both modes. The block under it is always pinned too; where it would cover more than two thirds of the grid, or leave a person's open hours no room, its upper part slides in under the date header as the rows scroll, and the rest stays (`tucked` in `kalender/useGridViewport.ts`).
 - The compact demand line starts as a tint and fills solid from the left as the day is covered (the user, 2026-10-09). The package has it the other way: solid for what remains, from the right.
 
 Where the code is: the types in `domain/types.ts`; the rules in `domain/staffing.ts` (R1–R15 of RULES.md, with the checks D1–D23 of ACCEPTANCE.md in `staffing.test.ts`) and `domain/competences.ts`; the tables `persons`, `unavailability`, `assignments` and `demandAdjustments` (database version 3) and competence styles in `meta`; undo through `updateStaffing` in the store; the mode in `ui/bemanning/`, held together by `BemanningScope.tsx`, and the tab in `ui/personell/`; styles in `styles/bemanning.css`.
@@ -65,7 +65,7 @@ Gaps
 - A day's blocks are dragged as one in the folded rows; one block of several is moved in the open hours.
 - Painting, dragging, the zoom and the panel are checked by hand in the browser; the rules behind them have tests (`staffing.test.ts`, `zoom.test.ts`, `projectsInView.test.ts`, `dayCell.test.ts`).
 - With a competence in focus the people who lack it are dimmed under a divider, not hidden.
-- The top block lets go of its pin while a person's hours are open and would not fit under it.
+- While a person's hours are open and would not fit under the top block, the block gives way by as much as they need: the upper lines of the projects, then of the demand, are out of sight until the people are scrolled back to the top.
 - Reading back from IndexedDB after a reload, and every gesture in the two tabs, are checked by hand in the browser. The test environment has no IndexedDB, and there are no component tests for Bemanning beyond the folded day cell.
 
 ## Staffing lines: begun
@@ -113,7 +113,7 @@ Kalender
 - «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row. Small rows therefore get one day with a decimal each (0,2 here, 0,6 there) instead of being gathered into whole people across rows. It does not look at the available crew.
 - Notes can be written on planning cells; the staffing lines have none.
 - A suggested row cannot carry a note or be edited until FTE is typed into it.
-- With staffing details open, the top block is taller than the screen and stops being pinned.
+- With staffing details open on a laptop screen, the top block is too tall to pin whole: once the rows are scrolled, the upper halls of the hall calendar are under the date header and the staffing lines stay. The hall calendar does not scroll by itself; folding it, or the details, brings the rest back.
 - Only the line of a top level stays in view while its lines scroll past; the levels under it scroll away with their rows. A click on an event's bar in the hall calendar finds the project only among the lines that are shown: not when the filter hides it or the levels above it are folded.
 - The banner after a Venyou import stays above every tab until closed.
 

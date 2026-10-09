@@ -10,7 +10,7 @@ interface Options {
   openOn: ISODate
   zoom: Zoom
   colW: number
-  /** The height the rows must be left with for the top block to stay pinned, such as a person's open hours in Bemanning. */
+  /** The height the rows must be left with under the top block, such as a person's open hours in Bemanning. */
   reserve?: number
   /** Called on every scroll. Must keep its identity. */
   onScrolled: () => void
@@ -19,7 +19,7 @@ interface Options {
 }
 
 /**
- * The scrolling of the grid: what part of it is in view, how tall the block pinned above the rows is,
+ * The scrolling of the grid: what part of it is in view, how tall the block pinned above the rows is and how much of it gives way,
  * and keeping the same days in view when the period or the column width changes.
  */
 export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, onScrolled, onPeriodMoved }: Options) {
@@ -112,19 +112,22 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
     prevColW.current = colW
   }, [colW, placings])
 
-  /** The top block stays pinned like Excel's frozen rows, unless it would cover most of the screen. The date header is pinned whatever its height. */
-  const topPinned = topHeight < viewport.height * 0.65 && viewport.height - topHeight >= reserve
+  // The top block stays pinned like Excel's frozen rows. When it would cover most of the screen, or leave the
+  // rows less than they are promised, its upper part gives way: that much of it slides in under the date header
+  // as the rows scroll, and the rest stays. The date header and the planning bar never give way.
+  const room = Math.min(viewport.height * 0.65, viewport.height - reserve)
+  const tucked = Math.round(Math.max(0, Math.min(topHeight - room, topHeight - headHeight - barHeight)))
   // Bring a span of days into view. Declared after the zoom effect above, so it has the last word on a change of column width.
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el || !goTo) return
     const { leftCol } = fitSpan(daysBetween(start, goTo.start), daysBetween(goTo.start, goTo.end) + 1, el.clientWidth - LEFT_W, zoom)
     el.scrollLeft = leftCol * colW
-    // The hall calendar scrolls away with the rows when it is too tall to pin.
-    if (!topPinned) el.scrollTop = 0
+    // The upper part of the hall calendar is out of sight once the rows are scrolled, when it is too tall to pin whole.
+    if (tucked) el.scrollTop = 0
     onScroll()
     setGoTo(null)
   }, [goTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, topPinned, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
+  return { scrollRef, headRef, topRef, toolsRef, viewport, topHeight, headHeight, barHeight, tucked, onScroll, scrollToDate, showSpan: setGoTo, placeLeft }
 }

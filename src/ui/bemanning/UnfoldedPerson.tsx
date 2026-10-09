@@ -32,11 +32,10 @@ function Unfolded({ line: { person, assignments, week } }: { line: PersonLine })
   useEffect(() => {
     const row = rowRef.current
     const scroll = row?.closest<HTMLElement>('.grid-scroll')
-    const head = scroll?.querySelector('.grid-head')
-    const top = scroll?.querySelector('.grid-top.pinned')
     const tools = scroll?.querySelector<HTMLElement>('.grid-tools')
-    if (!row || !scroll || !head || !tools) return
-    const pinned = (top ?? head).getBoundingClientRect().bottom + tools.offsetHeight
+    if (!row || !scroll || !tools) return
+    // Where the heading of the people ends once it is stuck: part of the block above it gives way as the rows scroll.
+    const pinned = scroll.getBoundingClientRect().top + parseFloat(getComputedStyle(tools).top) + tools.offsetHeight
     const above = row.getBoundingClientRect().top - pinned
     const under = row.getBoundingClientRect().bottom - scroll.getBoundingClientRect().bottom
     if (above < 0) scroll.scrollTop += above
