@@ -617,6 +617,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     setSelection(null)
     setCellMenu(null)
     setTool('select')
+    // A project kept lit in the plan would leave every other project's bars faint in Bemanning, where Escape does not let go of it.
+    setLocated(null)
+    projectHover.pin(null)
     const left = el.scrollLeft / colW
     const focusCol = planningFocus ? daysBetween(range.start, planningFocus.date) : -1
     if (next === 'bemanning') {
