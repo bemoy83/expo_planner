@@ -156,7 +156,7 @@ export function DemandRows() {
     )
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
-      <SectionLine cols={cols}>
+      <SectionLine>
         <Twisty open={open} show="Vis alle kompetanser" hide="Vis bare kompetansen i fokus" onToggle={() => bm.setDemandOpen(!open)} />
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
@@ -164,7 +164,7 @@ export function DemandRows() {
       </SectionLine>
       {busy.map(line)}
       {open && idle.length > 0 && (
-        <SectionLine className="bm-idle-head" cols={cols}>
+        <SectionLine className="bm-idle-head">
           <Twisty open={idleOpen} show="Vis kompetansene uten behov" hide="Skjul kompetansene uten behov" onToggle={() => bm.setIdleOpen(!idleOpen)} />
           Uten behov
           <span className="section-meta">{idle.length}</span>

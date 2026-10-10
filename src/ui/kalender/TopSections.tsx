@@ -48,7 +48,7 @@ interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'h
 export function HallSection({ open, onOpen, compact, onCompact, empty, pinTop, todayLine, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
   return (
     <div className={`top-section halls ${open ? 'open' : ''} ${compact ? 'compact' : ''}`} style={{ top: pinTop }}>
-      <SectionLine cols={cols}>
+      <SectionLine>
         <Twisty open={open} show="Vis hallkalenderen" hide="Skjul hallkalenderen" onToggle={() => onOpen(!open)} />
         Haller
         {open && <DensityToggle compact={compact} onChange={onCompact} />}
@@ -91,7 +91,7 @@ interface StaffingSectionProps {
 export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols, need, capacity, fromBemanning, settings, heat, heatMax }: StaffingSectionProps) {
   return (
     <div className="top-section staffing open">
-      <SectionLine cols={cols}>
+      <SectionLine>
         <Twisty open={open} show="Vis bemanningen" hide="Skjul bemanningen" onToggle={() => onOpen(!open)} />
         Bemanning <span className="muted">(FTE)</span>
         {open ? (

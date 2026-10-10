@@ -29,7 +29,6 @@
 
   /* days off: one step darker than what the line itself is filled with, and never see-through */
   --weekend:color-mix(in srgb,#e7e4dd 50%,#f2f0eb);
-  --weekend-section:color-mix(in oklab,var(--weekend) 95%,var(--text));   /* in the heading of a section */
 
   /* the lines of the Kalender's grid: these four and no others, see design_docs/kalender-v9/DESIGN-RULES.md */
   --grid-col:color-mix(in srgb,var(--line) 55%,transparent);     /* between the days, in the date header and in lines that are typed in */

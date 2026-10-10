@@ -72,7 +72,7 @@ export function ProjectLines() {
 
   return (
     <div className={`top-section bm-projects ${open ? 'open' : ''} ${compact ? 'compact' : ''}`}>
-      <SectionLine cols={cols}>
+      <SectionLine>
         <Twisty open={open} show="Vis prosjektene" hide="Skjul prosjektene" onToggle={() => setProjectsOpen(!open)} />
         Prosjekter
         {open && <DensityToggle compact={compact} onChange={(next) => setProjectDensity(next ? 'compact' : 'detail')} />}
