@@ -7,8 +7,9 @@ import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, productTypeLabel, prod
 import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { placeOf, resolveHall, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { placeNames, placeOf, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallsOfProjects } from '../../domain/projects'
+import { HallRules } from './HallRules'
 import { hallNames } from '../../domain/venue'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
@@ -49,6 +50,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const [message, setMessage] = useState<Message | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
   const [filter, setFilter] = useState<LineFilter>('all')
+  const [rulesOpen, setRulesOpen] = useState(false)
   const vismaInput = useRef<HTMLInputElement>(null)
 
   const projects = useMemo(() => {
@@ -65,8 +67,21 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   // The Kalender places demand in the halls of the hall ledger; show where each line's Hall/Sted ends up.
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
   const booked = useMemo(() => hallsOfProjects(ws.venue, ws.projects), [ws.venue, ws.projects])
-  const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, ws.hallAliases, line.projectNo, booked)
-  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).hall === UNRESOLVED_HALL && !placeOfLine(line).chosen ? suggestHall(line.hall, halls, booked.get(line.projectNo)) : null)
+  const places = useMemo(() => placeNames(halls), [halls])
+  const shared = useMemo(() => new Map(sharedPlaces(halls).map((place) => [place.name, place.halls])), [halls])
+  const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, ws.hallAliases, line.projectNo)
+  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, ws.hallAliases, booked.get(line.projectNo)) : null)
+  /** Why the line counts where it does: the rule that placed it, in a few words. */
+  const ruleOf = (line: { hall: string; projectNo: string }): string => {
+    const place = placeOfLine(line)
+    if (!line.hall.trim()) return 'Ingen Hall/sted'
+    if (place.by === 'own') return 'Valgt for prosjektet'
+    if (place.by === 'choice') return 'Valgt for teksten'
+    if (place.by === 'text') return 'Lest fra teksten'
+    if (place.by === 'rule') return `Regel: ${line.hall.trim().replace(/^hall\s+/i, '').toUpperCase()} er ${place.hall}`
+    if (place.by === 'shared') return `Felles for ${shared.get(place.hall)?.join(', ') ?? place.hall}`
+    return 'Ingen regel'
+  }
   /**
    * The hall a line counts under in the Kalender. The planner's choice is for the Hall/Sted text in every project,
    * unless the text has a choice for this project alone: then that is the one the list changes.
@@ -74,29 +89,21 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const locationCell = (line: { hall: string; projectNo: string }) => {
     const text = line.hall
     const place = placeOfLine(line)
-    const own = booked.get(line.projectNo)
-    const auto = resolveHall(text, halls, own) ?? UNRESOLVED_HALL
+    const auto = resolveHall(text, halls, ws.hallAliases) ?? UNRESOLVED_HALL
     if (!text.trim()) return <span className="muted">{UNRESOLVED_HALL}</span>
     const offered = offerFor(line)
     const scope = place.own ? `Valget gjelder linjene med «${text.trim()}» i dette prosjektet.` : `Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`
-    const read = place.chosen
-      ? 'Valgt for hånd.'
-      : place.hall === UNRESOLVED_HALL
-        ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «Uavklart» til du velger en hall.'
-        : resolveHall(text, halls)
-          ? 'Lest fra Hall/sted.'
-          : 'Lest fra Hall/sted og hallene prosjektet har booket.'
     return (
       <>
         <select
           className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
           value={place.chosen ? place.hall : ''}
           aria-label={`Plassering for ${text}`}
-          title={`${read} ${scope}`}
+          title={`${place.by === 'none' ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «Uavklart» til du velger en hall. ' : ''}${scope}`}
           onChange={(e) => setHallAlias(text, e.target.value || undefined, place.own ? line.projectNo : undefined)}
         >
           <option value="">{auto} (auto)</option>
-          {halls.map((hall) => (
+          {places.map((hall) => (
             <option key={hall} value={hall}>
               {hall}
             </option>
@@ -109,7 +116,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
             title={
               offered.own
                 ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${text.trim()}» i dette prosjektet i ${offered.hall}.`
-                : `«${text.trim()}» nevner hallen ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
+                : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
             }
             onClick={() => setHallAlias(text, offered.hall, offered.own ? line.projectNo : undefined)}
           >
@@ -137,11 +144,11 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   }
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
   // Every project's Visma lines, with what still needs the planner: the filter and the actions for all projects read from this.
-  const review = useMemo(() => reviewVisma(ws.visma ?? [], kpi, ws.overrides ?? {}, halls, ws.hallAliases, booked), [ws.visma, kpi, ws.overrides, halls, ws.hallAliases, booked])
+  const review = useMemo(() => reviewVisma(ws.visma ?? [], kpi, ws.overrides ?? {}, halls, ws.hallAliases), [ws.visma, kpi, ws.overrides, halls, ws.hallAliases])
   const vismaLines = useMemo(() => review.get(projectNo)?.lines ?? [], [review, projectNo])
   // With no project chosen, the lines of every project are in scope, in the order of the project list.
   const scopeLines = useMemo(() => (projectNo ? vismaLines : projects.flatMap(([no]) => review.get(no)?.lines ?? [])), [projectNo, vismaLines, projects, review])
-  const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases, booked)), [scopeLines, filter, halls, ws.hallAliases, booked])
+  const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases)), [scopeLines, filter, halls, ws.hallAliases])
   const totals = useMemo(() => {
     const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
     return { all: sum('all'), open: sum('open'), unresolved: sum('unresolved'), issue: sum('issue'), ready: [...review.values()].reduce((n, project) => n + project.ready, 0) }
@@ -243,6 +250,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
     { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOfLine(line).hall, cell: (line) => locationCell(line) },
+    { key: 'rule', head: 'Regel', title: 'Hvorfor linjen teller der den gjør: teksten er hallens navn, en regel for hallbokstaven, felles plass for hallene med samme bokstav, eller ditt eget valg. Reglene står under «Hallregler».', className: 'muted', text: ruleOf, cell: ruleOf },
     { key: 'avdeling', head: 'Avd.', text: (line) => line.avdeling, cell: (line) => line.avdeling },
     { key: 'quantity', head: 'Antall', className: 'num', text: (line) => formatFte(line.quantity, 1), sort: (line) => line.quantity, cell: (line) => formatFte(line.quantity, 1), cellProps: (line) => ({ title: `${line.rowCount} ordrelinjer` }) },
     { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
@@ -296,6 +304,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     { key: 'workType', head: 'Arbeidstype', text: (line) => productTypeLabel(line.workType), cell: (line) => productTypeLabel(line.workType) },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
     { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOfLine(line).hall, cell: (line) => locationCell(line) },
+    { key: 'rule', head: 'Regel', title: 'Hvorfor linjen teller der den gjør: teksten er hallens navn, en regel for hallbokstaven, felles plass for hallene med samme bokstav, eller ditt eget valg. Reglene står under «Hallregler».', className: 'muted', text: ruleOf, cell: ruleOf },
     { key: 'source', head: 'Kilde', text: (line) => line.source, cell: (line) => line.source },
     { key: 'quantity', head: 'Antall', className: 'num', text: (line) => (line.quantity === null ? '' : formatFte(line.quantity, 1)), sort: (line) => line.quantity ?? NaN, cell: (line) => (line.quantity === null ? '' : formatFte(line.quantity, 1)) },
     { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
@@ -380,6 +389,9 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         )}
         <span className="toolbar-gap" />
         <UndoRedoButtons />
+        <button onClick={() => setRulesOpen(true)} title="Reglene som plasserer Hall/sted i en hall: hva en hallbokstav med flere haller betyr, og valgene du har gjort for enkelte tekster.">
+          Hallregler
+        </button>
         <button className="primary" onClick={() => vismaInput.current?.click()}>
           Importer Visma-utskrift
         </button>
@@ -537,6 +549,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         )}
       </div>
 
+      {rulesOpen && <HallRules halls={halls} aliases={ws.hallAliases ?? {}} projectName={(no) => projectNames.get(no) ?? no} onSet={setHallAlias} onClose={() => setRulesOpen(false)} />}
       {dialog && projectNo && <DemandLineDialog line={dialog.line} projectNo={projectNo} projectName={projectName} onClose={() => setDialog(null)} />}
     </div>
   )

@@ -7,7 +7,6 @@ import { dayType } from '../../domain/holidays'
 import type { AllocationRow } from '../../domain/types'
 import { hallNames, projectPhases } from '../../domain/venue'
 import { locateRows } from '../../domain/locations'
-import { hallsOfProjects } from '../../domain/projects'
 import { absenceLine, overtimeLine } from '../../domain/staffing'
 import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
@@ -161,9 +160,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const inViewOnly = onlyInView && !filter.project && !filter.search && !filter.onlyWithoutDemand
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
   const rows = useMemo(() => {
-    const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases, hallsOfProjects(ws.venue, ws.projects))
+    const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases)
     return [...placed, ...suggestedRows(locatedDemand, placed)]
-  }, [ws.allocations, ws.venue, ws.hallAliases, ws.projects, locatedDemand])
+  }, [ws.allocations, ws.venue, ws.hallAliases, locatedDemand])
   const filtered = useMemo(() => filterGroups(rows, events, demandIndex, settings, filter, grouping, ws.projects), [rows, events, demandIndex, settings, filter, grouping, ws.projects])
   // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
   // The visible dates change with every column scrolled, the projects they hold seldom do; the hierarchy is

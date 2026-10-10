@@ -8,7 +8,7 @@ import { followCompetence, rowScope } from '../domain/plannedRows'
 import { locateDemand, withAlias } from '../domain/locations'
 import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences, withOneCompetenceName } from '../domain/competences'
 import { hallNames } from '../domain/venue'
-import { hallsOfProjects, projectFollowers } from '../domain/projects'
+import { projectFollowers } from '../domain/projects'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
 import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
@@ -546,8 +546,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const venue = workspace?.venue
   // Hours are counted per hall of the hall ledger; demand whose Hall/Sted names none of them is gathered as unresolved.
   const hallAliases = workspace?.hallAliases
-  const projects = workspace?.projects
-  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallAliases, hallsOfProjects(venue ?? [], projects ?? [])) : EMPTY_DEMAND), [demand, venue, hallAliases, projects])
+  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallAliases) : EMPTY_DEMAND), [demand, venue, hallAliases])
   const demandIndex = useMemo(() => buildDemandIndex(locatedDemand), [locatedDemand])
 
   const canUndo = historySize.undo > 0

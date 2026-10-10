@@ -1,4 +1,4 @@
-import { placeOf, UNRESOLVED_HALL, type BookedHalls } from './locations'
+import { placeOf, UNRESOLVED_HALL } from './locations'
 import type { KpiConfig, LineOverride, VismaImport } from './types'
 import { buildVismaLines, type VismaLine } from './visma'
 
@@ -10,10 +10,10 @@ export type LineFilter = 'all' | 'open' | 'unresolved' | 'issue'
 type Aliases = Record<string, string> | undefined
 
 /** A line whose Hall/Sted names no hall of the hall ledger counts under «Uavklart» in the Kalender. */
-export const isUnplaced = (line: VismaLine, halls: string[], aliases: Aliases, booked?: BookedHalls): boolean => placeOf(line.hall, halls, aliases, line.projectNo, booked).hall === UNRESOLVED_HALL
+export const isUnplaced = (line: VismaLine, halls: string[], aliases: Aliases): boolean => placeOf(line.hall, halls, aliases, line.projectNo).hall === UNRESOLVED_HALL
 
-export const matchesFilter = (line: VismaLine, filter: LineFilter, halls: string[], aliases: Aliases, booked?: BookedHalls): boolean =>
-  filter === 'all' ? true : filter === 'open' ? !line.inPlan : filter === 'unresolved' ? isUnplaced(line, halls, aliases, booked) : !!line.issue
+export const matchesFilter = (line: VismaLine, filter: LineFilter, halls: string[], aliases: Aliases): boolean =>
+  filter === 'all' ? true : filter === 'open' ? !line.inPlan : filter === 'unresolved' ? isUnplaced(line, halls, aliases) : !!line.issue
 
 export interface ProjectReview {
   projectNo: string
@@ -27,7 +27,7 @@ export interface ProjectReview {
 }
 
 /** The Visma lines of every project, sorted as Behov lists them, with the counts of what needs the planner. */
-export const reviewVisma = (visma: VismaImport[], kpi: KpiConfig, overrides: Record<string, LineOverride>, halls: string[], aliases: Aliases, booked?: BookedHalls): Map<string, ProjectReview> => {
+export const reviewVisma = (visma: VismaImport[], kpi: KpiConfig, overrides: Record<string, LineOverride>, halls: string[], aliases: Aliases): Map<string, ProjectReview> => {
   const review = new Map<string, ProjectReview>()
   for (const { projectNo, rows } of visma) {
     const lines = buildVismaLines(rows, kpi, overrides).sort(
@@ -38,7 +38,7 @@ export const reviewVisma = (visma: VismaImport[], kpi: KpiConfig, overrides: Rec
       lines,
       open: lines.filter((line) => !line.inPlan).length,
       ready: lines.filter((line) => !line.inPlan && !line.issue).length,
-      unresolved: lines.filter((line) => isUnplaced(line, halls, aliases, booked)).length,
+      unresolved: lines.filter((line) => isUnplaced(line, halls, aliases)).length,
       issues: lines.filter((line) => line.issue).length,
     })
   }

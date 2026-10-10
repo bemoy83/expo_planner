@@ -1,4 +1,5 @@
 import { dateRange, type ISODate } from './dates'
+import { sharedPlaceOf } from './locations'
 import type { VenueBooking, WorkPhase } from './types'
 
 /**
@@ -33,6 +34,9 @@ export const buildWindows = (bookings: VenueBooking[], projectOf: (booking: Venu
       if (!span) continue
       const dates = dateRange(span.start, span.end)
       add(key(project, booking.hall, phase), dates)
+      // A shared place, as «B» of «B1» to «B4», has the days of its halls together.
+      const shared = sharedPlaceOf(booking.hall)
+      if (shared) add(key(project, shared, phase), dates)
       add(key(project, ALL_HALLS, phase), dates)
     }
   }
@@ -40,7 +44,8 @@ export const buildWindows = (bookings: VenueBooking[], projectOf: (booking: Venu
 }
 
 /**
- * The window of one row. A row for a hall its project has booked gets that hall's days; a row for all
+ * The window of one row. A row for a hall its project has booked gets that hall's days, and a row for a shared
+ * place the days of the halls of it the project has booked; a row for all
  * halls, for an unresolved location or for a hall the project has not booked gets the days of all the
  * project's halls together. Undefined when the hall calendar gives the project no such phase.
  */

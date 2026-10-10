@@ -106,7 +106,10 @@ input[type='checkbox']{accent-color:var(--accent)}
 .dialog-backdrop{position:fixed;inset:0;background:var(--scrim);display:grid;place-items:center;z-index:10}
 .dialog{background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;padding:20px;width:min(440px,calc(100vw - 32px));display:flex;flex-direction:column;gap:12px}
 .dialog.wide{width:min(620px,calc(100vw - 32px))}
+/* a dialog that holds a list of any length scrolls inside the window */
+.dialog.tall{max-height:calc(100vh - 32px);overflow:auto}
 .dialog h2{margin:0;font-size:var(--fs-title-sm);font-weight:600}
+.dialog h3{margin:4px 0 0;font-size:var(--fs-md);font-weight:600}
 .dialog label{display:flex;flex-direction:column;gap:4px;font-weight:500}
 .dialog label.radio{flex-direction:row;align-items:center;font-weight:400}
 .dialog fieldset{border:none;padding:0;margin:0;display:flex;gap:16px;align-items:center}
