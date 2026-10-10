@@ -1,8 +1,7 @@
 import { CalendarDays, ChevronsDownUp, ChevronsUpDown, Info, Plus, Users } from 'lucide-react'
-import type { AreaNode, HallFilter } from '../../domain/areas'
 import type { ISODate } from '../../domain/dates'
+import type { ReactNode } from 'react'
 import { PanelToggle, Segmented, UndoRedoButtons } from '../common'
-import { AreaMenu } from './AreaMenu'
 import { GroupingMenu } from './GroupingMenu'
 import type { Zoom } from './layout'
 import { PlanBar } from './PlanBar'
@@ -41,12 +40,6 @@ interface Props {
   competences: string[]
   onlyInView: boolean
   onOnlyInView: (only: boolean) => void
-  /** The halls by area, and what is unticked of them under «Steder». */
-  hallTree: AreaNode[]
-  /** The statuses of the hall bookings. */
-  statuses: string[]
-  hallFilter: HallFilter
-  onHallFilter: (filter: HallFilter) => void
   grouping: Dimension[]
   onGrouping: (grouping: Dimension[]) => void
   /** Some level is folded. */
@@ -63,10 +56,10 @@ interface Props {
 }
 
 /** The planning bar right above the rows: undo, the tools, what is shown and how, and where in the period. */
-export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, hallTree, statuses, hallFilter, onHallFilter, grouping, onGrouping, folded, onFold, start, end, onToday, onDate, zoom, onZoom }: Props) {
+export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, grouping, onGrouping, folded, onFold, start, end, onToday, onDate, zoom, onZoom }: Props) {
   const fit = filterSummary(filter, projects)
   return (
-    <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hallFilter.areas.length + hallFilter.halls.length + hallFilter.statuses.length}|${hints}|${tool}|${folded}`}>
+    <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hints}|${tool}|${folded}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <UndoRedoButtons />
@@ -75,7 +68,6 @@ export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, 
       <div className="bar-view">
         <div className="bar-zone">
           <FilterMenu filter={filter} onChange={onFilter} projects={projects} competences={competences} onlyInView={onlyInView} onOnlyInView={onOnlyInView} />
-          <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={onHallFilter} />
           <GroupingMenu grouping={grouping} onChange={onGrouping} />
           <button className="ghost" title={folded ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'} onClick={onFold}>
             {folded ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}
@@ -116,6 +108,8 @@ interface HeadProps {
   rows: number
   /** Days planned above the available crew. */
   overbooked: number
+  /** The button «Steder»: it decides what the whole page shows, so it is here and not among the tools of the rows. */
+  places: ReactNode
   inspectorOpen: boolean
   onInspector: (open: boolean) => void
   onNewRow: () => void
@@ -125,11 +119,12 @@ interface HeadProps {
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** The page header of the Kalender: what is shown, and the actions that are not tools of the grid. */
-export function KalenderHead({ projects, rows, overbooked, inspectorOpen, onInspector, onNewRow, onPropose }: HeadProps) {
+export function KalenderHead({ projects, rows, overbooked, places, inspectorOpen, onInspector, onNewRow, onPropose }: HeadProps) {
   return (
     <div className="page-head">
       <h2>Kalender</h2>
       <span className="page-meta">{[count(projects, 'prosjekt', 'prosjekter'), count(rows, 'rad', 'rader'), overbooked ? `${count(overbooked, 'dag', 'dager')} med underdekning` : 'Ingen underdekning'].join(' · ')}</span>
+      {places}
       <button className="ghost" onClick={onNewRow}>
         <Plus size={14} aria-hidden /> Ny rad
       </button>

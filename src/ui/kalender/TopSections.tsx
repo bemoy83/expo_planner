@@ -46,7 +46,7 @@ export function HallSection({ open, onOpen, empty, pinTop, halls, hallCount, hal
         Haller
         {!open && <span className="section-meta">{halls.length} skjult</span>}
         {open && halls.length < hallCount && (
-          <span className="section-meta" title="Hallene som er valgt under «Steder» i planleggingslinjen">
+          <span className="section-meta" title="Hallene som er valgt under «Steder» øverst på siden">
             {halls.length} av {hallCount}
           </span>
         )}

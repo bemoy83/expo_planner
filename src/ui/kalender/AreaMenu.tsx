@@ -12,7 +12,7 @@ interface Props {
 }
 
 /**
- * The button «Steder» of the planning bar and the tree under it: the areas with their halls, to tick the ones to
+ * The button «Steder» of the page header and the tree under it: the areas with their halls, to tick the ones to
  * work with, and under it the statuses of Venyou whose bookings count. The hall calendar, the rows of the plan and
  * Bemanning follow it.
  */

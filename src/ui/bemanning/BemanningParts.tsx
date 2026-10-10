@@ -1,11 +1,10 @@
+import type { ReactNode } from 'react'
 import { ClipboardCopy, Eraser, Maximize2, MousePointer2, Paintbrush, TriangleAlert, X } from 'lucide-react'
-import type { AreaNode, HallFilter } from '../../domain/areas'
 import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
 import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor } from '../dom'
-import { AreaMenu } from '../kalender/AreaMenu'
 import { ModeSwitch } from '../kalender/KalenderBar'
 import { PlanBar } from '../kalender/PlanBar'
 import type { PlanMode } from '../kalender/zoom'
@@ -18,7 +17,7 @@ import type { Tool } from './tools'
 import { EPSILON, hoursText, WEEKDAYS_LONG } from './week'
 
 /** The page header in Bemanning: how far the people cover the demand of the days in view. */
-export function BemanningHead() {
+export function BemanningHead({ places }: { /** The button «Steder», as in the plan's header. */ places: ReactNode }) {
   const { persons, totals, panel, setPanel, selected, unfolded } = useBemanning()
   // The panel opens on the person of the selected day, else the one whose hours are open, else the first.
   const subject = selected?.personId ?? unfolded ?? persons[0]?.id
@@ -33,6 +32,7 @@ export function BemanningHead() {
     <div className="page-head">
       <h2>Kalender</h2>
       <span className="page-meta" title="Behov, overtid og åpne timer gjelder dagene som vises">{meta.join(' · ')}</span>
+      {places}
       <PanelToggle open={!!panel} what="persondetaljer" hint="timer, overtid og fravær. Klikk et navn for å åpne dem for personen." disabled={!subject} onToggle={() => setPanel(panel ? null : subject ? { personId: subject } : null)} />
     </div>
   )
@@ -57,12 +57,6 @@ interface ToolbarProps {
   projects: [key: string, name: string][]
   project: string
   onProject: (key: string) => void
-  /** The halls by area, and what is unticked of them under «Steder». */
-  hallTree: AreaNode[]
-  /** The statuses of the hall bookings. */
-  statuses: string[]
-  hallFilter: HallFilter
-  onHallFilter: (filter: HallFilter) => void
   onToday: () => void
   /** Sizes the days so the chosen project fills the grid. */
   onFit: () => void
@@ -72,7 +66,7 @@ interface ToolbarProps {
  * The planning bar in Bemanning: the mode, undo, the tools (Velg, the brush with the competence it paints,
  * and Tøm), the project, and where in the period.
  */
-export function BemanningToolbar({ width, mode, onMode, projects, project, onProject, hallTree, statuses, hallFilter, onHallFilter, onToday, onFit }: ToolbarProps) {
+export function BemanningToolbar({ width, mode, onMode, projects, project, onProject, onToday, onFit }: ToolbarProps) {
   const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
   const paste = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V'
   const style = brush ? styles.get(brush) : undefined
@@ -94,7 +88,7 @@ export function BemanningToolbar({ width, mode, onMode, projects, project, onPro
     { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
   ]
   return (
-    <PlanBar width={width} fitKey={`${project}|${hallFilter.areas.length + hallFilter.halls.length + hallFilter.statuses.length}|${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
+    <PlanBar width={width} fitKey={`${project}|${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <UndoRedoButtons />
@@ -129,7 +123,6 @@ export function BemanningToolbar({ width, mode, onMode, projects, project, onPro
       </div>
       <div className="bar-view">
         <div className="bar-zone bar-zone-end">
-          <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={onHallFilter} />
           <select className="bar-select" aria-label="Prosjekt" title="Prosjekt: dagene tilpasses prosjektet, og de andre prosjektene dempes" value={project} onChange={(e) => onProject(e.target.value)}>
             <option value="">Alle prosjekter</option>
             {projects.map(([key, name]) => (

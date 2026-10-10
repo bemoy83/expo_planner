@@ -22,6 +22,7 @@ import { PersonPanel } from '../bemanning/PersonPanel'
 import type { BlockNames } from '../bemanning/dayCell'
 import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
+import { AreaMenu } from './AreaMenu'
 import { CellMenu } from './CellMenu'
 import { daysWide, fitSpan, LEFT_W, OVERSCAN_ROWS, overscanCols, parseCellInput, ROW_H, TOP_ROW_H, ZOOM_WIDTHS, type Zoom } from './layout'
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
@@ -778,10 +779,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   }
 
   // ---- render ---------------------------------------------------------------------------------
+  const places = <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
   return (
     <div className={`kalender ${bemanning ? `bemanning-mode ${selectionStyle === 'raised' ? 'selection-raised' : ''}` : activeTool === 'select' ? '' : activeTool}`}>
       <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
-      {bemanning ? <BemanningHead /> : <KalenderHead
+      {bemanning ? <BemanningHead places={places} /> : <KalenderHead
+        places={places}
         projects={shownGroups.length}
         rows={shownRowCount}
         overbooked={overbooked.size}
@@ -841,10 +844,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
                   const span = projectSpan(key)
                   if (span) fitBemanning(span)
                 }}
-                hallTree={hallTree}
-                statuses={statuses}
-                hallFilter={hallFilter}
-                onHallFilter={setHallFilter}
                 onToday={() => scrollToDate(today, 1)}
                 onFit={() => {
                   const span = projectSpan(filter.project)
@@ -865,10 +864,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
               competences={competences}
               onlyInView={onlyInView}
               onOnlyInView={setOnlyInView}
-              hallTree={hallTree}
-                statuses={statuses}
-              hallFilter={hallFilter}
-              onHallFilter={setHallFilter}
               grouping={grouping}
               onGrouping={(next) => {
                 // Lanes are positions in the list, so a selection would land on other rows after regrouping.
