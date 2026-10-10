@@ -255,7 +255,7 @@ export const projectFollowers = (ws: Pick<Workspace, 'venue' | 'projects' | 'all
   }
   return {
     allocations: ws.allocations.flatMap((row) => (moved(row) === row.projectNo ? [] : [{ ...row, projectNo: moved(row) }])),
-    demand: renumbered ? ws.demand.flatMap((line) => (line.origin === 'manual' && sameNumber(line.projectNo, renumbered.from) ? [{ ...line, projectNo: renumbered.to, eventYear: numberYear(renumbered.to) || line.eventYear }] : [])) : [],
+    demand: renumbered ? ws.demand.flatMap((line) => (line.origin === 'manual' && sameNumber(line.projectNo, renumbered.from) ? [{ ...line, projectNo: renumbered.to }] : [])) : [],
   }
 }
 

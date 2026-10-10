@@ -58,7 +58,6 @@ const demandLine = (overrides: Partial<DemandLine>): DemandLine => ({
   origin: 'manual',
   projectNo: '24970',
   projectName: '',
-  eventYear: '2024',
   source: '',
   workType: '',
   quantity: null,

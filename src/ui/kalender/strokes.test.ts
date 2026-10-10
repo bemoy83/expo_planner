@@ -28,7 +28,6 @@ const demand = (competence: string, assemblyHours: number): DemandLine => ({
   origin: 'manual',
   projectNo: '26970',
   projectName: 'VVS 2026',
-  eventYear: '2026',
   source: '',
   workType: competence,
   quantity: null,

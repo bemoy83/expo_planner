@@ -133,7 +133,6 @@ describe('rows as a hierarchy', () => {
       origin: 'manual' as const,
       projectNo: '26970',
       projectName: 'VVS 2026',
-      eventYear: '2026',
       source: '',
       workType: 'FOGA-vegger',
       quantity: null,

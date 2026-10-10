@@ -154,7 +154,7 @@ describe('competenceUse', () => {
 describe('the one name of a competence', () => {
   const named: Workspace = {
     ...base,
-    demand: [{ id: 'd1', projectNo: '26970', projectName: 'VVS 2026', eventYear: '2026', source: '', workType: 'Skilt', quantity: 1, unit: 'stk', stand: '', hall: '', competence: 'Skilting', basis: 'Planlagt', assemblyHours: 1, dismantleHours: 0, comment: '', origin: 'manual' }],
+    demand: [{ id: 'd1', projectNo: '26970', projectName: 'VVS 2026', source: '', workType: 'Skilt', quantity: 1, unit: 'stk', stand: '', hall: '', competence: 'Skilting', basis: 'Planlagt', assemblyHours: 1, dismantleHours: 0, comment: '', origin: 'manual' }],
     allocations: [row('Teppefliser'), row('Skilting')],
     persons: [{ id: 'p1', name: 'Anna', order: 0, active: true, competences: ['banner', 'skilting'] }],
     assignments: [{ id: 's1', personId: 'p1', date: '2026-10-12', competence: 'skilting', start: 420, end: 900, source: 'manual' }],

@@ -96,7 +96,6 @@ export interface DemandLine {
   id: string
   projectNo: string
   projectName: string
-  eventYear: string
   source: string
   workType: string
   quantity: number | null

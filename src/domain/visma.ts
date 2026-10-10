@@ -163,7 +163,6 @@ export const vismaDemandLines = (source: VismaImport, kpi: KpiConfig, overrides:
     id: `${VISMA_LINE_PREFIX}${line.key}`,
     projectNo: line.projectNo,
     projectName: line.eventName,
-    eventYear: `20${line.projectNo.slice(0, 2)}`,
     source: VISMA_SOURCE,
     workType: line.workType,
     quantity: line.quantity,

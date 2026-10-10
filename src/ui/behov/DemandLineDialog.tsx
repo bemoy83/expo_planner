@@ -64,7 +64,6 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
       ...(line ?? {
         projectNo,
         projectName,
-        eventYear: `20${projectNo.slice(0, 2)}`,
         source: 'Egen registrering',
         stand: '',
       }),

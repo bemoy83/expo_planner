@@ -1,4 +1,4 @@
-import { buildDemandIndex, requiredHours } from './calc'
+import { buildDemandIndex, dataYear, requiredHours } from './calc'
 import { productTypeKey } from './kpi'
 import { PLANNED_BASIS, type AllocationRow, type DemandLine, type KpiConfig } from './types'
 
@@ -47,7 +47,7 @@ export const suggestedRows = (demand: DemandLine[], allocations: AllocationRow[]
         order: Number.MAX_SAFE_INTEGER,
         projectName: line.projectName,
         projectNo: line.projectNo.trim(),
-        refYear: `20${line.projectNo.trim().slice(0, 2)}`,
+        refYear: dataYear(line.projectNo),
         competence: line.competence.trim(),
         phase,
         basis: PLANNED_BASIS,

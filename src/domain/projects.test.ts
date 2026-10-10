@@ -19,7 +19,7 @@ const list: ProjectRef[] = [
   { name: 'HAGE 2026', projectNo: '26101' },
 ]
 const row = (projectName: string, projectNo: string): AllocationRow => ({ id: `${projectName}-${projectNo}`, order: 0, projectName, projectNo, refYear: '', competence: 'FOGA', phase: 'Montering', basis: '', fte: {}, notes: {} }) as AllocationRow
-const line = (projectNo: string, origin: DemandLine['origin']): DemandLine => ({ id: `${projectNo}-${origin}`, projectNo, projectName: 'Hage', eventYear: '2026', origin }) as DemandLine
+const line = (projectNo: string, origin: DemandLine['origin']): DemandLine => ({ id: `${projectNo}-${origin}`, projectNo, projectName: 'Hage', origin }) as DemandLine
 
 describe('projects from Venyou events', () => {
   it('makes one project per event with its period and halls', () => {

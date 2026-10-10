@@ -7,7 +7,6 @@ const line = (overrides: Partial<DemandLine>): DemandLine => ({
   origin: 'manual',
   projectNo: '26970',
   projectName: 'VVS 2026',
-  eventYear: '2026',
   source: 'visma per reg. dato',
   workType: 'Teppefliser',
   quantity: 100,

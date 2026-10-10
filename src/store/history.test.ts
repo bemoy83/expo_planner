@@ -82,7 +82,6 @@ describe('undo history', () => {
     origin: 'manual',
     projectNo: '26970',
     projectName: 'VVS 2026',
-    eventYear: '2026',
     source: 'visma per reg. dato',
     workType: 'FOGA-vegger',
     quantity: 10,
