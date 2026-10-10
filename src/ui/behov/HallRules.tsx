@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { hallChoices, letterRules, NO_HALL_RULES, placeNames, ruleKey, sharedPlaces, UNRESOLVED_HALL } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
@@ -35,6 +35,12 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const placeTaken = places.some((name) => name.toLowerCase() === place.name.trim().toLowerCase())
   const setPlaces = (next: Rules['places']) => onRules({ ...rules, places: next })
   const setPhrases = (next: Rules['phrases']) => onRules({ ...rules, phrases: next })
+  /** The rules are tried from the top, so their order is the planner's to set. */
+  const movePhrase = (from: number, to: number) => {
+    const next = [...rules.phrases]
+    next.splice(to, 0, ...next.splice(from, 1))
+    setPhrases(next)
+  }
   const placeSelect = (value: string, label: string, onChange: (hall: string) => void, empty?: string) => (
     <select value={value} aria-label={label} onChange={(e) => onChange(e.target.value)}>
       {empty !== undefined && <option value="">{empty}</option>}
@@ -151,10 +157,11 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         )}
 
         <h3>Ord som betyr et sted</h3>
-        <p className="hint">En tekst som inneholder ordene teller under stedet, når den ikke er plassert av reglene over. Den første regelen som passer gjelder.</p>
+        <p className="hint">En tekst som inneholder ordene teller under stedet, når den ikke er plassert av reglene over. Reglene prøves ovenfra, og den første som passer gjelder: flytt en regel opp for å la den gå foran.</p>
         <table className="ledger rules">
           <thead>
             <tr>
+              <th className="num" title="Rekkefølgen reglene prøves i">Nr.</th>
               <th>Inneholder teksten</th>
               <th>teller den under</th>
               <th />
@@ -163,11 +170,18 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
           <tbody>
             {rules.phrases.map((entry, index) => (
               <tr key={index}>
+                <td className="num">{index + 1}</td>
                 <td>
                   <TextField value={entry.text} ariaLabel="Ord i teksten" onCommit={(value) => value && setPhrases(rules.phrases.map((other, at) => (at === index ? { ...other, text: value } : other)))} />
                 </td>
                 <td>{placeSelect(places.find((name) => name.toLowerCase() === entry.hall.toLowerCase()) ?? '', `Sted for ${entry.text}`, (hall) => hall && setPhrases(rules.phrases.map((other, at) => (at === index ? { ...other, hall } : other))), 'Velg sted')}</td>
                 <td className="actions">
+                  <button className="row-action" title="Flytt opp: regelen prøves før den over" disabled={index === 0} onClick={() => movePhrase(index, index - 1)}>
+                    <ChevronUp size={13} aria-hidden />
+                  </button>
+                  <button className="row-action" title="Flytt ned: regelen prøves etter den under" disabled={index === rules.phrases.length - 1} onClick={() => movePhrase(index, index + 1)}>
+                    <ChevronDown size={13} aria-hidden />
+                  </button>
                   <button className="row-action" title="Slett regelen" onClick={() => setPhrases(rules.phrases.filter((_, at) => at !== index))}>
                     <X size={13} aria-hidden />
                   </button>
@@ -175,6 +189,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
               </tr>
             ))}
             <tr>
+              <td />
               <td>
                 <input className="inline" placeholder="Ord, f.eks. scene" aria-label="Ord i en ny regel" value={phrase.text} onChange={(e) => setPhrase({ ...phrase, text: e.target.value })} />
               </td>

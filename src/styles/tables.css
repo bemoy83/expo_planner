@@ -127,3 +127,4 @@ input.inline.name-add{width:120px;min-width:0}
 /* the page of the rules: a heading and a table per kind of rule, each as wide as it needs */
 .behov-body.rules h3{margin:20px 0 4px;font-size:var(--fs-md);font-weight:600}
 table.ledger.rules{width:auto;min-width:560px}
+table.ledger.rules td.actions{white-space:nowrap}
