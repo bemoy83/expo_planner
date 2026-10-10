@@ -249,6 +249,53 @@ export const projectFollowers = (ws: Pick<Workspace, 'venue' | 'projects' | 'all
   }
 }
 
+/** The name as it is compared: lower case, without years, company forms and signs, written together. */
+const comparable = (name: string): string =>
+  name
+    .toLowerCase()
+    .split(/[^a-zæøå0-9]+/)
+    .filter((word) => word && !/^(19|20)\d\d$/.test(word) && word !== 'as')
+    .join('')
+
+/**
+ * How alike two names are, from 0 to 1: the share of the pairs of letters they have in common. «VA messen» and
+ * «VA MESSEN 2026» are 1, «Datacenterforum» and «Datacenter Forum Nordic» are well above `ALIKE`, two events of the
+ * same organizer with different titles are below it.
+ */
+export const nameLikeness = (a: string, b: string): number => likeness(a, b).alike
+
+/**
+ * How much of the shorter name is in the longer, from 0 to 1: «Oslo Motor Show 2026» is all in «OSLO MOTOR SHOW 2026 -
+ * VIP Green Room». A name of a few letters is in too many others to say anything, and gives 0.
+ */
+export const nameWithin = (a: string, b: string): number => likeness(a, b).within
+
+const likeness = (a: string, b: string): { alike: number; within: number } => {
+  const [x, y] = [comparable(a), comparable(b)]
+  if (!x || !y) return { alike: 0, within: 0 }
+  const pairs = (text: string) => {
+    const counts = new Map<string, number>()
+    for (let i = 0; i < text.length - 1; i += 1) counts.set(text.slice(i, i + 2), (counts.get(text.slice(i, i + 2)) ?? 0) + 1)
+    return counts
+  }
+  const [px, py] = [pairs(x), pairs(y)]
+  let shared = 0
+  for (const [pair, n] of px) shared += Math.min(n, py.get(pair) ?? 0)
+  const shorter = Math.min(x.length, y.length)
+  return { alike: x === y ? 1 : (2 * shared) / (x.length - 1 + (y.length - 1) || 1), within: shorter < 5 ? 0 : x === y ? 1 : shared / (shorter - 1) }
+}
+
+/** How alike two names must be for one to be offered as the other. */
+export const ALIKE = 0.75
+/** How much of a name must be in a longer one for the two to be offered as one project, where their days overlap too. */
+export const WITHIN = 0.9
+
+/** A project a row is offered: its number, and the name of it that is like the row's. */
+export interface ProjectMatch {
+  projectNo: string
+  name: string
+}
+
 /** What a row of the Prosjekter tab still lacks: an event without a project, a name several projects carry, or a number known from orders or the plan only. */
 export type ProjectLacking = 'number' | 'ambiguous' | 'new'
 
@@ -270,6 +317,10 @@ export interface ProjectRow {
   lacking: ProjectLacking | null
   /** A number to give an event that has none. */
   suggestion: string
+  /** For an event without a project: a project of its year with a name like its own and no event on other days, or one whose name is within its own (or the other way) with an event on its days. */
+  match?: ProjectMatch
+  /** For a number that is not in the table: the project that carries a name like its own under another number. The name, or the whole project where its number was made up, can go to this one. */
+  replaces?: ProjectMatch
   /** The projects that carry the event's name, where there are several. */
   candidates: string[]
 }
@@ -308,16 +359,59 @@ export const projectRows = (ws: Pick<Workspace, 'venue' | 'projects' | 'visma' |
     if (project) project.rows += 1
   }
   const taken = new Set([...byNumber.values()].map((project) => project.projectNo))
-  const missing: ProjectRow[] = []
-  for (const event of venueEvents(ws.venue, ws.projects)) {
-    if (event.projectNo) {
-      row(event.projectNo, event.year, null).events.push(event)
-      continue
+  const events = venueEvents(ws.venue, ws.projects)
+  for (const event of events) if (event.projectNo) row(event.projectNo, event.year, null).events.push(event)
+  /**
+   * The project of the year with the name most like the given one. `sameDays` says whether the project has an event on
+   * the days in question, or `null` where it has no event or there are no days to hold it against: a project with an
+   * event on other days is another happening, however alike the names are, and one on the same days needs less of a likeness.
+   */
+  const mostAlike = (name: string, year: string, sameDays: (project: ProjectRow) => boolean | null, among: (project: ProjectRow) => boolean): ProjectMatch | undefined => {
+    let best: (ProjectMatch & { score: number }) | undefined
+    for (const project of byNumber.values()) {
+      if ((project.year && year && project.year !== year) || !among(project)) continue
+      const days = sameDays(project)
+      if (days === false) continue
+      for (const other of project.names) {
+        const { alike, within } = likeness(name, other)
+        if (alike < ALIKE && !(days && within >= WITHIN)) continue
+        // A project on the same days comes before one that is only alike.
+        const score = Math.max(alike, days ? within : 0) + (days ? 1 : 0)
+        if (score > (best?.score ?? 0)) best = { projectNo: project.projectNo, name: other, score }
+      }
     }
+    return best && { projectNo: best.projectNo, name: best.name }
+  }
+  const missing: ProjectRow[] = []
+  for (const event of events) {
+    if (event.projectNo) continue
     const suggestion = suggestProjectNo(event.name, event.year, taken)
     taken.add(suggestion)
-    missing.push({ key: `event:${event.key}`, projectNo: '', year: event.year, names: [event.name], events: [event], orders: false, lines: 0, rows: 0, lacking: event.ambiguous ? 'ambiguous' : 'number', suggestion, candidates: event.candidates })
+    const match = event.ambiguous ? undefined : mostAlike(event.name, event.year, (project) => (project.events.length ? project.events.some((other) => other.start <= event.end && event.start <= other.end) : null), () => true)
+    missing.push({ key: `event:${event.key}`, projectNo: '', year: event.year, names: [event.name], events: [event], orders: false, lines: 0, rows: 0, lacking: event.ambiguous ? 'ambiguous' : 'number', suggestion, candidates: event.candidates, ...(match ? { match } : {}) })
+  }
+  for (const project of byNumber.values()) {
+    if (project.lacking !== 'new' || !project.names[0]) continue
+    const replaces = mostAlike(project.names[0], project.year, () => null, (other) => other.lacking === null)
+    if (replaces) project.replaces = replaces
   }
   const projects = [...byNumber.values()].sort((a, b) => Number(b.lacking === 'new') - Number(a.lacking === 'new') || b.year.localeCompare(a.year) || a.projectNo.localeCompare(b.projectNo, 'nb'))
   return [...missing, ...projects]
+}
+
+/** Whether the number was made up in the app or by hand, as «26VAM», and not given by the system the orders come from. */
+export const isMadeUpNumber = (projectNo: string): boolean => /[a-zæøå]/i.test(projectNo)
+
+/**
+ * The table when a number that came with orders takes over from the project that has carried its name (`ProjectRow.replaces`).
+ * A project with a made-up number and that name alone becomes the number, and what points at it follows (`renumbered`).
+ * From any other project the name alone moves. `ownName` is what the orders call the project.
+ */
+export const withNumberTakingOver = (projects: ProjectRef[], projectNo: string, ownName: string, from: ProjectMatch): { projects: ProjectRef[]; renumbered?: { from: string; to: string } } => {
+  const names = projects.filter((ref) => sameNumber(ref.projectNo, from.projectNo))
+  const year = refYear(names.find((ref) => normalizeName(ref.name) === normalizeName(from.name)) ?? projectRef(from.name, projectNo))
+  // The name the orders have for it is one of its names from here on.
+  const named = (list: ProjectRef[]) => withProjectName(list, projectNo, ownName, year)
+  if (isMadeUpNumber(from.projectNo) && names.length === 1) return { projects: named(withProjectNo(projects, from.projectNo, projectNo)), renumbered: { from: from.projectNo, to: projectNo.trim() } }
+  return { projects: named(withProjectName(projects, projectNo, from.name, year)) }
 }

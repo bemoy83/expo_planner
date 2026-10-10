@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { todayIso } from '../../domain/dates'
-import { diffProjectList, mergeProjectList, normalizeName, projectRows, replaceProjectList, suggestProjectNo, withoutProject, withoutProjectName, withProjectName, withProjectNo, withProjectYear, type ProjectLacking, type ProjectRow } from '../../domain/projects'
+import { diffProjectList, mergeProjectList, normalizeName, projectRows, replaceProjectList, suggestProjectNo, withoutProject, withoutProjectName, withNumberTakingOver, withProjectName, withProjectNo, withProjectYear, type ProjectLacking, type ProjectRow } from '../../domain/projects'
 import type { ProjectRef } from '../../domain/types'
 import { readProsjekterWorkbook, writeProsjekterWorkbook } from '../../import/prosjekterFile'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -72,9 +72,20 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
     save(withProjectName(projects, projectNo, row.names[0], row.year), existing ? `${row.names[0]} er lagt til som navn på ${projectNo.trim()}.` : `${row.names[0]} er nå prosjekt ${projectNo.trim()}.`)
   }
 
+  /** Every event listed without a project gets what it is offered: the project it is like, else a number of its own. */
   const suggestAll = () => {
     const open = table.rows.filter((row) => row.lacking === 'number')
-    save(open.reduce((list, row) => withProjectName(list, row.suggestion, row.names[0], row.year), projects), `${count(open.length, 'arrangement', 'arrangementer')} har fått foreslått nummer.`)
+    const matched = open.filter((row) => row.match).length
+    save(
+      open.reduce((list, row) => withProjectName(list, row.match?.projectNo ?? row.suggestion, row.names[0], row.year), projects),
+      `${[matched ? `${matched} lagt til prosjekter som fantes` : '', open.length - matched ? `${open.length - matched} har fått eget nummer` : ''].filter(Boolean).join(', ')}.`,
+    )
+  }
+
+  /** A number that came with orders takes over the name another project has carried, or the whole project where its number was made up. */
+  const takeOver = (row: ProjectRow) => {
+    const { projects: next, renumbered } = withNumberTakingOver(projects, row.projectNo, row.names[0], row.replaces!)
+    save(next, renumbered ? `${renumbered.from} er nå ${row.projectNo}.` : `${row.replaces!.name} er flyttet fra ${row.replaces!.projectNo} til ${row.projectNo}.`, renumbered)
   }
 
   const renumber = (row: ProjectRow, to: string) => {
@@ -123,8 +134,8 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
         ) : row.projectNo ? (
           <TextField className="project-no-input" ariaLabel={`Prosjektnummer for ${row.names[0]}`} value={row.projectNo} onCommit={(value) => renumber(row, value)} />
         ) : (
-          // The number it is offered, or one of the projects that carry the name; another number can be typed, also that of a project in the table.
-          <TextField className="project-no-input missing" placeholder={row.suggestion} options={[...row.candidates, row.suggestion]} ariaLabel={`Prosjektnummer for ${row.names[0]}`} value="" onCommit={(value) => link(row, value)} />
+          // What it is offered: the project it is like or one that carries its name, or a number of its own. Another number can be typed, also that of a project in the table.
+          <TextField className="project-no-input missing" placeholder={row.match?.projectNo ?? row.suggestion} options={[...row.candidates, ...(row.match ? [row.match.projectNo] : []), row.suggestion]} ariaLabel={`Prosjektnummer for ${row.names[0]}`} value="" onCommit={(value) => link(row, value)} />
         ),
     },
     {
@@ -152,7 +163,11 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
             <TextField className="name-add" placeholder="+ navn" options={openNames} ariaLabel={`Nytt navn på ${row.projectNo}`} value="" onCommit={(value) => value && save(withProjectName(projects, row.projectNo, value, row.year))} />
           </span>
         ) : (
-          <strong>{row.names[0]}</strong>
+          <>
+            <strong>{row.names[0]}</strong>
+            {/* What the row is offered, and why. */}
+            {(row.match ?? row.replaces) && <span className="muted small"> ligner {(row.match ?? row.replaces)!.name} ({(row.match ?? row.replaces)!.projectNo})</span>}
+          </>
         ),
     },
     {
@@ -189,9 +204,19 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
       cell: (row) => (
         <>
           {row.lacking && <span className="issue">{LACKING_TEXT[row.lacking]} </span>}
+          {row.match && (
+            <button className="link" title={`Navnet ligner «${row.match.name}», som er prosjekt ${row.match.projectNo} i samme år, og det har ikke noe arrangement andre dager. Legger ${row.names[0]} til som navn på ${row.match.projectNo}.`} onClick={() => link(row, row.match!.projectNo)}>
+              Bruk {row.match.projectNo}
+            </button>
+          )}
           {row.lacking === 'number' && (
             <button className="link" title={`Opprett prosjektet ${row.suggestion} for ${row.names[0]}`} onClick={() => link(row, row.suggestion)}>
-              Bruk {row.suggestion}
+              {row.match ? 'Nytt:' : 'Bruk'} {row.suggestion}
+            </button>
+          )}
+          {row.replaces && (
+            <button className="link" title={`Navnet ligner «${row.replaces.name}», som nå er prosjekt ${row.replaces.projectNo}. Lar ${row.projectNo} ta over: navnet flyttes hit, og er ${row.replaces.projectNo} et nummer du har laget selv, følger rader og behov med.`} onClick={() => takeOver(row)}>
+              Bruk i stedet for {row.replaces.projectNo}
             </button>
           )}
           {row.lacking === 'new' && (
@@ -242,15 +267,15 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
       <div className="behov-body">
         <p className="hint">
           Et prosjekt er <strong>nummeret</strong>: det er det behov, ordre og planlagte rader peker på. Kildene kaller det samme prosjektet forskjellige ting, så hvert prosjekt har alle{' '}
-          <strong>navnene</strong> det går under. Et arrangement i Venyou får nummeret til prosjektet som har navnet dets i samme år. Arrangementer uten prosjekt står øverst med et forslag til
-          nummer, året og tre bokstaver; bruk forslaget, eller skriv nummeret til prosjektet det hører til.
+          <strong>navnene</strong> det går under. Et arrangement i Venyou får nummeret til prosjektet som har navnet dets i samme år. Arrangementer uten prosjekt står øverst med et forslag: prosjektet
+          de ligner på i navn og dager, ellers et eget nummer av året og tre bokstaver. Bruk forslaget, eller skriv nummeret til prosjektet det hører til.
         </p>
 
         {withoutProjectCount > 0 && (
           <div className="orphans" role="alert">
             <strong>{count(withoutProjectCount, 'arrangement har', 'arrangementer har')} ikke prosjekt.</strong> Uten nummer kan ikke behov og plan knyttes til dem.{' '}
             {openShown > 0 && (
-              <button onClick={suggestAll} title="Oppretter et prosjekt med det foreslåtte nummeret for hvert arrangement i listen som mangler prosjekt. Kan angres.">
+              <button onClick={suggestAll} title="Gir hvert arrangement i listen som mangler prosjekt det som er foreslått: prosjektet det ligner på, ellers et eget nummer. Kan angres.">
                 Bruk forslaget for {openShown === openCount ? `alle ${openCount}` : `de ${openShown} i listen`}
               </button>
             )}

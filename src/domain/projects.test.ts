@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { diffProjectList, eventKey, mergeProjectList, projectFollowers, projectRows, suggestProjectNo, venueEvents, withEventLinksAsProjects, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
+import { diffProjectList, eventKey, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectRows, suggestProjectNo, venueEvents, withEventLinksAsProjects, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
 import type { AllocationRow, DemandLine, ProjectRef, VenueBooking } from './types'
 
 const booking = (eventName: string, hall: string, phases: VenueBooking['phases']): VenueBooking => ({ id: `${eventName}-${hall}`, hall, eventName, status: 'confirmed', phases })
@@ -124,5 +124,50 @@ describe('the rows of the Prosjekter tab', () => {
     ])
     expect(rows[3]).toMatchObject({ names: ['VVS DAGENE 2026', 'VVS 2026'], rows: 1, events: [{ name: 'VVS DAGENE 2026' }] })
     expect(rows[1]).toMatchObject({ names: ['Hage'], lines: 1 })
+  })
+})
+
+describe('what an event without a project is offered', () => {
+  const days = { event: { start: '2026-10-14', end: '2026-10-16' } }
+  const venue = [booking('VVS DAGENE 2026', 'C', days), booking('VVS Dagene 2026 - Grupperom', 'M1', days), booking('VVS dagene', 'D', { event: { start: '2026-03-02', end: '2026-03-03' } }), booking('HAGEMESSEN 2026', 'B', { event: { start: '2026-04-10', end: '2026-04-12' } })]
+  const rows = (projects: ProjectRef[], more: Partial<Parameters<typeof projectRows>[0]> = {}) => projectRows({ venue, projects, visma: [], demand: [], allocations: [], ...more })
+  const offered = (projects: ProjectRef[]) => Object.fromEntries(rows(projects).filter((r) => !r.projectNo).map((r) => [r.names[0], r.match?.projectNo]))
+
+  it('tells names that are alike from names that share a word', () => {
+    expect(nameLikeness('VA messen', 'VA MESSEN 2026')).toBe(1)
+    expect(nameLikeness('Hage messen 2026', 'HAGEMESSEN')).toBe(1)
+    expect(nameLikeness('Datacenterforum', 'Datacenter Forum Nordic')).toBeGreaterThan(0.75)
+    expect(nameLikeness('HR Norge HR Tech 2027', 'HR Norge HR Forum 2027')).toBeLessThan(0.75)
+    expect(nameWithin('Oslo Motor Show 2026', 'OSLO MOTOR SHOW 2026 - VIP Green Room')).toBe(1)
+    expect(nameWithin('VA', 'VA messen')).toBe(0)
+  })
+
+  it('offers the project of its year with a name like its own', () => {
+    expect(offered([{ name: 'Hagemessen', projectNo: '26100' }, { name: 'Hagemessen', projectNo: '25100' }])['HAGEMESSEN 2026']).toBe('26100')
+    expect(offered([{ name: 'Hagemessen', projectNo: '25100' }])['HAGEMESSEN 2026']).toBeUndefined()
+  })
+
+  it('offers the project a longer name holds only where it has an event on the same days', () => {
+    const offers = offered([{ name: 'VVS DAGENE 2026', projectNo: '26970' }])
+    expect(offers['VVS Dagene 2026 - Grupperom']).toBe('26970')
+    // Alike in name, but the project's event is on other days.
+    expect(offers['VVS dagene']).toBeUndefined()
+  })
+
+  it('lets a number from orders take over a made-up one, with what points at it', () => {
+    const projects = [{ name: 'HAGEMESSEN 2026', projectNo: '26HAG' }]
+    const fromOrders = rows(projects, { visma: [{ projectNo: '26100', eventName: 'Hagemessen', fileName: '', importedAt: '', rows: [] }] }).find((r) => r.projectNo === '26100')!
+    expect(fromOrders).toMatchObject({ lacking: 'new', replaces: { projectNo: '26HAG', name: 'HAGEMESSEN 2026' } })
+    expect(withNumberTakingOver(projects, '26100', 'Hagemessen', fromOrders.replaces!)).toEqual({
+      projects: [{ name: 'HAGEMESSEN 2026', projectNo: '26100' }, { name: 'Hagemessen', projectNo: '26100' }],
+      renumbered: { from: '26HAG', to: '26100' },
+    })
+  })
+
+  it('moves the name alone from a project that has other names or a number of its own', () => {
+    const projects = [{ name: 'VVS DAGENE 2026', projectNo: '26970' }, { name: 'VVS Dagene 2026 - Grupperom', projectNo: '26970' }]
+    const taken = withNumberTakingOver(projects, '26971', 'VVS Grupperom', { projectNo: '26970', name: 'VVS Dagene 2026 - Grupperom' })
+    expect(taken.renumbered).toBeUndefined()
+    expect(taken.projects.map((ref) => [ref.name, ref.projectNo])).toEqual([['VVS DAGENE 2026', '26970'], ['VVS Dagene 2026 - Grupperom', '26971'], ['VVS Grupperom', '26971']])
   })
 })
