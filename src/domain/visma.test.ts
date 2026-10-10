@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
-import { buildVismaLines, hallOf, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
+import { vismaHall } from '../import/vismaExport'
+import { buildVismaLines, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -15,7 +16,7 @@ const kpi: KpiConfig = {
   ],
 }
 
-const row = (overrides: Partial<VismaRow>): VismaRow => ({
+const row = (overrides: Partial<VismaRow>): VismaRow => withHall({
   projectNo: '26970',
   eventName: 'VVS 2026',
   stand: 'C04-44',
@@ -30,6 +31,8 @@ const row = (overrides: Partial<VismaRow>): VismaRow => ({
   productType: 'FOGA-vegger',
   ...overrides,
 })
+/** The row with its Hall/Sted as the reader gives it. */
+const withHall = (fields: Omit<VismaRow, 'hall'> & { hall?: string }): VismaRow => ({ ...fields, hall: fields.hall ?? vismaHall(fields.stand, fields.transInfo) })
 
 const rows = [
   row({ quantity: 10 }),
@@ -43,10 +46,6 @@ const rows = [
 ]
 
 describe('Visma lines', () => {
-  it('reads the hall like the workbook', () => {
-    expect(hallOf({ stand: 'C04-44', transInfo: '' })).toBe('Hall C')
-    expect(hallOf({ stand: '', transInfo: 'Hall C og D' })).toBe('Hall C og D')
-  })
 
   it('groups by department, work type and hall, summing signed quantities', () => {
     const lines = buildVismaLines(rows, kpi, {})

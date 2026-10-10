@@ -14,7 +14,7 @@ const kpi: KpiConfig = {
     { name: 'Print', unit: 'ordre', assembly: 1, dismantle: 0 },
   ],
 }
-const row = (overrides: Partial<VismaRow>): VismaRow => ({ projectNo: '26970', eventName: 'VVS 2026', stand: 'C04-44', transInfo: '', customer: '', avdeling: '65', orderNo: '', articleNo: '', description: '', quantity: 1, productGroup: '', productType: 'FOGA-vegger', ...overrides })
+const row = (overrides: Partial<VismaRow>): VismaRow => ({ projectNo: '26970', eventName: 'VVS 2026', stand: 'C04-44', transInfo: '', hall: overrides.stand === '' ? (overrides.transInfo ?? '') : `Hall ${(overrides.stand ?? 'C')[0]}`, customer: '', avdeling: '65', orderNo: '', articleNo: '', description: '', quantity: 1, productGroup: '', productType: 'FOGA-vegger', ...overrides })
 const imported = (projectNo: string, rows: VismaRow[]): VismaImport => ({ projectNo, eventName: '', fileName: 'utskrift.xlsx', importedAt: '', rows: rows.map((r) => ({ ...r, projectNo })) })
 
 const visma = [

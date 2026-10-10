@@ -47,7 +47,7 @@ describe('the KPI file', () => {
   })
 
   it('leaves out a type that is only in the orders and not set up', () => {
-    const visma: VismaImport[] = [{ projectNo: '1', eventName: 'VVS 2026', fileName: 'x', importedAt: '', rows: ['Egen type', 'Teppefliser'].map((productType) => ({ projectNo: '1', eventName: 'VVS 2026', stand: '', transInfo: '', customer: '', avdeling: '', orderNo: '', articleNo: '', description: '', quantity: 1, productGroup: '', productType })) }]
+    const visma: VismaImport[] = [{ projectNo: '1', eventName: 'VVS 2026', fileName: 'x', importedAt: '', rows: ['Egen type', 'Teppefliser'].map((productType) => ({ projectNo: '1', eventName: 'VVS 2026', stand: '', transInfo: '', hall: '', customer: '', avdeling: '', orderNo: '', articleNo: '', description: '', quantity: 1, productGroup: '', productType })) }]
     const names = table(writeKpiWorkbook(kpi, visma)).map((row) => row[0])
     expect(names).toContain('Egen type')
     expect(names).not.toContain('Teppefliser')

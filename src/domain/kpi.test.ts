@@ -98,6 +98,7 @@ const vismaRow = (productType: string): VismaRow => ({
   eventName: 'VVS 2026',
   stand: 'C01-01',
   transInfo: '',
+  hall: 'Hall C',
   customer: '',
   avdeling: '65',
   orderNo: '',

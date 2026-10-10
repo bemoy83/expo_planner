@@ -18,9 +18,6 @@ import { productTypeKey } from './kpi'
 /** The work type of booking lines that have no product type, as the planner's workbook called it. */
 export const NO_PRODUCT_TYPE = '01_ingen produkttype'
 
-/** «C04-44» → «Hall C»; without a stand, the free-text location is the hall. */
-export const hallOf = (row: Pick<VismaRow, 'stand' | 'transInfo'>): string => (row.stand ? `Hall ${row.stand[0]}` : row.transInfo)
-
 /**
  * Every line of a Visma export belongs to a project with a number and a name. A line that lacks the name
  * takes it from the other lines of its project; a project no line names cannot be read.
@@ -81,7 +78,7 @@ const groupRows = (rows: VismaRow[]): Group[] => {
   const groups = new Map<string, Group>()
   for (const row of rows) {
     const workType = row.productType || NO_PRODUCT_TYPE
-    const hall = hallOf(row)
+    const hall = row.hall
     const key = vismaLineKey(row.projectNo, row.avdeling, workType, hall)
     let group = groups.get(key)
     if (!group) {

@@ -4,7 +4,7 @@ import type { KpiConfig } from '../domain/types'
 import { setActiveUnit } from '../domain/kpi'
 import { buildVismaLines } from '../domain/visma'
 import { readKpiWorkbook } from './kpiFile'
-import { readVismaExport, vismaProductType } from './vismaExport'
+import { readVismaExport, vismaHall, vismaProductType } from './vismaExport'
 
 describe('a product type as Visma writes it', () => {
   it('is read as its name: the text in the brackets, without brackets of its own', () => {
@@ -16,6 +16,13 @@ describe('a product type as Visma writes it', () => {
   it('is none where the text has no brackets', () => {
     expect(vismaProductType('0')).toBe('')
     expect(vismaProductType('')).toBe('')
+  })
+})
+
+describe('the Hall/Sted of a booking line', () => {
+  it('is the hall of its stand, or its free text where it has no stand', () => {
+    expect(vismaHall('C04-44', '')).toBe('Hall C')
+    expect(vismaHall('', 'Hall C og D')).toBe('Hall C og D')
   })
 })
 

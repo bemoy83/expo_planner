@@ -15,6 +15,12 @@ export const vismaProductType = (text: string): string => {
   return close > open && open >= 0 ? text.slice(open + 1, close).replace(/[[\]]/g, ' ').replace(/\s+/g, ' ').trim() : ''
 }
 
+/**
+ * The Hall/Sted of a booking line. A stand number begins with the letter of its hall, so «C04-44» is «Hall C»;
+ * a line without a stand has its place as free text.
+ */
+export const vismaHall = (stand: string, transInfo: string): string => (stand ? `Hall ${stand[0]}` : transInfo)
+
 /** Reads a Visma booking export (`utskrift_visma`). The total row and rows without a project are left out; every project must have its name, see `withProjectNames`. */
 export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
   for (const sheet of readXlsx(bytes).values()) {
@@ -28,11 +34,14 @@ export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
     for (const row of dataRows(sheet, header.row)) {
       const projectNo = text(cell(row, 'prosjekt'))
       if (!projectNo || projectNo === '0') continue
+      const stand = text(cell(row, 'stand'))
+      const transInfo = text(cell(row, 'trans.opplysn. 1'))
       rows.push({
         projectNo,
         eventName: text(cell(row, 'navn2')),
-        stand: text(cell(row, 'stand')),
-        transInfo: text(cell(row, 'trans.opplysn. 1')),
+        stand,
+        transInfo,
+        hall: vismaHall(stand, transInfo),
         customer: text(cell(row, 'navn')),
         avdeling: text(cell(row, 'avdeling')),
         orderNo: text(cell(row, 'ordrenr')),

@@ -155,6 +155,8 @@ export interface VismaRow {
   eventName: string
   stand: string
   transInfo: string
+  /** The Hall/Sted of the line, as the reader worked it out from the two above. */
+  hall: string
   customer: string
   avdeling: string
   orderNo: string
