@@ -20,11 +20,9 @@ export interface Change {
   venue?: Delta<{ bookings: VenueBooking[]; info: VenueImportInfo | undefined }>
   /** Which hall bookings are left out of the Kalender. */
   hiddenVenue?: Delta<Record<string, true>>
-  /** Project numbers set by hand for Venyou events. */
-  eventLinks?: Delta<Record<string, string>>
   /** Halls chosen by hand for Hall/Sted texts. */
   hallAliases?: Delta<Record<string, string>>
-  /** The project list (event name → project number). */
+  /** The project table: the names each project goes by. */
   projects?: Delta<ProjectRef[]>
   /** The records of Bemanning, `null` where the record did not exist. */
   persons: Map<string, Delta<Person | null>>
@@ -96,10 +94,6 @@ export const recordHiddenVenue = (change: Change, before: Record<string, true>, 
   change.hiddenVenue = { before: change.hiddenVenue ? change.hiddenVenue.before : before, after }
 }
 
-export const recordEventLinks = (change: Change, before: Record<string, string>, after: Record<string, string>) => {
-  change.eventLinks = { before: change.eventLinks ? change.eventLinks.before : before, after }
-}
-
 export const recordProjects = (change: Change, before: ProjectRef[], after: ProjectRef[]) => {
   change.projects = { before: change.projects ? change.projects.before : before, after }
 }
@@ -133,7 +127,6 @@ export const isEmptyChange = (change: Change): boolean =>
   !change.kpi &&
   !change.venue &&
   !change.hiddenVenue &&
-  !change.eventLinks &&
   !change.hallAliases &&
   !change.projects &&
   !change.competenceStyles &&
@@ -172,7 +165,6 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
   const kpi = change.kpi ? target(change.kpi, direction) : workspace.kpi
   const venue = change.venue ? target(change.venue, direction) : { bookings: workspace.venue, info: workspace.venueImport }
   return { ...workspace, allocations, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue,
-    eventLinks: change.eventLinks ? target(change.eventLinks, direction) : workspace.eventLinks,
     hallAliases: change.hallAliases ? target(change.hallAliases, direction) : workspace.hallAliases,
     projects: change.projects ? target(change.projects, direction) : workspace.projects,
     persons: change.persons.size ? applyList(workspace.persons, change.persons, direction)?.sort((a, b) => a.order - b.order) : workspace.persons,
@@ -197,7 +189,6 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   kpi: change.kpi ? (target(change.kpi, direction) ?? null) : undefined,
   venue: change.venue ? target(change.venue, direction) : null,
   hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : null,
-  eventLinks: change.eventLinks ? target(change.eventLinks, direction) : null,
   hallAliases: change.hallAliases ? target(change.hallAliases, direction) : null,
   projects: change.projects ? target(change.projects, direction) : null,
   staffing: {

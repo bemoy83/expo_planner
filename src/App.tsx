@@ -10,6 +10,7 @@ import { Haller } from './ui/haller/Haller'
 import { Kpi } from './ui/kpi/Kpi'
 import { Kompetanser } from './ui/personell/Kompetanser'
 import { Personell } from './ui/personell/Personell'
+import { Prosjekter } from './ui/prosjekter/Prosjekter'
 import { Kalender } from './ui/kalender/Kalender'
 import { cleanBlockNames, type BlockNames } from './ui/bemanning/dayCell'
 import { Menu, Segmented } from './ui/common'
@@ -31,6 +32,7 @@ const TABS = [
   ['kalender', 'Kalender'],
   ['behov', 'Behov'],
   ['haller', 'VenYou'],
+  ['prosjekter', 'Prosjekter'],
   ['kpi', 'KPI'],
   ['personell', 'Personell'],
   ['kompetanser', 'Kompetanser'],
@@ -56,7 +58,6 @@ const emptyWorkspace = (): Workspace => ({
   allocations: [],
   overrides: {},
   hiddenVenue: {},
-  eventLinks: {},
   hallAliases: {},
   visma: [],
 })
@@ -321,7 +322,8 @@ function Shell() {
         </div>
       )}
       {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} selectionStyle={selectionStyle === 'raised' ? 'raised' : 'tint'} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} />}
-      {status === 'ready' && workspace && view === 'haller' && <Haller />}
+      {status === 'ready' && workspace && view === 'haller' && <Haller onOpenProjects={() => setView('prosjekter')} />}
+      {status === 'ready' && workspace && view === 'prosjekter' && <Prosjekter onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi />}
       {status === 'ready' && workspace && view === 'personell' && <Personell onOpenCompetences={() => setView('kompetanser')} />}
       {status === 'ready' && workspace && view === 'kompetanser' && <Kompetanser onOpenPersonell={() => setView('personell')} />}

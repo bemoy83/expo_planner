@@ -51,7 +51,6 @@ input.inline:hover{background:var(--wash)}
 input.inline:focus{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-strong)}
 /* a field with values to pick from: they are listed under it while it is edited, the one it holds in bold */
 .field{position:relative;display:flex;flex-direction:column}
-td.project-no .field{display:inline-flex}
 .field-list{position:absolute;top:100%;left:0;z-index:50;margin-top:2px;min-width:100%;max-height:264px;overflow:auto;display:flex;flex-direction:column;padding:4px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px}
 .field-list button{justify-content:flex-start;padding:4px 8px;border-radius:6px;background:transparent;white-space:nowrap}
 .field-list button:hover,.field-list button[aria-selected='true']{background:var(--sunken)}
@@ -82,7 +81,7 @@ table.ledger tr.hidden-row td,table.ledger tr.inactive-row td{color:var(--muted)
 table.ledger tr.hidden-row td.hall-name{text-decoration:line-through}
 table.ledger td.hall-name{font-weight:600}
 input.inline.project-no-input{width:90px;min-width:0}
-/* an event that has no project number yet */
+/* an event that has no project yet: the field shows the number it is offered */
 input.inline.project-no-input.missing{box-shadow:inset 0 0 0 1.5px var(--over)}
 
 /* ---- KPI ---- */
@@ -92,7 +91,7 @@ table.ledger.kpi tr.alt-unit td{color:var(--muted)}
 
 /* ---- Personell and Kompetanser ---- */
 table.ledger.personell{width:auto;min-width:760px}
-/* the competences a person has, each removed with a click, and the + that opens the list of the rest */
+/* the competences a person has and the names a project goes by, each removed with a click, and the + that opens the list of the rest */
 .comp-toggles{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .comp-toggle{padding:2px 6px 2px 8px;border-radius:6px;font-size:var(--fs-sm);font-weight:600}
 .comp-toggle svg{color:var(--faint)}
@@ -111,3 +110,10 @@ input.inline.short-label{min-width:0;width:64px;font-family:var(--font-num);font
 .reorder{display:inline-flex;align-items:center;gap:2px}
 .reorder .grip{display:inline-flex;padding:4px 2px;color:var(--faint);cursor:grab}
 table.ledger tr.dragging td{opacity:.45}
+
+/* ---- Prosjekter ---- */
+table.ledger.prosjekter{width:auto;min-width:760px}
+table.ledger.prosjekter td.actions{white-space:nowrap}
+/* the field a project is given one more name in, after the names it has */
+.comp-toggles .field{flex:0 0 auto}
+input.inline.name-add{width:120px;min-width:0}

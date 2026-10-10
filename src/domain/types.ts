@@ -81,9 +81,12 @@ export interface VenueImportInfo {
   to: ISODate
 }
 
+/** A row of the project table: a name a project goes by. See `domain/projects.ts`. */
 export interface ProjectRef {
   name: string
   projectNo: string
+  /** The year the name is matched in, kept only where it is another than the number begins with. */
+  year?: string
 }
 
 export type WorkPhase = 'Montering' | 'Demontering'
@@ -288,7 +291,7 @@ export interface Workspace {
   projects: ProjectRef[]
   demand: DemandLine[]
   allocations: AllocationRow[]
-  /** Project numbers set by hand for Venyou events, keyed by `eventKey`. */
+  /** Only in data stored by earlier versions: numbers typed on the events. Read into `projects` by `withEventLinksAsProjects`. */
   eventLinks?: Record<string, string>
   /** Halls chosen by hand for Hall/Sted texts, keyed by `aliasKey`. One choice places every line with that text. */
   hallAliases?: Record<string, string>

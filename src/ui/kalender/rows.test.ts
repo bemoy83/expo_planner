@@ -21,8 +21,8 @@ const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
 const event = (name: string, projectNo: string, start: string, end: string): VenueEvent => ({
   key: `${name.toLowerCase()}|${start.slice(0, 4)}`,
   name,
+  year: start.slice(0, 4),
   projectNo,
-  linkSource: projectNo ? 'list' : 'none',
   ambiguous: false,
   candidates: [],
   start,

@@ -13,12 +13,12 @@ import { projectList } from './useProjectHover'
  * events' names over them, and the project behind each booking. `origin` is the first day of the period;
  * `splitShared` shows both events on a day a hall is shared, which wide columns have room for.
  */
-export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'eventLinks' | 'projects'>, origin: ISODate, splitShared: boolean, allHalls: boolean) {
-  const { venue, hiddenVenue, eventLinks, projects } = ws
+export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, origin: ISODate, splitShared: boolean, allHalls: boolean) {
+  const { venue, hiddenVenue, projects } = ws
   const shownVenue = useMemo(() => visibleVenue(venue, hiddenVenue), [venue, hiddenVenue])
   const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
   // Projects are the events in the Venyou calendar that have at least one hall booking shown.
-  const events = useMemo(() => venueEvents(shownVenue, eventLinks, projects), [shownVenue, eventLinks, projects])
+  const events = useMemo(() => venueEvents(shownVenue, projects), [shownVenue, projects])
   /** The project a hall booking belongs to. */
   const projectOf = useMemo(() => {
     const projectOfEvent = new Map(events.map((event) => [event.key, projectKey({ projectNo: event.projectNo, projectName: event.name })]))

@@ -4,12 +4,9 @@ import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from 
 import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
 import { phaseSpans } from '../../domain/venue'
 import { anchorDate, venueKey } from '../../domain/venueImport'
-import { readProjectList } from '../../import/venyouExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { MessageBanner, Twisty, UndoRedoButtons, type Message } from '../common'
-import { errorText, takeFile } from '../files'
+import { Twisty, UndoRedoButtons } from '../common'
 import { ColumnHead } from '../ColumnHead'
-import { TextField } from '../fields'
 import { useTable, type Column } from '../useTable'
 
 const PHASE_HEADERS: Record<VenuePhase, string> = { assembly: 'Montering', movingIn: 'Innflytting', event: 'Arrangement', movingOut: 'Utflytting', dismantle: 'Demontering' }
@@ -60,30 +57,19 @@ const COLUMNS: Column<BookingRow>[] = [
   { key: 'projectNo', text: (row) => row.event?.projectNo ?? '', cell: drawnByPage },
 ]
 
-/** The hall ledger: every hall booking, with a tick for whether it shows in the Kalender. */
-export function Haller() {
-  const { workspace, setVenueHidden, setEventProject, importProjects } = useWorkspace()
+/** The hall ledger: every hall booking, with a tick for whether it shows in the Kalender. The project number of an event is read from the project table. */
+export function Haller({ onOpenProjects }: { onOpenProjects: () => void }) {
+  const { workspace, setVenueHidden } = useWorkspace()
   const ws = workspace!
   const hidden = useMemo(() => ws.hiddenVenue ?? {}, [ws.hiddenVenue])
   const [search, setSearch] = useState('')
   const [includePast, setIncludePast] = useState(false)
   /** The events whose halls are folded away, for as long as the tab is open. */
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set())
-  const [message, setMessage] = useState<Message | null>(null)
-  const listInput = useRef<HTMLInputElement>(null)
   const [today] = useState(todayIso)
 
-  const events = useMemo(() => new Map(venueEvents(ws.venue, ws.eventLinks, ws.projects).map((event) => [event.key, event])), [ws.venue, ws.eventLinks, ws.projects])
+  const events = useMemo(() => new Map(venueEvents(ws.venue, ws.projects).map((event) => [event.key, event])), [ws.venue, ws.projects])
   const unlinkedCount = useMemo(() => [...events.values()].filter((event) => !event.projectNo).length, [events])
-
-  const onProjectList = async (file: File) => {
-    try {
-      const count = importProjects(readProjectList(new Uint8Array(await file.arrayBuffer())))
-      setMessage({ kind: 'ok', text: `${file.name}: ${count} navn med prosjektnummer lest inn. Arrangementer med likt navn har fått nummer.` })
-    } catch (e) {
-      setMessage({ kind: 'error', text: errorText(e) })
-    }
-  }
 
   /** The bookings the search and «Ta med tidligere» let through; the columns' filters take it from there. */
   const bookings = useMemo(() => {
@@ -141,25 +127,21 @@ export function Haller() {
           </button>
         )}
         <span className="toolbar-gap" />
-        <button onClick={() => listInput.current?.click()} title="Les inn Prosjekt.xlsx: navn og prosjektnummer">
-          Importer prosjektliste
-        </button>
-        <input
-          ref={listInput}
-          type="file"
-          accept=".xlsx"
-          hidden
-          onChange={(e) => takeFile(e, onProjectList)}
-        />
         <UndoRedoButtons />
       </div>
 
-      <MessageBanner message={message} onClose={() => setMessage(null)} />
-
       <div className="behov-body">
         <p className="hint">
-          Hvert arrangement er et prosjekt i Kalender. Prosjektnummeret kobler det til Visma; det hentes fra prosjektlisten når navnet er likt, ellers skriver du det inn her.{' '}
-          {unlinkedCount > 0 && `${unlinkedCount} arrangementer mangler nummer. `}
+          Hvert arrangement er et prosjekt i Kalender. Prosjektnummeret knytter behov og plan til det, og hentes fra Prosjekter: prosjektet som har arrangementets navn i samme år.{' '}
+          {unlinkedCount > 0 && (
+            <>
+              {unlinkedCount} arrangementer mangler nummer;{' '}
+              <button className="link" onClick={onOpenProjects}>
+                gi dem nummer på Prosjekter
+              </button>
+              .{' '}
+            </>
+          )}
           Haken bestemmer om bookingen vises i hallkalenderen; haken i overskriften gjelder alle i listen. Skjulte bookinger blir liggende her, og valget beholdes når du leser inn en ny Venyou-fil.{' '}
           {ws.venue.length} bookinger totalt, {hiddenCount} skjult.
           {ws.venueImport && ` Sist oppdatert fra ${ws.venueImport.fileName} (${ws.venueImport.from} til ${ws.venueImport.to}).`}
@@ -182,7 +164,7 @@ export function Haller() {
                   </ColumnHead>
                 ))}
                 <ColumnHead filter={table.filter('status')}>Status</ColumnHead>
-                <ColumnHead title="Prosjektnummeret i Visma. Velg (tom) i filteret for arrangementene som mangler nummer." filter={table.filter('projectNo')}>
+                <ColumnHead title="Prosjektnummeret fra Prosjekter. Velg (tom) i filteret for arrangementene som mangler nummer." filter={table.filter('projectNo')}>
                   Prosjektnr.
                 </ColumnHead>
               </tr>
@@ -203,7 +185,6 @@ export function Haller() {
                 const spans = phaseSpans(group.bookings)
                 // Shown once, on the event, when its halls agree; else on each hall.
                 const status = group.bookings.every((b) => b.status === group.bookings[0].status) ? group.bookings[0].status : null
-                const candidates = group.event && group.event.candidates.length > 1 ? group.event.candidates : null
                 return [
                   <tr key={`${group.name}|${group.anchor}`} className={group.event && !group.event.projectNo ? 'event-row has-issue' : 'event-row'}>
                     <td className="center">
@@ -227,22 +208,12 @@ export function Haller() {
                     ))}
                     <td>{status}</td>
                     <td className="project-no">
-                      {group.event && (
-                        <>
-                          {/* Clearing a hand-set number goes back to the match from the project list. */}
-                          <TextField
-                            className={`project-no-input ${group.event.projectNo ? '' : 'missing'}`}
-                            placeholder="Prosjektnr."
-                            options={candidates ?? undefined}
-                            ariaLabel={`Prosjektnummer for ${group.event.name}`}
-                            value={group.event.projectNo}
-                            onCommit={(value) => setEventProject(group.event!, value)}
-                          />
-                          <span className="muted small">
-                            {group.event.linkSource === 'list' ? ' fra listen' : group.event.ambiguous ? ` velg blant ${group.event.candidates.length} i listen` : group.event.linkSource === 'none' ? '' : ' satt for hånd'}
-                          </span>
-                        </>
-                      )}
+                      {group.event &&
+                        (group.event.projectNo || (
+                          <button className="link issue" title="Arrangementet har ikke noe prosjekt. Gi det et nummer på Prosjekter." onClick={onOpenProjects}>
+                            {group.event.ambiguous ? 'Flere prosjekter' : 'Mangler'}
+                          </button>
+                        ))}
                     </td>
                   </tr>,
                   ...(open ? group.bookings : []).map((booking) => {

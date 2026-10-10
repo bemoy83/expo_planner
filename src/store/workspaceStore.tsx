@@ -8,12 +8,12 @@ import { followCompetence, rowScope } from '../domain/plannedRows'
 import { locateDemand, withAlias } from '../domain/locations'
 import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences, withOneCompetenceName } from '../domain/competences'
 import { hallNames } from '../domain/venue'
-import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
+import { projectFollowers } from '../domain/projects'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putEventLinks, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
 import { writeQueue } from './writeQueue'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordEventLinks, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordHallAliases, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -38,10 +38,11 @@ interface WorkspaceStore {
   updateSettings: (settings: Settings) => void
   /** Takes in a Venyou export: hall bookings in the export's period are replaced, the rest are kept. */
   importVenue: (bookings: VenueBooking[], fileName: string) => VenueDiff & { from: string; to: string }
-  /** Sets the project number of a Venyou event by hand; an empty number goes back to the project list's match. */
-  setEventProject: (event: VenueEvent, projectNo: string) => void
-  /** Adds names and numbers from a project list file; the file wins where a name is in both. Returns the number of entries read. */
-  importProjects: (projects: ProjectRef[]) => number
+  /**
+   * Replaces the project table. Planning rows of an event follow it to the number it gets, and a project given
+   * another number (`renumbered`) takes its rows and the planner's own demand lines along. Returns how many followed.
+   */
+  setProjects: (projects: ProjectRef[], renumbered?: { from: string; to: string }) => { rows: number; lines: number }
   /** Shows or hides hall bookings in the Kalender; keys come from `venueKey`. */
   setVenueHidden: (keys: string[], hidden: boolean) => void
   /**
@@ -202,7 +203,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         })
           .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
           .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined))
-          .then(() => (writes.eventLinks ? putEventLinks(writes.eventLinks) : undefined))
           .then(() => (writes.hallAliases ? putHallAliases(writes.hallAliases) : undefined))
           .then(() => (writes.projects ? writeProjects(writes.projects) : undefined)),
       )
@@ -345,42 +345,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
-  const setEventProject = useCallback(
-    (event: VenueEvent, projectNo: string) => {
+  const setProjects = useCallback<WorkspaceStore['setProjects']>(
+    (projects, renumbered) => {
       const ws = current.current
-      if (!ws) return
-      const before = ws.eventLinks ?? {}
-      const after = { ...before }
-      const manual = projectNo.trim()
-      if (manual) after[event.key] = manual
-      else delete after[event.key]
-      const listed = projectListIndex(ws.projects).get(normalizeName(event.name))
-      const resolved = manual || (listed?.size === 1 ? [...listed][0] : '')
-      // Rows already planned for the event follow it to the new number, so their demand is looked up there.
-      const moved = ws.allocations.filter(
-        (row) => normalizeName(row.projectName) === normalizeName(event.name) && (row.projectNo === '' || row.projectNo === event.projectNo) && row.projectNo !== resolved,
-      )
-      const updated = new Map(moved.map((row) => [row.id, { ...row, projectNo: resolved }]))
-      const next = { ...ws, eventLinks: after, allocations: updated.size ? ws.allocations.map((row) => updated.get(row.id) ?? row) : ws.allocations }
+      if (!ws) return { rows: 0, lines: 0 }
+      const { allocations, demand } = projectFollowers(ws, projects, renumbered)
+      const rows = new Map(allocations.map((row) => [row.id, row]))
+      const lines = new Map(demand.map((line) => [line.id, line]))
+      const next: Workspace = {
+        ...ws,
+        projects,
+        allocations: rows.size ? ws.allocations.map((row) => rows.get(row.id) ?? row) : ws.allocations,
+        demand: lines.size ? ws.demand.map((line) => lines.get(line.id) ?? line) : ws.demand,
+      }
       commit(
         next,
-        () => Promise.all([...updated.values()].map(rowWrites.put)).then(() => putEventLinks(after)),
+        () => Promise.all([...allocations.map(rowWrites.put), demand.length ? writeDemand({ putLines: demand }) : undefined]).then(() => writeProjects(projects)),
         (step) => {
-          recordEventLinks(step, before, after)
-          for (const row of moved) recordAllocation(step, row.id, row, updated.get(row.id)!)
+          recordProjects(step, ws.projects, projects)
+          recordLedger(step, ws, next)
+          for (const row of ws.allocations) if (rows.has(row.id)) recordAllocation(step, row.id, row, rows.get(row.id)!)
         },
       )
-    },
-    [commit],
-  )
-
-  const importProjects = useCallback(
-    (incoming: ProjectRef[]) => {
-      const ws = current.current
-      if (!ws) return 0
-      const projects = mergeProjectList(ws.projects, incoming)
-      commit({ ...ws, projects }, () => writeProjects(projects), (step) => recordProjects(step, ws.projects, projects))
-      return incoming.length
+      return { rows: allocations.length, lines: demand.length }
     },
     [commit],
   )
@@ -581,8 +568,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       removeAllocation,
       updateSettings,
       importVenue,
-      setEventProject,
-      importProjects,
+      setProjects,
       setVenueHidden,
       setKpi,
       renameCompetence,
@@ -599,7 +585,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>

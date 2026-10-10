@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { withoutStoredNames } from '../domain/kpi'
+import { withEventLinksAsProjects } from '../domain/projects'
 import { withSettingsDefaults, type AllocationRow, type Assignment, type CompetenceStyle, type DemandAdjustment, type DemandLine, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
 
 interface MetaRecord {
@@ -67,7 +68,8 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     db.assignments.toArray(),
     db.demandAdjustments.toArray(),
   ])
-  return {
+  // Numbers typed on the events by an earlier version are names in the project table from here on; they are written there with its next change.
+  return withEventLinksAsProjects({
     settings: withSettingsDefaults(settings.value as Partial<Settings>),
     venueImport: venueImport?.value as VenueImportInfo | undefined,
     hiddenVenue: (hiddenVenue?.value as Record<string, true> | undefined) ?? {},
@@ -77,7 +79,7 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     overrides: (overrides?.value as Record<string, LineOverride> | undefined) ?? {},
     visma,
     venue,
-    projects: projects.map(({ name, projectNo }) => ({ name, projectNo })),
+    projects: projects.map(({ id: _id, ...ref }) => ref),
     demand,
     allocations: allocations.sort((a, b) => a.order - b.order),
     persons: persons.sort((a, b) => a.order - b.order),
@@ -85,7 +87,7 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     assignments,
     demandAdjustments,
     competenceStyles: (competenceStyles?.value as Record<string, CompetenceStyle> | undefined) ?? {},
-  }
+  })
 }
 
 /** Replaces everything stored with the given workspace, in one transaction. */
@@ -98,7 +100,6 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
       ...(workspace.venueImport ? [{ key: 'venueImport' as const, value: workspace.venueImport }] : []),
       { key: 'overrides' as const, value: workspace.overrides ?? {} },
       { key: 'hiddenVenue' as const, value: workspace.hiddenVenue ?? {} },
-      { key: 'eventLinks' as const, value: workspace.eventLinks ?? {} },
       { key: 'hallAliases' as const, value: workspace.hallAliases ?? {} },
       { key: 'competenceStyles' as const, value: workspace.competenceStyles ?? {} },
     ])
@@ -173,11 +174,10 @@ export const putHiddenVenue = (hidden: Record<string, true>) => db.meta.put({ ke
 
 export const putHallAliases = (aliases: Record<string, string>) => db.meta.put({ key: 'hallAliases', value: aliases })
 
-export const putEventLinks = (links: Record<string, string>) => db.meta.put({ key: 'eventLinks', value: links })
-
-/** Replaces the project list (event name → project number). */
+/** Replaces the project table. The numbers an earlier version kept on the events are in it by now, and go. */
 export const writeProjects = (projects: ProjectRef[]) =>
-  db.transaction('rw', [db.projects], async () => {
+  db.transaction('rw', [db.projects, db.meta], async () => {
+    await db.meta.delete('eventLinks')
     await db.projects.clear()
     await db.projects.bulkAdd(projects.map((p) => ({ ...p })))
   })
