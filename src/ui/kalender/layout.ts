@@ -6,6 +6,8 @@ export const ROW_H = 28
 export const TOP_ROW_H = 34
 /** The lines of the hall calendar are lower: there are many halls, and they hold no numbers. */
 export const HALL_ROW_H = 22
+/** A hall's line in the compact hall calendar: a thin bar per phase, without the names. */
+export const HALL_COMPACT_H = 12
 /** The Avvik line as a heat map: room for a tile with air around it. */
 export const HEAT_ROW_H = 30
 export const LEFT_W = 460

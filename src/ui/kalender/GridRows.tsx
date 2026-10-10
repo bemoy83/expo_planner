@@ -6,7 +6,7 @@ import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import { dayClass, type CellEdit, type Columns, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
-import { daysWide, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
+import { daysWide, HALL_COMPACT_H, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
 import { Twisty } from '../common'
@@ -143,6 +143,8 @@ interface HallRowProps {
   runs: HallLabelRun[] | undefined
   /** The projects with a booking in the hall, as `projectList` writes them, so the hall can be marked for one of them. */
   projects: string | undefined
+  /** The compact hall calendar: a thin bar per phase, with neither letters nor names. */
+  compact?: boolean
   cols: Columns
 }
 
@@ -150,11 +152,11 @@ interface HallRowProps {
  * One hall of the hall calendar: a bar per phase of each event, with the events' names laid over them.
  * The day cells under the bars are empty, so a line costs a handful of bars however many days it shows.
  */
-export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols }: HallRowProps) {
+export const HallRow = memo(function HallRow({ hall, bars, runs, projects, compact = false, cols }: HallRowProps) {
   const { c0, colW } = cols
   const c1 = c0 + cols.dates.length - 1
   // Names of the events in or near the visible dates, each with the width it may take.
-  const labels = (runs ?? [])
+  const labels = (compact ? [] : (runs ?? []))
     .filter((run) => run.col <= c1 && run.col + Math.max(run.span, Math.min(run.room, HALL_LABEL_MAX_COLS)) > c0)
     .map((run) => {
       const width = Math.min(run.room * colW, Math.max(run.span * colW, HALL_LABEL_MAX_W)) - 2
@@ -171,7 +173,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
   return (
     <Line
       className="hall-row"
-      height={HALL_ROW_H}
+      height={compact ? HALL_COMPACT_H : HALL_ROW_H}
       projects={projects}
       label={<span className="lbl-hall">{hall}</span>}
       cols={cols}
@@ -193,7 +195,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, cols 
                 title={bar.title}
                 data-project={bar.project}
               >
-                {!underLabel && fits ? code : null}
+                {!compact && !underLabel && fits ? code : null}
               </span>
             )
           })}

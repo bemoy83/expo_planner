@@ -1,6 +1,7 @@
 import type { ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type CapacityLine, type DayValues, type Settings } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
+import { DensityToggle } from '../bemanning/DensityToggle'
 import { Twisty } from '../common'
 import { BaseCrewRow, FromBemanningRow, HallRow, SumRows } from './GridRows'
 import type { Columns } from './gridTypes'
@@ -27,6 +28,9 @@ export function PhaseLegend() {
 interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'hallBars' | 'hallLabels' | 'hallProjectLists'> {
   open: boolean
   onOpen: (open: boolean) => void
+  /** Thin lines, as the project lines of Bemanning have: the bars alone, so more of the rows is in sight. */
+  compact: boolean
+  onCompact: (compact: boolean) => void
   /** No hall bookings are read in. */
   empty: boolean
   /** Where the hall calendar stays while the rows scroll: right under the date header. */
@@ -38,12 +42,13 @@ interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'h
  * The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too.
  * It stays under the date header whatever the height of the top block: where the block has to give way, the staffing lines slide in under it.
  */
-export function HallSection({ open, onOpen, empty, pinTop, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
+export function HallSection({ open, onOpen, compact, onCompact, empty, pinTop, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
   return (
-    <div className={`top-section halls ${open ? 'open' : ''}`} style={{ top: pinTop }}>
+    <div className={`top-section halls ${open ? 'open' : ''} ${compact ? 'compact' : ''}`} style={{ top: pinTop }}>
       <div className="section-head" style={{ width: LEFT_W }}>
         <Twisty open={open} show="Vis hallkalenderen" hide="Skjul hallkalenderen" onToggle={() => onOpen(!open)} />
         Haller
+        {open && <DensityToggle compact={compact} onChange={onCompact} />}
         {!open && <span className="section-meta">{halls.length} skjult</span>}
         {open && halls.length < hallCount && (
           <span className="section-meta" title="Hallene som er valgt under «Steder» øverst på siden">
@@ -57,7 +62,7 @@ export function HallSection({ open, onOpen, empty, pinTop, halls, hallCount, hal
           Ingen hallbookinger. Les inn <code>location_format</code> med «Les inn VenYou» øverst til høyre.
         </div>
       )}
-      {open && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} cols={cols} />)}
+      {open && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} compact={compact} cols={cols} />)}
     </div>
   )
 }

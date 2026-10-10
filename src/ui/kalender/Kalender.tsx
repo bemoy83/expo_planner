@@ -77,6 +77,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [collapsed, setCollapsed] = usePrefSet('collapsedLevels')
   const [entry, setEntry] = usePrefSet('entryLevels')
   const [hallsOpen, setHallsOpen] = usePref('hallsOpen', true)
+  const [hallsCompact, setHallsCompact] = usePref('hallsCompact', false)
   const [hallFilter, setHallFilter] = usePref<HallFilter>('hallFilter', ALL_HALLS, cleanHallFilter)
   const [staffingOpen, setStaffingOpen] = usePref('staffingOpen', true)
   const [capacityOpen, setCapacityOpen] = usePref('capacityOpen', false)
@@ -813,7 +814,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
             }}
           >
             {bemanning ? <BemanningTop /> : <>
-            <HallSection open={hallsOpen} onOpen={setHallsOpen} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
+            <HallSection open={hallsOpen} onOpen={setHallsOpen} compact={hallsCompact} onCompact={setHallsCompact} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
               onOpen={setStaffingOpen}

@@ -76,7 +76,10 @@
 .hall-row{position:relative;border-bottom:0}
 /* a hall's name sits at the right edge of the label column, next to its bars */
 .lbl-hall{margin-left:auto;font-family:var(--font-num);font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
+.halls.compact .lbl-hall{font-size:var(--fs-xs)}
 .hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:var(--fs-2xs);color:color-mix(in srgb,var(--text) 60%,transparent)}
+/* compact, in the hall calendar and in the project lines of Bemanning: the bar alone */
+.top-section.compact .hall-bar{height:6px;padding:0;border-radius:3px}
 /* a click on an event's bar scrolls the planning rows to its project */
 .hall-bar[data-project]{cursor:pointer}
 /* a day two events share */

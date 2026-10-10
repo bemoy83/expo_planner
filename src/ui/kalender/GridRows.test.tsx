@@ -87,6 +87,12 @@ describe('HallRow', () => {
     expect(letters(26, [bar('assembly', 0, 0.5), bar('movingIn', 0.5, 0.5)])).toEqual(['A', ''])
     expect(letters(52, [bar('assembly', 0, 0.5), bar('movingIn', 0.5, 0.5)])).toEqual(['A', 'MI'])
   })
+
+  it('draws the bars alone when compact, without letters or names', () => {
+    const { container } = render(<HallRow hall="C" bars={[bar('assembly', 0, 3)]} runs={[{ eventName: 'VVS 2026', col: 0, span: 3, room: Infinity, project: undefined }]} projects={undefined} compact cols={{ ...cols, colW: 52 }} />)
+    expect(container.querySelector('.hall-bar')?.textContent).toBe('')
+    expect(container.querySelector('.hall-label')).toBeNull()
+  })
 })
 
 describe('useStableActions', () => {
