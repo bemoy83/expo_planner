@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { examplePlaces, hallChoices, hallRulesOf, locateDemand, locateRows, placeNames, placeOf, PROJECT_HALLS, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withAlias, withPlaceRenamed } from './locations'
+import { collectedIn, examplePlaces, hallChoices, hallRulesOf, locateDemand, locateRows, placeNames, placeOf, PROJECT_HALLS, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withAlias, withPlaceRenamed } from './locations'
 import type { AllocationRow, DemandLine, HallRules } from './types'
 import { buildWindows, windowFor } from './windows'
 
@@ -15,13 +15,13 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(resolveHall('Hall C', halls)).toBe('C')
     expect(resolveHall(' hall c ', halls)).toBe('C')
     expect(resolveHall('mez', halls)).toBe('MEZ')
-    expect(resolveHall('B2', halls)).toBe('B2')
+    expect(resolveHall('B2', halls, none)).toBe('B2')
     expect(readHall('Hall D2', halls, own)).toEqual({ hall: 'D2', by: 'text' })
   })
 
   it('reads a name however it is spelled: spaces, hyphens and signs do not tell names apart', () => {
     const studios = ['STUDIO3', 'STUDIO-N', 'B1', 'C']
-    const nova: HallRules = { places: [{ name: 'NOVA STUDIOS', halls: ['STUDIO3', 'STUDIO-N'] }], phrases: [], seeded: true }
+    const nova: HallRules = { places: [{ name: 'NOVA STUDIOS', halls: ['STUDIO3', 'STUDIO-N'], collects: false }], phrases: [], seeded: true }
     expect(readHall('Studio 3', studios, nova)).toEqual({ hall: 'STUDIO3', by: 'text' })
     expect(resolveHall('studio-3', studios, nova)).toBe('STUDIO3')
     expect(resolveHall('Studio N', studios, nova)).toBe('STUDIO-N')
@@ -35,6 +35,34 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(placeOf('Studio 3', studios, withAlias({}, 'Studio 3', 'C'), undefined, nova).hall).toBe('C')
   })
 
+  it('counts what lands in a hall under the place that collects it', () => {
+    expect(collectedIn('B2', halls, own)).toBe('B')
+    expect(collectedIn('C', halls, own)).toBe('C')
+    expect(readHall('Hall B2', halls, own)).toEqual({ hall: 'B', by: 'text', via: 'B2' })
+    expect(placeOf('b 2', halls, {}, '26100', own)).toEqual({ hall: 'B', by: 'text', chosen: false, own: false, via: 'B2' })
+    // A choice of the hall, made before the place collected it, and a word rule to it, are for the place.
+    expect(placeOf('Bakrom', halls, withAlias({}, 'Bakrom', 'B3'), undefined, own).hall).toBe('B')
+    expect(placeOf('Lager bak', halls, {}, undefined, { ...own, phrases: [{ text: 'lager', hall: 'B1' }] }).hall).toBe('B')
+    // A place that does not collect leaves its halls to count by themselves.
+    const loose: HallRules = { places: [{ name: 'B', halls: ['B1', 'B2', 'B3'], collects: false }], phrases: [], seeded: true }
+    expect(resolveHall('Hall B2', halls, loose)).toBe('B2')
+    expect(placeNames(halls, loose)).toContain('B2')
+    const line = (hall: string) => ({ id: hall, hall, projectNo: '26100' }) as DemandLine
+    expect(locateDemand([line('B1'), line('Hall B3'), line('Hall B'), line('C')], halls, {}, own).map((l) => l.hall)).toEqual(['B', 'B', 'B', 'C'])
+  })
+
+  it('offers a name written in several words somewhere in the text', () => {
+    const studios = ['STUDIO3', 'STUDIO4', 'STUDIO-N', 'C']
+    const loose: HallRules = { places: [{ name: 'NOVA STUDIOS', halls: ['STUDIO3', 'STUDIO4', 'STUDIO-N'], collects: false }], phrases: [], seeded: true }
+    expect(suggestHall('Kafé ved Studio 3', studios, [], loose)).toEqual({ hall: 'STUDIO3', own: false })
+    expect(suggestHall('Rigg studio-N, bak', studios, [], loose)).toEqual({ hall: 'STUDIO-N', own: false })
+    expect(suggestHall('Scene i Nova Studios', studios, [], loose)).toEqual({ hall: 'NOVA STUDIOS', own: false })
+    expect(suggestHall('Studio 3 og Studio 4', studios, [], loose)).toEqual({ hall: PROJECT_HALLS, own: false })
+    expect(suggestHall('Kafé ved Studio 34', studios, [], loose)).toBeNull()
+    // Where the place collects its halls, the offer is the place.
+    expect(suggestHall('Kafé ved Studio 3', studios, [], { ...loose, places: [{ ...loose.places[0], collects: true }] })).toEqual({ hall: 'NOVA STUDIOS', own: false })
+  })
+
   it('takes a hall letter for its numbered hall when there is one such hall', () => {
     expect(readHall('Hall A', halls, none)).toEqual({ hall: 'A1', by: 'text' })
   })
@@ -46,8 +74,9 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(hallRulesOf(halls, { places: [{ name: 'B', halls: ['B1'] }], phrases: [] })).toEqual({ places: [{ name: 'D', halls: ['D1', 'D2'] }, { name: 'B', halls: ['B1'] }], phrases: [], seeded: true })
     expect(readHall('Hall D', halls)).toEqual({ hall: 'D', by: 'text' })
     // His own rules are all there is: no place «D» among them, so «Hall D» names none.
-    expect(sharedPlaces(halls, own)).toEqual([{ name: 'B', halls: ['B1', 'B2', 'B3'] }])
-    expect(placeNames(halls, own)).toEqual(['A1', 'B', 'B1', 'B2', 'B3', 'C', 'D1', 'D2', 'E', 'MEZ', PROJECT_HALLS])
+    expect(sharedPlaces(halls, own)).toEqual([{ name: 'B', halls: ['B1', 'B2', 'B3'], collects: true }])
+    // The halls of a place that collects them are no places of their own.
+    expect(placeNames(halls, own)).toEqual(['A1', 'B', 'C', 'D1', 'D2', 'E', 'MEZ', PROJECT_HALLS])
     expect(readHall('Hall B', halls, own)).toEqual({ hall: 'B', by: 'text' })
     expect(readHall('Hall D', halls, own)).toBeNull()
     expect(readHall('Hall B', halls, none)).toBeNull()
@@ -149,7 +178,7 @@ describe('placing demand in the halls of the hall ledger', () => {
 
   it('takes the planner\'s own places as places: by name, as a choice, and with the days of their halls', () => {
     const wing: HallRules = { places: [{ name: 'Nordfløy', halls: ['b1', 'C', 'X9'] }, { name: 'C', halls: ['E'] }], phrases: [{ text: 'nord', hall: 'Nordfløy' }], seeded: true }
-    expect(sharedPlaces(halls, wing)).toEqual([{ name: 'Nordfløy', halls: ['B1', 'C'] }])
+    expect(sharedPlaces(halls, wing)).toEqual([{ name: 'Nordfløy', halls: ['B1', 'C'], collects: true }])
     expect(placeOf('nordfløy', halls, {}, undefined, wing)).toMatchObject({ hall: 'Nordfløy', by: 'text' })
     expect(placeOf('Lager nord', halls, {}, undefined, wing)).toMatchObject({ hall: 'Nordfløy', by: 'phrase' })
     expect(placeOf('Bakrom', halls, withAlias({}, 'Bakrom', 'Nordfløy'), undefined, wing).hall).toBe('Nordfløy')

@@ -284,7 +284,7 @@ export interface DemandAdjustment {
 /** The planner's own rules for placing a Hall/Sted text, beside the choices for single texts (`hallAliases`). See `domain/locations.ts`. */
 export interface HallRules {
   /** Places the planner has made of several halls of the ledger: a name, and the halls it stands for. */
-  places: { name: string; halls: string[] }[]
+  places: { name: string; halls: string[]; /** False where the halls keep counting by themselves; else what lands in one of them counts under the place. */ collects?: boolean }[]
   /** A text that holds these words counts under the place. The first that fits, in the planner's order. */
   phrases: { text: string; hall: string }[]
   /** The example places have been put among the planner's own, to keep or to delete: they are not added again. */

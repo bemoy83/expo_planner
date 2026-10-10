@@ -54,7 +54,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const choices = hallChoices(aliases)
   const [place, setPlace] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const [phrase, setPhrase] = useState({ text: '', hall: '' })
-  const taken = (name: string) => [...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
+  const taken = (name: string) => [...halls, ...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
   const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next })
   const setPhrases = (next: Rules['phrases']) => setHallRules({ ...rules, phrases: next })
   /** The rules are tried from the top, so their order is the planner's to set. */
@@ -100,7 +100,8 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
 
         <h3>Steder som står for flere haller</h3>
         <p className="hint">
-          Et sted teller som én plass i Kalender, med dagene til hallene det står for. En tekst som sier navnet, som «Hall B», teller under stedet. <strong>{PROJECT_HALLS}</strong> finnes
+          Et sted teller som én plass i Kalender, med dagene til hallene det står for. En tekst som sier navnet, som «Hall B», teller under stedet, og når stedet samler hallene sine gjør «B2»
+          det også. Da er ikke hallene egne plasser lenger. Står en hall i flere steder som samler, gjelder det øverste. <strong>{PROJECT_HALLS}</strong> finnes
           alltid: det er hallene til prosjektet samlet, for behov som er bestilt som én sum for flere haller, som «Hall C, D, E».
         </p>
         <table className="ledger rules">
@@ -108,6 +109,9 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
             <tr>
               <th>Sted</th>
               <th>Står for</th>
+              <th className="center" title="Med hake teller alt som havner i en av hallene under stedet: B1 blir B. Uten hake teller hallene hver for seg, og stedet får bare det som plasseres på stedet selv.">
+                Samler hallene
+              </th>
               <th />
             </tr>
           </thead>
@@ -119,6 +123,9 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
                 </td>
                 <td>
                   <HallPicker halls={halls} picked={entry.halls} label={`Hallene til ${entry.name}`} onChange={(picked) => setPlaces(rules.places.map((other, at) => (at === index ? { ...other, halls: picked } : other)))} />
+                </td>
+                <td className="center">
+                  <input type="checkbox" checked={entry.collects !== false} aria-label={`${entry.name} samler hallene sine`} onChange={(e) => setPlaces(rules.places.map((other, at) => (at === index ? { ...other, collects: e.target.checked } : other)))} />
                 </td>
                 <td className="actions">
                   <button className="row-action" title={`Slett stedet ${entry.name}`} onClick={() => setPlaces(rules.places.filter((_, at) => at !== index))}>
@@ -134,6 +141,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
               <td>
                 <HallPicker halls={halls} picked={place.halls} label="Hallene til det nye stedet" onChange={(picked) => setPlace({ ...place, halls: picked })} />
               </td>
+              <td />
               <td className="actions">
                 <button
                   disabled={!place.name.trim() || !place.halls.length || taken(place.name)}

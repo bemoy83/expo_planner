@@ -79,6 +79,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
     if (place.by === 'own') return 'Valgt for prosjektet'
     if (place.by === 'choice') return 'Valgt for teksten'
     if (place.by === 'phrase') return `Regel: inneholder «${place.phrase}»`
+    if (place.via) return `Sted: ${place.hall} samler ${place.via}`
     if (place.by === 'text' && shared.has(place.hall)) return `Sted: ${place.hall} står for ${shared.get(place.hall)!.join(', ')}`
     if (place.by === 'text') return 'Lest fra teksten'
     return 'Ingen regel'
