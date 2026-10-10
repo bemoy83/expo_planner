@@ -71,17 +71,16 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const places = useMemo(() => placeNames(halls, rules), [halls, rules])
   const shared = useMemo(() => new Map(sharedPlaces(halls, rules).map((place) => [place.name, place.halls])), [halls, rules])
   const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, ws.hallAliases, line.projectNo, rules)
-  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, ws.hallAliases, booked.get(line.projectNo), rules) : null)
+  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, booked.get(line.projectNo), rules) : null)
   /** Why the line counts where it does: the rule that placed it, in a few words. */
   const ruleOf = (line: { hall: string; projectNo: string }): string => {
     const place = placeOfLine(line)
     if (!line.hall.trim()) return 'Ingen Hall/sted'
     if (place.by === 'own') return 'Valgt for prosjektet'
     if (place.by === 'choice') return 'Valgt for teksten'
-    if (place.by === 'text') return 'Lest fra teksten'
-    if (place.by === 'rule') return `Regel: ${line.hall.trim().replace(/^hall\s+/i, '').toUpperCase()} er ${place.hall}`
     if (place.by === 'phrase') return `Regel: inneholder «${place.phrase}»`
-    if (place.by === 'shared') return `Felles for ${shared.get(place.hall)?.join(', ') ?? place.hall}`
+    if (place.by === 'text' && shared.has(place.hall)) return `Sted: ${place.hall} står for ${shared.get(place.hall)!.join(', ')}`
+    if (place.by === 'text') return 'Lest fra teksten'
     return 'Ingen regel'
   }
   /**
@@ -91,7 +90,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const locationCell = (line: { hall: string; projectNo: string }) => {
     const text = line.hall
     const place = placeOfLine(line)
-    const auto = resolveHall(text, halls, ws.hallAliases, rules) ?? UNRESOLVED_HALL
+    const auto = resolveHall(text, halls, rules) ?? UNRESOLVED_HALL
     if (!text.trim()) return <span className="muted">{UNRESOLVED_HALL}</span>
     const offered = offerFor(line)
     const scope = place.own ? `Valget gjelder linjene med «${text.trim()}» i dette prosjektet.` : `Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`
@@ -254,7 +253,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
     },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
     { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOfLine(line).hall, cell: (line) => locationCell(line) },
-    { key: 'rule', head: 'Regel', title: 'Hvorfor linjen teller der den gjør: teksten er hallens navn, en regel for hallbokstaven, felles plass for hallene med samme bokstav, en regel for ord i teksten, eller ditt eget valg. Reglene står under «Hallregler».', className: 'muted', text: ruleOf, cell: ruleOf },
+    { key: 'rule', head: 'Regel', title: 'Hvorfor linjen teller der den gjør: teksten er navnet på hallen eller stedet, en regel for ord i teksten, eller ditt eget valg. Reglene står under «Hallregler».', className: 'muted', text: ruleOf, cell: ruleOf },
     { key: 'avdeling', head: 'Avd.', text: (line) => line.avdeling, cell: (line) => line.avdeling },
     { key: 'quantity', head: 'Antall', className: 'num', text: (line) => formatFte(line.quantity, 1), sort: (line) => line.quantity, cell: (line) => formatFte(line.quantity, 1), cellProps: (line) => ({ title: `${line.rowCount} ordrelinjer` }) },
     { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },

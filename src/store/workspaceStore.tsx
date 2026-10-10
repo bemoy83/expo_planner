@@ -5,12 +5,12 @@ import { type AllocationRow, type DemandLine, type HallRules, type KpiConfig, ty
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
-import { locateDemand, NO_HALL_RULES, withAlias } from '../domain/locations'
+import { locateDemand, withAlias } from '../domain/locations'
 import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences, withOneCompetenceName } from '../domain/competences'
 import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallAliases, putHallRules, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallAliases, putHallRules, deleteHallRules, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
 import { writeQueue } from './writeQueue'
 import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordHallAliases, recordHallRules, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
@@ -60,8 +60,8 @@ interface WorkspaceStore {
   setLineOverrides: (projectNo: string | string[], patches: { key: string; patch: LineOverride }[]) => void
   /** Places every demand line with this Hall/Sted text in a hall, in every project or in the one given; without a hall, the text is read automatically again. */
   setHallAlias: (text: string, hall: string | undefined, projectNo?: string) => void
-  /** Replaces the planner's own places and rules for words. */
-  setHallRules: (rules: HallRules) => void
+  /** Replaces the planner's own places and rules for words, and with them the choices for texts where a place they point at got another name. */
+  setHallRules: (rules: HallRules, aliases?: Record<string, string>) => void
   /** Forgets the decisions made for a Visma line, typically one that has left the export. */
   removeLineOverride: (projectNo: string, key: string) => void
   /** Adds or changes a ledger line that does not come from Visma. */
@@ -206,7 +206,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
           .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined))
           .then(() => (writes.hallAliases ? putHallAliases(writes.hallAliases) : undefined))
-          .then(() => (writes.hallRules ? putHallRules(writes.hallRules) : undefined))
+          .then(async () => {
+            if (writes.hallRules !== null) await (writes.hallRules ? putHallRules(writes.hallRules) : deleteHallRules())
+          })
           .then(() => (writes.projects ? writeProjects(writes.projects) : undefined)),
       )
     },
@@ -387,10 +389,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   )
 
   const setHallRules = useCallback(
-    (rules: HallRules) => {
+    (rules: HallRules, aliases?: Record<string, string>) => {
       const ws = current.current
       if (!ws) return
-      commit({ ...ws, hallRules: rules }, () => putHallRules(rules), (step) => recordHallRules(step, ws.hallRules ?? NO_HALL_RULES, rules))
+      // Before the planner has rules of his own there are the examples; undoing the first edit brings them back.
+      const before = ws.hallRules
+      commit(
+        { ...ws, hallRules: rules, ...(aliases ? { hallAliases: aliases } : {}) },
+        () => putHallRules(rules).then(() => (aliases ? putHallAliases(aliases) : undefined)),
+        (step) => {
+          recordHallRules(step, before, rules)
+          if (aliases) recordHallAliases(step, ws.hallAliases ?? {}, aliases)
+        },
+      )
     },
     [commit],
   )

@@ -287,6 +287,8 @@ export interface HallRules {
   places: { name: string; halls: string[] }[]
   /** A text that holds these words counts under the place. The first that fits, in the planner's order. */
   phrases: { text: string; hall: string }[]
+  /** The example places have been put among the planner's own, to keep or to delete: they are not added again. */
+  seeded?: true
 }
 
 export const PLANNED_BASIS = 'Planlagt'

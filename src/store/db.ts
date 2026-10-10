@@ -179,6 +179,9 @@ export const putHallAliases = (aliases: Record<string, string>) => db.meta.put({
 
 export const putHallRules = (rules: HallRules) => db.meta.put({ key: 'hallRules', value: rules })
 
+/** Back to the examples: the planner has no rules of his own. */
+export const deleteHallRules = () => db.meta.delete('hallRules')
+
 /** Replaces the project table. The numbers an earlier version kept on the events are in it by now, and go. */
 export const writeProjects = (projects: ProjectRef[]) =>
   db.transaction('rw', [db.projects, db.meta], async () => {

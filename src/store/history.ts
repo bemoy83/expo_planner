@@ -22,8 +22,8 @@ export interface Change {
   hiddenVenue?: Delta<Record<string, true>>
   /** Halls chosen by hand for Hall/Sted texts. */
   hallAliases?: Delta<Record<string, string>>
-  /** The planner's own places and rules for words. */
-  hallRules?: Delta<HallRules>
+  /** The planner's own places and rules for words; `undefined` while he has made none. */
+  hallRules?: Delta<HallRules | undefined>
   /** The project table: the names each project goes by. */
   projects?: Delta<ProjectRef[]>
   /** The records of Bemanning, `null` where the record did not exist. */
@@ -92,7 +92,7 @@ export const recordHallAliases = (change: Change, before: Record<string, string>
   change.hallAliases = { before: change.hallAliases ? change.hallAliases.before : before, after }
 }
 
-export const recordHallRules = (change: Change, before: HallRules, after: HallRules) => {
+export const recordHallRules = (change: Change, before: HallRules | undefined, after: HallRules) => {
   change.hallRules = { before: change.hallRules ? change.hallRules.before : before, after }
 }
 
@@ -198,6 +198,7 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   venue: change.venue ? target(change.venue, direction) : null,
   hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : null,
   hallAliases: change.hallAliases ? target(change.hallAliases, direction) : null,
+  /** `null` means the rules are unchanged; `undefined` means the planner's own should be removed. */
   hallRules: change.hallRules ? target(change.hallRules, direction) : null,
   projects: change.projects ? target(change.projects, direction) : null,
   staffing: {
