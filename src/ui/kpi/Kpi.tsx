@@ -104,7 +104,7 @@ export function Kpi() {
       title: '«ordre» og «stands» teller antall stands; andre enheter summerer antall',
       text: (row) => row.unit,
       // An emptied field is left as it was: a rate cannot be without a unit.
-      cell: (row) => <TextField value={row.unit} list="unit-options" ariaLabel={`Enhet for ${row.name}`} onCommit={(value) => value && setKpi(renameUnit(kpi, row.name, row.unit, value))} />,
+      cell: (row) => <TextField value={row.unit} options={units} ariaLabel={`Enhet for ${row.name}`} onCommit={(value) => value && setKpi(renameUnit(kpi, row.name, row.unit, value))} />,
     },
     {
       key: 'active',
@@ -120,7 +120,7 @@ export function Kpi() {
       head: 'Kompetanse (nøkkelområde)',
       text: (row) => row.competence,
       // The competence is that of the product type: changed on one row, it changes on all its units.
-      cell: (row) => <TextField value={row.competence} list="competence-options" ariaLabel={`Kompetanse for ${row.name}`} onCommit={(value) => changeCompetence(row.name, row.unit, value)} />,
+      cell: (row) => <TextField value={row.competence} options={competences} ariaLabel={`Kompetanse for ${row.name}`} onCommit={(value) => changeCompetence(row.name, row.unit, value)} />,
     },
     {
       key: 'assembly',

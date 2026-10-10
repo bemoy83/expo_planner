@@ -196,7 +196,7 @@ export function Haller() {
                   </td>
                 </tr>
               )}
-              {groups.map((group, index) => {
+              {groups.map((group) => {
                 const keys = group.bookings.map(venueKey)
                 const shown = keys.filter((key) => !hidden[key]).length
                 const open = !folded.has(group.key)
@@ -204,7 +204,6 @@ export function Haller() {
                 // Shown once, on the event, when its halls agree; else on each hall.
                 const status = group.bookings.every((b) => b.status === group.bookings[0].status) ? group.bookings[0].status : null
                 const candidates = group.event && group.event.candidates.length > 1 ? group.event.candidates : null
-                const candidatesId = `project-candidates-${index}`
                 return [
                   <tr key={`${group.name}|${group.anchor}`} className={group.event && !group.event.projectNo ? 'event-row has-issue' : 'event-row'}>
                     <td className="center">
@@ -234,7 +233,7 @@ export function Haller() {
                           <TextField
                             className={`project-no-input ${group.event.projectNo ? '' : 'missing'}`}
                             placeholder="Prosjektnr."
-                            list={candidates ? candidatesId : undefined}
+                            options={candidates ?? undefined}
                             ariaLabel={`Prosjektnummer for ${group.event.name}`}
                             value={group.event.projectNo}
                             onCommit={(value) => setEventProject(group.event!, value)}
@@ -242,13 +241,6 @@ export function Haller() {
                           <span className="muted small">
                             {group.event.linkSource === 'list' ? ' fra listen' : group.event.ambiguous ? ` velg blant ${group.event.candidates.length} i listen` : group.event.linkSource === 'none' ? '' : ' satt for hånd'}
                           </span>
-                          {candidates && (
-                            <datalist id={candidatesId}>
-                              {candidates.map((no) => (
-                                <option key={no} value={no} />
-                              ))}
-                            </datalist>
-                          )}
                         </>
                       )}
                     </td>
