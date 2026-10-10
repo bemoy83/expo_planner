@@ -17,7 +17,7 @@
 .mode-band .segmented button:not(.active):hover{background:var(--mode-hover);color:var(--mode-ink)}
 .mode-band .segmented button.active{color:var(--mode-ink);box-shadow:0 1px 2px var(--mode-shadow)}
 .mode-band kbd{background:var(--mode-key);color:var(--mode-mute)}
-.mode-band :is(.bar-button,.bar-select,.bar-date){background:var(--mode-field);color:var(--mode-ink);box-shadow:inset 0 0 0 1px var(--mode-rule)}
+.mode-band :is(.bar-button,.bar-select,.bar-date){background:var(--mode-field);color:var(--mode-ink)}
 .mode-band :is(.bar-button,.bar-select,.bar-date):hover{background:var(--mode-field-hover)}
 .mode-band .bar-button svg{color:var(--mode-mute)}
 .mode-band .bar-zone>.icon-button{background:transparent}

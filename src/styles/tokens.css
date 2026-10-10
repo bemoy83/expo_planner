@@ -111,7 +111,6 @@
   --mode-field-hover:color-mix(in oklab,var(--surface) 80%,transparent);
   --mode-hover:color-mix(in oklab,var(--surface) 35%,transparent);
   --mode-tag:color-mix(in oklab,var(--bg) 55%,transparent);
-  --mode-rule:oklch(0.3 .05 var(--mode-h) / .08);                      /* the hairline around a field */
   --mode-key:oklch(0.3 .05 var(--mode-h) / .1);                        /* behind a key */
   --mode-shadow:oklch(0.3 .05 var(--mode-h) / .18);                    /* under the chosen segment */
 }
