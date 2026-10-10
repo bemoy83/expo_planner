@@ -57,7 +57,7 @@ function FilterMenu({ filter, sorted, onSort, align }: Pick<Props, 'sorted' | 'o
               </button>
             </div>
           )}
-          <input type="search" placeholder="Søk i verdiene" value={search} autoFocus onChange={(e) => setSearch(e.target.value)} />
+          <input type="search" placeholder="Søk i verdiene" value={search} data-focus onChange={(e) => setSearch(e.target.value)} />
           <div className="col-filter-all">
             <button className="link small" onClick={() => keep(q ? listed.map((o) => o.value) : offered.map((o) => o.value))}>
               {q ? 'Bare treffene' : 'Velg alle'}

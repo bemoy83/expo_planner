@@ -32,6 +32,7 @@ const EDGE = 8
 /**
  * A button that opens a menu or a small panel under it. Closes on a click outside and on Escape. A menu that
  * would reach past an edge of the window is moved in from it, and one that would reach below it scrolls.
+ * What is marked `data-focus` in it gets the focus when it opens.
  */
 export function Menu({ label, title, ariaLabel, className = '', align = 'left', children }: MenuProps) {
   const [open, setOpen] = useState(false)
@@ -44,13 +45,18 @@ export function Menu({ label, title, ariaLabel, className = '', align = 'left', 
     const room = roomAround(el)
     const box = el.getBoundingClientRect()
     const shift = box.right > room.right - EDGE ? room.right - EDGE - box.right : box.left < room.left + EDGE ? room.left + EDGE - box.left : 0
-    // Never so far that the other edge is passed: a menu wider than the room starts at its left edge.
-    el.style.translate = `${Math.max(shift, room.left + EDGE - box.left)}px 0`
+    // Never so far that the other edge is passed: a menu wider than the room starts at its left edge. It is placed, not
+    // drawn elsewhere, so that it does not make the page around it wider to scroll in.
+    const moved = Math.max(shift, room.left + EDGE - box.left)
+    if (align === 'right') el.style.right = `${-moved}px`
+    else el.style.left = `${moved}px`
     if (box.bottom > room.bottom - EDGE) {
       el.style.maxHeight = `${Math.max(120, room.bottom - EDGE - box.top)}px`
       el.style.overflowY = 'auto'
     }
-  }, [open])
+    // The field to type in gets the focus here, when the menu is in place: a field that takes it by itself is scrolled to where the menu first was.
+    el.querySelector<HTMLElement>('[data-focus]')?.focus({ preventScroll: true })
+  }, [open, align])
   return (
     <span className="menu" ref={ref}>
       <button className={`menu-button ${className}`} aria-haspopup="true" aria-expanded={open} aria-label={ariaLabel} title={title} onClick={() => setOpen(!open)}>
