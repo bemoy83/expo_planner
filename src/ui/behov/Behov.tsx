@@ -8,6 +8,7 @@ import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectRevie
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
 import { placeOf, resolveHall, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { hallsOfProjects } from '../../domain/projects'
 import { hallNames } from '../../domain/venue'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
@@ -63,62 +64,84 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const kpi = ws.kpi ?? EMPTY_KPI
   // The Kalender places demand in the halls of the hall ledger; show where each line's Hall/Sted ends up.
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
+  const booked = useMemo(() => hallsOfProjects(ws.venue, ws.projects), [ws.venue, ws.projects])
+  const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, ws.hallAliases, line.projectNo, booked)
+  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).hall === UNRESOLVED_HALL && !placeOfLine(line).chosen ? suggestHall(line.hall, halls, booked.get(line.projectNo)) : null)
   /**
-   * The hall a line counts under in the Kalender. The planner's choice is for the Hall/Sted text,
-   * so one choice places every line with that text, in every project.
+   * The hall a line counts under in the Kalender. The planner's choice is for the Hall/Sted text in every project,
+   * unless the text has a choice for this project alone: then that is the one the list changes.
    */
-  const locationCell = (text: string) => {
-    const place = placeOf(text, halls, ws.hallAliases)
-    const auto = resolveHall(text, halls) ?? UNRESOLVED_HALL
+  const locationCell = (line: { hall: string; projectNo: string }) => {
+    const text = line.hall
+    const place = placeOfLine(line)
+    const own = booked.get(line.projectNo)
+    const auto = resolveHall(text, halls, own) ?? UNRESOLVED_HALL
     if (!text.trim()) return <span className="muted">{UNRESOLVED_HALL}</span>
-    const offered = place.chosen ? null : suggestHall(text, halls)
+    const offered = offerFor(line)
+    const scope = place.own ? `Valget gjelder linjene med «${text.trim()}» i dette prosjektet.` : `Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`
+    const read = place.chosen
+      ? 'Valgt for hånd.'
+      : place.hall === UNRESOLVED_HALL
+        ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «Uavklart» til du velger en hall.'
+        : resolveHall(text, halls)
+          ? 'Lest fra Hall/sted.'
+          : 'Lest fra Hall/sted og hallene prosjektet har booket.'
     return (
       <>
-      <select
-        className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
-        value={place.chosen ? place.hall : ''}
-        aria-label={`Plassering for ${text}`}
-        title={`${place.chosen ? 'Valgt for hånd.' : place.hall === UNRESOLVED_HALL ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «Uavklart» til du velger en hall.' : 'Lest fra Hall/sted.'} Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`}
-        onChange={(e) => setHallAlias(text, e.target.value || undefined)}
-      >
-        <option value="">{auto} (auto)</option>
-        {halls.map((hall) => (
-          <option key={hall} value={hall}>
-            {hall}
-          </option>
-        ))}
-        <option value={UNRESOLVED_HALL}>{UNRESOLVED_HALL}</option>
-      </select>
-      {offered && (
-        <button className="link" title={`«${text.trim()}» nevner hallen ${offered}. Plasserer alle linjer med denne teksten i ${offered}.`} onClick={() => setHallAlias(text, offered)}>
-          Bruk {offered}
-        </button>
-      )}
+        <select
+          className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
+          value={place.chosen ? place.hall : ''}
+          aria-label={`Plassering for ${text}`}
+          title={`${read} ${scope}`}
+          onChange={(e) => setHallAlias(text, e.target.value || undefined, place.own ? line.projectNo : undefined)}
+        >
+          <option value="">{auto} (auto)</option>
+          {halls.map((hall) => (
+            <option key={hall} value={hall}>
+              {hall}
+            </option>
+          ))}
+          <option value={UNRESOLVED_HALL}>{UNRESOLVED_HALL}</option>
+        </select>
+        {offered && (
+          <button
+            className="link"
+            title={
+              offered.own
+                ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${text.trim()}» i dette prosjektet i ${offered.hall}.`
+                : `«${text.trim()}» nevner hallen ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
+            }
+            onClick={() => setHallAlias(text, offered.hall, offered.own ? line.projectNo : undefined)}
+          >
+            Bruk {offered.hall}
+          </button>
+        )}
       </>
     )
   }
-  /** The Hall/Sted texts that are not placed, with the hall each is offered. */
+  /** The Hall/Sted texts that are not placed, with the hall each is offered: for every project, or for the project of the line. */
   const offers = useMemo(() => {
-    const found = new Map<string, string>()
-    for (const { hall: text } of ws.demand) {
-      if (found.has(text.trim().toLowerCase()) || placeOf(text, halls, ws.hallAliases).chosen) continue
-      const offered = suggestHall(text, halls)
-      if (offered) found.set(text.trim().toLowerCase(), offered)
+    const found = new Map<string, { text: string; hall: string; projectNo?: string }>()
+    for (const line of ws.demand) {
+      const offered = offerFor(line)
+      if (!offered) continue
+      const projectNo = offered.own ? line.projectNo : undefined
+      found.set(`${projectNo ?? ''}|${line.hall.trim().toLowerCase()}`, { text: line.hall, hall: offered.hall, projectNo })
     }
-    return [...found]
-  }, [ws.demand, halls, ws.hallAliases])
+    return [...found.values()]
+  }, [ws.demand, halls, ws.hallAliases, booked]) // eslint-disable-line react-hooks/exhaustive-deps
   const takeOffers = () => {
     // One step to undo: the choices are made in the same go.
-    for (const [text, hall] of offers) setHallAlias(text, hall)
+    for (const { text, hall, projectNo } of offers) setHallAlias(text, hall, projectNo)
     setMessage({ kind: 'ok', text: `${offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} er plassert etter forslaget. Kan angres med Ctrl/Cmd+Z.` })
   }
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
   // Every project's Visma lines, with what still needs the planner: the filter and the actions for all projects read from this.
-  const review = useMemo(() => reviewVisma(ws.visma ?? [], kpi, ws.overrides ?? {}, halls, ws.hallAliases), [ws.visma, kpi, ws.overrides, halls, ws.hallAliases])
+  const review = useMemo(() => reviewVisma(ws.visma ?? [], kpi, ws.overrides ?? {}, halls, ws.hallAliases, booked), [ws.visma, kpi, ws.overrides, halls, ws.hallAliases, booked])
   const vismaLines = useMemo(() => review.get(projectNo)?.lines ?? [], [review, projectNo])
   // With no project chosen, the lines of every project are in scope, in the order of the project list.
   const scopeLines = useMemo(() => (projectNo ? vismaLines : projects.flatMap(([no]) => review.get(no)?.lines ?? [])), [projectNo, vismaLines, projects, review])
-  const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases)), [scopeLines, filter, halls, ws.hallAliases])
+  const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases, booked)), [scopeLines, filter, halls, ws.hallAliases, booked])
   const totals = useMemo(() => {
     const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
     return { all: sum('all'), open: sum('open'), unresolved: sum('unresolved'), issue: sum('issue'), ready: [...review.values()].reduce((n, project) => n + project.ready, 0) }
@@ -219,7 +242,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
       ),
     },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
-    { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOf(line.hall, halls, ws.hallAliases).hall, cell: (line) => locationCell(line.hall) },
+    { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOfLine(line).hall, cell: (line) => locationCell(line) },
     { key: 'avdeling', head: 'Avd.', text: (line) => line.avdeling, cell: (line) => line.avdeling },
     { key: 'quantity', head: 'Antall', className: 'num', text: (line) => formatFte(line.quantity, 1), sort: (line) => line.quantity, cell: (line) => formatFte(line.quantity, 1), cellProps: (line) => ({ title: `${line.rowCount} ordrelinjer` }) },
     { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
@@ -272,7 +295,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     { key: 'competence', head: 'Kompetanse', text: (line) => line.competence, cell: (line) => line.competence },
     { key: 'workType', head: 'Arbeidstype', text: (line) => productTypeLabel(line.workType), cell: (line) => productTypeLabel(line.workType) },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
-    { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOf(line.hall, halls, ws.hallAliases).hall, cell: (line) => locationCell(line.hall) },
+    { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOfLine(line).hall, cell: (line) => locationCell(line) },
     { key: 'source', head: 'Kilde', text: (line) => line.source, cell: (line) => line.source },
     { key: 'quantity', head: 'Antall', className: 'num', text: (line) => (line.quantity === null ? '' : formatFte(line.quantity, 1)), sort: (line) => line.quantity ?? NaN, cell: (line) => (line.quantity === null ? '' : formatFte(line.quantity, 1)) },
     { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
@@ -368,8 +391,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
       <div className="behov-body">
         {offers.length > 0 && (
           <p className="notice">
-            {offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} som står som «Uavklart» nevner en hall, og har et forslag i kolonnen Plassering.{' '}
-            <button className="link" title={offers.map(([text, hall]) => `${text}: ${hall}`).join('\n')} onClick={takeOffers}>
+            {offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} som står som «Uavklart» har et forslag i kolonnen Plassering, fra hallen teksten nevner eller hallene prosjektet har booket.{' '}
+            <button className="link" title={offers.map(({ text, hall }) => `${text}: ${hall}`).join('\n')} onClick={takeOffers}>
               Bruk forslagene
             </button>
           </p>

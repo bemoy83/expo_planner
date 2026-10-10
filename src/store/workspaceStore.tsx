@@ -8,7 +8,7 @@ import { followCompetence, rowScope } from '../domain/plannedRows'
 import { locateDemand, withAlias } from '../domain/locations'
 import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences, withOneCompetenceName } from '../domain/competences'
 import { hallNames } from '../domain/venue'
-import { projectFollowers } from '../domain/projects'
+import { hallsOfProjects, projectFollowers } from '../domain/projects'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
 import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallAliases, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
@@ -58,8 +58,8 @@ interface WorkspaceStore {
   setLineOverride: (projectNo: string, key: string, patch: LineOverride) => void
   /** The same for several lines of a project at once: the project's Visma lines are recalculated and written once. */
   setLineOverrides: (projectNo: string | string[], patches: { key: string; patch: LineOverride }[]) => void
-  /** Places every demand line with this Hall/Sted text in a hall; without a hall, the text is read automatically again. */
-  setHallAlias: (text: string, hall: string | undefined) => void
+  /** Places every demand line with this Hall/Sted text in a hall, in every project or in the one given; without a hall, the text is read automatically again. */
+  setHallAlias: (text: string, hall: string | undefined, projectNo?: string) => void
   /** Forgets the decisions made for a Visma line, typically one that has left the export. */
   removeLineOverride: (projectNo: string, key: string) => void
   /** Adds or changes a ledger line that does not come from Visma. */
@@ -373,11 +373,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   )
 
   const setHallAlias = useCallback(
-    (text: string, hall: string | undefined) => {
+    (text: string, hall: string | undefined, projectNo?: string) => {
       const ws = current.current
       if (!ws) return
       const before = ws.hallAliases ?? {}
-      const after = withAlias(before, text, hall)
+      const after = withAlias(before, text, hall, projectNo)
       commit({ ...ws, hallAliases: after }, () => putHallAliases(after), (step) => recordHallAliases(step, before, after))
     },
     [commit],
@@ -546,7 +546,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const venue = workspace?.venue
   // Hours are counted per hall of the hall ledger; demand whose Hall/Sted names none of them is gathered as unresolved.
   const hallAliases = workspace?.hallAliases
-  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallAliases) : EMPTY_DEMAND), [demand, venue, hallAliases])
+  const projects = workspace?.projects
+  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallAliases, hallsOfProjects(venue ?? [], projects ?? [])) : EMPTY_DEMAND), [demand, venue, hallAliases, projects])
   const demandIndex = useMemo(() => buildDemandIndex(locatedDemand), [locatedDemand])
 
   const canUndo = historySize.undo > 0

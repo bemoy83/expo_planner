@@ -106,6 +106,16 @@ export const venueEvents = (bookings: VenueBooking[], projects: ProjectRef[]): V
   return [...events.values()].filter((event) => event.start <= event.end).sort((a, b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name, 'nb'))
 }
 
+/** The halls each project has booked: those of the events that carry its number. */
+export const hallsOfProjects = (bookings: VenueBooking[], projects: ProjectRef[]): Map<string, string[]> => {
+  const halls = new Map<string, string[]>()
+  for (const event of venueEvents(bookings, projects)) {
+    if (!event.projectNo) continue
+    halls.set(event.projectNo, [...new Set([...(halls.get(event.projectNo) ?? []), ...event.halls])])
+  }
+  return halls
+}
+
 /**
  * A number for a project that has none: the year and three letters of the name («26VAM»), as the planner has made
  * them by hand. Where that is taken, other letters of the name are tried, then a digit.

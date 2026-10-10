@@ -293,7 +293,7 @@ export interface Workspace {
   allocations: AllocationRow[]
   /** Only in data stored by earlier versions: numbers typed on the events. Read into `projects` by `withEventLinksAsProjects`. */
   eventLinks?: Record<string, string>
-  /** Halls chosen by hand for Hall/Sted texts, keyed by `aliasKey`. One choice places every line with that text. */
+  /** Halls chosen by hand for Hall/Sted texts, keyed by `aliasKey`: for every line with the text, or for those of one project. */
   hallAliases?: Record<string, string>
   /** Hall bookings left out of the Kalender, keyed by `venueKey`. They stay in the hall ledger. */
   hiddenVenue?: Record<string, true>
