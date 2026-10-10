@@ -45,8 +45,8 @@ function HallPicker({ halls, picked, label, title = 'Kryss av hallene stedet st�
 
 /**
  * The rules that place a Hall/Sted text in a hall, so none of them is hidden and all of them are the planner's own:
- * places that stand for several halls, words that mean a place, and every choice made for a single text. Last, the
- * areas the halls are gathered in, which decide what the Kalender shows.
+ * places that stand for several halls, words that mean a place, the areas the halls are gathered in, which decide what
+ * the Kalender shows, and every choice made for a single text. The choices are last: their list grows long.
  * A page of its own, reached from Behov, where the rules are used.
  */
 export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
@@ -246,40 +246,6 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
           </tbody>
         </table>
 
-        <h3>Valg for enkelte tekster</h3>
-        <p className="hint">
-          En tekst som teller under et sted fordi du har valgt det. Valget gjelder også når «Hall» står foran: «a» gir A1 plasserer «Hall A». Bokstavene som kom inn med de første hallene er eksempler
-          for bokstaver med én hall. Du lager nye valg i kolonnen Plassering på Behov.
-        </p>
-        {choices.length ? (
-          <table className="ledger rules">
-            <thead>
-              <tr>
-                <th>Hall/sted</th>
-                <th>Gjelder</th>
-                <th>Teller under</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {choices.map((choice) => (
-                <tr key={choice.key}>
-                  <td>{choice.text || <span className="muted">(tom)</span>}</td>
-                  <td>{choice.projectNo ? projectName(choice.projectNo) : 'Alle prosjekter'}</td>
-                  <td>{choice.hall}</td>
-                  <td className="actions">
-                    <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallRules(withChoice(rules, choice.text, undefined, choice.projectNo))}>
-                      <X size={13} aria-hidden />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="muted">Ingen ennå. Et valg i kolonnen Plassering, eller et forslag du bruker, havner her.</p>
-        )}
-
         <h3>Områder</h3>
         <p className="hint">
           Et område samler haller under ett navn, som «NV HALLS» for A til E. Det bestemmer bare hva som vises: under «Steder» i Kalender krysser du av områdene og hallene du vil arbeide med, og
@@ -331,6 +297,40 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
             </tr>
           </tbody>
         </table>
+
+        <h3>Valg for enkelte tekster</h3>
+        <p className="hint">
+          En tekst som teller under et sted fordi du har valgt det. Valget gjelder også når «Hall» står foran: «a» gir A1 plasserer «Hall A». Bokstavene som kom inn med de første hallene er eksempler
+          for bokstaver med én hall. Du lager nye valg i kolonnen Plassering på Behov.
+        </p>
+        {choices.length ? (
+          <table className="ledger rules">
+            <thead>
+              <tr>
+                <th>Hall/sted</th>
+                <th>Gjelder</th>
+                <th>Teller under</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {choices.map((choice) => (
+                <tr key={choice.key}>
+                  <td>{choice.text || <span className="muted">(tom)</span>}</td>
+                  <td>{choice.projectNo ? projectName(choice.projectNo) : 'Alle prosjekter'}</td>
+                  <td>{choice.hall}</td>
+                  <td className="actions">
+                    <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallRules(withChoice(rules, choice.text, undefined, choice.projectNo))}>
+                      <X size={13} aria-hidden />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="muted">Ingen ennå. Et valg i kolonnen Plassering, eller et forslag du bruker, havner her.</p>
+        )}
       </div>
       {pending && diff && (
         <MergeReplaceDialog
