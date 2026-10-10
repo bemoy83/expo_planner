@@ -1,0 +1,46 @@
+/* Extracted verbatim from "Expo Planner Kalender v9.html". Class names are the mockup's (.krow, .kcell, .klab, .kgroup, .ksec …) — map them to your components. */
+/* ===== v9 SYSTEM — see DESIGN-RULES.md ===== */
+/* accent: Brent oransje */
+:root{--accent:212 108 44;--accent-ink:24 12 4}.dark{--accent:232 140 84;--accent-ink:24 12 4}
+/* mode hue: Plan = olive, Bemanning = terracotta */
+html{--vh:115;--vc:.09}html[data-vmode="bemanning"]{--vh:40;--vc:.11}
+html{--v-band:oklch(0.86 calc(var(--vc) * .6) var(--vh));--v-band-line:oklch(0.7 calc(var(--vc) * .85) var(--vh));--v-track:oklch(0.79 calc(var(--vc) * .7) var(--vh));--v-tb-ink:oklch(0.3 calc(var(--vc) * .55) var(--vh));--v-tb-mute:oklch(0.42 calc(var(--vc) * .6) var(--vh));--v-field:color-mix(in oklab,rgb(var(--surface)) 55%,transparent);--v-field-h:color-mix(in oklab,rgb(var(--surface)) 80%,transparent);--v-sec:color-mix(in oklab,rgb(var(--canvas)) 96%,rgb(var(--ink)));--g-col:rgb(var(--border) / .55);--g-row:rgb(var(--border) / .4);--g-phase:rgb(var(--border) / .5);--g-top:rgb(var(--border-strong));--we-row:var(--sunken-2);--we-sec:color-mix(in oklab,var(--sunken-2) 95%,rgb(var(--ink)));--we-top:color-mix(in oklab,rgb(var(--ink)) 9%,rgb(var(--canvas)))}
+.dark{--v-band:oklch(0.4 calc(var(--vc) * .5) var(--vh));--v-band-line:oklch(0.55 calc(var(--vc) * .7) var(--vh));--v-track:oklch(0.32 calc(var(--vc) * .45) var(--vh));--v-tb-ink:oklch(0.93 calc(var(--vc) * .3) var(--vh));--v-tb-mute:oklch(0.78 calc(var(--vc) * .45) var(--vh));--v-field:oklch(0.47 calc(var(--vc) * .45) var(--vh) / .6);--v-field-h:oklch(0.52 calc(var(--vc) * .45) var(--vh) / .8);--v-sec:color-mix(in oklab,rgb(var(--canvas)) 82%,#000)}
+/* mode band = page header + toolbar, framed top & bottom, no line between */
+.khdr,.kpbar-in,.kvtag,.kpbar-in [role="radiogroup"]{transition:background-color 360ms var(--ease),color 360ms var(--ease)}
+.khdr{background:var(--v-band);border-top:1px solid var(--v-band-line)!important;border-bottom:0!important}.khdr .ktitle{color:rgb(var(--ink))}.khdr .kmetaline{color:rgb(var(--ink-body))}
+.kvtag{display:inline-flex;align-items:center;gap:5px;align-self:center;height:22px;padding:0 9px 0 7px;border-radius:999px;background:color-mix(in oklab,rgb(var(--canvas)) 55%,transparent);color:rgb(var(--ink));font:600 12px/1 var(--font-ui);white-space:nowrap}
+.krow.kpbarrow{border-top:0!important;border-bottom:1px solid var(--v-band-line)!important}
+.kpbar-in{background:var(--v-band)!important;color:var(--v-tb-ink)}
+.kpbar-in [role="radiogroup"]{background:var(--v-track)!important}
+.kpbar-in [role="radio"]{color:var(--v-tb-mute)!important}
+.kpbar-in [role="radio"][aria-checked="true"]{background:rgb(var(--surface))!important;color:var(--v-tb-ink)!important;box-shadow:0 1px 2px oklch(0.3 .05 var(--vh) / .18)!important}
+.kpbar-in [role="radio"][aria-checked="false"]:hover{background:color-mix(in oklab,rgb(var(--surface)) 35%,transparent)!important;color:var(--v-tb-ink)!important}
+.kpbar-in .kseg kbd{background:oklch(0.3 .05 var(--vh) / .1);color:var(--v-tb-mute)}
+.kpbar-in .kfbtn{background:var(--v-field);color:var(--v-tb-ink);box-shadow:inset 0 0 0 1px oklch(0.3 .05 var(--vh) / .08)}.kpbar-in .kfbtn:hover{background:var(--v-field-h)}.kpbar-in .kfbtn svg{color:var(--v-tb-mute)}
+.kpbar-in button:not([role]):not(.kfbtn){color:var(--v-tb-ink)!important}.kpbar-in button:not([role]):not(.kfbtn):hover{background:var(--v-field)!important}
+.kpbar-in :is(.kphint,.kzlab){color:var(--v-tb-mute)}.kpbar-in .kphint b{color:var(--v-tb-ink)}.kpbar-in .kzdiv{background:oklch(0.3 .05 var(--vh) / .18)}
+/* column header: one soft line under the whole header */
+.kdate2{border-bottom:0!important}.khead{border-bottom:1px solid rgb(var(--border))}
+.kplanhead{border-top:0!important}.krow.ktop{border-top:0!important}
+/* section rows: neutral tint, no lines of any kind */
+.ksec,.ksec .klab,.ksec .kcell:not(.we){background:var(--v-sec)!important}.ksec .kcell.we{background:var(--we-sec)!important}
+.ksec{border-top:0!important;border-bottom:0!important}.ksec>.ktrack{align-self:stretch}.ksec>.ktrack .kcell{height:auto}
+/* RULE: vertical day lines only on editable rows (+ date header). */
+.khead .krow:not(.kdate1):not(.kdate2) .kcell,.ksec .kcell,.kgroup .kcell{border-right-color:transparent!important}
+.kgroup .kcell{cursor:default;overflow:visible}.kgroup .kstrip[style*="right: 0px"]{right:-1px!important}
+.ktotal .kcell.we{background:var(--we-row)!important}
+/* project row (top level): strong line, own fill, weekend one step darker */
+.kgroup.top{border-top:1px solid var(--g-top)}.kgroup.top .klab{font-weight:700}.kgroup.top .kcell.we{background:var(--we-top)!important}
+/* phase subtotal: faint line, no fill, muted label */
+.kgroup.sub,.kgroup.top+.kgroup.sub{border-top:1px solid var(--g-phase)}.kgroup.sub{background:transparent!important}.kgroup.sub .klab{background:rgb(var(--canvas))!important;color:rgb(var(--ink-body))}.kgroup.sub .kcell:not(.we){background:transparent!important}.kgroup.sub .kcell.we{background:var(--we-row)!important}
+.kgroup.sub .klab :is(.kname,.ksum){color:rgb(var(--ink-muted))}.kgroup.sub .ksum{font-weight:500}
+/* editable rows: row line under every row; closing line drawn on cells, never on the row */
+:is(.kgroup.top,.kgroup.sub)+.kleaf{border-top:0!important}:is(.kgroup.top,.kgroup.sub)+.kleaf :is(.kcell,.klab){border-top:1px solid var(--g-row)}:is(.kgroup.top,.kgroup.sub)+.kleaf .kcell{height:auto;align-self:stretch}
+.kleaf .kcell{border-bottom-color:var(--g-row)}.kleaf:has(+ :is(.kgroup,.ksec)) .kcell{border-bottom-color:transparent}
+.kleaf:hover .kcell:not(.kin.cur){background-color:rgb(var(--ink) / .03)}
+/* Bemanning */
+.krow.ps-div{border-top:1px solid var(--g-top)}:is(.ps-c,.ps-cc){border-bottom-color:var(--g-row)}.krow .kcell.ps-vc{border-bottom-color:rgb(var(--border))}
+/* inspector */
+:is(.ki-head,.ki-sec){border-bottom-color:transparent}.ki-sec+.ki-sec{border-top:1px solid rgb(var(--border) / .5);padding-top:10px}.kdays td{border-bottom-color:rgb(var(--border) / .45)}
+/* ===== end v9 SYSTEM ===== */

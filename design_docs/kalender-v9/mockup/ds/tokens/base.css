@@ -1,0 +1,17 @@
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased}
+body{margin:0;background:rgb(var(--canvas));color:rgb(var(--ink));font-family:var(--font-ui)}
+button,input,select,textarea{font-family:inherit}
+a{color:rgb(var(--ink));text-decoration:underline;text-decoration-color:rgb(var(--border-strong));text-underline-offset:2px}
+a:hover{text-decoration-color:rgb(var(--accent))}
+input::placeholder,textarea::placeholder{color:var(--ink-subtle)}
+.font-numeric{font-family:var(--font-numeric);font-variant-numeric:tabular-nums;font-variant-ligatures:none}
+.eyebrow{font-family:var(--font-numeric);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:rgb(var(--ink-faint))}
+/* Slider (CalculatorInputField) */
+.range-field{-webkit-appearance:none;appearance:none;height:20px;background:transparent}
+.range-field::-webkit-slider-runnable-track{height:8px;border-radius:9999px;background:linear-gradient(to right,rgb(var(--accent)) var(--pct,0%),rgb(var(--field)) var(--pct,0%))}
+.range-field::-moz-range-track{height:8px;border-radius:9999px;background:linear-gradient(to right,rgb(var(--accent)) var(--pct,0%),rgb(var(--field)) var(--pct,0%))}
+.range-field:hover::-webkit-slider-runnable-track{background:linear-gradient(to right,rgb(var(--accent)) var(--pct,0%),rgb(var(--field-hover)) var(--pct,0%))}
+.range-field:hover::-moz-range-track{background:linear-gradient(to right,rgb(var(--accent)) var(--pct,0%),rgb(var(--field-hover)) var(--pct,0%))}
+.range-field::-webkit-slider-thumb{-webkit-appearance:none;height:20px;width:20px;margin-top:-6px;border-radius:9999px;border:0;background:rgb(var(--accent))}
+.range-field::-moz-range-thumb{height:20px;width:20px;border-radius:9999px;border:0;background:rgb(var(--accent))}

@@ -1,0 +1,21 @@
+:root {
+  --font-ui: 'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-numeric: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Type roles as used in the app */
+  --type-page-title: 700 30px/1.15 var(--font-ui);      /* PageHeader h1, tracking -.025em */
+  --type-line-title: 700 22px/1.25 var(--font-ui);      /* quote line name, quick-view title, tracking -.02em */
+  --type-commit-title: 700 20px/1.3 var(--font-ui);     /* CommitBlock row title */
+  --type-brand: 700 15px/1 var(--font-ui);              /* TopBar brand, tracking -.01em */
+  --type-row-title: 600 14px/1.4 var(--font-ui);        /* RailRow, table names */
+  --type-dialog-title: 600 16px/1.4 var(--font-ui);
+  --type-body: 400 14px/1.45 var(--font-ui);
+  --type-field: 400 15px/1.3 var(--font-ui);            /* md inputs, result rows */
+  --type-small: 400 13px/1.4 var(--font-ui);            /* buttons md, meta text */
+  --type-label: 400 12px/1.35 var(--font-ui);           /* field labels (ink-muted) */
+  --type-eyebrow: 400 12px/1.3 var(--font-numeric);     /* uppercase, +.06em */
+  --type-mono: 400 13px/1.4 var(--font-numeric);
+  --type-total-lg: 600 40px/1.15 var(--font-numeric);   /* CommitBlock pill, tracking -.04em */
+  --tracking-eyebrow: .06em; /* @kind font */
+  --tracking-meta: .04em; /* @kind font */
+  --tracking-title: -.025em; /* @kind font */
+}

@@ -1,0 +1,106 @@
+<!DOCTYPE html><html lang="nb"><head><meta charset="utf-8"><title>Kalender — design rules v9</title><link rel="stylesheet" href="mockup/ds/styles.css">
+<style>
+:root{--accent:212 108 44;--vh:115;--vc:.09;--v-band:oklch(0.86 calc(var(--vc) * .6) var(--vh));--v-band-line:oklch(0.7 calc(var(--vc) * .85) var(--vh));--v-track:oklch(0.79 calc(var(--vc) * .7) var(--vh));--v-tb-ink:oklch(0.3 calc(var(--vc) * .55) var(--vh));--v-sec:color-mix(in oklab,rgb(var(--canvas)) 96%,rgb(var(--ink)));--g-col:rgb(var(--border) / .55);--g-row:rgb(var(--border) / .4);--g-phase:rgb(var(--border) / .5);--g-top:rgb(var(--border-strong));--we-row:var(--sunken-2);--we-sec:color-mix(in oklab,var(--sunken-2) 95%,rgb(var(--ink)));--we-top:color-mix(in oklab,rgb(var(--ink)) 9%,rgb(var(--canvas)));--band-1:color-mix(in oklab,rgb(var(--ink)) 6%,rgb(var(--canvas)))}
+.bem{--vh:40;--vc:.11}
+.band{--v-band:oklch(0.86 calc(var(--vc) * .6) var(--vh));--v-band-line:oklch(0.7 calc(var(--vc) * .85) var(--vh));--v-track:oklch(0.79 calc(var(--vc) * .7) var(--vh));--v-tb-ink:oklch(0.3 calc(var(--vc) * .55) var(--vh))}
+a{color:rgb(var(--accent))}a:hover{color:rgb(var(--ink))}
+body{margin:0;background:rgb(var(--canvas));color:rgb(var(--ink));font-family:var(--font-ui)}
+.wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px;display:flex;flex-direction:column;gap:56px}
+h1{font:700 30px/1.15 var(--font-ui);letter-spacing:-.02em;margin:0 0 8px}h2{font:700 20px/1.2 var(--font-ui);margin:0 0 6px;letter-spacing:-.01em}
+.lede{font-size:16px;color:rgb(var(--ink-body));max-width:640px;text-wrap:pretty;margin:0}
+.sub{font-size:14px;color:rgb(var(--ink-muted));margin:0 0 18px;max-width:680px;text-wrap:pretty}
+.fig{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
+@media (max-width:900px){.fig{grid-template-columns:minmax(0,1fr)}}
+.notes{display:flex;flex-direction:column;gap:10px;font-size:13.5px;color:rgb(var(--ink-body));line-height:1.45}
+.notes div{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px}
+.n{display:grid;place-items:center;width:20px;height:20px;border-radius:999px;background:rgb(var(--ink));color:rgb(var(--canvas));font:600 11px var(--font-numeric)}
+.g{border:1px solid rgb(var(--border));border-radius:10px;overflow:hidden;background:rgb(var(--canvas));font-size:12.5px;overflow-x:auto}
+.r{display:grid;grid-template-columns:200px repeat(10,minmax(34px,1fr));position:relative;min-width:560px}
+.r>.l{display:flex;align-items:center;gap:6px;padding:0 10px;border-right:1px solid rgb(var(--border));background:rgb(var(--canvas));min-height:28px;position:relative}
+.r>.c{min-height:28px;display:grid;place-items:center;font:500 12px var(--font-numeric)}
+.r>.c.we{background:var(--we-row)}
+.r.col>.c{border-right:1px solid var(--g-col)}
+.r.rowline>.c{border-bottom:1px solid var(--g-row)}
+.r.dh>.l{font-size:11px;color:rgb(var(--ink-faint));text-transform:uppercase;letter-spacing:.06em}
+.r.sec>.l,.r.sec>.c{background:var(--v-sec);min-height:22px}.r.sec>.c.we{background:var(--we-sec)}.r.sec>.l{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:rgb(var(--ink-faint))}
+.r.ro>.l{justify-content:flex-end;color:rgb(var(--ink-muted))}
+.r.top{border-top:1px solid var(--g-top);background:var(--band-1)}.r.top>.l{background:var(--band-1);font-weight:700;font-size:13.5px}.r.top>.c.we{background:var(--we-top)}
+.r.ph{border-top:1px solid var(--g-phase)}.r.ph>.l{color:rgb(var(--ink-muted));padding-left:24px}
+.r.first>.c,.r.first>.l{border-top:1px solid var(--g-row)}
+.r.leaf>.l{padding-left:36px;color:rgb(var(--ink-body))}
+.r.last>.c{border-bottom-color:transparent}
+.r .kv{color:rgb(var(--ink))}.strip{position:absolute;inset:8px 2px;border-radius:4px;background:color-mix(in oklab,var(--line-blue) 40%,rgb(var(--surface)))}
+.tl{position:absolute;top:0;bottom:0;width:2px;background:rgb(var(--accent));pointer-events:none;z-index:2}
+.band{background:var(--v-band);border-top:1px solid var(--v-band-line);border-bottom:1px solid var(--v-band-line);transition:background-color 360ms var(--ease)}
+.band .hd{display:flex;align-items:center;gap:12px;padding:12px 18px 6px}.band .hd b{font-size:18px}
+.tag{height:22px;padding:0 10px;border-radius:999px;display:inline-flex;align-items:center;background:color-mix(in oklab,rgb(var(--canvas)) 55%,transparent);font:600 12px var(--font-ui)}
+.band .tb{display:flex;gap:10px;padding:8px 18px 12px;flex-wrap:wrap}
+.trk{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--v-track)}.trk span{padding:5px 12px;border-radius:6px;font-size:13px;color:var(--v-tb-ink)}.trk span.on{background:rgb(var(--surface));box-shadow:0 1px 2px oklch(0.3 .05 var(--vh) / .18)}
+.fld{padding:6px 12px;border-radius:8px;background:color-mix(in oklab,rgb(var(--surface)) 55%,transparent);font-size:13px;color:var(--v-tb-ink)}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}@media (max-width:700px){.pair{grid-template-columns:minmax(0,1fr)}}
+.cap{font-size:12px;color:rgb(var(--ink-muted));margin-top:8px}
+.tok{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.tok div{display:flex;align-items:center;gap:10px;font-size:13px}.tok i{width:34px;height:22px;border-radius:5px;flex:none;box-shadow:inset 0 0 0 1px rgb(var(--ink) / .08)}.tok i.ln{height:0;border-radius:0;box-shadow:none;border-top:2px solid}
+.tok code{font:500 12px var(--font-numeric);color:rgb(var(--ink-muted))}
+.dont{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.dont div{padding:14px 16px;border-radius:10px;background:rgb(var(--surface));box-shadow:inset 0 0 0 1px rgb(var(--border));font-size:13.5px;line-height:1.45;color:rgb(var(--ink-body))}.dont b{display:block;color:rgb(var(--danger));margin-bottom:4px;font-size:13px}
+</style></head><body><div class="wrap">
+<header><h1>Kalender: design rules</h1><p class="lede">Lines are information, not decoration. A line only exists where the eye moves along it to read numbers. Everything else is separated by tint, spacing or type.</p></header>
+
+<section><h2>1 · Mode band</h2><p class="sub">The header and toolbar form one band in the mode color. Two lines frame the band, with no line between header and toolbar. Mode color appears nowhere else.</p>
+<div class="pair"><div><div class="band"><div class="hd"><b>Kalender</b><span class="tag">Plan</span></div><div class="tb"><span class="trk"><span class="on">Plan</span><span>Bemanning</span></span><span class="trk"><span class="on">Velg</span><span>Fordel</span><span>Tøm</span></span><span class="fld">Alle prosjekter</span></div></div><p class="cap">Plan: olive · hue 115</p></div>
+<div class="bem"><div class="band"><div class="hd"><b>Kalender</b><span class="tag">Bemanning</span></div><div class="tb"><span class="trk"><span>Plan</span><span class="on">Bemanning</span></span><span class="trk"><span class="on">Velg</span><span>Fordel</span><span>Tøm</span></span><span class="fld">Alle prosjekter</span></div></div><p class="cap">Bemanning: terracotta · hue 40</p></div></div></section>
+
+<section><h2>2 · Row anatomy</h2><p class="sub">Each row type gets a fixed set of lines, fill and weekend shade. Numbers refer to the notes.</p>
+<div class="fig"><div class="g">
+<div class="r dh col"><div class="l">Dato <span class="n" style="margin-left:auto">1</span></div><div class="c">ma</div><div class="c">ti</div><div class="c">on</div><div class="c">to</div><div class="c">fr</div><div class="c we">lø</div><div class="c we">sø</div><div class="c">ma</div><div class="c">ti</div><div class="c">on</div></div>
+<div class="r sec" style="border-top:1px solid rgb(var(--border))"><div class="l">Bemanning <span class="n" style="margin-left:auto">2</span></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c we"></div><div class="c we"></div><div class="c"></div><div class="c"></div><div class="c"></div></div>
+<div class="r ro"><div class="l"><span class="n" style="margin-right:auto">3</span>Planlagt behov</div><div class="c">14</div><div class="c">14</div><div class="c">16</div><div class="c">19</div><div class="c">22</div><div class="c we"></div><div class="c we"></div><div class="c">17</div><div class="c">20</div><div class="c">25</div></div>
+<div class="r top"><div class="l">VVS 2026 <span class="n" style="margin-left:auto">4</span></div><div class="c"></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c we"></div><div class="c we"></div><div class="c"></div><div class="c"></div><div class="c"></div></div>
+<div class="r ph"><div class="l">Montering <span class="n" style="margin-left:auto">5</span></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c we"></div><div class="c we"></div><div class="c"></div><div class="c"></div><div class="c"></div></div>
+<div class="r leaf col rowline first"><div class="l">Hall B1 · Vegger <span class="n" style="margin-left:auto">6</span></div><div class="c"></div><div class="c kv">8</div><div class="c kv">8</div><div class="c kv">8</div><div class="c kv">8</div><div class="c we"></div><div class="c we"></div><div class="c kv">5</div><div class="c"></div><div class="c"></div></div>
+<div class="r leaf col rowline"><div class="l">Tepper</div><div class="c"></div><div class="c kv">4</div><div class="c kv">4</div><div class="c kv">5</div><div class="c kv">5</div><div class="c we"></div><div class="c we"></div><div class="c kv">3</div><div class="c"></div><div class="c"></div></div>
+<div class="r leaf col rowline last"><div class="l">Elektro <span class="n" style="margin-left:auto">7</span></div><div class="c"></div><div class="c kv">2</div><div class="c kv">2</div><div class="c kv">3</div><div class="c kv">3</div><div class="c we"></div><div class="c we"></div><div class="c kv">2</div><div class="c"></div><div class="c"></div></div>
+<div class="r top"><div class="l">Hage 2026</div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c we"></div><div class="c we"></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c"></div></div>
+</div>
+<div class="notes">
+<div><span class="n">1</span><span><b>Date header</b>: vertical day lines (they define the columns). One soft line under the whole header.</span></div>
+<div><span class="n">2</span><span><b>Section row</b>: neutral tint, no lines. Weekend a step darker than the tint.</span></div>
+<div><span class="n">3</span><span><b>Readout row</b>: no lines, label right-aligned against the numbers.</span></div>
+<div><span class="n">4</span><span><b>Top level</b>: the only row with the strong line. Its own fill; weekend a step darker.</span></div>
+<div><span class="n">5</span><span><b>Phase subtotal</b>: faint line above, no fill, muted. Doesn't look editable.</span></div>
+<div><span class="n">6</span><span><b>Editable rows</b>: day lines plus a row line. The first row closes the block with a line on top.</span></div>
+<div><span class="n">7</span><span><b>Last row</b> drops its bottom line; the next group's line takes over. Never two lines on top of each other.</span></div>
+</div></div></section>
+
+<section><h2>3 · Tokens</h2><p class="sub">Only four line colors exist in the grid. Need a line? It's one of these.</p>
+<div class="tok">
+<div><i class="ln" style="border-color:var(--g-col)"></i><span>Day line<br><code>--g-col · .55</code></span></div>
+<div><i class="ln" style="border-color:var(--g-row)"></i><span>Row line<br><code>--g-row · .40</code></span></div>
+<div><i class="ln" style="border-color:var(--g-phase)"></i><span>Phase<br><code>--g-phase · .50</code></span></div>
+<div><i class="ln" style="border-color:var(--g-top)"></i><span>Top level<br><code>--g-top · strong</code></span></div>
+<div><i style="background:var(--v-sec)"></i><span>Section tint<br><code>--v-sec</code></span></div>
+<div><i style="background:var(--we-row)"></i><span>Weekend<br><code>--we-row</code></span></div>
+<div><i style="background:var(--we-sec)"></i><span>Weekend in section<br><code>--we-sec</code></span></div>
+<div><i style="background:var(--we-top)"></i><span>Weekend in top level<br><code>--we-top</code></span></div>
+<div><i style="background:rgb(var(--accent))"></i><span>Accent · Brent oransje<br><code>212 108 44</code></span></div>
+</div></section>
+
+<section><h2>4 · Never do this</h2><p class="sub">Every one of these has happened before.</p>
+<div class="dont">
+<div><b>Invisible row lines</b>A transparent border with width on <code>.krow</code>/<code>.ksec</code> opens a 1px gap, and weekends and the today line bleed through. Use width 0.</div>
+<div><b>See-through labels</b>Sticky <code>.klab</code> must always have a solid background, or content shows through when you scroll sideways.</div>
+<div><b>Translucent weekends</b>color-mix percentages must add up to 100. Weekends are opaque and fill the full row height.</div>
+<div><b>Mode color in the grid</b>Mode hue belongs only in the band. Section rows and the grid stay neutral.</div>
+<div><b>Lines on non-editable rows</b>If you can't type into it, it has no day lines.</div>
+<div><b>Strong line as a closing line</b><code>--g-top</code> only marks the start of a new top level.</div>
+</div></section>
+
+<section><h2>5 · Today line</h2><p class="sub">One continuous 2px line in the accent color. It sits above grid lines, weekends, bars and selection. It sits below sticky labels, the mode band and the planning header.</p>
+<div class="g"><div style="position:relative">
+<span class="tl" style="left:calc(200px + (100% - 200px) * .3)"></span>
+<div class="r dh col"><div class="l">Dato</div><div class="c">ma</div><div class="c">ti</div><div class="c">on</div><div class="c" style="color:rgb(var(--accent));font-weight:700">to</div><div class="c">fr</div><div class="c we">lø</div><div class="c we">sø</div><div class="c">ma</div><div class="c">ti</div><div class="c">on</div></div>
+<div class="r top"><div class="l">VVS 2026</div><div class="c"></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c" style="position:relative"><span class="strip"></span></div><div class="c we"></div><div class="c we"></div><div class="c"></div><div class="c"></div><div class="c"></div></div>
+<div class="r leaf col rowline first"><div class="l">Hall B1 · Vegger</div><div class="c"></div><div class="c kv">8</div><div class="c kv">8</div><div class="c kv">8</div><div class="c kv">8</div><div class="c we"></div><div class="c we"></div><div class="c kv">5</div><div class="c"></div><div class="c"></div></div>
+</div></div></section>
+</div></body></html>

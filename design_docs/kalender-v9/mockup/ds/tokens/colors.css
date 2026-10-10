@@ -1,0 +1,142 @@
+/* Ledger palette — ported verbatim from app/globals.css (bemoy83/expo-calculator).
+   Most colours are space-separated RGB triplets, used as rgb(var(--x)) or rgb(var(--x) / .5). */
+:root {
+  /* Neutrals — warm paper */
+  --canvas: 242 240 235; /* @kind color */ /* #f2f0eb  page background */
+  --panel: 250 249 246; /* @kind color */ /* #faf9f6  side panels, live/receipt column */
+  --surface: 255 255 255; /* @kind color */ /* #ffffff  raised: selected rows, cards */
+  --sunken: 231 228 221; /* @kind color */ /* #e7e4dd  chips, segmented tracks */
+  --field: 231 228 221; /* @kind color */ /* borderless input fill */
+  --field-hover: 221 217 209; /* @kind color */
+  --field-raised: 255 255 255; /* @kind color */ /* chosen segment on a field track */
+  --border: 220 216 207; /* @kind color */ /* #dcd8cf  hairlines, row dividers */
+  --border-strong: 196 191 180; /* @kind color */ /* #c4bfb4  outlined buttons, dashed adds */
+  --ink: 23 22 19; /* @kind color */ /* #171613 */
+  --ink-muted: 91 89 83; /* @kind color */ /* #5b5953  labels, secondary text */
+  --ink-faint: 119 116 108; /* @kind color */ /* #77746c  mono eyebrows, units, meta */
+
+  /* Accent — "signal". Page-primary fill, focus rings, active badge, total pill. Never body text on canvas. */
+  --accent: 236 111 0; /* @kind color */ /* #ec6f00 */
+  --accent-ink: 20 12 5; /* @kind color */ /* #140c05  text on accent */
+
+  /* Quote line colours (full colours) */
+  --line-blue: oklch(0.56 0.13 250);
+  --line-teal: oklch(0.53 0.13 185);
+  --line-green: oklch(0.55 0.13 140);
+  --line-amber: oklch(0.56 0.13 85);
+  --line-rose: oklch(0.56 0.13 10);
+  --line-violet: oklch(0.56 0.13 300);
+  --on-line: #ffffff;
+  --on-line-soft: rgba(255,255,255,.22);
+  --on-line-rule: rgba(255,255,255,.45);
+
+  /* Inverse — the one "commit" block per screen */
+  --inverse: var(--ink); /* @kind color */
+  --on-inverse: var(--canvas); /* @kind color */
+
+  --action: var(--accent); /* @kind color */
+  --action-solid: var(--ink); /* @kind color */
+  --on-accent: var(--canvas); /* @kind color */
+  --action-bg: 252 235 219; /* @kind color */ /* #fcebdb  accent tint */
+  --action-border: 244 196 150; /* @kind color */
+
+  /* Formula token kinds */
+  --token-input: 0 117 96; /* @kind color */
+  --token-result: 106 81 164; /* @kind color */
+  --token-function: 153 53 86; /* @kind color */
+  --token-property: 153 60 29; /* @kind color */
+
+  /* Status */
+  --committed: 40 124 66; /* @kind color */ /* green: LIVE, no errors */
+  --committed-bg: 226 239 227; /* @kind color */
+  --committed-border: 178 212 186; /* @kind color */
+  --draft: 143 94 10; /* @kind color */ /* amber: unfinished */
+  --draft-bg: 247 238 219; /* @kind color */
+  --draft-border: 230 207 156; /* @kind color */
+  --danger: 197 54 55; /* @kind color */
+  --danger-bg: 249 229 226; /* @kind color */
+  --danger-border: 238 184 180; /* @kind color */
+
+  /* Derived (full colours) */
+  --accent-soft: color-mix(in oklch, rgb(var(--accent)) 15%, transparent);
+  --surface-hover: color-mix(in srgb, rgb(var(--surface)) 50%, rgb(var(--canvas)));
+  --sunken-2: color-mix(in srgb, rgb(var(--sunken)) 50%, rgb(var(--canvas)));
+  --ink-body: color-mix(in srgb, rgb(var(--ink)) 45%, rgb(var(--ink-muted)));
+  --ink-subtle: color-mix(in srgb, rgb(var(--ink-faint)) 60%, rgb(var(--border-strong)));
+  --committed-solid: rgb(var(--committed));
+
+  --warning: var(--draft); /* @kind color */
+  --success: var(--committed); /* @kind color */
+  --overlay: 0 0 0; /* @kind color */
+}
+
+/* Dark (the app's default theme) — put class="dark" on <html> or any wrapper */
+.dark {
+  --field-on-raised: 15 15 14; /* @kind color */
+  --field-hover-on-raised: 8 8 7; /* @kind color */
+  --field-raised-on-raised: 38 38 34; /* @kind color */
+  
+  --canvas: 15 15 14; /* @kind color */ 
+  --panel: 23 23 21; /* @kind color */ 
+  --surface: 31 31 28; /* @kind color */ --sunken: 10 10 9; /* @kind color */
+  
+  --field: 33 33 30; /* @kind color */ 
+  --field-hover: 44 44 40; /* @kind color */ --field-raised: 15 15 14; /* @kind color */
+  
+  --border: 38 38 35; /* @kind color */ --border-strong: 58 57 53; /* @kind color */
+  
+  --ink: 243 242 238; /* @kind color */ 
+  --ink-muted: 166 164 157; /* @kind color */ --ink-faint: 123 122 115; /* @kind color */
+  
+  --accent: 253 146 62; /* @kind color */ --accent-ink: 20 12 5; /* @kind color */
+  --line-blue: oklch(0.76 0.11 250); --line-teal: oklch(0.76 0.11 185); --line-green: oklch(0.76 0.11 140);
+  --line-amber: oklch(0.76 0.11 85); --line-rose: oklch(0.76 0.11 10); --line-violet: oklch(0.76 0.11 300);
+  --on-line: #140c05; --on-line-soft: rgba(20,12,5,.16); --on-line-rule: rgba(20,12,5,.35);
+  
+  --action-bg: 48 30 16; /* @kind color */ --action-border: 99 58 26; /* @kind color */
+  
+  --token-input: 102 213 186; /* @kind color */ 
+  --token-result: 194 177 248; /* @kind color */ 
+  --token-function: 237 147 177; /* @kind color */ --token-property: 240 153 123; /* @kind color */
+  
+  --committed: 111 208 135; /* @kind color */ 
+  --committed-bg: 17 38 24; /* @kind color */ --committed-border: 32 74 44; /* @kind color */
+  
+  --draft: 242 181 79; /* @kind color */ 
+  --draft-bg: 43 32 13; /* @kind color */ --draft-border: 80 59 22; /* @kind color */
+  
+  --danger: 249 119 112; /* @kind color */ 
+  --danger-bg: 48 22 21; /* @kind color */ --danger-border: 90 41 38; /* @kind color */
+  --inverse: var(--ink); --on-inverse: var(--canvas); --action: var(--accent); --action-solid: var(--ink); --on-accent: var(--canvas);
+  --accent-soft: color-mix(in oklch, rgb(var(--accent)) 15%, transparent);
+  --surface-hover: color-mix(in srgb, rgb(var(--surface)) 92%, rgb(var(--ink)));
+  --sunken-2: color-mix(in srgb, rgb(var(--sunken)) 50%, rgb(var(--panel)));
+  --ink-body: color-mix(in srgb, rgb(var(--ink)) 60%, rgb(var(--ink-muted)));
+  --ink-subtle: color-mix(in srgb, rgb(var(--ink-muted)) 55%, rgb(var(--border-strong)));
+  --committed-solid: color-mix(in srgb, rgb(var(--committed)) 55%, black);
+
+}
+/* Fields follow the surface they sit on: put data-surface="raised" on panels, cards and dialogs */
+[data-surface="raised"] { --field: var(--field-on-raised); --field-hover: var(--field-hover-on-raised); --field-raised: var(--field-raised-on-raised); }
+
+/* Optional accent swaps (Settings → Accent): data-accent on <html> */
+[data-accent="chalk"] { 
+  --accent: 37 156 222; /* @kind color */ 
+  --action-bg: 222 238 250; /* @kind color */ 
+  --action-border: 160 205 236; /* @kind color */ 
+}
+.dark[data-accent="chalk"], .dark [data-accent="chalk"] { 
+  --accent: 89 187 251; /* @kind color */ 
+  --action-bg: 16 36 52; /* @kind color */ 
+  --action-border: 30 76 110; /* @kind color */ 
+}
+[data-accent="lime"] { 
+  --accent: 171 207 46; /* @kind color */ 
+  --action-bg: 238 245 212; /* @kind color */ 
+  --action-border: 205 226 130; /* @kind color */ 
+}
+.dark[data-accent="lime"], .dark [data-accent="lime"] { 
+  --accent: 195 225 81; /* @kind color */ 
+  --action-bg: 34 42 14; /* @kind color */ 
+  --action-border: 72 90 26; /* @kind color */ 
+}
