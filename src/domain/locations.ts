@@ -27,6 +27,19 @@ type Aliases = Record<string, string>
 const clean = (text: string): string => text.trim().toLowerCase().replace(/^hall\s+/, '')
 const lower = (hall: string): string => hall.trim().toLowerCase()
 
+/**
+ * A name as it is compared: how it is spelled does not tell names apart. Upper and lower case, «Hall» in front, and
+ * spaces, hyphens and other signs are left out, so «Studio 3», «studio-3» and «STUDIO3» are one name.
+ */
+const spelled = (name: string): string => clean(name).replace(/[^\p{L}\p{N}]+/gu, '')
+
+/** The one name of the list that the text is, however it is spelled; none where two of them are spelled alike. */
+const named = (text: string, names: string[]): string | undefined => {
+  const wanted = spelled(text)
+  const found = wanted ? names.filter((name) => spelled(name) === wanted) : []
+  return found.length === 1 ? found[0] : undefined
+}
+
 /** The numbered halls of a letter: «B1» to «B4» for «b». */
 const numberedHalls = (letter: string, halls: string[]): string[] => halls.filter((hall) => /\d$/.test(hall.trim()) && lower(hall).replace(/\d+$/, '') === letter)
 
@@ -83,14 +96,15 @@ export interface Reading {
 }
 
 /**
- * The place that the text names, and how it was found, or null. «Hall C» and «c» name the hall «C», and «Hall B»
- * the planner's place «B». A hall letter names its numbered hall when there is only one, «Hall A» names «A1».
+ * The place that the text names, and how it was found, or null. «Hall C» and «c» name the hall «C», «Studio 3» the
+ * hall «STUDIO3», and «Hall B» the planner's place «B»: the whole text is the name, however it is spelled (`spelled`).
+ * A hall letter names its numbered hall when there is only one, «Hall A» names «A1».
  * A text that is none of this counts under the place of the first of the planner's rules whose words it holds.
  */
 export const readHall = (text: string, halls: string[], rules?: HallRules): Reading | null => {
   const wanted = clean(text)
   if (!wanted) return null
-  const exact = halls.find((hall) => lower(hall) === wanted) ?? sharedPlaces(halls, rules).find((place) => lower(place.name) === wanted)?.name
+  const exact = halls.find((hall) => lower(hall) === wanted) ?? named(text, halls) ?? named(text, sharedPlaces(halls, rules).map((place) => place.name))
   if (exact) return { hall: exact, by: 'text' }
   const numbered = numberedHalls(wanted, halls)
   if (numbered.length === 1) return { hall: numbered[0], by: 'text' }

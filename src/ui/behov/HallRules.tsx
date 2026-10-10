@@ -94,7 +94,8 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
       <div className="behov-body rules">
         <p className="hint">
           Slik blir Hall/sted til en hall i Kalender, i denne rekkefølgen: ditt valg for teksten i prosjektet, ditt valg for teksten i alle prosjekter, navnet på hallen eller stedet («Hall
-          C» er C), og til slutt den første regelen for ord som teksten inneholder. Alt her er ditt eget: det som står fra start er eksempler du kan endre og slette.
+          C» er C), og til slutt den første regelen for ord som teksten inneholder. Et navn leses uansett stavemåte: store og små bokstaver, «Hall» foran, mellomrom og bindestrek skiller ikke, så «Studio 3» er
+          STUDIO3. Hele teksten må være navnet. Alt annet her er ditt eget: det som står fra start er eksempler du kan endre og slette.
         </p>
 
         <h3>Steder som står for flere haller</h3>

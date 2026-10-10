@@ -19,6 +19,22 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(readHall('Hall D2', halls, own)).toEqual({ hall: 'D2', by: 'text' })
   })
 
+  it('reads a name however it is spelled: spaces, hyphens and signs do not tell names apart', () => {
+    const studios = ['STUDIO3', 'STUDIO-N', 'B1', 'C']
+    const nova: HallRules = { places: [{ name: 'NOVA STUDIOS', halls: ['STUDIO3', 'STUDIO-N'] }], phrases: [], seeded: true }
+    expect(readHall('Studio 3', studios, nova)).toEqual({ hall: 'STUDIO3', by: 'text' })
+    expect(resolveHall('studio-3', studios, nova)).toBe('STUDIO3')
+    expect(resolveHall('Studio N', studios, nova)).toBe('STUDIO-N')
+    expect(resolveHall('Hall B 1', studios, nova)).toBe('B1')
+    expect(resolveHall('Nova-studios', studios, nova)).toBe('NOVA STUDIOS')
+    // The whole text is the name: a part of it, or a number beside it, is not read.
+    for (const text of ['Studio 3 og 4', 'Kafé ved Studio 3', 'Studio 34']) expect(resolveHall(text, studios, nova)).toBeNull()
+    // Two halls spelled alike are not told apart, so neither is taken.
+    expect(resolveHall('Studio N', ['STUDIO-N', 'STUDION'], nova)).toBeNull()
+    expect(resolveHall('STUDIO-N', ['STUDIO-N', 'STUDION'], nova)).toBe('STUDIO-N')
+    expect(placeOf('Studio 3', studios, withAlias({}, 'Studio 3', 'C'), undefined, nova).hall).toBe('C')
+  })
+
   it('takes a hall letter for its numbered hall when there is one such hall', () => {
     expect(readHall('Hall A', halls, none)).toEqual({ hall: 'A1', by: 'text' })
   })
