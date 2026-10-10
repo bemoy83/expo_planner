@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiDiff, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, productTypeKey, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiDiff, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { decimalText, parseDecimal } from '../../domain/numbers'
-import { productTypeKey } from '../../domain/visma'
 import { readKpiWorkbook, writeKpiWorkbook } from '../../import/kpiFile'
 import { todayIso } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -48,7 +47,7 @@ export function Kpi() {
   const rows = useMemo(() => kpiRows(kpi, ws.visma ?? []), [kpi, ws.visma])
   const found = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return q ? rows.filter((row) => `${row.name} ${row.productType} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
+    return q ? rows.filter((row) => `${row.name} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
   }, [rows, search])
   const typeNames = useMemo(() => [...new Set(rows.map((row) => row.name))], [rows])
   const competences = useMemo(() => [...new Set(kpi.workTypes.map((rule) => rule.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
@@ -81,8 +80,8 @@ export function Kpi() {
   }
 
   /** Says so when rows already planned in the Kalender followed the product type to its new competence. */
-  const changeCompetence = ({ name, productType, unit }: KpiRow, competence: string) => {
-    const { rows, replaced } = setKpi(setCompetence(kpi, productType, unit, competence))
+  const changeCompetence = ({ name, unit }: KpiRow, competence: string) => {
+    const { rows, replaced } = setKpi(setCompetence(kpi, name, unit, competence))
     if (!rows && !replaced.length) return
     const followed = rows ? ` ${rows === 1 ? '1 planlagt rad' : `${rows} planlagte rader`} i Kalender fulgte med til ${competence}, med FTE.` : ''
     const people = replaced.length ? ` ${replaced.join(', ')} finnes ikke lenger: de som hadde den har nå ${competence}, og blokkene deres i Bemanning fulgte med.` : ''
@@ -95,10 +94,9 @@ export function Kpi() {
     {
       key: 'name',
       head: 'Produkttype',
-      title: 'Navnet fra «Produkttype 2» i Visma. Hold pekeren over et navn for å se teksten slik den står i Visma.',
+      title: 'Navnet på produkttypen. Det er navnet som kobler en ordrelinje til satsen her.',
       text: (row) => row.name,
       cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : row.name),
-      cellProps: (row) => (row.productType === row.name ? {} : { title: `I Visma: ${row.productType}` }),
     },
     {
       key: 'unit',
@@ -106,7 +104,7 @@ export function Kpi() {
       title: '«ordre» og «stands» teller antall stands; andre enheter summerer antall',
       text: (row) => row.unit,
       // An emptied field is left as it was: a rate cannot be without a unit.
-      cell: (row) => <TextField value={row.unit} options={units} ariaLabel={`Enhet for ${row.name}`} onCommit={(value) => value && setKpi(renameUnit(kpi, row.productType, row.unit, value))} />,
+      cell: (row) => <TextField value={row.unit} options={units} ariaLabel={`Enhet for ${row.name}`} onCommit={(value) => value && setKpi(renameUnit(kpi, row.name, row.unit, value))} />,
     },
     {
       key: 'active',
@@ -115,7 +113,7 @@ export function Kpi() {
       className: 'center',
       text: (row) => (row.active ? 'Ja' : 'Nei'),
       cell: (row) =>
-        row.unit ? <input type="radio" checked={row.active} aria-label={`Regn ${row.name} i ${row.unit}`} onChange={() => setKpi(setActiveUnit(kpi, row.productType, row.unit))} /> : '',
+        row.unit ? <input type="radio" checked={row.active} aria-label={`Regn ${row.name} i ${row.unit}`} onChange={() => setKpi(setActiveUnit(kpi, row.name, row.unit))} /> : '',
     },
     {
       key: 'competence',
@@ -131,7 +129,7 @@ export function Kpi() {
       className: 'num',
       text: (row) => (row.assembly ? decimalText(row.assembly) : ''),
       sort: (row) => row.assembly,
-      cell: (row) => (row.unit ? <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.productType, row.unit, { assembly: value }))} /> : ''),
+      cell: (row) => (row.unit ? <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { assembly: value }))} /> : ''),
     },
     {
       key: 'dismantle',
@@ -140,7 +138,7 @@ export function Kpi() {
       className: 'num',
       text: (row) => (row.dismantle ? decimalText(row.dismantle) : ''),
       sort: (row) => row.dismantle,
-      cell: (row) => (row.unit ? <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.productType, row.unit, { dismantle: value }))} /> : ''),
+      cell: (row) => (row.unit ? <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { dismantle: value }))} /> : ''),
     },
     {
       key: 'lines',
@@ -164,7 +162,7 @@ export function Kpi() {
             +
           </button>
           {row.lacking !== 'new' && (
-            <button className="row-action" title="Slett" onClick={() => confirm(`Slette ${row.name}${row.unit ? ` (${row.unit})` : ''}?`) && setKpi(removeKpiRow(kpi, row.productType, row.unit))}>
+            <button className="row-action" title="Slett" onClick={() => confirm(`Slette ${row.name}${row.unit ? ` (${row.unit})` : ''}?`) && setKpi(removeKpiRow(kpi, row.name, row.unit))}>
               <X size={13} aria-hidden />
             </button>
           )}
@@ -254,7 +252,7 @@ export function Kpi() {
           onClose={() => setAdding(null)}
           onAdd={(row) => {
             // A type the exports name is set up with its text from Visma.
-            setKpi(addKpiRow(kpi, { ...row, name: rows.find((known) => productTypeKey(known.name) === productTypeKey(row.name))?.productType ?? row.name }))
+            setKpi(addKpiRow(kpi, { ...row, name: rows.find((known) => productTypeKey(known.name) === productTypeKey(row.name))?.name ?? row.name }))
             setAdding(null)
           }}
         />

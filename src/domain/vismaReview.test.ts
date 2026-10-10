@@ -6,19 +6,19 @@ import { countOf, matchesFilter, reviewVisma } from './vismaReview'
 
 const kpi: KpiConfig = {
   workTypes: [
-    { productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' },
-    { productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
+    { productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' },
+    { productType: 'Print', unit: 'ordre', competence: 'Print' },
   ],
   rates: [
     { name: 'FOGA-vegger', unit: 'lm', assembly: 7, dismantle: 14 },
     { name: 'Print', unit: 'ordre', assembly: 1, dismantle: 0 },
   ],
 }
-const row = (overrides: Partial<VismaRow>): VismaRow => ({ projectNo: '26970', eventName: 'VVS 2026', stand: 'C04-44', transInfo: '', customer: '', avdeling: '65', orderNo: '', articleNo: '', description: '', quantity: 1, productGroup: '', productType: '14 [FOGA-vegger]', ...overrides })
+const row = (overrides: Partial<VismaRow>): VismaRow => ({ projectNo: '26970', eventName: 'VVS 2026', stand: 'C04-44', transInfo: '', customer: '', avdeling: '65', orderNo: '', articleNo: '', description: '', quantity: 1, productGroup: '', productType: 'FOGA-vegger', ...overrides })
 const imported = (projectNo: string, rows: VismaRow[]): VismaImport => ({ projectNo, eventName: '', fileName: 'utskrift.xlsx', importedAt: '', rows: rows.map((r) => ({ ...r, projectNo })) })
 
 const visma = [
-  imported('26970', [row({ quantity: 10 }), row({ quantity: 21, stand: 'D01-01' }), row({ productType: '23 [Print]', quantity: 3 }), row({ productType: '0', stand: '', transInfo: 'Møterom hall E1', avdeling: '32' })]),
+  imported('26970', [row({ quantity: 10 }), row({ quantity: 21, stand: 'D01-01' }), row({ productType: 'Print', quantity: 3 }), row({ productType: '', stand: '', transInfo: 'Møterom hall E1', avdeling: '32' })]),
   imported('26100', [row({ quantity: 5 })]),
 ]
 const halls = ['C', 'D']

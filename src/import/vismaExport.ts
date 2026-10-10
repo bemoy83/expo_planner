@@ -4,6 +4,17 @@ import { dataRows, findHeader, num, readXlsx, text } from './xlsx'
 
 export class VismaFormatError extends Error {}
 
+/**
+ * The name of a product type from «Produkttype 2», where Visma writes it with a number in front and in brackets:
+ * «14 [FOGA-vegger]» is «FOGA-vegger», and «1 [5999 [Diverse]]» is «5999 Diverse». Empty where the text has no
+ * brackets, as «0»: the line has no product type. Only what Visma writes is read here; the app knows the name alone.
+ */
+export const vismaProductType = (text: string): string => {
+  const open = text.indexOf('[')
+  const close = text.indexOf(']')
+  return close > open && open >= 0 ? text.slice(open + 1, close).replace(/[[\]]/g, ' ').replace(/\s+/g, ' ').trim() : ''
+}
+
 /** Reads a Visma booking export (`utskrift_visma`). The total row and rows without a project are left out; every project must have its name, see `withProjectNames`. */
 export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
   for (const sheet of readXlsx(bytes).values()) {
@@ -29,7 +40,7 @@ export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
         description: text(cell(row, 'beskrivelse')),
         quantity: num(cell(row, 'totalt antall')) ?? 0,
         productGroup: text(cell(row, 'varegr')),
-        productType: text(cell(row, 'produkttype 2')),
+        productType: vismaProductType(text(cell(row, 'produkttype 2'))),
       })
     }
     if (rows.length) return withProjectNames(rows)

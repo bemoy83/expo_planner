@@ -1,6 +1,6 @@
-import { kpiRows, type KpiFile } from '../domain/kpi'
+import { kpiRows, productTypeKey, productTypeName, type KpiFile } from '../domain/kpi'
 import type { KpiConfig, KpiRate, VismaImport, WorkTypeRule } from '../domain/types'
-import { productTypeKey, productTypeName } from '../domain/visma'
+import { vismaProductType } from './vismaExport'
 import { dataRows, findHeader, isMarked, num, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
 
 /**
@@ -19,13 +19,13 @@ const NAMES = {
   competence: ['kompetanse', 'kompetansegruppe', 'kompetanse (nøkkelområde)'],
 }
 
-/** The setup as a workbook. A product type the Visma exports name is written as Visma has it. A rate of 0 is left empty. */
+/** The setup as a workbook, a product type by its name. A rate of 0 is left empty. */
 export const writeKpiWorkbook = (kpi: KpiConfig, visma: VismaImport[] = []): Uint8Array => {
   const rows = kpiRows(kpi, visma)
     // A type that only occurs in an export is not part of the setup yet.
     .filter((row) => row.lacking !== 'new')
     .sort((a, b) => a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
-    .map((row): CellValue[] => [row.productType, row.unit, row.active ? IN_USE : '', row.competence, row.assembly || null, row.dismantle || null])
+    .map((row): CellValue[] => [row.name, row.unit, row.active ? IN_USE : '', row.competence, row.assembly || null, row.dismantle || null])
   return writeXlsx([{ name: 'KPI', head: HEAD, rows }])
 }
 
@@ -44,11 +44,12 @@ export const readKpiWorkbook = (bytes: Uint8Array): KpiFile => {
     const types = new Map<string, WorkTypeRule & { units: Set<string>; marked: string }>()
     for (const row of dataRows(sheet, header.row)) {
       const get = (col: number | undefined) => (col === undefined ? null : (sheet.rows.get(row)?.get(col) ?? null))
-      const productType = text(get(columns.productType))
-      if (!productType) continue
+      const written = text(get(columns.productType))
+      // `Kpier.xlsx` names a product type as Visma does, «14 [FOGA-vegger]»; a file the app has written has the name.
+      const name = vismaProductType(written) || productTypeName(written)
+      if (!name) continue
       const unit = text(get(columns.unit))
-      const name = productTypeName(productType)
-      const type = types.get(productTypeKey(name)) ?? { productType, unit: '', competence: '', units: new Set<string>(), marked: '' }
+      const type = types.get(productTypeKey(name)) ?? { productType: name, unit: '', competence: '', units: new Set<string>(), marked: '' }
       type.competence ||= text(get(columns.competence))
       types.set(productTypeKey(name), type)
       // A row without a unit names the product type only: a rate cannot be without a unit.

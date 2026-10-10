@@ -10,7 +10,7 @@ const ws: Workspace = {
   projects: [],
   demand: [],
   allocations: [],
-  kpi: { workTypes: [{ productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' }, { productType: '23 [Print]', unit: 'ordre', competence: 'Print' }], rates: [] },
+  kpi: { workTypes: [{ productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' }, { productType: 'Print', unit: 'ordre', competence: 'Print' }], rates: [] },
   persons: [
     { id: 'p1', name: 'Anna', order: 0, active: true, competences: ['foga', 'print'], note: 'Leder' },
     { id: 'p2', name: 'Bjarne', order: 1, active: false, competences: ['print'] },

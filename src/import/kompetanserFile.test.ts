@@ -10,7 +10,7 @@ const base: Workspace = {
   projects: [],
   demand: [],
   allocations: [],
-  kpi: { workTypes: [{ productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' }, { productType: '23 [Print]', unit: 'ordre', competence: 'Print' }], rates: [] },
+  kpi: { workTypes: [{ productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' }, { productType: 'Print', unit: 'ordre', competence: 'Print' }], rates: [] },
 }
 const ws: Workspace = { ...base, competenceStyles: setCompetenceStyle(base, 'print', { shortLabel: 'PR', color: 'line-rose' }) }
 

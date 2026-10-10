@@ -1,5 +1,4 @@
 import { withOneCompetenceName } from '../domain/competences'
-import { withoutStoredNames } from '../domain/kpi'
 import { withEventLinksAsProjects } from '../domain/projects'
 import { withSettingsDefaults, type Workspace } from '../domain/types'
 
@@ -41,7 +40,7 @@ export const parseBackup = (json: string): Workspace => {
   if (importedFrom || (isArray(capacity) && capacity.length) || ws.demand.some((line) => !line.origin)) {
     throw new Error('Sikkerhetskopien er laget fra planleggingsarbeidsboken og kan ikke gjenopprettes. Start på nytt og les inn kildene fra Venyou og Visma.')
   }
-  // A backup made before a setting existed gets its default, one made while product types held their names loses them, and one made while a competence could go by two names gets one.
+  // A backup made before a setting existed gets its default, and one made while a competence could go by two names gets one.
   // Numbers typed on the events become names in the project table.
-  return withEventLinksAsProjects(withOneCompetenceName({ ...(ws as Workspace), settings: withSettingsDefaults(ws.settings), ...(ws.kpi ? { kpi: withoutStoredNames(ws.kpi) } : {}) }))
+  return withEventLinksAsProjects(withOneCompetenceName({ ...(ws as Workspace), settings: withSettingsDefaults(ws.settings) }))
 }

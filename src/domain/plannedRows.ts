@@ -1,5 +1,5 @@
 import { buildDemandIndex, requiredHours } from './calc'
-import { productTypeKey } from './visma'
+import { productTypeKey } from './kpi'
 import { PLANNED_BASIS, type AllocationRow, type DemandLine, type KpiConfig } from './types'
 
 /**

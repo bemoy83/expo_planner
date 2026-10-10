@@ -8,32 +8,15 @@ import {
   type VismaImport,
   type VismaRow,
 } from './types'
+import { productTypeKey } from './kpi'
 
 /**
  * Turns Visma booking lines into demand lines the way the planner's «Nøkkeltall Visma» workbook does:
  * one line per project × Avdeling × work type × hall, quantity ÷ KPI rate = hours.
  */
 
+/** The work type of booking lines that have no product type, as the planner's workbook called it. */
 export const NO_PRODUCT_TYPE = '01_ingen produkttype'
-
-/** «14 [FOGA-vegger]» → «FOGA-vegger»; «1 [5999 [Diverse]]» → «5999 [Diverse» (first «[» to first «]», as the workbook does). */
-export const workTypeName = (productType: string): string => {
-  const close = productType.indexOf(']')
-  const open = productType.indexOf('[')
-  return close > open && open >= 0 ? productType.slice(open + 1, close) : NO_PRODUCT_TYPE
-}
-
-/** The name of a product type: the text in the brackets of its Visma text, or the text itself for a type added by hand. */
-export const productTypeName = (productType: string): string => {
-  const name = workTypeName(productType)
-  return name === NO_PRODUCT_TYPE ? productType.trim() : name
-}
-
-/** A product type as it is shown, from its Visma text or its name: «1 [5999 [Diverse]]» and «5999 [Diverse» → «5999 Diverse». */
-export const productTypeLabel = (productType: string): string => productTypeName(productType).replace(/[[\]]/g, ' ').replace(/\s+/g, ' ').trim()
-
-/** What product types are matched by: its Visma text, its name and its label all name the same type. */
-export const productTypeKey = (productType: string): string => productTypeLabel(productType).toLowerCase()
 
 /** «C04-44» → «Hall C»; without a stand, the free-text location is the hall. */
 export const hallOf = (row: Pick<VismaRow, 'stand' | 'transInfo'>): string => (row.stand ? `Hall ${row.stand[0]}` : row.transInfo)
@@ -97,7 +80,7 @@ interface Group {
 const groupRows = (rows: VismaRow[]): Group[] => {
   const groups = new Map<string, Group>()
   for (const row of rows) {
-    const workType = workTypeName(row.productType)
+    const workType = row.productType || NO_PRODUCT_TYPE
     const hall = hallOf(row)
     const key = vismaLineKey(row.projectNo, row.avdeling, workType, hall)
     let group = groups.get(key)

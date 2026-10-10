@@ -33,11 +33,6 @@ describe('backup', () => {
     expect(restored.settings.workday).toEqual(DEFAULT_SETTINGS.workday)
   })
 
-  it('takes a backup from when a product type held its name beside its Visma text', () => {
-    const old = { ...toBackup(workspace), workspace: { ...workspace, kpi: { workTypes: [{ name: 'Print', productType: '23 [Print]', unit: 'ordre', competence: 'Print' }], rates: [] } } }
-    expect(parseBackup(JSON.stringify(old)).kpi).toEqual({ workTypes: [{ productType: '23 [Print]', unit: 'ordre', competence: 'Print' }], rates: [] })
-  })
-
   it('takes a backup from when the workspace had typed staffing lines, as long as it has none', () => {
     const old = { ...toBackup(workspace), workspace: { ...workspace, capacity: [] } }
     expect(parseBackup(JSON.stringify(old))).toEqual(workspace)

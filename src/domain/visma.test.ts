@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
-import { buildVismaLines, hallOf, orphanedDecisions, productTypeKey, productTypeLabel, productTypeName, vismaDemandLines, vismaLineKey, withProjectNames, workTypeName } from './visma'
+import { buildVismaLines, hallOf, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
-    { productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' },
-    { productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
-    { productType: '31 [Teppefliser]', unit: 'm²', competence: 'Teppefliser' },
+    { productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' },
+    { productType: 'Print', unit: 'ordre', competence: 'Print' },
+    { productType: 'Teppefliser', unit: 'm²', competence: 'Teppefliser' },
   ],
   rates: [
     { name: 'FOGA-vegger', unit: 'lm', assembly: 7, dismantle: 14 },
@@ -27,7 +27,7 @@ const row = (overrides: Partial<VismaRow>): VismaRow => ({
   description: '',
   quantity: 1,
   productGroup: '',
-  productType: '14 [FOGA-vegger]',
+  productType: 'FOGA-vegger',
   ...overrides,
 })
 
@@ -36,17 +36,14 @@ const rows = [
   row({ quantity: 4, stand: 'C02-10' }),
   row({ quantity: -4, stand: 'C02-10' }),
   row({ quantity: 21, stand: 'D01-01' }),
-  row({ productType: '23 [Print]', stand: 'C04-44', quantity: 3 }),
-  row({ productType: '23 [Print]', stand: 'C04-44', quantity: 2 }),
-  row({ productType: '23 [Print]', stand: 'C09-01', quantity: 1 }),
-  row({ productType: '0', stand: '', transInfo: 'Møterom hall E1', avdeling: '32', quantity: 100 }),
+  row({ productType: 'Print', stand: 'C04-44', quantity: 3 }),
+  row({ productType: 'Print', stand: 'C04-44', quantity: 2 }),
+  row({ productType: 'Print', stand: 'C09-01', quantity: 1 }),
+  row({ productType: '', stand: '', transInfo: 'Møterom hall E1', avdeling: '32', quantity: 100 }),
 ]
 
 describe('Visma lines', () => {
-  it('reads the work type and hall like the workbook', () => {
-    expect(workTypeName('14 [FOGA-vegger]')).toBe('FOGA-vegger')
-    expect(workTypeName('1 [5999 [Diverse]]')).toBe('5999 [Diverse')
-    expect(workTypeName('0')).toBe('01_ingen produkttype')
+  it('reads the hall like the workbook', () => {
     expect(hallOf({ stand: 'C04-44', transInfo: '' })).toBe('Hall C')
     expect(hallOf({ stand: '', transInfo: 'Hall C og D' })).toBe('Hall C og D')
   })
@@ -132,27 +129,9 @@ describe('withProjectNames', () => {
 })
 
 describe('product type names', () => {
-  it('reads the name from the Visma text, and takes a text without brackets as the name', () => {
-    expect(productTypeName('14 [FOGA-vegger]')).toBe('FOGA-vegger')
-    expect(productTypeName(' Egen type ')).toBe('Egen type')
-    expect(productTypeName('1 [5999 [Diverse]]')).toBe(workTypeName('1 [5999 [Diverse]]'))
-  })
-
-  it('shows a name without brackets, keeping a number that is part of it', () => {
-    expect(productTypeLabel('14 [FOGA-vegger]')).toBe('FOGA-vegger')
-    expect(productTypeLabel('1 [5999 [Diverse]]')).toBe('5999 Diverse')
-    expect(productTypeLabel('5999 [Diverse')).toBe('5999 Diverse')
-    expect(productTypeLabel('2 [6999 [Diverse]]')).not.toBe(productTypeLabel('1 [5999 [Diverse]]'))
-  })
-
-  it('matches the Visma text, the name and the label to one another', () => {
-    expect(new Set(['1 [5999 [Diverse]]', '5999 [Diverse', '5999 diverse'].map(productTypeKey)).size).toBe(1)
-    expect(productTypeKey('14 [FOGA-vegger]')).toBe(productTypeKey('foga-vegger'))
-  })
-
-  it('calculates the lines of a type whose name holds a bracket', () => {
-    const config: KpiConfig = { workTypes: [{ productType: '1 [5999 [Diverse]]', unit: 'stk', competence: 'Diverse' }], rates: [{ name: '5999 [Diverse', unit: 'stk', assembly: 2, dismantle: 4 }] }
-    const [line] = buildVismaLines([row({ productType: '1 [5999 [Diverse]]', quantity: 8 })], config, {})
-    expect(line).toMatchObject({ workType: '5999 [Diverse', competence: 'Diverse', assemblyHours: 4, dismantleHours: 2, issue: null })
+  it('finds the rule and the rate of a line by the name, whatever its case', () => {
+    const config: KpiConfig = { workTypes: [{ productType: '5999 Diverse', unit: 'stk', competence: 'Diverse' }], rates: [{ name: '5999 diverse', unit: 'stk', assembly: 2, dismantle: 4 }] }
+    const [line] = buildVismaLines([row({ productType: '5999 DIVERSE', quantity: 8 })], config, {})
+    expect(line).toMatchObject({ workType: '5999 DIVERSE', competence: 'Diverse', assemblyHours: 4, dismantleHours: 2, issue: null })
   })
 })

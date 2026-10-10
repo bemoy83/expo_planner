@@ -1,4 +1,4 @@
-import { productTypeKey } from './visma'
+import { productTypeKey } from './kpi'
 import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type KpiConfig, type LineColor, type Person, type Workspace } from './types'
 
 /**

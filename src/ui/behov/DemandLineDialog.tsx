@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
-import { productTypeKey, productTypeLabel } from '../../domain/visma'
+import { productTypeKey } from '../../domain/kpi'
 import { useWorkspace } from '../../store/workspaceStore'
 import { PickField } from '../fields'
 
@@ -33,7 +33,7 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
   const [comment, setComment] = useState(line?.comment ?? '')
 
   const workTypes = useMemo(() => ws.kpi?.workTypes ?? [], [ws.kpi])
-  const workTypeNames = useMemo(() => workTypes.map((t) => productTypeLabel(t.productType)), [workTypes])
+  const workTypeNames = useMemo(() => workTypes.map((t) => t.productType), [workTypes])
   const workTypeNote = (name: string) => {
     const rule = workTypes.find((t) => productTypeKey(t.productType) === productTypeKey(name))
     return rule && [rule.unit, rule.competence].filter(Boolean).join(' · ')

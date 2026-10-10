@@ -1,20 +1,17 @@
 import type { KpiConfig, KpiRate, VismaImport, WorkTypeRule } from './types'
-import { NO_PRODUCT_TYPE, productTypeKey, productTypeLabel, productTypeName, workTypeName } from './visma'
 
 /**
  * The KPI setup as one editable table: a row per product type and unit, with the rates for that unit.
  * A product type can have rates for several units (lm and stk); exactly one unit is the one in use.
- * Product types that occur in the Visma exports are listed even before they are set up.
+ * Product types that occur in the orders read in are listed even before they are set up.
  */
 
 /** What a product type still lacks before its Visma lines give hours. Their hours are unknown until then, not 0. */
 export type Lacking = 'new' | 'no-unit-in-use' | 'unit' | 'competence' | 'rate'
 
 export interface KpiRow {
-  /** The product type as it is shown, see `productTypeLabel`. */
+  /** The name of the product type. */
   name: string
-  /** `Produkttype 2` as Visma writes it, where it has been seen or imported; else the name. The functions here take either. */
-  productType: string
   unit: string
   /** The competence (nøkkelområde) of the product type, the same on all its units. */
   competence: string
@@ -32,33 +29,23 @@ export interface KpiRow {
 
 export const EMPTY_KPI: KpiConfig = { workTypes: [], rates: [] }
 
+/** The name of a product type as it is kept: without spaces around it or several in a row. */
+export const productTypeName = (name: string): string => name.trim().replace(/\s+/g, ' ')
+
+/** What product types are matched by: the name, whatever its case. It joins an ordered line to its rule and its rate. */
+export const productTypeKey = (name: string): string => productTypeName(name).toLowerCase()
+
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
-/** Whether two texts name the same product type, each a Visma text, a name or a label. */
 const sameType = (a: string, b: string) => productTypeKey(a) === productTypeKey(b)
 const rateKey = (name: string, unit: string) => `${productTypeKey(name)}|${unit.trim().toLowerCase()}`
 
-/**
- * A setup stored while a product type held its name beside its Visma text. The text alone is kept; a type added
- * by hand, which had its name in brackets for a text, keeps the name.
- */
-export const withoutStoredNames = (kpi: KpiConfig): KpiConfig => {
-  const stored = kpi.workTypes as (WorkTypeRule & { name?: string })[]
-  if (!stored.some((rule) => rule.name !== undefined)) return kpi
-  const workTypes = stored.map(({ name, ...rule }): WorkTypeRule => {
-    if (name === undefined) return rule
-    const fromVisma = sameType(rule.productType, name) && !rule.productType.trim().startsWith('[')
-    return { ...rule, productType: fromVisma ? rule.productType : name }
-  })
-  return { ...kpi, workTypes }
-}
-
 export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => {
-  const seen = new Map<string, { productType: string; lines: number }>()
+  const seen = new Map<string, { name: string; lines: number }>()
   for (const source of visma) {
     for (const row of source.rows) {
-      if (workTypeName(row.productType) === NO_PRODUCT_TYPE) continue
+      if (!row.productType) continue
       const key = productTypeKey(row.productType)
-      const entry = seen.get(key) ?? { productType: row.productType, lines: 0 }
+      const entry = seen.get(key) ?? { name: row.productType, lines: 0 }
       entry.lines += 1
       seen.set(key, entry)
     }
@@ -77,18 +64,18 @@ export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => 
   const row = (name: string, unit: string, assembly: number, dismantle: number): KpiRow => {
     const rule = rules.get(productTypeKey(name))
     const used = seen.get(productTypeKey(name))
-    return { name: productTypeLabel(name), productType: used?.productType ?? rule?.productType ?? name, unit, competence: rule?.competence ?? '', assembly, dismantle, active: !!rule && same(rule.unit, unit), lines: used?.lines ?? 0, configured: !!rule, lacking: lackingOf(name) }
+    return { name: rule?.productType ?? used?.name ?? productTypeName(name), unit, competence: rule?.competence ?? '', assembly, dismantle, active: !!rule && same(rule.unit, unit), lines: used?.lines ?? 0, configured: !!rule, lacking: lackingOf(name) }
   }
   const rows = kpi.rates.map((rate) => row(rate.name, rate.unit, rate.assembly, rate.dismantle))
   for (const rule of kpi.workTypes) if (!rates.has(rateKey(rule.productType, rule.unit))) rows.push(row(rule.productType, rule.unit, 0, 0))
   // A product type whose unit is still to be chosen among its rates has no row of its own.
   const chosen = rows.filter((r) => r.unit !== '' || !kpi.rates.some((rate) => sameType(rate.name, r.name)))
   const listed = new Set(rows.map((r) => productTypeKey(r.name)))
-  for (const [key, entry] of seen) if (!listed.has(key)) chosen.push(row(entry.productType, '', 0, 0))
+  for (const [key, entry] of seen) if (!listed.has(key)) chosen.push(row(entry.name, '', 0, 0))
   return chosen.sort((a, b) => Number(a.configured) - Number(b.configured) || a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
 }
 
-const ruleFor = (productType: string, unit: string, competence: string): WorkTypeRule => ({ productType: productType.trim(), unit: unit.trim(), competence: competence.trim() })
+const ruleFor = (productType: string, unit: string, competence: string): WorkTypeRule => ({ productType: productTypeName(productType), unit: unit.trim(), competence: competence.trim() })
 
 /** Sets the rates for a work type and unit, adding the row if it is new. */
 export const setRate = (kpi: KpiConfig, name: string, unit: string, patch: Partial<Pick<KpiRate, 'assembly' | 'dismantle'>>): KpiConfig => {
@@ -225,4 +212,4 @@ export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): { work
 
 /** Booking lines in the held exports that Visma has no product type for. */
 export const linesWithoutProductType = (visma: VismaImport[]): number =>
-  visma.reduce((n, source) => n + source.rows.filter((row) => workTypeName(row.productType) === NO_PRODUCT_TYPE).length, 0)
+  visma.reduce((n, source) => n + source.rows.filter((row) => !row.productType).length, 0)

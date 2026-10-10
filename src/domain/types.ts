@@ -162,6 +162,7 @@ export interface VismaRow {
   description: string
   quantity: number
   productGroup: string
+  /** The name of the product type; empty where the line has none. */
   productType: string
 }
 
@@ -176,7 +177,7 @@ export interface VismaImport {
 
 /** How one Visma product type is counted and which competence it belongs to. */
 export interface WorkTypeRule {
-  /** `Produkttype 2` as Visma writes it, e.g. «14 [FOGA-vegger]», or the name typed for a type added by hand. Its name is worked out, see `productTypeName`. */
+  /** The name of the product type, «FOGA-vegger»: what joins an ordered line to its rate. See `productTypeKey`. */
   productType: string
   unit: string
   competence: string
@@ -184,7 +185,7 @@ export interface WorkTypeRule {
 
 /** Units of work done per person-hour for a work type and unit. */
 export interface KpiRate {
-  /** The name of the product type the rate is for, see `productTypeName`. */
+  /** The name of the product type the rate is for. */
   name: string
   unit: string
   assembly: number
