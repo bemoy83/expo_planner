@@ -5,8 +5,9 @@ import type { Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
 import { Menu, MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { download, errorText, XLSX_TYPE } from '../files'
+import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
+import { describeDiff, useTableFile } from '../useTableFile'
 import { DataTable } from '../DataTable'
 import { competenceColor } from '../dom'
 import { TextField } from '../fields'
@@ -20,7 +21,6 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
   const ws = workspace!
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
-  const [pending, setPending] = useState<{ file: string; people: FilePerson[] } | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
 
   const persons = useMemo(() => ws.persons ?? [], [ws.persons])
@@ -39,27 +39,24 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
     setPersons((list) => updatePerson(list, person.id, { name }))
   }
 
-  const onFile = async (file: File) => {
-    try {
-      const people = readPersonellWorkbook(new Uint8Array(await file.arrayBuffer()))
-      // Nothing to merge with while there are no people.
-      if (!persons.length) {
-        updateStaffing((w) => mergePersons(w, people))
-        setMessage({ kind: 'ok', text: `${file.name} lest inn: ${people.length === 1 ? '1 person' : `${people.length} personer`}.` })
-      } else setPending({ file: file.name, people })
-    } catch (e) {
-      setMessage({ kind: 'error', text: errorText(e) })
-    }
-  }
+  const { pending, onFile, done } = useTableFile<FilePerson[]>({
+    read: readPersonellWorkbook,
+    empty: !persons.length,
+    takeIn: (people, file) => {
+      updateStaffing((w) => mergePersons(w, people))
+      setMessage({ kind: 'ok', text: `${file} lest inn: ${people.length === 1 ? '1 person' : `${people.length} personer`}.` })
+    },
+    onError: (text) => setMessage({ kind: 'error', text }),
+  })
 
   const apply = (mode: 'merge' | 'replace') => {
     if (!pending) return
-    updateStaffing((w) => (mode === 'merge' ? mergePersons(w, pending.people) : replacePersons(w, pending.people)))
+    updateStaffing((w) => (mode === 'merge' ? mergePersons(w, pending.incoming) : replacePersons(w, pending.incoming)))
     setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med personene' : 'har erstattet personene'}. Kan angres med Ctrl/Cmd+Z.` })
-    setPending(null)
+    done()
   }
 
-  const diff = pending ? diffPersons(ws, pending.people) : null
+  const diff = pending ? diffPersons(ws, pending.incoming) : null
 
   const remove = (person: Person) => {
     const blocks = (ws.assignments ?? []).filter((a) => a.personId === person.id).length
@@ -175,13 +172,13 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
           title="Importer personell"
           source={pending.file}
           results={[
-            `Personer: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`,
+            describeDiff('Personer', diff),
             ...(diff.newCompetences.length ? [`Nye kompetanser: ${diff.newCompetences.join(', ')}`] : []),
           ]}
           replaceText={`personene i appen byttes ut med dem i filen, i filens rekkefølge${
             diff.onlyInApp ? `; ${diff.onlyInApp === 1 ? '1 person' : `${diff.onlyInApp} personer`} som bare finnes i appen slettes${diff.lostBlocks ? `, med ${diff.lostBlocks} tildelinger og fravær i Bemanning` : ''}` : ''
           }`}
-          onCancel={() => setPending(null)}
+          onCancel={done}
           onApply={apply}
         />
       )}

@@ -1,3 +1,4 @@
+import { diffBy, type TableDiff } from './tableDiff'
 import type { KpiConfig, KpiRate, VismaImport, WorkTypeRule } from './types'
 
 /**
@@ -177,34 +178,12 @@ export const replaceKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): Kpi
   return { workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming, rates) : existing.workTypes, rates }
 }
 
-export interface KpiDiff {
-  added: number
-  changed: number
-  /** Rows in the app that the file does not have: kept when merging, removed when replacing. */
-  onlyInApp: number
-  unchanged: number
-}
-
-const diffPart = <T,>(existing: T[], incoming: T[] | undefined, key: (item: T) => string, equal: (a: T, b: T) => boolean): KpiDiff => {
-  const diff: KpiDiff = { added: 0, changed: 0, onlyInApp: 0, unchanged: 0 }
-  if (!incoming) return diff
-  const old = new Map(existing.map((item) => [key(item), item]))
-  const seen = new Set<string>()
-  for (const item of incoming) {
-    const k = key(item)
-    if (seen.has(k)) continue
-    seen.add(k)
-    const previous = old.get(k)
-    if (!previous) diff.added += 1
-    else if (equal(previous, item)) diff.unchanged += 1
-    else diff.changed += 1
-  }
-  diff.onlyInApp = [...old.keys()].filter((k) => !seen.has(k)).length
-  return diff
-}
+const NO_DIFF: TableDiff = { added: 0, changed: 0, unchanged: 0, onlyInApp: 0 }
+/** A part the file lacks changes nothing. */
+const diffPart = <T,>(existing: T[], incoming: T[] | undefined, key: (item: T) => string, equal: (a: T, b: T) => boolean): TableDiff => (incoming ? diffBy(existing, incoming, key, equal) : NO_DIFF)
 
 /** What a KPI file would change, for the work types and for the rates. */
-export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): { workTypes: KpiDiff; rates: KpiDiff } => ({
+export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): { workTypes: TableDiff; rates: TableDiff } => ({
   // Counted as they would be taken in: a unit the planner has chosen is no change.
   workTypes: diffPart(existing.workTypes, incoming.workTypes && keepChosenUnits(existing, incoming, [...existing.rates, ...(incoming.rates ?? [])]), (rule) => productTypeKey(rule.productType), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
   rates: diffPart(existing.rates, incoming.rates, (rate) => rateKey(rate.name, rate.unit), (a, b) => a.assembly === b.assembly && a.dismantle === b.dismantle),

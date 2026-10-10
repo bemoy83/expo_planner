@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, productTypeKey, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiDiff, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, productTypeKey, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import { readKpiWorkbook, writeKpiWorkbook } from '../../import/kpiFile'
 import { todayIso } from '../../domain/dates'
@@ -7,17 +7,12 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { download, errorText, XLSX_TYPE } from '../files'
+import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
+import { describeDiff, useTableFile } from '../useTableFile'
 import { NumberField, PickField, TextField } from '../fields'
 import { X } from 'lucide-react'
 
-interface PendingImport {
-  file: string
-  incoming: KpiFile
-}
-
-const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
 
 /** Whether the row is the first of its product type among the rows shown: its name is in bold, and a line is drawn above it. */
 const firstOfType = (row: KpiRow, index: number, rows: KpiRow[]) => index === 0 || rows[index - 1].name !== row.name
@@ -41,7 +36,6 @@ export function Kpi() {
   const kpi = ws.kpi ?? EMPTY_KPI
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState<Partial<NewKpiRow> | null>(null)
-  const [pending, setPending] = useState<PendingImport | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
 
   const rows = useMemo(() => kpiRows(kpi, ws.visma ?? []), [kpi, ws.visma])
@@ -56,19 +50,16 @@ export function Kpi() {
   const unfinished = useMemo(() => new Set(rows.filter((row) => row.lacking && (row.configured || row.lines > 0)).map((row) => row.name)).size, [rows])
   const untyped = useMemo(() => linesWithoutProductType(ws.visma ?? []), [ws.visma])
 
-  const onFile = async (file: File) => {
-    try {
-      const incoming = readKpiWorkbook(new Uint8Array(await file.arrayBuffer()))
-      // Nothing to merge with while the table is empty.
-      if (!kpi.rates.length && !kpi.workTypes.length) {
-        setKpi(replaceKpi(kpi, incoming))
-        const toChoose = incoming.workTypes.filter((rule) => !rule.unit).length
-        setMessage({ kind: 'ok', text: `${file.name} lest inn: ${incoming.workTypes.length} produkttyper og ${incoming.rates.length} satser.${toChoose ? ` ${toChoose} produkttyper har flere enheter; velg hvilken som er i bruk.` : ''}` })
-      } else setPending({ file: file.name, incoming })
-    } catch (e) {
-      setMessage({ kind: 'error', text: errorText(e) })
-    }
-  }
+  const { pending, onFile, done } = useTableFile<KpiFile>({
+    read: readKpiWorkbook,
+    empty: !kpi.rates.length && !kpi.workTypes.length,
+    takeIn: (incoming, file) => {
+      setKpi(replaceKpi(kpi, incoming))
+      const toChoose = incoming.workTypes.filter((rule) => !rule.unit).length
+      setMessage({ kind: 'ok', text: `${file} lest inn: ${incoming.workTypes.length} produkttyper og ${incoming.rates.length} satser.${toChoose ? ` ${toChoose} produkttyper har flere enheter; velg hvilken som er i bruk.` : ''}` })
+    },
+    onError: (text) => setMessage({ kind: 'error', text }),
+  })
 
   const exportFile = () => download(`expo-planner-kpi-${todayIso()}.xlsx`, writeKpiWorkbook(kpi, ws.visma ?? []), XLSX_TYPE)
 
@@ -76,7 +67,7 @@ export function Kpi() {
     if (!pending) return
     setKpi(mode === 'merge' ? mergeKpi(kpi, pending.incoming) : replaceKpi(kpi, pending.incoming))
     setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med oppsettet' : 'har erstattet oppsettet'}. Kan angres med Ctrl/Cmd+Z.` })
-    setPending(null)
+    done()
   }
 
   /** Says so when rows already planned in the Kalender followed the product type to its new competence. */
@@ -236,7 +227,7 @@ export function Kpi() {
           replaceText={`produkttypene og satsene i appen byttes helt ut med filen; ${pending.incoming.unitsInUse ? 'enheten i bruk er den filen merker, og ellers den du har valgt' : 'enheten du har valgt for en produkttype beholdes så lenge den har sats'}${
             diff.workTypes.onlyInApp + diff.rates.onlyInApp > 0 ? `; ${diff.workTypes.onlyInApp + diff.rates.onlyInApp} rader som bare finnes i appen forsvinner` : ''
           }`}
-          onCancel={() => setPending(null)}
+          onCancel={done}
           onApply={apply}
         />
       )}

@@ -1,4 +1,5 @@
 import type { ISODate } from './dates'
+import { diffBy, type TableDiff } from './tableDiff'
 import { VENUE_PHASES, type AllocationRow, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { anchorDate } from './venueImport'
 
@@ -190,31 +191,14 @@ export const mergeProjectList = (existing: ProjectRef[], incoming: ProjectRef[])
 /** The table as the file has it. */
 export const replaceProjectList = (incoming: ProjectRef[]): ProjectRef[] => cleaned(incoming)
 
-export interface ProjectDiff {
-  added: number
-  changed: number
-  unchanged: number
-  onlyInApp: number
-}
-
 /** What a file would change, counted in names: new ones, ones that go to another project, and ones only the app has. */
-export const diffProjectList = (existing: ProjectRef[], incoming: ProjectRef[]): ProjectDiff => {
+export const diffProjectList = (existing: ProjectRef[], incoming: ProjectRef[]): TableDiff => {
   const numbers = (refs: ProjectRef[]) => {
     const map = new Map<string, Set<string>>()
     for (const ref of cleaned(refs)) map.set(refKey(ref), (map.get(refKey(ref)) ?? new Set()).add(ref.projectNo.toLowerCase()))
-    return map
+    return [...map]
   }
-  const app = numbers(existing)
-  const file = numbers(incoming)
-  const diff = { added: 0, changed: 0, unchanged: 0, onlyInApp: 0 }
-  for (const [key, to] of file) {
-    const from = app.get(key)
-    if (!from) diff.added += 1
-    else if (from.size === to.size && [...from].every((no) => to.has(no))) diff.unchanged += 1
-    else diff.changed += 1
-  }
-  for (const key of app.keys()) if (!file.has(key)) diff.onlyInApp += 1
-  return diff
+  return diffBy(numbers(existing), numbers(incoming), ([key]) => key, ([, from], [, to]) => from.size === to.size && [...from].every((no) => to.has(no)))
 }
 
 /**

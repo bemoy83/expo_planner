@@ -5,8 +5,9 @@ import { LINE_COLORS, type CompetenceStyle } from '../../domain/types'
 import { COLOR_NAMES, readKompetanserWorkbook, writeKompetanserWorkbook } from '../../import/kompetanserFile'
 import { useWorkspace } from '../../store/workspaceStore'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { download, errorText, XLSX_TYPE } from '../files'
+import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
+import { describeDiff, useTableFile } from '../useTableFile'
 import { DataTable } from '../DataTable'
 import { competenceColor } from '../dom'
 import { TextField } from '../fields'
@@ -45,7 +46,6 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
   const ws = workspace!
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
-  const [pending, setPending] = useState<{ file: string; rows: FileCompetence[] } | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
 
@@ -65,22 +65,17 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
     setMessage({ kind: 'ok', text: `${style.label} heter nå ${label}, overalt: i KPI, Behov, Kalender, Personell og Bemanning. Kan angres med Ctrl/Cmd+Z.` })
   }
 
-  const onFile = async (file: File) => {
-    try {
-      setPending({ file: file.name, rows: readKompetanserWorkbook(new Uint8Array(await file.arrayBuffer())) })
-    } catch (e) {
-      setMessage({ kind: 'error', text: errorText(e) })
-    }
-  }
+  // The competences come from the product types and the people, so there is always a list for the file to be held against.
+  const { pending, onFile, done } = useTableFile<FileCompetence[]>({ read: readKompetanserWorkbook, empty: false, takeIn: () => {}, onError: (text) => setMessage({ kind: 'error', text }) })
 
   const apply = (mode: 'merge' | 'replace') => {
     if (!pending) return
-    updateStaffing((w) => ({ ...w, competenceStyles: mergeCompetenceStyles(w, pending.rows, mode === 'replace') }))
+    updateStaffing((w) => ({ ...w, competenceStyles: mergeCompetenceStyles(w, pending.incoming, mode === 'replace') }))
     setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med kompetansene' : 'har erstattet kompetansene'}. Kan angres med Ctrl/Cmd+Z.` })
-    setPending(null)
+    done()
   }
 
-  const diff = pending ? diffCompetenceStyles(ws, pending.rows) : null
+  const diff = pending ? diffCompetenceStyles(ws, pending.incoming) : null
 
   /** Whether the rows shown are all the competences in their own order: only then can they be moved. */
   const inOwnOrder = (rows: CompetenceStyle[]) => rows.length === styles.length && rows.every((row, index) => row === styles[index])
@@ -223,9 +218,9 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
         <MergeReplaceDialog
           title="Importer kompetanser"
           source={pending.file}
-          results={[`Kompetanser: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`, 'Kompetansene i filen kommer først, i filens rekkefølge. Et navn appen ikke kjenner, blir en ny kompetanse; gi nytt navn i appen, ikke i filen.']}
+          results={[describeDiff('Kompetanser', diff), 'Kompetansene i filen kommer først, i filens rekkefølge. Et navn appen ikke kjenner, blir en ny kompetanse; gi nytt navn i appen, ikke i filen.']}
           replaceText={`kompetanser som bare finnes i appen mister kortnavn, farge og plass${diff.onlyInApp - diff.inUse ? `; ${diff.onlyInApp - diff.inUse} som ingen bruker forsvinner` : ''}${diff.inUse ? `; ${diff.inUse} som er i bruk blir stående, sist i listen` : ''}`}
-          onCancel={() => setPending(null)}
+          onCancel={done}
           onApply={apply}
         />
       )}

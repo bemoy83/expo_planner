@@ -8,14 +8,10 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { download, errorText, XLSX_TYPE } from '../files'
+import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
+import { describeDiff, useTableFile } from '../useTableFile'
 import { PickField, TextField } from '../fields'
-
-interface PendingImport {
-  file: string
-  incoming: ProjectRef[]
-}
 
 const LACKING_TEXT: Record<ProjectLacking, string> = {
   number: 'Mangler prosjekt',
@@ -41,7 +37,6 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
   const projects = ws.projects
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
-  const [pending, setPending] = useState<PendingImport | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
 
   const rows = useMemo(() => projectRows(ws), [ws.venue, ws.projects, ws.visma, ws.demand, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -100,23 +95,20 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
     save(withoutProjectName(projects, row.projectNo, name))
   }
 
-  const onFile = async (file: File) => {
-    try {
-      const incoming = readProsjekterWorkbook(new Uint8Array(await file.arrayBuffer()))
-      // Nothing to merge with while the table is empty.
-      if (!projects.length) {
-        const next = replaceProjectList(incoming)
-        save(next, `${file.name} lest inn: ${new Set(next.map((ref) => ref.projectNo.toLowerCase())).size} prosjekter med ${next.length} navn.`)
-      } else setPending({ file: file.name, incoming })
-    } catch (e) {
-      setMessage({ kind: 'error', text: errorText(e) })
-    }
-  }
+  const { pending, onFile, done } = useTableFile<ProjectRef[]>({
+    read: readProsjekterWorkbook,
+    empty: !projects.length,
+    takeIn: (incoming, file) => {
+      const next = replaceProjectList(incoming)
+      save(next, `${file} lest inn: ${new Set(next.map((ref) => ref.projectNo.toLowerCase())).size} prosjekter med ${next.length} navn.`)
+    },
+    onError: (text) => setMessage({ kind: 'error', text }),
+  })
 
   const apply = (mode: 'merge' | 'replace') => {
     if (!pending) return
     save(mode === 'merge' ? mergeProjectList(projects, pending.incoming) : replaceProjectList(pending.incoming), `${pending.file} ${mode === 'merge' ? 'slått sammen med tabellen' : 'har erstattet tabellen'}.`)
-    setPending(null)
+    done()
   }
 
   const diff = pending ? diffProjectList(projects, pending.incoming) : null
@@ -304,9 +296,9 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
         <MergeReplaceDialog
           title="Importer prosjekter"
           source={pending.file}
-          results={[`Navn: ${diff.added} nye, ${diff.changed} til et annet prosjekt, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`]}
+          results={[describeDiff('Navn', diff, 'til et annet prosjekt')]}
           replaceText={`tabellen byttes helt ut med filen${diff.onlyInApp > 0 ? `; ${diff.onlyInApp} navn som bare finnes i appen forsvinner` : ''}`}
-          onCancel={() => setPending(null)}
+          onCancel={done}
           onApply={apply}
         />
       )}

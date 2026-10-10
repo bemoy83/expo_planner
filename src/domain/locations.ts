@@ -1,3 +1,4 @@
+import { diffBy, type TableDiff } from './tableDiff'
 import type { AllocationRow, DemandLine, HallRules } from './types'
 
 /**
@@ -304,14 +305,6 @@ export const locateRows = (rows: AllocationRow[], halls: string[], rules?: HallR
     return hall === row.hall ? row : { ...row, hall }
   })
 
-/** What a file would change in one of the three lists. */
-export interface SetupDiff {
-  added: number
-  changed: number
-  unchanged: number
-  onlyInApp: number
-}
-
 const samePlace = (a: HallRules['places'][number], b: HallRules['places'][number]): boolean =>
   (a.collects !== false) === (b.collects !== false) && a.halls.length === b.halls.length && a.halls.every((hall) => b.halls.some((other) => lower(other) === lower(hall)))
 
@@ -330,23 +323,8 @@ export const mergeHallRules = (existing: HallRules, incoming: HallRules): HallRu
 }
 
 /** What a file would change: in the places, the word rules and the choices. */
-export const diffHallRules = (existing: HallRules, incoming: HallRules): { places: SetupDiff; phrases: SetupDiff; choices: SetupDiff } => {
-  const diff = <T,>(app: T[], file: T[], key: (item: T) => string, same: (a: T, b: T) => boolean): SetupDiff => {
-    const known = new Map(app.map((item) => [key(item), item]))
-    const out = { added: 0, changed: 0, unchanged: 0, onlyInApp: 0 }
-    for (const item of file) {
-      const before = known.get(key(item))
-      if (!before) out.added += 1
-      else if (same(before, item)) out.unchanged += 1
-      else out.changed += 1
-    }
-    const inFile = new Set(file.map(key))
-    out.onlyInApp = app.filter((item) => !inFile.has(key(item))).length
-    return out
-  }
-  return {
-    places: diff(existing.places, incoming.places, (place) => lower(place.name), samePlace),
-    phrases: diff(existing.phrases, incoming.phrases, (phrase) => lower(phrase.text), (a, b) => lower(a.hall) === lower(b.hall)),
-    choices: diff(Object.entries(existing.choices), Object.entries(incoming.choices), ([key]) => key, (a, b) => lower(a[1]) === lower(b[1])),
-  }
-}
+export const diffHallRules = (existing: HallRules, incoming: HallRules): { places: TableDiff; phrases: TableDiff; choices: TableDiff } => ({
+    places: diffBy(existing.places, incoming.places, (place) => lower(place.name), samePlace),
+    phrases: diffBy(existing.phrases, incoming.phrases, (phrase) => lower(phrase.text), (a, b) => lower(a.hall) === lower(b.hall)),
+    choices: diffBy(Object.entries(existing.choices), Object.entries(incoming.choices), ([key]) => key, (a, b) => lower(a[1]) === lower(b[1])),
+})

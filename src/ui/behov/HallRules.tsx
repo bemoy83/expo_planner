@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { todayIso } from '../../domain/dates'
-import { diffHallRules, hallChoices, mergeHallRules, NO_HALL_RULES, placeNames, PROJECT_HALLS, UNRESOLVED_HALL, withChoice, withPlaceRenamed, type SetupDiff } from '../../domain/locations'
+import { diffHallRules, hallChoices, mergeHallRules, NO_HALL_RULES, placeNames, PROJECT_HALLS, UNRESOLVED_HALL, withChoice, withPlaceRenamed } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
 import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { download, errorText, XLSX_TYPE } from '../files'
+import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
+import { describeDiff, useTableFile } from '../useTableFile'
 import { TextField } from '../fields'
 
 /** The halls a place stands for, as a button that opens the list of all halls to tick, like the filter of a column. */
@@ -41,8 +42,6 @@ function HallPicker({ halls, picked, label, onChange }: { halls: string[]; picke
   )
 }
 
-const describeDiff = (label: string, diff: SetupDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
-
 /**
  * The rules that place a Hall/Sted text in a hall, so none of them is hidden and all of them are the planner's own:
  * places that stand for several halls, words that mean a place, and every choice made for a single text.
@@ -58,24 +57,14 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const choices = hallChoices(rules.choices)
   const [place, setPlace] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const [phrase, setPhrase] = useState({ text: '', hall: '' })
-  const [pending, setPending] = useState<{ file: string; incoming: Rules } | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
   const empty = !rules.places.length && !rules.phrases.length && !choices.length
   const apply = (file: string, next: Rules, how: string) => {
     setHallRules(next)
     setMessage({ kind: 'ok', text: `${file} ${how}. Kan angres med Ctrl/Cmd+Z.` })
-    setPending(null)
+    done()
   }
-  const onFile = async (file: File) => {
-    try {
-      const incoming = readHallreglerWorkbook(new Uint8Array(await file.arrayBuffer()))
-      // Nothing to merge with while there are no rules.
-      if (empty) apply(file.name, incoming, 'lest inn')
-      else setPending({ file: file.name, incoming })
-    } catch (e) {
-      setMessage({ kind: 'error', text: errorText(e) })
-    }
-  }
+  const { pending, onFile, done } = useTableFile<Rules>({ read: readHallreglerWorkbook, empty, takeIn: (incoming, file) => apply(file, incoming, 'lest inn'), onError: (text) => setMessage({ kind: 'error', text }) })
   const diff = pending ? diffHallRules(rules, pending.incoming) : null
   const taken = (name: string) => [...halls, ...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
   const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next })
@@ -292,7 +281,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
           replaceText={`stedene, reglene for ord og valgene i appen byttes helt ut med filen${
             diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp > 0 ? `; ${diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp} som bare finnes i appen forsvinner` : ''
           }. Ved sammenslåing prøves filens regler for ord før de som bare finnes i appen`}
-          onCancel={() => setPending(null)}
+          onCancel={done}
           onApply={(mode) => apply(pending.file, mode === 'merge' ? mergeHallRules(rules, pending.incoming) : pending.incoming, mode === 'merge' ? 'slått sammen med reglene' : 'har erstattet reglene')}
         />
       )}
