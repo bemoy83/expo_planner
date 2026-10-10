@@ -317,3 +317,63 @@ export const locateRows = (rows: AllocationRow[], halls: string[], aliases: Alia
   })
 
 export const NO_HALL_RULES: HallRules = { places: [], phrases: [], seeded: true }
+
+/** The planner's rules and choices together: what the Hallregler tab holds, and what its file holds. */
+export interface HallSetup {
+  rules: HallRules
+  aliases: Aliases
+}
+
+/** What a file would change in one of the three lists. */
+export interface SetupDiff {
+  added: number
+  changed: number
+  unchanged: number
+  onlyInApp: number
+}
+
+const samePlace = (a: HallRules['places'][number], b: HallRules['places'][number]): boolean =>
+  (a.collects !== false) === (b.collects !== false) && a.halls.length === b.halls.length && a.halls.every((hall) => b.halls.some((other) => lower(other) === lower(hall)))
+
+/** The setup as a file has it: the planner's own from then on, with no examples put in. */
+export const replaceHallSetup = (incoming: HallSetup): HallSetup => ({ rules: { places: incoming.rules.places, phrases: incoming.rules.phrases, seeded: true, lettersSeeded: true }, aliases: incoming.aliases })
+
+/**
+ * A file merged into the setup: the file wins for a place of the same name, a word rule for the same words and a
+ * choice for the same text; what only the app has is kept. The file's word rules are tried before those only the app has.
+ */
+export const mergeHallSetup = (existing: HallSetup, incoming: HallSetup): HallSetup => {
+  const filePlace = (name: string) => incoming.rules.places.find((place) => lower(place.name) === lower(name))
+  const filePhrase = (text: string) => incoming.rules.phrases.some((phrase) => lower(phrase.text) === lower(text))
+  return {
+    rules: {
+      places: [...existing.rules.places.map((place) => filePlace(place.name) ?? place), ...incoming.rules.places.filter((place) => !existing.rules.places.some((other) => lower(other.name) === lower(place.name)))],
+      phrases: [...incoming.rules.phrases, ...existing.rules.phrases.filter((phrase) => !filePhrase(phrase.text))],
+      seeded: true,
+      lettersSeeded: true,
+    },
+    aliases: { ...existing.aliases, ...incoming.aliases },
+  }
+}
+
+/** What a file would change: in the places, the word rules and the choices. */
+export const diffHallSetup = (existing: HallSetup, incoming: HallSetup): { places: SetupDiff; phrases: SetupDiff; choices: SetupDiff } => {
+  const diff = <T,>(app: T[], file: T[], key: (item: T) => string, same: (a: T, b: T) => boolean): SetupDiff => {
+    const known = new Map(app.map((item) => [key(item), item]))
+    const out = { added: 0, changed: 0, unchanged: 0, onlyInApp: 0 }
+    for (const item of file) {
+      const before = known.get(key(item))
+      if (!before) out.added += 1
+      else if (same(before, item)) out.unchanged += 1
+      else out.changed += 1
+    }
+    const inFile = new Set(file.map(key))
+    out.onlyInApp = app.filter((item) => !inFile.has(key(item))).length
+    return out
+  }
+  return {
+    places: diff(existing.rules.places, incoming.rules.places, (place) => lower(place.name), samePlace),
+    phrases: diff(existing.rules.phrases, incoming.rules.phrases, (phrase) => lower(phrase.text), (a, b) => lower(a.hall) === lower(b.hall)),
+    choices: diff(Object.entries(existing.aliases), Object.entries(incoming.aliases), ([key]) => key, (a, b) => lower(a[1]) === lower(b[1])),
+  }
+}

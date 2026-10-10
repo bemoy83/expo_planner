@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
-import { hallChoices, hallSetupOf, placeNames, PROJECT_HALLS, UNRESOLVED_HALL, withAlias, withPlaceRenamed } from '../../domain/locations'
+import { todayIso } from '../../domain/dates'
+import { diffHallSetup, hallChoices, hallSetupOf, mergeHallSetup, placeNames, PROJECT_HALLS, replaceHallSetup, UNRESOLVED_HALL, withAlias, withPlaceRenamed, type HallSetup, type SetupDiff } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
+import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Menu, UndoRedoButtons } from '../common'
+import { Menu, MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { download, errorText, XLSX_TYPE } from '../files'
+import { TableFileButtons } from '../TableFile'
 import { TextField } from '../fields'
 
 /** The halls a place stands for, as a button that opens the list of all halls to tick, like the filter of a column. */
@@ -37,6 +41,8 @@ function HallPicker({ halls, picked, label, onChange }: { halls: string[]; picke
   )
 }
 
+const describeDiff = (label: string, diff: SetupDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
+
 /**
  * The rules that place a Hall/Sted text in a hall, so none of them is hidden and all of them are the planner's own:
  * places that stand for several halls, words that mean a place, and every choice made for a single text.
@@ -53,6 +59,25 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const choices = hallChoices(aliases)
   const [place, setPlace] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const [phrase, setPhrase] = useState({ text: '', hall: '' })
+  const [pending, setPending] = useState<{ file: string; incoming: HallSetup } | null>(null)
+  const [message, setMessage] = useState<Message | null>(null)
+  const empty = !rules.places.length && !rules.phrases.length && !choices.length
+  const apply = (file: string, next: HallSetup, how: string) => {
+    setHallRules(next.rules, next.aliases)
+    setMessage({ kind: 'ok', text: `${file} ${how}. Kan angres med Ctrl/Cmd+Z.` })
+    setPending(null)
+  }
+  const onFile = async (file: File) => {
+    try {
+      const incoming = readHallreglerWorkbook(new Uint8Array(await file.arrayBuffer()))
+      // Nothing to merge with while there are no rules.
+      if (empty) apply(file.name, replaceHallSetup(incoming), 'lest inn')
+      else setPending({ file: file.name, incoming })
+    } catch (e) {
+      setMessage({ kind: 'error', text: errorText(e) })
+    }
+  }
+  const diff = pending ? diffHallSetup({ rules, aliases }, pending.incoming) : null
   const taken = (name: string) => [...halls, ...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
   const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next }, aliases)
   const setPhrases = (next: Rules['phrases']) => setHallRules({ ...rules, phrases: next }, aliases)
@@ -89,7 +114,17 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
+        <TableFileButtons
+          exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord og et for valg."
+          importTitle="Les inn en fil med hallregler: en som er eksportert herfra, eller en med de samme arkene og kolonnene."
+          canExport={!empty}
+          onExport={() => download(`expo-planner-hallregler-${todayIso()}.xlsx`, writeHallreglerWorkbook({ rules, aliases }), XLSX_TYPE)}
+          onFile={onFile}
+        />
       </div>
+
+      <MessageBanner message={message} onClose={() => setMessage(null)} />
+
       <div className="behov-body rules">
         <p className="hint">
           Slik blir Hall/sted til en hall i Kalender, i denne rekkefølgen: ditt valg for teksten i prosjektet, ditt valg for teksten i alle prosjekter, navnet på hallen eller stedet («Hall
@@ -250,6 +285,18 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
           <p className="muted">Ingen ennå. Et valg i kolonnen Plassering, eller et forslag du bruker, havner her.</p>
         )}
       </div>
+      {pending && diff && (
+        <MergeReplaceDialog
+          title="Importer hallregler"
+          source={pending.file}
+          results={[describeDiff('Steder', diff.places), describeDiff('Regler for ord', diff.phrases), describeDiff('Valg for tekster', diff.choices)]}
+          replaceText={`stedene, reglene for ord og valgene i appen byttes helt ut med filen${
+            diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp > 0 ? `; ${diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp} som bare finnes i appen forsvinner` : ''
+          }. Ved sammenslåing prøves filens regler for ord før de som bare finnes i appen`}
+          onCancel={() => setPending(null)}
+          onApply={(mode) => apply(pending.file, mode === 'merge' ? mergeHallSetup({ rules, aliases }, pending.incoming) : replaceHallSetup(pending.incoming), mode === 'merge' ? 'slått sammen med reglene' : 'har erstattet reglene')}
+        />
+      )}
     </div>
   )
 }
