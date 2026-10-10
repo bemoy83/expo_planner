@@ -154,6 +154,14 @@ describe('what an event without a project is offered', () => {
     expect(offers['VVS dagene']).toBeUndefined()
   })
 
+  it('offers the number of its year after the project it was another year, where that number is free', () => {
+    const series = (projects: ProjectRef[]) => rows(projects).find((r) => r.names[0] === 'HAGEMESSEN 2026')!.series
+    expect(series([{ name: 'Hagemessen 2024', projectNo: '24100' }, { name: 'Hagemessen 2025', projectNo: '25101' }])).toEqual({ projectNo: '26101', name: 'Hagemessen 2025', after: '25101' })
+    // The number is another project's this year, so the one of the year before that is tried.
+    expect(series([{ name: 'Hagemessen 2024', projectNo: '24100' }, { name: 'Hagemessen 2025', projectNo: '25101' }, { name: 'Oslo Motor Show', projectNo: '26101' }])).toMatchObject({ projectNo: '26100' })
+    expect(series([{ name: 'Hagemessen 2025', projectNo: '25101' }, { name: 'Hagemessen', projectNo: '26555' }])).toBeUndefined()
+  })
+
   it('lets a number from orders take over a made-up one, with what points at it', () => {
     const projects = [{ name: 'HAGEMESSEN 2026', projectNo: '26HAG' }]
     const fromOrders = rows(projects, { visma: [{ projectNo: '26100', eventName: 'Hagemessen', fileName: '', importedAt: '', rows: [] }] }).find((r) => r.projectNo === '26100')!

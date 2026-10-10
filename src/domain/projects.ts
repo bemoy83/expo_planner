@@ -319,6 +319,11 @@ export interface ProjectRow {
   suggestion: string
   /** For an event without a project: a project of its year with a name like its own and no event on other days, or one whose name is within its own (or the other way) with an event on its days. */
   match?: ProjectMatch
+  /**
+   * For an event without a project and without a match in its year: the number of its year in the series of a project of
+   * another year with a name like its own («27231» after «26231»), and that project's name. Only where that number is free.
+   */
+  series?: ProjectMatch & { after: string }
   /** For a number that is not in the table: the project that carries a name like its own under another number. The name, or the whole project where its number was made up, can go to this one. */
   replaces?: ProjectMatch
   /** The projects that carry the event's name, where there are several. */
@@ -382,13 +387,34 @@ export const projectRows = (ws: Pick<Workspace, 'venue' | 'projects' | 'visma' |
     }
     return best && { projectNo: best.projectNo, name: best.name }
   }
+  /**
+   * A number is its year and what the project is numbered within the year, and an event that comes back is most often
+   * numbered the same year after year. So the event is offered the number of its year after the project of the nearest
+   * other year with a name like its own. Not where that number is in use: the numbers of a year are also given anew.
+   */
+  const inSeries = (name: string, year: string): ProjectRow['series'] => {
+    let best: (ProjectMatch & { after: string; likeness: number; apart: number }) | undefined
+    for (const project of byNumber.values()) {
+      if (!year || !numberYear(project.projectNo) || project.year !== numberYear(project.projectNo) || project.year === year) continue
+      const projectNo = year.slice(2) + project.projectNo.slice(2)
+      if ([...taken].some((no) => sameNumber(no, projectNo))) continue
+      const apart = Math.abs(Number(project.year) - Number(year))
+      for (const other of project.names) {
+        const likeness = nameLikeness(name, other)
+        if (likeness >= ALIKE && (!best || apart < best.apart || (apart === best.apart && likeness > best.likeness))) best = { projectNo, name: other, after: project.projectNo, likeness, apart }
+      }
+    }
+    return best && { projectNo: best.projectNo, name: best.name, after: best.after }
+  }
   const missing: ProjectRow[] = []
   for (const event of events) {
     if (event.projectNo) continue
     const suggestion = suggestProjectNo(event.name, event.year, taken)
     taken.add(suggestion)
     const match = event.ambiguous ? undefined : mostAlike(event.name, event.year, (project) => (project.events.length ? project.events.some((other) => other.start <= event.end && event.start <= other.end) : null), () => true)
-    missing.push({ key: `event:${event.key}`, projectNo: '', year: event.year, names: [event.name], events: [event], orders: false, lines: 0, rows: 0, lacking: event.ambiguous ? 'ambiguous' : 'number', suggestion, candidates: event.candidates, ...(match ? { match } : {}) })
+    const series = match || event.ambiguous ? undefined : inSeries(event.name, event.year)
+    if (series) taken.add(series.projectNo)
+    missing.push({ key: `event:${event.key}`, projectNo: '', year: event.year, names: [event.name], events: [event], orders: false, lines: 0, rows: 0, lacking: event.ambiguous ? 'ambiguous' : 'number', suggestion, candidates: event.candidates, ...(match ? { match } : {}), ...(series ? { series } : {}) })
   }
   for (const project of byNumber.values()) {
     if (project.lacking !== 'new' || !project.names[0]) continue

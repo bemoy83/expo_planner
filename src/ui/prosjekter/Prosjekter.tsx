@@ -77,7 +77,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
     const open = table.rows.filter((row) => row.lacking === 'number')
     const matched = open.filter((row) => row.match).length
     save(
-      open.reduce((list, row) => withProjectName(list, row.match?.projectNo ?? row.suggestion, row.names[0], row.year), projects),
+      open.reduce((list, row) => withProjectName(list, row.match?.projectNo ?? row.series?.projectNo ?? row.suggestion, row.names[0], row.year), projects),
       `${[matched ? `${matched} lagt til prosjekter som fantes` : '', open.length - matched ? `${open.length - matched} har fått eget nummer` : ''].filter(Boolean).join(', ')}.`,
     )
   }
@@ -135,7 +135,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
           <TextField className="project-no-input" ariaLabel={`Prosjektnummer for ${row.names[0]}`} value={row.projectNo} onCommit={(value) => renumber(row, value)} />
         ) : (
           // What it is offered: the project it is like or one that carries its name, or a number of its own. Another number can be typed, also that of a project in the table.
-          <TextField className="project-no-input missing" placeholder={row.match?.projectNo ?? row.suggestion} options={[...row.candidates, ...(row.match ? [row.match.projectNo] : []), row.suggestion]} ariaLabel={`Prosjektnummer for ${row.names[0]}`} value="" onCommit={(value) => link(row, value)} />
+          <TextField className="project-no-input missing" placeholder={row.match?.projectNo ?? row.series?.projectNo ?? row.suggestion} options={[...row.candidates, ...(row.match ? [row.match.projectNo] : []), ...(row.series ? [row.series.projectNo] : []), row.suggestion]} ariaLabel={`Prosjektnummer for ${row.names[0]}`} value="" onCommit={(value) => link(row, value)} />
         ),
     },
     {
@@ -167,6 +167,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
             <strong>{row.names[0]}</strong>
             {/* What the row is offered, and why. */}
             {(row.match ?? row.replaces) && <span className="muted small"> ligner {(row.match ?? row.replaces)!.name} ({(row.match ?? row.replaces)!.projectNo})</span>}
+            {row.series && <span className="muted small"> ligner {row.series.name} ({row.series.after})</span>}
           </>
         ),
     },
@@ -209,9 +210,14 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
               Bruk {row.match.projectNo}
             </button>
           )}
+          {row.series && (
+            <button className="link" title={`Navnet ligner «${row.series.name}», som er prosjekt ${row.series.after} et annet år. ${row.series.projectNo} er samme nummer i arrangementets år, og er ledig. Oppretter prosjektet ${row.series.projectNo}.`} onClick={() => link(row, row.series!.projectNo)}>
+              Bruk {row.series.projectNo}
+            </button>
+          )}
           {row.lacking === 'number' && (
             <button className="link" title={`Opprett prosjektet ${row.suggestion} for ${row.names[0]}`} onClick={() => link(row, row.suggestion)}>
-              {row.match ? 'Nytt:' : 'Bruk'} {row.suggestion}
+              {row.match || row.series ? 'Nytt:' : 'Bruk'} {row.suggestion}
             </button>
           )}
           {row.replaces && (
@@ -268,7 +274,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
         <p className="hint">
           Et prosjekt er <strong>nummeret</strong>: det er det behov, ordre og planlagte rader peker på. Kildene kaller det samme prosjektet forskjellige ting, så hvert prosjekt har alle{' '}
           <strong>navnene</strong> det går under. Et arrangement i Venyou får nummeret til prosjektet som har navnet dets i samme år. Arrangementer uten prosjekt står øverst med et forslag: prosjektet
-          de ligner på i navn og dager, ellers et eget nummer av året og tre bokstaver. Bruk forslaget, eller skriv nummeret til prosjektet det hører til.
+          de ligner på i navn og dager, ellers samme nummer som arrangementet hadde et annet år, ellers et eget nummer av året og tre bokstaver. Bruk forslaget, eller skriv nummeret til prosjektet det hører til.
         </p>
 
         {withoutProjectCount > 0 && (
