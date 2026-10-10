@@ -7,7 +7,7 @@ import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, productTypeLabel, prod
 import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { placeNames, placeOf, PROJECT_HALLS, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { placeNames, placeOf, type HallOffer, PROJECT_HALLS, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallsOfProjects } from '../../domain/projects'
 import { hallNames } from '../../domain/venue'
 import { DataTable } from '../DataTable'
@@ -35,6 +35,9 @@ const MISSING_RATE_TEXT: Record<NonNullable<VismaLine['missingRate']>, string> =
   assembly: 'Ingen sats for montering',
   dismantle: 'Ingen sats for demontering',
 }
+
+/** What the «Regel» column of both tables says it holds. */
+const RULE_TITLE = 'Hvorfor linjen teller der den gjør: teksten er navnet på hallen eller stedet, en regel for ord i teksten, eller ditt eget valg. For en linje som mangler hall: hvorfor den får forslaget den får. Reglene står under «Hallregler».'
 
 interface Props {
   projectNo: string
@@ -72,10 +75,15 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const shared = useMemo(() => new Map(sharedPlaces(halls, rules).map((place) => [place.name, place.halls])), [halls, rules])
   const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, ws.hallAliases, line.projectNo, rules)
   const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, booked.get(line.projectNo), rules, ws.hallAliases) : null)
-  /** Why the line counts where it does: the rule that placed it, in a few words. */
+  /** Why a line that is not placed is offered the hall it is, in a few words: an offer is explained where it is made. */
+  const offerReason = (offered: HallOffer): string =>
+    offered.own ? `prosjektet har bare ${offered.hall}` : offered.hall === PROJECT_HALLS ? 'teksten nevner flere haller' : `teksten nevner ${offered.hall}`
+  /** Why the line counts where it does: the rule that placed it, in a few words. For a line that is not placed, why it is offered what it is. */
   const ruleOf = (line: { hall: string; projectNo: string }): string => {
     const place = placeOfLine(line)
     if (place.by === 'own') return 'Valgt for prosjektet'
+    const offered = offerFor(line)
+    if (offered) return `Forslag: ${offerReason(offered)}`
     if (!line.hall.trim()) return 'Ingen Hall/sted'
     if (place.by === 'choice') return place.choiceFor ? `Valgt: ${place.choiceFor.toUpperCase()} er ${place.hall}` : 'Valgt for teksten'
     if (place.by === 'phrase') return `Regel: inneholder «${place.phrase}»`
@@ -264,7 +272,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
     },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
     { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOfLine(line).hall, cell: (line) => locationCell(line) },
-    { key: 'rule', head: 'Regel', title: 'Hvorfor linjen teller der den gjør: teksten er navnet på hallen eller stedet, en regel for ord i teksten, eller ditt eget valg. Reglene står under «Hallregler».', className: 'muted', text: ruleOf, cell: ruleOf },
+    { key: 'rule', head: 'Regel', title: RULE_TITLE, className: 'muted', text: ruleOf, cell: ruleOf },
     { key: 'avdeling', head: 'Avd.', text: (line) => line.avdeling, cell: (line) => line.avdeling },
     { key: 'quantity', head: 'Antall', className: 'num', text: (line) => formatFte(line.quantity, 1), sort: (line) => line.quantity, cell: (line) => formatFte(line.quantity, 1), cellProps: (line) => ({ title: `${line.rowCount} ordrelinjer` }) },
     { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
@@ -318,7 +326,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
     { key: 'workType', head: 'Arbeidstype', text: (line) => productTypeLabel(line.workType), cell: (line) => productTypeLabel(line.workType) },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
     { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOfLine(line).hall, cell: (line) => locationCell(line) },
-    { key: 'rule', head: 'Regel', title: 'Hvorfor linjen teller der den gjør: teksten er hallens navn, en regel for hallbokstaven, felles plass for hallene med samme bokstav, eller ditt eget valg. Reglene står under «Hallregler».', className: 'muted', text: ruleOf, cell: ruleOf },
+    { key: 'rule', head: 'Regel', title: RULE_TITLE, className: 'muted', text: ruleOf, cell: ruleOf },
     { key: 'source', head: 'Kilde', text: (line) => line.source, cell: (line) => line.source },
     { key: 'quantity', head: 'Antall', className: 'num', text: (line) => (line.quantity === null ? '' : formatFte(line.quantity, 1)), sort: (line) => line.quantity ?? NaN, cell: (line) => (line.quantity === null ? '' : formatFte(line.quantity, 1)) },
     { key: 'unit', head: 'Enhet', text: (line) => line.unit, cell: (line) => line.unit },
