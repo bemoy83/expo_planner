@@ -26,14 +26,12 @@ interface LineProps {
   compact: boolean
   /** The competence in focus, if any. */
   brush: string | null
-  /** Hours the stroke under the pointer would add for the brush, by date. */
-  preview: Map<ISODate, number> | undefined
   onPick: (competence: string) => void
   onDay: (competence: string, date: ISODate, event: React.MouseEvent) => void
 }
 
 /** One competence's line: its name with what is left in the days in view, and each day's hours. */
-const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance, uncoverable, remaining, compact, brush, preview, onPick, onDay }: LineProps) {
+const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance, uncoverable, remaining, compact, brush, onPick, onDay }: LineProps) {
   const on = style.key === brush
   const label = (
     <button className="bm-pick" aria-pressed={on} disabled={!key && !on} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
@@ -70,7 +68,6 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         const regular = (Math.min(cell.assigned - cell.assignedOT, cell.demand) / base) * 100
         const overtime = (Math.min(cell.assigned, cell.demand) / base) * 100 - regular
         const surplus = (Math.max(0, cell.assigned - cell.demand) / base) * 100
-        const added = on ? (preview?.get(date) ?? 0) : 0
         const title =
           `${style.label} · ${fmtDay(date)}${dayType(date) !== 'arbeidsdag' ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
           (cell.assignedOT > EPSILON ? ` (herav ${hoursText(cell.assignedOT)} t overtid)` : '') +
@@ -87,7 +84,6 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
                   <i className="bm-need-dot" />
                 </>
               )}
-              {added > EPSILON && <span className="bm-preview">−{hoursText(Math.min(added, left) || added)}</span>}
               {cell.carried > EPSILON && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
               <b className={`bm-number ${state}`}>{state === 'ok' ? <Check size={14} aria-label="Dekket" /> : over ? `+${hoursText(-cell.remaining)}` : hoursText(cell.remaining)}</b>
               {cell.demand > EPSILON && <em>av {hoursText(cell.demand)}</em>}
@@ -136,7 +132,7 @@ const CapacityLine = memo(function CapacityLine({ cols, capacity, label }: { col
  */
 export function DemandRows() {
   const bm = useBemanning()
-  const { demandRows, remainingOf, balance, uncoverable, cols, brush, preview, demandOpen: open, demandDensity, idleOpen, capacity, onFocusDate, pickFromDemand, setDemandPop } = bm
+  const { demandRows, remainingOf, balance, uncoverable, cols, brush, demandOpen: open, demandDensity, idleOpen, capacity, onFocusDate, pickFromDemand, setDemandPop } = bm
   const compact = demandDensity === 'compact'
   // A competence with neither demand nor assigned hours in the period is set aside under one line. The one in focus stays.
   const isIdle = (key: string) => key !== brush && !remainingOf.has(key)
@@ -152,7 +148,7 @@ export function DemandRows() {
   const handlers = useStableActions({ onPick: pickFromDemand, onDay })
   const line = (row: DemandRow) =>
     !open && row.style.key !== brush ? null : (
-      <DemandLine key={row.style.key} row={row} cols={cols} balance={balance} uncoverable={uncoverable} remaining={remainingOf.get(row.style.key) ?? 0} compact={compact} brush={brush} preview={row.style.key === brush ? preview : undefined} onPick={handlers.onPick} onDay={handlers.onDay} />
+      <DemandLine key={row.style.key} row={row} cols={cols} balance={balance} uncoverable={uncoverable} remaining={remainingOf.get(row.style.key) ?? 0} compact={compact} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} />
     )
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
@@ -171,7 +167,6 @@ export function DemandRows() {
         </SectionLine>
       )}
       {open && idleOpen && idle.map(line)}
-      <i className="bm-crosshair" />
       {open && !compact && <CapacityLine cols={cols} capacity={capacity} label={brush ? `Ledig med ${bm.labelOf(brush)}` : 'Ledig kapasitet, faste'} />}
     </div>
   )

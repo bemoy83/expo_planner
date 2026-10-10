@@ -12,9 +12,6 @@
 /* A colour is mixed with a competence's colour in oklab: in oklch the hue turns on the way, and blue goes through green into the warm canvas. */
 /* Bemanning comes in softly when the switch has zoomed in, as the plan does when it comes back, see kalender.css */
 .bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:bm-fade-in var(--mode-fade) var(--ease)}
-/* the crosshair: the date and the demand of the day under the pointer */
-.bm-crosshair{position:absolute;top:0;bottom:0;left:var(--cross-x);z-index:1;display:none;width:var(--col-w);background:color-mix(in srgb,var(--text) 5%,transparent);pointer-events:none}
-.crossing .bm-crosshair{display:block}
 
 /* ---- the projects in view: a block of a fixed height, each project a line that moves to its place ---- */
 .bm-more{font-weight:600;color:var(--over)}
@@ -55,7 +52,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 @container (min-width:67px){.bm-need-code{display:inline}.bm-need-dot{display:none}}
 @container (max-width:86.9px){.bm-need-code~em{display:none}}
 .bm-carried{margin-right:auto;font:500 var(--fs-2xs) var(--font-num);color:var(--over)}
-.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklab,var(--cc) 14%,transparent);color:var(--cc);font:600 var(--fs-xs) var(--font-num)}
 .bar .covered{background:var(--cc)}
 /* the stripes of --hatch, 4px and 2px. Overtime is a 2px line of the competence's colour on a light ground; what cannot be covered is red with a 2px gap. */
 .bar .overtime{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 35%,transparent) 0 4px,var(--cc) 4px 6px)}

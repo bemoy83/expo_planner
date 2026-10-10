@@ -9,7 +9,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
 import type { Columns } from '../kalender/gridTypes'
 import { fmtDay } from '../kalender/labels'
-import { daysWide, LEFT_W } from '../kalender/layout'
+import { LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'
 import { useToasts, type Toast } from '../Toasts'
 import { ABSENCE_LABELS, type BlockNames } from './dayCell'
@@ -86,7 +86,6 @@ export interface StrokeInfo {
 export type GhostBlock = Interval & { competence?: string }
 type Ghosts = Map<string, Map<ISODate, GhostBlock[]>>
 const NO_GHOST: Ghosts = new Map()
-const NO_PREVIEW = new Map<ISODate, number>()
 const NO_HOURS = new Map<string, number>()
 
 function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
@@ -331,13 +330,6 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     return { ghost: found, info: stroke ? stats : null, refused: null }
     // `strokeCells`, `dayAt` and `blocksOn` read `lines`, `listed` and `dates`.
   }, [active, ws, lines, listed, dates, activeTool, activeBrush, stroke, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
-  /** The hours the stroke would add for the brush, by date: shown in the demand before the button is let go. */
-  const preview = useMemo(() => {
-    if (!ghost.size || activeTool !== 'paint') return NO_PREVIEW
-    const added = new Map<ISODate, number>()
-    for (const days of ghost.values()) for (const [date, gaps] of days) added.set(date, (added.get(date) ?? 0) + gaps.reduce((sum, gap) => sum + paidHours(gap, ws.settings.workday), 0))
-    return added
-  }, [ghost, activeTool, ws.settings.workday])
 
   // ---- what the tools do ------------------------------------------------------------------------------
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
@@ -480,20 +472,10 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     /** The pointer moved over the people: the day under it is where the brush would paint. */
     bodyMove: (event: React.MouseEvent) => {
       const at = cellAt(event.clientX, event.clientY)
-      // The crosshair: the date and the demand of the day under the pointer are tinted. A style variable on the
-      // grid moves it, so nothing is drawn again for it.
-      const el = scrollRef.current
-      if (el && at) {
-        el.style.setProperty('--cross-x', daysWide(at.col, LEFT_W))
-        el.classList.add('crossing')
-      }
       if (stroke || !(activeTool === 'paint' || (activeTool === 'select' && clip))) return
       setHover((h) => (at && h && h.row === at.row && h.col === at.col ? h : at))
     },
-    bodyLeave: () => {
-      scrollRef.current?.classList.remove('crossing')
-      setHover(null)
-    },
+    bodyLeave: () => setHover(null),
   })
 
   // A stroke follows the pointer wherever it goes, and ends where the button is let go.
@@ -599,7 +581,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     ws, dates, cols, room, viewFrom, viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
-    balance, totals, remainingOf, demandRows, capacity, uncoverable, preview,
+    balance, totals, remainingOf, demandRows, capacity, uncoverable,
     lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,

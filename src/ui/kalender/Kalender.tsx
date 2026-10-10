@@ -804,7 +804,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
             {todayLine}
-            {bemanning && <i className="bm-crosshair" />}
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
           <div
