@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { useDismiss } from './useDismiss'
 import { ChevronDown, ChevronRight, PanelRight, Redo2, Undo2 } from 'lucide-react'
@@ -212,4 +212,13 @@ export function PanelToggle({ open, what, hint, disabled, onToggle }: { open: bo
       <PanelRight size={16} aria-hidden />
     </button>
   )
+}
+
+/** A checkbox for several things at once: ticked when all of them are, and marked as partial when some are. */
+export function TriCheckbox({ checked, partial, label, onChange }: { checked: boolean; partial: boolean; label: string; onChange: (checked: boolean) => void }) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = partial
+  }, [partial])
+  return <input ref={ref} type="checkbox" checked={checked} aria-label={label} onChange={(e) => onChange(e.target.checked)} />
 }

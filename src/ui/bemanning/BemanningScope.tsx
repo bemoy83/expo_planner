@@ -3,7 +3,7 @@ import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
-import type { Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase } from '../../domain/types'
+import type { AllocationRow, Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
@@ -43,6 +43,8 @@ interface Props {
   onFocusDate: (date: ISODate) => void
   /** Every project with days in the hall calendar. */
   projects: ProjectSpan[]
+  /** The planning rows whose FTE is the demand: those of the projects that are shown. */
+  planned: AllocationRow[]
   phases: Map<string, Map<ISODate, VenuePhase>>
   /** The project chosen in the filter. */
   chosenProject: string
@@ -87,7 +89,7 @@ const NO_GHOST: Ghosts = new Map()
 const NO_PREVIEW = new Map<ISODate, number>()
 const NO_HOURS = new Map<string, number>()
 
-function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
+function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
   const { workspace, updateStaffing, undo } = useWorkspace()
   const ws = workspace!
   const { colW } = cols
@@ -138,7 +140,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const keyOf = useMemo(() => new Map(staffed.slice(0, LAST_KEY).map((style, index) => [style.key, index + 1])), [staffed])
 
   // ---- the balance of the whole period, worked out once per change ---------------------------------
-  const balance = useMemo<Balance>(() => buildBalance(ws, active ? dates : []), [active, ws, dates])
+  const balance = useMemo<Balance>(() => buildBalance(planned === ws.allocations ? ws : { ...ws, allocations: planned }, active ? dates : []), [active, ws, planned, dates])
   // ---- what is in view ---------------------------------------------------------------------------------
   // The days that are seen: those the panel does not lie over.
   const room = Math.max(colW, viewport.width - LEFT_W - (panel ? PANEL_W : 0))

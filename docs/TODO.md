@@ -97,7 +97,7 @@ Projects and halls
 
 - Matching an event to a project number is by exact name only. No suggestions for near matches such as "VVS 2026" and "VVS DAGENE 2026"; the user wants any such suggestions to be confirmed by hand.
 - Hall ticks and project numbers are stored by event name and date. If Venyou renames an event or moves its start, the booking counts as new and the choices do not follow.
-- "Bare messehaller" in the Kalender is a guess: halls where at least half the bookings have build-up or tear-down periods.
+- Areas and «Steder» (2026-10-10): the planner gathers halls in areas on Hallregler («Områder», the fourth sheet of the Hallregler file), and ticks areas and halls under «Steder» in the planning bar of both modes. It replaced «Bare messehaller / Vis alle», a guess from the bookings. A project is left out when it has bookings and none of them in a ticked hall, whole: one with a booking in a ticked hall shows all its rows. Its FTE is then out of the staffing lines' need and of Bemanning's demand too; hours already assigned to people are not tied to a project and still count. What is unticked is kept per browser by name, so an area that is renamed shows again. Until an area is made the tree is a flat list of halls. Checked in the browser on a clean start with the Venyou file: an area made on Hallregler, the tree, a whole area and single halls unticked, the hall calendar and the project lines following, and the button in Bemanning. Not checked by hand: the need and Bemanning's demand with FTE planned (the rule has a test, `areas.test.ts`), and the Områder sheet in Excel (by test only).
 - A Venyou export covers one period. Planning the next year needs a second export; this works but has only been tried with one.
 
 Kalender

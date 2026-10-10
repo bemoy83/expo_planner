@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { areaTree, shownHalls, type HallFilter } from '../../domain/areas'
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
 import { eventKey, venueEvents } from '../../domain/projects'
 import type { VenueBooking, Workspace } from '../../domain/types'
@@ -11,10 +12,11 @@ import { projectList } from './useProjectHover'
 /**
  * What the Kalender draws of the hall bookings: the halls shown, each hall's bookings as bars with the
  * events' names over them, and the project behind each booking. `origin` is the first day of the period;
- * `splitShared` shows both events on a day a hall is shared, which wide columns have room for.
+ * `splitShared` shows both events on a day a hall is shared, which wide columns have room for. The halls shown are
+ * those the planner has ticked under «Steder» (`hallFilter`), by area.
  */
-export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, origin: ISODate, splitShared: boolean, allHalls: boolean) {
-  const { venue, hiddenVenue, projects } = ws
+export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects' | 'hallRules'>, origin: ISODate, splitShared: boolean, hallFilter: HallFilter) {
+  const { venue, hiddenVenue, projects, hallRules } = ws
   const shownVenue = useMemo(() => visibleVenue(venue, hiddenVenue), [venue, hiddenVenue])
   const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
   // Projects are the events in the Venyou calendar that have at least one hall booking shown.
@@ -49,14 +51,7 @@ export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'p
     [hallCalendar, origin, splitShared, hallProject],
   )
   const allHallNames = useMemo(() => hallNames(venue), [venue])
-  const halls = useMemo(() => {
-    if (allHalls) return allHallNames
-    // Exhibition halls: most of their bookings have build-up or tear-down periods.
-    return allHallNames.filter((hall) => {
-      const bookings = shownVenue.filter((b) => b.hall === hall)
-      if (!bookings.length) return false
-      return bookings.filter((b) => b.phases.assembly || b.phases.dismantle).length / bookings.length >= 0.5
-    })
-  }, [allHallNames, shownVenue, allHalls])
-  return { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallCount: allHallNames.length }
+  const hallTree = useMemo(() => areaTree(allHallNames, hallRules), [allHallNames, hallRules])
+  const halls = useMemo(() => shownHalls(hallTree, hallFilter), [hallTree, hallFilter])
+  return { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallTree, hallCount: allHallNames.length }
 }

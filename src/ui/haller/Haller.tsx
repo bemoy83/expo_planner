@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { todayIso, type ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from '../../domain/types'
 import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
 import { phaseSpans } from '../../domain/venue'
 import { anchorDate, venueKey } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Twisty, UndoRedoButtons } from '../common'
+import { TriCheckbox, Twisty, UndoRedoButtons } from '../common'
 import { ColumnHead } from '../ColumnHead'
 import { useTable, type Column } from '../useTable'
 
@@ -243,12 +243,4 @@ export function Haller({ onOpenProjects }: { onOpenProjects: () => void }) {
       </div>
     </div>
   )
-}
-
-function TriCheckbox({ checked, partial, label, onChange }: { checked: boolean; partial: boolean; label: string; onChange: (checked: boolean) => void }) {
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = partial
-  }, [partial])
-  return <input ref={ref} type="checkbox" checked={checked} aria-label={label} onChange={(e) => onChange(e.target.checked)} />
 }

@@ -274,6 +274,7 @@ export const withPlaceRenamed = (halls: string[], rules: HallRules, from: string
   if (!name || (lower(name) !== lower(from) && [...halls, ...placeNames(halls, rules), UNRESOLVED_HALL].some((place) => lower(place) === lower(name)))) return rules
   const moved = (hall: string) => (lower(hall) === lower(from) ? name : hall)
   return {
+    ...rules,
     places: rules.places.map((place) => (lower(place.name) === lower(from) ? { ...place, name } : place)),
     phrases: rules.phrases.map((phrase) => ({ ...phrase, hall: moved(phrase.hall) })),
     choices: Object.fromEntries(Object.entries(rules.choices).map(([key, hall]) => [key, moved(hall)])),
@@ -305,26 +306,33 @@ export const locateRows = (rows: AllocationRow[], halls: string[], rules?: HallR
     return hall === row.hall ? row : { ...row, hall }
   })
 
-const samePlace = (a: HallRules['places'][number], b: HallRules['places'][number]): boolean =>
-  (a.collects !== false) === (b.collects !== false) && a.halls.length === b.halls.length && a.halls.every((hall) => b.halls.some((other) => lower(other) === lower(hall)))
+const sameHalls = (a: { halls: string[] }, b: { halls: string[] }): boolean => a.halls.length === b.halls.length && a.halls.every((hall) => b.halls.some((other) => lower(other) === lower(hall)))
+const samePlace = (a: HallRules['places'][number], b: HallRules['places'][number]): boolean => (a.collects !== false) === (b.collects !== false) && sameHalls(a, b)
+
+/** A list of the file merged into that of the app, by name: the file wins for a name both have, and what only the app has is kept. */
+const mergedByName = <T extends { name: string }>(existing: T[], incoming: T[]): T[] => [
+  ...existing.map((entry) => incoming.find((other) => lower(other.name) === lower(entry.name)) ?? entry),
+  ...incoming.filter((entry) => !existing.some((other) => lower(other.name) === lower(entry.name))),
+]
 
 /**
- * A file merged into the rules: the file wins for a place of the same name, a word rule for the same words and a
- * choice for the same text; what only the app has is kept. The file's word rules are tried before those only the app has.
+ * A file merged into the rules: the file wins for a place or an area of the same name, a word rule for the same words
+ * and a choice for the same text; what only the app has is kept. The file's word rules are tried before those only the app has.
  */
 export const mergeHallRules = (existing: HallRules, incoming: HallRules): HallRules => {
-  const filePlace = (name: string) => incoming.places.find((place) => lower(place.name) === lower(name))
   const filePhrase = (text: string) => incoming.phrases.some((phrase) => lower(phrase.text) === lower(text))
   return {
-    places: [...existing.places.map((place) => filePlace(place.name) ?? place), ...incoming.places.filter((place) => !existing.places.some((other) => lower(other.name) === lower(place.name)))],
+    places: mergedByName(existing.places, incoming.places),
     phrases: [...incoming.phrases, ...existing.phrases.filter((phrase) => !filePhrase(phrase.text))],
     choices: { ...existing.choices, ...incoming.choices },
+    ...(existing.areas || incoming.areas ? { areas: mergedByName(existing.areas ?? [], incoming.areas ?? []) } : {}),
   }
 }
 
-/** What a file would change: in the places, the word rules and the choices. */
-export const diffHallRules = (existing: HallRules, incoming: HallRules): { places: TableDiff; phrases: TableDiff; choices: TableDiff } => ({
+/** What a file would change: in the places, the word rules, the choices and the areas. */
+export const diffHallRules = (existing: HallRules, incoming: HallRules): { places: TableDiff; phrases: TableDiff; choices: TableDiff; areas: TableDiff } => ({
     places: diffBy(existing.places, incoming.places, (place) => lower(place.name), samePlace),
     phrases: diffBy(existing.phrases, incoming.phrases, (phrase) => lower(phrase.text), (a, b) => lower(a.hall) === lower(b.hall)),
     choices: diffBy(Object.entries(existing.choices), Object.entries(incoming.choices), ([key]) => key, (a, b) => lower(a[1]) === lower(b[1])),
+    areas: diffBy(existing.areas ?? [], incoming.areas ?? [], (area) => lower(area.name), sameHalls),
 })

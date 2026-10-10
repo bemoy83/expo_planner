@@ -291,6 +291,8 @@ export interface HallRules {
   phrases: { text: string; hall: string }[]
   /** Places chosen for single Hall/Sted texts, keyed by `choiceKey`: for every line with the text, or for those of one project. */
   choices: Record<string, string>
+  /** Areas the planner has gathered halls in, as «NV HALLS»: a name and its halls. They decide what the Kalender shows, not where demand counts (`areas.ts`). */
+  areas?: { name: string; halls: string[] }[]
 }
 
 export const PLANNED_BASIS = 'Planlagt'

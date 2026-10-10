@@ -27,8 +27,6 @@ export function PhaseLegend() {
 interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'hallBars' | 'hallLabels' | 'hallProjectLists'> {
   open: boolean
   onOpen: (open: boolean) => void
-  allHalls: boolean
-  onAllHalls: (all: boolean) => void
   /** No hall bookings are read in. */
   empty: boolean
   /** Where the hall calendar stays while the rows scroll: right under the date header. */
@@ -40,17 +38,17 @@ interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'h
  * The hall calendar is framed by a hairline above and below, so it still reads as a line of its own when folded. Open, its heading with the legend is a line of its own too.
  * It stays under the date header whatever the height of the top block: where the block has to give way, the staffing lines slide in under it.
  */
-export function HallSection({ open, onOpen, allHalls, onAllHalls, empty, pinTop, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
+export function HallSection({ open, onOpen, empty, pinTop, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
   return (
     <div className={`top-section halls ${open ? 'open' : ''}`} style={{ top: pinTop }}>
       <div className="section-head" style={{ width: LEFT_W }}>
         <Twisty open={open} show="Vis hallkalenderen" hide="Skjul hallkalenderen" onToggle={() => onOpen(!open)} />
         Haller
         {!open && <span className="section-meta">{halls.length} skjult</span>}
-        {open && (
-          <button className="link small" onClick={() => onAllHalls(!allHalls)}>
-            {allHalls ? 'Bare messehaller' : `Vis alle (${hallCount})`}
-          </button>
+        {open && halls.length < hallCount && (
+          <span className="section-meta" title="Hallene som er valgt under «Steder» i planleggingslinjen">
+            {halls.length} av {hallCount}
+          </span>
         )}
         {open && <PhaseLegend />}
       </div>

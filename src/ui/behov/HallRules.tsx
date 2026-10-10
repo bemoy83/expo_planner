@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { withAreaRenamed } from '../../domain/areas'
 import { todayIso } from '../../domain/dates'
 import { diffHallRules, hallChoices, mergeHallRules, NO_HALL_RULES, placeNames, PROJECT_HALLS, UNRESOLVED_HALL, withChoice, withPlaceRenamed } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
@@ -12,12 +13,12 @@ import { TableFileButtons } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { TextField } from '../fields'
 
-/** The halls a place stands for, as a button that opens the list of all halls to tick, like the filter of a column. */
-function HallPicker({ halls, picked, label, onChange }: { halls: string[]; picked: string[]; label: string; onChange: (halls: string[]) => void }) {
+/** The halls a place stands for or an area holds, as a button that opens the list of all halls to tick, like the filter of a column. */
+function HallPicker({ halls, picked, label, title = 'Kryss av hallene stedet står for', onChange }: { halls: string[]; picked: string[]; label: string; title?: string; onChange: (halls: string[]) => void }) {
   const chosen = new Set(picked.map((hall) => hall.toLowerCase()))
   const shown = halls.filter((hall) => chosen.has(hall.toLowerCase()))
   return (
-    <Menu label={shown.length ? shown.join(', ') : 'Velg haller'} ariaLabel={label} title="Kryss av hallene stedet står for" className={`hall-picker ${shown.length ? '' : 'empty'}`}>
+    <Menu label={shown.length ? shown.join(', ') : 'Velg haller'} ariaLabel={label} title={title} className={`hall-picker ${shown.length ? '' : 'empty'}`}>
       {() => (
         <div className="col-filter-pop">
           <div className="col-filter-all">
@@ -44,7 +45,8 @@ function HallPicker({ halls, picked, label, onChange }: { halls: string[]; picke
 
 /**
  * The rules that place a Hall/Sted text in a hall, so none of them is hidden and all of them are the planner's own:
- * places that stand for several halls, words that mean a place, and every choice made for a single text.
+ * places that stand for several halls, words that mean a place, and every choice made for a single text. Last, the
+ * areas the halls are gathered in, which decide what the Kalender shows.
  * A page of its own, reached from Behov, where the rules are used.
  */
 export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
@@ -57,8 +59,12 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const choices = hallChoices(rules.choices)
   const [place, setPlace] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const [phrase, setPhrase] = useState({ text: '', hall: '' })
+  const areas = rules.areas ?? []
+  const [area, setArea] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
+  const areaTaken = areas.some((other) => other.name.toLowerCase() === area.name.trim().toLowerCase())
+  const setAreas = (next: NonNullable<Rules['areas']>) => setHallRules({ ...rules, areas: next })
   const [message, setMessage] = useState<Message | null>(null)
-  const empty = !rules.places.length && !rules.phrases.length && !choices.length
+  const empty = !rules.places.length && !rules.phrases.length && !choices.length && !areas.length
   const apply = (file: string, next: Rules, how: string) => {
     setHallRules(next)
     setMessage({ kind: 'ok', text: `${file} ${how}. Kan angres med Ctrl/Cmd+Z.` })
@@ -66,6 +72,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   }
   const { pending, onFile, done } = useTableFile<Rules>({ read: readHallreglerWorkbook, empty, takeIn: (incoming, file) => apply(file, incoming, 'lest inn'), onError: (text) => setMessage({ kind: 'error', text }) })
   const diff = pending ? diffHallRules(rules, pending.incoming) : null
+  const onlyInApp = diff ? diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp + diff.areas.onlyInApp : 0
   const taken = (name: string) => [...halls, ...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
   const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next })
   const setPhrases = (next: Rules['phrases']) => setHallRules({ ...rules, phrases: next })
@@ -98,12 +105,12 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
           ← Behov
         </button>
         <span className="muted small">
-          {rules.places.length} steder · {rules.phrases.length} regler for ord · {choices.length} valg for enkelte tekster
+          {rules.places.length} steder · {rules.phrases.length} regler for ord · {choices.length} valg for enkelte tekster · {areas.length} områder
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
         <TableFileButtons
-          exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord og et for valg."
+          exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord, et for valg og et for områder."
           importTitle="Les inn en fil med hallregler: en som er eksportert herfra, eller en med de samme arkene og kolonnene."
           canExport={!empty}
           onExport={() => download(`expo-planner-hallregler-${todayIso()}.xlsx`, writeHallreglerWorkbook(rules), XLSX_TYPE)}
@@ -272,15 +279,65 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         ) : (
           <p className="muted">Ingen ennå. Et valg i kolonnen Plassering, eller et forslag du bruker, havner her.</p>
         )}
+
+        <h3>Områder</h3>
+        <p className="hint">
+          Et område samler haller under ett navn, som «NV HALLS» for A til E. Det bestemmer bare hva som vises: under «Steder» i Kalender krysser du av områdene og hallene du vil arbeide med, og
+          hallkalenderen, planen og bemanningen følger valget. Hvor behovet teller, endres ikke. En hall som står i flere områder, hører til det øverste.
+        </p>
+        <table className="ledger rules">
+          <thead>
+            <tr>
+              <th>Område</th>
+              <th>Haller</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {areas.map((entry, index) => (
+              <tr key={index}>
+                <td>
+                  <TextField value={entry.name} ariaLabel={`Navn på området ${entry.name}`} onCommit={(value) => setAreas(withAreaRenamed(areas, index, value))} />
+                </td>
+                <td>
+                  <HallPicker halls={halls} picked={entry.halls} label={`Hallene i ${entry.name}`} title="Kryss av hallene i området" onChange={(picked) => setAreas(areas.map((other, at) => (at === index ? { ...other, halls: picked } : other)))} />
+                </td>
+                <td className="actions">
+                  <button className="row-action" title={`Slett området ${entry.name}. Hallene blir stående.`} onClick={() => setAreas(areas.filter((_, at) => at !== index))}>
+                    <X size={13} aria-hidden />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td>
+                <input className="inline" placeholder="Nytt område, f.eks. NV HALLS" aria-label="Navn på nytt område" value={area.name} onChange={(e) => setArea({ ...area, name: e.target.value })} />
+              </td>
+              <td>
+                <HallPicker halls={halls} picked={area.halls} label="Hallene i det nye området" title="Kryss av hallene i området" onChange={(picked) => setArea({ ...area, halls: picked })} />
+              </td>
+              <td className="actions">
+                <button
+                  disabled={!area.name.trim() || !area.halls.length || areaTaken}
+                  title={areaTaken ? 'Et område har navnet fra før' : !area.halls.length ? 'Kryss av hallene i området' : !area.name.trim() ? 'Gi området et navn' : `Området har ${area.halls.join(', ')}`}
+                  onClick={() => {
+                    setAreas([...areas, { name: area.name.trim(), halls: area.halls }])
+                    setArea({ name: '', halls: [] })
+                  }}
+                >
+                  Legg til
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       {pending && diff && (
         <MergeReplaceDialog
           title="Importer hallregler"
           source={pending.file}
-          results={[describeDiff('Steder', diff.places), describeDiff('Regler for ord', diff.phrases), describeDiff('Valg for tekster', diff.choices)]}
-          replaceText={`stedene, reglene for ord og valgene i appen byttes helt ut med filen${
-            diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp > 0 ? `; ${diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp} som bare finnes i appen forsvinner` : ''
-          }. Ved sammenslåing prøves filens regler for ord før de som bare finnes i appen`}
+          results={[describeDiff('Steder', diff.places), describeDiff('Regler for ord', diff.phrases), describeDiff('Valg for tekster', diff.choices), describeDiff('Områder', diff.areas)]}
+          replaceText={`stedene, reglene for ord, valgene og områdene i appen byttes helt ut med filen${onlyInApp > 0 ? `; ${onlyInApp} som bare finnes i appen forsvinner` : ''}. Ved sammenslåing prøves filens regler for ord før de som bare finnes i appen`}
           onCancel={done}
           onApply={(mode) => apply(pending.file, mode === 'merge' ? mergeHallRules(rules, pending.incoming) : pending.incoming, mode === 'merge' ? 'slått sammen med reglene' : 'har erstattet reglene')}
         />

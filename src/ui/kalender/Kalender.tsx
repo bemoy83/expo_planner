@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ALL_HALLS, cleanHallFilter, projectsOutside, type HallFilter } from '../../domain/areas'
 import { capacityForDate, dailyNeed, formatFte, planningSettings, requiredHours, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
@@ -75,7 +76,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const [collapsed, setCollapsed] = usePrefSet('collapsedLevels')
   const [entry, setEntry] = usePrefSet('entryLevels')
   const [hallsOpen, setHallsOpen] = usePref('hallsOpen', true)
-  const [allHalls, setAllHalls] = usePref('allHalls', false)
+  const [hallFilter, setHallFilter] = usePref<HallFilter>('hallFilter', ALL_HALLS, cleanHallFilter)
   const [staffingOpen, setStaffingOpen] = usePref('staffingOpen', true)
   const [capacityOpen, setCapacityOpen] = usePref('capacityOpen', false)
   const [onlyInView, setOnlyInView] = usePref('onlyInView', true)
@@ -147,9 +148,19 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   })
 
   // ---- derived data -------------------------------------------------------------------------
-  const { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallCount } = useHallCalendar(ws, range.start, zoom === 'wide', allHalls)
+  const { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallTree, hallCount } = useHallCalendar(ws, range.start, zoom === 'wide', hallFilter)
+  /** The halls each project has booked. */
+  const hallsOf = useMemo(() => {
+    const booked = new Map<string, Set<string>>()
+    for (const event of events) {
+      const key = projectKey({ projectNo: event.projectNo, projectName: event.name })
+      booked.set(key, new Set([...(booked.get(key) ?? []), ...event.halls]))
+    }
+    return booked
+  }, [events])
+  // What is unticked under «Steder» takes the projects with it that are booked in those halls alone: their rows, and their FTE in the demand.
+  const outside = useMemo(() => projectsOutside(hallsOf, halls), [hallsOf, halls])
 
-  const need = useMemo(() => dailyNeed(ws.allocations), [ws.allocations])
   // While the switch between the modes zooms, the days in view are held at those the plan shows at its own
   // width. The zoom passes through fewer days, and the projects listed would come and go with them,
   // moving the rows under the planner.
@@ -163,7 +174,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
     const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallRules)
     return [...placed, ...suggestedRows(locatedDemand, placed)]
   }, [ws.allocations, ws.venue, ws.hallRules, locatedDemand])
-  const filtered = useMemo(() => filterGroups(rows, events, demandIndex, settings, filter, grouping, ws.projects), [rows, events, demandIndex, settings, filter, grouping, ws.projects])
+  const filtered = useMemo(() => filterGroups(rows, events, demandIndex, settings, filter, grouping, ws.projects).filter((group) => !outside.has(group.key)), [rows, events, demandIndex, settings, filter, grouping, ws.projects, outside])
   // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
   // The visible dates change with every column scrolled, the projects they hold seldom do; the hierarchy is
   // built again only when that list of projects changes.
@@ -195,13 +206,16 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   if (focusRowId && focusRowId !== detailId) setDetailId(focusRowId)
   const allGroups = useMemo(() => buildGroups(rows, events, demandIndex, settings, ws.projects), [rows, events, demandIndex, settings, ws.projects])
   const projects = useMemo(
-    () => allGroups.map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
-    [allGroups],
+    () => allGroups.filter((group) => !outside.has(group.key)).map((group) => [group.key, group.projectName] as [string, string]).sort((a, b) => a[1].localeCompare(b[1], 'nb')),
+    [allGroups, outside],
   )
   // The days each row can be worked on: its project's build-up or tear-down days in its hall.
   // The same lookup gives the hall phase of each day of a project, for the strip on its line.
   const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf, sharedPlaces(hallNames(ws.venue), ws.hallRules)), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf, ws.venue, ws.hallRules])
   const projectOfRow = useMemo(() => new Map(allGroups.flatMap((group) => group.rows.map((row) => [row.id, group.key] as const))), [allGroups])
+  // The FTE that counts as need, in the staffing lines and as the demand of Bemanning: that of the projects shown.
+  const planned = useMemo(() => (outside.size ? ws.allocations.filter((row) => !outside.has(projectOfRow.get(row.id) ?? projectKey(row))) : ws.allocations), [ws.allocations, outside, projectOfRow])
+  const need = useMemo(() => dailyNeed(planned), [planned])
   const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
 
   const details = useMemo<RowDetails | null>(() => {
@@ -679,11 +693,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // The projects as Bemanning lists them: their days in the hall calendar, from the first phase to the last.
   const projectSpans = useMemo<ProjectSpan[]>(() => {
     if (!bemanning) return []
-    const hallsOf = new Map<string, Set<string>>()
-    for (const event of events) {
-      const key = projectKey({ projectNo: event.projectNo, projectName: event.name })
-      hallsOf.set(key, new Set([...(hallsOf.get(key) ?? []), ...event.halls]))
-    }
     // As in the hall calendar: only the projects with a booking in one of the halls it shows. And only
     // those with FTE planned somewhere in the period: a project without has nothing to staff.
     const shownHalls = new Set(halls)
@@ -695,7 +704,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
       const event = days.find(([, phase]) => phase === 'event')
       return [{ key: group.key, name: group.projectName, halls: [...(hallsOf.get(group.key) ?? [])].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true })), start, end: daysBetween(range.start, days[days.length - 1][0]), eventStart: event ? daysBetween(range.start, event[0]) : start }]
     })
-  }, [bemanning, events, allGroups, phasesOfProject, range.start, halls])
+  }, [bemanning, hallsOf, allGroups, phasesOfProject, range.start, halls])
   const focusDay = useCallback((date: ISODate) => setPlanningFocus({ date }), [setPlanningFocus])
   const showDate = useCallback((date: ISODate) => scrollToDate(date, 1), [scrollToDate])
 
@@ -771,7 +780,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // ---- render ---------------------------------------------------------------------------------
   return (
     <div className={`kalender ${bemanning ? `bemanning-mode ${selectionStyle === 'raised' ? 'selection-raised' : ''}` : activeTool === 'select' ? '' : activeTool}`}>
-      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
+      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
       {bemanning ? <BemanningHead /> : <KalenderHead
         projects={shownGroups.length}
         rows={shownRowCount}
@@ -801,7 +810,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
             }}
           >
             {bemanning ? <BemanningTop /> : <>
-            <HallSection open={hallsOpen} onOpen={setHallsOpen} allHalls={allHalls} onAllHalls={setAllHalls} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
+            <HallSection open={hallsOpen} onOpen={setHallsOpen} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
               onOpen={setStaffingOpen}
@@ -832,6 +841,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
                   const span = projectSpan(key)
                   if (span) fitBemanning(span)
                 }}
+                hallTree={hallTree}
+                hallFilter={hallFilter}
+                onHallFilter={setHallFilter}
                 onToday={() => scrollToDate(today, 1)}
                 onFit={() => {
                   const span = projectSpan(filter.project)
@@ -852,6 +864,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
               competences={competences}
               onlyInView={onlyInView}
               onOnlyInView={setOnlyInView}
+              hallTree={hallTree}
+              hallFilter={hallFilter}
+              onHallFilter={setHallFilter}
               grouping={grouping}
               onGrouping={(next) => {
                 // Lanes are positions in the list, so a selection would land on other rows after regrouping.
