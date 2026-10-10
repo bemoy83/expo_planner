@@ -13,12 +13,20 @@ import { phaseBars, projectSlots, projectsInView, type ProjectSpan } from './pro
 /** How long a project that leaves the list takes to fade out. */
 const LEAVE_MS = 260
 
+interface Props {
+  /** The lines are those of the plan: every project of the halls shown, and a click on a bar finds the project among the rows. */
+  plan?: boolean
+  /** The legend of the phases ends the heading; left out where the section under it carries it. */
+  legend?: boolean
+}
+
 /**
- * The projects in view that have planned FTE, for context: one line per project with its phases as the
- * hall calendar draws them and its halls in the label. The block keeps its height while the days scroll
- * (R37), and is never taller than six lines: projects that do not fit are counted beside the heading.
+ * The projects in view, for context: one line per project with its phases as the hall calendar draws
+ * them and its halls in the label. In Bemanning they are those that have planned FTE. The block keeps its
+ * height while the days scroll (R37), and is never taller than six lines: projects that do not fit are
+ * counted beside the heading.
  */
-export function ProjectLines() {
+export function ProjectLines({ plan = false, legend = true }: Props) {
   const { projects, phases, chosenProject, cols, dates, viewFrom, viewTo, room, projectsOpen: open, setProjectsOpen, projectDensity, setProjectDensity } = useBemanning()
   const compact = projectDensity === 'compact'
   const rowH = compact ? PROJECT_COMPACT_H : PROJECT_H
@@ -62,7 +70,7 @@ export function ProjectLines() {
           // The event's bar carries the project's name; the others their phase, in full where there is room.
           const text = compact ? null : bar.phase === 'event' ? project.name : width >= PHASE_NAME_MIN_W ? PHASE_LABELS[bar.phase] : PHASE_CODES[bar.phase]
           return (
-            <span key={`${bar.phase}:${bar.col}`} className={`hall-bar ph-${bar.phase}`} style={{ left: daysWide(bar.col, LEFT_W + 1), width: daysWide(bar.span, -2) }} title={`${project.name} · ${PHASE_LABELS[bar.phase]}`}>
+            <span key={`${bar.phase}:${bar.col}`} className={`hall-bar ph-${bar.phase}`} style={{ left: daysWide(bar.col, LEFT_W + 1), width: daysWide(bar.span, -2) }} title={`${project.name} · ${PHASE_LABELS[bar.phase]}`} data-project={plan ? project.key : undefined}>
               {text}
             </span>
           )
@@ -76,11 +84,11 @@ export function ProjectLines() {
         <Twisty open={open} show="Vis prosjektene" hide="Skjul prosjektene" onToggle={() => setProjectsOpen(!open)} />
         Prosjekter
         {open && <DensityToggle compact={compact} onChange={(next) => setProjectDensity(next ? 'compact' : 'detail')} />}
-        <span className="section-meta" title={hidden.length ? `Vises ikke, fordi listen har plass til ${slots}:\n${hidden.map((project) => project.name).join('\n')}` : 'Prosjekter med planlagt FTE i dagene som vises, av alle med planlagt FTE'}>
+        <span className="section-meta" title={hidden.length ? `Vises ikke, fordi listen har plass til ${slots}:\n${hidden.map((project) => project.name).join('\n')}` : plan ? 'Prosjekter i dagene som vises, av alle i hallene som vises' : 'Prosjekter med planlagt FTE i dagene som vises, av alle med planlagt FTE'}>
           {listed.length - hidden.length} av {projects.length}
           {hidden.length > 0 && <b className="bm-more"> · +{hidden.length}</b>}
         </span>
-        {open && <PhaseLegend />}
+        {open && legend && <PhaseLegend />}
       </div>
       {open && (
         <div className="bm-project-block" style={{ height: slots * rowH }}>

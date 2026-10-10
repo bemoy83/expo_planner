@@ -16,6 +16,7 @@ import { loadPref, savePref, usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { AllocationDialog } from '../AllocationDialog'
 import { BemanningHead, BemanningOverlays, BemanningToolbar, BemanningTop } from '../bemanning/BemanningParts'
+import { ProjectLines } from '../bemanning/ProjectLines'
 import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
 import { PersonPanel } from '../bemanning/PersonPanel'
@@ -691,15 +692,14 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), bemanningW)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const bemanning = shown === 'bemanning'
-  // The projects as Bemanning lists them: their days in the hall calendar, from the first phase to the last.
+  // The projects as the project lines list them, in both modes: their days in the hall calendar, from the first phase to the last.
   const projectSpans = useMemo<ProjectSpan[]>(() => {
-    if (!bemanning) return []
-    // As in the hall calendar: only the projects with a booking in one of the halls it shows. And only
-    // those with FTE planned somewhere in the period: a project without has nothing to staff.
+    // As in the hall calendar: only the projects with a booking in one of the halls it shows. And in Bemanning
+    // only those with FTE planned somewhere in the period: a project without has nothing to staff.
     const shownHalls = new Set(halls)
     return allGroups.flatMap((group): ProjectSpan[] => {
       const days = [...(phasesOfProject.get(group.key) ?? [])].sort((a, b) => a[0].localeCompare(b[0]))
-      if (![...group.daily.values()].some((fte) => fte > 0)) return []
+      if (bemanning && ![...group.daily.values()].some((fte) => fte > 0)) return []
       if (!days.length || ![...(hallsOf.get(group.key) ?? [])].some((hall) => shownHalls.has(hall))) return []
       const start = daysBetween(range.start, days[0][0])
       const event = days.find(([, phase]) => phase === 'event')
@@ -813,6 +813,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
             }}
           >
             {bemanning ? <BemanningTop /> : <>
+            <ProjectLines plan legend={!hallsOpen} />
             <HallSection open={hallsOpen} onOpen={setHallsOpen} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
