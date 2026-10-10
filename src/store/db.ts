@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import { withoutStoredNames } from '../domain/kpi'
 import { withSettingsDefaults, type AllocationRow, type Assignment, type CompetenceStyle, type DemandAdjustment, type DemandLine, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
 
 interface MetaRecord {
@@ -72,7 +73,7 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     hiddenVenue: (hiddenVenue?.value as Record<string, true> | undefined) ?? {},
     eventLinks: (eventLinks?.value as Record<string, string> | undefined) ?? {},
     hallAliases: (hallAliases?.value as Record<string, string> | undefined) ?? {},
-    kpi: kpi?.value as KpiConfig | undefined,
+    kpi: kpi ? withoutStoredNames(kpi.value as KpiConfig) : undefined,
     overrides: (overrides?.value as Record<string, LineOverride> | undefined) ?? {},
     visma,
     venue,

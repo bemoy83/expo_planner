@@ -1,4 +1,5 @@
 import { buildDemandIndex, requiredHours } from './calc'
+import { productTypeKey } from './visma'
 import { PLANNED_BASIS, type AllocationRow, type DemandLine, type KpiConfig } from './types'
 
 /**
@@ -73,10 +74,10 @@ export const suggestedRows = (demand: DemandLine[], allocations: AllocationRow[]
  * Returns the rows that move, as they are after the move.
  */
 export const followCompetence = (rows: AllocationRow[], kpiBefore: KpiConfig, kpiAfter: KpiConfig, demandBefore: DemandLine[], demandAfter: DemandLine[]): AllocationRow[] => {
-  const was = new Map(kpiBefore.workTypes.map((type) => [norm(type.name), type.competence]))
+  const was = new Map(kpiBefore.workTypes.map((type) => [productTypeKey(type.productType), type.competence]))
   const wentTo = new Map<string, Set<string>>()
   for (const type of kpiAfter.workTypes) {
-    const old = was.get(norm(type.name))
+    const old = was.get(productTypeKey(type.productType))
     if (!old?.trim() || !type.competence.trim() || norm(old) === norm(type.competence)) continue
     wentTo.set(norm(old), (wentTo.get(norm(old)) ?? new Set()).add(type.competence.trim()))
   }

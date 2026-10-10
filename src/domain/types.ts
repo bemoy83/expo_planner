@@ -173,8 +173,7 @@ export interface VismaImport {
 
 /** How one Visma product type is counted and which competence it belongs to. */
 export interface WorkTypeRule {
-  /** Text inside the brackets of `Produkttype 2`, e.g. «FOGA-vegger». */
-  name: string
+  /** `Produkttype 2` as Visma writes it, e.g. «14 [FOGA-vegger]», or the name typed for a type added by hand. Its name is worked out, see `productTypeName`. */
   productType: string
   unit: string
   competence: string
@@ -182,6 +181,7 @@ export interface WorkTypeRule {
 
 /** Units of work done per person-hour for a work type and unit. */
 export interface KpiRate {
+  /** The name of the product type the rate is for, see `productTypeName`. */
   name: string
   unit: string
   assembly: number

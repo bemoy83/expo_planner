@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
+import { productTypeKey, productTypeLabel } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
 import { PickField } from '../fields'
 
@@ -32,9 +33,9 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
   const [comment, setComment] = useState(line?.comment ?? '')
 
   const workTypes = useMemo(() => ws.kpi?.workTypes ?? [], [ws.kpi])
-  const workTypeNames = useMemo(() => workTypes.map((t) => t.name), [workTypes])
+  const workTypeNames = useMemo(() => workTypes.map((t) => productTypeLabel(t.productType)), [workTypes])
   const workTypeNote = (name: string) => {
-    const rule = workTypes.find((t) => t.name === name)
+    const rule = workTypes.find((t) => productTypeKey(t.productType) === productTypeKey(name))
     return rule && [rule.unit, rule.competence].filter(Boolean).join(' · ')
   }
   const bases = useMemo(() => [...new Set([PLANNED_BASIS, ...ws.demand.map((l) => l.basis)])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'nb')), [ws.demand])
@@ -45,11 +46,11 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
 
   /** Fills unit, competence and hours from the KPI setup when the work type or quantity changes. */
   const recalc = (nextType: string, nextQuantity: string) => {
-    const rule = workTypes.find((t) => t.name.toLowerCase() === nextType.trim().toLowerCase())
+    const rule = workTypes.find((t) => productTypeKey(t.productType) === productTypeKey(nextType))
     if (!rule) return
     setUnit(rule.unit)
     setCompetence(rule.competence)
-    const rate = ws.kpi?.rates.find((r) => r.name.toLowerCase() === rule.name.toLowerCase() && r.unit.toLowerCase() === rule.unit.toLowerCase())
+    const rate = ws.kpi?.rates.find((r) => productTypeKey(r.name) === productTypeKey(rule.productType) && r.unit.toLowerCase() === rule.unit.toLowerCase())
     const q = toNumber(nextQuantity)
     if (!rate || q === null) return
     setAssembly(show(rate.assembly ? q / rate.assembly : 0))

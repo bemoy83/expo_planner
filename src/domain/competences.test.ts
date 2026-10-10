@@ -10,7 +10,7 @@ const base: Workspace = {
   projects: [],
   demand: [],
   allocations: [row('Teppefliser'), row('FOGA'), row(' foga'), row('')],
-  kpi: { workTypes: [{ name: 'Skilt', productType: 'Skilt', unit: 'stk', competence: 'Skilting' }], rates: [] },
+  kpi: { workTypes: [{ productType: 'Skilt', unit: 'stk', competence: 'Skilting' }], rates: [] },
   persons: [{ id: 'p1', name: 'Anna', order: 0, active: true, competences: ['banner'] }],
 }
 
@@ -91,7 +91,7 @@ describe('people', () => {
 })
 
 describe('a competence that is replaced', () => {
-  const kpiOf = (competences: Record<string, string>) => ({ workTypes: Object.entries(competences).map(([name, competence]) => ({ name, productType: name, unit: 'stk', competence })), rates: [] })
+  const kpiOf = (competences: Record<string, string>) => ({ workTypes: Object.entries(competences).map(([name, competence]) => ({ productType: name, unit: 'stk', competence })), rates: [] })
   const before = kpiOf({ Skilt: 'Skilting', Bannere: 'Skilting', Fliser: 'Teppefliser' })
   const staffed: Workspace = {
     ...base,

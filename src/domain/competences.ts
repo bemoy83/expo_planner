@@ -1,3 +1,4 @@
+import { productTypeKey } from './visma'
 import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type KpiConfig, type LineColor, type Person, type Workspace } from './types'
 
 /**
@@ -124,10 +125,10 @@ export const staffedCompetences = (ws: Workspace): CompetenceStyle[] => {
  * more. Only people and their blocks still do. `after` is the workspace with the change made.
  */
 export const supersededCompetences = (kpiBefore: KpiConfig, after: Workspace): { from: CompetenceKey; to: string }[] => {
-  const was = new Map(kpiBefore.workTypes.map((type) => [type.name.trim().toLowerCase(), type.competence]))
+  const was = new Map(kpiBefore.workTypes.map((type) => [productTypeKey(type.productType), type.competence]))
   const wentTo = new Map<CompetenceKey, Set<string>>()
   for (const type of after.kpi?.workTypes ?? []) {
-    const old = competenceKey(was.get(type.name.trim().toLowerCase()) ?? '')
+    const old = competenceKey(was.get(productTypeKey(type.productType)) ?? '')
     if (!old || !type.competence.trim() || old === competenceKey(type.competence)) continue
     wentTo.set(old, (wentTo.get(old) ?? new Set()).add(type.competence.trim()))
   }

@@ -70,7 +70,7 @@ describe('rows suggested from planned demand', () => {
 })
 
 describe('followCompetence', () => {
-  const kpi = (competences: Record<string, string>): KpiConfig => ({ workTypes: Object.entries(competences).map(([name, competence]) => ({ name, productType: name, unit: 'm²', competence })), rates: [] })
+  const kpi = (competences: Record<string, string>): KpiConfig => ({ workTypes: Object.entries(competences).map(([name, competence]) => ({ productType: name, unit: 'm²', competence })), rates: [] })
   const before = kpi({ Teppefliser: 'Teppefliser', Gangtepper: 'Teppefliser', Banner: 'Banner' })
   // What Visma gives for the project, as the ledger holds it under each set-up.
   const demandOf = (config: KpiConfig) => [

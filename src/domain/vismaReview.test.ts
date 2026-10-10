@@ -6,8 +6,8 @@ import { countOf, matchesFilter, reviewVisma } from './vismaReview'
 
 const kpi: KpiConfig = {
   workTypes: [
-    { name: 'FOGA-vegger', productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' },
-    { name: 'Print', productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
+    { productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' },
+    { productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
   ],
   rates: [
     { name: 'FOGA-vegger', unit: 'lm', assembly: 7, dismantle: 14 },

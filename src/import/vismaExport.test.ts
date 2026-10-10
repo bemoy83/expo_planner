@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig } from '../domain/types'
 import { setActiveUnit } from '../domain/kpi'
-import { buildVismaLines } from '../domain/visma'
+import { buildVismaLines, productTypeName } from '../domain/visma'
 import { readKpiWorkbook, readVismaExport } from './vismaExport'
 
 /** Runs against the real exports, which are kept out of the repository; skipped where they are missing. */
@@ -34,9 +34,9 @@ describe.skipIf(!available)('Visma export (local data)', () => {
   })
 
   it('reads product types, competences and rates from the one KPI file', () => {
-    expect(kpi.workTypes.find((t) => t.name === 'FOGA-vegger')).toMatchObject({ unit: 'lm', competence: 'FOGA' })
+    expect(kpi.workTypes.find((t) => productTypeName(t.productType) === 'FOGA-vegger')).toMatchObject({ unit: 'lm', competence: 'FOGA' })
     // A product type with rates for two units is left for the planner to choose.
-    expect(kpi.workTypes.find((t) => t.name === 'FOGA-dragere')).toMatchObject({ unit: '', competence: 'FOGA' })
+    expect(kpi.workTypes.find((t) => productTypeName(t.productType) === 'FOGA-dragere')).toMatchObject({ unit: '', competence: 'FOGA' })
     expect(kpi.workTypes.filter((t) => !t.unit)).toHaveLength(9)
     expect(kpi.rates.find((r) => r.name === 'FOGA-vegger' && r.unit === 'lm')).toMatchObject({ assembly: 7.01, dismantle: 11.5 })
   })
@@ -50,7 +50,7 @@ describe.skipIf(!available)('Visma export (local data)', () => {
   it('calculates the raw hours the Nøkkeltall workbook gives, once the units are chosen', () => {
     // The units the workbook counted these product types in; the rest of the nine are counted per piece.
     const units: Record<string, string> = { 'FOGA-dragere': 'lm', 'FOGA-løsøre': 'ordre', Print: 'ordre', 'Tepper-løsøre': 'ordre' }
-    const chosen = kpi.workTypes.filter((t) => !t.unit).reduce((config, t) => setActiveUnit(config, t.name, units[t.name] ?? 'stk'), kpi)
+    const chosen = kpi.workTypes.filter((t) => !t.unit).reduce((config, t) => setActiveUnit(config, t.productType, units[productTypeName(t.productType)] ?? 'stk'), kpi)
     const t = totals(buildVismaLines(rows, chosen, {}))
     expect(t.Teppefliser[0]).toBeCloseTo(121.802, 3)
     expect(t.Banner[0]).toBeCloseTo(127.733, 3)

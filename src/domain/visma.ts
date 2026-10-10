@@ -23,6 +23,18 @@ export const workTypeName = (productType: string): string => {
   return close > open && open >= 0 ? productType.slice(open + 1, close) : NO_PRODUCT_TYPE
 }
 
+/** The name of a product type: the text in the brackets of its Visma text, or the text itself for a type added by hand. */
+export const productTypeName = (productType: string): string => {
+  const name = workTypeName(productType)
+  return name === NO_PRODUCT_TYPE ? productType.trim() : name
+}
+
+/** A product type as it is shown, from its Visma text or its name: «1 [5999 [Diverse]]» and «5999 [Diverse» → «5999 Diverse». */
+export const productTypeLabel = (productType: string): string => productTypeName(productType).replace(/[[\]]/g, ' ').replace(/\s+/g, ' ').trim()
+
+/** What product types are matched by: its Visma text, its name and its label all name the same type. */
+export const productTypeKey = (productType: string): string => productTypeLabel(productType).toLowerCase()
+
 /** «C04-44» → «Hall C»; without a stand, the free-text location is the hall. */
 export const hallOf = (row: Pick<VismaRow, 'stand' | 'transInfo'>): string => (row.stand ? `Hall ${row.stand[0]}` : row.transInfo)
 
@@ -103,15 +115,15 @@ const groupRows = (rows: VismaRow[]): Group[] => {
 const hoursFor = (quantity: number, rate: number | null, effekt: number): number => (rate ? (quantity / rate) * (1 - effekt) : 0)
 
 export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Record<string, LineOverride>): VismaLine[] => {
-  const rules = new Map(kpi.workTypes.map((rule) => [rule.name.toLowerCase(), rule]))
-  const rates = new Map(kpi.rates.map((rate) => [`${rate.name.toLowerCase()}|${rate.unit.toLowerCase()}`, rate]))
+  const rules = new Map(kpi.workTypes.map((rule) => [productTypeKey(rule.productType), rule]))
+  const rates = new Map(kpi.rates.map((rate) => [`${productTypeKey(rate.name)}|${rate.unit.toLowerCase()}`, rate]))
   return groupRows(rows).map((group) => {
     const key = vismaLineKey(group.projectNo, group.avdeling, group.workType, group.hall)
     const override = overrides[key] ?? {}
     const workType = group.workType === NO_PRODUCT_TYPE && override.workType ? override.workType : group.workType
-    const rule = workType === NO_PRODUCT_TYPE ? undefined : rules.get(workType.toLowerCase())
+    const rule = workType === NO_PRODUCT_TYPE ? undefined : rules.get(productTypeKey(workType))
     const unit = rule?.unit ?? ''
-    const rate = rule ? rates.get(`${workType.toLowerCase()}|${unit.toLowerCase()}`) : undefined
+    const rate = rule ? rates.get(`${productTypeKey(workType)}|${unit.toLowerCase()}`) : undefined
     const quantity = COUNTED_UNITS.has(unit.toLowerCase()) ? group.locations.size : group.sum
     const effekt = override.effekt ?? 0
     const issue: VismaLine['issue'] = workType === NO_PRODUCT_TYPE ? 'no-product-type' : !rule ? 'unknown-work-type' : !rate?.assembly && !rate?.dismantle ? 'no-rate' : null

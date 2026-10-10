@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate } from './kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, withoutStoredNames } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
   workTypes: [
-    { name: 'FOGA-dragere', productType: '12 [FOGA-dragere]', unit: 'lm', competence: 'FOGA' },
-    { name: 'Print', productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
-    { name: 'Skilt', productType: '11 [Skilt]', unit: 'stk', competence: 'Skilting' },
+    { productType: '12 [FOGA-dragere]', unit: 'lm', competence: 'FOGA' },
+    { productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
+    { productType: '11 [Skilt]', unit: 'stk', competence: 'Skilting' },
   ],
   rates: [
     { name: 'FOGA-dragere', unit: 'lm', assembly: 35, dismantle: 35 },
@@ -32,7 +32,7 @@ describe('KPI table', () => {
 
   it('adds a new work type, or a second unit without changing the one in use', () => {
     const added = addKpiRow(kpi, { name: 'Gangtepper', unit: 'm²', competence: 'Gangtepper', assembly: 60, dismantle: 90 })
-    expect(added.workTypes.at(-1)).toMatchObject({ name: 'Gangtepper', unit: 'm²', competence: 'Gangtepper' })
+    expect(added.workTypes.at(-1)).toEqual({ productType: 'Gangtepper', unit: 'm²', competence: 'Gangtepper' })
     expect(added.rates.at(-1)).toMatchObject({ assembly: 60, dismantle: 90 })
     const second = addKpiRow(kpi, { name: 'Print', unit: 'stk', competence: '', assembly: 4, dismantle: 0 })
     expect(second.workTypes).toEqual(kpi.workTypes)
@@ -44,7 +44,7 @@ describe('KPI table', () => {
     expect(switched.workTypes[0].unit).toBe('stk')
     expect(switched.rates).toHaveLength(2)
     const gone = removeKpiRow(kpi, 'Print', 'ordre')
-    expect(gone.workTypes.map((t) => t.name)).toEqual(['FOGA-dragere', 'Skilt'])
+    expect(gone.workTypes.map((t) => t.productType)).toEqual(['12 [FOGA-dragere]', '11 [Skilt]'])
   })
 })
 
@@ -75,9 +75,9 @@ describe('KPI import', () => {
   it('keeps the unit the planner has chosen when a file is read again', () => {
     const chosen = setActiveUnit(kpi, 'FOGA-dragere', 'stk')
     // As the KPI file is read: several units, so none in use; and a competence of its own.
-    const again: KpiConfig = { workTypes: [{ name: 'FOGA-dragere', productType: '12 [FOGA-dragere]', unit: '', competence: 'Vegger' }], rates: kpi.rates.slice(0, 2) }
+    const again: KpiConfig = { workTypes: [{ productType: '12 [FOGA-dragere]', unit: '', competence: 'Vegger' }], rates: kpi.rates.slice(0, 2) }
     expect(mergeKpi(chosen, again).workTypes[0]).toMatchObject({ unit: 'stk', competence: 'Vegger' })
-    expect(replaceKpi(chosen, again).workTypes).toEqual([{ name: 'FOGA-dragere', productType: '12 [FOGA-dragere]', unit: 'stk', competence: 'Vegger' }])
+    expect(replaceKpi(chosen, again).workTypes).toEqual([{ productType: '12 [FOGA-dragere]', unit: 'stk', competence: 'Vegger' }])
     expect(diffKpi(chosen, again).workTypes).toMatchObject({ changed: 1, unchanged: 0 })
     expect(diffKpi(chosen, { ...again, workTypes: [{ ...again.workTypes[0], competence: 'FOGA' }] }).workTypes).toMatchObject({ changed: 0, unchanged: 1 })
     // A chosen unit the file no longer has rates for is not kept when the file replaces the table.
@@ -123,7 +123,7 @@ describe('product types in the KPI table', () => {
     const withUnit = renameUnit(EMPTY_KPI, 'FOGA-vegger', '', 'lm')
     expect(kpiRows(withUnit)[0]).toMatchObject({ unit: 'lm', active: true, lacking: 'competence' })
     const withBoth = setCompetence(withUnit, 'FOGA-vegger', 'lm', 'FOGA')
-    expect(withBoth.workTypes).toEqual([{ name: 'FOGA-vegger', productType: '[FOGA-vegger]', unit: 'lm', competence: 'FOGA' }])
+    expect(withBoth.workTypes).toEqual([{ productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' }])
     const rows = kpiRows(withBoth, exportWith('14 [FOGA-vegger]', '23 [Print]'))
     expect(rows.map((r) => `${r.name}:${r.configured}`)).toEqual(['Print:false', 'FOGA-vegger:true'])
     expect(rows[1]).toMatchObject({ productType: '14 [FOGA-vegger]', lines: 1, lacking: 'rate' })
@@ -167,5 +167,45 @@ describe('product types in the KPI table', () => {
     // The unit of a rate with no unit in use is renamed without choosing it.
     const ratesOnly = { workTypes: [], rates: kpi.rates }
     expect(renameUnit(ratesOnly, 'Print', 'ordre', 'stands')).toEqual({ workTypes: [], rates: [...kpi.rates.slice(0, 2), { ...kpi.rates[2], unit: 'stands' }] })
+  })
+})
+
+describe('the name of a product type', () => {
+  it('is matched by its Visma text, its name and its label alike', () => {
+    const set = setRate(kpi, '23 [Print]', 'ordre', { dismantle: 2 })
+    expect(set.rates).toHaveLength(3)
+    expect(set.rates[2]).toEqual({ name: 'Print', unit: 'ordre', assembly: 1, dismantle: 2 })
+    expect(setActiveUnit(kpi, 'foga-dragere', 'stk').workTypes[0]).toEqual({ productType: '12 [FOGA-dragere]', unit: 'stk', competence: 'FOGA' })
+  })
+
+  it('keeps types whose names differ only by a number apart, and shows them without brackets', () => {
+    const visma = exportWith('1 [5999 [Diverse]]', '2 [6999 [Diverse]]')
+    const rows = kpiRows(EMPTY_KPI, visma)
+    expect(rows.map((r) => r.name)).toEqual(['5999 Diverse', '6999 Diverse'])
+    // Set up from its row, a type keeps its text from Visma; its rate is found by the name the Visma lines have.
+    const setUp = setRate(renameUnit(EMPTY_KPI, rows[0].productType, '', 'stk'), rows[0].productType, 'stk', { assembly: 4 })
+    expect(setUp).toEqual({ workTypes: [{ productType: '1 [5999 [Diverse]]', unit: 'stk', competence: '' }], rates: [{ name: '5999 [Diverse', unit: 'stk', assembly: 4, dismantle: 0 }] })
+    expect(kpiRows(setUp, visma).map((r) => `${r.name}/${r.unit}/${r.lacking}`)).toEqual(['6999 Diverse//new', '5999 Diverse/stk/competence'])
+    // Typed as it is shown, it is the same type.
+    expect(addKpiRow(setUp, { name: '5999 Diverse', unit: 'lm', competence: '', assembly: 1, dismantle: 1 }).workTypes).toEqual(setUp.workTypes)
+  })
+
+  it('drops the name a setup was stored with, and the brackets put around a name typed by hand', () => {
+    const stored = {
+      workTypes: [
+        { name: 'Print', productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
+        { name: 'Egen type', productType: '[Egen type]', unit: 'stk', competence: 'Skilting' },
+        { name: '5999 [Diverse', productType: '1 [5999 [Diverse]]', unit: 'stk', competence: '' },
+      ],
+      rates: kpi.rates,
+    } as unknown as KpiConfig
+    const now = withoutStoredNames(stored)
+    expect(now.workTypes).toEqual([
+      { productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
+      { productType: 'Egen type', unit: 'stk', competence: 'Skilting' },
+      { productType: '1 [5999 [Diverse]]', unit: 'stk', competence: '' },
+    ])
+    expect(now.rates).toBe(kpi.rates)
+    expect(withoutStoredNames(now)).toBe(now)
   })
 })

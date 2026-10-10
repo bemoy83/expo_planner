@@ -3,7 +3,7 @@ import { formatFte } from '../../domain/calc'
 import { EMPTY_KPI } from '../../domain/kpi'
 import { decimalText } from '../../domain/numbers'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
-import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from '../../domain/visma'
+import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, productTypeLabel, productTypeName, type VismaLine } from '../../domain/visma'
 import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -175,20 +175,20 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     {
       key: 'workType',
       head: 'Arbeidstype',
-      text: (line) => line.workType,
+      text: (line) => productTypeLabel(line.workType),
       cell: (line) => (
         <>
           {line.sourceWorkType === NO_PRODUCT_TYPE ? (
             <select value={line.workType === NO_PRODUCT_TYPE ? '' : line.workType} onChange={(e) => override(line, { workType: e.target.value || undefined })}>
               <option value="">Uten produkttype …</option>
               {kpi.workTypes.map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.name} ({t.unit})
+                <option key={t.productType} value={productTypeName(t.productType)}>
+                  {productTypeLabel(t.productType)} ({t.unit})
                 </option>
               ))}
             </select>
           ) : (
-            line.workType
+            productTypeLabel(line.workType)
           )}
           {line.issue && line.issue !== 'no-product-type' && <span className="issue"> {ISSUE_TEXT[line.issue]}</span>}
           {line.missingRate && <span className="hint"> {MISSING_RATE_TEXT[line.missingRate]}</span>}
@@ -247,7 +247,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
   const ownColumns: Column<DemandLine>[] = [
     { key: 'basis', head: 'Grunnlag', text: (line) => line.basis, cell: (line) => line.basis },
     { key: 'competence', head: 'Kompetanse', text: (line) => line.competence, cell: (line) => line.competence },
-    { key: 'workType', head: 'Arbeidstype', text: (line) => line.workType, cell: (line) => line.workType },
+    { key: 'workType', head: 'Arbeidstype', text: (line) => productTypeLabel(line.workType), cell: (line) => productTypeLabel(line.workType) },
     { key: 'hall', head: 'Hall / sted', text: (line) => line.hall, cell: (line) => line.hall },
     { key: 'place', head: 'Plassering', title: 'Hallen linjen teller under i Kalender', text: (line) => placeOf(line.hall, halls, ws.hallAliases).hall, cell: (line) => locationCell(line.hall) },
     { key: 'source', head: 'Kilde', text: (line) => line.source, cell: (line) => line.source },

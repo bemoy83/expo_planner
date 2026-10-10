@@ -1,4 +1,4 @@
-import { NO_PRODUCT_TYPE, withProjectNames, workTypeName } from '../domain/visma'
+import { NO_PRODUCT_TYPE, productTypeKey, withProjectNames, workTypeName } from '../domain/visma'
 import type { KpiConfig, KpiRate, VismaRow, WorkTypeRule } from '../domain/types'
 import { num, readXlsx, text, type CellValue, type Sheet } from './xlsx'
 
@@ -74,11 +74,11 @@ export const readKpiWorkbook = (bytes: Uint8Array): KpiConfig => {
       if (!productType || name === NO_PRODUCT_TYPE) continue
       const unit = text(get('enhet'))
       rates.push({ name, unit, assembly: num(get('montering')) ?? 0, dismantle: num(get('demontering')) ?? 0 })
-      const type = types.get(name.toLowerCase()) ?? { name, productType, unit: '', competence: '', units: new Set<string>() }
+      const type = types.get(productTypeKey(name)) ?? { productType, unit: '', competence: '', units: new Set<string>() }
       type.competence ||= text(get('kompetansegruppe'))
       if (unit) type.units.add(unit.toLowerCase())
       if (type.units.size === 1) type.unit ||= unit
-      types.set(name.toLowerCase(), type)
+      types.set(productTypeKey(name), type)
     }
     if (!rates.length) continue
     const workTypes = [...types.values()].map(({ units, ...rule }): WorkTypeRule => (units.size > 1 ? { ...rule, unit: '' } : rule))

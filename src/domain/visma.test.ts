@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
-import { buildVismaLines, hallOf, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames, workTypeName } from './visma'
+import { buildVismaLines, hallOf, orphanedDecisions, productTypeKey, productTypeLabel, productTypeName, vismaDemandLines, vismaLineKey, withProjectNames, workTypeName } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
-    { name: 'FOGA-vegger', productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' },
-    { name: 'Print', productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
-    { name: 'Teppefliser', productType: '31 [Teppefliser]', unit: 'm²', competence: 'Teppefliser' },
+    { productType: '14 [FOGA-vegger]', unit: 'lm', competence: 'FOGA' },
+    { productType: '23 [Print]', unit: 'ordre', competence: 'Print' },
+    { productType: '31 [Teppefliser]', unit: 'm²', competence: 'Teppefliser' },
   ],
   rates: [
     { name: 'FOGA-vegger', unit: 'lm', assembly: 7, dismantle: 14 },
@@ -128,5 +128,31 @@ describe('withProjectNames', () => {
 
   it('refuses a project that no line names', () => {
     expect(() => withProjectNames([row({}), row({ projectNo: '26100', eventName: ' ' })])).toThrow('26100')
+  })
+})
+
+describe('product type names', () => {
+  it('reads the name from the Visma text, and takes a text without brackets as the name', () => {
+    expect(productTypeName('14 [FOGA-vegger]')).toBe('FOGA-vegger')
+    expect(productTypeName(' Egen type ')).toBe('Egen type')
+    expect(productTypeName('1 [5999 [Diverse]]')).toBe(workTypeName('1 [5999 [Diverse]]'))
+  })
+
+  it('shows a name without brackets, keeping a number that is part of it', () => {
+    expect(productTypeLabel('14 [FOGA-vegger]')).toBe('FOGA-vegger')
+    expect(productTypeLabel('1 [5999 [Diverse]]')).toBe('5999 Diverse')
+    expect(productTypeLabel('5999 [Diverse')).toBe('5999 Diverse')
+    expect(productTypeLabel('2 [6999 [Diverse]]')).not.toBe(productTypeLabel('1 [5999 [Diverse]]'))
+  })
+
+  it('matches the Visma text, the name and the label to one another', () => {
+    expect(new Set(['1 [5999 [Diverse]]', '5999 [Diverse', '5999 diverse'].map(productTypeKey)).size).toBe(1)
+    expect(productTypeKey('14 [FOGA-vegger]')).toBe(productTypeKey('foga-vegger'))
+  })
+
+  it('calculates the lines of a type whose name holds a bracket', () => {
+    const config: KpiConfig = { workTypes: [{ productType: '1 [5999 [Diverse]]', unit: 'stk', competence: 'Diverse' }], rates: [{ name: '5999 [Diverse', unit: 'stk', assembly: 2, dismantle: 4 }] }
+    const [line] = buildVismaLines([row({ productType: '1 [5999 [Diverse]]', quantity: 8 })], config, {})
+    expect(line).toMatchObject({ workType: '5999 [Diverse', competence: 'Diverse', assemblyHours: 4, dismantleHours: 2, issue: null })
   })
 })
