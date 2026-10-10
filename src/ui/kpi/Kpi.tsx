@@ -1,20 +1,20 @@
 import { useMemo, useRef, useState } from 'react'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiDiff, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiDiff, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { decimalText, parseDecimal } from '../../domain/numbers'
-import type { KpiConfig } from '../../domain/types'
 import { productTypeKey } from '../../domain/visma'
-import { readKpiWorkbook } from '../../import/vismaExport'
+import { readKpiWorkbook, writeKpiWorkbook } from '../../import/kpiFile'
+import { todayIso } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { errorText, takeFile } from '../files'
+import { download, errorText, takeFile, XLSX_TYPE } from '../files'
 import { NumberField, PickField, TextField } from '../fields'
 import { X } from 'lucide-react'
 
 interface PendingImport {
   file: string
-  incoming: KpiConfig
+  incoming: KpiFile
 }
 
 const describeDiff = (label: string, diff: KpiDiff) => `${label}: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`
@@ -70,6 +70,8 @@ export function Kpi() {
       setMessage({ kind: 'error', text: errorText(e) })
     }
   }
+
+  const exportFile = () => download(`expo-planner-kpi-${todayIso()}.xlsx`, writeKpiWorkbook(kpi, ws.visma ?? []), XLSX_TYPE)
 
   const apply = (mode: 'merge' | 'replace') => {
     if (!pending) return
@@ -181,7 +183,10 @@ export function Kpi() {
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <button onClick={() => fileInput.current?.click()} title="Valgfritt: les inn Kpier.xlsx én gang. Den gir produkttypene med enheter, kompetanse og satser.">
+        <button onClick={exportFile} disabled={!kpi.workTypes.length && !kpi.rates.length} title="Last ned oppsettet som en Excel-fil: produkttypene med enheter, enhet i bruk, kompetanse og satser. Ta vare på den som kopi, eller rediger den i Excel og les den inn igjen.">
+          Eksporter
+        </button>
+        <button onClick={() => fileInput.current?.click()} title="Les inn en KPI-fil: en som er eksportert herfra, eller en med kolonnene Produkttype, Enhet, Montering og Demontering. Er tabellen satt opp, velger du om filen slås sammen med den eller erstatter den.">
           Importer fra fil
         </button>
         <button className="primary" onClick={() => setAdding({})}>
@@ -223,8 +228,8 @@ export function Kpi() {
         ) : (
           <p className="notice">
             Tabellen er tom. Den fyller seg selv: les inn en Visma-utskrift på Behov-fanen, så kommer produkttypene i utskriften opp her, klare til å få enhet, kompetanse og sats. Du kan også
-            legge dem inn med «Ny produkttype», eller lese inn <code>Kpier.xlsx</code> én gang med «Importer fra fil».
-            Har en produkttype flere enheter i filen, velger du selv hvilken som er i bruk.
+            legge dem inn med «Ny produkttype», eller lese inn en KPI-fil med «Importer fra fil»: en du har eksportert herfra, eller en med kolonnene Produkttype, Enhet, Montering og
+            Demontering. Har en produkttype flere enheter i filen og ingen er merket «I bruk», velger du selv hvilken som er i bruk.
           </p>
         )}
 
@@ -236,7 +241,7 @@ export function Kpi() {
           title="Importer KPI"
           source={pending.file}
           results={[describeDiff('Produkttyper', diff.workTypes), describeDiff('Satser', diff.rates)]}
-          replaceText={`produkttypene og satsene i appen byttes helt ut med filen; enheten du har valgt for en produkttype beholdes så lenge den har sats${
+          replaceText={`produkttypene og satsene i appen byttes helt ut med filen; ${pending.incoming.unitsInUse ? 'enheten i bruk er den filen merker, og ellers den du har valgt' : 'enheten du har valgt for en produkttype beholdes så lenge den har sats'}${
             diff.workTypes.onlyInApp + diff.rates.onlyInApp > 0 ? `; ${diff.workTypes.onlyInApp + diff.rates.onlyInApp} rader som bare finnes i appen forsvinner` : ''
           }`}
           onCancel={() => setPending(null)}

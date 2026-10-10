@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { KpiConfig } from '../domain/types'
 import { setActiveUnit } from '../domain/kpi'
 import { buildVismaLines, productTypeName } from '../domain/visma'
-import { readKpiWorkbook, readVismaExport } from './vismaExport'
+import { readKpiWorkbook } from './kpiFile'
+import { readVismaExport } from './vismaExport'
 
 /** Runs against the real exports, which are kept out of the repository; skipped where they are missing. */
 const DIR = 'example_data/'

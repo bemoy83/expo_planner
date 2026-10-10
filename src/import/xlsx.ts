@@ -1,9 +1,9 @@
-import { strFromU8, unzipSync } from 'fflate'
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 
 /**
  * Minimal .xlsx reader: cached cell values only.
  * The app never needs formulas or styles, so a small reader is simpler and faster than a
- * general-purpose library.
+ * general-purpose library. `writeXlsx` writes the tables the app exports, as plain values under a heading.
  */
 
 export type CellValue = string | number | boolean | null
@@ -120,4 +120,93 @@ export const num = (value: CellValue): number | null => {
     return Number.isFinite(n) ? n : null
   }
   return null
+}
+
+/** Finds the first row that contains all the given headers and maps header name, in lower case, → column. */
+export const findHeader = (sheet: Sheet, required: string[]): { row: number; columns: Map<string, number> } | null => {
+  const rows = [...sheet.rows.keys()].sort((a, b) => a - b).slice(0, 20)
+  for (const row of rows) {
+    const columns = new Map<string, number>()
+    for (const [col, value] of sheet.rows.get(row)!) {
+      const name = text(value).toLowerCase()
+      if (name && !columns.has(name)) columns.set(name, col)
+    }
+    if (required.every((name) => columns.has(name))) return { row, columns }
+  }
+  return null
+}
+
+/** The numbers of the rows under a heading, in order. */
+export const dataRows = (sheet: Sheet, headerRow: number): number[] => [...sheet.rows.keys()].filter((r) => r > headerRow).sort((a, b) => a - b)
+
+/** One sheet to write: a heading and the rows under it. */
+export interface SheetTable {
+  name: string
+  head: string[]
+  rows: CellValue[][]
+}
+
+const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+const MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+const PACKAGE = 'http://schemas.openxmlformats.org/package/2006'
+const TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml'
+
+/** XML 1.0 holds no control characters but tab and the line breaks. */
+const inXml = (ch: string): boolean => ch >= ' ' || ch === '\t' || ch === '\n' || ch === '\r'
+
+const encodeXml = (value: string): string =>
+  [...value]
+    .filter(inXml)
+    .join('')
+    .replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!)
+
+const columnLetters = (index: number): string => {
+  let letters = ''
+  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) letters = String.fromCharCode(65 + ((n - 1) % 26)) + letters
+  return letters
+}
+
+const cellXml = (value: CellValue, ref: string, style: string): string => {
+  if (value === null || value === '') return ''
+  if (typeof value === 'number') return Number.isFinite(value) ? `<c r="${ref}"${style}><v>${value}</v></c>` : ''
+  if (typeof value === 'boolean') return `<c r="${ref}"${style} t="b"><v>${value ? 1 : 0}</v></c>`
+  return `<c r="${ref}"${style} t="inlineStr"><is><t xml:space="preserve">${encodeXml(value)}</t></is></c>`
+}
+
+const sheetXml = ({ head, rows }: SheetTable): string => {
+  const all = [head, ...rows]
+  const width = (col: number) => Math.min(60, Math.max(8, ...all.map((row) => String(row[col] ?? '').length + 2)))
+  const cols = head.map((_, col) => `<col min="${col + 1}" max="${col + 1}" width="${width(col)}" customWidth="1"/>`).join('')
+  const data = all.map((row, r) => `<row r="${r + 1}">${row.map((value, col) => cellXml(value, `${columnLetters(col)}${r + 1}`, r === 0 ? ' s="1"' : '')).join('')}</row>`).join('')
+  // The heading stays in view while the rows scroll.
+  const frozen = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+  return `${XML}<worksheet xmlns="${MAIN}">${frozen}<cols>${cols}</cols><sheetData>${data}</sheetData></worksheet>`
+}
+
+// Two cell formats: plain, and bold for the heading.
+const STYLES = `${XML}<styleSheet xmlns="${MAIN}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>`
+
+/** A sheet name as Excel takes it: at most 31 characters, without the characters it keeps for itself. */
+const sheetName = (name: string): string => name.replace(/[[\]:*?/\\]/g, ' ').slice(0, 31).trim() || 'Ark'
+
+/** Writes the tables as a workbook Excel opens, a sheet per table, for `readXlsx` to read back. */
+export const writeXlsx = (tables: SheetTable[]): Uint8Array => {
+  const files: Record<string, Uint8Array> = {
+    '[Content_Types].xml': strToU8(
+      `${XML}<Types xmlns="${PACKAGE}/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${TYPE}.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="${TYPE}.styles+xml"/>${tables
+        .map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="${TYPE}.worksheet+xml"/>`)
+        .join('')}</Types>`,
+    ),
+    '_rels/.rels': strToU8(`${XML}<Relationships xmlns="${PACKAGE}/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
+    'xl/workbook.xml': strToU8(
+      `${XML}<workbook xmlns="${MAIN}" xmlns:r="${REL}"><sheets>${tables.map((table, i) => `<sheet name="${encodeXml(sheetName(table.name))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`,
+    ),
+    'xl/_rels/workbook.xml.rels': strToU8(
+      `${XML}<Relationships xmlns="${PACKAGE}/relationships">${tables.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${REL}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${tables.length + 1}" Type="${REL}/styles" Target="styles.xml"/></Relationships>`,
+    ),
+    'xl/styles.xml': strToU8(STYLES),
+  }
+  tables.forEach((table, i) => (files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(sheetXml(table))))
+  return zipSync(files)
 }

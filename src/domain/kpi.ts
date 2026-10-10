@@ -156,31 +156,38 @@ export const removeKpiRow = (kpi: KpiConfig, name: string, unit: string): KpiCon
   return { workTypes, rates }
 }
 
+/** A setup as read from a file. */
+export interface KpiFile extends KpiConfig {
+  /** The file says which unit of a product type is in use, as one the app has written does. */
+  unitsInUse?: boolean
+}
+
 /**
- * The product types of a file as they are taken in: the unit the planner has chosen for a product type is kept
- * for as long as it has rates. The file says which units there are; which one is in use is the planner's decision.
+ * The product types of a file as they are taken in. Where the file says which unit is in use, it is. Where it only
+ * says which units there are, the unit the planner has chosen for a product type is kept for as long as it has rates.
  */
-const keepChosenUnits = (existing: KpiConfig, incoming: WorkTypeRule[], rates: KpiRate[]): WorkTypeRule[] => {
+const keepChosenUnits = (existing: KpiConfig, { workTypes: incoming = [], unitsInUse }: Partial<KpiFile>, rates: KpiRate[]): WorkTypeRule[] => {
   const rated = new Set(rates.map((rate) => rateKey(rate.name, rate.unit)))
   return incoming.map((rule) => {
+    if (unitsInUse && rule.unit) return rule
     const chosen = existing.workTypes.find((old) => sameType(old.productType, rule.productType))?.unit
     return chosen && rated.has(rateKey(rule.productType, chosen)) ? { ...rule, unit: chosen } : rule
   })
 }
 
 /** Rows from a file win over rows already in the app; rows only in the app are kept. */
-export const mergeKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): KpiConfig => {
+export const mergeKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): KpiConfig => {
   const rates = new Map(existing.rates.map((rate) => [rateKey(rate.name, rate.unit), rate]))
   for (const rate of incoming.rates ?? []) rates.set(rateKey(rate.name, rate.unit), rate)
   const types = new Map(existing.workTypes.map((rule) => [productTypeKey(rule.productType), rule]))
-  for (const rule of keepChosenUnits(existing, incoming.workTypes ?? [], [...rates.values()])) types.set(productTypeKey(rule.productType), rule)
+  for (const rule of keepChosenUnits(existing, incoming, [...rates.values()])) types.set(productTypeKey(rule.productType), rule)
   return { workTypes: [...types.values()], rates: [...rates.values()] }
 }
 
 /** The parts the file contains replace those parts in the app; a part the file lacks is left as it is. */
-export const replaceKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): KpiConfig => {
+export const replaceKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): KpiConfig => {
   const rates = incoming.rates ?? existing.rates
-  return { workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming.workTypes, rates) : existing.workTypes, rates }
+  return { workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming, rates) : existing.workTypes, rates }
 }
 
 export interface KpiDiff {
@@ -210,9 +217,9 @@ const diffPart = <T,>(existing: T[], incoming: T[] | undefined, key: (item: T) =
 }
 
 /** What a KPI file would change, for the work types and for the rates. */
-export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiConfig>): { workTypes: KpiDiff; rates: KpiDiff } => ({
+export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): { workTypes: KpiDiff; rates: KpiDiff } => ({
   // Counted as they would be taken in: a unit the planner has chosen is no change.
-  workTypes: diffPart(existing.workTypes, incoming.workTypes && keepChosenUnits(existing, incoming.workTypes, [...existing.rates, ...(incoming.rates ?? [])]), (rule) => productTypeKey(rule.productType), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
+  workTypes: diffPart(existing.workTypes, incoming.workTypes && keepChosenUnits(existing, incoming, [...existing.rates, ...(incoming.rates ?? [])]), (rule) => productTypeKey(rule.productType), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
   rates: diffPart(existing.rates, incoming.rates, (rate) => rateKey(rate.name, rate.unit), (a, b) => a.assembly === b.assembly && a.dismantle === b.dismantle),
 })
 

@@ -14,7 +14,7 @@ import { Kalender } from './ui/kalender/Kalender'
 import { cleanBlockNames, type BlockNames } from './ui/bemanning/dayCell'
 import { Menu, Segmented } from './ui/common'
 import { isTyping } from './ui/dom'
-import { errorText, takeFile } from './ui/files'
+import { download, errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
 import { RefreshCw, Settings } from 'lucide-react'
@@ -127,12 +127,7 @@ function Shell() {
 
   const exportBackup = () => {
     if (!workspace) return
-    const blob = new Blob([JSON.stringify(toBackup(workspace))], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `expo-planner-${todayIso()}.json`
-    a.click()
-    URL.revokeObjectURL(a.href)
+    download(`expo-planner-${todayIso()}.json`, JSON.stringify(toBackup(workspace)), 'application/json')
   }
 
   return (

@@ -12,3 +12,14 @@ export const takeFiles = (e: ChangeEvent<HTMLInputElement>, handle: (files: File
 /** As `takeFiles`, for an input that takes one file. Nothing happens when none was chosen. */
 export const takeFile = (e: ChangeEvent<HTMLInputElement>, handle: (file: File) => unknown) =>
   takeFiles(e, ([file]) => file && handle(file))
+
+export const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+/** Hands the browser a file to save. */
+export const download = (name: string, content: string | Uint8Array, type: string) => {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([typeof content === 'string' ? content : new Uint8Array(content)], { type }))
+  a.download = name
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
