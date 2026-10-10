@@ -60,7 +60,7 @@
 :is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
 .dark :is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 12%,transparent),color-mix(in srgb,var(--neg) 12%,transparent))}
 /* A day planned above the available crew, when the heat map is off: a red wash over the whole column, on top of whatever the cell shows. */
-.grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(var(--neg-wash),var(--neg-wash))!important}
+.grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(var(--neg-wash),var(--neg-wash))!important;--over-booked:linear-gradient(var(--neg-wash),var(--neg-wash))}
 .grid-canvas .day.overbooked.day-head{color:var(--neg);font-weight:600}
 
 /* ---- the date header ---- */
@@ -308,19 +308,30 @@
    last row has none under it, since the line of the next level is there. The line under the pointer is tinted. */
 .alloc-row .grid-label{cursor:pointer}
 .alloc-row:hover,.alloc-row:hover .grid-label{background:var(--wash-bg)}
-:is(.alloc-row,.entry-level) .cell{border-right:1px solid var(--grid-col)}
+.entry-level .cell,.alloc-row .cell:is(:not(.filled),.run-end){border-right:1px solid var(--grid-col)}
 .alloc-row .cell{border-top:1px solid var(--grid-row)}
 .cell.editable{cursor:cell}
-.cell.filled.mon{background-color:var(--mon);color:var(--text);font-weight:500}
-.cell.filled.dem{background-color:var(--dem);color:var(--text);font-weight:500}
+/* The planned days of a row are a span in the colour of its work phase, as a phase is in the hall calendar: a bar behind the
+   figures, slimmer than the line, rounded where a run of days starts and ends. A day without FTE ends the run. Inside a run the
+   bar lies over the rule between the days, which is left out there, so the run reads as one piece. The cell itself has no fill:
+   a weekend shows behind the bar. What is laid over a cell is laid over its bar too: the selection, a day planned above the
+   crew, and the hatch of a day outside the row's window. */
+.alloc-row .cell.filled{isolation:isolate;color:var(--text);font-weight:500}
+.alloc-row .cell.filled:not(.run-end){border-right:1px solid transparent}
+.alloc-row .cell.filled::before{content:'';position:absolute;top:5px;bottom:5px;left:-1px;right:-1px;z-index:-1;background-image:var(--over-selected,none),var(--over-booked,none),var(--over-hatch,none)}
+.alloc-row .cell.filled.run-start::before{left:2px;border-top-left-radius:5px;border-bottom-left-radius:5px}
+.alloc-row .cell.filled.run-end::before{right:2px;border-top-right-radius:5px;border-bottom-right-radius:5px}
+.cell.filled.mon::before{background-color:var(--mon)}
+.cell.filled.dem::before{background-color:var(--dem)}
 .cell.has-note::after{content:'';position:absolute;top:0;right:0;border-left:6px solid transparent;border-top:6px solid var(--accent)}
 /* The days a row can be worked on, its project's build-up or tear-down days in its hall: a faint dot in the empty working days. */
 .alloc-row .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--text) 28%,transparent)}
 /* FTE placed on a day outside the window: hatched over the colour of its phase, as a hall shared by two events is. The legend's mark is the same. */
-.alloc-row .cell.outside-window,.phase-legend i.outside{background-image:var(--hatch)}
+.alloc-row .cell.outside-window{--over-hatch:var(--hatch)}
+.phase-legend i.outside{background-image:var(--hatch)}
 
 /* ---- selection, typing and the tools ---- */
-.cell.selected{background:var(--accent-soft)!important}
+.cell.selected{background:var(--accent-soft)!important;--over-selected:linear-gradient(var(--accent-soft),var(--accent-soft))}
 .cell.focus{outline:1.5px solid var(--accent);outline-offset:-1.5px;z-index:1;box-shadow:0 0 0 3px var(--accent-soft)}
 /* The field a cell is typed in fills the cell; `input` in the selector puts it above the look fields have elsewhere.
    Its frame stays inside the cell, or it would show over the label column when the cell is scrolled in under it. */
@@ -334,7 +345,7 @@ input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;
 /* What a pencil stroke would put in a cell, while it is being drawn, and a cell an eraser stroke is about to clear. */
 .cell.editable.drawn{color:var(--accent)}
 .cell.editable.drawn:not(.filled){font-weight:600}
-.grid-canvas .cell.editable.erasing{background-color:var(--neg-bg)}
+.grid-canvas .cell.editable.erasing,.grid-canvas .cell.editable.erasing::before{background-color:var(--neg-bg)}
 
 /* the menu a right-click on a planning cell opens */
 .cell-menu{position:fixed;margin:0;width:280px;z-index:70;font-size:var(--fs-md)}

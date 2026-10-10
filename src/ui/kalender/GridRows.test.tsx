@@ -67,6 +67,20 @@ describe('AllocRow', () => {
     expect(cells[1].classList.contains('drawn')).toBe(false)
   })
 
+  it('marks where a run of planned days starts and ends', () => {
+    const planned = { ...item, row: { ...row, fte: { '2026-10-05': 1, '2026-10-06': 2 } } } as RowItem
+    const { container } = render(<AllocRow item={planned} lane={0} window={undefined} rowDimensions={rowDimensions} cols={cols} actions={noActions} {...idle} />)
+    const marks = [...container.querySelectorAll('.cell')].map((cell) => ['filled', 'run-start', 'run-end'].filter((name) => cell.classList.contains(name)).join(' '))
+    expect(marks).toEqual(['filled run-start', 'filled run-end', ''])
+  })
+
+  it('ends a run on a day with 0', () => {
+    const planned = { ...item, row: { ...row, fte: { '2026-10-05': 1, '2026-10-06': 0, '2026-10-07': 1 } } } as RowItem
+    const { container } = render(<AllocRow item={planned} lane={0} window={undefined} rowDimensions={rowDimensions} cols={cols} actions={noActions} {...idle} />)
+    const marks = [...container.querySelectorAll('.cell')].map((cell) => ['filled', 'run-start', 'run-end'].filter((name) => cell.classList.contains(name)).join(' '))
+    expect(marks).toEqual(['filled run-start run-end', '', 'filled run-start run-end'])
+  })
+
   it('tells the grid which cell was pressed', () => {
     const cellDown = vi.fn()
     const { container } = render(view(idle, { ...noActions, cellDown }))

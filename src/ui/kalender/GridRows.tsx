@@ -440,7 +440,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
   )
 })
 
-/** The colour of a work phase as a small mark in front of a line's name; the planning cells are filled in the same colour. */
+/** The colour of a work phase as a small mark in front of a line's name; the spans of the planned days are in the same colour. */
 function PhaseMark({ phase, indent }: { phase: string; indent?: number }) {
   return <i className={`phase-mark ${phase === 'Demontering' ? 'dem' : phase === 'Montering' ? 'mon' : ''}`} style={indent ? { marginLeft: indent } : undefined} title={phase || 'Uten arbeidsfase'} />
 }
@@ -507,16 +507,19 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
           </span>
         </>
       }
-      cells={(date, col) =>
-        valueCell(
+      cells={(date, col) => {
+        const value = r.fte[date]
+        // Planned days in a row are drawn as one span, rounded where the run starts and ends: a day without FTE ends it.
+        const run = value ? `${r.fte[addDays(date, -1)] ? '' : 'run-start'} ${r.fte[addDays(date, 1)] ? '' : 'run-end'}` : ''
+        return valueCell(
           cell,
           date,
           col,
-          r.fte[date],
+          value,
           r.notes[date],
-          `${r.phase === 'Demontering' ? 'dem' : 'mon'} ${window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && r.fte[date] ? 'outside-window' : ''}`,
+          `${r.phase === 'Demontering' ? 'dem' : 'mon'} ${run} ${window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && value ? 'outside-window' : ''}`,
         )
-      }
+      }}
     />
   )
 })
