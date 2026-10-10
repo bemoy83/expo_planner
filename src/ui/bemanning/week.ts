@@ -16,6 +16,9 @@ export const WEEKDAYS_LONG = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag'
 /** Hours with a decimal comma. Quarter hours keep both decimals: 2,75. */
 export const hoursText = (hours: number): string => formatFte(Math.round(hours * 100) / 100, 2) || '0'
 
+/** Hours with one decimal, where they are read at a glance and the exact figure is in the tooltip: a competence's line. 12,75 is 12,8. */
+export const hoursShort = (hours: number): string => formatFte(Math.round(hours * 10) / 10, 1) || '0'
+
 export const clock = (minute: Minute): string => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
 
 /** A stretch of time, «07:00–15:00». Short, whole hours lose their minutes: «07–15», «11:30–15». */

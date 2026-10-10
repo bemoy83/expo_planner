@@ -13,7 +13,7 @@ import { useStableActions } from '../kalender/useStableActions'
 import { useBemanning, type DemandRow } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
 import { DEMAND_COMPACT_H, DEMAND_H } from './layout'
-import { EPSILON, hoursText } from './week'
+import { EPSILON, hoursShort, hoursText } from './week'
 
 interface LineProps {
   row: DemandRow
@@ -38,7 +38,7 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
       <i className="swatch" />
       <span className="bm-name">{style.label}</span>
       {key > 0 && !compact && <kbd>{key}</kbd>}
-      <span className="bm-week-left">{remaining > EPSILON ? `${hoursText(remaining)} t` : <Check size={compact ? 11 : 13} aria-label="Dekket" />}</span>
+      <span className="bm-week-left">{remaining > EPSILON ? `${hoursShort(remaining)} t` : <Check size={compact ? 11 : 13} aria-label="Dekket" />}</span>
     </button>
   )
   return (
@@ -84,9 +84,9 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
                   <i className="bm-need-dot" />
                 </>
               )}
-              {cell.carried > EPSILON && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
-              <b className={`bm-number ${state}`}>{state === 'ok' ? <Check size={14} aria-label="Dekket" /> : over ? `+${hoursText(-cell.remaining)}` : hoursText(cell.remaining)}</b>
-              {cell.demand > EPSILON && <em>av {hoursText(cell.demand)}</em>}
+              {cell.carried > EPSILON && <span className="bm-carried">+{hoursShort(cell.carried)}</span>}
+              <b className={`bm-number ${state}`}>{state === 'ok' ? <Check size={14} aria-label="Dekket" /> : over ? `+${hoursShort(-cell.remaining)}` : hoursShort(cell.remaining)}</b>
+              {cell.demand > EPSILON && <em>av {hoursShort(cell.demand)}</em>}
             </span>
             <span className="bar">
               <i className="covered" style={{ width: `${regular}%` }} />
