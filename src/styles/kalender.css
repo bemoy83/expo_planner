@@ -126,8 +126,10 @@
 .ph-dismantle{background:var(--ph-dismantle)!important}
 
 /* ---- the staffing ---- */
-/* The lines are read, not typed in: no rules, and the name of each at the right edge of the label column, against its figures, as a hall's name is. */
+/* The lines are read, not typed in: a figure per day that is read across, so each has a rule under it and none between the days, as
+   an open competence line of Bemanning has. The name of each is at the right edge of the label column, against its figures, as a hall's name is. */
 .cap-row,.sum-row{background:var(--bg)}
+:is(.cap-row,.sum-row) .cell{border-bottom:1px solid var(--grid-row)}
 .cap-row:hover,.cap-row:hover .grid-label{background:var(--wash-bg)}
 .lbl-cap{margin-left:auto}
 .lbl-cap.strong{font-weight:600}
