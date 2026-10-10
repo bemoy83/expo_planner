@@ -91,24 +91,6 @@ export const renameCompetence = (ws: Workspace, from: CompetenceKey, toLabel: st
   return same ? ws : next
 }
 
-/**
- * A workspace stored while a competence could be shown under another name than the data named it by. Each such
- * competence takes the name it was shown under, everywhere; where that is the name of another competence, it keeps
- * the name the data has.
- */
-export const withOneCompetenceName = (ws: Workspace): Workspace => {
-  const stored = Object.values(ws.competenceStyles ?? {}).sort((a, b) => a.order - b.order)
-  if (!stored.length) return ws
-  const texts = textsInUse(ws)
-  let next = ws
-  for (const style of stored) {
-    const renamed = renameCompetence(next, style.key, style.label)
-    if (renamed) next = renamed
-    else next = { ...next, competenceStyles: { ...next.competenceStyles, [style.key]: { ...next.competenceStyles![style.key], label: texts.get(style.key) ?? style.key } } }
-  }
-  return next
-}
-
 /** Moves a competence to the place of another; the ones between shift by one. */
 export const moveCompetence = (ws: Workspace, key: CompetenceKey, toIndex: number): Record<CompetenceKey, CompetenceStyle> => {
   const styles = competenceStyles(ws)

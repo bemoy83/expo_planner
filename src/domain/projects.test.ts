@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { diffProjectList, eventKey, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectRows, suggestProjectNo, venueEvents, withEventLinksAsProjects, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
+import { diffProjectList, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectRows, suggestProjectNo, venueEvents, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
 import type { AllocationRow, DemandLine, ProjectRef, VenueBooking } from './types'
 
 const booking = (eventName: string, hall: string, phases: VenueBooking['phases']): VenueBooking => ({ id: `${eventName}-${hall}`, hall, eventName, status: 'confirmed', phases })
@@ -81,16 +81,6 @@ describe('the project table', () => {
     expect(merged.slice(0, 2)).toEqual([{ name: 'hage 2026', projectNo: '26HAG' }, { name: 'Ny messe', projectNo: '27ELE' }])
     expect(merged).toHaveLength(6)
     expect(diffProjectList(list, file)).toEqual({ added: 1, changed: 1, unchanged: 0, onlyInApp: 4 })
-  })
-
-  it('takes numbers typed on the events into the table', () => {
-    const ws = withEventLinksAsProjects({ venue: bookings, projects: list, eventLinks: { [eventKey('HAGE 2026', '2026-04-10')]: '26100', [eventKey('Oslo  Motor Show', '2026-10-23')]: '25400' } })
-    expect(ws.eventLinks).toBeUndefined()
-    const events = venueEvents(bookings, ws.projects)
-    expect(events.find((e) => e.name === 'HAGE 2026')!.projectNo).toBe('26100')
-    // Typed on the event of 2026, the number of 2025 holds for that year.
-    expect(events.find((e) => e.name.startsWith('Oslo'))!.projectNo).toBe('25400')
-    expect(ws.projects.find((ref) => ref.projectNo === '25400' && ref.year === '2026')!.name).toBe('Oslo Motor Show')
   })
 })
 

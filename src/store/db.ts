@@ -1,9 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie'
-import { withEventLinksAsProjects } from '../domain/projects'
 import { withSettingsDefaults, type AllocationRow, type Assignment, type CompetenceStyle, type DemandAdjustment, type DemandLine, type HallRules, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
 
 interface MetaRecord {
-  key: 'settings' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue' | 'eventLinks' | 'hallRules' | 'competenceStyles'
+  key: 'settings' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue' | 'hallRules' | 'competenceStyles'
   value: unknown
 }
 
@@ -49,8 +48,7 @@ const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations,
 export const loadWorkspace = async (): Promise<Workspace | null> => {
   const settings = await db.meta.get('settings')
   if (!settings) return null
-  const [eventLinks, hallRules, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, persons, unavailability, assignments, demandAdjustments] = await Promise.all([
-    db.meta.get('eventLinks'),
+  const [hallRules, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, persons, unavailability, assignments, demandAdjustments] = await Promise.all([
     db.meta.get('hallRules'),
     db.meta.get('hiddenVenue'),
     db.meta.get('venueImport'),
@@ -67,12 +65,10 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     db.assignments.toArray(),
     db.demandAdjustments.toArray(),
   ])
-  // Numbers typed on the events by an earlier version are names in the project table from here on; they are written there with its next change.
-  return withEventLinksAsProjects({
+  return {
     settings: withSettingsDefaults(settings.value as Partial<Settings>),
     venueImport: venueImport?.value as VenueImportInfo | undefined,
     hiddenVenue: (hiddenVenue?.value as Record<string, true> | undefined) ?? {},
-    eventLinks: (eventLinks?.value as Record<string, string> | undefined) ?? {},
     ...(hallRules ? { hallRules: hallRules.value as HallRules } : {}),
     kpi: kpi?.value as KpiConfig | undefined,
     overrides: (overrides?.value as Record<string, LineOverride> | undefined) ?? {},
@@ -86,7 +82,7 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     assignments,
     demandAdjustments,
     competenceStyles: (competenceStyles?.value as Record<string, CompetenceStyle> | undefined) ?? {},
-  })
+  }
 }
 
 /** Replaces everything stored with the given workspace, in one transaction. */
@@ -176,10 +172,9 @@ export const putHallRules = (rules: HallRules) => db.meta.put({ key: 'hallRules'
 /** Back to before halls were read in: there are no rules. */
 export const deleteHallRules = () => db.meta.delete('hallRules')
 
-/** Replaces the project table. The numbers an earlier version kept on the events are in it by now, and go. */
+/** Replaces the project table. */
 export const writeProjects = (projects: ProjectRef[]) =>
-  db.transaction('rw', [db.projects, db.meta], async () => {
-    await db.meta.delete('eventLinks')
+  db.transaction('rw', [db.projects], async () => {
     await db.projects.clear()
     await db.projects.bulkAdd(projects.map((p) => ({ ...p })))
   })

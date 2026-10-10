@@ -201,22 +201,6 @@ export const diffProjectList = (existing: ProjectRef[], incoming: ProjectRef[]):
   return diffBy(numbers(existing), numbers(incoming), ([key]) => key, ([, from], [, to]) => from.size === to.size && [...from].every((no) => to.has(no)))
 }
 
-/**
- * Numbers that were typed on the events themselves, as the app stored them before the project table was edited in the
- * app, become names in the table: the event's name on that number, in the event's year.
- */
-export const withEventLinksAsProjects = <T extends Pick<Workspace, 'venue' | 'projects' | 'eventLinks'>>(ws: T): T => {
-  const links = Object.entries(ws.eventLinks ?? {}).filter(([, projectNo]) => projectNo.trim())
-  if (!links.length) return ws.eventLinks ? { ...ws, eventLinks: undefined } : ws
-  const names = new Map(ws.venue.map((booking) => [eventKey(booking.eventName, anchorDate(booking)), booking.eventName]))
-  let projects = ws.projects
-  for (const [key, projectNo] of links) {
-    const [name, year] = key.split('|')
-    projects = withProjectName(projects, projectNo, names.get(key) ?? name, year)
-  }
-  return { ...ws, projects, eventLinks: undefined }
-}
-
 export interface ProjectFollowers {
   allocations: AllocationRow[]
   demand: DemandLine[]

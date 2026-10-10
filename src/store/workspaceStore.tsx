@@ -6,7 +6,7 @@ import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
 import { exampleRules, locateDemand, withChoice } from '../domain/locations'
-import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences, withOneCompetenceName } from '../domain/competences'
+import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences } from '../domain/competences'
 import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
@@ -91,10 +91,10 @@ const withDay = (values: Record<ISODate, number>, date: ISODate, value: number |
   return next
 }
 
-/** True when the cell already holds the value, so the edit would change nothing. */
 /** A fill or paste changes a row once per cell; the row is written once, when the event is over. */
 const rowWrites = writeQueue<AllocationRow>((rows) => db.allocations.bulkPut(rows))
 
+/** True when the cell already holds the value, so the edit would change nothing. */
 const sameDay = (values: Record<ISODate, number>, date: ISODate, value: number | null) => (values[date] ?? 0) === (value ?? 0)
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
@@ -111,10 +111,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadWorkspace()
-      .then(async (stored) => {
-        // What was stored while a competence could go by two names is stored again with one, all of it at once.
-        const loaded = stored && withOneCompetenceName(stored)
-        if (loaded && loaded !== stored) await saveWorkspace(loaded)
+      .then((loaded) => {
         current.current = loaded
         setWorkspace(loaded)
         setStatus(loaded ? 'ready' : 'empty')

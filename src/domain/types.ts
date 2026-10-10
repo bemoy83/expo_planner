@@ -303,8 +303,6 @@ export interface Workspace {
   projects: ProjectRef[]
   demand: DemandLine[]
   allocations: AllocationRow[]
-  /** Only in data stored by earlier versions: numbers typed on the events. Read into `projects` by `withEventLinksAsProjects`. */
-  eventLinks?: Record<string, string>
   /** Unset until halls are first read in, which writes the examples (`exampleRules`). */
   hallRules?: HallRules
   /** Hall bookings left out of the Kalender, keyed by `venueKey`. They stay in the hall ledger. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type FilePerson, diffCompetenceStyles, diffPersons, isNameTaken, mergeCompetenceStyles, mergePersons, renameCompetence, replacePersons, withOneCompetenceName, competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
+import { type FilePerson, diffCompetenceStyles, diffPersons, isNameTaken, mergeCompetenceStyles, mergePersons, renameCompetence, replacePersons, competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
 import { DEFAULT_SETTINGS, LINE_COLORS, type AllocationRow, type Workspace } from './types'
 
 const row = (competence: string): AllocationRow => ({ id: `row-${competence}`, order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering', basis: 'Planlagt', fte: {}, notes: {} })
@@ -188,17 +188,6 @@ describe('the one name of a competence', () => {
     expect(renameCompetence(named, 'ukjent', 'Noe')).toBeNull()
   })
 
-  it('is given to a workspace stored with a competence shown under another name', () => {
-    const styles = setCompetenceStyle(named, 'skilting', {})
-    const stored: Workspace = { ...named, competenceStyles: { ...styles, skilting: { ...styles.skilting, label: 'Dekor' }, teppefliser: { ...styles.teppefliser, label: 'Banner' } } }
-    const now = withOneCompetenceName(stored)
-    expect(now.kpi!.workTypes[0].competence).toBe('Dekor')
-    expect(now.persons![0].competences).toEqual(['banner', 'dekor'])
-    // «Banner» is the name of another competence, so the one shown under it keeps the name the data has.
-    expect(competenceStyles(now).map((s) => `${s.key}:${s.label}`)).toEqual(['banner:banner', 'dekor:Dekor', 'teppefliser:Teppefliser'])
-    expect(withOneCompetenceName(now)).toBe(now)
-    expect(withOneCompetenceName(named)).toBe(named)
-  })
 })
 
 describe('people from a file', () => {
