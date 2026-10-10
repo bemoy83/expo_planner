@@ -50,7 +50,8 @@
 
 /* what every cell of a day shares */
 .day.helg,.day.helligdag{background:var(--weekend)}
-/* Today: one line down the grid, over the rules, the weekends, the bars and the selection, and under the label column. Each block
+/* Today: one line down the grid wherever a day has something in it, over the rules, the weekends, the bars and the selection, and
+   under the label column. The heading of a section is a heading and carries a legend, so it lies over the line, which breaks there. Each block
    that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the dates, the top block and the
    hall calendar. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
 .today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--accent);pointer-events:none}
@@ -87,7 +88,7 @@
 /* ---- the sections of the top block: the hall calendar and the staffing ---- */
 /* A section opens with a heading on a neutral tint, across the whole grid. The tint sets it apart: it has no lines, and the weekends run through it, a step darker. */
 .top-section{position:relative}
-.section-row{height:26px;background:var(--section)}
+.section-row{position:relative;z-index:2;height:26px;background:var(--section)}
 .section-row .day:is(.helg,.helligdag){background:var(--weekend-section)}
 .section-head{position:sticky;left:0;z-index:2;flex:none;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--section);white-space:nowrap;overflow:visible}
 /* The hall calendar stays under the date header where the top block has to give way; the staffing lines slide in under it. */
