@@ -6,10 +6,9 @@ import { dayType } from '../../domain/holidays'
 import type { Balance, FreeCapacity } from '../../domain/staffing'
 import { Twisty } from '../common'
 import { competenceColor } from '../dom'
-import { Line } from '../kalender/GridRows'
+import { Line, SectionLine } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { fmtDay } from '../kalender/labels'
-import { LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'
 import { useBemanning, type DemandRow } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
@@ -157,19 +156,19 @@ export function DemandRows() {
     )
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
-      <div className="section-head" style={{ width: LEFT_W }}>
+      <SectionLine cols={cols}>
         <Twisty open={open} show="Vis alle kompetanser" hide="Vis bare kompetansen i fokus" onToggle={() => bm.setDemandOpen(!open)} />
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
         <span className="section-meta section-meta-end" title={open ? 'Timer som gjenstår i dagene som vises' : undefined}>{open ? 't igjen' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
-      </div>
+      </SectionLine>
       {busy.map(line)}
       {open && idle.length > 0 && (
-        <div className="section-head bm-idle-head" style={{ width: LEFT_W }}>
+        <SectionLine className="bm-idle-head" cols={cols}>
           <Twisty open={idleOpen} show="Vis kompetansene uten behov" hide="Skjul kompetansene uten behov" onToggle={() => bm.setIdleOpen(!idleOpen)} />
           Uten behov
           <span className="section-meta">{idle.length}</span>
-        </div>
+        </SectionLine>
       )}
       {open && idleOpen && idle.map(line)}
       <i className="bm-crosshair" />

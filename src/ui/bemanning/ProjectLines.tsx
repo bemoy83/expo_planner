@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { Twisty } from '../common'
-import { Line } from '../kalender/GridRows'
+import { Line, SectionLine } from '../kalender/GridRows'
 import { dayClass } from '../kalender/gridTypes'
 import { daysWide, LEFT_W } from '../kalender/layout'
 import { PhaseLegend } from '../kalender/TopSections'
@@ -72,7 +72,7 @@ export function ProjectLines() {
 
   return (
     <div className={`top-section bm-projects ${open ? 'open' : ''} ${compact ? 'compact' : ''}`}>
-      <div className="section-head" style={{ width: LEFT_W }}>
+      <SectionLine cols={cols}>
         <Twisty open={open} show="Vis prosjektene" hide="Skjul prosjektene" onToggle={() => setProjectsOpen(!open)} />
         Prosjekter
         {open && <DensityToggle compact={compact} onChange={(next) => setProjectDensity(next ? 'compact' : 'detail')} />}
@@ -81,7 +81,7 @@ export function ProjectLines() {
           {hidden.length > 0 && <b className="bm-more"> · +{hidden.length}</b>}
         </span>
         {open && <PhaseLegend />}
-      </div>
+      </SectionLine>
       {open && (
         <div className="bm-project-block" style={{ height: slots * rowH }}>
           {/* The days behind the lines, so the weekends run through the empty lines too. */}

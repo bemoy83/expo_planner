@@ -5,7 +5,7 @@ import { dayType } from '../../domain/holidays'
 import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
 import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor } from '../dom'
-import { ModeSwitch } from '../kalender/KalenderBar'
+import { ModeSwitch, ModeTag } from '../kalender/KalenderBar'
 import { PlanBar } from '../kalender/PlanBar'
 import type { PlanMode } from '../kalender/zoom'
 import { Toasts } from '../Toasts'
@@ -29,8 +29,9 @@ export function BemanningHead({ places }: { /** The button «Steder», as in the
     totals.weekendOpen > EPSILON ? `helg ${hoursText(totals.weekendOpen)} t åpent` : '',
   ].filter(Boolean)
   return (
-    <div className="page-head">
+    <div className="page-head mode-band">
       <h2>Kalender</h2>
+      <ModeTag mode="bemanning" />
       <span className="page-meta" title="Behov, overtid og åpne timer gjelder dagene som vises">{meta.join(' · ')}</span>
       {places}
       <PanelToggle open={!!panel} what="persondetaljer" hint="timer, overtid og fravær. Klikk et navn for å åpne dem for personen." disabled={!subject} onToggle={() => setPanel(panel ? null : subject ? { personId: subject } : null)} />

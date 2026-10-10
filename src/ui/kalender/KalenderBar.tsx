@@ -25,6 +25,16 @@ export function ModeSwitch({ mode, onChange }: { mode: PlanMode; onChange: (mode
   )
 }
 
+/** The mode the Kalender is in, named after its title in the page header. The band it sits on has the mode's colour. */
+export function ModeTag({ mode }: { mode: PlanMode }) {
+  return (
+    <span className="mode-tag">
+      {mode === 'bemanning' ? <Users size={13} aria-hidden /> : <CalendarDays size={13} aria-hidden />}
+      {mode === 'bemanning' ? 'Bemanning' : 'Plan'}
+    </span>
+  )
+}
+
 interface Props {
   /** The width of the grid as it is seen. */
   width: number
@@ -121,8 +131,9 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 /** The page header of the Kalender: what is shown, and the actions that are not tools of the grid. */
 export function KalenderHead({ projects, rows, overbooked, places, inspectorOpen, onInspector, onNewRow, onPropose }: HeadProps) {
   return (
-    <div className="page-head">
+    <div className="page-head mode-band">
       <h2>Kalender</h2>
+      <ModeTag mode="plan" />
       <span className="page-meta">{[count(projects, 'prosjekt', 'prosjekter'), count(rows, 'rad', 'rader'), overbooked ? `${count(overbooked, 'dag', 'dager')} med underdekning` : 'Ingen underdekning'].join(' · ')}</span>
       {places}
       <button className="ghost" onClick={onNewRow}>

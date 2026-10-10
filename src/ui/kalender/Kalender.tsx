@@ -780,9 +780,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   }
 
   // ---- render ---------------------------------------------------------------------------------
+  // Today as one line down the grid. It is laid by the width of a day, so the zoom moves it without drawing it again.
+  const todayLine = today >= range.start && today <= range.end ? <i className="today-line" style={{ left: daysWide(daysBetween(range.start, today), LEFT_W) }} /> : null
   const places = <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
   return (
-    <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`}>
+    <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode}>
       <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
       {bemanning ? <BemanningHead places={places} /> : <KalenderHead
         places={places}
@@ -801,6 +803,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows. Where it leaves the rows no room it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
+            {todayLine}
             {bemanning && <i className="bm-crosshair" />}
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
@@ -813,8 +816,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               if (project) actions.findProject(project)
             }}
           >
+            {todayLine}
             {bemanning ? <BemanningTop /> : <>
-            <HallSection open={hallsOpen} onOpen={setHallsOpen} compact={hallsCompact} onCompact={setHallsCompact} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
+            <HallSection todayLine={todayLine} open={hallsOpen} onOpen={setHallsOpen} compact={hallsCompact} onCompact={setHallsCompact} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
               onOpen={setStaffingOpen}
@@ -884,6 +888,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
             {bemanning ? <PeopleHeading /> : <PlanningHeading />}
           </div>
 
+          {todayLine}
           {bemanning && <PeopleRows onOpenPersonell={onOpenPersonell} />}
           {!bemanning && <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
             <div style={{ height: rowTops[r0] }} />
@@ -893,7 +898,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
                 return <AllocRow key={item.row.id} item={item} lane={lane} window={windowOf(item.row)} rowDimensions={rowDimensions} cols={cols} actions={actions} {...editOf(lane)} />
               }
               // A top level's line is drawn in its section below; here it only takes up its place.
-              if (item.node.depth === 0) return <div key={`g:${item.node.key}`} style={{ height: TOP_ROW_H }} />
+              if (item.node.depth === 0) return <div key={`g:${item.node.key}`} className="level-place" style={{ height: TOP_ROW_H }} />
               return groupRow(item)
             })}
             {allSections

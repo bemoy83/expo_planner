@@ -38,6 +38,23 @@ export function Line({ className = '', label, cols, cells, overlay, height = ROW
   )
 }
 
+/**
+ * The heading of a section of the top block: its name and what belongs with it in the label column, over a tinted line that runs across
+ * the days. The line has a cell per day and no rules, so the weekends go on through it.
+ */
+export function SectionLine({ className = '', cols, children }: { className?: string; cols: Columns; children: ReactNode }) {
+  return (
+    <div className={`grid-row section-row ${className}`}>
+      <div className="section-head" style={{ width: LEFT_W }}>
+        {children}
+      </div>
+      <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />
+      {cols.dates.map((date) => (
+        <div key={date} className={`${dayClass(cols, date)} cell`} />
+      ))}
+    </div>
+  )
+}
 
 const readCell = (cols: Columns, date: ISODate, value: number | undefined, className = '', title?: string) => (
   <div key={date} className={`${dayClass(cols, date)} cell ${className}`} title={title}>

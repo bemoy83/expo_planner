@@ -15,7 +15,6 @@
   --faint:#77746c;         /* ink-faint */
   --line:#dcd8cf;          /* border */
   --line-strong:#c4bfb4;   /* border-strong */
-  --rule:color-mix(in srgb,var(--line) 55%,transparent);          /* the faint rule between the cells of a grid */
   --wash:color-mix(in srgb,var(--text) 5%,transparent);           /* what the pointer is over */
   --wash-bg:color-mix(in srgb,var(--text) 5%,var(--bg));          /* the same, on a pinned label that must stay opaque */
   --shadow:color-mix(in srgb,var(--text) 35%,transparent);        /* under what floats: the pinned top, a toast, a block being dragged */
@@ -23,13 +22,22 @@
   --hatch:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px);   /* the one hatch, laid over a fill: a hall day two events share, FTE outside a row's window, a day off or away in Bemanning */
   --tip-bg:#4a4642; --tip-text:#f5f2ec;                           /* the tooltip */
 
-  /* accent: signal orange (selection, focus, today, active tab) */
-  --accent:#ec6f00;
-  --accent-soft:color-mix(in oklab,#ec6f00 15%,transparent);
-  --on-accent:#140c05;     /* text on the accent fill */
+  /* accent: burnt orange (selection, focus, today, active tab, the primary action). Never the mark of a mode. */
+  --accent:#d46c2c;
+  --accent-soft:color-mix(in oklab,var(--accent) 15%,transparent);
+  --on-accent:#180c04;     /* text on the accent fill */
 
-  /* days off */
+  /* days off: one step darker than what the line itself is filled with, and never see-through */
   --weekend:color-mix(in srgb,#e7e4dd 50%,#f2f0eb);
+  --weekend-section:color-mix(in oklab,var(--weekend) 95%,var(--text));   /* in the heading of a section */
+
+  /* the lines of the Kalender's grid: these four and no others, see design_docs/kalender-v9/DESIGN-RULES.md */
+  --grid-col:color-mix(in srgb,var(--line) 55%,transparent);     /* between the days, in the date header and in lines that are typed in */
+  --grid-row:color-mix(in srgb,var(--line) 40%,transparent);     /* under a line that is typed in */
+  --grid-phase:color-mix(in srgb,var(--line) 50%,transparent);   /* above a level that sums */
+  --grid-top:var(--line-strong);                                 /* above a top level */
+  /* the heading of a section of the Kalender: a neutral tint, never the hue of a mode */
+  --section:color-mix(in oklab,var(--bg) 96%,var(--text));
 
   /* work phases: light fills with dark numbers */
   --mon:oklch(0.8 0.065 115);
@@ -65,7 +73,7 @@
 
   /* the band of a project's line, the only tinted level */
   --band:color-mix(in oklab,#171613 6%,#f2f0eb);
-  --band-we:color-mix(in oklab,#171613 10%,#f2f0eb);
+  --band-we:color-mix(in oklab,#171613 9%,#f2f0eb);
 
   /* type: one stack for text, one for numbers and dates, and the sizes text outside the grid's cells is set in */
   --font-ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -89,6 +97,34 @@
   background:var(--bg);
 }
 
+/* The mode band of the Kalender: its page header and its planning bar are filled with the hue of the mode, olive for Plan and
+   terracotta for Bemanning. The hue is set here alone and is seen in the band alone; the grid, the sections and the panels stay neutral. */
+.kalender{
+  --mode-h:115; --mode-c:.09;
+  --mode-band:oklch(0.86 calc(var(--mode-c) * .6) var(--mode-h));
+  --mode-line:oklch(0.7 calc(var(--mode-c) * .85) var(--mode-h));      /* the two lines that frame the band */
+  --mode-track:oklch(0.79 calc(var(--mode-c) * .7) var(--mode-h));     /* the track of a segmented control */
+  --mode-ink:oklch(0.3 calc(var(--mode-c) * .55) var(--mode-h));
+  --mode-mute:oklch(0.42 calc(var(--mode-c) * .6) var(--mode-h));
+  --mode-field:color-mix(in oklab,var(--surface) 55%,transparent);      /* a button that opens a menu */
+  --mode-field-hover:color-mix(in oklab,var(--surface) 80%,transparent);
+  --mode-hover:color-mix(in oklab,var(--surface) 35%,transparent);
+  --mode-tag:color-mix(in oklab,var(--bg) 55%,transparent);
+  --mode-rule:oklch(0.3 .05 var(--mode-h) / .08);                      /* the hairline around a field */
+  --mode-key:oklch(0.3 .05 var(--mode-h) / .1);                        /* behind a key */
+  --mode-shadow:oklch(0.3 .05 var(--mode-h) / .18);                    /* under the chosen segment */
+}
+.kalender[data-mode='bemanning']{--mode-h:40; --mode-c:.11}
+.dark .kalender{
+  --mode-band:oklch(0.4 calc(var(--mode-c) * .5) var(--mode-h));
+  --mode-line:oklch(0.55 calc(var(--mode-c) * .7) var(--mode-h));
+  --mode-track:oklch(0.32 calc(var(--mode-c) * .45) var(--mode-h));
+  --mode-ink:oklch(0.93 calc(var(--mode-c) * .3) var(--mode-h));
+  --mode-mute:oklch(0.78 calc(var(--mode-c) * .45) var(--mode-h));
+  --mode-field:oklch(0.47 calc(var(--mode-c) * .45) var(--mode-h) / .6);
+  --mode-field-hover:oklch(0.52 calc(var(--mode-c) * .45) var(--mode-h) / .8);
+}
+
 /* The dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende). */
 :root.dark{
   color-scheme:dark;
@@ -105,10 +141,12 @@
   --scrim:rgba(0,0,0,.6);
   --tip-bg:#3a3935; --tip-text:#f3f2ee;
 
-  --accent:#fd923e;
-  --accent-soft:color-mix(in oklab,#fd923e 18%,transparent);
+  --accent:#e88c54;
+  --accent-soft:color-mix(in oklab,var(--accent) 18%,transparent);
+  --on-accent:#180c04;
 
   --weekend:color-mix(in srgb,#f3f2ee 4%,#0f0f0e);
+  --section:color-mix(in oklab,var(--bg) 82%,#000);
 
   /* work phases: dark fills with light numbers */
   --mon:oklch(0.45 0.06 115);
@@ -139,5 +177,5 @@
   --warn-bg:#2b200d; --warn-line:#503b16;
 
   --band:color-mix(in oklab,#f3f2ee 8%,#0f0f0e);
-  --band-we:color-mix(in oklab,#f3f2ee 12%,#0f0f0e);
+  --band-we:color-mix(in oklab,#f3f2ee 11%,#0f0f0e);
 }

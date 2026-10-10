@@ -1,6 +1,30 @@
 /* The Kalender: a grid of lines, each a pinned label column and a cell per day. See kalender/Kalender.tsx and GridRows.tsx. */
 
 .kalender{display:flex;flex-direction:column;flex:1;min-height:0;--mode-fade:220ms}
+
+/* ---- the mode band: the page header and the planning bar, filled with the colour of the mode ---- */
+/* The band has two lines, above the header and under the bar, and none between them. Its colours are in tokens.css; they change
+   with the mode, softly, while the switch zooms. What the band holds is drawn in its ink: a track for each segmented control, a
+   see-through field for each button that opens a menu. A menu that opens from the band is not part of it. */
+.mode-band{background:var(--mode-band);color:var(--mode-ink)}
+.mode-band,.mode-band .segmented,.mode-tag{transition:background-color 360ms var(--ease),color 360ms var(--ease)}
+@media (prefers-reduced-motion:reduce){.mode-band,.mode-band .segmented,.mode-tag{transition:none}}
+.page-head.mode-band{border-top:1px solid var(--mode-line)}
+.mode-band .page-meta{color:var(--mode-mute)}
+.mode-tag{display:inline-flex;align-items:center;gap:5px;flex:none;height:22px;padding:0 9px 0 7px;border-radius:999px;background:var(--mode-tag);font:600 var(--fs-sm)/1 var(--font-ui);white-space:nowrap}
+.mode-band .segmented{background:var(--mode-track)}
+.mode-band .segmented button{color:var(--mode-mute)}
+.mode-band .segmented button:not(.active):hover{background:var(--mode-hover);color:var(--mode-ink)}
+.mode-band .segmented button.active{color:var(--mode-ink);box-shadow:0 1px 2px var(--mode-shadow)}
+.mode-band kbd{background:var(--mode-key);color:var(--mode-mute)}
+.mode-band :is(.bar-button,.bar-select,.bar-date){background:var(--mode-field);color:var(--mode-ink);box-shadow:inset 0 0 0 1px var(--mode-rule)}
+.mode-band :is(.bar-button,.bar-select,.bar-date):hover{background:var(--mode-field-hover)}
+.mode-band .bar-button svg{color:var(--mode-mute)}
+.mode-band .bar-zone>.icon-button{background:transparent}
+.mode-band .bar-zone>:is(.ghost,.icon-button):hover:not(:disabled),.page-head.mode-band>.ghost:hover:not(:disabled),.page-head.mode-band .icon-button.active{background:var(--mode-field)}
+.mode-band .bar-hint{color:var(--mode-mute)}
+.mode-band .bar-hint b{color:var(--mode-ink)}
+.mode-band :is(.menu-pop,.col-filter-pop){color:var(--text)}
 /* the grid and the row details that slide in over its right edge */
 .kal-work,.rules-stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .grid-scroll{flex:1;overflow:auto;position:relative;outline:none;background:var(--bg);overscroll-behavior:contain}
@@ -15,16 +39,22 @@
 @media (prefers-reduced-motion:reduce){.kalender:not(.bemanning-mode) .grid-top,.grid-alloc{animation:none}}
 
 /* ---- a line and its cells ---- */
-/* A day is as wide as --col-w, which the grid sets where it scrolls, see useGridViewport. */
-.grid-row{display:flex;flex-wrap:nowrap;border-bottom:1px solid var(--rule);font-size:var(--fs-md)}
+/* A day is as wide as --col-w, which the grid sets where it scrolls, see useGridViewport.
+   A line and a cell have no rules of their own. A rule is there to be read along, and is given to the kind of line that needs it,
+   from the four of tokens.css: between the days in the date header and in lines that are typed in, under a line that is typed in,
+   above a level. A line is never given a see-through border: it has no fill, so the weekends would show through the gap. */
+.grid-row{display:flex;flex-wrap:nowrap;font-size:var(--fs-md)}
 .grid-label{position:sticky;left:0;z-index:2;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;background:var(--bg);border-right:1px solid var(--line);overflow:hidden;white-space:nowrap}
 .grid-spacer{flex:none}
-.cell{flex:none;width:var(--col-w);position:relative;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--rule);font-family:var(--font-num);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cell{flex:none;width:var(--col-w);position:relative;display:flex;align-items:center;justify-content:center;font-family:var(--font-num);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
 
 /* what every cell of a day shares */
 .day.helg,.day.helligdag{background:var(--weekend)}
-.day.month-start{border-left:1px solid var(--line-strong)}
-.day.today{box-shadow:inset 2px 0 0 var(--accent)}
+/* Today: one line down the grid, over the rules, the weekends, the bars and the selection, and under the label column. Each block
+   that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the dates, the top block and the
+   hall calendar. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
+.today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--accent);pointer-events:none}
+.group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--accent)}
 /* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the planning rows */
 :is(.head-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
 .dark :is(.head-row,.group-row,.alloc-row) .day.helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 12%,transparent),color-mix(in srgb,var(--neg) 12%,transparent))}
@@ -34,10 +64,12 @@
 
 /* ---- the date header ---- */
 /* A day's head, weekday over date, is the same in the Kalender and in Bemanning: today, the day in focus and a red day. */
-.head-row{border-bottom:none}
 .head-row:not(.tall){height:20px!important}
-.head-row.tall{height:30px!important;border-bottom:1px solid var(--line)}
+.head-row.tall{height:30px!important}
 .head-row .grid-label,.head-row .cell{height:100%}
+/* the days are ruled off here, and a month begins with a full line */
+.head-row .cell{border-right:1px solid var(--grid-col)}
+.head-row .day.month-start{border-left:1px solid var(--line)}
 .lbl-title{color:var(--faint);font-family:var(--font-num);font-size:var(--fs-xs)}
 .cell.head{justify-content:flex-start;overflow:visible;color:var(--faint);font-size:var(--fs-xs)}
 .month-label{position:relative;z-index:1;padding-left:3px;color:var(--muted);text-transform:uppercase;font-weight:500;letter-spacing:.04em}
@@ -53,14 +85,11 @@
 .day-head.helligdag .wd,.day-head.helligdag .dn{color:var(--neg)}
 
 /* ---- the sections of the top block: the hall calendar and the staffing ---- */
-/* each is framed by a hairline above and below, across the whole grid */
-.top-section{position:relative;border-bottom:1px solid var(--line)}
-.section-head{position:sticky;left:0;z-index:2;display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;background:var(--bg);white-space:nowrap;overflow:visible}
-/* open: a hairline under the heading and its legend */
-.top-section.open .section-head{margin-bottom:1px}
-.top-section.open::after{content:'';position:absolute;top:26px;left:0;right:0;height:1px;background:var(--line);z-index:1;pointer-events:none}
-/* Bemanning: the hairline under it is the one above the «Planlegging» heading */
-.top-section.staffing{border-bottom:0}
+/* A section opens with a heading on a neutral tint, across the whole grid. The tint sets it apart: it has no lines, and the weekends run through it, a step darker. */
+.top-section{position:relative}
+.section-row{height:26px;background:var(--section)}
+.section-row .day:is(.helg,.helligdag){background:var(--weekend-section)}
+.section-head{position:sticky;left:0;z-index:2;flex:none;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--section);white-space:nowrap;overflow:visible}
 /* The hall calendar stays under the date header where the top block has to give way; the staffing lines slide in under it. */
 .top-section.halls{position:sticky;z-index:3;background:var(--bg)}
 /* what sits in a heading beside its name is ordinary text */
@@ -72,8 +101,8 @@
 .twisty:hover{background:var(--sunken)}
 
 /* ---- the hall calendar: a rounded bar per phase of each event, with the event's name laid over ---- */
-/* no rules between the halls: the bars carry the line. No border at all, or an invisible one would cut the today line into dashes. */
-.hall-row{position:relative;border-bottom:0}
+/* no rules between the halls: the bars carry the line */
+.hall-row{position:relative}
 /* a hall's name sits at the right edge of the label column, next to its bars */
 .lbl-hall{margin-left:auto;font-family:var(--font-num);font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
 .halls.compact .lbl-hall{font-size:var(--fs-xs)}
@@ -97,14 +126,10 @@
 .ph-dismantle{background:var(--ph-dismantle)!important}
 
 /* ---- the staffing ---- */
-/* Every line carries the same grid as the planning rows: a faint rule above and beside each day cell, no rule
-   in the label column, and no border on the line itself, so the today line runs unbroken. */
-.cap-row,.sum-row{background:var(--bg);border-bottom:0}
-.cap-row .cell,.sum-row .cell{border-top:1px solid var(--rule)}
+/* The lines are read, not typed in: no rules, and the name of each at the right edge of the label column, against its figures, as a hall's name is. */
+.cap-row,.sum-row{background:var(--bg)}
 .cap-row:hover,.cap-row:hover .grid-label{background:var(--wash-bg)}
-/* the line right under a heading has the heading's hairline above it already */
-.top-section .section-head + .grid-row .cell{border-top-color:transparent}
-.lbl-cap{padding-left:18px}
+.lbl-cap{margin-left:auto}
 .lbl-cap.strong{font-weight:600}
 .cap-cell{color:var(--text)}
 .sum-cell{font-weight:600}
@@ -112,7 +137,6 @@
 .dev.neg{background:var(--neg-bg)!important;color:var(--neg);font-weight:600}
 .dev.pos{color:var(--pos);font-weight:600}
 /* Avvik as a heat map: a tile per day, with a little air between neighbours */
-.heat-row .cell{border-right-color:transparent}
 .heat{position:absolute;inset:3px 2px;border-radius:5px;z-index:0;background:color-mix(in oklab,var(--heat-c) var(--p),var(--bg))}
 .heat.short{--heat-c:var(--neg)}
 .heat.tight{--heat-c:var(--over)}
@@ -126,9 +150,10 @@
 .heat-legend .heat{position:static;width:10px;height:10px;border-radius:2px}
 
 /* ---- the planning bar and the «Planlegging» heading under it: pinned right above the planning rows ---- */
-.grid-tools{position:sticky;z-index:3;background:var(--bg);box-shadow:0 1px 0 var(--line-strong)}
-.plan-bar{display:flex;border-top:1px solid var(--line-strong)}
-.plan-bar-in{position:sticky;left:0;z-index:8;flex:none;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 20px;padding:8px 16px;background:var(--bg);white-space:nowrap;font-size:var(--fs-md);container-type:inline-size}
+/* one soft line closes the whole pinned top; the bar ends in the lower line of the mode band */
+.grid-tools{position:sticky;z-index:3;background:var(--bg);box-shadow:0 1px 0 var(--line)}
+.plan-bar{display:flex;background:var(--mode-band);border-bottom:1px solid var(--mode-line);transition:background-color 360ms var(--ease)}
+.plan-bar-in{position:sticky;left:0;z-index:8;flex:none;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 20px;padding:8px 16px;white-space:nowrap;font-size:var(--fs-md);container-type:inline-size}
 .bar-zone{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
 .bar-view{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 20px}
 .bar-zone-end{margin-left:auto}
@@ -137,7 +162,6 @@
 
 /* a button of the bar that opens a menu: an icon, what is chosen, and a chevron */
 .bar-button{padding:0 10px;font-weight:400}
-.bar-button svg{color:var(--muted)}
 .bar-button.on svg:first-child{color:var(--accent)}
 .bar-button-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .bar-count{padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num)}
@@ -181,7 +205,7 @@
 @container (max-width:500px){.plan-bar-in .bar-zone-end{margin-left:0}}
 
 /* the heading row; the top block ends in the hairline above it */
-.col-head{background:var(--bg);border-top:1px solid var(--line);border-bottom-color:var(--line)}
+.col-head{background:var(--bg)}
 .col-head .lbl-num{font-size:inherit;font-weight:inherit}
 /* What the colours mean, pinned beside the label column: the planning cells in the heading row, the hall
    phases in the «Haller» heading. A hall phase has the letters its bars carry in the mark. */
@@ -202,7 +226,6 @@
 /* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
    every rule sits exactly on the boundary between two lines: a level's hairline above it, a cell's rule above it. */
 .grid-alloc{position:relative}
-.grid-alloc .grid-row{border-bottom:0}
 /* A top level's line stays at the top of the rows while the lines under it scroll past. It is laid over its
    stretch of lines, which stay within reach beneath the box, and closes with a hairline when lines are under it. */
 .level-section{position:absolute;left:0;right:0;pointer-events:none}
@@ -245,15 +268,17 @@
 .group-row .row-action{visibility:hidden}
 .grid-row:hover .row-actions,.group-row:hover .row-action{visibility:visible}
 
-/* levels: one hairline above each, nothing under it; only a project's line is tinted */
-.group-row{background:var(--bg);border-top:1px solid var(--line)}
+/* Levels: a line above each and nothing under it, and no rules between the days, since a level is a sum and not typed in.
+   A top level has the strong line, which means nothing else in the grid, and is the only level with a fill. The levels under it
+   are sums in muted type on the bare canvas, so they are not taken for lines to type in. */
+.group-row{background:var(--bg);border-top:1px solid var(--grid-phase)}
+.group-row.depth-0{border-top-color:var(--grid-top)}
 .group-row.depth-0,.group-row.depth-0 .grid-label{background:var(--band)}
 .group-row.depth-0 .lbl-project{font-size:var(--fs-base);font-weight:700}
+.group-row:not(.depth-0) :is(.lbl-project,.lbl-num:not(.delta)){color:var(--muted)}
+.group-row:not(.depth-0) .group-cell{color:var(--muted);font-weight:500}
 .empty-group .lbl-project{font-weight:500}
-.group-row .cell{border-right-color:transparent}
 .group-row.depth-0 .day.helg,.group-row.depth-0 .day.helligdag{background-color:var(--band-we)}
-.group-row:not(.depth-0) .day.helg{background:none}
-.group-row:not(.depth-0) .day.helligdag{background-color:transparent}
 .group-cell{font-weight:600}
 /* the days of a project that is in the hall calendar but has no phase on the day */
 .group-row .cell.group-cell.in-span{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--text) 22%,transparent)}
@@ -268,15 +293,19 @@
 .strip-event::before{background:var(--ph-event)}
 .strip-movingOut::before{background:var(--ph-movingout)}
 .strip-dismantle::before{background:var(--ph-dismantle)}
-/* A level that takes FTE itself instead of only summing its rows. */
+/* A level that takes FTE itself instead of only summing its rows: typed in, so its days are ruled off as a row's are. */
 .group-row .row-action.level-mode.entry{visibility:visible;color:var(--accent);font-weight:600}
 .group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}
-.group-row.entry-level .cell.editable{background-color:var(--surface);color:var(--text)}
+.group-row.entry-level .cell.editable{background-color:var(--surface);color:var(--text);font-weight:600}
 
-/* rows: no rules between them in the label column, a faint rule above each day cell; the line under the pointer is tinted */
+/* Rows are typed in, so they are ruled: a rule between the days, and one above each row's cells, which is the rule under the row
+   before it. The rule sits on the cells and not on the line, so it has their fill behind it. The first row under a level has it
+   across its label too, which closes the block at the top; the last has none under it, since the line of the next level is there.
+   The line under the pointer is tinted. */
 .alloc-row .grid-label{cursor:pointer}
 .alloc-row:hover,.alloc-row:hover .grid-label{background:var(--wash-bg)}
-.alloc-row .cell{border-top:1px solid var(--rule)}
+:is(.alloc-row,.entry-level) .cell{border-right:1px solid var(--grid-col)}
+.alloc-row .cell,:is(.group-row,.level-place)+.alloc-row .grid-label{border-top:1px solid var(--grid-row)}
 .cell.editable{cursor:cell}
 .cell.filled.mon{background-color:var(--mon);color:var(--text);font-weight:500}
 .cell.filled.dem{background-color:var(--dem);color:var(--text);font-weight:500}

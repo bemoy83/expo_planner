@@ -4,7 +4,7 @@
 .dark .inspector{box-shadow:-12px 0 32px -12px rgba(0,0,0,.6)}
 @keyframes inspector-in{from{transform:translateX(100%)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){.inspector{animation:none}}
-.insp-head{display:flex;align-items:flex-start;gap:8px;padding:16px 12px 14px 20px;background:var(--sunken);border-bottom:1px solid var(--line)}
+.insp-head{display:flex;align-items:flex-start;gap:8px;padding:16px 12px 14px 20px;background:var(--sunken)}
 .dark .insp-head{background:var(--surface)}
 .insp-head-text{flex:1;min-width:0}
 .insp-title{font-size:var(--fs-title-sm);font-weight:700;line-height:1.25;letter-spacing:-.02em}
@@ -14,8 +14,8 @@
 .insp-actions{display:flex;gap:2px;flex:none;margin-top:-4px}
 .insp-empty{margin:10px 0 0;font-size:var(--fs-base);line-height:1.45;color:var(--muted)}
 .insp-body{flex:1;min-height:0;overflow:auto}
-.insp-sec{padding:16px 20px 18px;border-bottom:1px solid var(--line)}
-.insp-sec:last-child{border-bottom:0}
+.insp-sec{padding:16px 20px 18px}
+.insp-sec+.insp-sec{border-top:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
 .insp-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 12px}
 .insp-h span{font-size:var(--fs-xs);text-transform:none;letter-spacing:0}
 .insp-sec .bar{margin-top:14px}
@@ -28,7 +28,7 @@
 .insp-dl dd.num{font-family:var(--font-num);font-size:var(--fs-sm)}
 .insp-days{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
 .insp-days th{padding:4px 0;border-bottom:1px solid var(--line);text-align:right;font:400 var(--fs-xs) var(--font-num);text-transform:uppercase;letter-spacing:.04em;color:var(--faint)}
-.insp-days td{padding:5px 0;border-bottom:1px solid var(--line);text-align:right;font-family:var(--font-num)}
+.insp-days td{padding:5px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent);text-align:right;font-family:var(--font-num)}
 .insp-days th:first-child,.insp-days td:first-child{text-align:left}
 .insp-days td.neg{color:var(--neg)}
 .insp-days td.pos{color:var(--pos)}
