@@ -43,6 +43,8 @@ interface Props {
   onOnlyInView: (only: boolean) => void
   /** The halls by area, and what is unticked of them under «Steder». */
   hallTree: AreaNode[]
+  /** The statuses of the hall bookings. */
+  statuses: string[]
   hallFilter: HallFilter
   onHallFilter: (filter: HallFilter) => void
   grouping: Dimension[]
@@ -61,10 +63,10 @@ interface Props {
 }
 
 /** The planning bar right above the rows: undo, the tools, what is shown and how, and where in the period. */
-export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, hallTree, hallFilter, onHallFilter, grouping, onGrouping, folded, onFold, start, end, onToday, onDate, zoom, onZoom }: Props) {
+export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, hallTree, statuses, hallFilter, onHallFilter, grouping, onGrouping, folded, onFold, start, end, onToday, onDate, zoom, onZoom }: Props) {
   const fit = filterSummary(filter, projects)
   return (
-    <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hallFilter.areas.length + hallFilter.halls.length}|${hints}|${tool}|${folded}`}>
+    <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hallFilter.areas.length + hallFilter.halls.length + hallFilter.statuses.length}|${hints}|${tool}|${folded}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <UndoRedoButtons />
@@ -73,7 +75,7 @@ export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, 
       <div className="bar-view">
         <div className="bar-zone">
           <FilterMenu filter={filter} onChange={onFilter} projects={projects} competences={competences} onlyInView={onlyInView} onOnlyInView={onOnlyInView} />
-          <AreaMenu tree={hallTree} filter={hallFilter} onChange={onHallFilter} />
+          <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={onHallFilter} />
           <GroupingMenu grouping={grouping} onChange={onGrouping} />
           <button className="ghost" title={folded ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'} onClick={onFold}>
             {folded ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}

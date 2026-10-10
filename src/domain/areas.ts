@@ -1,4 +1,4 @@
-import type { HallRules } from './types'
+import type { HallRules, VenueBooking } from './types'
 
 /**
  * The halls of the ledger gathered in areas, as «NV HALLS» for A to E and «NOVA STUDIOS» for the studios. An area is
@@ -39,21 +39,23 @@ export const areaTree = (halls: string[], rules?: Pick<HallRules, 'areas'>): Are
 }
 
 /**
- * What the planner has unticked in the Kalender: whole areas, and single halls of the areas that are shown. Kept as
- * what is left out, so a hall that is new in the ledger or in a shown area shows by itself. Stored per browser.
+ * What the planner has unticked in the Kalender: whole areas, single halls of the areas that are shown, and the
+ * statuses of Venyou whose bookings are left out. Kept as what is left out, so a hall that is new in the ledger or in
+ * a shown area, and a status that is new in an export, show by themselves. Stored per browser.
  */
 export interface HallFilter {
   areas: string[]
   halls: string[]
+  statuses: string[]
 }
 
-export const ALL_HALLS: HallFilter = { areas: [], halls: [] }
+export const ALL_HALLS: HallFilter = { areas: [], halls: [], statuses: [] }
 
 /** What is valid of a stored filter. */
 export const cleanHallFilter = (stored: unknown): HallFilter => {
   const list = (value: unknown): string[] => (Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [])
-  const { areas, halls } = (stored ?? {}) as Partial<Record<keyof HallFilter, unknown>>
-  return { areas: list(areas), halls: list(halls) }
+  const { areas, halls, statuses } = (stored ?? {}) as Partial<Record<keyof HallFilter, unknown>>
+  return { areas: list(areas), halls: list(halls), statuses: list(statuses) }
 }
 
 /** The halls of an area that are shown. */
@@ -77,7 +79,7 @@ const withShown = (filter: HallFilter, node: AreaNode, shown: Set<string>): Hall
   const own = new Set(node.halls.map(lower))
   const areas = filter.areas.filter((name) => lower(name) !== lower(node.name))
   const halls = filter.halls.filter((hall) => !own.has(lower(hall)))
-  return shown.size ? { areas, halls: [...halls, ...node.halls.filter((hall) => !shown.has(hall))] } : { areas: [...areas, node.name], halls }
+  return shown.size ? { ...filter, areas, halls: [...halls, ...node.halls.filter((hall) => !shown.has(hall))] } : { ...filter, areas: [...areas, node.name], halls }
 }
 
 /** The filter with a whole area ticked or unticked. */
@@ -93,16 +95,37 @@ export const withHallShown = (tree: AreaNode[], filter: HallFilter, hall: string
   return withShown(filter, node, shown)
 }
 
+/** The filter with no hall unticked, or with every hall unticked; the statuses are left as they are. */
+export const withAllHalls = (tree: AreaNode[], filter: HallFilter, show: boolean): HallFilter => ({ ...filter, areas: show ? [] : tree.map((node) => node.name), halls: [] })
+
+/** The statuses the bookings have, in order, as Venyou writes them. A booking without one has the empty status, listed last. */
+export const venueStatuses = (bookings: Pick<VenueBooking, 'status'>[]): string[] => {
+  const found = new Map<string, string>()
+  for (const { status } of bookings) if (!found.has(lower(status))) found.set(lower(status), status.trim())
+  return [...found.values()].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'nb')))
+}
+
+export const statusShown = (filter: HallFilter, status: string): boolean => !filter.statuses.some((other) => lower(other) === lower(status))
+
+/** The filter with the bookings of a status shown or left out. */
+export const withStatusShown = (filter: HallFilter, status: string, show: boolean): HallFilter => {
+  const statuses = filter.statuses.filter((other) => lower(other) !== lower(status))
+  return { ...filter, statuses: show ? statuses : [...statuses, status.trim()] }
+}
+
+/** The bookings of the statuses that are shown. The same list where no status is unticked. */
+export const ofShownStatus = <T extends Pick<VenueBooking, 'status'>>(bookings: T[], filter: HallFilter): T[] => (filter.statuses.length ? bookings.filter((booking) => statusShown(filter, booking.status)) : bookings)
+
 /**
  * The projects that are out of sight with the halls shown: those with hall bookings, none of them in a shown hall.
- * A project without a booking has no hall to be left out by. `hallsOf` gives the halls each project has booked.
+ * `hallsOf` gives the halls each project with bookings is booked in, of the statuses that are shown: none, where all
+ * its bookings have a status that is left out. A project that is not in it has no booking to be left out by.
  */
 export const projectsOutside = (hallsOf: Map<string, Iterable<string>>, shown: string[]): Set<string> => {
   const seen = new Set(shown)
   const outside = new Set<string>()
   for (const [project, halls] of hallsOf) {
-    const booked = [...halls]
-    if (booked.length && !booked.some((hall) => seen.has(hall))) outside.add(project)
+    if (![...halls].some((hall) => seen.has(hall))) outside.add(project)
   }
   return outside
 }

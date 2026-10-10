@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { areaTree, shownHalls, type HallFilter } from '../../domain/areas'
+import { areaTree, ofShownStatus, shownHalls, venueStatuses, type HallFilter } from '../../domain/areas'
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
 import { eventKey, venueEvents } from '../../domain/projects'
 import type { VenueBooking, Workspace } from '../../domain/types'
@@ -13,11 +13,15 @@ import { projectList } from './useProjectHover'
  * What the Kalender draws of the hall bookings: the halls shown, each hall's bookings as bars with the
  * events' names over them, and the project behind each booking. `origin` is the first day of the period;
  * `splitShared` shows both events on a day a hall is shared, which wide columns have room for. The halls shown are
- * those the planner has ticked under «Steder» (`hallFilter`), by area.
+ * those the planner has ticked under «Steder» (`hallFilter`), by area, and the bookings those of the statuses ticked there.
  */
 export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects' | 'hallRules'>, origin: ISODate, splitShared: boolean, hallFilter: HallFilter) {
   const { venue, hiddenVenue, projects, hallRules } = ws
-  const shownVenue = useMemo(() => visibleVenue(venue, hiddenVenue), [venue, hiddenVenue])
+  const visible = useMemo(() => visibleVenue(venue, hiddenVenue), [venue, hiddenVenue])
+  const statuses = useMemo(() => venueStatuses(visible), [visible])
+  const shownVenue = useMemo(() => ofShownStatus(visible, hallFilter), [visible, hallFilter])
+  // Every project with a booking, whatever its status: one whose bookings are all left out is left out with them.
+  const bookedProjects = useMemo(() => (shownVenue === visible ? null : venueEvents(visible, projects).map((event) => projectKey({ projectNo: event.projectNo, projectName: event.name }))), [shownVenue, visible, projects])
   const hallCalendar = useMemo(() => buildHallCalendar(shownVenue), [shownVenue])
   // Projects are the events in the Venyou calendar that have at least one hall booking shown.
   const events = useMemo(() => venueEvents(shownVenue, projects), [shownVenue, projects])
@@ -53,5 +57,5 @@ export function useHallCalendar(ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'p
   const allHallNames = useMemo(() => hallNames(venue), [venue])
   const hallTree = useMemo(() => areaTree(allHallNames, hallRules), [allHallNames, hallRules])
   const halls = useMemo(() => shownHalls(hallTree, hallFilter), [hallTree, hallFilter])
-  return { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallTree, hallCount: allHallNames.length }
+  return { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallTree, hallCount: allHallNames.length, statuses, bookedProjects }
 }

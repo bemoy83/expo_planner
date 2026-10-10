@@ -1,21 +1,25 @@
 import { ChevronDown, MapPin } from 'lucide-react'
-import { ALL_HALLS, areaShown, NO_AREA, shownHalls, withAreaShown, withHallShown, type AreaNode, type HallFilter } from '../../domain/areas'
+import { areaShown, NO_AREA, shownHalls, statusShown, withAllHalls, withAreaShown, withHallShown, withStatusShown, type AreaNode, type HallFilter } from '../../domain/areas'
 import { Menu, TriCheckbox } from '../common'
 
 interface Props {
   /** The halls of the ledger by area, see `areaTree`. */
   tree: AreaNode[]
+  /** The statuses of the hall bookings, see `venueStatuses`. */
+  statuses: string[]
   filter: HallFilter
   onChange: (filter: HallFilter) => void
 }
 
 /**
  * The button «Steder» of the planning bar and the tree under it: the areas with their halls, to tick the ones to
- * work with. The hall calendar, the rows of the plan and Bemanning follow it.
+ * work with, and under it the statuses of Venyou whose bookings count. The hall calendar, the rows of the plan and
+ * Bemanning follow it.
  */
-export function AreaMenu({ tree, filter, onChange }: Props) {
+export function AreaMenu({ tree, statuses, filter, onChange }: Props) {
   const all = tree.reduce((sum, node) => sum + node.halls.length, 0)
   const shown = shownHalls(tree, filter).length
+  const statusesOff = statuses.filter((status) => !statusShown(filter, status)).length
   const grouped = tree.some((node) => node.name !== NO_AREA)
   return (
     <Menu
@@ -28,19 +32,20 @@ export function AreaMenu({ tree, filter, onChange }: Props) {
               {shown}/{all}
             </span>
           )}
+          {statusesOff > 0 && <span className="bar-count">{statuses.length - statusesOff}/{statuses.length} status</span>}
           <ChevronDown size={12} aria-hidden />
         </>
       }
-      className={`bar-button ${shown < all ? 'on' : ''}`}
-      title="Steder: velg hvilke områder og haller som vises. Prosjekter som bare har bookinger i haller du har valgt bort, vises ikke."
+      className={`bar-button ${shown < all || statusesOff > 0 ? 'on' : ''}`}
+      title="Steder: velg hvilke områder og haller som vises, og hvilke statuser i VenYou som teller. Prosjekter som bare har bookinger du har valgt bort, vises ikke."
     >
       {() => (
         <div className="col-filter-pop area-menu">
           <div className="col-filter-all">
-            <button className="link small" onClick={() => onChange(ALL_HALLS)}>
+            <button className="link small" onClick={() => onChange(withAllHalls(tree, filter, true))}>
               Velg alle
             </button>
-            <button className="link small" onClick={() => onChange({ areas: tree.map((node) => node.name), halls: [] })}>
+            <button className="link small" onClick={() => onChange(withAllHalls(tree, filter, false))}>
               Fjern alle
             </button>
           </div>
@@ -71,6 +76,19 @@ export function AreaMenu({ tree, filter, onChange }: Props) {
               )
             })}
           </div>
+          {statuses.length > 0 && (
+            <>
+              <div className="area-heading">Status i VenYou</div>
+              <div className="col-filter-list">
+                {statuses.map((status) => (
+                  <label key={status}>
+                    <input type="checkbox" checked={statusShown(filter, status)} onChange={(e) => onChange(withStatusShown(filter, status, e.target.checked))} />
+                    <span>{status || 'Uten status'}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
           {!grouped && all > 0 && <p className="muted small">Samle hallene i områder under Hallregler, så kan du velge et helt område her.</p>}
         </div>
       )}

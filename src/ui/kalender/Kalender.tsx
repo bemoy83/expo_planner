@@ -148,16 +148,16 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   })
 
   // ---- derived data -------------------------------------------------------------------------
-  const { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallTree, hallCount } = useHallCalendar(ws, range.start, zoom === 'wide', hallFilter)
-  /** The halls each project has booked. */
+  const { shownVenue, events, projectOf, hallProjectLists, hallLabels, hallBars, halls, hallTree, hallCount, statuses, bookedProjects } = useHallCalendar(ws, range.start, zoom === 'wide', hallFilter)
+  /** The halls each project has booked, with the statuses that are shown: none for a project booked with other statuses alone. */
   const hallsOf = useMemo(() => {
-    const booked = new Map<string, Set<string>>()
+    const booked = new Map<string, Set<string>>((bookedProjects ?? []).map((key) => [key, new Set()]))
     for (const event of events) {
       const key = projectKey({ projectNo: event.projectNo, projectName: event.name })
       booked.set(key, new Set([...(booked.get(key) ?? []), ...event.halls]))
     }
     return booked
-  }, [events])
+  }, [events, bookedProjects])
   // What is unticked under «Steder» takes the projects with it that are booked in those halls alone: their rows, and their FTE in the demand.
   const outside = useMemo(() => projectsOutside(hallsOf, halls), [hallsOf, halls])
 
@@ -842,6 +842,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
                   if (span) fitBemanning(span)
                 }}
                 hallTree={hallTree}
+                statuses={statuses}
                 hallFilter={hallFilter}
                 onHallFilter={setHallFilter}
                 onToday={() => scrollToDate(today, 1)}
@@ -865,6 +866,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
               onlyInView={onlyInView}
               onOnlyInView={setOnlyInView}
               hallTree={hallTree}
+                statuses={statuses}
               hallFilter={hallFilter}
               onHallFilter={setHallFilter}
               grouping={grouping}

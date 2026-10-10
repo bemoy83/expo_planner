@@ -149,6 +149,7 @@
 .area-menu .col-filter-list{max-height:min(60vh,420px)}
 .area-menu label.area-name{font-weight:600}
 .area-menu label.area-hall{padding-left:26px}
+.area-heading{padding:6px 4px 0;border-top:1px solid var(--line);color:var(--muted);font-size:var(--fs-xs)}
 .area-menu p{margin:0;padding:0 4px;max-width:240px}
 
 /* the grouping menu: a line per level with its place, then the levels left out */

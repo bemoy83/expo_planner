@@ -59,6 +59,8 @@ interface ToolbarProps {
   onProject: (key: string) => void
   /** The halls by area, and what is unticked of them under «Steder». */
   hallTree: AreaNode[]
+  /** The statuses of the hall bookings. */
+  statuses: string[]
   hallFilter: HallFilter
   onHallFilter: (filter: HallFilter) => void
   onToday: () => void
@@ -70,7 +72,7 @@ interface ToolbarProps {
  * The planning bar in Bemanning: the mode, undo, the tools (Velg, the brush with the competence it paints,
  * and Tøm), the project, and where in the period.
  */
-export function BemanningToolbar({ width, mode, onMode, projects, project, onProject, hallTree, hallFilter, onHallFilter, onToday, onFit }: ToolbarProps) {
+export function BemanningToolbar({ width, mode, onMode, projects, project, onProject, hallTree, statuses, hallFilter, onHallFilter, onToday, onFit }: ToolbarProps) {
   const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
   const paste = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V'
   const style = brush ? styles.get(brush) : undefined
@@ -92,7 +94,7 @@ export function BemanningToolbar({ width, mode, onMode, projects, project, onPro
     { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
   ]
   return (
-    <PlanBar width={width} fitKey={`${project}|${hallFilter.areas.length + hallFilter.halls.length}|${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
+    <PlanBar width={width} fitKey={`${project}|${hallFilter.areas.length + hallFilter.halls.length + hallFilter.statuses.length}|${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <UndoRedoButtons />
@@ -127,7 +129,7 @@ export function BemanningToolbar({ width, mode, onMode, projects, project, onPro
       </div>
       <div className="bar-view">
         <div className="bar-zone bar-zone-end">
-          <AreaMenu tree={hallTree} filter={hallFilter} onChange={onHallFilter} />
+          <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={onHallFilter} />
           <select className="bar-select" aria-label="Prosjekt" title="Prosjekt: dagene tilpasses prosjektet, og de andre prosjektene dempes" value={project} onChange={(e) => onProject(e.target.value)}>
             <option value="">Alle prosjekter</option>
             {projects.map(([key, name]) => (
