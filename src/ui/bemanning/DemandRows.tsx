@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { Check } from 'lucide-react'
+import { defaultShortLabel } from '../../domain/competences'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { Balance, FreeCapacity } from '../../domain/staffing'
@@ -80,6 +81,13 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         return (
           <button key={date} className={classes} title={title} onClick={(e) => onDay(style.key, date, e)}>
             <span className="bm-need-value">
+              {cell.assigned < EPSILON && cell.demand > EPSILON && (
+                // Nothing is assigned, so the meter is empty: the day says whose it is. The style sheet shows the one the day has room for.
+                <>
+                  <span className="bm-need-code">{style.shortLabel || defaultShortLabel(style.label)}</span>
+                  <i className="bm-need-dot" />
+                </>
+              )}
               {added > EPSILON && <span className="bm-preview">−{hoursText(Math.min(added, left) || added)}</span>}
               {cell.carried > EPSILON && <span className="bm-carried">+{hoursText(cell.carried)}</span>}
               <b className={`bm-number ${state}`}>{state === 'ok' ? <Check size={14} aria-label="Dekket" /> : over ? `+${hoursText(-cell.remaining)}` : hoursText(cell.remaining)}</b>

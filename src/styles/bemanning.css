@@ -9,8 +9,7 @@
 .bm-label-end{margin-left:auto}
 .bm-label-text{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* how what is picked is shown, the setting «Markering»: a tint of its colour, or raised on a neutral ground. Neither draws a box around it. */
-.kalender.selection-raised{--bm-on-bg:var(--surface);--bm-sel-bg:color-mix(in srgb,var(--surface) 75%,transparent);--bm-on-shadow:0 1px 5px -1px var(--shadow)}
+/* A colour is mixed with a competence's colour in oklab: in oklch the hue turns on the way, and blue goes through green into the warm canvas. */
 /* Bemanning comes in softly when the switch has zoomed in, as the plan does when it comes back, see kalender.css */
 .bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:bm-fade-in var(--mode-fade) var(--ease)}
 /* the crosshair: the date and the demand of the day under the pointer */
@@ -42,33 +41,39 @@
 .bm-pick:disabled{opacity:1;cursor:default}
 .bm-pick:disabled:hover{background:transparent}
 .bm-week-left{display:inline-flex;align-items:center;margin-left:auto;font:600 var(--fs-sm) var(--font-num);white-space:nowrap}
-.bm-need{flex-direction:column;align-items:stretch;justify-content:center;gap:4px;min-width:0;padding:0 6px;border-radius:0;background-color:transparent;color:var(--text)}
+/* a day is a container, so what its value line holds follows the width of the day without being drawn again; the track of its meter is a tint of the competence */
+.bm-need{flex-direction:column;align-items:stretch;justify-content:center;gap:4px;min-width:0;padding:0 6px;border-radius:0;background-color:transparent;color:var(--text);container-type:inline-size;--bar-track:color-mix(in oklab,var(--cc) 22%,var(--bg))}
 .bm-need.helg,.bm-need.helligdag,.bm-free.helg,.bm-free.helligdag{background-color:var(--weekend)}
 button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
-.bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
+.bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;overflow:hidden;white-space:nowrap}
 .bm-need-value em{font:400 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint)}
 .bm-number{display:inline-flex;font:600 var(--fs-md)/1 var(--font-num);letter-spacing:-.02em}
 .bm-number.ok{color:var(--pos)}
 .bm-number.over{color:var(--over)}
 .bm-number.uncoverable{color:var(--neg)}
+/* a day with demand and nothing assigned names its competence: the short name, or a dot in a day under 80px, where the short name has no room. Under 100px the short name takes the place of «av». The widths are those of the day less its padding and rule. */
+.bm-need-code{display:none;margin-right:auto;font:600 var(--fs-3xs) var(--font-num);letter-spacing:.04em;color:color-mix(in oklab,var(--cc) 75%,var(--text))}
+.bm-need-dot{align-self:center;flex:none;width:6px;height:6px;margin-right:auto;border-radius:2px;background:var(--cc)}
+@container (min-width:67px){.bm-need-code{display:inline}.bm-need-dot{display:none}}
+@container (max-width:86.9px){.bm-need-code~em{display:none}}
 .bm-carried{margin-right:auto;font:500 var(--fs-2xs) var(--font-num);color:var(--over)}
-.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklch,var(--cc) 14%,transparent);color:var(--cc);font:600 var(--fs-xs) var(--font-num)}
+.bm-preview{margin-right:auto;padding:1px 5px;border-radius:4px;background:color-mix(in oklab,var(--cc) 14%,transparent);color:var(--cc);font:600 var(--fs-xs) var(--font-num)}
 .bar .covered{background:var(--cc)}
 /* the stripes of --hatch, 4px and 2px. Overtime is a 2px line of the competence's colour on a light ground; what cannot be covered is red with a 2px gap. */
-.bar .overtime{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 35%,transparent) 0 4px,var(--cc) 4px 6px)}
+.bar .overtime{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 35%,transparent) 0 4px,var(--cc) 4px 6px)}
 .bar .surplus{background:var(--over)}
 .bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--neg) 0 4px,transparent 4px 6px)}
 /* a competence in focus: its line is lit, the others step back */
 .bm-demand.dim{opacity:.5}
 .bm-demand.dim:hover{opacity:.8}
-.bm-demand.on{background:var(--bm-on-bg,color-mix(in oklch,var(--cc) 7%,var(--bg)));box-shadow:var(--bm-on-shadow,none)}
-.bm-demand.on .bm-pick{background:var(--surface);box-shadow:inset 3px 0 0 var(--cc)}
+.bm-demand.on{background:color-mix(in oklab,var(--cc) 7%,var(--bg))}
+.bm-demand.on .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
 /* compact: one thin line per day, the demand as a tint that fills solid from the left as it is covered */
 .bm-demand.compact .bm-pick{gap:6px}
 .bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
 .bm-demand.compact .bm-name,.bm-demand.compact .bm-week-left{font-size:var(--fs-xs)}
 .bm-demand.compact .bm-need{padding:0 4px}
-.bm-need-line{position:relative;display:block;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklch,var(--cc) 22%,var(--bg))}
+.bm-need-line{position:relative;display:block;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklab,var(--cc) 22%,var(--bg))}
 .bm-need-line>i{position:absolute;top:0;left:0;bottom:0;border-radius:3px;background:var(--cc);transition:width 280ms var(--ease)}
 .bm-need-line.over{background-image:repeating-linear-gradient(135deg,var(--neg) 0 2.5px,transparent 2.5px 8px)}
 .bm-idle-head{color:var(--faint)}
@@ -127,10 +132,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-block b{overflow:hidden;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
 .bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
 /* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the open hours. */
-.bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
+.bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other,.bm-off-blocks>i.other{opacity:.28}
 /* unresolved, but the day is covered by others: a faint trace of what was planned */
-.bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 60%,transparent)}
+.bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--cc) 60%,transparent)}
 .bm-off-blocks>i.replaced{opacity:.4}
 .bm-away{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:var(--fs-sm);font-style:italic;color:var(--muted)}
 .bm-sick{position:absolute;left:4px;top:50%;z-index:2;transform:translateY(-50%);padding:2px 7px;border-radius:999px;background:var(--neg-bg);color:var(--neg);font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
@@ -149,16 +154,16 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 [data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
 /* where the brush would put time: striped in its colour, with the hours it gives */
 .bm-ghosts{pointer-events:none}
-.bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--cc) 30%,transparent) 0 5px,color-mix(in oklch,var(--cc) 18%,transparent) 5px 10px);box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--cc) 65%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
+.bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 5px,color-mix(in oklab,var(--cc) 18%,transparent) 5px 10px);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--cc) 65%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
 /* what the eraser would take: its blocks as dashed outlines */
 .bm-cell.erasing .bm-block{background:transparent;box-shadow:none;outline:1.5px dashed color-mix(in srgb,var(--text) 45%,transparent);outline-offset:-1.5px;color:var(--muted)}
 .bm-cell.erasing .bm-off-blocks>i{background:transparent;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--text) 45%,transparent)}
 /* a stroke: one outline over all its days, and what it will do on a pill */
-.bm-stroke{position:absolute;z-index:1;border-radius:7px;background:color-mix(in oklch,var(--cc) 4%,transparent);box-shadow:inset 0 0 0 1.5px var(--cc),0 0 0 4px color-mix(in oklch,var(--cc) 13%,transparent);pointer-events:none}
+.bm-stroke{position:absolute;z-index:1;border-radius:7px;background:color-mix(in oklab,var(--cc) 4%,transparent);box-shadow:inset 0 0 0 1.5px var(--cc),0 0 0 4px color-mix(in oklab,var(--cc) 13%,transparent);pointer-events:none}
 .bm-stroke.erase{--cc:var(--neg)}
 .bm-stroke.select{--cc:color-mix(in srgb,var(--text) 70%,transparent)}
 /* the days that are selected: a tint, with no outline */
-.bm-selection{position:absolute;z-index:1;border-radius:7px;background:var(--bm-sel-bg,color-mix(in srgb,var(--accent) 10%,transparent));box-shadow:var(--bm-on-shadow,none);pointer-events:none}
+.bm-selection{position:absolute;z-index:1;border-radius:7px;background:color-mix(in srgb,var(--accent) 10%,transparent);pointer-events:none}
 .bm-pill{position:absolute;left:0;bottom:calc(100% + 8px);display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:8px;background:var(--text);color:var(--bg);font-size:var(--fs-sm);white-space:nowrap}
 .bm-pill.below{top:calc(100% + 8px);bottom:auto}
 .bm-pill b{display:inline-flex;align-items:center;gap:6px;font-weight:600}
@@ -222,7 +227,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-competences{display:flex;flex-direction:column}
 .bm-competences button{flex:none;justify-content:flex-start;gap:8px;height:28px;padding:0 6px;border-radius:6px;background:transparent;font-size:var(--fs-sm)}
 .bm-competences button:hover{background:var(--wash)}
-.bm-competences button.on{background:var(--bm-on-bg,color-mix(in oklch,var(--cc) 14%,var(--panel)));box-shadow:var(--bm-on-shadow,none)}
+.bm-competences button.on{background:color-mix(in oklab,var(--cc) 16%,var(--panel))}
 .bm-competence-hours{margin-left:auto;font:500 var(--fs-sm) var(--font-num)}
 .bm-competence-hours.nil{font-weight:400;color:var(--faint)}
 

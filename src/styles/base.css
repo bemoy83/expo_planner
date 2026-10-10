@@ -131,7 +131,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .stats em{min-height:14px;font:normal 400 var(--fs-xs) var(--font-num);color:var(--faint)}
 .stats .over b{color:var(--over)}
 .stats .done b{color:var(--pos)}
-.bar{position:relative;height:4px;border-radius:3px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
+.bar{position:relative;height:4px;border-radius:3px;background:var(--bar-track,color-mix(in srgb,var(--text) 8%,transparent));overflow:hidden}
 .bar i{position:absolute;top:0;bottom:0;left:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
 .bar .share{background:var(--mon)}
 .bar.over .share{background:var(--over)}

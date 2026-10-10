@@ -75,7 +75,6 @@ function Shell() {
   const [heat, setHeat] = usePref('heat', true)
   // Bemanning: what a block says, how what is picked is shown, and the overtime per week that is flagged.
   const [blockNames, setBlockNames] = usePref<BlockNames>('blockLabel', 'full', cleanBlockNames)
-  const [selectionStyle, setSelectionStyle] = usePref<'tint' | 'raised'>('selectionStyle', 'tint')
   const [overtimeLimit, setOvertimeLimit] = usePref('overtimeLimitPerWeek', 10)
   // Light or dark, also a choice for this browser. main.tsx sets it before the first paint.
   const [theme, setTheme] = usePref<'light' | 'dark'>('theme', 'light')
@@ -213,18 +212,6 @@ function Shell() {
                   ]}
                 />
               </span>
-              <span className="menu-setting">
-                Markering
-                <Segmented
-                  label="Markering"
-                  value={selectionStyle === 'raised' ? 'raised' : 'tint'}
-                  onChange={setSelectionStyle}
-                  options={[
-                    { value: 'tint', label: 'Farget', title: 'Det som er valgt får en farget bakgrunn' },
-                    { value: 'raised', label: 'Hevet', title: 'Det som er valgt løftes frem på en nøytral flate' },
-                  ]}
-                />
-              </span>
               <label className="menu-setting" title="En person med mer overtid enn dette i en uke merkes i Bemanning. Grensen stopper ingenting.">
                 Overtid per uke, grense
                 <span className="menu-number">
@@ -322,7 +309,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} selectionStyle={selectionStyle === 'raised' ? 'raised' : 'tint'} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} />}
+      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller onOpenProjects={() => setView('prosjekter')} />}
       {status === 'ready' && workspace && view === 'prosjekter' && <Prosjekter onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi />}

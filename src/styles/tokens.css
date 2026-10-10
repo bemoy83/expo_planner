@@ -70,6 +70,7 @@
   /* type: one stack for text, one for numbers and dates, and the sizes text outside the grid's cells is set in */
   --font-ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
   --font-num:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --fs-3xs:9.5px;    /* a competence's short name in a day of the demand */
   --fs-2xs:10px;     /* weekdays, hour marks, keys */
   --fs-xs:11px;      /* small uppercase headings */
   --fs-sm:12px;      /* figures, badges, counts */

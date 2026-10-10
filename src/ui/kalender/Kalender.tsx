@@ -54,7 +54,7 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false,
  * `blockNames`, `selectionStyle` and `overtimeLimit` are the settings of Bemanning: what a block says, how what is picked is shown, and the overtime per week that is flagged.
  * `onOpenPersonell` opens the tab where the people are entered, from Bemanning when there are none.
  */
-export function Kalender({ hints = true, heat = true, blockNames = 'full', selectionStyle = 'tint', overtimeLimit = 10, onOpenPersonell }: { hints?: boolean; heat?: boolean; blockNames?: BlockNames; selectionStyle?: 'tint' | 'raised'; overtimeLimit?: number; onOpenPersonell: () => void }) {
+export function Kalender({ hints = true, heat = true, blockNames = 'full', overtimeLimit = 10, onOpenPersonell }: { hints?: boolean; heat?: boolean; blockNames?: BlockNames; overtimeLimit?: number; onOpenPersonell: () => void }) {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -781,7 +781,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   // ---- render ---------------------------------------------------------------------------------
   const places = <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
   return (
-    <div className={`kalender ${bemanning ? `bemanning-mode ${selectionStyle === 'raised' ? 'selection-raised' : ''}` : activeTool === 'select' ? '' : activeTool}`}>
+    <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`}>
       <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
       {bemanning ? <BemanningHead places={places} /> : <KalenderHead
         places={places}
