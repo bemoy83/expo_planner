@@ -139,6 +139,10 @@ export const findHeader = (sheet: Sheet, required: string[]): { row: number; col
 /** The numbers of the rows under a heading, in order. */
 export const dataRows = (sheet: Sheet, headerRow: number): number[] => [...sheet.rows.keys()].filter((r) => r > headerRow).sort((a, b) => a - b)
 
+/** What a cell is marked with in a file edited by hand: «Ja», «x» and the like. */
+const MARKS = new Set(['ja', 'j', 'x', '1', 'true', 'yes'])
+export const isMarked = (value: CellValue): boolean => MARKS.has(text(value).toLowerCase())
+
 /** One sheet to write: a heading and the rows under it. */
 export interface SheetTable {
   name: string

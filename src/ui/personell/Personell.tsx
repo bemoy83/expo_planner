@@ -1,8 +1,12 @@
 import { useMemo, useState } from 'react'
-import { addPerson, competenceStyles, removePerson, togglePersonCompetence, updatePerson } from '../../domain/competences'
+import { addPerson, competenceStyles, diffPersons, isNameTaken, mergePersons, removePerson, replacePersons, togglePersonCompetence, updatePerson, type FilePerson } from '../../domain/competences'
+import { todayIso } from '../../domain/dates'
 import type { Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Menu, UndoRedoButtons } from '../common'
+import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
+import { Menu, MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { download, errorText, XLSX_TYPE } from '../files'
+import { TableFileButtons } from '../TableFile'
 import { DataTable } from '../DataTable'
 import { competenceColor } from '../dom'
 import { TextField } from '../fields'
@@ -16,6 +20,8 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
   const ws = workspace!
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  const [pending, setPending] = useState<{ file: string; people: FilePerson[] } | null>(null)
+  const [message, setMessage] = useState<Message | null>(null)
 
   const persons = useMemo(() => ws.persons ?? [], [ws.persons])
   const styles = useMemo(() => competenceStyles(ws), [ws])
@@ -26,6 +32,34 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
   const active = persons.filter((p) => p.active).length
 
   const setPersons = (change: (persons: Person[]) => Person[]) => updateStaffing((w) => ({ ...w, persons: change(w.persons ?? []) }))
+
+  /** People are told apart by their names in a file, so no two have the same. */
+  const rename = (person: Person, name: string) => {
+    if (isNameTaken(persons, name, person.id)) return setMessage({ kind: 'error', text: `${name} finnes allerede. To personer kan ikke ha samme navn.` })
+    setPersons((list) => updatePerson(list, person.id, { name }))
+  }
+
+  const onFile = async (file: File) => {
+    try {
+      const people = readPersonellWorkbook(new Uint8Array(await file.arrayBuffer()))
+      // Nothing to merge with while there are no people.
+      if (!persons.length) {
+        updateStaffing((w) => mergePersons(w, people))
+        setMessage({ kind: 'ok', text: `${file.name} lest inn: ${people.length === 1 ? '1 person' : `${people.length} personer`}.` })
+      } else setPending({ file: file.name, people })
+    } catch (e) {
+      setMessage({ kind: 'error', text: errorText(e) })
+    }
+  }
+
+  const apply = (mode: 'merge' | 'replace') => {
+    if (!pending) return
+    updateStaffing((w) => (mode === 'merge' ? mergePersons(w, pending.people) : replacePersons(w, pending.people)))
+    setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med personene' : 'har erstattet personene'}. Kan angres med Ctrl/Cmd+Z.` })
+    setPending(null)
+  }
+
+  const diff = pending ? diffPersons(ws, pending.people) : null
 
   const remove = (person: Person) => {
     const blocks = (ws.assignments ?? []).filter((a) => a.personId === person.id).length
@@ -38,7 +72,7 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
       key: 'name',
       head: 'Navn',
       text: (person) => person.name,
-      cell: (person) => <TextField value={person.name} ariaLabel="Navn" onCommit={(name) => name && setPersons((list) => updatePerson(list, person.id, { name }))} />,
+      cell: (person) => <TextField value={person.name} ariaLabel="Navn" onCommit={(name) => name && rename(person, name)} />,
     },
     {
       key: 'competences',
@@ -106,10 +140,19 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
+        <TableFileButtons
+          exportTitle="Last ned de faste som en Excel-fil: en rad per person og en kolonne per kompetanse, med x der personen har den."
+          importTitle="Les inn en fil med de faste: en som er eksportert herfra, eller en med kolonnen Navn og en kolonne per kompetanse."
+          canExport={persons.length > 0}
+          onExport={() => download(`expo-planner-personell-${todayIso()}.xlsx`, writePersonellWorkbook(ws), XLSX_TYPE)}
+          onFile={onFile}
+        />
         <button className="primary" onClick={() => setAdding(true)}>
           + Ny person
         </button>
       </div>
+
+      <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="behov-body">
         <p className="hint">
@@ -127,11 +170,27 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
         )}
       </div>
 
+      {pending && diff && (
+        <MergeReplaceDialog
+          title="Importer personell"
+          source={pending.file}
+          results={[
+            `Personer: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`,
+            ...(diff.newCompetences.length ? [`Nye kompetanser: ${diff.newCompetences.join(', ')}`] : []),
+          ]}
+          replaceText={`personene i appen byttes ut med dem i filen, i filens rekkefølge${
+            diff.onlyInApp ? `; ${diff.onlyInApp === 1 ? '1 person' : `${diff.onlyInApp} personer`} som bare finnes i appen slettes${diff.lostBlocks ? `, med ${diff.lostBlocks} tildelinger og fravær i Bemanning` : ''}` : ''
+          }`}
+          onCancel={() => setPending(null)}
+          onApply={apply}
+        />
+      )}
+
       {adding && (
         <AddDialog
           title="Ny person"
           label="Navn"
-          taken={() => false}
+          taken={(name) => isNameTaken(persons, name)}
           onClose={() => setAdding(false)}
           onAdd={(name) => {
             setPersons((list) => addPerson(list, name))

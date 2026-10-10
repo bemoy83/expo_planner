@@ -1,7 +1,7 @@
 import { kpiRows, type KpiFile } from '../domain/kpi'
 import type { KpiConfig, KpiRate, VismaImport, WorkTypeRule } from '../domain/types'
 import { productTypeKey, productTypeName } from '../domain/visma'
-import { dataRows, findHeader, num, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
+import { dataRows, findHeader, isMarked, num, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
 
 /**
  * The KPI table as a file: what «Eksporter» on KPI writes and «Importer fra fil» reads. A row per product type and
@@ -12,8 +12,6 @@ export class KpiFormatError extends Error {}
 
 const HEAD = ['Produkttype', 'Enhet', 'I bruk', 'Kompetanse', 'Montering', 'Demontering']
 const IN_USE = 'Ja'
-/** What marks the unit in use in a file edited by hand. */
-const MARKS = new Set(['ja', 'j', 'x', '1', 'true', 'yes'])
 
 /** The headings a file may have for a column; the first found is read. `Kpier.xlsx` has the two from Visma. */
 const NAMES = {
@@ -58,7 +56,7 @@ export const readKpiWorkbook = (bytes: Uint8Array): KpiFile => {
       rates.push({ name, unit, assembly: num(get(columns.assembly)) ?? 0, dismantle: num(get(columns.dismantle)) ?? 0 })
       type.units.add(unit.toLowerCase())
       type.unit ||= unit
-      if (MARKS.has(text(get(columns.inUse)).toLowerCase())) type.marked ||= unit
+      if (isMarked(get(columns.inUse))) type.marked ||= unit
     }
     if (!types.size) continue
     const workTypes = [...types.values()].map(({ units, marked, ...rule }): WorkTypeRule => ({ ...rule, unit: marked || (units.size > 1 ? '' : rule.unit) }))

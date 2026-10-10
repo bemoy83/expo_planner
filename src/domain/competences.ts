@@ -4,7 +4,8 @@ import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, t
 /**
  * The competences of Bemanning and the people who have them. The list of competences is derived: it is
  * every competence text on the product types, the demand, the planning rows and the people, plus those
- * the planner has added by hand. How each one is shown (name, short name, colour, order) is its style.
+ * the planner has added by hand. How each one is shown (short name, colour, order) is its style.
+ * A competence has one name: the name of its style is the text the data names it by, see `renameCompetence`.
  */
 
 const SHORT_LABEL_LENGTH = 4
@@ -49,8 +50,63 @@ export const competenceStyles = (ws: Workspace): CompetenceStyle[] => {
 const asRecord = (styles: CompetenceStyle[]): Record<CompetenceKey, CompetenceStyle> => Object.fromEntries(styles.map((style, order) => [style.key, { ...style, order }]))
 
 /** Changes how a competence is shown. The styles of all competences are stored from then on, so their colours and order stay put. */
-export const setCompetenceStyle = (ws: Workspace, key: CompetenceKey, patch: Partial<Pick<CompetenceStyle, 'label' | 'shortLabel' | 'color'>>): Record<CompetenceKey, CompetenceStyle> =>
+export const setCompetenceStyle = (ws: Workspace, key: CompetenceKey, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color'>>): Record<CompetenceKey, CompetenceStyle> =>
   asRecord(competenceStyles(ws).map((style) => (style.key === key ? { ...style, ...patch, shortLabel: (patch.shortLabel ?? style.shortLabel).slice(0, SHORT_LABEL_LENGTH) } : style)))
+
+/** The list with `change` made to the items it applies to, or the list itself when it applies to none. */
+const mapChanged = <T,>(list: T[], change: (item: T) => T): T[] => {
+  const next = list.map(change)
+  return next.some((item, index) => item !== list[index]) ? next : list
+}
+
+/**
+ * Gives a competence another name, everywhere it is named: on the product types, the demand lines, the planning
+ * rows, the people, their blocks and the hours moved between days. Its short name follows unless the planner has
+ * set one. Returns `null` for an empty name or the name of another competence, and the workspace itself when
+ * nothing names it otherwise already.
+ */
+export const renameCompetence = (ws: Workspace, from: CompetenceKey, toLabel: string): Workspace | null => {
+  const label = toLabel.trim()
+  const to = competenceKey(label)
+  const styles = competenceStyles(ws)
+  const style = styles.find((s) => s.key === from)
+  if (!to || !style || (to !== from && styles.some((s) => s.key === to))) return null
+  const text = <T extends { competence: string }>(list: T[]) => mapChanged(list, (item) => (competenceKey(item.competence) === from && item.competence !== label ? { ...item, competence: label } : item))
+  const keyed = <T extends { competence: CompetenceKey }>(list: T[] | undefined) => list && mapChanged(list, (item) => (item.competence === from && to !== from ? { ...item, competence: to } : item))
+  const workTypes = text(ws.kpi?.workTypes ?? [])
+  const renamed: CompetenceStyle = { ...style, key: to, label, shortLabel: style.shortLabel === defaultShortLabel(style.label) ? defaultShortLabel(label) : style.shortLabel }
+  const stored = style.label !== label || to !== from
+  const next: Workspace = {
+    ...ws,
+    kpi: ws.kpi && workTypes !== ws.kpi.workTypes ? { ...ws.kpi, workTypes } : ws.kpi,
+    demand: text(ws.demand),
+    allocations: text(ws.allocations),
+    persons: ws.persons && mapChanged(ws.persons, (person) => (to !== from && person.competences.includes(from) ? { ...person, competences: person.competences.map((key) => (key === from ? to : key)) } : person)),
+    assignments: keyed(ws.assignments),
+    demandAdjustments: keyed(ws.demandAdjustments),
+    competenceStyles: stored ? asRecord(styles.map((s) => (s === style ? renamed : s))) : ws.competenceStyles,
+  }
+  const same = (Object.keys(next) as (keyof Workspace)[]).every((part) => next[part] === ws[part])
+  return same ? ws : next
+}
+
+/**
+ * A workspace stored while a competence could be shown under another name than the data named it by. Each such
+ * competence takes the name it was shown under, everywhere; where that is the name of another competence, it keeps
+ * the name the data has.
+ */
+export const withOneCompetenceName = (ws: Workspace): Workspace => {
+  const stored = Object.values(ws.competenceStyles ?? {}).sort((a, b) => a.order - b.order)
+  if (!stored.length) return ws
+  const texts = textsInUse(ws)
+  let next = ws
+  for (const style of stored) {
+    const renamed = renameCompetence(next, style.key, style.label)
+    if (renamed) next = renamed
+    else next = { ...next, competenceStyles: { ...next.competenceStyles, [style.key]: { ...next.competenceStyles![style.key], label: texts.get(style.key) ?? style.key } } }
+  }
+  return next
+}
 
 /** Moves a competence to the place of another; the ones between shift by one. */
 export const moveCompetence = (ws: Workspace, key: CompetenceKey, toIndex: number): Record<CompetenceKey, CompetenceStyle> => {
@@ -153,4 +209,160 @@ export const replaceCompetence = (ws: Workspace, from: CompetenceKey, toLabel: s
     styles = rest[to] ? rest : { ...rest, [to]: { ...old, key: to, label: toLabel.trim(), shortLabel: defaultShortLabel(toLabel.trim()) } }
   }
   return { ...ws, persons, assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), competenceStyles: styles }
+}
+
+const nameKey = (name: string): string => name.trim().toLowerCase()
+
+/** Whether a person already has the name, other than the person given. People are told apart by their names in a file. */
+export const isNameTaken = (persons: Person[], name: string, exceptId?: string): boolean => persons.some((p) => p.id !== exceptId && nameKey(p.name) === nameKey(name))
+
+/** One person as a file has them. A part the file does not say is left as it is in the app. */
+export interface FilePerson {
+  name: string
+  active?: boolean
+  note?: string
+  /** For each competence the file has a column for, by its name, whether the person has it. */
+  competences: Record<string, boolean>
+}
+
+const sameSet = (a: CompetenceKey[], b: CompetenceKey[]) => a.length === b.length && a.every((key) => b.includes(key))
+
+/** The person as the file has them: what it says wins, what it does not say is kept. */
+const fromFile = (person: Person, file: FilePerson): Person => {
+  const said = new Map(Object.entries(file.competences).map(([label, has]) => [competenceKey(label), has]))
+  const competences = [...person.competences.filter((key) => said.get(key) !== false), ...[...said].filter(([key, has]) => key && has && !person.competences.includes(key)).map(([key]) => key)]
+  const next: Person = { ...person, active: file.active ?? person.active, competences: sameSet(competences, person.competences) ? person.competences : competences }
+  if (file.note !== undefined) {
+    if (file.note) next.note = file.note
+    else delete next.note
+  }
+  return next.active === person.active && next.competences === person.competences && (next.note ?? '') === (person.note ?? '') ? person : next
+}
+
+/** The people of a file, one per name: the first row of a name counts. */
+const oneEach = (file: FilePerson[]): FilePerson[] => {
+  const seen = new Set<string>()
+  return file.filter((person) => nameKey(person.name) && !seen.has(nameKey(person.name)) && seen.add(nameKey(person.name)))
+}
+
+/** The workspace with the competences a file names that the app does not know, added by hand. */
+const withFileCompetences = (ws: Workspace, file: FilePerson[]): Workspace => {
+  let next = ws
+  for (const label of new Set(file.flatMap((person) => Object.keys(person.competences)))) {
+    const added = addCompetence(next, label)
+    if (added) next = { ...next, competenceStyles: added }
+  }
+  return next
+}
+
+/** People from a file win over those in the app, matched by name; people only in the app are kept. New people come last. */
+export const mergePersons = (ws: Workspace, file: FilePerson[]): Workspace => {
+  const rows = new Map(oneEach(file).map((person) => [nameKey(person.name), person]))
+  const persons = (ws.persons ?? []).map((person) => (rows.has(nameKey(person.name)) ? fromFile(person, rows.get(nameKey(person.name))!) : person))
+  const known = new Set(persons.map((person) => nameKey(person.name)))
+  const added = [...rows.values()].filter((row) => !known.has(nameKey(row.name))).reduce((list, row) => addPerson(list, row.name).map((p, i, all) => (i === all.length - 1 ? fromFile(p, row) : p)), persons)
+  return { ...withFileCompetences(ws, file), persons: added }
+}
+
+/** The people become those of the file, in its order. A person the file lacks is removed, with their absence and assignments. */
+export const replacePersons = (ws: Workspace, file: FilePerson[]): Workspace => {
+  const merged = mergePersons(ws, file)
+  const order = new Map(oneEach(file).map((person, index) => [nameKey(person.name), index]))
+  const gone = (merged.persons ?? []).filter((person) => !order.has(nameKey(person.name)))
+  const kept = gone.reduce((w, person) => removePerson(w, person.id), merged)
+  const persons = [...(kept.persons ?? [])].sort((a, b) => order.get(nameKey(a.name))! - order.get(nameKey(b.name))!).map((person, index) => (person.order === index ? person : { ...person, order: index }))
+  return { ...kept, persons }
+}
+
+export interface PersonsDiff {
+  added: number
+  changed: number
+  unchanged: number
+  /** People in the app that the file does not have: kept when merging, removed when replacing. */
+  onlyInApp: number
+  /** Assignments and absences of the people only in the app, which go with them when replacing. */
+  lostBlocks: number
+  /** Competences the file names that the app does not know. */
+  newCompetences: string[]
+}
+
+/** What a file of people would change. */
+export const diffPersons = (ws: Workspace, file: FilePerson[]): PersonsDiff => {
+  const rows = oneEach(file)
+  const persons = new Map((ws.persons ?? []).map((person) => [nameKey(person.name), person]))
+  const inFile = new Set(rows.map((row) => nameKey(row.name)))
+  const only = [...persons.values()].filter((person) => !inFile.has(nameKey(person.name)))
+  const onlyIds = new Set(only.map((person) => person.id))
+  const known = new Set(competenceStyles(ws).map((style) => style.key))
+  const changed = rows.filter((row) => persons.has(nameKey(row.name)) && fromFile(persons.get(nameKey(row.name))!, row) !== persons.get(nameKey(row.name))).length
+  const added = rows.filter((row) => !persons.has(nameKey(row.name))).length
+  return {
+    added,
+    changed,
+    unchanged: rows.length - added - changed,
+    onlyInApp: only.length,
+    lostBlocks: (ws.assignments ?? []).filter((a) => onlyIds.has(a.personId)).length + (ws.unavailability ?? []).filter((u) => onlyIds.has(u.personId)).length,
+    newCompetences: [...new Set(rows.flatMap((row) => Object.keys(row.competences)))].filter((label) => competenceKey(label) && !known.has(competenceKey(label))),
+  }
+}
+
+/** One competence as a file has it. A part the file does not say is left as it is in the app. */
+export interface FileCompetence {
+  label: string
+  shortLabel?: string
+  color?: LineColor
+}
+
+const styled = (style: CompetenceStyle, file: FileCompetence): CompetenceStyle => {
+  const shortLabel = (file.shortLabel || style.shortLabel).slice(0, SHORT_LABEL_LENGTH)
+  const color = file.color ?? style.color
+  return shortLabel === style.shortLabel && color === style.color ? style : { ...style, shortLabel, color }
+}
+
+const oneOfEach = (file: FileCompetence[]): FileCompetence[] => {
+  const seen = new Set<CompetenceKey>()
+  return file.filter((row) => competenceKey(row.label) && !seen.has(competenceKey(row.label)) && seen.add(competenceKey(row.label)))
+}
+
+/**
+ * The styles with those of a file taken in, matched by name: the file's short names and colours win, and its
+ * competences come first, in its order. A name the app does not know is a new competence, added by hand; a
+ * competence is given another name in the app, not in the file. With `replace`, the competences the file lacks lose
+ * their styles: one that nothing names is gone, and one in use is listed after the file's, as new.
+ */
+export const mergeCompetenceStyles = (ws: Workspace, file: FileCompetence[], replace = false): Record<CompetenceKey, CompetenceStyle> => {
+  const styles = competenceStyles(ws)
+  const byKey = new Map(styles.map((style) => [style.key, style]))
+  const rows = oneOfEach(file)
+  const taken = styles.map((style) => style.color)
+  const fromRows = rows.map((row): CompetenceStyle => {
+    const key = competenceKey(row.label)
+    const existing = byKey.get(key)
+    if (existing) return styled(existing, row)
+    const color = row.color ?? nextColor(taken)
+    taken.push(color)
+    return styled({ key, label: row.label.trim(), shortLabel: defaultShortLabel(row.label.trim()), color, order: 0 }, row)
+  })
+  const inFile = new Set(fromRows.map((style) => style.key))
+  return asRecord([...fromRows, ...(replace ? [] : styles.filter((style) => !inFile.has(style.key)))])
+}
+
+export interface StylesDiff {
+  added: number
+  changed: number
+  unchanged: number
+  onlyInApp: number
+  /** Of those only in the app, the ones something names: they cannot be removed, and stay when replacing. */
+  inUse: number
+}
+
+/** What a file of competences would change. The order is not counted. */
+export const diffCompetenceStyles = (ws: Workspace, file: FileCompetence[]): StylesDiff => {
+  const byKey = new Map(competenceStyles(ws).map((style) => [style.key, style]))
+  const rows = oneOfEach(file)
+  const inFile = new Set(rows.map((row) => competenceKey(row.label)))
+  const only = [...byKey.keys()].filter((key) => !inFile.has(key))
+  const added = rows.filter((row) => !byKey.has(competenceKey(row.label))).length
+  const changed = rows.filter((row) => byKey.has(competenceKey(row.label)) && styled(byKey.get(competenceKey(row.label))!, row) !== byKey.get(competenceKey(row.label))).length
+  return { added, changed, unchanged: rows.length - added - changed, onlyInApp: only.length, inUse: only.filter((key) => !isUnusedCompetence(ws, key)).length }
 }

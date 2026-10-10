@@ -6,7 +6,7 @@ import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
 import { locateDemand, withAlias } from '../domain/locations'
-import { competenceStyles, replaceCompetence, supersededCompetences } from '../domain/competences'
+import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences, withOneCompetenceName } from '../domain/competences'
 import { hallNames } from '../domain/venue'
 import { mergeProjectList, normalizeName, projectListIndex, type VenueEvent } from '../domain/projects'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
@@ -49,6 +49,8 @@ interface WorkspaceStore {
    * to its new competence, and the competences that were replaced for the people because nothing else names them any more.
    */
   setKpi: (kpi: KpiConfig) => { rows: number; replaced: string[] }
+  /** Gives a competence another name everywhere it is named, as one step. False when the name is empty or that of another competence. */
+  renameCompetence: (key: string, label: string) => boolean
   /** Takes in a Visma export; each project in it replaces that project's earlier Visma lines. Returns the project numbers. */
   importVisma: (rows: VismaRow[], fileName: string) => string[]
   /** Changes the planner's decisions for one Visma line (Effekt, in plan, comment, work type). */
@@ -106,7 +108,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadWorkspace()
-      .then((loaded) => {
+      .then(async (stored) => {
+        // What was stored while a competence could go by two names is stored again with one, all of it at once.
+        const loaded = stored && withOneCompetenceName(stored)
+        if (loaded && loaded !== stored) await saveWorkspace(loaded)
         current.current = loaded
         setWorkspace(loaded)
         setStatus(loaded ? 'ready' : 'empty')
@@ -430,6 +435,31 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
+  const renameCompetence = useCallback<WorkspaceStore['renameCompetence']>(
+    (key, label) => {
+      const ws = current.current
+      const next = ws && withCompetenceRenamed(ws, key, label)
+      if (!ws || !next) return false
+      if (next === ws) return true
+      const before = new Map(ws.demand.map((line) => [line.id, line]))
+      const lines = next.demand.filter((line) => before.get(line.id) !== line)
+      const rows = next.allocations.filter((row, index) => row !== ws.allocations[index])
+      const staffing = emptyChange()
+      recordStaffing(staffing, ws, next)
+      commit(
+        next,
+        () => Promise.all([writeDemand({ putLines: lines, kpi: next.kpi !== ws.kpi ? next.kpi : undefined }), ...rows.map(rowWrites.put), putStaffing(changeWrites(staffing, 'redo').staffing)]),
+        (step) => {
+          recordLedger(step, ws, next)
+          recordStaffing(step, ws, next)
+          next.allocations.forEach((row, index) => row !== ws.allocations[index] && recordAllocation(step, row.id, ws.allocations[index], row))
+        },
+      )
+      return true
+    },
+    [commit],
+  )
+
   const importVisma = useCallback(
     (rows: VismaRow[], fileName: string) => {
       const ws = current.current
@@ -555,6 +585,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       importProjects,
       setVenueHidden,
       setKpi,
+      renameCompetence,
       importVisma,
       setLineOverride,
       setLineOverrides,
@@ -568,7 +599,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setEventProject, importProjects, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallAlias, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>

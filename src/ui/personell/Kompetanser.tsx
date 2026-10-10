@@ -1,25 +1,18 @@
 import { useMemo, useState } from 'react'
-import { competenceUse, type CompetenceUse, addCompetence, competenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, setCompetenceStyle } from '../../domain/competences'
-import { LINE_COLORS, type CompetenceStyle, type LineColor } from '../../domain/types'
+import { competenceUse, type CompetenceUse, addCompetence, competenceStyles, diffCompetenceStyles, mergeCompetenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, setCompetenceStyle, type FileCompetence } from '../../domain/competences'
+import { todayIso } from '../../domain/dates'
+import { LINE_COLORS, type CompetenceStyle } from '../../domain/types'
+import { COLOR_NAMES, readKompetanserWorkbook, writeKompetanserWorkbook } from '../../import/kompetanserFile'
 import { useWorkspace } from '../../store/workspaceStore'
-import { UndoRedoButtons } from '../common'
+import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { download, errorText, XLSX_TYPE } from '../files'
+import { TableFileButtons } from '../TableFile'
 import { DataTable } from '../DataTable'
 import { competenceColor } from '../dom'
 import { TextField } from '../fields'
 import { useTable, type Column } from '../useTable'
 import { AddDialog } from './AddDialog'
 import { ChevronDown, ChevronUp, GripVertical, X } from 'lucide-react'
-
-const COLOR_NAMES: Record<LineColor, string> = {
-  'line-blue': 'Blå',
-  'line-teal': 'Turkis',
-  'line-green': 'Grønn',
-  'line-amber': 'Gul',
-  'line-rose': 'Rød',
-  'line-violet': 'Fiolett',
-  'line-slate': 'Grå',
-  'line-orange': 'Oransje',
-}
 
 /** The highest number a competence can be picked with on the keyboard in Bemanning. */
 const LAST_KEY = 9
@@ -43,14 +36,17 @@ const usedByText = (use: CompetenceUse): string => {
 const MOVE_ONLY_IN_OWN_ORDER = 'Rekkefølgen endres når tabellen ikke er sortert eller filtrert'
 
 /**
- * How the competences are shown in Bemanning: name, short name, colour and order. The list fills
- * itself from the product types, the demand, the planning rows and the people.
+ * The competences: their names, and how they are shown in Bemanning: short name, colour and order. The list fills
+ * itself from the product types, the demand, the planning rows and the people. A competence has one name, so
+ * a name changed here is changed everywhere.
  */
 export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }) {
-  const { workspace, updateStaffing } = useWorkspace()
+  const { workspace, updateStaffing, renameCompetence } = useWorkspace()
   const ws = workspace!
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  const [pending, setPending] = useState<{ file: string; rows: FileCompetence[] } | null>(null)
+  const [message, setMessage] = useState<Message | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
 
   const styles = useMemo(() => competenceStyles(ws), [ws])
@@ -62,8 +58,30 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
   const keys = useMemo(() => new Map(staffedCompetences(ws).slice(0, LAST_KEY).map((style, index) => [style.key, index + 1])), [ws])
   const holders = (key: string) => (ws.persons ?? []).filter((p) => p.active && p.competences.includes(key)).length
 
-  const setStyle = (key: string, patch: Partial<Pick<CompetenceStyle, 'label' | 'shortLabel' | 'color'>>) => updateStaffing((w) => ({ ...w, competenceStyles: setCompetenceStyle(w, key, patch) }))
+  const setStyle = (key: string, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color'>>) => updateStaffing((w) => ({ ...w, competenceStyles: setCompetenceStyle(w, key, patch) }))
   const move = (key: string, toIndex: number) => updateStaffing((w) => ({ ...w, competenceStyles: moveCompetence(w, key, toIndex) }))
+  const rename = (style: CompetenceStyle, label: string) => {
+    if (!renameCompetence(style.key, label)) return setMessage({ kind: 'error', text: `${label} finnes allerede. To kompetanser kan ikke ha samme navn.` })
+    setMessage({ kind: 'ok', text: `${style.label} heter nå ${label}, overalt: i KPI, Behov, Kalender, Personell og Bemanning. Kan angres med Ctrl/Cmd+Z.` })
+  }
+
+  const onFile = async (file: File) => {
+    try {
+      setPending({ file: file.name, rows: readKompetanserWorkbook(new Uint8Array(await file.arrayBuffer())) })
+    } catch (e) {
+      setMessage({ kind: 'error', text: errorText(e) })
+    }
+  }
+
+  const apply = (mode: 'merge' | 'replace') => {
+    if (!pending) return
+    updateStaffing((w) => ({ ...w, competenceStyles: mergeCompetenceStyles(w, pending.rows, mode === 'replace') }))
+    setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med kompetansene' : 'har erstattet kompetansene'}. Kan angres med Ctrl/Cmd+Z.` })
+    setPending(null)
+  }
+
+  const diff = pending ? diffCompetenceStyles(ws, pending.rows) : null
+
   /** Whether the rows shown are all the competences in their own order: only then can they be moved. */
   const inOwnOrder = (rows: CompetenceStyle[]) => rows.length === styles.length && rows.every((row, index) => row === styles[index])
 
@@ -107,7 +125,7 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
       key: 'label',
       head: 'Navn',
       text: (style) => style.label,
-      cell: (style) => <TextField value={style.label} ariaLabel="Navn" onCommit={(label) => label && setStyle(style.key, { label })} />,
+      cell: (style) => <TextField value={style.label} ariaLabel="Navn" onCommit={(label) => label && rename(style, label)} />,
     },
     {
       key: 'short',
@@ -158,14 +176,23 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
         <span className="muted small">{styles.length} kompetanser</span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
+        <TableFileButtons
+          exportTitle="Last ned kompetansene som en Excel-fil: navn, kortnavn og farge, i rekkefølgen her."
+          importTitle="Les inn en fil med kompetanser: en som er eksportert herfra, eller en med kolonnen Kompetanse, og gjerne Kort og Farge."
+          canExport={styles.length > 0}
+          onExport={() => download(`expo-planner-kompetanser-${todayIso()}.xlsx`, writeKompetanserWorkbook(ws), XLSX_TYPE)}
+          onFile={onFile}
+        />
         <button className="primary" onClick={() => setAdding(true)}>
           + Ny kompetanse
         </button>
       </div>
 
+      <MessageBanner message={message} onClose={() => setMessage(null)} />
+
       <div className="behov-body">
         <p className="hint">
-          Listen fyller seg selv fra produkttypene, behovet og radene i Kalender. Her bestemmer du navnet, kortnavnet og fargen kompetansen vises med i Bemanning, og rekkefølgen: dra en rad, eller
+          Listen fyller seg selv fra produkttypene, behovet og radene i Kalender. En kompetanse har ett navn: endrer du det her, endres det overalt, i KPI, Behov, Kalender, Personell og Bemanning. Her bestemmer du også kortnavnet og fargen kompetansen vises med i Bemanning, og rekkefølgen: dra en rad, eller
           bruk pilene. De ni første som noen av de faste har, velges med tastene 1–9. Hvem som har hvilken kompetanse, settes på{' '}
           <button className="link" onClick={onOpenPersonell}>
             Personell
@@ -191,6 +218,17 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
           <p className="notice">Ingen kompetanser ennå. De kommer av seg selv fra produkttypene og behovet, eller legges inn med «+ Ny kompetanse».</p>
         )}
       </div>
+
+      {pending && diff && (
+        <MergeReplaceDialog
+          title="Importer kompetanser"
+          source={pending.file}
+          results={[`Kompetanser: ${diff.added} nye, ${diff.changed} endret, ${diff.unchanged} like, ${diff.onlyInApp} bare i appen`, 'Kompetansene i filen kommer først, i filens rekkefølge. Et navn appen ikke kjenner, blir en ny kompetanse; gi nytt navn i appen, ikke i filen.']}
+          replaceText={`kompetanser som bare finnes i appen mister kortnavn, farge og plass${diff.onlyInApp - diff.inUse ? `; ${diff.onlyInApp - diff.inUse} som ingen bruker forsvinner` : ''}${diff.inUse ? `; ${diff.inUse} som er i bruk blir stående, sist i listen` : ''}`}
+          onCancel={() => setPending(null)}
+          onApply={apply}
+        />
+      )}
 
       {adding && (
         <AddDialog

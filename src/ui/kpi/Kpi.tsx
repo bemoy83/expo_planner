@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiDiff, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import { productTypeKey } from '../../domain/visma'
@@ -8,7 +8,8 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { download, errorText, takeFile, XLSX_TYPE } from '../files'
+import { download, errorText, XLSX_TYPE } from '../files'
+import { TableFileButtons } from '../TableFile'
 import { NumberField, PickField, TextField } from '../fields'
 import { X } from 'lucide-react'
 
@@ -43,7 +44,6 @@ export function Kpi() {
   const [adding, setAdding] = useState<Partial<NewKpiRow> | null>(null)
   const [pending, setPending] = useState<PendingImport | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
-  const fileInput = useRef<HTMLInputElement>(null)
 
   const rows = useMemo(() => kpiRows(kpi, ws.visma ?? []), [kpi, ws.visma])
   const found = useMemo(() => {
@@ -183,22 +183,16 @@ export function Kpi() {
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <button onClick={exportFile} disabled={!kpi.workTypes.length && !kpi.rates.length} title="Last ned oppsettet som en Excel-fil: produkttypene med enheter, enhet i bruk, kompetanse og satser. Ta vare på den som kopi, eller rediger den i Excel og les den inn igjen.">
-          Eksporter
-        </button>
-        <button onClick={() => fileInput.current?.click()} title="Les inn en KPI-fil: en som er eksportert herfra, eller en med kolonnene Produkttype, Enhet, Montering og Demontering. Er tabellen satt opp, velger du om filen slås sammen med den eller erstatter den.">
-          Importer fra fil
-        </button>
+        <TableFileButtons
+          exportTitle="Last ned oppsettet som en Excel-fil: produkttypene med enheter, enhet i bruk, kompetanse og satser."
+          importTitle="Les inn en KPI-fil: en som er eksportert herfra, eller en med kolonnene Produkttype, Enhet, Montering og Demontering."
+          canExport={kpi.workTypes.length + kpi.rates.length > 0}
+          onExport={exportFile}
+          onFile={onFile}
+        />
         <button className="primary" onClick={() => setAdding({})}>
           + Ny produkttype
         </button>
-        <input
-          ref={fileInput}
-          type="file"
-          accept=".xlsx"
-          hidden
-          onChange={(e) => takeFile(e, onFile)}
-        />
       </div>
 
       <MessageBanner message={message} onClose={() => setMessage(null)} />
