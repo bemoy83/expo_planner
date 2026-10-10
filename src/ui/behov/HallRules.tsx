@@ -73,7 +73,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
       <option value="">Velg sted</option>
       {places.map((name) => (
         <option key={name} value={name}>
-          {name === PROJECT_HALLS ? `${name} (hallene til prosjektet samlet)` : name}
+          {name === PROJECT_HALLS ? `${name} (flere haller under ett)` : name}
         </option>
       ))}
     </select>
@@ -102,7 +102,8 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         <p className="hint">
           Et sted teller som én plass i Kalender, med dagene til hallene det står for. En tekst som sier navnet, som «Hall B», teller under stedet, og når stedet samler hallene sine gjør «B2»
           det også. Da er ikke hallene egne plasser lenger. Står en hall i flere steder som samler, gjelder det øverste. <strong>{PROJECT_HALLS}</strong> finnes
-          alltid: det er hallene til prosjektet samlet, for behov som er bestilt som én sum for flere haller, som «Hall C, D, E».
+          alltid: det er behov som ikke er fordelt på hall, bestilt som én sum for flere haller, som «Hall C, D, E». Det teller for seg, med dagene til alle hallene prosjektet har, og er ikke
+          det samme som en rad for «Alle haller» i Kalender, som summerer alt behovet i prosjektet.
         </p>
         <table className="ledger rules">
           <thead>

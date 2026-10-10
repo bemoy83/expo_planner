@@ -16,11 +16,14 @@ import type { AllocationRow, DemandLine, HallRules } from './types'
 export const UNRESOLVED_HALL = 'Uavklart'
 
 /**
- * The place of demand that is for the halls of its project together, as carpet ordered for «Hall C, D, E» in one sum.
+ * The place of demand that is not shared out on halls: for the halls of its project together, as carpet ordered for
+ * «Hall C, D, E» in one sum.
  * It is a place the planner or a rule gives a text, never what a text falls to by itself, and in the Kalender it has
  * the days of all the project's halls. Not the same as a planning row for all halls, which covers the demand of every place.
  */
-export const PROJECT_HALLS = 'Felles'
+export const PROJECT_HALLS = 'Ufordelt'
+/** What the place was called at first; a choice stored under that name is a choice of the place. */
+const PROJECT_HALLS_BEFORE = 'felles'
 
 type Aliases = Record<string, string>
 
@@ -97,6 +100,7 @@ const chosenPlace = (alias: string | undefined, halls: string[], rules?: HallRul
   const wanted = alias?.trim().toLowerCase()
   if (!wanted) return undefined
   if (wanted === UNRESOLVED_HALL.toLowerCase()) return UNRESOLVED_HALL
+  if (wanted === PROJECT_HALLS_BEFORE) return PROJECT_HALLS
   // A choice of a hall that a place collects since is a choice of the place.
   const hall = halls.find((other) => lower(other) === wanted)
   return hall ? collectedIn(hall, halls, rules) : placeNames(halls, rules).find((place) => lower(place) === wanted)

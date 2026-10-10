@@ -107,7 +107,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
           <option value="">{auto} (auto)</option>
           {places.map((hall) => (
             <option key={hall} value={hall}>
-              {hall === PROJECT_HALLS ? `${hall} (hallene samlet)` : hall}
+              {hall === PROJECT_HALLS ? `${hall} (flere haller under ett)` : hall}
             </option>
           ))}
           <option value={UNRESOLVED_HALL}>{UNRESOLVED_HALL}</option>
@@ -119,7 +119,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
               offered.own
                 ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${text.trim()}» i dette prosjektet i ${offered.hall}.`
                 : offered.hall === PROJECT_HALLS
-                  ? `«${text.trim()}» nevner flere haller. ${PROJECT_HALLS} er hallene til prosjektet samlet: behovet teller som ett sted i Kalender, med dagene til alle hallene.`
+                  ? `«${text.trim()}» nevner flere haller. ${PROJECT_HALLS} er behov som ikke er fordelt på hall: det teller som ett sted i Kalender, med dagene til alle hallene prosjektet har.`
                   : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
             }
             onClick={() => setHallAlias(text, offered.hall, offered.own ? line.projectNo : undefined)}

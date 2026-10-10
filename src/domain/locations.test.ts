@@ -113,6 +113,8 @@ describe('placing demand in the halls of the hall ledger', () => {
     const aliases = withAlias({}, 'Hall C, D, E', PROJECT_HALLS)
     expect(placeOf('hall c, d, e', halls, aliases)).toEqual({ hall: PROJECT_HALLS, by: 'choice', chosen: true, own: false })
     expect(placeOf('Gangtepper alle haller', halls, {}, undefined, { places: [], phrases: [{ text: 'alle haller', hall: PROJECT_HALLS }], seeded: true as const })).toMatchObject({ hall: PROJECT_HALLS, by: 'phrase' })
+    // A choice stored while the place was called «Felles» is a choice of it.
+    expect(placeOf('Gangtepper', halls, withAlias({}, 'Gangtepper', 'Felles')).hall).toBe(PROJECT_HALLS)
     // Nothing falls to it by itself.
     expect(placeOf('Hall C, D, E', halls).hall).toBe(UNRESOLVED_HALL)
     const booking = (hall: string, day: string) => ({ id: hall, hall, eventName: 'Hage', status: '', phases: { assembly: { start: day, end: day } } })
@@ -195,7 +197,7 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(renamed.rules).toEqual({ places: [{ name: 'Nord', halls: ['B1', 'C'] }], phrases: [{ text: 'nord', hall: 'Nord' }, { text: 'scene', hall: 'C' }], seeded: true })
     expect(renamed.aliases).toEqual({ bakrom: 'Nord', kafé: 'E' })
     // A name that is a hall, another place or empty is not taken.
-    for (const name of ['C', 'felles', '', 'Uavklart']) expect(withPlaceRenamed(halls, wing, aliases, 'Nordfløy', name).rules).toBe(wing)
+    for (const name of ['C', 'ufordelt', '', 'Uavklart']) expect(withPlaceRenamed(halls, wing, aliases, 'Nordfløy', name).rules).toBe(wing)
   })
 
   it('gives a shared place the days of its halls that the project has booked', () => {
