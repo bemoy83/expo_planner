@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { useDismiss } from './useDismiss'
 import { ChevronDown, ChevronRight, PanelRight, Redo2, Undo2 } from 'lucide-react'
@@ -15,17 +15,52 @@ interface MenuProps {
   children: (close: () => void) => ReactNode
 }
 
-/** A button that opens a menu or a small panel under it. Closes on a click outside and on Escape. */
+/** The room a menu is kept inside: the window, and the nearest part of the page around it that scrolls and so cuts what sticks out of it. */
+const roomAround = (el: HTMLElement) => {
+  const room = { left: 0, right: window.innerWidth, bottom: window.innerHeight }
+  for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+    const { overflowX, overflowY } = getComputedStyle(parent)
+    if (![overflowX, overflowY].some((overflow) => overflow === 'auto' || overflow === 'scroll' || overflow === 'hidden')) continue
+    const box = parent.getBoundingClientRect()
+    return { left: Math.max(room.left, box.left), right: Math.min(room.right, box.left + parent.clientWidth), bottom: Math.min(room.bottom, box.top + parent.clientHeight) }
+  }
+  return room
+}
+
+const EDGE = 8
+
+/**
+ * A button that opens a menu or a small panel under it. Closes on a click outside and on Escape. A menu that
+ * would reach past an edge of the window is moved in from it, and one that would reach below it scrolls.
+ */
 export function Menu({ label, title, ariaLabel, className = '', align = 'left', children }: MenuProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
+  const pop = useRef<HTMLDivElement>(null)
   useDismiss(ref, open, setOpen)
+  useLayoutEffect(() => {
+    const el = pop.current
+    if (!open || !el) return
+    const room = roomAround(el)
+    const box = el.getBoundingClientRect()
+    const shift = box.right > room.right - EDGE ? room.right - EDGE - box.right : box.left < room.left + EDGE ? room.left + EDGE - box.left : 0
+    // Never so far that the other edge is passed: a menu wider than the room starts at its left edge.
+    el.style.translate = `${Math.max(shift, room.left + EDGE - box.left)}px 0`
+    if (box.bottom > room.bottom - EDGE) {
+      el.style.maxHeight = `${Math.max(120, room.bottom - EDGE - box.top)}px`
+      el.style.overflowY = 'auto'
+    }
+  }, [open])
   return (
     <span className="menu" ref={ref}>
       <button className={`menu-button ${className}`} aria-haspopup="true" aria-expanded={open} aria-label={ariaLabel} title={title} onClick={() => setOpen(!open)}>
         {label}
       </button>
-      {open && <div className={`menu-pop ${align}`}>{children(() => setOpen(false))}</div>}
+      {open && (
+        <div ref={pop} className={`menu-pop ${align}`}>
+          {children(() => setOpen(false))}
+        </div>
+      )}
     </span>
   )
 }
