@@ -7,6 +7,7 @@ import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, type VismaLine } from 
 import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
+import { reviewPlacing } from '../../domain/hallReview'
 import { placeNames, placeOf, type HallOffer, PROJECT_HALLS, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallsOfProjects } from '../../domain/projects'
 import { hallNames } from '../../domain/venue'
@@ -149,16 +150,9 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
     )
   }
   /** The Hall/Sted texts that are not placed, with the hall each is offered: for every project, or for the project of the line. */
-  const offers = useMemo(() => {
-    const found = new Map<string, { text: string; hall: string; projectNo?: string }>()
-    for (const line of ws.demand) {
-      const offered = offerFor(line)
-      if (!offered) continue
-      const projectNo = offered.own ? line.projectNo : undefined
-      found.set(`${projectNo ?? ''}|${line.hall.trim().toLowerCase()}`, { text: line.hall, hall: offered.hall, projectNo })
-    }
-    return [...found.values()]
-  }, [ws.demand, halls, booked, rules]) // eslint-disable-line react-hooks/exhaustive-deps
+  const unplaced = useMemo(() => reviewPlacing(ws.demand, halls, booked, rules).unplaced, [ws.demand, halls, booked, rules])
+  const withOffer = unplaced.filter((found) => found.offers.length > 0).length
+  const offers = useMemo(() => unplaced.flatMap((found) => found.offers.map((offer) => ({ text: found.text, ...offer }))), [unplaced])
   const takeOffers = () => {
     // One step to undo: the choices are made in the same go.
     for (const { text, hall, projectNo } of offers) setHallChoice(text, hall, projectNo)
@@ -423,12 +417,21 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
       <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="behov-body">
-        {offers.length > 0 && (
+        {unplaced.length > 0 && (
           <p className="notice">
-            {offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} som står som «{UNRESOLVED_HALL}» har et forslag i kolonnen Plassering, fra hallen teksten nevner eller hallene prosjektet har booket.{' '}
-            <button className="link" title={offers.map(({ text, hall }) => `${text}: ${hall}`).join('\n')} onClick={takeOffers}>
-              Bruk forslagene
+            {unplaced.length === 1 ? '1 Hall/sted-tekst' : `${unplaced.length} Hall/sted-tekster`} står som «{UNRESOLVED_HALL}».{' '}
+            <button className="link" title="Tekstene samlet, med linjer og timer, på siden med hallreglene: der plasserer du en tekst én gang for alle linjene" onClick={onOpenRules}>
+              Plasser dem samlet
             </button>
+            {offers.length > 0 && (
+              <>
+                {' '}
+                {withOffer === 1 ? '1 av dem' : `${withOffer} av dem`} har et forslag i kolonnen Plassering, fra hallen teksten nevner eller hallene prosjektet har booket.{' '}
+                <button className="link" title={offers.map(({ text, hall }) => `${text}: ${hall}`).join('\n')} onClick={takeOffers}>
+                  Bruk forslagene
+                </button>
+              </>
+            )}
           </p>
         )}
         {withIssue > 0 && (

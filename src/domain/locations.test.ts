@@ -194,7 +194,7 @@ describe('placing demand in the halls of the hall ledger', () => {
 
   it('counts a text under the place of the first of the planner\'s rules whose words it holds', () => {
     const words: HallRules = { places: [], phrases: [{ text: 'Scene', hall: 'C' }, { text: 'øst', hall: 'E' }, { text: 'kafé', hall: 'F' }], choices: {} }
-    expect(placeOf('Sceneomr øst', halls, words)).toEqual({ hall: 'C', by: 'phrase', chosen: false, own: false, phrase: 'Scene' })
+    expect(placeOf('Sceneomr øst', halls, words)).toEqual({ hall: 'C', by: 'phrase', chosen: false, own: false, phrase: 'Scene', rule: 0 })
     expect(placeOf('Inng øst', halls, words).hall).toBe('E')
     // A rule to a place that is not in the ledger places nothing, and a text that names a hall is read as that hall.
     expect(placeOf('Kafé', halls, words).hall).toBe(UNRESOLVED_HALL)

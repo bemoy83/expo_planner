@@ -119,6 +119,8 @@ export interface Reading {
   by: 'text' | 'phrase'
   /** The words of the rule that placed it. */
   phrase?: string
+  /** Which of the planner's rules for words that was: its place in their order, from 0. */
+  rule?: number
   /** The hall the text names, where it counts under the place that collects it. */
   via?: string
 }
@@ -137,9 +139,9 @@ export const readHall = (text: string, halls: string[], rules?: HallRules): Read
     return place === hall ? { hall, by: 'text' } : { hall: place, by: 'text', via: hall }
   }
   const whole = text.trim().toLowerCase()
-  for (const phrase of rules?.phrases ?? []) {
+  for (const [rule, phrase] of (rules?.phrases ?? []).entries()) {
     const hall = phrase.text.trim() && whole.includes(phrase.text.trim().toLowerCase()) ? chosenPlace(phrase.hall, halls, rules) : undefined
-    if (hall) return { hall, by: 'phrase', phrase: phrase.text.trim() }
+    if (hall) return { hall, by: 'phrase', phrase: phrase.text.trim(), rule }
   }
   return null
 }
@@ -217,6 +219,8 @@ export interface Place {
   choiceFor?: string
   /** The words of the rule that placed it, where one did. */
   phrase?: string
+  /** Which of the rules for words that was: its place in their order, from 0. */
+  rule?: number
   /** The hall the text names, where it counts under the place that collects it. */
   via?: string
 }
@@ -237,7 +241,7 @@ export const placeOf = (text: string, halls: string[], rules?: HallRules, projec
   const forShort = chosenPlace(choices[short], halls, rules)
   if (forShort) return { hall: forShort, by: 'choice', chosen: true, own: false, ...(short === choiceKey(text) ? {} : { choiceFor: short }) }
   const read = readHall(text, halls, rules)
-  return { hall: read?.hall ?? UNRESOLVED_HALL, by: read?.by ?? 'none', chosen: false, own: false, ...(read?.phrase ? { phrase: read.phrase } : {}), ...(read?.via ? { via: read.via } : {}) }
+  return { hall: read?.hall ?? UNRESOLVED_HALL, by: read?.by ?? 'none', chosen: false, own: false, ...(read?.phrase ? { phrase: read.phrase, rule: read.rule } : {}), ...(read?.via ? { via: read.via } : {}) }
 }
 
 /** The rules with the choice for one text set to a place, or back to automatic: for every project, or for the one given. */
