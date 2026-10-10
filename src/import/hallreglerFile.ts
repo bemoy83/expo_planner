@@ -19,13 +19,15 @@ const TEXT = 'Hall/sted'
 const PROJECT = 'Prosjektnr.'
 const YES = 'Ja'
 const NO = 'Nei'
+/** How a choice for lines without a Hall/Sted is written, since an empty cell reads as no row. */
+const BLANK = '(tom)'
 
 /** The setup as a workbook. A choice for every project has no project number. */
 export const writeHallreglerWorkbook = ({ rules, aliases }: HallSetup): Uint8Array =>
   writeXlsx([
     { name: 'Steder', head: [PLACE, HALLS, COLLECTS], rows: rules.places.map((place) => [place.name, place.halls.join(', '), place.collects === false ? NO : YES]) },
     { name: 'Ord', head: [NUMBER, WORDS, COUNTS], rows: rules.phrases.map((phrase, index) => [index + 1, phrase.text, phrase.hall]) },
-    { name: 'Valg', head: [TEXT, PROJECT, COUNTS], rows: hallChoices(aliases).map((choice) => [choice.text, choice.projectNo ?? '', choice.hall]) },
+    { name: 'Valg', head: [TEXT, PROJECT, COUNTS], rows: hallChoices(aliases).map((choice) => [choice.text || BLANK, choice.projectNo ?? '', choice.hall]) },
   ])
 
 /** The rows of the first sheet that has the headings, each as a function from a heading to its text. */
@@ -62,6 +64,6 @@ export const readHallreglerWorkbook = (bytes: Uint8Array): HallSetup => {
       }),
     phrases: (phrases ?? []).filter((get) => get(WORDS) && get(COUNTS)).map((get) => ({ text: get(WORDS), hall: get(COUNTS) })),
   }
-  const aliases = Object.fromEntries((choices ?? []).filter((get) => get(TEXT) && get(COUNTS)).map((get) => [aliasKey(get(TEXT), get(PROJECT) || undefined), get(COUNTS)]))
+  const aliases = Object.fromEntries((choices ?? []).filter((get) => get(TEXT) && get(COUNTS)).map((get) => [aliasKey(get(TEXT) === BLANK ? '' : get(TEXT), get(PROJECT) || undefined), get(COUNTS)]))
   return { rules, aliases }
 }

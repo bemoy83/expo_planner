@@ -30,6 +30,11 @@ describe('the Hallregler file', () => {
     expect(diffHallSetup(setup, read)).toEqual({ places: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 }, phrases: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 }, choices: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 } })
   })
 
+  it('keeps a choice for lines without a Hall/Sted through the file', () => {
+    const blank = { ...setup, aliases: withAlias({}, '', 'C', '26100') }
+    expect(readHallreglerWorkbook(writeHallreglerWorkbook(blank)).aliases).toEqual(blank.aliases)
+  })
+
   it('reads a file with one of the sheets, and says what a file must hold when it has none', () => {
     const onlyPlaces = readHallreglerWorkbook(writeXlsx([{ name: 'Ark1', head: ['Sted', 'Står for'], rows: [['Vest', 'D1; D2'], ['', 'C']] }]))
     expect(onlyPlaces).toEqual({ rules: { places: [{ name: 'Vest', halls: ['D1', 'D2'] }], phrases: [] }, aliases: {} })

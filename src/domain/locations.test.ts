@@ -145,6 +145,14 @@ describe('placing demand in the halls of the hall ledger', () => {
 
   it('offers the hall of a project with one hall for a text that names none', () => {
     expect(suggestHall('Inng øst', halls, ['C'], own)).toEqual({ hall: 'C', own: true })
+    // A line without a Hall/Sted too, and the choice is kept for its project.
+    expect(suggestHall('', halls, ['C'], own)).toEqual({ hall: 'C', own: true })
+    expect(suggestHall(' ', halls, ['C', 'E'], own)).toBeNull()
+    expect(suggestHall('', halls, ['B2'], own)).toEqual({ hall: 'B', own: true })
+    const blank = withAlias({}, '', 'C', '26100')
+    expect(placeOf('', halls, blank, '26100', own)).toEqual({ hall: 'C', by: 'own', chosen: true, own: true })
+    expect(placeOf('', halls, blank, '26200', own).hall).toBe(UNRESOLVED_HALL)
+    expect(hallChoices(blank)).toEqual([{ key: '26100\t', text: '', projectNo: '26100', hall: 'C' }])
   })
 
   it('gathers unmatched lines in one location and keeps their hours', () => {

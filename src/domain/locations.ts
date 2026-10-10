@@ -176,7 +176,9 @@ export interface HallOffer {
  * ledger, as «Hall F», is offered nothing.
  */
 export const suggestHall = (text: string, halls: string[], booked: string[] = [], rules?: HallRules, aliases: Aliases = {}): HallOffer | null => {
-  if (!text.trim() || resolveHall(text, halls, rules)) return null
+  // A line without a Hall/Sted names no hall: it is offered the hall of a project that has booked one only.
+  if (!text.trim()) return booked.length === 1 && halls.includes(booked[0]) ? { hall: collectedIn(booked[0], halls, rules), own: true } : null
+  if (resolveHall(text, halls, rules)) return null
   /** What some words of the text are placed as, were they a text of their own; not the unresolved location. */
   const placed = (words: string): string | null => {
     const { hall, by } = placeOf(words, halls, aliases, undefined, rules)
@@ -206,7 +208,7 @@ export const suggestHall = (text: string, halls: string[], booked: string[] = []
   }
   if (found.size === 1) return { hall: [...found][0], own: false }
   if (found.size > 1) return { hall: PROJECT_HALLS, own: false }
-  return !hallWords && booked.length === 1 && halls.includes(booked[0]) ? { hall: booked[0], own: true } : null
+  return !hallWords && booked.length === 1 && halls.includes(booked[0]) ? { hall: collectedIn(booked[0], halls, rules), own: true } : null
 }
 
 /** A Hall/Sted text as the key of the planner's choice for it: for every project, or for one. */

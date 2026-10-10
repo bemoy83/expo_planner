@@ -269,7 +269,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
             <tbody>
               {choices.map((choice) => (
                 <tr key={choice.key}>
-                  <td>{choice.text}</td>
+                  <td>{choice.text || <span className="muted">(tom)</span>}</td>
                   <td>{choice.projectNo ? projectName(choice.projectNo) : 'Alle prosjekter'}</td>
                   <td>{choice.hall}</td>
                   <td className="actions">

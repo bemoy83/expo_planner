@@ -75,8 +75,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   /** Why the line counts where it does: the rule that placed it, in a few words. */
   const ruleOf = (line: { hall: string; projectNo: string }): string => {
     const place = placeOfLine(line)
-    if (!line.hall.trim()) return 'Ingen Hall/sted'
     if (place.by === 'own') return 'Valgt for prosjektet'
+    if (!line.hall.trim()) return 'Ingen Hall/sted'
     if (place.by === 'choice') return place.choiceFor ? `Valgt: ${place.choiceFor.toUpperCase()} er ${place.hall}` : 'Valgt for teksten'
     if (place.by === 'phrase') return `Regel: inneholder «${place.phrase}»`
     if (place.via) return `Sted: ${place.hall} samler ${place.via}`
@@ -94,21 +94,25 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
     // A line placed by the choice for its text without «Hall» has no choice of its own to show or to remove.
     const pinned = place.chosen && !place.choiceFor
     const auto = place.choiceFor ? place.hall : (resolveHall(text, halls, rules) ?? UNRESOLVED_HALL)
-    if (!text.trim()) return <span className="muted">{UNRESOLVED_HALL}</span>
     const offered = offerFor(line)
+    // A line without a Hall/Sted can only be placed for its project: an empty text says nothing that holds for others.
+    const blank = !text.trim()
+    const shown = blank ? '(tom)' : text.trim()
     const scope = place.choiceFor
       ? `Plassert av valget for «${place.choiceFor}» på Hallregler, som også gjelder med «Hall» foran. Velger du noe her, gjelder det bare «${text.trim()}».`
       : place.own
-        ? `Valget gjelder linjene med «${text.trim()}» i dette prosjektet.`
-        : `Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`
+        ? `Valget gjelder linjene med «${shown}» i dette prosjektet.`
+        : blank
+          ? 'Linjen har ingen Hall/sted. Et valg her gjelder linjene uten Hall/sted i dette prosjektet.'
+          : `Valget gjelder alle linjer med «${shown}», i alle prosjekter.`
     return (
       <>
         <select
           className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${pinned ? 'chosen' : ''}`}
           value={pinned ? place.hall : ''}
-          aria-label={`Plassering for ${text}`}
+          aria-label={`Plassering for ${shown}`}
           title={`${place.by === 'none' ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «${UNRESOLVED_HALL}» til du velger en hall. ' : ''}${scope}`}
-          onChange={(e) => setHallAlias(text, e.target.value || undefined, place.own ? line.projectNo : undefined)}
+          onChange={(e) => setHallAlias(text, e.target.value || undefined, place.own || blank ? line.projectNo : undefined)}
         >
           <option value="">{auto} (auto)</option>
           {places.map((hall) => (
@@ -123,7 +127,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
             className="link"
             title={
               offered.own
-                ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${text.trim()}» i dette prosjektet i ${offered.hall}.`
+                ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${shown}» i dette prosjektet i ${offered.hall}.`
                 : offered.hall === PROJECT_HALLS
                   ? `«${text.trim()}» nevner flere haller. ${PROJECT_HALLS} er behov som ikke er fordelt på hall: det teller som ett sted i Kalender, med dagene til alle hallene prosjektet har.`
                   : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
