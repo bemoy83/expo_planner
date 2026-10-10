@@ -124,11 +124,13 @@ table.ledger.prosjekter td.actions{white-space:nowrap}
 input.inline.name-add{width:120px;min-width:0}
 
 /* ---- Hallregler ---- */
-/* the page of the rules: a heading and a table per kind of rule, each as wide as it needs, and beside them the panel that tries a text; in a narrow window the panel comes after the tables */
+/* the page of the rules: one part at a time, picked in the bar above, as wide as it needs, and beside it the panel that tries a text; in a narrow window the panel comes after the part */
 .behov-body.rules{display:grid;gap:24px;align-items:start}
 .rules-work{min-width:0}
-.behov-body.rules h3{margin:20px 0 4px;font-size:var(--fs-md);font-weight:600;scroll-margin-top:8px}
-.rules-work .section-title{margin-top:8px}
+.rules-work .hint{margin-top:0}
+/* the count of a part in the bar, and the line that sets the areas apart from the rules */
+.segmented em{font:normal 400 var(--fs-sm) var(--font-num)}
+.rules-apart{width:1px;height:20px;background:var(--line-strong)}
 @media (min-width:1201px){
   .behov-body.rules{grid-template-columns:minmax(0,1fr) 320px}
   .rules-panel{position:sticky;top:0}

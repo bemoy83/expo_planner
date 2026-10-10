@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronUp, Eye, X } from 'lucide-react'
 import { withAreaRenamed } from '../../domain/areas'
 import { todayIso } from '../../domain/dates'
 import { reviewPlacing, type UnplacedText } from '../../domain/hallReview'
@@ -9,7 +9,7 @@ import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
 import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Menu, MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { Menu, MergeReplaceDialog, MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
@@ -47,12 +47,17 @@ function HallPicker({ halls, picked, label, title = 'Kryss av hallene stedet st�
   )
 }
 
+/** The parts of the page, of which one is shown at a time. */
+type Part = 'unplaced' | 'places' | 'phrases' | 'choices' | 'areas'
+
 /**
  * The rules that place a Hall/Sted text in a hall, so none of them is hidden and all of them are the planner's own:
  * places that stand for several halls, words that mean a place, the areas the halls are gathered in, which decide what
  * the Kalender shows, and every choice made for a single text. The choices are last: their list grows long.
- * First come the texts of the demand that no rule places, to place here, and beside it all stands the panel that
- * tries a text and shows the order the rules are tried in. A page of its own, reached from Behov, where the rules are used.
+ * First come the texts of the demand that no rule places, to place here. One part is shown at a time, picked in the
+ * bar above them, so no table has to be scrolled past to reach another; the areas stand apart there, since they place
+ * nothing. Beside the part stands the panel that tries a text and shows the order the rules are tried in. A page of
+ * its own, reached from Behov, where the rules are used.
  */
 export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const { workspace, setHallRules } = useWorkspace()
@@ -66,10 +71,21 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const review = useMemo(() => reviewPlacing(ws.demand, halls, booked, rules), [ws.demand, halls, booked, rules])
   const projects = useMemo(() => [...new Set(ws.demand.map((line) => line.projectNo))].map((no): [string, string] => [no, projectName(no)]).sort((a, b) => a[1].localeCompare(b[1], 'nb')), [ws.demand, ws.visma, ws.projects]) // eslint-disable-line react-hooks/exhaustive-deps
   const [tried, setTried] = useState<TriedText>({ text: '', projectNo: '' })
-  const sections = useRef<Partial<Record<'unplaced' | 'places' | 'phrases' | 'choices', HTMLElement | null>>>({})
+  // The page opens on the texts that wait to be placed, where there are any.
+  const [part, setPart] = useState<Part>(() => (review.steps.none > 0 ? 'unplaced' : 'places'))
   const phraseInput = useRef<HTMLInputElement>(null)
-  /** The rules of a step of the order, brought into view. */
-  const showStep = (step: PlacedBy) => sections.current[step === 'none' ? 'unplaced' : step === 'text' ? 'places' : step === 'phrase' ? 'phrases' : 'choices']?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  /** Set when a rule for words is started from a text: its field is in the part that is shown next. */
+  const [phraseStarted, setPhraseStarted] = useState(0)
+  useEffect(() => {
+    if (phraseStarted) phraseInput.current?.focus()
+  }, [phraseStarted])
+  /** The part that holds the rules of a step of the order. */
+  const showStep = (step: PlacedBy) => setPart(step === 'none' ? 'unplaced' : step === 'text' ? 'places' : step === 'phrase' ? 'phrases' : 'choices')
+  const partLabel = (name: ReactNode, count: number, issue = false) => (
+    <>
+      {name} <em className={issue ? 'issue' : undefined}>{count}</em>
+    </>
+  )
   const [place, setPlace] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const [phrase, setPhrase] = useState({ text: '', hall: '' })
   const areas = rules.areas ?? []
@@ -116,8 +132,8 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   /** The text as the words of a new rule, ready for its place to be picked. */
   const startWordRule = (text: string) => {
     setPhrase({ text: text.toLowerCase(), hall: '' })
-    phraseInput.current?.focus()
-    phraseInput.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setPart('phrases')
+    setPhraseStarted((n) => n + 1)
   }
   const placeSelect = (value: string, label: string, onChange: (hall: string) => void) => (
     <select value={value} aria-label={label} onChange={(e) => onChange(e.target.value)}>
@@ -136,17 +152,36 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         <button className="ghost" onClick={onOpenBehov} title="Tilbake til Behov, der reglene plasserer linjene">
           ← Behov
         </button>
-        <span className="muted small">
-          {review.steps.none > 0 && (
-            <>
-              <span className="issue">
-                {lineCount(review.steps.none)} mangler hall · {textCount(review.unplaced.length)} å plassere
-              </span>{' '}
-              ·{' '}
-            </>
-          )}
-          {rules.places.length} steder · {rules.phrases.length} regler for ord · {choices.length} valg for enkelte tekster · {areas.length} områder
-        </span>
+        <Segmented
+          label="Del av hallreglene"
+          value={part}
+          onChange={setPart}
+          options={[
+            { value: 'unplaced', label: partLabel(UNRESOLVED_HALL, review.unplaced.length, review.unplaced.length > 0), title: 'Hall/sted-tekster i behovet som ingen regel plasserer' },
+            { value: 'places', label: partLabel('Steder', rules.places.length), title: 'Steder som står for flere haller' },
+            { value: 'phrases', label: partLabel('Regler for ord', rules.phrases.length), title: 'Ord som betyr et sted' },
+            { value: 'choices', label: partLabel('Valg for tekster', choices.length), title: 'Stedene du har valgt for enkelte tekster' },
+          ]}
+        />
+        <span className="rules-apart" aria-hidden />
+        <Segmented
+          label="Det som bare bestemmer hva som vises"
+          value={part}
+          onChange={setPart}
+          options={[
+            {
+              value: 'areas',
+              label: partLabel(
+                <>
+                  <Eye size={13} aria-hidden /> Områder
+                </>,
+                areas.length,
+              ),
+              title: 'Områdene hallene er samlet i. De bestemmer bare hva som vises i Kalender, ikke hvor behovet teller.',
+            },
+          ]}
+        />
+        {review.steps.none > 0 && <span className="issue small">{lineCount(review.steps.none)} mangler hall</span>}
         <span className="toolbar-gap" />
         <UndoRedoButtons />
         <TableFileButtons
@@ -162,219 +197,234 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
 
       <div className="behov-body rules">
         <div className="rules-work">
-          <h3 ref={(el) => void (sections.current.unplaced = el)}>Tekster som mangler hall</h3>
-          <p className="hint">
-            Hall/sted-tekster i behovet som ingen regel plasserer, de med flest timer først. Velg et sted, så lagres det som et valg for teksten. Klikk en tekst for å prøve den i panelet.
-          </p>
-          {ws.demand.length ? (
-            <Unplaced unplaced={review.unplaced} places={places} projectName={projectName} onPlace={placeText} onOffers={takeOffers} onTry={(text, projectNo) => setTried({ text, projectNo })} onWordRule={startWordRule} />
-          ) : (
-            <p className="muted">Ingen behov er lest inn ennå.</p>
+          {part === 'unplaced' && (
+            <>
+              <p className="hint">
+                Hall/sted-tekster i behovet som ingen regel plasserer, de med flest timer først. Velg et sted, så lagres det som et valg for teksten. Klikk en tekst for å prøve den i panelet.
+              </p>
+              {ws.demand.length ? (
+                <Unplaced unplaced={review.unplaced} places={places} projectName={projectName} onPlace={placeText} onOffers={takeOffers} onTry={(text, projectNo) => setTried({ text, projectNo })} onWordRule={startWordRule} />
+              ) : (
+                <p className="muted">Ingen behov er lest inn ennå.</p>
+              )}
+            </>
           )}
 
-          <h3 ref={(el) => void (sections.current.places = el)}>Steder som står for flere haller</h3>
-          <p className="hint">
-            Et sted teller som én plass i Kalender, med dagene til hallene det står for. En tekst som sier navnet, som «Hall B», teller under stedet, og når stedet samler hallene sine gjør «B2»
-            det også. Da er ikke hallene egne plasser lenger. Står en hall i flere steder som samler, gjelder det øverste. <strong>{PROJECT_HALLS}</strong> finnes
-            alltid: det er behov som ikke er fordelt på hall, bestilt som én sum for flere haller, som «Hall C, D, E». Det teller for seg, med dagene til alle hallene prosjektet har, og er ikke
-            det samme som en rad for «Alle haller» i Kalender, som summerer alt behovet i prosjektet.
-          </p>
-          <table className="ledger rules">
-            <thead>
-              <tr>
-                <th>Sted</th>
-                <th>Står for</th>
-                <th className="center" title="Med hake teller alt som havner i en av hallene under stedet: B1 blir B. Uten hake teller hallene hver for seg, og stedet får bare det som plasseres på stedet selv.">
-                  Samler hallene
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rules.places.map((entry, index) => (
-                <tr key={index}>
-                  <td>
-                    <TextField value={entry.name} ariaLabel={`Navn på stedet ${entry.name}`} onCommit={(value) => rename(entry.name, value)} />
-                  </td>
-                  <td>
-                    <HallPicker halls={halls} picked={entry.halls} label={`Hallene til ${entry.name}`} onChange={(picked) => setPlaces(rules.places.map((other, at) => (at === index ? { ...other, halls: picked } : other)))} />
-                  </td>
-                  <td className="center">
-                    <input type="checkbox" checked={entry.collects !== false} aria-label={`${entry.name} samler hallene sine`} onChange={(e) => setPlaces(rules.places.map((other, at) => (at === index ? { ...other, collects: e.target.checked } : other)))} />
-                  </td>
-                  <td className="actions">
-                    <button className="row-action" title={`Slett stedet ${entry.name}`} onClick={() => setPlaces(rules.places.filter((_, at) => at !== index))}>
-                      <X size={13} aria-hidden />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td>
-                  <input className="inline" placeholder="Nytt sted, f.eks. Nordfløy" aria-label="Navn på nytt sted" value={place.name} onChange={(e) => setPlace({ ...place, name: e.target.value })} />
-                </td>
-                <td>
-                  <HallPicker halls={halls} picked={place.halls} label="Hallene til det nye stedet" onChange={(picked) => setPlace({ ...place, halls: picked })} />
-                </td>
-                <td />
-                <td className="actions">
-                  <button
-                    disabled={!place.name.trim() || !place.halls.length || taken(place.name)}
-                    title={taken(place.name) ? 'Navnet er en hall eller et sted fra før' : !place.halls.length ? 'Kryss av hallene stedet står for' : !place.name.trim() ? 'Gi stedet et navn' : `Stedet står for ${place.halls.join(', ')}`}
-                    onClick={() => {
-                      setPlaces([...rules.places, { name: place.name.trim(), halls: place.halls }])
-                      setPlace({ name: '', halls: [] })
-                    }}
-                  >
-                    Legg til
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h3 ref={(el) => void (sections.current.phrases = el)}>Ord som betyr et sted</h3>
-          <p className="hint">
-            En tekst som inneholder ordene teller under stedet, når den ikke er plassert av reglene over. Reglene prøves ovenfra, og den første som passer gjelder: flytt en regel opp for å
-            la den gå foran.
-          </p>
-          <table className="ledger rules">
-            <thead>
-              <tr>
-                <th className="num" title="Rekkefølgen reglene prøves i">
-                  Nr.
-                </th>
-                <th>Inneholder teksten</th>
-                <th>teller den under</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rules.phrases.map((entry, index) => (
-                <tr key={index}>
-                  <td className="num">{index + 1}</td>
-                  <td>
-                    <TextField value={entry.text} ariaLabel="Ord i teksten" onCommit={(value) => value && setPhrases(rules.phrases.map((other, at) => (at === index ? { ...other, text: value } : other)))} />
-                  </td>
-                  <td>{placeSelect(places.find((name) => name.toLowerCase() === entry.hall.toLowerCase()) ?? '', `Sted for ${entry.text}`, (hall) => hall && setPhrases(rules.phrases.map((other, at) => (at === index ? { ...other, hall } : other))))}</td>
-                  <td className="actions">
-                    <button className="row-action" title="Flytt opp: regelen prøves før den over" disabled={index === 0} onClick={() => movePhrase(index, index - 1)}>
-                      <ChevronUp size={13} aria-hidden />
-                    </button>
-                    <button className="row-action" title="Flytt ned: regelen prøves etter den under" disabled={index === rules.phrases.length - 1} onClick={() => movePhrase(index, index + 1)}>
-                      <ChevronDown size={13} aria-hidden />
-                    </button>
-                    <button className="row-action" title="Slett regelen" onClick={() => setPhrases(rules.phrases.filter((_, at) => at !== index))}>
-                      <X size={13} aria-hidden />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td />
-                <td>
-                  <input ref={phraseInput} className="inline" placeholder="Ord, f.eks. scene" aria-label="Ord i en ny regel" value={phrase.text} onChange={(e) => setPhrase({ ...phrase, text: e.target.value })} />
-                </td>
-                <td>{placeSelect(phrase.hall, 'Sted for den nye regelen', (hall) => setPhrase({ ...phrase, hall }))}</td>
-                <td className="actions">
-                  <button
-                    disabled={!phrase.text.trim() || !phrase.hall}
-                    onClick={() => {
-                      setPhrases([...rules.phrases, { text: phrase.text.trim(), hall: phrase.hall }])
-                      setPhrase({ text: '', hall: '' })
-                    }}
-                  >
-                    Legg til
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h3>Områder</h3>
-          <p className="hint">
-            Et område samler haller under ett navn, som «NV HALLS» for A til E. Det bestemmer bare hva som vises: under «Steder» i Kalender krysser du av områdene og hallene du vil arbeide med, og
-            hallkalenderen, planen og bemanningen følger valget. Hvor behovet teller, endres ikke. En hall som står i flere områder, hører til det øverste.
-          </p>
-          <table className="ledger rules">
-            <thead>
-              <tr>
-                <th>Område</th>
-                <th>Haller</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {areas.map((entry, index) => (
-                <tr key={index}>
-                  <td>
-                    <TextField value={entry.name} ariaLabel={`Navn på området ${entry.name}`} onCommit={(value) => setAreas(withAreaRenamed(areas, index, value))} />
-                  </td>
-                  <td>
-                    <HallPicker halls={halls} picked={entry.halls} label={`Hallene i ${entry.name}`} title="Kryss av hallene i området" onChange={(picked) => setAreas(areas.map((other, at) => (at === index ? { ...other, halls: picked } : other)))} />
-                  </td>
-                  <td className="actions">
-                    <button className="row-action" title={`Slett området ${entry.name}. Hallene blir stående.`} onClick={() => setAreas(areas.filter((_, at) => at !== index))}>
-                      <X size={13} aria-hidden />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td>
-                  <input className="inline" placeholder="Nytt område, f.eks. NV HALLS" aria-label="Navn på nytt område" value={area.name} onChange={(e) => setArea({ ...area, name: e.target.value })} />
-                </td>
-                <td>
-                  <HallPicker halls={halls} picked={area.halls} label="Hallene i det nye området" title="Kryss av hallene i området" onChange={(picked) => setArea({ ...area, halls: picked })} />
-                </td>
-                <td className="actions">
-                  <button
-                    disabled={!area.name.trim() || !area.halls.length || areaTaken}
-                    title={areaTaken ? 'Et område har navnet fra før' : !area.halls.length ? 'Kryss av hallene i området' : !area.name.trim() ? 'Gi området et navn' : `Området har ${area.halls.join(', ')}`}
-                    onClick={() => {
-                      setAreas([...areas, { name: area.name.trim(), halls: area.halls }])
-                      setArea({ name: '', halls: [] })
-                    }}
-                  >
-                    Legg til
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h3 ref={(el) => void (sections.current.choices = el)}>Valg for enkelte tekster</h3>
-          <p className="hint">
-            En tekst som teller under et sted fordi du har valgt det. Valget gjelder også når «Hall» står foran: «a» gir A1 plasserer «Hall A». Bokstavene som kom inn med de første hallene er eksempler
-            for bokstaver med én hall. Du lager nye valg øverst på siden, eller i kolonnen Plassering på Behov.
-          </p>
-          {choices.length ? (
-            <table className="ledger rules">
-              <thead>
-                <tr>
-                  <th>Hall/sted</th>
-                  <th>Gjelder</th>
-                  <th>Teller under</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {choices.map((choice) => (
-                  <tr key={choice.key}>
-                    <td>{choice.text || <span className="muted">(tom)</span>}</td>
-                    <td>{choice.projectNo ? projectName(choice.projectNo) : 'Alle prosjekter'}</td>
-                    <td>{choice.hall}</td>
+          {part === 'places' && (
+            <>
+              <p className="hint">
+                Et sted teller som én plass i Kalender, med dagene til hallene det står for. En tekst som sier navnet, som «Hall B», teller under stedet, og når stedet samler hallene sine gjør «B2»
+                det også. Da er ikke hallene egne plasser lenger. Står en hall i flere steder som samler, gjelder det øverste. <strong>{PROJECT_HALLS}</strong> finnes
+                alltid: det er behov som ikke er fordelt på hall, bestilt som én sum for flere haller, som «Hall C, D, E». Det teller for seg, med dagene til alle hallene prosjektet har, og er ikke
+                det samme som en rad for «Alle haller» i Kalender, som summerer alt behovet i prosjektet.
+              </p>
+              <table className="ledger rules">
+                <thead>
+                  <tr>
+                    <th>Sted</th>
+                    <th>Står for</th>
+                    <th className="center" title="Med hake teller alt som havner i en av hallene under stedet: B1 blir B. Uten hake teller hallene hver for seg, og stedet får bare det som plasseres på stedet selv.">
+                      Samler hallene
+                    </th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rules.places.map((entry, index) => (
+                    <tr key={index}>
+                      <td>
+                        <TextField value={entry.name} ariaLabel={`Navn på stedet ${entry.name}`} onCommit={(value) => rename(entry.name, value)} />
+                      </td>
+                      <td>
+                        <HallPicker halls={halls} picked={entry.halls} label={`Hallene til ${entry.name}`} onChange={(picked) => setPlaces(rules.places.map((other, at) => (at === index ? { ...other, halls: picked } : other)))} />
+                      </td>
+                      <td className="center">
+                        <input type="checkbox" checked={entry.collects !== false} aria-label={`${entry.name} samler hallene sine`} onChange={(e) => setPlaces(rules.places.map((other, at) => (at === index ? { ...other, collects: e.target.checked } : other)))} />
+                      </td>
+                      <td className="actions">
+                        <button className="row-action" title={`Slett stedet ${entry.name}`} onClick={() => setPlaces(rules.places.filter((_, at) => at !== index))}>
+                          <X size={13} aria-hidden />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td>
+                      <input className="inline" placeholder="Nytt sted, f.eks. Nordfløy" aria-label="Navn på nytt sted" value={place.name} onChange={(e) => setPlace({ ...place, name: e.target.value })} />
+                    </td>
+                    <td>
+                      <HallPicker halls={halls} picked={place.halls} label="Hallene til det nye stedet" onChange={(picked) => setPlace({ ...place, halls: picked })} />
+                    </td>
+                    <td />
                     <td className="actions">
-                      <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallRules(withChoice(rules, choice.text, undefined, choice.projectNo))}>
-                        <X size={13} aria-hidden />
+                      <button
+                        disabled={!place.name.trim() || !place.halls.length || taken(place.name)}
+                        title={taken(place.name) ? 'Navnet er en hall eller et sted fra før' : !place.halls.length ? 'Kryss av hallene stedet står for' : !place.name.trim() ? 'Gi stedet et navn' : `Stedet står for ${place.halls.join(', ')}`}
+                        onClick={() => {
+                          setPlaces([...rules.places, { name: place.name.trim(), halls: place.halls }])
+                          setPlace({ name: '', halls: [] })
+                        }}
+                      >
+                        Legg til
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="muted">Ingen ennå. Et valg i kolonnen Plassering, eller et forslag du bruker, havner her.</p>
+                </tbody>
+              </table>
+            </>
+          )}
+
+          {part === 'phrases' && (
+            <>
+              <p className="hint">
+                En tekst som inneholder ordene teller under stedet, når den ikke er plassert av reglene over. Reglene prøves ovenfra, og den første som passer gjelder: flytt en regel opp for å
+                la den gå foran.
+              </p>
+              <table className="ledger rules">
+                <thead>
+                  <tr>
+                    <th className="num" title="Rekkefølgen reglene prøves i">
+                      Nr.
+                    </th>
+                    <th>Inneholder teksten</th>
+                    <th>teller den under</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rules.phrases.map((entry, index) => (
+                    <tr key={index}>
+                      <td className="num">{index + 1}</td>
+                      <td>
+                        <TextField value={entry.text} ariaLabel="Ord i teksten" onCommit={(value) => value && setPhrases(rules.phrases.map((other, at) => (at === index ? { ...other, text: value } : other)))} />
+                      </td>
+                      <td>{placeSelect(places.find((name) => name.toLowerCase() === entry.hall.toLowerCase()) ?? '', `Sted for ${entry.text}`, (hall) => hall && setPhrases(rules.phrases.map((other, at) => (at === index ? { ...other, hall } : other))))}</td>
+                      <td className="actions">
+                        <button className="row-action" title="Flytt opp: regelen prøves før den over" disabled={index === 0} onClick={() => movePhrase(index, index - 1)}>
+                          <ChevronUp size={13} aria-hidden />
+                        </button>
+                        <button className="row-action" title="Flytt ned: regelen prøves etter den under" disabled={index === rules.phrases.length - 1} onClick={() => movePhrase(index, index + 1)}>
+                          <ChevronDown size={13} aria-hidden />
+                        </button>
+                        <button className="row-action" title="Slett regelen" onClick={() => setPhrases(rules.phrases.filter((_, at) => at !== index))}>
+                          <X size={13} aria-hidden />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td />
+                    <td>
+                      <input ref={phraseInput} className="inline" placeholder="Ord, f.eks. scene" aria-label="Ord i en ny regel" value={phrase.text} onChange={(e) => setPhrase({ ...phrase, text: e.target.value })} />
+                    </td>
+                    <td>{placeSelect(phrase.hall, 'Sted for den nye regelen', (hall) => setPhrase({ ...phrase, hall }))}</td>
+                    <td className="actions">
+                      <button
+                        disabled={!phrase.text.trim() || !phrase.hall}
+                        onClick={() => {
+                          setPhrases([...rules.phrases, { text: phrase.text.trim(), hall: phrase.hall }])
+                          setPhrase({ text: '', hall: '' })
+                        }}
+                      >
+                        Legg til
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </>
+          )}
+
+          {part === 'areas' && (
+            <>
+              <p className="hint">
+                Et område samler haller under ett navn, som «NV HALLS» for A til E. Det bestemmer bare hva som vises: under «Steder» i Kalender krysser du av områdene og hallene du vil arbeide med, og
+                hallkalenderen, planen og bemanningen følger valget. Hvor behovet teller, endres ikke. En hall som står i flere områder, hører til det øverste.
+              </p>
+              <table className="ledger rules">
+                <thead>
+                  <tr>
+                    <th>Område</th>
+                    <th>Haller</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {areas.map((entry, index) => (
+                    <tr key={index}>
+                      <td>
+                        <TextField value={entry.name} ariaLabel={`Navn på området ${entry.name}`} onCommit={(value) => setAreas(withAreaRenamed(areas, index, value))} />
+                      </td>
+                      <td>
+                        <HallPicker halls={halls} picked={entry.halls} label={`Hallene i ${entry.name}`} title="Kryss av hallene i området" onChange={(picked) => setAreas(areas.map((other, at) => (at === index ? { ...other, halls: picked } : other)))} />
+                      </td>
+                      <td className="actions">
+                        <button className="row-action" title={`Slett området ${entry.name}. Hallene blir stående.`} onClick={() => setAreas(areas.filter((_, at) => at !== index))}>
+                          <X size={13} aria-hidden />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td>
+                      <input className="inline" placeholder="Nytt område, f.eks. NV HALLS" aria-label="Navn på nytt område" value={area.name} onChange={(e) => setArea({ ...area, name: e.target.value })} />
+                    </td>
+                    <td>
+                      <HallPicker halls={halls} picked={area.halls} label="Hallene i det nye området" title="Kryss av hallene i området" onChange={(picked) => setArea({ ...area, halls: picked })} />
+                    </td>
+                    <td className="actions">
+                      <button
+                        disabled={!area.name.trim() || !area.halls.length || areaTaken}
+                        title={areaTaken ? 'Et område har navnet fra før' : !area.halls.length ? 'Kryss av hallene i området' : !area.name.trim() ? 'Gi området et navn' : `Området har ${area.halls.join(', ')}`}
+                        onClick={() => {
+                          setAreas([...areas, { name: area.name.trim(), halls: area.halls }])
+                          setArea({ name: '', halls: [] })
+                        }}
+                      >
+                        Legg til
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </>
+          )}
+
+          {part === 'choices' && (
+            <>
+              <p className="hint">
+                En tekst som teller under et sted fordi du har valgt det. Valget gjelder også når «Hall» står foran: «a» gir A1 plasserer «Hall A». Bokstavene som kom inn med de første hallene er eksempler
+                for bokstaver med én hall. Du lager nye valg øverst på siden, eller i kolonnen Plassering på Behov.
+              </p>
+              {choices.length ? (
+                <table className="ledger rules">
+                  <thead>
+                    <tr>
+                      <th>Hall/sted</th>
+                      <th>Gjelder</th>
+                      <th>Teller under</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {choices.map((choice) => (
+                      <tr key={choice.key}>
+                        <td>{choice.text || <span className="muted">(tom)</span>}</td>
+                        <td>{choice.projectNo ? projectName(choice.projectNo) : 'Alle prosjekter'}</td>
+                        <td>{choice.hall}</td>
+                        <td className="actions">
+                          <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallRules(withChoice(rules, choice.text, undefined, choice.projectNo))}>
+                            <X size={13} aria-hidden />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">Ingen ennå. Et valg i kolonnen Plassering, eller et forslag du bruker, havner her.</p>
+              )}
+            </>
           )}
         </div>
         <PlacingPanel halls={halls} rules={rules} booked={booked} review={review} projects={projects} tried={tried} onTry={setTried} onStep={showStep} />
