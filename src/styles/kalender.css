@@ -230,9 +230,10 @@
    every rule sits exactly on the boundary between two lines: a level's hairline above it, a cell's rule above it. */
 .grid-alloc{position:relative}
 /* A top level's line stays at the top of the rows while the lines under it scroll past. It is laid over its
-   stretch of lines, which stay within reach beneath the box, and closes with a hairline when lines are under it. */
+   stretch of lines, which stay within reach beneath the box. Its fill sets it apart from the lines under it; a
+   hairline under it would lie over the today line and cut it at every top level. */
 .level-section{position:absolute;left:0;right:0;pointer-events:none}
-.level-stick{position:sticky;z-index:2;pointer-events:auto;box-shadow:0 1px 0 var(--line)}
+.level-stick{position:sticky;z-index:2;pointer-events:auto}
 /* The last line closes the list with a hairline of its own, since no level follows to draw one. It sits
    outside the height the rows fill. */
 .grid-alloc:has(.grid-row){box-sizing:content-box;border-bottom:1px solid var(--line)}
