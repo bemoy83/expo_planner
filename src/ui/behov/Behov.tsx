@@ -7,9 +7,8 @@ import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, productTypeLabel, prod
 import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { NO_HALL_RULES, placeNames, placeOf, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { placeNames, placeOf, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallsOfProjects } from '../../domain/projects'
-import { HallRules } from './HallRules'
 import { hallNames } from '../../domain/venue'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
@@ -41,16 +40,17 @@ interface Props {
   projectNo: string
   onProjectChange: (projectNo: string) => void
   onOpenSetup: () => void
+  /** Opens the page of the rules that place Hall/Sted in a hall. */
+  onOpenRules: () => void
 }
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
-export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
-  const { workspace, importVisma, setLineOverride, setLineOverrides, removeLineOverride, removeDemandLine, setHallAlias, setHallRules } = useWorkspace()
+export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: Props) {
+  const { workspace, importVisma, setLineOverride, setLineOverrides, removeLineOverride, removeDemandLine, setHallAlias } = useWorkspace()
   const ws = workspace!
   const [message, setMessage] = useState<Message | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
   const [filter, setFilter] = useState<LineFilter>('all')
-  const [rulesOpen, setRulesOpen] = useState(false)
   const vismaInput = useRef<HTMLInputElement>(null)
 
   const projects = useMemo(() => {
@@ -391,7 +391,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         )}
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <button onClick={() => setRulesOpen(true)} title="Reglene som plasserer Hall/sted i en hall: steder som står for flere haller, ord som betyr en hall, og valgene du har gjort for enkelte tekster.">
+        <button onClick={onOpenRules} title="Reglene som plasserer Hall/sted i en hall: steder som står for flere haller, ord som betyr en hall, og valgene du har gjort for enkelte tekster.">
           Hallregler
         </button>
         <button className="primary" onClick={() => vismaInput.current?.click()}>
@@ -551,7 +551,6 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         )}
       </div>
 
-      {rulesOpen && <HallRules halls={halls} aliases={ws.hallAliases ?? {}} rules={rules ?? NO_HALL_RULES} onRules={setHallRules} projectName={(no) => projectNames.get(no) ?? no} onSet={setHallAlias} onClose={() => setRulesOpen(false)} />}
       {dialog && projectNo && <DemandLineDialog line={dialog.line} projectNo={projectNo} projectName={projectName} onClose={() => setDialog(null)} />}
     </div>
   )

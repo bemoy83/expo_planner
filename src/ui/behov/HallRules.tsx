@@ -1,19 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
-import { hallChoices, letterRules, placeNames, ruleKey, sharedPlaces, UNRESOLVED_HALL } from '../../domain/locations'
+import { hallChoices, letterRules, NO_HALL_RULES, placeNames, ruleKey, sharedPlaces, UNRESOLVED_HALL } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
+import { hallNames } from '../../domain/venue'
+import { useWorkspace } from '../../store/workspaceStore'
+import { UndoRedoButtons } from '../common'
 import { TextField } from '../fields'
-
-interface Props {
-  halls: string[]
-  aliases: Record<string, string>
-  rules: Rules
-  onRules: (rules: Rules) => void
-  projectName: (projectNo: string) => string
-  /** Sets or removes a choice: for a text in every project, or in the one given. A hall letter by itself is its rule. */
-  onSet: (text: string, hall: string | undefined, projectNo?: string) => void
-  onClose: () => void
-}
 
 /** The halls a typed list names, as the ledger writes them; what is not a hall is left out. */
 const hallsIn = (text: string, halls: string[]): string[] => {
@@ -24,9 +16,15 @@ const hallsIn = (text: string, halls: string[]): string[] => {
 /**
  * The rules that place a Hall/Sted text in a hall, so none of them is hidden and all of them are the planner's own:
  * places that stand for several halls, what a shared name counts under, words that mean a place, and every choice
- * made for a single text.
+ * made for a single text. A page of its own, reached from Behov, where the rules are used.
  */
-export function HallRules({ halls, aliases, rules, onRules, projectName, onSet, onClose }: Props) {
+export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
+  const { workspace, setHallAlias: onSet, setHallRules: onRules } = useWorkspace()
+  const ws = workspace!
+  const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
+  const aliases = ws.hallAliases ?? {}
+  const rules = ws.hallRules ?? NO_HALL_RULES
+  const projectName = (projectNo: string) => ws.visma?.find((v) => v.projectNo === projectNo)?.eventName ?? ws.projects.find((ref) => ref.projectNo === projectNo)?.name ?? projectNo
   const letters = letterRules(halls)
   const shared = sharedPlaces(halls, rules)
   const places = placeNames(halls, rules)
@@ -49,9 +47,18 @@ export function HallRules({ halls, aliases, rules, onRules, projectName, onSet, 
   )
 
   return (
-    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog wide tall">
-        <h2>Hallregler</h2>
+    <div className="behov">
+      <div className="toolbar">
+        <button className="ghost" onClick={onOpenBehov} title="Tilbake til Behov, der reglene plasserer linjene">
+          ← Behov
+        </button>
+        <span className="muted small">
+          {rules.places.length} egne steder · {rules.phrases.length} regler for ord · {choices.length} valg for enkelte tekster
+        </span>
+        <span className="toolbar-gap" />
+        <UndoRedoButtons />
+      </div>
+      <div className="behov-body rules">
         <p className="hint">
           Slik blir Hall/sted til en hall i Kalender, i denne rekkefølgen: ditt valg for teksten i prosjektet, ditt valg for teksten i alle prosjekter, navnet på hallen eller stedet («Hall
           C» er C), regelen for et navn flere haller deler, og til slutt den første regelen for ord som teksten inneholder. En tekst som sier hallen helt ut, som «B2», går alltid dit.
@@ -59,7 +66,7 @@ export function HallRules({ halls, aliases, rules, onRules, projectName, onSet, 
 
         <h3>Steder som står for flere haller</h3>
         <p className="hint">Et sted teller som én plass i Kalender, med dagene til hallene det står for. Haller med samme navn foran et nummer er et sted av seg selv.</p>
-        <table className="ledger">
+        <table className="ledger rules">
           <thead>
             <tr>
               <th>Sted</th>
@@ -118,7 +125,7 @@ export function HallRules({ halls, aliases, rules, onRules, projectName, onSet, 
         {letters.length > 0 && (
           <>
             <h3>Navn som flere haller deler</h3>
-            <table className="ledger">
+            <table className="ledger rules">
               <thead>
                 <tr>
                   <th>Står det</th>
@@ -145,7 +152,7 @@ export function HallRules({ halls, aliases, rules, onRules, projectName, onSet, 
 
         <h3>Ord som betyr et sted</h3>
         <p className="hint">En tekst som inneholder ordene teller under stedet, når den ikke er plassert av reglene over. Den første regelen som passer gjelder.</p>
-        <table className="ledger">
+        <table className="ledger rules">
           <thead>
             <tr>
               <th>Inneholder teksten</th>
@@ -189,7 +196,7 @@ export function HallRules({ halls, aliases, rules, onRules, projectName, onSet, 
 
         <h3>Valg for enkelte tekster</h3>
         {choices.length ? (
-          <table className="ledger">
+          <table className="ledger rules">
             <thead>
               <tr>
                 <th>Hall/sted</th>
@@ -217,11 +224,6 @@ export function HallRules({ halls, aliases, rules, onRules, projectName, onSet, 
           <p className="muted">Ingen ennå. Et valg i kolonnen Plassering, eller et forslag du bruker, havner her.</p>
         )}
 
-        <div className="dialog-actions">
-          <button className="primary" onClick={onClose}>
-            Lukk
-          </button>
-        </div>
       </div>
     </div>
   )

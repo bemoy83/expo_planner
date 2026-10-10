@@ -11,6 +11,7 @@ import { Kpi } from './ui/kpi/Kpi'
 import { Kompetanser } from './ui/personell/Kompetanser'
 import { Personell } from './ui/personell/Personell'
 import { Prosjekter } from './ui/prosjekter/Prosjekter'
+import { HallRules } from './ui/behov/HallRules'
 import { Kalender } from './ui/kalender/Kalender'
 import { cleanBlockNames, type BlockNames } from './ui/bemanning/dayCell'
 import { Menu, Segmented } from './ui/common'
@@ -33,6 +34,7 @@ const TABS = [
   ['behov', 'Behov'],
   ['haller', 'VenYou'],
   ['prosjekter', 'Prosjekter'],
+  ['hallregler', 'Hallregler'],
   ['kpi', 'KPI'],
   ['personell', 'Personell'],
   ['kompetanser', 'Kompetanser'],
@@ -327,7 +329,8 @@ function Shell() {
       {status === 'ready' && workspace && view === 'kpi' && <Kpi />}
       {status === 'ready' && workspace && view === 'personell' && <Personell onOpenCompetences={() => setView('kompetanser')} />}
       {status === 'ready' && workspace && view === 'kompetanser' && <Kompetanser onOpenPersonell={() => setView('personell')} />}
-      {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={() => setView('kpi')} />}
+      {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={() => setView('kpi')} onOpenRules={() => setView('hallregler')} />}
+      {status === 'ready' && workspace && view === 'hallregler' && <HallRules onOpenBehov={() => setView('behov')} />}
       {settingsOpen && workspace && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )
