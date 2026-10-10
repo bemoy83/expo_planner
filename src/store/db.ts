@@ -3,7 +3,7 @@ import { withEventLinksAsProjects } from '../domain/projects'
 import { withSettingsDefaults, type AllocationRow, type Assignment, type CompetenceStyle, type DemandAdjustment, type DemandLine, type HallRules, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
 
 interface MetaRecord {
-  key: 'settings' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue' | 'eventLinks' | 'hallAliases' | 'hallRules' | 'competenceStyles'
+  key: 'settings' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue' | 'eventLinks' | 'hallRules' | 'competenceStyles'
   value: unknown
 }
 
@@ -49,9 +49,8 @@ const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations,
 export const loadWorkspace = async (): Promise<Workspace | null> => {
   const settings = await db.meta.get('settings')
   if (!settings) return null
-  const [eventLinks, hallAliases, hallRules, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, persons, unavailability, assignments, demandAdjustments] = await Promise.all([
+  const [eventLinks, hallRules, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, persons, unavailability, assignments, demandAdjustments] = await Promise.all([
     db.meta.get('eventLinks'),
-    db.meta.get('hallAliases'),
     db.meta.get('hallRules'),
     db.meta.get('hiddenVenue'),
     db.meta.get('venueImport'),
@@ -74,7 +73,6 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     venueImport: venueImport?.value as VenueImportInfo | undefined,
     hiddenVenue: (hiddenVenue?.value as Record<string, true> | undefined) ?? {},
     eventLinks: (eventLinks?.value as Record<string, string> | undefined) ?? {},
-    hallAliases: (hallAliases?.value as Record<string, string> | undefined) ?? {},
     ...(hallRules ? { hallRules: hallRules.value as HallRules } : {}),
     kpi: kpi?.value as KpiConfig | undefined,
     overrides: (overrides?.value as Record<string, LineOverride> | undefined) ?? {},
@@ -101,7 +99,6 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
       ...(workspace.venueImport ? [{ key: 'venueImport' as const, value: workspace.venueImport }] : []),
       { key: 'overrides' as const, value: workspace.overrides ?? {} },
       { key: 'hiddenVenue' as const, value: workspace.hiddenVenue ?? {} },
-      { key: 'hallAliases' as const, value: workspace.hallAliases ?? {} },
       ...(workspace.hallRules ? [{ key: 'hallRules' as const, value: workspace.hallRules }] : []),
       { key: 'competenceStyles' as const, value: workspace.competenceStyles ?? {} },
     ])
@@ -174,11 +171,9 @@ export const writeVenue = (venue: VenueBooking[], info: VenueImportInfo | undefi
 
 export const putHiddenVenue = (hidden: Record<string, true>) => db.meta.put({ key: 'hiddenVenue', value: hidden })
 
-export const putHallAliases = (aliases: Record<string, string>) => db.meta.put({ key: 'hallAliases', value: aliases })
-
 export const putHallRules = (rules: HallRules) => db.meta.put({ key: 'hallRules', value: rules })
 
-/** Back to the examples: the planner has no rules of his own. */
+/** Back to before halls were read in: there are no rules. */
 export const deleteHallRules = () => db.meta.delete('hallRules')
 
 /** Replaces the project table. The numbers an earlier version kept on the events are in it by now, and go. */

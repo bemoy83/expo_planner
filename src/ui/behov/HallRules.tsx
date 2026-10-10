@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { todayIso } from '../../domain/dates'
-import { diffHallSetup, hallChoices, hallSetupOf, mergeHallSetup, placeNames, PROJECT_HALLS, replaceHallSetup, UNRESOLVED_HALL, withAlias, withPlaceRenamed, type HallSetup, type SetupDiff } from '../../domain/locations'
+import { diffHallRules, hallChoices, mergeHallRules, NO_HALL_RULES, placeNames, PROJECT_HALLS, UNRESOLVED_HALL, withChoice, withPlaceRenamed, type SetupDiff } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
 import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
@@ -52,18 +52,17 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const { workspace, setHallRules } = useWorkspace()
   const ws = workspace!
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
-  // Until the planner has made rules of his own, the examples are shown, places and choices; the first edit here makes them his.
-  const { rules, aliases } = hallSetupOf(halls, ws.hallRules, ws.hallAliases)
+  const rules = ws.hallRules ?? NO_HALL_RULES
   const projectName = (projectNo: string) => ws.visma?.find((v) => v.projectNo === projectNo)?.eventName ?? ws.projects.find((ref) => ref.projectNo === projectNo)?.name ?? projectNo
   const places = placeNames(halls, rules)
-  const choices = hallChoices(aliases)
+  const choices = hallChoices(rules.choices)
   const [place, setPlace] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const [phrase, setPhrase] = useState({ text: '', hall: '' })
-  const [pending, setPending] = useState<{ file: string; incoming: HallSetup } | null>(null)
+  const [pending, setPending] = useState<{ file: string; incoming: Rules } | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
   const empty = !rules.places.length && !rules.phrases.length && !choices.length
-  const apply = (file: string, next: HallSetup, how: string) => {
-    setHallRules(next.rules, next.aliases)
+  const apply = (file: string, next: Rules, how: string) => {
+    setHallRules(next)
     setMessage({ kind: 'ok', text: `${file} ${how}. Kan angres med Ctrl/Cmd+Z.` })
     setPending(null)
   }
@@ -71,16 +70,16 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
     try {
       const incoming = readHallreglerWorkbook(new Uint8Array(await file.arrayBuffer()))
       // Nothing to merge with while there are no rules.
-      if (empty) apply(file.name, replaceHallSetup(incoming), 'lest inn')
+      if (empty) apply(file.name, incoming, 'lest inn')
       else setPending({ file: file.name, incoming })
     } catch (e) {
       setMessage({ kind: 'error', text: errorText(e) })
     }
   }
-  const diff = pending ? diffHallSetup({ rules, aliases }, pending.incoming) : null
+  const diff = pending ? diffHallRules(rules, pending.incoming) : null
   const taken = (name: string) => [...halls, ...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
-  const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next }, aliases)
-  const setPhrases = (next: Rules['phrases']) => setHallRules({ ...rules, phrases: next }, aliases)
+  const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next })
+  const setPhrases = (next: Rules['phrases']) => setHallRules({ ...rules, phrases: next })
   /** The rules are tried from the top, so their order is the planner's to set. */
   const movePhrase = (from: number, to: number) => {
     const next = [...rules.phrases]
@@ -89,8 +88,8 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   }
   /** The word rules and the choices that point at the place follow it to its new name. */
   const rename = (from: string, to: string) => {
-    const next = withPlaceRenamed(halls, rules, aliases, from, to)
-    if (next.rules !== rules) setHallRules(next.rules, next.aliases)
+    const next = withPlaceRenamed(halls, rules, from, to)
+    if (next !== rules) setHallRules(next)
   }
   const placeSelect = (value: string, label: string, onChange: (hall: string) => void) => (
     <select value={value} aria-label={label} onChange={(e) => onChange(e.target.value)}>
@@ -118,7 +117,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
           exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord og et for valg."
           importTitle="Les inn en fil med hallregler: en som er eksportert herfra, eller en med de samme arkene og kolonnene."
           canExport={!empty}
-          onExport={() => download(`expo-planner-hallregler-${todayIso()}.xlsx`, writeHallreglerWorkbook({ rules, aliases }), XLSX_TYPE)}
+          onExport={() => download(`expo-planner-hallregler-${todayIso()}.xlsx`, writeHallreglerWorkbook(rules), XLSX_TYPE)}
           onFile={onFile}
         />
       </div>
@@ -129,7 +128,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         <p className="hint">
           Slik blir Hall/sted til en hall i Kalender, i denne rekkefølgen: ditt valg for teksten i prosjektet, ditt valg for teksten i alle prosjekter, navnet på hallen eller stedet («Hall
           C» er C), og til slutt den første regelen for ord som teksten inneholder. Et navn leses uansett stavemåte: store og små bokstaver, «Hall» foran, mellomrom og bindestrek skiller ikke, så «Studio 3» er
-          STUDIO3. Hele teksten må være navnet. Alt annet her er ditt eget: det som står fra start er eksempler du kan endre og slette.
+          STUDIO3. Hele teksten må være navnet. Alt annet her er ditt eget: det som kom inn med de første hallene er eksempler du kan endre og slette.
         </p>
 
         <h3>Steder som står for flere haller</h3>
@@ -253,7 +252,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
 
         <h3>Valg for enkelte tekster</h3>
         <p className="hint">
-          En tekst som teller under et sted fordi du har valgt det. Valget gjelder også når «Hall» står foran: «a» gir A1 plasserer «Hall A». Bokstavene som står her fra start er eksempler
+          En tekst som teller under et sted fordi du har valgt det. Valget gjelder også når «Hall» står foran: «a» gir A1 plasserer «Hall A». Bokstavene som kom inn med de første hallene er eksempler
           for bokstaver med én hall. Du lager nye valg i kolonnen Plassering på Behov.
         </p>
         {choices.length ? (
@@ -273,7 +272,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
                   <td>{choice.projectNo ? projectName(choice.projectNo) : 'Alle prosjekter'}</td>
                   <td>{choice.hall}</td>
                   <td className="actions">
-                    <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallRules(rules, withAlias(aliases, choice.text, undefined, choice.projectNo))}>
+                    <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallRules(withChoice(rules, choice.text, undefined, choice.projectNo))}>
                       <X size={13} aria-hidden />
                     </button>
                   </td>
@@ -294,7 +293,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
             diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp > 0 ? `; ${diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp} som bare finnes i appen forsvinner` : ''
           }. Ved sammenslåing prøves filens regler for ord før de som bare finnes i appen`}
           onCancel={() => setPending(null)}
-          onApply={(mode) => apply(pending.file, mode === 'merge' ? mergeHallSetup({ rules, aliases }, pending.incoming) : replaceHallSetup(pending.incoming), mode === 'merge' ? 'slått sammen med reglene' : 'har erstattet reglene')}
+          onApply={(mode) => apply(pending.file, mode === 'merge' ? mergeHallRules(rules, pending.incoming) : pending.incoming, mode === 'merge' ? 'slått sammen med reglene' : 'har erstattet reglene')}
         />
       )}
     </div>

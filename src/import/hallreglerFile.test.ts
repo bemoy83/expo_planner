@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { diffHallSetup, mergeHallSetup, replaceHallSetup, withAlias, type HallSetup } from '../domain/locations'
+import { diffHallRules, mergeHallRules, NO_HALL_RULES, withChoice } from '../domain/locations'
+import type { HallRules } from '../domain/types'
 import { HallreglerFormatError, readHallreglerWorkbook, writeHallreglerWorkbook } from './hallreglerFile'
 import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
 
-const setup: HallSetup = {
-  rules: {
-    places: [{ name: 'B', halls: ['B1', 'B2'] }, { name: 'Nordfløy', halls: ['C', 'E'], collects: false }],
-    phrases: [{ text: 'scene', hall: 'C' }, { text: 'øst', hall: 'Nordfløy' }],
-    seeded: true,
-    lettersSeeded: true,
-  },
-  aliases: withAlias(withAlias({}, 'a', 'A1'), 'Inng øst', 'E', '26100'),
+const setup: HallRules = {
+  places: [{ name: 'B', halls: ['B1', 'B2'] }, { name: 'Nordfløy', halls: ['C', 'E'], collects: false }],
+  phrases: [{ text: 'scene', hall: 'C' }, { text: 'øst', hall: 'Nordfløy' }],
+  choices: withChoice(withChoice(NO_HALL_RULES, 'a', 'A1'), 'Inng øst', 'E', '26100').choices,
 }
 
 describe('the Hallregler file', () => {
@@ -24,31 +21,27 @@ describe('the Hallregler file', () => {
 
   it('is read back as the setup it was written from', () => {
     const read = readHallreglerWorkbook(writeHallreglerWorkbook(setup))
-    expect(read.rules.places).toEqual([{ name: 'B', halls: ['B1', 'B2'] }, { name: 'Nordfløy', halls: ['C', 'E'], collects: false }])
-    expect(read.rules.phrases).toEqual(setup.rules.phrases)
-    expect(read.aliases).toEqual(setup.aliases)
-    expect(diffHallSetup(setup, read)).toEqual({ places: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 }, phrases: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 }, choices: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 } })
+    expect(read).toEqual(setup)
+    expect(diffHallRules(setup, read)).toEqual({ places: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 }, phrases: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 }, choices: { added: 0, changed: 0, unchanged: 2, onlyInApp: 0 } })
   })
 
   it('keeps a choice for lines without a Hall/Sted through the file', () => {
-    const blank = { ...setup, aliases: withAlias({}, '', 'C', '26100') }
-    expect(readHallreglerWorkbook(writeHallreglerWorkbook(blank)).aliases).toEqual(blank.aliases)
+    const blank = withChoice({ ...setup, choices: {} }, '', 'C', '26100')
+    expect(readHallreglerWorkbook(writeHallreglerWorkbook(blank)).choices).toEqual(blank.choices)
   })
 
   it('reads a file with one of the sheets, and says what a file must hold when it has none', () => {
     const onlyPlaces = readHallreglerWorkbook(writeXlsx([{ name: 'Ark1', head: ['Sted', 'Står for'], rows: [['Vest', 'D1; D2'], ['', 'C']] }]))
-    expect(onlyPlaces).toEqual({ rules: { places: [{ name: 'Vest', halls: ['D1', 'D2'] }], phrases: [] }, aliases: {} })
+    expect(onlyPlaces).toEqual({ places: [{ name: 'Vest', halls: ['D1', 'D2'] }], phrases: [], choices: {} })
     expect(() => readHallreglerWorkbook(writeXlsx([{ name: 'Ark1', head: ['Navn', 'Aktiv'], rows: [['Anna', 'Ja']] }]))).toThrow(HallreglerFormatError)
   })
 
   it('merges a file into the setup: the file wins, what only the app has is kept, and the file\'s word rules come first', () => {
-    const file: HallSetup = { rules: { places: [{ name: 'b', halls: ['B1', 'B2', 'B3'] }, { name: 'Vest', halls: ['D1'] }], phrases: [{ text: 'Øst', hall: 'E' }, { text: 'kafé', hall: 'C' }] }, aliases: { a: 'A1', bakrom: 'C' } }
-    expect(diffHallSetup(setup, file)).toEqual({ places: { added: 1, changed: 1, unchanged: 0, onlyInApp: 1 }, phrases: { added: 1, changed: 1, unchanged: 0, onlyInApp: 1 }, choices: { added: 1, changed: 0, unchanged: 1, onlyInApp: 1 } })
-    const merged = mergeHallSetup(setup, file)
-    expect(merged.rules.places.map((place) => [place.name, place.halls.length])).toEqual([['b', 3], ['Nordfløy', 2], ['Vest', 1]])
-    expect(merged.rules.phrases.map((phrase) => phrase.text)).toEqual(['Øst', 'kafé', 'scene'])
-    expect(Object.keys(merged.aliases).sort()).toEqual(['26100\tinng øst', 'a', 'bakrom'])
-    // Replaced, the setup is the file's, and no examples are put in beside it.
-    expect(replaceHallSetup(file)).toEqual({ rules: { ...file.rules, seeded: true, lettersSeeded: true }, aliases: file.aliases })
+    const file: HallRules = { places: [{ name: 'b', halls: ['B1', 'B2', 'B3'] }, { name: 'Vest', halls: ['D1'] }], phrases: [{ text: 'Øst', hall: 'E' }, { text: 'kafé', hall: 'C' }], choices: { a: 'A1', bakrom: 'C' } }
+    expect(diffHallRules(setup, file)).toEqual({ places: { added: 1, changed: 1, unchanged: 0, onlyInApp: 1 }, phrases: { added: 1, changed: 1, unchanged: 0, onlyInApp: 1 }, choices: { added: 1, changed: 0, unchanged: 1, onlyInApp: 1 } })
+    const merged = mergeHallRules(setup, file)
+    expect(merged.places.map((place) => [place.name, place.halls.length])).toEqual([['b', 3], ['Nordfløy', 2], ['Vest', 1]])
+    expect(merged.phrases.map((phrase) => phrase.text)).toEqual(['Øst', 'kafé', 'scene'])
+    expect(Object.keys(merged.choices).sort()).toEqual(['26100\tinng øst', 'a', 'bakrom'])
   })
 })

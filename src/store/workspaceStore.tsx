@@ -5,15 +5,15 @@ import { type AllocationRow, type DemandLine, type HallRules, type KpiConfig, ty
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
-import { locateDemand, withAlias } from '../domain/locations'
+import { exampleRules, locateDemand, withChoice } from '../domain/locations'
 import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences, withOneCompetenceName } from '../domain/competences'
 import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallAliases, putHallRules, deleteHallRules, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallRules, deleteHallRules, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
 import { writeQueue } from './writeQueue'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordHallAliases, recordHallRules, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordHallRules, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -59,9 +59,9 @@ interface WorkspaceStore {
   /** The same for several lines of a project at once: the project's Visma lines are recalculated and written once. */
   setLineOverrides: (projectNo: string | string[], patches: { key: string; patch: LineOverride }[]) => void
   /** Places every demand line with this Hall/Sted text in a hall, in every project or in the one given; without a hall, the text is read automatically again. */
-  setHallAlias: (text: string, hall: string | undefined, projectNo?: string) => void
-  /** Replaces the planner's own places and rules for words, and with them the choices for texts where a place they point at got another name. */
-  setHallRules: (rules: HallRules, aliases?: Record<string, string>) => void
+  setHallChoice: (text: string, hall: string | undefined, projectNo?: string) => void
+  /** Replaces the planner's rules for Hall/Sted: his places, his rules for words and his choices for texts. */
+  setHallRules: (rules: HallRules) => void
   /** Forgets the decisions made for a Visma line, typically one that has left the export. */
   removeLineOverride: (projectNo: string, key: string) => void
   /** Adds or changes a ledger line that does not come from Visma. */
@@ -205,7 +205,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         })
           .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
           .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined))
-          .then(() => (writes.hallAliases ? putHallAliases(writes.hallAliases) : undefined))
           .then(async () => {
             if (writes.hallRules !== null) await (writes.hallRules ? putHallRules(writes.hallRules) : deleteHallRules())
           })
@@ -343,8 +342,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const importedAt = new Date().toISOString()
       const incoming = bookings.map((booking, index) => ({ ...booking, id: `${VENYOU_ID_PREFIX}${importedAt}-${index}` }))
       const diff = diffVenue(ws.venue, incoming, window)
-      const next: Workspace = { ...ws, venue: mergeVenue(ws.venue, incoming, window), venueImport: { fileName, importedAt, ...window } }
-      commit(next, () => writeVenue(next.venue, next.venueImport), (step) => recordVenue(step, ws, next))
+      const venue = mergeVenue(ws.venue, incoming, window)
+      // The first halls bring the example rules with them, as the planner's own from then on.
+      const hallRules = ws.hallRules ?? exampleRules(hallNames(venue))
+      const next: Workspace = { ...ws, venue, venueImport: { fileName, importedAt, ...window }, hallRules }
+      commit(
+        next,
+        () => writeVenue(next.venue, next.venueImport).then(() => (ws.hallRules ? undefined : putHallRules(hallRules))),
+        (step) => {
+          recordVenue(step, ws, next)
+          if (!ws.hallRules) recordHallRules(step, undefined, hallRules)
+        },
+      )
       return { ...diff, ...window }
     },
     [commit],
@@ -377,33 +386,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
-  const setHallAlias = useCallback(
-    (text: string, hall: string | undefined, projectNo?: string) => {
+  const setHallRules = useCallback(
+    (rules: HallRules) => {
       const ws = current.current
-      if (!ws) return
-      const before = ws.hallAliases ?? {}
-      const after = withAlias(before, text, hall, projectNo)
-      commit({ ...ws, hallAliases: after }, () => putHallAliases(after), (step) => recordHallAliases(step, before, after))
+      if (ws) commit({ ...ws, hallRules: rules }, () => putHallRules(rules), (step) => recordHallRules(step, ws.hallRules, rules))
     },
     [commit],
   )
 
-  const setHallRules = useCallback(
-    (rules: HallRules, aliases?: Record<string, string>) => {
+  const setHallChoice = useCallback(
+    (text: string, hall: string | undefined, projectNo?: string) => {
       const ws = current.current
-      if (!ws) return
-      // Before the planner has rules of his own there are the examples; undoing the first edit brings them back.
-      const before = ws.hallRules
-      commit(
-        { ...ws, hallRules: rules, ...(aliases ? { hallAliases: aliases } : {}) },
-        () => putHallRules(rules).then(() => (aliases ? putHallAliases(aliases) : undefined)),
-        (step) => {
-          recordHallRules(step, before, rules)
-          if (aliases) recordHallAliases(step, ws.hallAliases ?? {}, aliases)
-        },
-      )
+      if (ws) setHallRules(withChoice(ws.hallRules, text, hall, projectNo))
     },
-    [commit],
+    [setHallRules],
   )
 
   const setVenueHidden = useCallback(
@@ -568,9 +564,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const demand = workspace?.demand
   const venue = workspace?.venue
   // Hours are counted per hall of the hall ledger; demand whose Hall/Sted names none of them is gathered as unresolved.
-  const hallAliases = workspace?.hallAliases
   const hallRules = workspace?.hallRules
-  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallAliases, hallRules) : EMPTY_DEMAND), [demand, venue, hallAliases, hallRules])
+  const locatedDemand = useMemo(() => (demand ? locateDemand(demand, hallNames(venue ?? []), hallRules) : EMPTY_DEMAND), [demand, venue, hallRules])
   const demandIndex = useMemo(() => buildDemandIndex(locatedDemand), [locatedDemand])
 
   const canUndo = historySize.undo > 0
@@ -599,7 +594,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       importVisma,
       setLineOverride,
       setLineOverrides,
-      setHallAlias,
+      setHallChoice,
       setHallRules,
       removeLineOverride,
       saveDemandLine,
@@ -610,7 +605,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallAlias, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallChoice, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>

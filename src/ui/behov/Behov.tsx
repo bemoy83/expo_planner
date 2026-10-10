@@ -49,7 +49,7 @@ interface Props {
 
 /** The demand ledger for one project: Visma lines, the planner's own lines and earlier years, side by side. */
 export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: Props) {
-  const { workspace, importVisma, setLineOverride, setLineOverrides, removeLineOverride, removeDemandLine, setHallAlias } = useWorkspace()
+  const { workspace, importVisma, setLineOverride, setLineOverrides, removeLineOverride, removeDemandLine, setHallChoice } = useWorkspace()
   const ws = workspace!
   const [message, setMessage] = useState<Message | null>(null)
   const [dialog, setDialog] = useState<{ line?: DemandLine } | null>(null)
@@ -73,8 +73,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const rules = ws.hallRules
   const places = useMemo(() => placeNames(halls, rules), [halls, rules])
   const shared = useMemo(() => new Map(sharedPlaces(halls, rules).map((place) => [place.name, place.halls])), [halls, rules])
-  const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, ws.hallAliases, line.projectNo, rules)
-  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, booked.get(line.projectNo), rules, ws.hallAliases) : null)
+  const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, rules, line.projectNo)
+  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, booked.get(line.projectNo), rules) : null)
   /** Why a line that is not placed is offered the hall it is, in a few words: an offer is explained where it is made. */
   const offerReason = (offered: HallOffer): string =>
     offered.own ? `prosjektet har bare ${offered.hall}` : offered.hall === PROJECT_HALLS ? 'teksten nevner flere haller' : `teksten nevner ${offered.hall}`
@@ -120,7 +120,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
           value={pinned ? place.hall : ''}
           aria-label={`Plassering for ${shown}`}
           title={`${place.by === 'none' ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «${UNRESOLVED_HALL}» til du velger en hall. ' : ''}${scope}`}
-          onChange={(e) => setHallAlias(text, e.target.value || undefined, place.own || blank ? line.projectNo : undefined)}
+          onChange={(e) => setHallChoice(text, e.target.value || undefined, place.own || blank ? line.projectNo : undefined)}
         >
           <option value="">{auto} (auto)</option>
           {places.map((hall) => (
@@ -140,7 +140,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
                   ? `«${text.trim()}» nevner flere haller. ${PROJECT_HALLS} er behov som ikke er fordelt på hall: det teller som ett sted i Kalender, med dagene til alle hallene prosjektet har.`
                   : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
             }
-            onClick={() => setHallAlias(text, offered.hall, offered.own ? line.projectNo : undefined)}
+            onClick={() => setHallChoice(text, offered.hall, offered.own ? line.projectNo : undefined)}
           >
             Bruk {offered.hall}
           </button>
@@ -158,19 +158,19 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
       found.set(`${projectNo ?? ''}|${line.hall.trim().toLowerCase()}`, { text: line.hall, hall: offered.hall, projectNo })
     }
     return [...found.values()]
-  }, [ws.demand, halls, ws.hallAliases, booked, rules]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ws.demand, halls, booked, rules]) // eslint-disable-line react-hooks/exhaustive-deps
   const takeOffers = () => {
     // One step to undo: the choices are made in the same go.
-    for (const { text, hall, projectNo } of offers) setHallAlias(text, hall, projectNo)
+    for (const { text, hall, projectNo } of offers) setHallChoice(text, hall, projectNo)
     setMessage({ kind: 'ok', text: `${offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} er plassert etter forslaget. Kan angres med Ctrl/Cmd+Z.` })
   }
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
   // Every project's Visma lines, with what still needs the planner: the filter and the actions for all projects read from this.
-  const review = useMemo(() => reviewVisma(ws.visma ?? [], kpi, ws.overrides ?? {}, halls, ws.hallAliases, rules), [ws.visma, kpi, ws.overrides, halls, ws.hallAliases, rules])
+  const review = useMemo(() => reviewVisma(ws.visma ?? [], kpi, ws.overrides ?? {}, halls, rules), [ws.visma, kpi, ws.overrides, halls, rules])
   const vismaLines = useMemo(() => review.get(projectNo)?.lines ?? [], [review, projectNo])
   // With no project chosen, the lines of every project are in scope, in the order of the project list.
   const scopeLines = useMemo(() => (projectNo ? vismaLines : projects.flatMap(([no]) => review.get(no)?.lines ?? [])), [projectNo, vismaLines, projects, review])
-  const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, ws.hallAliases, rules)), [scopeLines, filter, halls, ws.hallAliases, rules])
+  const matchedLines = useMemo(() => scopeLines.filter((line) => matchesFilter(line, filter, halls, rules)), [scopeLines, filter, halls, rules])
   const totals = useMemo(() => {
     const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
     return { all: sum('all'), open: sum('open'), unresolved: sum('unresolved'), issue: sum('issue'), ready: [...review.values()].reduce((n, project) => n + project.ready, 0) }

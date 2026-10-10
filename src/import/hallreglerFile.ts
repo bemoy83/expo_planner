@@ -1,4 +1,4 @@
-import { aliasKey, hallChoices, type HallSetup } from '../domain/locations'
+import { choiceKey, hallChoices } from '../domain/locations'
 import type { HallRules } from '../domain/types'
 import { dataRows, findHeader, isMarked, readXlsx, text, writeXlsx, type Sheet } from './xlsx'
 
@@ -23,11 +23,11 @@ const NO = 'Nei'
 const BLANK = '(tom)'
 
 /** The setup as a workbook. A choice for every project has no project number. */
-export const writeHallreglerWorkbook = ({ rules, aliases }: HallSetup): Uint8Array =>
+export const writeHallreglerWorkbook = (rules: HallRules): Uint8Array =>
   writeXlsx([
     { name: 'Steder', head: [PLACE, HALLS, COLLECTS], rows: rules.places.map((place) => [place.name, place.halls.join(', '), place.collects === false ? NO : YES]) },
     { name: 'Ord', head: [NUMBER, WORDS, COUNTS], rows: rules.phrases.map((phrase, index) => [index + 1, phrase.text, phrase.hall]) },
-    { name: 'Valg', head: [TEXT, PROJECT, COUNTS], rows: hallChoices(aliases).map((choice) => [choice.text || BLANK, choice.projectNo ?? '', choice.hall]) },
+    { name: 'Valg', head: [TEXT, PROJECT, COUNTS], rows: hallChoices(rules.choices).map((choice) => [choice.text || BLANK, choice.projectNo ?? '', choice.hall]) },
   ])
 
 /** The rows of the first sheet that has the headings, each as a function from a heading to its text. */
@@ -49,13 +49,13 @@ const rowsWith = (sheets: Sheet[], required: string[]): ((name: string) => strin
  * «Hall/sted» and «Teller under», with «Prosjektnr.» where the choice is for one project. A place with an empty
  * «Samler hallene» collects its halls.
  */
-export const readHallreglerWorkbook = (bytes: Uint8Array): HallSetup => {
+export const readHallreglerWorkbook = (bytes: Uint8Array): HallRules => {
   const sheets = [...readXlsx(bytes).values()]
   const places = rowsWith(sheets, [PLACE, HALLS])
   const phrases = rowsWith(sheets, [WORDS, COUNTS])
   const choices = rowsWith(sheets, [TEXT, COUNTS])
   if (!places && !phrases && !choices) throw new HallreglerFormatError('Fant ingen hallregler. Filen må ha et ark med kolonnene «Sted» og «Står for», «Inneholder» og «Teller under», eller «Hall/sted» og «Teller under».')
-  const rules: HallRules = {
+  return {
     places: (places ?? [])
       .filter((get) => get(PLACE))
       .map((get) => {
@@ -63,7 +63,6 @@ export const readHallreglerWorkbook = (bytes: Uint8Array): HallSetup => {
         return { name: get(PLACE), halls, ...(get(COLLECTS) && !isMarked(get(COLLECTS)) ? { collects: false } : {}) }
       }),
     phrases: (phrases ?? []).filter((get) => get(WORDS) && get(COUNTS)).map((get) => ({ text: get(WORDS), hall: get(COUNTS) })),
+    choices: Object.fromEntries((choices ?? []).filter((get) => get(TEXT) && get(COUNTS)).map((get) => [choiceKey(get(TEXT) === BLANK ? '' : get(TEXT), get(PROJECT) || undefined), get(COUNTS)])),
   }
-  const aliases = Object.fromEntries((choices ?? []).filter((get) => get(TEXT) && get(COUNTS)).map((get) => [aliasKey(get(TEXT) === BLANK ? '' : get(TEXT), get(PROJECT) || undefined), get(COUNTS)]))
-  return { rules, aliases }
 }

@@ -20,9 +20,7 @@ export interface Change {
   venue?: Delta<{ bookings: VenueBooking[]; info: VenueImportInfo | undefined }>
   /** Which hall bookings are left out of the Kalender. */
   hiddenVenue?: Delta<Record<string, true>>
-  /** Halls chosen by hand for Hall/Sted texts. */
-  hallAliases?: Delta<Record<string, string>>
-  /** The planner's own places and rules for words; `undefined` while he has made none. */
+  /** The planner's rules for placing Hall/Sted texts; `undefined` before halls are first read in. */
   hallRules?: Delta<HallRules | undefined>
   /** The project table: the names each project goes by. */
   projects?: Delta<ProjectRef[]>
@@ -88,10 +86,6 @@ export const recordVenue = (change: Change, before: Workspace, after: Workspace)
   }
 }
 
-export const recordHallAliases = (change: Change, before: Record<string, string>, after: Record<string, string>) => {
-  change.hallAliases = { before: change.hallAliases ? change.hallAliases.before : before, after }
-}
-
 export const recordHallRules = (change: Change, before: HallRules | undefined, after: HallRules) => {
   change.hallRules = { before: change.hallRules ? change.hallRules.before : before, after }
 }
@@ -133,7 +127,6 @@ export const isEmptyChange = (change: Change): boolean =>
   !change.kpi &&
   !change.venue &&
   !change.hiddenVenue &&
-  !change.hallAliases &&
   !change.hallRules &&
   !change.projects &&
   !change.competenceStyles &&
@@ -172,7 +165,6 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
   const kpi = change.kpi ? target(change.kpi, direction) : workspace.kpi
   const venue = change.venue ? target(change.venue, direction) : { bookings: workspace.venue, info: workspace.venueImport }
   return { ...workspace, allocations, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue,
-    hallAliases: change.hallAliases ? target(change.hallAliases, direction) : workspace.hallAliases,
     hallRules: change.hallRules ? target(change.hallRules, direction) : workspace.hallRules,
     projects: change.projects ? target(change.projects, direction) : workspace.projects,
     persons: change.persons.size ? applyList(workspace.persons, change.persons, direction)?.sort((a, b) => a.order - b.order) : workspace.persons,
@@ -197,8 +189,7 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   kpi: change.kpi ? (target(change.kpi, direction) ?? null) : undefined,
   venue: change.venue ? target(change.venue, direction) : null,
   hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : null,
-  hallAliases: change.hallAliases ? target(change.hallAliases, direction) : null,
-  /** `null` means the rules are unchanged; `undefined` means the planner's own should be removed. */
+  /** `null` means the rules are unchanged; `undefined` means there are none again, as before halls were read in. */
   hallRules: change.hallRules ? target(change.hallRules, direction) : null,
   projects: change.projects ? target(change.projects, direction) : null,
   staffing: {

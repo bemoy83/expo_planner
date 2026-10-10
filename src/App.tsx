@@ -60,7 +60,6 @@ const emptyWorkspace = (): Workspace => ({
   allocations: [],
   overrides: {},
   hiddenVenue: {},
-  hallAliases: {},
   visma: [],
 })
 

@@ -284,16 +284,14 @@ export interface DemandAdjustment {
   note?: string
 }
 
-/** The planner's own rules for placing a Hall/Sted text, beside the choices for single texts (`hallAliases`). See `domain/locations.ts`. */
+/** The planner's own rules for placing a Hall/Sted text. See `domain/locations.ts`. */
 export interface HallRules {
   /** Places the planner has made of several halls of the ledger: a name, and the halls it stands for. */
   places: { name: string; halls: string[]; /** False where the halls keep counting by themselves; else what lands in one of them counts under the place. */ collects?: boolean }[]
   /** A text that holds these words counts under the place. The first that fits, in the planner's order. */
   phrases: { text: string; hall: string }[]
-  /** The example places have been put among the planner's own, to keep or to delete: they are not added again. */
-  seeded?: true
-  /** The same for the example choices, a letter for its one numbered hall («A» is «A1»): they are among the planner's choices, in `hallAliases`. */
-  lettersSeeded?: true
+  /** Places chosen for single Hall/Sted texts, keyed by `choiceKey`: for every line with the text, or for those of one project. */
+  choices: Record<string, string>
 }
 
 export const PLANNED_BASIS = 'Planlagt'
@@ -308,8 +306,7 @@ export interface Workspace {
   allocations: AllocationRow[]
   /** Only in data stored by earlier versions: numbers typed on the events. Read into `projects` by `withEventLinksAsProjects`. */
   eventLinks?: Record<string, string>
-  /** Halls chosen by hand for Hall/Sted texts, keyed by `aliasKey`: for every line with the text, or for those of one project. */
-  hallAliases?: Record<string, string>
+  /** Unset until halls are first read in, which writes the examples (`exampleRules`). */
   hallRules?: HallRules
   /** Hall bookings left out of the Kalender, keyed by `venueKey`. They stay in the hall ledger. */
   hiddenVenue?: Record<string, true>

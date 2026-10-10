@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { withAlias } from './locations'
+import { withChoice } from './locations'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 import { vismaLineKey } from './visma'
 import { countOf, matchesFilter, reviewVisma } from './vismaReview'
@@ -26,20 +26,20 @@ const inPlan = { [vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')]: { inPla
 
 describe('reviewVisma', () => {
   it('counts per project what is not in the plan, what has no hall and what gives no hours', () => {
-    const review = reviewVisma(visma, kpi, inPlan, halls, {})
+    const review = reviewVisma(visma, kpi, inPlan, halls)
     expect(review.get('26970')).toMatchObject({ open: 3, ready: 2, unresolved: 1, issues: 1 })
     expect(review.get('26970')!.lines.map((line) => line.competence)).toEqual(['FOGA', 'FOGA', 'Print', 'Ukjent'])
     expect(review.get('26100')).toMatchObject({ open: 1, ready: 1, unresolved: 0, issues: 0 })
   })
 
   it('counts a line as placed once the planner has chosen a hall for its text', () => {
-    const review = reviewVisma(visma, kpi, {}, halls, withAlias({}, 'Møterom hall E1', 'D'))
+    const review = reviewVisma(visma, kpi, {}, halls, withChoice(undefined, 'Møterom hall E1', 'D'))
     expect(review.get('26970')!.unresolved).toBe(0)
   })
 
   it('filters the lines the way it counts them', () => {
-    const project = reviewVisma(visma, kpi, inPlan, halls, {}).get('26970')!
-    for (const filter of ['all', 'open', 'unresolved', 'issue'] as const) expect(project.lines.filter((line) => matchesFilter(line, filter, halls, {}))).toHaveLength(countOf(project, filter))
+    const project = reviewVisma(visma, kpi, inPlan, halls).get('26970')!
+    for (const filter of ['all', 'open', 'unresolved', 'issue'] as const) expect(project.lines.filter((line) => matchesFilter(line, filter, halls))).toHaveLength(countOf(project, filter))
     expect(countOf(project, 'all')).toBe(4)
   })
 })
