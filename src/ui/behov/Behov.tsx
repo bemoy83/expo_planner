@@ -7,7 +7,7 @@ import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, productTypeLabel, prod
 import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { placeNames, placeOf, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { placeNames, placeOf, PROJECT_HALLS, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallsOfProjects } from '../../domain/projects'
 import { hallNames } from '../../domain/venue'
 import { DataTable } from '../DataTable'
@@ -107,7 +107,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
           <option value="">{auto} (auto)</option>
           {places.map((hall) => (
             <option key={hall} value={hall}>
-              {hall}
+              {hall === PROJECT_HALLS ? `${hall} (hallene samlet)` : hall}
             </option>
           ))}
           <option value={UNRESOLVED_HALL}>{UNRESOLVED_HALL}</option>
@@ -118,7 +118,9 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
             title={
               offered.own
                 ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${text.trim()}» i dette prosjektet i ${offered.hall}.`
-                : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
+                : offered.hall === PROJECT_HALLS
+                  ? `«${text.trim()}» nevner flere haller. ${PROJECT_HALLS} er hallene til prosjektet samlet: behovet teller som ett sted i Kalender, med dagene til alle hallene.`
+                  : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
             }
             onClick={() => setHallAlias(text, offered.hall, offered.own ? line.projectNo : undefined)}
           >

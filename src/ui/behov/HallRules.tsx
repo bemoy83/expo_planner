@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
-import { hallChoices, letterRules, NO_HALL_RULES, placeNames, ruleKey, sharedPlaces, UNRESOLVED_HALL } from '../../domain/locations'
+import { hallChoices, letterRules, NO_HALL_RULES, placeNames, PROJECT_HALLS, ruleKey, sharedPlaces, UNRESOLVED_HALL } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -46,7 +46,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
       {empty !== undefined && <option value="">{empty}</option>}
       {places.map((name) => (
         <option key={name} value={name}>
-          {name}
+          {name === PROJECT_HALLS ? `${name} (hallene til prosjektet samlet)` : name}
         </option>
       ))}
     </select>
@@ -71,7 +71,11 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         </p>
 
         <h3>Steder som står for flere haller</h3>
-        <p className="hint">Et sted teller som én plass i Kalender, med dagene til hallene det står for. Haller med samme navn foran et nummer er et sted av seg selv.</p>
+        <p className="hint">
+          Et sted teller som én plass i Kalender, med dagene til hallene det står for. Haller med samme navn foran et nummer er et sted av seg selv. <strong>{PROJECT_HALLS}</strong> finnes alltid:
+          det er hallene til prosjektet samlet, for behov som er bestilt som én sum for flere haller, som «Hall C, D, E». Du gir en tekst {PROJECT_HALLS} i kolonnen Plassering, eller med en
+          regel for ord under.
+        </p>
         <table className="ledger rules">
           <thead>
             <tr>

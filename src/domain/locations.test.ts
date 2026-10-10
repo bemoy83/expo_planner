@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hallChoices, locateDemand, locateRows, placeNames, placeOf, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withAlias } from './locations'
+import { hallChoices, PROJECT_HALLS, locateDemand, locateRows, placeNames, placeOf, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withAlias } from './locations'
 import type { AllocationRow, DemandLine } from './types'
 import { buildWindows, windowFor } from './windows'
 
@@ -22,7 +22,7 @@ describe('placing demand in the halls of the hall ledger', () => {
 
   it('takes a hall letter with several halls for their shared place, until a rule sends it to one of them', () => {
     expect(sharedPlaces(halls)).toEqual([{ name: 'B', halls: ['B1', 'B2', 'B3'] }, { name: 'D', halls: ['D1', 'D2'] }])
-    expect(placeNames(halls)).toEqual(['A1', 'B', 'B1', 'B2', 'B3', 'C', 'D', 'D1', 'D2', 'E', 'MEZ'])
+    expect(placeNames(halls)).toEqual(['A1', 'B', 'B1', 'B2', 'B3', 'C', 'D', 'D1', 'D2', 'E', 'MEZ', PROJECT_HALLS])
     expect(readHall('Hall B', halls, rules)).toEqual({ hall: 'B', by: 'shared' })
     expect(readHall('Hall D', halls)).toEqual({ hall: 'D', by: 'shared' })
     expect(readHall('Hall D', halls, rules)).toEqual({ hall: 'D1', by: 'rule' })
@@ -49,12 +49,20 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(suggestHall('Hall F', halls, rules, ['C'])).toBeNull()
   })
 
-  it('offers a place the project has booked where the text names several, for that project alone', () => {
-    expect(suggestHall('Hall C og D', halls, rules)).toBeNull()
-    expect(suggestHall('Hall C og D', halls, rules, ['D1', 'C'])).toEqual({ hall: 'C', own: true })
-    expect(suggestHall('Hall C og D', halls, rules, ['D1', 'E'])).toEqual({ hall: 'D1', own: true })
-    // The shared place is booked where one of its halls is.
-    expect(suggestHall('Hall E og B', halls, rules, ['B2'])).toEqual({ hall: 'B', own: true })
+  it('offers the halls of the project together for a text that names several places', () => {
+    expect(suggestHall('Hall C og D', halls, rules)).toEqual({ hall: PROJECT_HALLS, own: false })
+    expect(suggestHall('Hall C, D, E', halls, rules, ['C'])).toEqual({ hall: PROJECT_HALLS, own: false })
+  })
+
+  it('takes the halls of the project together as a place the planner or a rule gives, with the days of all its halls', () => {
+    const aliases = withAlias({}, 'Hall C, D, E', PROJECT_HALLS)
+    expect(placeOf('hall c, d, e', halls, aliases)).toEqual({ hall: PROJECT_HALLS, by: 'choice', chosen: true, own: false })
+    expect(placeOf('Gangtepper alle haller', halls, {}, undefined, { places: [], phrases: [{ text: 'alle haller', hall: PROJECT_HALLS }] })).toMatchObject({ hall: PROJECT_HALLS, by: 'phrase' })
+    // Nothing falls to it by itself.
+    expect(placeOf('Hall C, D, E', halls).hall).toBe(UNRESOLVED_HALL)
+    const booking = (hall: string, day: string) => ({ id: hall, hall, eventName: 'Hage', status: '', phases: { assembly: { start: day, end: day } } })
+    const windows = buildWindows([booking('C', '2026-04-01'), booking('E', '2026-04-03')], () => 'hage', sharedPlaces(halls))
+    expect([...windowFor(windows, 'hage', PROJECT_HALLS, 'Montering')!]).toEqual(['2026-04-01', '2026-04-03'])
   })
 
   it('offers the hall of a project with one hall for a text that names none', () => {

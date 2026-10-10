@@ -16,6 +16,13 @@ import type { AllocationRow, DemandLine, HallRules } from './types'
 
 export const UNRESOLVED_HALL = 'Uavklart'
 
+/**
+ * The place of demand that is for the halls of its project together, as carpet ordered for «Hall C, D, E» in one sum.
+ * It is a place the planner or a rule gives a text, never what a text falls to by itself, and in the Kalender it has
+ * the days of all the project's halls. Not the same as a planning row for all halls, which covers the demand of every place.
+ */
+export const PROJECT_HALLS = 'Felles'
+
 type Aliases = Record<string, string>
 
 const clean = (text: string): string => text.trim().toLowerCase().replace(/^hall\s+/, '')
@@ -34,7 +41,7 @@ export interface SharedPlace {
 const ownPlaces = (halls: string[], rules?: HallRules): SharedPlace[] =>
   (rules?.places ?? [])
     .map((place) => ({ name: place.name.trim(), halls: halls.filter((hall) => place.halls.some((member) => lower(member) === lower(hall))) }))
-    .filter((place) => place.name && place.halls.length > 0 && !halls.some((hall) => lower(hall) === lower(place.name)))
+    .filter((place) => place.name && place.halls.length > 0 && lower(place.name) !== lower(PROJECT_HALLS) && !halls.some((hall) => lower(hall) === lower(place.name)))
 
 /**
  * The shared places: those the ledger gives by itself, a letter with several numbered halls, and those the planner
@@ -53,8 +60,8 @@ const letterPlaces = (halls: string[]): SharedPlace[] => {
     .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
 }
 
-/** Every place a line can count under: the halls of the ledger and the shared places. */
-export const placeNames = (halls: string[], rules?: HallRules): string[] => [...halls, ...sharedPlaces(halls, rules).map((place) => place.name)].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }))
+/** Every place a line can count under: the halls of the ledger, the shared places, and the halls of the project together. */
+export const placeNames = (halls: string[], rules?: HallRules): string[] => [...[...halls, ...sharedPlaces(halls, rules).map((place) => place.name)].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true })), PROJECT_HALLS]
 
 /** The key of the planner's rule for a hall letter: the letter as a text of its own. */
 export const ruleKey = (letter: string): string => lower(letter)
@@ -113,9 +120,10 @@ export interface HallOffer {
 
 /**
  * A hall to offer for a text that is not placed by itself. First the one place named among its words, as «D1» in
- * «cafe hall D» and «E» in «Møterom hall E1». Else what the project has booked decides (`booked`): of several
- * places the text names, the first the project has booked; and for a text that names no hall at all, the hall of
- * a project that has booked one hall only. A hall that is not in the ledger, as «Hall F», is offered nothing.
+ * «cafe hall D» and «E» in «Møterom hall E1». A text that names several places, as «Hall C, D, E», is offered the
+ * halls of the project together: the demand is one sum for them. For a text that names no hall at all, what the
+ * project has booked decides (`booked`): the hall of a project that has booked one hall only, and so for that project
+ * alone. A hall that is not in the ledger, as «Hall F», is offered nothing.
  */
 export const suggestHall = (text: string, halls: string[], aliases: Aliases = {}, booked: string[] = [], rules?: HallRules): HallOffer | null => {
   if (!text.trim() || resolveHall(text, halls, aliases, rules)) return null
@@ -132,10 +140,7 @@ export const suggestHall = (text: string, halls: string[], aliases: Aliases = {}
     if (found || afterHall) hallWords += 1
   })
   if (named.size === 1) return { hall: [...named][0], own: false }
-  const shared = sharedPlaces(halls, rules)
-  const isBooked = (place: string) => booked.includes(place) || !!shared.find((s) => s.name === place)?.halls.some((hall) => booked.includes(hall))
-  const own = [...named].filter(isBooked).sort((a, b) => a.localeCompare(b, 'nb'))
-  if (own.length) return { hall: own[0], own: true }
+  if (named.size > 1) return { hall: PROJECT_HALLS, own: false }
   return !hallWords && booked.length === 1 && halls.includes(booked[0]) ? { hall: booked[0], own: true } : null
 }
 
