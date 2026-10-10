@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import { PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
+import { PickField } from '../fields'
 
 interface Props {
   line?: DemandLine
@@ -31,6 +32,11 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
   const [comment, setComment] = useState(line?.comment ?? '')
 
   const workTypes = useMemo(() => ws.kpi?.workTypes ?? [], [ws.kpi])
+  const workTypeNames = useMemo(() => workTypes.map((t) => t.name), [workTypes])
+  const workTypeNote = (name: string) => {
+    const rule = workTypes.find((t) => t.name === name)
+    return rule && [rule.unit, rule.competence].filter(Boolean).join(' · ')
+  }
   const bases = useMemo(() => [...new Set([PLANNED_BASIS, ...ws.demand.map((l) => l.basis)])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'nb')), [ws.demand])
   const competences = useMemo(
     () => [...new Set([...workTypes.map((t) => t.competence), ...ws.allocations.map((r) => r.competence)])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'nb')),
@@ -93,23 +99,17 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
         <div className="field-row">
           <label>
             Arbeidstype
-            <input
-              list="line-work-types"
+            <PickField
+              options={workTypeNames}
+              note={workTypeNote}
               value={workType}
               autoFocus={!line}
-              onChange={(e) => {
-                setWorkType(e.target.value)
-                recalc(e.target.value, quantity)
+              onChange={(text) => {
+                setWorkType(text)
+                recalc(text, quantity)
               }}
               placeholder="f.eks. FOGA-vegger, eller fri tekst"
             />
-            <datalist id="line-work-types">
-              {workTypes.map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.unit} · {t.competence}
-                </option>
-              ))}
-            </datalist>
           </label>
           <label className="narrow">
             Antall
@@ -131,12 +131,7 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
         <div className="field-row">
           <label>
             Kompetanse (nøkkelområde)
-            <input list="line-competences" value={competence} onChange={(e) => setCompetence(e.target.value)} />
-            <datalist id="line-competences">
-              {competences.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
+            <PickField options={competences} value={competence} onChange={setCompetence} />
           </label>
           <label>
             Hall / sted
@@ -155,12 +150,7 @@ export function DemandLineDialog({ line, projectNo, projectName, onClose }: Prop
           </label>
           <label>
             Grunnlag
-            <input list="line-bases" value={basis} onChange={(e) => setBasis(e.target.value)} />
-            <datalist id="line-bases">
-              {bases.map((b) => (
-                <option key={b} value={b} />
-              ))}
-            </datalist>
+            <PickField options={bases} value={basis} onChange={setBasis} />
           </label>
         </div>
         <span className="hint">Timene regnes ut fra antall og KPI-sats når arbeidstypen er kjent. Du kan også skrive timer direkte.</span>

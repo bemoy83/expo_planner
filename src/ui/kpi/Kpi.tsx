@@ -8,7 +8,7 @@ import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFile } from '../files'
-import { NumberField, TextField } from '../fields'
+import { NumberField, PickField, TextField } from '../fields'
 import { X } from 'lucide-react'
 
 interface PendingImport {
@@ -229,16 +229,6 @@ export function Kpi() {
         )}
 
         {untyped > 0 && <p className="hint">{untyped} ordrelinjer i utskriftene har ingen produkttype i Visma. De får arbeidstype én og én på Behov-fanen.</p>}
-        <datalist id="unit-options">
-          {units.map((u) => (
-            <option key={u} value={u} />
-          ))}
-        </datalist>
-        <datalist id="competence-options">
-          {competences.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
       </div>
 
       {pending && diff && (
@@ -258,6 +248,8 @@ export function Kpi() {
         <AddDialog
           initial={adding}
           typeNames={typeNames}
+          units={units}
+          competences={competences}
           setUp={(name) => kpi.workTypes.find((rule) => rule.name.toLowerCase() === name.trim().toLowerCase())?.competence}
           exists={(name, unit) => rows.some((row) => row.unit !== '' && row.name.toLowerCase() === name.trim().toLowerCase() && row.unit.toLowerCase() === unit.trim().toLowerCase())}
           onClose={() => setAdding(null)}
@@ -274,6 +266,8 @@ export function Kpi() {
 interface AddProps {
   initial: Partial<NewKpiRow>
   typeNames: string[]
+  units: string[]
+  competences: string[]
   /** The competence of a product type that is set up already, where it cannot be given another here. */
   setUp: (name: string) => string | undefined
   exists: (name: string, unit: string) => boolean
@@ -287,7 +281,7 @@ const toNumber = (text: string) => {
   return n === undefined ? NaN : (n ?? 0)
 }
 
-function AddDialog({ initial, typeNames, setUp, exists, onAdd, onClose }: AddProps) {
+function AddDialog({ initial, typeNames, units, competences, setUp, exists, onAdd, onClose }: AddProps) {
   const [name, setName] = useState(initial.name ?? '')
   const [unit, setUnit] = useState('')
   const [competence, setCompetence] = useState('')
@@ -310,21 +304,16 @@ function AddDialog({ initial, typeNames, setUp, exists, onAdd, onClose }: AddPro
         <div className="field-row">
           <label>
             Produkttype
-            <input list="kpi-type-names" value={name} autoFocus={!initial.name} onChange={(e) => setName(e.target.value)} placeholder="Som i klammene i Visma, f.eks. FOGA-vegger" />
-            <datalist id="kpi-type-names">
-              {typeNames.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
+            <PickField options={typeNames} value={name} autoFocus={!initial.name} onChange={setName} placeholder="Som i klammene i Visma, f.eks. FOGA-vegger" />
           </label>
           <label className="narrow">
             Enhet
-            <input list="unit-options" value={unit} autoFocus={!!initial.name} onChange={(e) => setUnit(e.target.value)} placeholder="stk, lm, m², ordre" />
+            <PickField options={units} value={unit} autoFocus={!!initial.name} onChange={setUnit} placeholder="stk, lm, m², ordre" />
           </label>
         </div>
         <label>
           Kompetanse (nøkkelområde)
-          <input list="competence-options" value={fixed ?? competence} disabled={fixed !== undefined} onChange={(e) => setCompetence(e.target.value)} />
+          <PickField options={competences} value={fixed ?? competence} disabled={fixed !== undefined} onChange={setCompetence} />
         </label>
         <div className="field-row">
           <label>

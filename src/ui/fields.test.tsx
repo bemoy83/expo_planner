@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { TextField } from './fields'
+import { useState } from 'react'
+import { PickField, TextField } from './fields'
 
 const UNITS = ['lm', 'm²', 'ordre', 'stk']
 const listed = () => screen.queryAllByRole('option').map((option) => option.textContent)
@@ -76,5 +77,43 @@ describe('TextField with values to pick from', () => {
     render(<TextField value="Notat" onCommit={() => {}} />)
     fireEvent.focus(screen.getByRole('textbox'))
     expect(listed()).toEqual([])
+  })
+})
+
+function Form({ onSubmit }: { onSubmit: (unit: string) => void }) {
+  const [unit, setUnit] = useState('stk')
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit(unit)
+      }}
+    >
+      <PickField value={unit} onChange={setUnit} options={UNITS} note={(option) => (option === 'lm' ? 'løpemeter' : '')} />
+    </form>
+  )
+}
+
+describe('PickField in a form', () => {
+  afterEach(cleanup)
+
+  it('lists all the values for a field that is filled in already, with their notes', () => {
+    render(<Form onSubmit={() => {}} />)
+    fireEvent.focus(screen.getByRole('combobox'))
+    expect(listed()).toEqual(['lmløpemeter', 'm²', 'ordre', 'stk'])
+  })
+
+  it('takes Enter as the choice of a value, and only then as the form sent', () => {
+    const onSubmit = vi.fn()
+    render(<Form onSubmit={onSubmit} />)
+    const field = screen.getByRole('combobox') as HTMLInputElement
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: 'ord' } })
+    fireEvent.keyDown(field, { key: 'ArrowDown' })
+    // jsdom sends no form on Enter; that the key is taken is what keeps the browser from it
+    expect(fireEvent.keyDown(field, { key: 'Enter' })).toBe(false)
+    expect(field.value).toBe('ordre')
+    expect(listed()).toEqual([])
+    expect(fireEvent.keyDown(field, { key: 'Enter' })).toBe(true)
   })
 })

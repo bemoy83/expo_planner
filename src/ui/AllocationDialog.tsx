@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { availableYears, demandScopes, formatFte, referenceProjectNo, requiredHours } from '../domain/calc'
 import type { AllocationRow, WorkPhase } from '../domain/types'
 import { useWorkspace } from '../store/workspaceStore'
+import { PickField } from './fields'
 
 interface Props {
   row?: AllocationRow
@@ -93,12 +94,7 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
 
         <label>
           Prosjekt
-          <input list="project-names" value={project} autoFocus={!row && !projectName} onChange={(e) => setProject(e.target.value)} placeholder="Skriv for å søke" />
-          <datalist id="project-names">
-            {projectNames.map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
+          <PickField options={projectNames} value={project} autoFocus={!row && !projectName} onChange={setProject} placeholder="Skriv for å søke" />
           <span className="hint">{projectNo ? `Prosjektnummer ${projectNo}` : project ? 'Uten prosjektnummer. Sett nummeret på VenYou-fanen for å hente behov fra Visma og tidligere år.' : ''}</span>
         </label>
 
@@ -116,12 +112,7 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
 
         <label>
           Kompetanse (nøkkelområde)
-          <input list="competences" value={competence} onChange={(e) => setCompetence(e.target.value)} />
-          <datalist id="competences">
-            {competences.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
+          <PickField options={competences} value={competence} onChange={setCompetence} />
         </label>
 
         <fieldset>
@@ -135,12 +126,7 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
 
         <label>
           Datagrunnlag
-          <input list="bases" value={basis} onChange={(e) => setBasis(e.target.value)} />
-          <datalist id="bases">
-            {bases.map((b) => (
-              <option key={b} value={b} />
-            ))}
-          </datalist>
+          <PickField options={bases} value={basis} onChange={setBasis} />
         </label>
 
         <label>
