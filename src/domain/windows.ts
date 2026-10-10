@@ -1,5 +1,5 @@
 import { dateRange, type ISODate } from './dates'
-import { sharedPlaceOf } from './locations'
+import type { SharedPlace } from './locations'
 import type { VenueBooking, WorkPhase } from './types'
 
 /**
@@ -14,9 +14,10 @@ const key = (project: string, hall: string, phase: WorkPhase) => `${project}|${h
 
 /**
  * The windows of every project, per hall and across its halls. `projectOf` gives the project a booking
- * belongs to, or null for bookings that are no project in the Kalender.
+ * belongs to, or null for bookings that are no project in the Kalender. A shared place (`places`), as «B» of
+ * «B1» to «B4», has the days of its halls together.
  */
-export const buildWindows = (bookings: VenueBooking[], projectOf: (booking: VenueBooking) => string | null): Windows => {
+export const buildWindows = (bookings: VenueBooking[], projectOf: (booking: VenueBooking) => string | null, places: SharedPlace[] = []): Windows => {
   const windows: Windows = new Map()
   const add = (k: string, dates: ISODate[]) => {
     let set = windows.get(k)
@@ -34,9 +35,7 @@ export const buildWindows = (bookings: VenueBooking[], projectOf: (booking: Venu
       if (!span) continue
       const dates = dateRange(span.start, span.end)
       add(key(project, booking.hall, phase), dates)
-      // A shared place, as «B» of «B1» to «B4», has the days of its halls together.
-      const shared = sharedPlaceOf(booking.hall)
-      if (shared) add(key(project, shared, phase), dates)
+      for (const place of places) if (place.halls.includes(booking.hall)) add(key(project, place.name, phase), dates)
       add(key(project, ALL_HALLS, phase), dates)
     }
   }

@@ -102,9 +102,33 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(locateRows([row('Hall D'), row('cafe hall D'), row('C'), row(undefined)], halls, rules).map((r) => r.hall)).toEqual(['D1', UNRESOLVED_HALL, 'C', undefined])
   })
 
+  it('counts a text under the place of the first of the planner\'s rules whose words it holds', () => {
+    const own = { places: [], phrases: [{ text: 'Scene', hall: 'C' }, { text: 'øst', hall: 'E' }, { text: 'kafé', hall: 'F' }] }
+    expect(placeOf('Sceneomr øst', halls, {}, undefined, own)).toEqual({ hall: 'C', by: 'phrase', chosen: false, own: false, phrase: 'Scene' })
+    expect(placeOf('Inng øst', halls, {}, undefined, own).hall).toBe('E')
+    // A rule to a place that is not in the ledger places nothing, and a text that names a hall is read as that hall.
+    expect(placeOf('Kafé', halls, {}, undefined, own).hall).toBe(UNRESOLVED_HALL)
+    expect(placeOf('Hall C', halls, {}, undefined, { places: [], phrases: [{ text: 'hall', hall: 'E' }] }).hall).toBe('C')
+    expect(placeOf('Inng øst', halls, withAlias({}, 'Inng øst', 'MEZ'), undefined, own).hall).toBe('MEZ')
+    expect(suggestHall('Inng øst', halls, {}, ['C'], own)).toBeNull()
+  })
+
+  it('takes the planner\'s own places as places: by name, as a choice, and with the days of their halls', () => {
+    const own = { places: [{ name: 'Nordfløy', halls: ['b1', 'C', 'X9'] }, { name: 'C', halls: ['E'] }], phrases: [{ text: 'nord', hall: 'Nordfløy' }] }
+    expect(sharedPlaces(halls, own).find((place) => place.name === 'Nordfløy')).toEqual({ name: 'Nordfløy', halls: ['B1', 'C'] })
+    expect(sharedPlaces(halls, own).map((place) => place.name)).toEqual(['B', 'D', 'Nordfløy'])
+    expect(placeOf('nordfløy', halls, {}, undefined, own)).toMatchObject({ hall: 'Nordfløy', by: 'text' })
+    expect(placeOf('Lager nord', halls, {}, undefined, own)).toMatchObject({ hall: 'Nordfløy', by: 'phrase' })
+    expect(placeOf('Bakrom', halls, withAlias({}, 'Bakrom', 'Nordfløy'), undefined, own).hall).toBe('Nordfløy')
+    expect(placeOf('Bakrom', halls, withAlias({}, 'Bakrom', 'Nordfløy')).hall).toBe(UNRESOLVED_HALL)
+    const booking = (hall: string, day: string) => ({ id: hall, hall, eventName: 'Hage', status: '', phases: { assembly: { start: day, end: day } } })
+    const windows = buildWindows([booking('B1', '2026-04-01'), booking('C', '2026-04-03'), booking('E', '2026-04-05')], () => 'hage', sharedPlaces(halls, own))
+    expect([...windowFor(windows, 'hage', 'Nordfløy', 'Montering')!]).toEqual(['2026-04-01', '2026-04-03'])
+  })
+
   it('gives a shared place the days of its halls that the project has booked', () => {
     const booking = (hall: string, start: string, end: string) => ({ id: hall, hall, eventName: 'Hage', status: '', phases: { assembly: { start, end } } })
-    const windows = buildWindows([booking('B1', '2026-04-01', '2026-04-02'), booking('B3', '2026-04-02', '2026-04-03'), booking('C', '2026-04-06', '2026-04-06')], () => 'hage')
+    const windows = buildWindows([booking('B1', '2026-04-01', '2026-04-02'), booking('B3', '2026-04-02', '2026-04-03'), booking('C', '2026-04-06', '2026-04-06')], () => 'hage', sharedPlaces(halls))
     expect([...windowFor(windows, 'hage', 'B', 'Montering')!]).toEqual(['2026-04-01', '2026-04-02', '2026-04-03'])
     expect([...windowFor(windows, 'hage', 'B1', 'Montering')!]).toEqual(['2026-04-01', '2026-04-02'])
   })

@@ -281,6 +281,14 @@ export interface DemandAdjustment {
   note?: string
 }
 
+/** The planner's own rules for placing a Hall/Sted text, beside the choices for single texts (`hallAliases`). See `domain/locations.ts`. */
+export interface HallRules {
+  /** Places the planner has made of several halls of the ledger: a name, and the halls it stands for. */
+  places: { name: string; halls: string[] }[]
+  /** A text that holds these words counts under the place. The first that fits, in the planner's order. */
+  phrases: { text: string; hall: string }[]
+}
+
 export const PLANNED_BASIS = 'Planlagt'
 export const VISMA_BASIS = 'visma per reg. dato'
 export const VISMA_SOURCE = 'visma per reg. dato'
@@ -295,6 +303,7 @@ export interface Workspace {
   eventLinks?: Record<string, string>
   /** Halls chosen by hand for Hall/Sted texts, keyed by `aliasKey`: for every line with the text, or for those of one project. */
   hallAliases?: Record<string, string>
+  hallRules?: HallRules
   /** Hall bookings left out of the Kalender, keyed by `venueKey`. They stay in the hall ledger. */
   hiddenVenue?: Record<string, true>
   /** The latest Venyou export read into the app, and the dates it covers. */

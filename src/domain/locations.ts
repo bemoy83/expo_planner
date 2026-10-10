@@ -1,4 +1,4 @@
-import type { AllocationRow, DemandLine } from './types'
+import type { AllocationRow, DemandLine, HallRules } from './types'
 
 /**
  * The Hall/Sted of a demand line is free text: «Hall C» from a stand number, or whatever was typed in Visma.
@@ -9,8 +9,9 @@ import type { AllocationRow, DemandLine } from './types'
  *
  * A hall letter with several halls in the ledger, as «B» with «B1» to «B4», is a place of its own: the shared
  * place «B», which stands for all of them. The planner's rule for the letter can send it to one of the halls
- * instead: «D» to «D1». The rules and the planner's choices for single texts are all in `hallAliases`, and
- * `placeOf` says which of them placed a text, so none of it is hidden.
+ * instead: «D» to «D1». The planner also makes places of his own, a name for several halls, and rules for words:
+ * a text that holds «scene» counts under «C» (`HallRules`). `placeOf` says what placed a text, so none of it is hidden,
+ * and all of it is the planner's data: a new grouping or a new word for a place needs no change of the code.
  */
 
 export const UNRESOLVED_HALL = 'Uavklart'
@@ -29,8 +30,22 @@ export interface SharedPlace {
   halls: string[]
 }
 
-/** The shared places of the ledger. A letter that is a hall itself, or has one numbered hall, is none. */
-export const sharedPlaces = (halls: string[]): SharedPlace[] => {
+/** The places the planner has made, with the halls of them that are in the ledger. One without such a hall, or named as a hall, is none. */
+const ownPlaces = (halls: string[], rules?: HallRules): SharedPlace[] =>
+  (rules?.places ?? [])
+    .map((place) => ({ name: place.name.trim(), halls: halls.filter((hall) => place.halls.some((member) => lower(member) === lower(hall))) }))
+    .filter((place) => place.name && place.halls.length > 0 && !halls.some((hall) => lower(hall) === lower(place.name)))
+
+/**
+ * The shared places: those the ledger gives by itself, a letter with several numbered halls, and those the planner
+ * has made. A letter that is a hall itself, or has one numbered hall, is none. The planner's place wins over one of the same name.
+ */
+export const sharedPlaces = (halls: string[], rules?: HallRules): SharedPlace[] => {
+  const own = ownPlaces(halls, rules)
+  return [...letterPlaces(halls).filter((place) => !own.some((other) => lower(other.name) === lower(place.name))), ...own].sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+}
+
+const letterPlaces = (halls: string[]): SharedPlace[] => {
   const letters = [...new Set(halls.filter((hall) => /\d$/.test(hall.trim())).map((hall) => hall.trim().replace(/\d+$/, '')))]
   return letters
     .map((name) => ({ name, halls: numberedHalls(lower(name), halls).sort((a, b) => a.localeCompare(b, 'nb', { numeric: true })) }))
@@ -38,47 +53,57 @@ export const sharedPlaces = (halls: string[]): SharedPlace[] => {
     .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
 }
 
-/** Every place a line can count under: the halls of the ledger and its shared places. */
-export const placeNames = (halls: string[]): string[] => [...halls, ...sharedPlaces(halls).map((place) => place.name)].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }))
-
-/** The shared place a hall belongs to, in lower case, or nothing: «b» for «B2». What the Kalender gives the place its days by. */
-export const sharedPlaceOf = (hall: string): string | undefined => (/\d$/.test(hall.trim()) ? lower(hall).replace(/\d+$/, '') : undefined)
+/** Every place a line can count under: the halls of the ledger and the shared places. */
+export const placeNames = (halls: string[], rules?: HallRules): string[] => [...halls, ...sharedPlaces(halls, rules).map((place) => place.name)].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }))
 
 /** The key of the planner's rule for a hall letter: the letter as a text of its own. */
 export const ruleKey = (letter: string): string => lower(letter)
 
 /** The place a choice stands for, the unresolved location, or nothing where the place is no longer in the ledger. */
-const chosenPlace = (alias: string | undefined, halls: string[]): string | undefined => {
+const chosenPlace = (alias: string | undefined, halls: string[], rules?: HallRules): string | undefined => {
   const wanted = alias?.trim().toLowerCase()
   if (!wanted) return undefined
-  return wanted === UNRESOLVED_HALL.toLowerCase() ? UNRESOLVED_HALL : placeNames(halls).find((place) => lower(place) === wanted)
+  return wanted === UNRESOLVED_HALL.toLowerCase() ? UNRESOLVED_HALL : placeNames(halls, rules).find((place) => lower(place) === wanted)
 }
 
-/** How a text was read as a hall: it is the hall's name, or it is a hall letter, sent to a place by the planner's rule or to the letter's shared place. */
+/**
+ * How a text was read as a hall: it is the name of the hall or the place, or it is a hall letter, sent to a place by the
+ * planner's rule or to the letter's shared place, or it holds the words of one of the planner's rules (`phrase`).
+ */
 export interface Reading {
   hall: string
-  by: 'text' | 'rule' | 'shared'
+  by: 'text' | 'rule' | 'shared' | 'phrase'
+  /** The words of the rule that placed it. */
+  phrase?: string
 }
 
 /**
  * The place in the ledger that the text names, and how it was found, or null. «Hall C» and «c» name the hall «C».
  * A hall letter names its numbered hall when there is only one, «Hall A» names «A1». With several, it names the
  * place the planner's rule for the letter gives, «D1» for «Hall D», else the shared place of the letter, «B».
+ * A text that is none of this counts under the place of the first of the planner's rules whose words it holds.
  */
-export const readHall = (text: string, halls: string[], aliases: Aliases = {}): Reading | null => {
+export const readHall = (text: string, halls: string[], aliases: Aliases = {}, rules?: HallRules): Reading | null => {
   const wanted = clean(text)
   if (!wanted) return null
-  const exact = halls.find((hall) => lower(hall) === wanted)
+  const exact = halls.find((hall) => lower(hall) === wanted) ?? ownPlaces(halls, rules).find((place) => lower(place.name) === wanted)?.name
   if (exact) return { hall: exact, by: 'text' }
   const numbered = numberedHalls(wanted, halls)
   if (numbered.length === 1) return { hall: numbered[0], by: 'text' }
-  if (!numbered.length) return null
-  const ruled = chosenPlace(aliases[ruleKey(wanted)], halls)
-  return ruled ? { hall: ruled, by: 'rule' } : { hall: sharedPlaces(halls).find((place) => lower(place.name) === wanted)?.name ?? numbered[0].trim().replace(/\d+$/, ''), by: 'shared' }
+  if (numbered.length) {
+    const ruled = chosenPlace(aliases[ruleKey(wanted)], halls, rules)
+    return ruled ? { hall: ruled, by: 'rule' } : { hall: letterPlaces(halls).find((place) => lower(place.name) === wanted)?.name ?? numbered[0].trim().replace(/\d+$/, ''), by: 'shared' }
+  }
+  const whole = text.trim().toLowerCase()
+  for (const phrase of rules?.phrases ?? []) {
+    const hall = phrase.text.trim() && whole.includes(phrase.text.trim().toLowerCase()) ? chosenPlace(phrase.hall, halls, rules) : undefined
+    if (hall) return { hall, by: 'phrase', phrase: phrase.text.trim() }
+  }
+  return null
 }
 
 /** The place the text names, or null. See `readHall`. */
-export const resolveHall = (text: string, halls: string[], aliases: Aliases = {}): string | null => readHall(text, halls, aliases)?.hall ?? null
+export const resolveHall = (text: string, halls: string[], aliases: Aliases = {}, rules?: HallRules): string | null => readHall(text, halls, aliases, rules)?.hall ?? null
 
 /** A hall that is offered for a text. `own` says the offer rests on what the project has booked, and so holds for that project alone. */
 export interface HallOffer {
@@ -92,8 +117,8 @@ export interface HallOffer {
  * places the text names, the first the project has booked; and for a text that names no hall at all, the hall of
  * a project that has booked one hall only. A hall that is not in the ledger, as «Hall F», is offered nothing.
  */
-export const suggestHall = (text: string, halls: string[], aliases: Aliases = {}, booked: string[] = []): HallOffer | null => {
-  if (!text.trim() || resolveHall(text, halls, aliases)) return null
+export const suggestHall = (text: string, halls: string[], aliases: Aliases = {}, booked: string[] = [], rules?: HallRules): HallOffer | null => {
+  if (!text.trim() || resolveHall(text, halls, aliases, rules)) return null
   const words = text.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
   const named = new Set<string>()
   let hallWords = 0
@@ -102,12 +127,12 @@ export const suggestHall = (text: string, halls: string[], aliases: Aliases = {}
     // A single letter is a hall where it is written as one: after «hall», or as a capital.
     if (word.length === 1 && !afterHall && word !== word.toUpperCase()) return
     // «E1» is a room in hall «E» where the ledger has no «E1».
-    const found = resolveHall(word, halls, aliases) ?? (/\d$/.test(word) ? resolveHall(word.replace(/\d+$/, ''), halls, aliases) : null)
+    const found = resolveHall(word, halls, aliases, rules) ?? (/\d$/.test(word) ? resolveHall(word.replace(/\d+$/, ''), halls, aliases, rules) : null)
     if (found) named.add(found)
     if (found || afterHall) hallWords += 1
   })
   if (named.size === 1) return { hall: [...named][0], own: false }
-  const shared = sharedPlaces(halls)
+  const shared = sharedPlaces(halls, rules)
   const isBooked = (place: string) => booked.includes(place) || !!shared.find((s) => s.name === place)?.halls.some((hall) => booked.includes(hall))
   const own = [...named].filter(isBooked).sort((a, b) => a.localeCompare(b, 'nb'))
   if (own.length) return { hall: own[0], own: true }
@@ -119,7 +144,8 @@ export const aliasKey = (text: string, projectNo?: string): string => (projectNo
 
 /**
  * What placed a text: the planner's choice for the text in this project (`own`) or in every project (`choice`),
- * the text itself (`text`), the rule for its hall letter (`rule`), the letter's shared place (`shared`), or nothing (`none`).
+ * the text itself (`text`), the rule for its hall letter (`rule`), the letter's shared place (`shared`), a rule for
+ * words it holds (`phrase`), or nothing (`none`).
  */
 export type PlacedBy = 'own' | 'choice' | Reading['by'] | 'none'
 
@@ -130,6 +156,8 @@ export interface Place {
   chosen: boolean
   /** The choice is for this project alone. */
   own: boolean
+  /** The words of the rule that placed it, where one did. */
+  phrase?: string
 }
 
 /**
@@ -137,14 +165,14 @@ export interface Place {
  * place chosen for the text in every project, else the place the text names, else unresolved. A chosen place that
  * is no longer in the ledger does not count as chosen.
  */
-export const placeOf = (text: string, halls: string[], aliases: Aliases = {}, projectNo?: string): Place => {
-  const own = projectNo ? chosenPlace(aliases[aliasKey(text, projectNo)], halls) : undefined
+export const placeOf = (text: string, halls: string[], aliases: Aliases = {}, projectNo?: string, rules?: HallRules): Place => {
+  const own = projectNo ? chosenPlace(aliases[aliasKey(text, projectNo)], halls, rules) : undefined
   if (own) return { hall: own, by: 'own', chosen: true, own: true }
   // The choice for a letter by itself is its rule, and is told as one.
-  const chosen = clean(text) === aliasKey(text) && numberedHalls(clean(text), halls).length > 1 ? undefined : chosenPlace(aliases[aliasKey(text)], halls)
+  const chosen = clean(text) === aliasKey(text) && numberedHalls(clean(text), halls).length > 1 ? undefined : chosenPlace(aliases[aliasKey(text)], halls, rules)
   if (chosen) return { hall: chosen, by: 'choice', chosen: true, own: false }
-  const read = readHall(text, halls, aliases)
-  return { hall: read?.hall ?? UNRESOLVED_HALL, by: read?.by ?? 'none', chosen: false, own: false }
+  const read = readHall(text, halls, aliases, rules)
+  return { hall: read?.hall ?? UNRESOLVED_HALL, by: read?.by ?? 'none', chosen: false, own: false, ...(read?.phrase ? { phrase: read.phrase } : {}) }
 }
 
 /** The planner's choices with one text set to a place, or back to automatic: for every project, or for the one given. */
@@ -165,7 +193,7 @@ export interface HallChoice {
 
 /** The planner's choices for texts, without the rules for hall letters: the texts in order, a choice for every project before those for one. */
 export const hallChoices = (aliases: Aliases, halls: string[]): HallChoice[] => {
-  const letters = new Set(sharedPlaces(halls).map((place) => ruleKey(place.name)))
+  const letters = new Set(letterPlaces(halls).map((place) => ruleKey(place.name)))
   return Object.entries(aliases)
     .filter(([key]) => !letters.has(key))
     .map(([key, hall]): HallChoice => {
@@ -176,13 +204,13 @@ export const hallChoices = (aliases: Aliases, halls: string[]): HallChoice[] => 
 }
 
 /** The demand with each line placed in a hall from the ledger, or in the unresolved location. The lines themselves keep their text. */
-export const locateDemand = (demand: DemandLine[], halls: string[], aliases: Aliases = {}): DemandLine[] => {
+export const locateDemand = (demand: DemandLine[], halls: string[], aliases: Aliases = {}, rules?: HallRules): DemandLine[] => {
   const found = new Map<string, string>()
   return demand.map((line) => {
     const key = aliasKey(line.hall, line.projectNo || ' ')
     let hall = found.get(key)
     if (hall === undefined) {
-      hall = placeOf(line.hall, halls, aliases, line.projectNo).hall
+      hall = placeOf(line.hall, halls, aliases, line.projectNo, rules).hall
       found.set(key, hall)
     }
     return hall === line.hall ? line : { ...line, hall }
@@ -193,9 +221,14 @@ export const locateDemand = (demand: DemandLine[], halls: string[], aliases: Ali
  * Planning rows placed the same way, so a row follows its demand when the hall it was made for is read
  * differently later. Rows for all halls are left as they are.
  */
-export const locateRows = (rows: AllocationRow[], halls: string[], aliases: Aliases = {}): AllocationRow[] =>
+export const locateRows = (rows: AllocationRow[], halls: string[], aliases: Aliases = {}, rules?: HallRules): AllocationRow[] =>
   rows.map((row) => {
     if (row.hall === undefined) return row
-    const { hall } = placeOf(row.hall, halls, aliases, row.projectNo)
+    const { hall } = placeOf(row.hall, halls, aliases, row.projectNo, rules)
     return hall === row.hall ? row : { ...row, hall }
   })
+
+/** The rules for names that several halls share by themselves, as the letters: what `hallChoices` leaves out. */
+export const letterRules = (halls: string[]): SharedPlace[] => letterPlaces(halls)
+
+export const NO_HALL_RULES: HallRules = { places: [], phrases: [] }

@@ -6,7 +6,7 @@ import { decimalText } from '../../domain/numbers'
 import { dayType } from '../../domain/holidays'
 import type { AllocationRow } from '../../domain/types'
 import { hallNames, projectPhases } from '../../domain/venue'
-import { locateRows } from '../../domain/locations'
+import { locateRows, sharedPlaces } from '../../domain/locations'
 import { absenceLine, overtimeLine } from '../../domain/staffing'
 import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
 import { spread } from '../../domain/spread'
@@ -160,9 +160,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   const inViewOnly = onlyInView && !filter.project && !filter.search && !filter.onlyWithoutDemand
   // Demand taken into the plan shows as rows by itself; they become ordinary rows once FTE is typed in.
   const rows = useMemo(() => {
-    const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases)
+    const placed = locateRows(ws.allocations, hallNames(ws.venue), ws.hallAliases, ws.hallRules)
     return [...placed, ...suggestedRows(locatedDemand, placed)]
-  }, [ws.allocations, ws.venue, ws.hallAliases, locatedDemand])
+  }, [ws.allocations, ws.venue, ws.hallAliases, ws.hallRules, locatedDemand])
   const filtered = useMemo(() => filterGroups(rows, events, demandIndex, settings, filter, grouping, ws.projects), [rows, events, demandIndex, settings, filter, grouping, ws.projects])
   // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
   // The visible dates change with every column scrolled, the projects they hold seldom do; the hierarchy is
@@ -200,7 +200,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', selec
   )
   // The days each row can be worked on: its project's build-up or tear-down days in its hall.
   // The same lookup gives the hall phase of each day of a project, for the strip on its line.
-  const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf])
+  const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf, sharedPlaces(hallNames(ws.venue), ws.hallRules)), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf, ws.venue, ws.hallRules])
   const projectOfRow = useMemo(() => new Map(allGroups.flatMap((group) => group.rows.map((row) => [row.id, group.key] as const))), [allGroups])
   const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
 
