@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
-import { hallChoices, hallRulesOf, placeNames, PROJECT_HALLS, UNRESOLVED_HALL, withPlaceRenamed } from '../../domain/locations'
+import { hallChoices, hallSetupOf, placeNames, PROJECT_HALLS, UNRESOLVED_HALL, withAlias, withPlaceRenamed } from '../../domain/locations'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -43,20 +43,19 @@ function HallPicker({ halls, picked, label, onChange }: { halls: string[]; picke
  * A page of its own, reached from Behov, where the rules are used.
  */
 export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
-  const { workspace, setHallAlias, setHallRules } = useWorkspace()
+  const { workspace, setHallRules } = useWorkspace()
   const ws = workspace!
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
-  const aliases = ws.hallAliases ?? {}
-  // Until the planner has made rules of his own, the examples are shown; the first edit makes them his.
-  const rules = hallRulesOf(halls, ws.hallRules)
+  // Until the planner has made rules of his own, the examples are shown, places and choices; the first edit here makes them his.
+  const { rules, aliases } = hallSetupOf(halls, ws.hallRules, ws.hallAliases)
   const projectName = (projectNo: string) => ws.visma?.find((v) => v.projectNo === projectNo)?.eventName ?? ws.projects.find((ref) => ref.projectNo === projectNo)?.name ?? projectNo
   const places = placeNames(halls, rules)
   const choices = hallChoices(aliases)
   const [place, setPlace] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const [phrase, setPhrase] = useState({ text: '', hall: '' })
   const taken = (name: string) => [...halls, ...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
-  const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next })
-  const setPhrases = (next: Rules['phrases']) => setHallRules({ ...rules, phrases: next })
+  const setPlaces = (next: Rules['places']) => setHallRules({ ...rules, places: next }, aliases)
+  const setPhrases = (next: Rules['phrases']) => setHallRules({ ...rules, phrases: next }, aliases)
   /** The rules are tried from the top, so their order is the planner's to set. */
   const movePhrase = (from: number, to: number) => {
     const next = [...rules.phrases]
@@ -218,6 +217,10 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         </table>
 
         <h3>Valg for enkelte tekster</h3>
+        <p className="hint">
+          En tekst som teller under et sted fordi du har valgt det. Valget gjelder også når «Hall» står foran: «a» gir A1 plasserer «Hall A». Bokstavene som står her fra start er eksempler
+          for bokstaver med én hall. Du lager nye valg i kolonnen Plassering på Behov.
+        </p>
         {choices.length ? (
           <table className="ledger rules">
             <thead>
@@ -235,7 +238,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
                   <td>{choice.projectNo ? projectName(choice.projectNo) : 'Alle prosjekter'}</td>
                   <td>{choice.hall}</td>
                   <td className="actions">
-                    <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallAlias(choice.text, undefined, choice.projectNo)}>
+                    <button className="row-action" title="Fjern valget: teksten leses automatisk igjen" onClick={() => setHallRules(rules, withAlias(aliases, choice.text, undefined, choice.projectNo))}>
                       <X size={13} aria-hidden />
                     </button>
                   </td>

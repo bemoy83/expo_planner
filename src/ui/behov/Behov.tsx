@@ -71,13 +71,13 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const places = useMemo(() => placeNames(halls, rules), [halls, rules])
   const shared = useMemo(() => new Map(sharedPlaces(halls, rules).map((place) => [place.name, place.halls])), [halls, rules])
   const placeOfLine = (line: { hall: string; projectNo: string }) => placeOf(line.hall, halls, ws.hallAliases, line.projectNo, rules)
-  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, booked.get(line.projectNo), rules) : null)
+  const offerFor = (line: { hall: string; projectNo: string }) => (placeOfLine(line).by === 'none' ? suggestHall(line.hall, halls, booked.get(line.projectNo), rules, ws.hallAliases) : null)
   /** Why the line counts where it does: the rule that placed it, in a few words. */
   const ruleOf = (line: { hall: string; projectNo: string }): string => {
     const place = placeOfLine(line)
     if (!line.hall.trim()) return 'Ingen Hall/sted'
     if (place.by === 'own') return 'Valgt for prosjektet'
-    if (place.by === 'choice') return 'Valgt for teksten'
+    if (place.by === 'choice') return place.choiceFor ? `Valgt: ${place.choiceFor.toUpperCase()} er ${place.hall}` : 'Valgt for teksten'
     if (place.by === 'phrase') return `Regel: inneholder «${place.phrase}»`
     if (place.via) return `Sted: ${place.hall} samler ${place.via}`
     if (place.by === 'text' && shared.has(place.hall)) return `Sted: ${place.hall} står for ${shared.get(place.hall)!.join(', ')}`
@@ -91,15 +91,21 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const locationCell = (line: { hall: string; projectNo: string }) => {
     const text = line.hall
     const place = placeOfLine(line)
-    const auto = resolveHall(text, halls, rules) ?? UNRESOLVED_HALL
+    // A line placed by the choice for its text without «Hall» has no choice of its own to show or to remove.
+    const pinned = place.chosen && !place.choiceFor
+    const auto = place.choiceFor ? place.hall : (resolveHall(text, halls, rules) ?? UNRESOLVED_HALL)
     if (!text.trim()) return <span className="muted">{UNRESOLVED_HALL}</span>
     const offered = offerFor(line)
-    const scope = place.own ? `Valget gjelder linjene med «${text.trim()}» i dette prosjektet.` : `Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`
+    const scope = place.choiceFor
+      ? `Plassert av valget for «${place.choiceFor}» på Hallregler, som også gjelder med «Hall» foran. Velger du noe her, gjelder det bare «${text.trim()}».`
+      : place.own
+        ? `Valget gjelder linjene med «${text.trim()}» i dette prosjektet.`
+        : `Valget gjelder alle linjer med «${text.trim()}», i alle prosjekter.`
     return (
       <>
         <select
-          className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
-          value={place.chosen ? place.hall : ''}
+          className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${pinned ? 'chosen' : ''}`}
+          value={pinned ? place.hall : ''}
           aria-label={`Plassering for ${text}`}
           title={`${place.by === 'none' ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «${UNRESOLVED_HALL}» til du velger en hall. ' : ''}${scope}`}
           onChange={(e) => setHallAlias(text, e.target.value || undefined, place.own ? line.projectNo : undefined)}

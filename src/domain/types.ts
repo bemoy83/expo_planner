@@ -289,6 +289,8 @@ export interface HallRules {
   phrases: { text: string; hall: string }[]
   /** The example places have been put among the planner's own, to keep or to delete: they are not added again. */
   seeded?: true
+  /** The same for the example choices, a letter for its one numbered hall («A» is «A1»): they are among the planner's choices, in `hallAliases`. */
+  lettersSeeded?: true
 }
 
 export const PLANNED_BASIS = 'Planlagt'

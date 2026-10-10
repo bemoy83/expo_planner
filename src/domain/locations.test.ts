@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collectedIn, examplePlaces, hallChoices, hallRulesOf, locateDemand, locateRows, placeNames, placeOf, PROJECT_HALLS, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withAlias, withPlaceRenamed } from './locations'
+import { collectedIn, exampleChoices, examplePlaces, hallSetupOf, hallChoices, hallRulesOf, locateDemand, locateRows, placeNames, placeOf, PROJECT_HALLS, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withAlias, withPlaceRenamed } from './locations'
 import type { AllocationRow, DemandLine, HallRules } from './types'
 import { buildWindows, windowFor } from './windows'
 
@@ -63,8 +63,28 @@ describe('placing demand in the halls of the hall ledger', () => {
     expect(suggestHall('Kafé ved Studio 3', studios, [], { ...loose, places: [{ ...loose.places[0], collects: true }] })).toEqual({ hall: 'NOVA STUDIOS', own: false })
   })
 
-  it('takes a hall letter for its numbered hall when there is one such hall', () => {
-    expect(readHall('Hall A', halls, none)).toEqual({ hall: 'A1', by: 'text' })
+  it('starts with a letter as its one numbered hall, as an example choice, until the planner has made the choices his own', () => {
+    expect(exampleChoices(halls)).toEqual({ a: 'A1' })
+    expect(readHall('Hall A', halls, none)).toBeNull()
+    expect(placeOf('Hall A', halls, {}, undefined, none)).toEqual({ hall: 'A1', by: 'choice', chosen: true, own: false, choiceFor: 'a' })
+    expect(placeOf('A', halls).hall).toBe('A1')
+    // The Hallregler tab shows the examples among his choices, and what it writes back is all there is.
+    const setup = hallSetupOf(halls, none, { bakrom: 'C' })
+    expect(setup.aliases).toEqual({ a: 'A1', bakrom: 'C' })
+    expect(setup.rules).toMatchObject({ seeded: true, lettersSeeded: true })
+    expect(placeOf('Hall A', halls, setup.aliases, undefined, setup.rules).hall).toBe('A1')
+    expect(placeOf('Hall A', halls, { bakrom: 'C' }, undefined, setup.rules).hall).toBe(UNRESOLVED_HALL)
+    expect(hallSetupOf(halls, setup.rules, { bakrom: 'C' }).aliases).toEqual({ bakrom: 'C' })
+  })
+
+  it('offers a place that words of the text are chosen as', () => {
+    expect(suggestHall('Lager hall A', halls, [], none)).toEqual({ hall: 'A1', own: false })
+    expect(suggestHall('Rigg ved bakrom', halls, [], own, { bakrom: 'C' })).toEqual({ hall: 'C', own: false })
+    expect(suggestHall('Rigg ved bakrom', halls, [], own, { bakrom: 'Mangler hall' })).toBeNull()
+    // Without the example choice, a letter with one numbered hall is still offered it.
+    const mine = hallSetupOf(halls, none).rules
+    expect(placeOf('Hall A', halls, {}, undefined, mine).hall).toBe(UNRESOLVED_HALL)
+    expect(suggestHall('Hall A', halls, [], mine)).toEqual({ hall: 'A1', own: false })
   })
 
   it('starts with the letters several halls share as places, as examples, until the planner has rules of his own', () => {
@@ -83,7 +103,7 @@ describe('placing demand in the halls of the hall ledger', () => {
   })
 
   it('lets a choice for a text hold for it with «Hall» in front', () => {
-    expect(placeOf('Hall D', halls, choices, '26100', own)).toEqual({ hall: 'D1', by: 'choice', chosen: true, own: false })
+    expect(placeOf('Hall D', halls, choices, '26100', own)).toEqual({ hall: 'D1', by: 'choice', chosen: true, own: false, choiceFor: 'd' })
     expect(placeOf('D', halls, choices, undefined, own).hall).toBe('D1')
     expect(placeOf('Hall D', halls, withAlias({}, 'D', 'D9'), undefined, own).hall).toBe(UNRESOLVED_HALL)
   })
@@ -138,7 +158,7 @@ describe('placing demand in the halls of the hall ledger', () => {
     const aliases = withAlias(withAlias(withAlias({}, ' Sceneomr hall C', 'C'), 'Hall C', UNRESOLVED_HALL), 'Bakrom', 'B')
     expect(placeOf('sceneomr hall c', halls, aliases)).toEqual({ hall: 'C', by: 'choice', chosen: true, own: false })
     expect(placeOf('Hall C', halls, aliases)).toEqual({ hall: UNRESOLVED_HALL, by: 'choice', chosen: true, own: false })
-    expect(placeOf('Hall A', halls, aliases)).toEqual({ hall: 'A1', by: 'text', chosen: false, own: false })
+    expect(placeOf('Hall E', halls, aliases)).toEqual({ hall: 'E', by: 'text', chosen: false, own: false })
     expect(placeOf('bakrom', halls, aliases, undefined, own).hall).toBe('B')
     const line = (id: string, hall: string) => ({ id, hall }) as DemandLine
     expect(locateDemand([line('a', 'sceneomr hall C'), line('b', 'Sceneomr hall C'), line('c', 'cafe hall D')], halls, aliases).map((l) => l.hall)).toEqual(['C', 'C', UNRESOLVED_HALL])

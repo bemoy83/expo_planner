@@ -76,6 +76,24 @@ export const hallRulesOf = (halls: string[], rules?: HallRules): HallRules => {
 }
 
 /**
+ * The choices a workspace starts with, as examples: a letter is its numbered hall where there is one such hall,
+ * «A» is «A1». A choice for a text holds for it with «Hall» in front, so this places «Hall A».
+ */
+export const exampleChoices = (halls: string[]): Aliases => {
+  const letters = [...new Set(halls.filter((hall) => /\d$/.test(hall.trim())).map((hall) => lower(hall).replace(/\d+$/, '')))]
+  return Object.fromEntries(letters.filter((letter) => letter && numberedHalls(letter, halls).length === 1 && !halls.some((hall) => lower(hall) === letter)).map((letter) => [letter, numberedHalls(letter, halls)[0]]))
+}
+
+/**
+ * The planner's rules and choices as the Hallregler tab shows and edits them: with the examples put in, the places
+ * and the choices for letters, each once. What it writes back is his own from then on.
+ */
+export const hallSetupOf = (halls: string[], rules: HallRules | undefined, aliases: Aliases = {}): { rules: HallRules; aliases: Aliases } => ({
+  rules: { ...hallRulesOf(halls, rules), lettersSeeded: true },
+  aliases: rules?.lettersSeeded ? aliases : { ...exampleChoices(halls), ...aliases },
+})
+
+/**
  * The shared places: the planner's own, with the halls of them that are in the ledger, in his order. One without
  * such a hall, or named as a hall or as the halls of the project together, is none.
  */
@@ -121,14 +139,13 @@ export interface Reading {
 /**
  * The place that the text names, and how it was found, or null. «Hall C» and «c» name the hall «C», «Studio 3» the
  * hall «STUDIO3», and «Hall B» the planner's place «B»: the whole text is the name, however it is spelled (`spelled`).
- * A hall letter names its numbered hall when there is only one, «Hall A» names «A1».
  * A text that is none of this counts under the place of the first of the planner's rules whose words it holds.
  */
 export const readHall = (text: string, halls: string[], rules?: HallRules): Reading | null => {
   const wanted = clean(text)
   if (!wanted) return null
   const exact = halls.find((hall) => lower(hall) === wanted) ?? named(text, halls) ?? named(text, sharedPlaces(halls, rules).map((place) => place.name))
-  const hall = exact ?? (numberedHalls(wanted, halls).length === 1 ? numberedHalls(wanted, halls)[0] : undefined)
+  const hall = exact
   if (hall) {
     const place = halls.includes(hall) ? collectedIn(hall, halls, rules) : hall
     return place === hall ? { hall, by: 'text' } : { hall: place, by: 'text', via: hall }
@@ -152,14 +169,19 @@ export interface HallOffer {
 
 /**
  * A hall to offer for a text that is not placed by itself. First the one place named somewhere in it, in one word or
- * in several, however it is spelled: «D1» in «cafe hall D», «STUDIO3» in «Kafé ved Studio 3», and «E» in «Møterom
+ * in several, by its name however it is spelled or by a choice the planner has made for those words: «D1» in «cafe hall D», «STUDIO3» in «Kafé ved Studio 3», and «E» in «Møterom
  * hall E1». A text that names several places, as «Hall C, D, E», is offered the halls of the project together: the
  * demand is one sum for them. For a text that names no hall at all, what the project has booked decides (`booked`):
  * the hall of a project that has booked one hall only, and so for that project alone. A hall that is not in the
  * ledger, as «Hall F», is offered nothing.
  */
-export const suggestHall = (text: string, halls: string[], booked: string[] = [], rules?: HallRules): HallOffer | null => {
+export const suggestHall = (text: string, halls: string[], booked: string[] = [], rules?: HallRules, aliases: Aliases = {}): HallOffer | null => {
   if (!text.trim() || resolveHall(text, halls, rules)) return null
+  /** What some words of the text are placed as, were they a text of their own; not the unresolved location. */
+  const placed = (words: string): string | null => {
+    const { hall, by } = placeOf(words, halls, aliases, undefined, rules)
+    return by === 'none' || hall === UNRESOLVED_HALL ? null : hall
+  }
   const words = text.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
   const isHallWord = (word?: string) => /^hall(en)?$/i.test(word ?? '')
   const found = new Set<string>()
@@ -172,8 +194,9 @@ export const suggestHall = (text: string, halls: string[], booked: string[] = []
       const run = words.slice(index, index + length)
       // A single letter is a hall where it is written as one: after «hall», or as a capital.
       if (length === 1 && run[0].length === 1 && !afterHall && run[0] !== run[0].toUpperCase()) continue
-      // «E1» is a room in hall «E» where the ledger has no «E1».
-      const place = resolveHall(run.join(' '), halls, rules) ?? (length === 1 && /\d$/.test(run[0]) ? resolveHall(run[0].replace(/\d+$/, ''), halls, rules) : null)
+      // «E1» is a room in hall «E» where the ledger has no «E1», and a letter is offered its numbered hall where there is one such hall.
+      const single = length === 1 ? numberedHalls(lower(run[0]), halls) : []
+      const place = placed(run.join(' ')) ?? (length === 1 && /\d$/.test(run[0]) ? placed(run[0].replace(/\d+$/, '')) : null) ?? (single.length === 1 ? collectedIn(single[0], halls, rules) : null)
       if (!place) continue
       found.add(place)
       taken = length
@@ -202,6 +225,8 @@ export interface Place {
   chosen: boolean
   /** The choice is for this project alone. */
   own: boolean
+  /** The text the choice was made for, where it is not this one: «a» for «Hall A». */
+  choiceFor?: string
   /** The words of the rule that placed it, where one did. */
   phrase?: string
   /** The hall the text names, where it counts under the place that collects it. */
@@ -216,9 +241,13 @@ export interface Place {
 export const placeOf = (text: string, halls: string[], aliases: Aliases = {}, projectNo?: string, rules?: HallRules): Place => {
   const own = projectNo ? chosenPlace(aliases[aliasKey(text, projectNo)], halls, rules) : undefined
   if (own) return { hall: own, by: 'own', chosen: true, own: true }
-  // A choice for a text holds for it with «Hall» in front too: the choice for «D» places «Hall D».
-  const chosen = chosenPlace(aliases[aliasKey(text)] ?? aliases[clean(text)], halls, rules)
+  const chosen = chosenPlace(aliases[aliasKey(text)], halls, rules)
   if (chosen) return { hall: chosen, by: 'choice', chosen: true, own: false }
+  // A choice for a text holds for it with «Hall» in front too: the choice for «D» places «Hall D». Until the planner
+  // has made the example choices his own, a letter is its one numbered hall.
+  const short = clean(text)
+  const forShort = chosenPlace(aliases[short] ?? (rules?.lettersSeeded ? undefined : exampleChoices(halls)[short]), halls, rules)
+  if (forShort) return { hall: forShort, by: 'choice', chosen: true, own: false, ...(short === aliasKey(text) ? {} : { choiceFor: short }) }
   const read = readHall(text, halls, rules)
   return { hall: read?.hall ?? UNRESOLVED_HALL, by: read?.by ?? 'none', chosen: false, own: false, ...(read?.phrase ? { phrase: read.phrase } : {}), ...(read?.via ? { via: read.via } : {}) }
 }
