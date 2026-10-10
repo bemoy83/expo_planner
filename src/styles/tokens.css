@@ -93,6 +93,7 @@
 
   font-family:var(--font-ui);
   font-size:14px;
+  -webkit-font-smoothing:antialiased;   /* as the design is drawn: without it macOS draws every weight a step heavier */
   color:var(--text);
   background:var(--bg);
 }
