@@ -131,9 +131,10 @@
    an open competence line of Bemanning has. The name of each is at the right edge of the label column, against its figures, as a hall's name is. */
 .cap-row,.sum-row{background:var(--bg)}
 :is(.cap-row,.sum-row) .cell{border-bottom:1px solid var(--grid-row)}
-.lbl-cap{margin-left:auto}
-.lbl-cap.strong{font-weight:600}
-.cap-cell{color:var(--text)}
+/* the totals are in full ink; the lines they are made of step back */
+.lbl-cap{margin-left:auto;color:var(--muted)}
+.lbl-cap.strong{color:var(--text);font-weight:600}
+.cap-cell{color:var(--muted)}
 .sum-cell{font-weight:600}
 /* Avvik as plain figures, with the heat map switched off */
 .dev.neg{background:var(--neg-bg)!important;color:var(--neg);font-weight:600}
