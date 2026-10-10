@@ -274,9 +274,11 @@
 
 /* Levels: a line above each and nothing under it, and no rules between the days, since a level is a sum and not typed in.
    A top level has the strong line, which means nothing else in the grid, and is the only level with a fill. The levels under it
-   are sums in muted type on the bare canvas, so they are not taken for lines to type in. */
-.group-row{background:var(--bg);border-top:1px solid var(--grid-phase)}
-.group-row.depth-0{border-top-color:var(--grid-top)}
+   are sums in muted type on the bare canvas, so they are not taken for lines to type in; their line is above the days alone,
+   and the label column has none. */
+.group-row{background:var(--bg)}
+.group-row.depth-0{border-top:1px solid var(--grid-top)}
+.group-row:not(.depth-0) .cell{border-top:1px solid var(--grid-phase)}
 .group-row.depth-0,.group-row.depth-0 .grid-label{background:var(--band)}
 .group-row.depth-0 .lbl-project{font-size:var(--fs-base);font-weight:700}
 .group-row:not(.depth-0) :is(.lbl-project,.lbl-num:not(.delta)){color:var(--muted)}
@@ -303,13 +305,12 @@
 .group-row.entry-level .cell.editable{background-color:var(--surface);color:var(--text);font-weight:600}
 
 /* Rows are typed in, so they are ruled: a rule between the days, and one above each row's cells, which is the rule under the row
-   before it. The rule sits on the cells and not on the line, so it has their fill behind it. The first row under a level has it
-   across its label too, which closes the block at the top; the last has none under it, since the line of the next level is there.
-   The line under the pointer is tinted. */
+   before it. The rule sits on the cells and not on the line, so it has their fill behind it, and the label column has none. The
+   last row has none under it, since the line of the next level is there. The line under the pointer is tinted. */
 .alloc-row .grid-label{cursor:pointer}
 .alloc-row:hover,.alloc-row:hover .grid-label{background:var(--wash-bg)}
 :is(.alloc-row,.entry-level) .cell{border-right:1px solid var(--grid-col)}
-.alloc-row .cell,:is(.group-row,.level-place)+.alloc-row .grid-label{border-top:1px solid var(--grid-row)}
+.alloc-row .cell{border-top:1px solid var(--grid-row)}
 .cell.editable{cursor:cell}
 .cell.filled.mon{background-color:var(--mon);color:var(--text);font-weight:500}
 .cell.filled.dem{background-color:var(--dem);color:var(--text);font-weight:500}

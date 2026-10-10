@@ -898,7 +898,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
                 return <AllocRow key={item.row.id} item={item} lane={lane} window={windowOf(item.row)} rowDimensions={rowDimensions} cols={cols} actions={actions} {...editOf(lane)} />
               }
               // A top level's line is drawn in its section below; here it only takes up its place.
-              if (item.node.depth === 0) return <div key={`g:${item.node.key}`} className="level-place" style={{ height: TOP_ROW_H }} />
+              if (item.node.depth === 0) return <div key={`g:${item.node.key}`} style={{ height: TOP_ROW_H }} />
               return groupRow(item)
             })}
             {allSections
