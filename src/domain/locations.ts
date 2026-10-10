@@ -26,6 +26,27 @@ export const resolveHall = (text: string, halls: string[]): string | null => {
   return numbered.length === 1 ? numbered[0] : null
 }
 
+/**
+ * A hall to offer for a text that names none by itself: the one hall of the ledger named among its words, as «D1» in
+ * «cafe hall D» and «E» in «Møterom hall E1». Where it names several, the one the project has booked (`booked`), if
+ * that is one. A text without a hall in it, or with a hall that is not in the ledger, is offered nothing: the planner places it.
+ */
+export const suggestHall = (text: string, halls: string[], booked: string[] = []): string | null => {
+  if (!text.trim() || resolveHall(text, halls)) return null
+  const words = text.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+  const named = new Set<string>()
+  words.forEach((word, index) => {
+    // A single letter is a hall where it is written as one: after «hall», or as a capital.
+    if (word.length === 1 && !/^hall(en)?$/i.test(words[index - 1] ?? '') && word !== word.toUpperCase()) return
+    // «E1» is a room in hall «E» where the ledger has no «E1».
+    const hall = resolveHall(word, halls) ?? (/\d$/.test(word) ? resolveHall(word.replace(/\d+$/, ''), halls) : null)
+    if (hall) named.add(hall)
+  })
+  if (named.size === 1) return [...named][0]
+  const own = [...named].filter((hall) => booked.includes(hall))
+  return own.length === 1 ? own[0] : null
+}
+
 /** A Hall/Sted text as the key of the planner's choice for it. */
 export const aliasKey = (text: string): string => text.trim().toLowerCase()
 

@@ -40,7 +40,7 @@ Sources read from files: the Venyou export (`location_format_from-…_to-….xls
   - `kpi.ts` – the KPI table: product types with their unit in use, competence and rates, what each lacks, and merge/replace for imports.
   - `venue.ts`, `venueImport.ts` – the hall calendar, merging a Venyou export, hidden bookings.
   - `projects.ts` – the project table: a row per name a project goes by (`ProjectRef`: name, number, and a year only where the number does not begin with it). Matching an event to a project by name and year, the suggested numbers, the edits of the table, what follows a number (`projectFollowers`), and the rows of the Prosjekter tab (`projectRows`).
-  - `locations.ts` – places a demand line in a hall of the hall ledger: the planner's choice for that Hall/Sted text (Plassering on Behov, stored in `hallAliases`), else the hall the text names, else «Uavklart». The line keeps its own text.
+  - `locations.ts` – places a demand line in a hall of the hall ledger: the planner's choice for that Hall/Sted text (Plassering on Behov, stored in `hallAliases`), else the hall the text names, else «Uavklart». The line keeps its own text. A text left as «Uavklart» that names one hall among other words («cafe hall D») is offered that hall (`suggestHall`), in the Plassering cell and for all at once; taking the offer is the planner's choice for the text.
   - `plannedRows.ts` – demand under «Planlagt» shows as suggested Kalender rows, one per project × phase × hall × competence × Avd. A row with no hall or Avd. covers all of them.
   - `calc.ts` – required hours per row (like the workbook's TIMER column), daily need, capacity.
   - `calendarRange.ts` – the Kalender's period follows the hall bookings.

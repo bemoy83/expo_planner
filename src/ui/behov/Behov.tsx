@@ -7,7 +7,7 @@ import { isVismaLine, NO_PRODUCT_TYPE, orphanedDecisions, productTypeLabel, prod
 import { countOf, matchesFilter, reviewVisma, type LineFilter, type ProjectReview } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { placeOf, resolveHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { placeOf, resolveHall, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallNames } from '../../domain/venue'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
@@ -71,7 +71,9 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
     const place = placeOf(text, halls, ws.hallAliases)
     const auto = resolveHall(text, halls) ?? UNRESOLVED_HALL
     if (!text.trim()) return <span className="muted">{UNRESOLVED_HALL}</span>
+    const offered = place.chosen ? null : suggestHall(text, halls)
     return (
+      <>
       <select
         className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
         value={place.chosen ? place.hall : ''}
@@ -87,7 +89,28 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
         ))}
         <option value={UNRESOLVED_HALL}>{UNRESOLVED_HALL}</option>
       </select>
+      {offered && (
+        <button className="link" title={`«${text.trim()}» nevner hallen ${offered}. Plasserer alle linjer med denne teksten i ${offered}.`} onClick={() => setHallAlias(text, offered)}>
+          Bruk {offered}
+        </button>
+      )}
+      </>
     )
+  }
+  /** The Hall/Sted texts that are not placed, with the hall each is offered. */
+  const offers = useMemo(() => {
+    const found = new Map<string, string>()
+    for (const { hall: text } of ws.demand) {
+      if (found.has(text.trim().toLowerCase()) || placeOf(text, halls, ws.hallAliases).chosen) continue
+      const offered = suggestHall(text, halls)
+      if (offered) found.set(text.trim().toLowerCase(), offered)
+    }
+    return [...found]
+  }, [ws.demand, halls, ws.hallAliases])
+  const takeOffers = () => {
+    // One step to undo: the choices are made in the same go.
+    for (const [text, hall] of offers) setHallAlias(text, hall)
+    setMessage({ kind: 'ok', text: `${offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} er plassert etter forslaget. Kan angres med Ctrl/Cmd+Z.` })
   }
   const vismaImport = ws.visma?.find((v) => v.projectNo === projectNo)
   // Every project's Visma lines, with what still needs the planner: the filter and the actions for all projects read from this.
@@ -343,6 +366,14 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup }: Props) {
       <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="behov-body">
+        {offers.length > 0 && (
+          <p className="notice">
+            {offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} som står som «Uavklart» nevner en hall, og har et forslag i kolonnen Plassering.{' '}
+            <button className="link" title={offers.map(([text, hall]) => `${text}: ${hall}`).join('\n')} onClick={takeOffers}>
+              Bruk forslagene
+            </button>
+          </p>
+        )}
         {withIssue > 0 && (
           <p className="notice">
             {withIssue === 1 ? '1 Visma-linje' : `${withIssue} Visma-linjer`} gir ingen timer ennå fordi produkttypen mangler enhet, kompetanse eller sats.{' '}
