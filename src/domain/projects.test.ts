@@ -147,6 +147,13 @@ describe('what an event without a project is offered', () => {
     expect(offered([{ name: 'Hagemessen', projectNo: '25100' }])['HAGEMESSEN 2026']).toBeUndefined()
   })
 
+  it('offers a number that is known from orders alone, with an empty table', () => {
+    const fromOrders = rows([], { visma: [{ projectNo: '26100', eventName: 'Hagemessen', fileName: '', importedAt: '', rows: [] }] })
+    expect(fromOrders.find((r) => r.names[0] === 'HAGEMESSEN 2026')!.match).toEqual({ projectNo: '26100', name: 'Hagemessen' })
+    // The earlier event of the year with those letters has 26VVS.
+    expect(fromOrders.find((r) => r.names[0] === 'VVS DAGENE 2026')).toMatchObject({ suggestion: '26VVD' })
+  })
+
   it('offers the project a longer name holds only where it has an event on the same days', () => {
     const offers = offered([{ name: 'VVS DAGENE 2026', projectNo: '26970' }])
     expect(offers['VVS Dagene 2026 - Grupperom']).toBe('26970')
