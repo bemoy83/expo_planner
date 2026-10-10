@@ -101,7 +101,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
           className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${place.chosen ? 'chosen' : ''}`}
           value={place.chosen ? place.hall : ''}
           aria-label={`Plassering for ${text}`}
-          title={`${place.by === 'none' ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «Uavklart» til du velger en hall. ' : ''}${scope}`}
+          title={`${place.by === 'none' ? 'Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «${UNRESOLVED_HALL}» til du velger en hall. ' : ''}${scope}`}
           onChange={(e) => setHallAlias(text, e.target.value || undefined, place.own ? line.projectNo : undefined)}
         >
           <option value="">{auto} (auto)</option>
@@ -346,7 +346,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const listed = filter === 'all' ? projects : projects.filter(([no]) => no === projectNo || countOf(review.get(no) ?? NO_REVIEW, filter) > 0)
   const attention = (no: string) => {
     const project = review.get(no)
-    return project ? [project.unresolved ? `${project.unresolved} uavklart` : '', project.issues ? `${project.issues} uten timer` : ''].filter(Boolean).map((text) => ` · ${text}`).join('') : ''
+    return project ? [project.unresolved ? `${project.unresolved} mangler hall` : '', project.issues ? `${project.issues} uten timer` : ''].filter(Boolean).map((text) => ` · ${text}`).join('') : ''
   }
   const plannedCount = vismaLines.filter((l) => l.inPlan).length
   const projectName = projects.find(([no]) => no === projectNo)?.[1] ?? ''
@@ -386,7 +386,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
             options={[
               { value: 'all', label: 'Alle', title: 'Alle prosjekter og alle Visma-linjer' },
               { value: 'open', label: `Ikke i plan ${totals.open}`, title: 'Linjer som ikke er tatt inn i plan, og prosjektene som har slike' },
-              { value: 'unresolved', label: `Uavklart ${totals.unresolved}`, title: 'Linjer der Hall/sted ikke er en hall på VenYou-fanen, og prosjektene som har slike' },
+              { value: 'unresolved', label: `${UNRESOLVED_HALL} ${totals.unresolved}`, title: 'Linjer der Hall/sted ikke er en hall på VenYou-fanen, og prosjektene som har slike' },
               { value: 'issue', label: `Uten timer ${totals.issue}`, title: 'Linjer som ikke gir timer fordi produkttype eller sats mangler, og prosjektene som har slike' },
             ]}
           />
@@ -407,7 +407,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
       <div className="behov-body">
         {offers.length > 0 && (
           <p className="notice">
-            {offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} som står som «Uavklart» har et forslag i kolonnen Plassering, fra hallen teksten nevner eller hallene prosjektet har booket.{' '}
+            {offers.length === 1 ? '1 Hall/sted-tekst' : `${offers.length} Hall/sted-tekster`} som står som «{UNRESOLVED_HALL}» har et forslag i kolonnen Plassering, fra hallen teksten nevner eller hallene prosjektet har booket.{' '}
             <button className="link" title={offers.map(({ text, hall }) => `${text}: ${hall}`).join('\n')} onClick={takeOffers}>
               Bruk forslagene
             </button>

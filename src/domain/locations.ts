@@ -13,7 +13,9 @@ import type { AllocationRow, DemandLine, HallRules } from './types'
  * and all of it is the planner's data: a new grouping or a new word for a place needs no change of the code.
  */
 
-export const UNRESOLVED_HALL = 'Uavklart'
+export const UNRESOLVED_HALL = 'Mangler hall'
+/** What the unresolved location was called at first; a choice stored under that name is a choice of it. */
+const UNRESOLVED_HALL_BEFORE = 'uavklart'
 
 /**
  * The place of demand that is not shared out on halls: for the halls of its project together, as carpet ordered for
@@ -99,7 +101,7 @@ export const placeNames = (halls: string[], rules?: HallRules): string[] => {
 const chosenPlace = (alias: string | undefined, halls: string[], rules?: HallRules): string | undefined => {
   const wanted = alias?.trim().toLowerCase()
   if (!wanted) return undefined
-  if (wanted === UNRESOLVED_HALL.toLowerCase()) return UNRESOLVED_HALL
+  if (wanted === UNRESOLVED_HALL.toLowerCase() || wanted === UNRESOLVED_HALL_BEFORE) return UNRESOLVED_HALL
   if (wanted === PROJECT_HALLS_BEFORE) return PROJECT_HALLS
   // A choice of a hall that a place collects since is a choice of the place.
   const hall = halls.find((other) => lower(other) === wanted)

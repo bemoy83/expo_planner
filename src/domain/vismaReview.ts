@@ -9,7 +9,7 @@ export type LineFilter = 'all' | 'open' | 'unresolved' | 'issue'
 
 type Aliases = Record<string, string> | undefined
 
-/** A line whose Hall/Sted names no hall of the hall ledger counts under «Uavklart» in the Kalender. */
+/** A line whose Hall/Sted names no hall of the hall ledger counts under «Mangler hall» in the Kalender. */
 export const isUnplaced = (line: VismaLine, halls: string[], aliases: Aliases, rules?: HallRules): boolean => placeOf(line.hall, halls, aliases, line.projectNo, rules).hall === UNRESOLVED_HALL
 
 export const matchesFilter = (line: VismaLine, filter: LineFilter, halls: string[], aliases: Aliases, rules?: HallRules): boolean =>

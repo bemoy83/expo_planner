@@ -26,7 +26,7 @@ describe('the days a row can be worked on', () => {
 
   it('uses all the halls of the project for a row without a hall of its own', () => {
     expect(days(windowFor(windows, '26970', undefined, 'Montering'))).toBe('05 06 07 08')
-    expect(days(windowFor(windows, '26970', 'Uavklart', 'Montering'))).toBe('05 06 07 08')
+    expect(days(windowFor(windows, '26970', 'Mangler hall', 'Montering'))).toBe('05 06 07 08')
     expect(days(windowFor(windows, '26970', 'E', 'Montering'))).toBe('05 06 07 08')
   })
 
