@@ -41,8 +41,9 @@
 .bm-need.helg,.bm-need.helligdag,.bm-free.helg,.bm-free.helligdag{background-color:var(--weekend)}
 button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;overflow:hidden;white-space:nowrap}
-.bm-need-value em{font:400 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint)}
-.bm-number{display:inline-flex;font:600 var(--fs-md)/1 var(--font-num);letter-spacing:-.02em}
+.bm-need-value em{font:400 var(--fs-xs) var(--font-num);font-style:normal;color:var(--faint)}
+/* what remains and what it is of are one size, the size of a figure in the grid; the weight and the colour tell them apart */
+.bm-number{display:inline-flex;font:600 var(--fs-xs)/1 var(--font-num)}
 .bm-number.ok{color:var(--pos)}
 .bm-number.over{color:var(--over)}
 .bm-number.uncoverable{color:var(--neg)}
