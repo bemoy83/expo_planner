@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type ReactNode } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { useDismiss } from './useDismiss'
-import { ChevronDown, ChevronRight, PanelRight, Redo2, Undo2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, PanelRight, Redo2, Undo2, X } from 'lucide-react'
 
 interface MenuProps {
   label: ReactNode
@@ -211,6 +211,38 @@ export function PanelToggle({ open, what, hint, disabled, onToggle }: { open: bo
     <button className={`ghost icon-button ${open ? 'active' : ''}`} aria-pressed={open} disabled={disabled} aria-label={open ? `Skjul ${what}` : `Vis ${what}`} title={open ? `Skjul ${what}` : `Vis ${what}: ${hint}`} onClick={onToggle}>
       <PanelRight size={16} aria-hidden />
     </button>
+  )
+}
+
+interface SidePanelProps {
+  /** What the panel holds, as its name: «Raddetaljer». */
+  label: string
+  /** The head: a title, and what stands under it. */
+  head: ReactNode
+  /** Buttons of the head, before the one that closes the panel. */
+  actions?: ReactNode
+  closeTitle?: string
+  onClose: () => void
+  onKeyDown?: KeyboardEventHandler<HTMLElement>
+  /** The body (`insp-body`) and, where the panel has one, the foot. */
+  children?: ReactNode
+}
+
+/** The frame of a panel that slides in over the right edge of a page, which keeps its width: a head with a button that closes it, and what it holds. Opened with a `PanelToggle`. */
+export function SidePanel({ label, head, actions, closeTitle = `Lukk ${label.toLowerCase()}`, onClose, onKeyDown, children }: SidePanelProps) {
+  return (
+    <aside className="inspector" aria-label={label} onKeyDown={onKeyDown}>
+      <header className="insp-head">
+        <div className="insp-head-text">{head}</div>
+        <div className="insp-actions">
+          {actions}
+          <button className="ghost icon-button" aria-label="Lukk" title={closeTitle} onClick={onClose}>
+            <X size={16} aria-hidden />
+          </button>
+        </div>
+      </header>
+      {children}
+    </aside>
   )
 }
 

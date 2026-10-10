@@ -4,6 +4,7 @@ import { addDays, dayOfMonth, isoWeek, monthShort, type ISODate } from '../../do
 import { dayType } from '../../domain/holidays'
 import { absenceSpans, addAbsence, editAbsence, overtimeByWeek, paidHours, personWeek, type AbsenceInput, type AbsenceSpan } from '../../domain/staffing'
 import type { UnavailabilityKind, WorkdaySettings } from '../../domain/types'
+import { SidePanel } from '../common'
 import { competenceColor } from '../dom'
 import { useBemanning } from './BemanningScope'
 import { ABSENCE_LABELS } from './dayCell'
@@ -143,28 +144,24 @@ export function PersonPanel() {
     bm.setPanel({ personId: person.id })
   }
   return (
-    <aside
-      className="inspector"
-      aria-label="Persondetaljer"
+    <SidePanel
+      label="Persondetaljer"
+      closeTitle="Lukk persondetaljer (Esc)"
+      onClose={() => bm.setPanel(null)}
       onKeyDown={(e) => {
         if (e.key !== 'Escape') return
         e.stopPropagation()
         bm.setPanel(panel.draft ? { personId: person.id } : null)
       }}
-    >
-      <header className="insp-head">
-        <div className="insp-head-text">
+      head={
+        <>
           <div className="insp-title">{person.name}</div>
           <div className="insp-sub">
             Fast ansatt · {own.length} av {staffed.length} kompetanser
           </div>
-        </div>
-        <div className="insp-actions">
-          <button className="ghost icon-button" aria-label="Lukk" title="Lukk persondetaljer (Esc)" onClick={() => bm.setPanel(null)}>
-            <X size={16} aria-hidden />
-          </button>
-        </div>
-      </header>
+        </>
+      }
+    >
       <div className="insp-body">
         <section className="insp-sec">
           <h3 className="insp-h">
@@ -258,6 +255,6 @@ export function PersonPanel() {
           </div>
         </section>
       </div>
-    </aside>
+    </SidePanel>
   )
 }

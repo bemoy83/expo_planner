@@ -2,7 +2,7 @@
 
 .kalender{display:flex;flex-direction:column;flex:1;min-height:0;--mode-fade:220ms}
 /* the grid and the row details that slide in over its right edge */
-.kal-work{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.kal-work,.rules-stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .grid-scroll{flex:1;overflow:auto;position:relative;outline:none;background:var(--bg);overscroll-behavior:contain}
 .grid-canvas{position:relative}
 /* the dates, the hall calendar and the staffing: pinned like Excel's frozen rows. Only where the rows would be left with no room does the block under the dates move up, by what does not fit. */

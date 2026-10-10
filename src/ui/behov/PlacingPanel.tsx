@@ -2,6 +2,7 @@ import type { HallReview } from '../../domain/hallReview'
 import { PLACE_STEPS } from '../../domain/hallReview'
 import { placeOf, type Place, type PlacedBy, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import type { HallRules } from '../../domain/types'
+import { SidePanel } from '../common'
 
 /** A text to try against the rules, as it would stand on a line of a project, or of none. */
 export interface TriedText {
@@ -29,13 +30,15 @@ interface Props {
   onTry: (tried: TriedText) => void
   /** A click on a step: the page shows the rules of that step. */
   onStep: (step: PlacedBy) => void
+  onClose: () => void
 }
 
 /**
- * Beside the rules: a text to try, with where it lands and why, and the order the rules are tried in, with the lines
+ * A text to try against the rules, with where it lands and why, and the order the rules are tried in, with the lines
  * of the demand each step places. The step that placed the text tried is lit, and those tried before it are dimmed.
+ * The panel slides in over the right edge of the page, as row details do in the Kalender.
  */
-export function PlacingPanel({ halls, rules, booked, review, projects, tried, onTry, onStep }: Props) {
+export function PlacingPanel({ halls, rules, booked, review, projects, tried, onTry, onStep, onClose }: Props) {
   const text = tried.text.trim()
   const place = text ? placeOf(text, halls, rules, tried.projectNo || undefined) : null
   const offered = place?.by === 'none' ? suggestHall(text, halls, booked.get(tried.projectNo), rules) : null
@@ -49,43 +52,60 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
   }
   const at = place ? PLACE_STEPS.indexOf(place.by) : -1
   return (
-    <aside className="rules-panel" aria-label="Prøv en tekst mot reglene">
-      <h4 className="section-head">Prøv en tekst</h4>
-      <input placeholder="Hall/sted, f.eks. Scene øst" aria-label="Hall/sted-tekst å prøve" value={tried.text} onChange={(e) => onTry({ ...tried, text: e.target.value })} />
-      <select aria-label="Prosjektet teksten står i" title="Et valg kan gjelde ett prosjekt alene: velg prosjektet teksten står i" value={tried.projectNo} onChange={(e) => onTry({ ...tried, projectNo: e.target.value })}>
-        <option value="">Uten prosjekt</option>
-        {projects.map(([no, name]) => (
-          <option key={no} value={no}>
-            {name} ({no})
-          </option>
-        ))}
-      </select>
-      <p className="rules-result" role="status">
-        {place ? (
-          <>
-            → <strong className={place.hall === UNRESOLVED_HALL ? 'issue' : ''}>{place.hall}</strong> <span className="muted">{why(place)}</span>
-          </>
-        ) : (
-          <span className="muted">Skriv en tekst for å se hvor den havner, og hvorfor.</span>
-        )}
-      </p>
-      <h4 className="section-head">Rekkefølgen reglene prøves i</h4>
-      <ol className="rules-chain">
-        {PLACE_STEPS.map((step, index) => (
-          <li key={step}>
-            <button className={index === at ? 'hit' : index < at ? 'past' : ''} aria-current={index === at ? 'step' : undefined} title={`Vis ${step === 'none' ? 'tekstene som mangler hall' : 'reglene for dette steget'}`} onClick={() => onStep(step)}>
-              <span className="nr">{index + 1}</span>
-              <span className="label">{STEP_TEXT[step].label}</span>
-              <span className={`count ${step === 'none' && review.steps.none ? 'issue' : 'muted'}`}>
-                {review.steps[step]} {review.steps[step] === 1 ? 'linje' : 'linjer'}
-              </span>
-              <span className="detail">{STEP_TEXT[step].detail}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      <p className="hint">Områder endrer ikke hvor behovet teller. De bestemmer bare hva som vises under «Steder» i Kalender.</p>
-      <p className="hint">Alt her er ditt eget: det som kom inn med de første hallene er eksempler du kan endre og slette.</p>
-    </aside>
+    <SidePanel
+      label="Prøv en tekst"
+      onClose={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      head={
+        <>
+          <div className="insp-title">Prøv en tekst</div>
+          <div className="insp-sub">Hvor en Hall/sted-tekst havner, og hvorfor</div>
+        </>
+      }
+    >
+      <div className="insp-body">
+        <section className="insp-sec rules-try">
+          <input placeholder="Hall/sted, f.eks. Scene øst" aria-label="Hall/sted-tekst å prøve" value={tried.text} onChange={(e) => onTry({ ...tried, text: e.target.value })} />
+          <select aria-label="Prosjektet teksten står i" title="Et valg kan gjelde ett prosjekt alene: velg prosjektet teksten står i" value={tried.projectNo} onChange={(e) => onTry({ ...tried, projectNo: e.target.value })}>
+            <option value="">Uten prosjekt</option>
+            {projects.map(([no, name]) => (
+              <option key={no} value={no}>
+                {name} ({no})
+              </option>
+            ))}
+          </select>
+          <p className="rules-result" role="status">
+            {place ? (
+              <>
+                → <strong className={place.hall === UNRESOLVED_HALL ? 'issue' : ''}>{place.hall}</strong> <span className="muted">{why(place)}</span>
+              </>
+            ) : (
+              <span className="muted">Skriv en tekst for å se hvor den havner, og hvorfor.</span>
+            )}
+          </p>
+        </section>
+        <section className="insp-sec">
+          <h3 className="insp-h">Rekkefølgen reglene prøves i</h3>
+          <ol className="rules-chain">
+            {PLACE_STEPS.map((step, index) => (
+              <li key={step}>
+                <button className={index === at ? 'hit' : index < at ? 'past' : ''} aria-current={index === at ? 'step' : undefined} title={`Vis ${step === 'none' ? 'tekstene som mangler hall' : 'reglene for dette steget'}`} onClick={() => onStep(step)}>
+                  <span className="nr">{index + 1}</span>
+                  <span className="label">{STEP_TEXT[step].label}</span>
+                  <span className={`count ${step === 'none' && review.steps.none ? 'issue' : 'muted'}`}>
+                    {review.steps[step]} {review.steps[step] === 1 ? 'linje' : 'linjer'}
+                  </span>
+                  <span className="detail">{STEP_TEXT[step].detail}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <section className="insp-sec">
+          <p className="insp-note">Områder endrer ikke hvor behovet teller. De bestemmer bare hva som vises under «Steder» i Kalender.</p>
+          <p className="insp-note">Alt her er ditt eget: det som kom inn med de første hallene er eksempler du kan endre og slette.</p>
+        </section>
+      </div>
+    </SidePanel>
   )
 }

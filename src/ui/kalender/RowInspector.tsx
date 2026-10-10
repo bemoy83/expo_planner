@@ -4,8 +4,9 @@ import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
 import { PHASE_LABELS } from '../../domain/venue'
+import { SidePanel } from '../common'
 import { fmtDay } from './labels'
-import { Pencil, X } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 
 /** The row the panel is about, with what the Kalender knows of it. */
 export interface RowDetails {
@@ -31,12 +32,6 @@ interface Props {
   onClose: () => void
 }
 
-const CloseButton = ({ onClose }: { onClose: () => void }) => (
-  <button className="ghost icon-button" aria-label="Lukk" title="Lukk raddetaljer" onClick={onClose}>
-    <X size={16} aria-hidden />
-  </button>
-)
-
 /**
  * Row details: the demand, the window and the days of the planning row in focus. The panel slides in over
  * the right edge of the grid, so the grid keeps its width.
@@ -44,17 +39,16 @@ const CloseButton = ({ onClose }: { onClose: () => void }) => (
 export const RowInspector = memo(function RowInspector({ details, need, capacity, settings, onEdit, onSpread, onClose }: Props) {
   if (!details) {
     return (
-      <aside className="inspector" aria-label="Raddetaljer">
-        <header className="insp-head">
-          <div className="insp-head-text">
+      <SidePanel
+        label="Raddetaljer"
+        onClose={onClose}
+        head={
+          <>
             <div className="insp-eyebrow">Rad</div>
             <p className="insp-empty">Velg en planleggingsrad for å se behov, vindu og dagene i den.</p>
-          </div>
-          <div className="insp-actions">
-            <CloseButton onClose={onClose} />
-          </div>
-        </header>
-      </aside>
+          </>
+        }
+      />
     )
   }
   const { row, totals, window, projectName, halls, stored } = details
@@ -76,9 +70,11 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
     ['Avd.', row.avdeling === undefined ? 'Alle' : row.avdeling || 'Uten avd.'],
   ]
   return (
-    <aside className="inspector" aria-label="Raddetaljer">
-      <header className="insp-head">
-        <div className="insp-head-text">
+    <SidePanel
+      label="Raddetaljer"
+      onClose={onClose}
+      head={
+        <>
           <div className="insp-title">{row.competence || 'Rad'}</div>
           <div className="insp-sub">
             <i className={`phase-mark ${phaseMark}`} />
@@ -86,16 +82,16 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
             <span className="insp-sep">·</span>
             <span className="insp-trunc">{projectName}</span>
           </div>
-        </div>
-        <div className="insp-actions">
-          {stored && (
-            <button className="ghost icon-button" aria-label="Endre rad" title="Endre rad" onClick={() => onEdit(row)}>
-              <Pencil size={16} aria-hidden />
-            </button>
-          )}
-          <CloseButton onClose={onClose} />
-        </div>
-      </header>
+        </>
+      }
+      actions={
+        stored && (
+          <button className="ghost icon-button" aria-label="Endre rad" title="Endre rad" onClick={() => onEdit(row)}>
+            <Pencil size={16} aria-hidden />
+          </button>
+        )
+      }
+    >
       <div className="insp-body">
         <section className="insp-sec">
           <h3 className="insp-h">
@@ -203,6 +199,6 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
           <span className={`insp-done ${state}`}>{state === 'done' ? 'Behovet er dekket' : `${formatFte(-rest)} FTE-dager over behovet`}</span>
         )}
       </footer>
-    </aside>
+    </SidePanel>
   )
 })

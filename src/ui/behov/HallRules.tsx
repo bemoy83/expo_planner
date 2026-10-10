@@ -8,8 +8,9 @@ import { hallsOfProjects } from '../../domain/projects'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
 import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
+import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Menu, MergeReplaceDialog, MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
+import { Menu, MergeReplaceDialog, MessageBanner, PanelToggle, Segmented, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
@@ -56,8 +57,8 @@ type Part = 'unplaced' | 'places' | 'phrases' | 'choices' | 'areas'
  * the Kalender shows, and every choice made for a single text. The choices are last: their list grows long.
  * First come the texts of the demand that no rule places, to place here. One part is shown at a time, picked in the
  * bar above them, so no table has to be scrolled past to reach another; the areas stand apart there, since they place
- * nothing. Beside the part stands the panel that tries a text and shows the order the rules are tried in. A page of
- * its own, reached from Behov, where the rules are used.
+ * nothing. The panel that tries a text and shows the order the rules are tried in slides in over the right edge, from
+ * the button in the bar or a click on a text. A page of its own, reached from Behov, where the rules are used.
  */
 export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const { workspace, setHallRules } = useWorkspace()
@@ -71,6 +72,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const review = useMemo(() => reviewPlacing(ws.demand, halls, booked, rules), [ws.demand, halls, booked, rules])
   const projects = useMemo(() => [...new Set(ws.demand.map((line) => line.projectNo))].map((no): [string, string] => [no, projectName(no)]).sort((a, b) => a[1].localeCompare(b[1], 'nb')), [ws.demand, ws.visma, ws.projects]) // eslint-disable-line react-hooks/exhaustive-deps
   const [tried, setTried] = useState<TriedText>({ text: '', projectNo: '' })
+  const [panelOpen, setPanelOpen] = usePref('rulesPanelOpen', false)
   // The page opens on the texts that wait to be placed, where there are any.
   const [part, setPart] = useState<Part>(() => (review.steps.none > 0 ? 'unplaced' : 'places'))
   const phraseInput = useRef<HTMLInputElement>(null)
@@ -184,6 +186,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         {review.steps.none > 0 && <span className="issue small">{lineCount(review.steps.none)} mangler hall</span>}
         <span className="toolbar-gap" />
         <UndoRedoButtons />
+        <PanelToggle open={panelOpen} what="panelet for å prøve en tekst" hint="hvor en Hall/sted-tekst havner og hvorfor, og rekkefølgen reglene prøves i" onToggle={() => setPanelOpen(!panelOpen)} />
         <TableFileButtons
           exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord, et for valg og et for områder."
           importTitle="Les inn en fil med hallregler: en som er eksportert herfra, eller en med de samme arkene og kolonnene."
@@ -195,15 +198,15 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
 
       <MessageBanner message={message} onClose={() => setMessage(null)} />
 
-      <div className="behov-body rules">
-        <div className="rules-work">
+      <div className="rules-stage">
+        <div className="behov-body rules">
           {part === 'unplaced' && (
             <>
               <p className="hint">
                 Hall/sted-tekster i behovet som ingen regel plasserer, de med flest timer først. Velg et sted, så lagres det som et valg for teksten. Klikk en tekst for å prøve den i panelet.
               </p>
               {ws.demand.length ? (
-                <Unplaced unplaced={review.unplaced} places={places} projectName={projectName} onPlace={placeText} onOffers={takeOffers} onTry={(text, projectNo) => setTried({ text, projectNo })} onWordRule={startWordRule} />
+                <Unplaced unplaced={review.unplaced} places={places} projectName={projectName} onPlace={placeText} onOffers={takeOffers} onTry={(text, projectNo) => (setTried({ text, projectNo }), setPanelOpen(true))} onWordRule={startWordRule} />
               ) : (
                 <p className="muted">Ingen behov er lest inn ennå.</p>
               )}
@@ -427,7 +430,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
             </>
           )}
         </div>
-        <PlacingPanel halls={halls} rules={rules} booked={booked} review={review} projects={projects} tried={tried} onTry={setTried} onStep={showStep} />
+        {panelOpen && <PlacingPanel halls={halls} rules={rules} booked={booked} review={review} projects={projects} tried={tried} onTry={setTried} onStep={showStep} onClose={() => setPanelOpen(false)} />}
       </div>
       {pending && diff && (
         <MergeReplaceDialog

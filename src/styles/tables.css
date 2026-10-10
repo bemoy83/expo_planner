@@ -124,22 +124,15 @@ table.ledger.prosjekter td.actions{white-space:nowrap}
 input.inline.name-add{width:120px;min-width:0}
 
 /* ---- Hallregler ---- */
-/* the page of the rules: one part at a time, picked in the bar above, as wide as it needs, and beside it the panel that tries a text; in a narrow window the panel comes after the part */
-.behov-body.rules{display:grid;gap:24px;align-items:start}
-.rules-work{min-width:0}
-.rules-work .hint{margin-top:0}
+/* the page of the rules: one part at a time, picked in the bar above, as wide as it needs; the panel that tries a text slides in over its right edge (.inspector) */
+.behov-body.rules .hint{margin-top:0}
 /* the count of a part in the bar, and the line that sets the areas apart from the rules */
 .segmented em{font:normal 400 var(--fs-sm) var(--font-num)}
 .rules-apart{width:1px;height:20px;background:var(--line-strong)}
-@media (min-width:1201px){
-  .behov-body.rules{grid-template-columns:minmax(0,1fr) 320px}
-  .rules-panel{position:sticky;top:0}
-}
-/* the panel: a text to try with where it lands, and the steps the rules are tried in, each a button to its rules */
-.rules-panel{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
-.rules-panel h4{margin:6px 0 0}
-.rules-panel p{margin:0}
-.rules-result{min-height:38px;padding:8px 10px;border-radius:8px;background:var(--surface);font-size:var(--fs-md)}
+/* in the panel: the text to try with where it lands, and the steps the rules are tried in, each a button to its rules */
+.rules-try{display:flex;flex-direction:column;gap:8px}
+.insp-sec .insp-note + .insp-note{margin-top:8px}
+.rules-result{min-height:38px;margin:0;padding:8px 10px;border-radius:8px;background:var(--surface);font-size:var(--fs-md)}
 .rules-chain{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
 .rules-chain button{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:2px 8px;justify-content:stretch;justify-items:start;align-items:baseline;width:100%;padding:6px 8px;border-radius:6px;background:transparent;text-align:left}
 .rules-chain button:hover{background:var(--wash)}
