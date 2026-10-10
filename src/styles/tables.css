@@ -20,7 +20,7 @@ table.ledger td.actions{width:1%}
 table.ledger tr.in-plan td,table.ledger .planned{background:var(--pos-bg)}
 table.ledger tr.has-issue td{background:var(--warn-bg)}
 /* numbers and dates are set as in the Kalender */
-table.ledger .num,table.ledger .date,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
+table.ledger .num,table.ledger .date,table.ledger td.project-no,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
 
 /* a column's heading, see ColumnHead.tsx: a click on its name sorts by it, with an arrow for the direction */
 button.col-sort{padding:0;gap:3px;border-radius:4px;background:transparent;font-weight:inherit}
@@ -49,6 +49,8 @@ input.inline{width:100%;min-width:120px;border:none;border-radius:4px;background
 input.inline.num{min-width:0;width:52px;text-align:right}
 input.inline:hover{background:var(--wash)}
 input.inline:focus{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-strong)}
+/* a value that cannot be edited, in a column of fields: it stands where the text of a field does */
+.inline-text{display:inline-block;padding:2px 4px}
 /* a field with values to pick from: they are listed under it while it is edited, the one it holds in bold */
 .field{position:relative;display:flex;flex-direction:column}
 .field-list{position:absolute;top:100%;left:0;z-index:50;margin-top:2px;min-width:100%;max-height:264px;overflow:auto;display:flex;flex-direction:column;padding:4px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px}
@@ -91,10 +93,10 @@ table.ledger.kpi tr.alt-unit td{color:var(--muted)}
 
 /* ---- Personell and Kompetanser ---- */
 table.ledger.personell{width:auto;min-width:760px}
-/* the competences a person has and the names a project goes by, each removed with a click, and the + that opens the list of the rest */
+/* the competences a person has, each removed with a click, and the + that opens the list of the rest */
 .comp-toggles{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .comp-toggle{padding:2px 6px 2px 8px;border-radius:6px;font-size:var(--fs-sm);font-weight:600}
-.comp-toggle svg{color:var(--faint)}
+.comp-toggle svg,.name-chip svg{color:var(--faint)}
 table.ledger tr.inactive-row .comp-toggle{color:var(--muted)}
 .menu-button.comp-add{width:22px;height:22px;padding:0;border-radius:6px;background:transparent;color:var(--muted)}
 .menu-button.comp-add:hover,.menu-button.comp-add[aria-expanded='true']{background:var(--sunken);color:var(--text)}
@@ -114,6 +116,9 @@ table.ledger tr.dragging td{opacity:.45}
 /* ---- Prosjekter ---- */
 table.ledger.prosjekter{width:auto;min-width:760px}
 table.ledger.prosjekter td.actions{white-space:nowrap}
+/* the names a project goes by, in the text of the table: a button where a click removes the name, and the same shape for the name of a row that is not a project in the table yet */
+.name-chips{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.name-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 6px 2px 8px;border-radius:6px;background:var(--sunken)}
 /* the field a project is given one more name in, after the names it has */
-.comp-toggles .field{flex:0 0 auto}
+.name-chips .field{flex:0 0 auto}
 input.inline.name-add{width:120px;min-width:0}

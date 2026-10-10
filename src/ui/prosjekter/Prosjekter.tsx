@@ -130,7 +130,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
       text: (row) => row.projectNo,
       cell: (row) =>
         row.lacking === 'new' ? (
-          row.projectNo
+          <span className="inline-text">{row.projectNo}</span>
         ) : row.projectNo ? (
           <TextField className="project-no-input" ariaLabel={`Prosjektnummer for ${row.names[0]}`} value={row.projectNo} onCommit={(value) => renumber(row, value)} />
         ) : (
@@ -145,7 +145,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
       className: 'num',
       text: (row) => row.year,
       cell: (row) =>
-        row.projectNo && row.lacking !== 'new' ? <TextField className="num" ariaLabel={`År for ${row.projectNo}`} value={row.year} onCommit={(value) => isYear(value) && save(withProjectYear(projects, row.projectNo, value))} /> : row.year,
+        row.projectNo && row.lacking !== 'new' ? <TextField className="num" ariaLabel={`År for ${row.projectNo}`} value={row.year} onCommit={(value) => isYear(value) && save(withProjectYear(projects, row.projectNo, value))} /> : <span className="inline-text">{row.year}</span>,
     },
     {
       key: 'names',
@@ -154,21 +154,21 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
       text: (row) => row.names,
       cell: (row) =>
         row.projectNo && row.lacking !== 'new' ? (
-          <span className="comp-toggles">
+          <span className="name-chips">
             {row.names.map((name) => (
-              <button key={name} className="comp-toggle" title={`Fjern navnet ${name} fra ${row.projectNo}`} onClick={() => removeName(row, name)}>
+              <button key={name} className="name-chip" title={`Fjern navnet ${name} fra ${row.projectNo}`} onClick={() => removeName(row, name)}>
                 {name} <X size={12} aria-hidden />
               </button>
             ))}
             <TextField className="name-add" placeholder="+ navn" options={openNames} ariaLabel={`Nytt navn på ${row.projectNo}`} value="" onCommit={(value) => value && save(withProjectName(projects, row.projectNo, value, row.year))} />
           </span>
         ) : (
-          <>
-            <strong>{row.names[0]}</strong>
+          <span className="name-chips">
+            <span className="name-chip">{row.names[0]}</span>
             {/* What the row is offered, and why. */}
             {(row.match ?? row.replaces) && <span className="muted small"> ligner {(row.match ?? row.replaces)!.name} ({(row.match ?? row.replaces)!.projectNo})</span>}
             {row.series && <span className="muted small"> ligner {row.series.name} ({row.series.after})</span>}
-          </>
+          </span>
         ),
     },
     {
