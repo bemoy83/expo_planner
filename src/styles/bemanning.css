@@ -80,7 +80,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-free em{font-size:var(--fs-2xs);font-style:normal;color:var(--faint)}
 
 /* ---- the planning bar ---- */
-.bm-hints{font-size:var(--fs-sm);color:var(--faint)}
+.bm-hints{font-size:var(--fs-sm);color:var(--mode-mute)}
 .bm-clip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--sunken);font-size:var(--fs-sm);color:var(--muted)}
 .bm-clip .row-action{height:22px}
 .bar-controls .bm-over-limit{height:30px;padding:0 10px;background:var(--alert-warn);color:var(--alert-on);font-size:var(--fs-sm);font-weight:500}
