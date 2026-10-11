@@ -70,20 +70,33 @@ describe('pulling an end of a run (R46)', () => {
   })
 
   it('goes on over the days up to where its end is pulled, at either end', () => {
-    expect(stretchRun(days, 'end', FRI)).toEqual({ add: [THU, FRI], remove: [] })
+    expect(stretchRun(days, 'end', FRI, wd)).toEqual({ add: [THU, FRI], remove: [] })
     const later = runDays(on(block(WED, 'vegger'), block(THU, 'vegger')), WED, block(WED, 'vegger'), wd)
-    expect(stretchRun(later, 'start', MON)).toEqual({ add: [MON, TUE], remove: [] })
+    expect(stretchRun(later, 'start', MON, wd)).toEqual({ add: [MON, TUE], remove: [] })
   })
 
   it('gives up the days past where its end is pulled back to', () => {
-    expect(stretchRun(days, 'end', MON).remove.map((day) => day.date)).toEqual([TUE, WED])
-    expect(stretchRun(days, 'start', WED).remove.map((day) => day.date)).toEqual([MON, TUE])
+    expect(stretchRun(days, 'end', MON, wd).remove.map((day) => day.date)).toEqual([TUE, WED])
+    expect(stretchRun(days, 'start', WED, wd).remove.map((day) => day.date)).toEqual([MON, TUE])
+  })
+
+  it('makes a half day at the end whole when the end is pulled outward', () => {
+    // Monday whole, Tuesday until 11:00.
+    const half = block(TUE, 'vegger', 420, 660)
+    const short = runDays(on(block(MON, 'vegger'), half), TUE, half, wd)
+    expect(stretchRun(short, 'end', THU, wd)).toEqual({ add: [TUE, WED, THU], remove: [], whole: TUE })
+    // Thursday from 11:30, Friday whole.
+    const late = block(THU, 'vegger', 690, 900)
+    const begun = runDays(on(late, block(FRI, 'vegger')), THU, late, wd)
+    expect(stretchRun(begun, 'start', WED, wd)).toEqual({ add: [WED, THU], remove: [], whole: THU })
+    // Pulled inward, the half day is given up as any day of the run.
+    expect(stretchRun(short, 'end', MON, wd).remove.map((day) => day.date)).toEqual([TUE])
   })
 
   it('always leaves the day at the other end, and does nothing where the end is', () => {
-    expect(stretchRun(days, 'end', '2026-10-05').remove.map((day) => day.date)).toEqual([TUE, WED])
-    expect(stretchRun(days, 'start', NEXT_MON).remove.map((day) => day.date)).toEqual([MON, TUE])
-    expect(stretchRun(days, 'end', WED)).toEqual({ add: [], remove: [] })
-    expect(stretchRun(days, 'start', MON)).toEqual({ add: [], remove: [] })
+    expect(stretchRun(days, 'end', '2026-10-05', wd).remove.map((day) => day.date)).toEqual([TUE, WED])
+    expect(stretchRun(days, 'start', NEXT_MON, wd).remove.map((day) => day.date)).toEqual([MON, TUE])
+    expect(stretchRun(days, 'end', WED, wd)).toEqual({ add: [], remove: [] })
+    expect(stretchRun(days, 'start', MON, wd)).toEqual({ add: [], remove: [] })
   })
 })

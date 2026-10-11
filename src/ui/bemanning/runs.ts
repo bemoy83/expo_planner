@@ -77,17 +77,26 @@ export const runOf = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: Wo
 export interface Stretch {
   add: ISODate[]
   remove: RunDay[]
+  /** The day of the end itself, where the run has only a part of it and is to have the rest: it is among `add`, and is no day the run comes to anew. */
+  whole?: ISODate
 }
 
 /**
  * An end of a run pulled along the days to `to`. Pulled outward, the run is to go on over the days up to it:
- * what they get is the brush's to decide, as if it were drawn over them. Pulled inward, the days of the run
- * past it are given up. The day at the other end is always left: a run is not pulled away to nothing.
+ * what they get is the brush's to decide, as if it were drawn over them. An end in the middle of a day is to
+ * have the rest of that day too, or the days after it would not be of the run. Pulled inward, the days of the
+ * run past it are given up. The day at the other end is always left: a run is not pulled away to nothing.
  */
-export const stretchRun = (days: RunDay[], edge: 'start' | 'end', to: ISODate): Stretch => {
-  const first = days[0].date
-  const last = days[days.length - 1].date
+export const stretchRun = (days: RunDay[], edge: 'start' | 'end', to: ISODate, wd: WorkdaySettings): Stretch => {
+  const first = days[0]
+  const last = days[days.length - 1]
   const between = (from: ISODate, until: ISODate) => Array.from({ length: Math.max(0, daysBetween(from, until) + 1) }, (_, i) => addDays(from, i))
-  if (edge === 'end') return to > last ? { add: between(addDays(last, 1), to), remove: [] } : { add: [], remove: days.filter((day) => day.date > to && day.date > first) }
-  return to < first ? { add: between(to, addDays(first, -1)), remove: [] } : { add: [], remove: days.filter((day) => day.date < to && day.date < last) }
+  if (edge === 'end') {
+    if (to <= last.date) return { add: [], remove: days.filter((day) => day.date > to && day.date > first.date) }
+    const whole = reachesEnd(last.block, wd) ? undefined : last.date
+    return { add: between(whole ?? addDays(last.date, 1), to), remove: [], ...(whole && { whole }) }
+  }
+  if (to >= first.date) return { add: [], remove: days.filter((day) => day.date < to && day.date < last.date) }
+  const whole = fromStart(first.block, wd) ? undefined : first.date
+  return { add: between(to, whole ?? addDays(first.date, -1)), remove: [], ...(whole && { whole }) }
 }

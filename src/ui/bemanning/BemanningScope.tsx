@@ -95,6 +95,8 @@ export interface StretchPlan {
   cells: Day[]
   /** The blocks of the run that are given up. */
   blockIds: string[]
+  /** The day of the end itself, which gets the rest of its normal time: no day to count as passed over when it has none free. */
+  whole?: ISODate
 }
 
 /** Time a stroke would give a day; with the competence it is of when that is not the brush. */
@@ -304,11 +306,11 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     const block = line.assignments?.get(from)?.find((a) => a.id === stroke.stretch!.blockId)
     if (!block) return null
     const days: BlocksOn = (date) => line.assignments?.get(date)
-    const plan = stretchRun(runDays(days, from, block, ws.settings.workday), stroke.stretch.edge, dates[stroke.col1])
+    const plan = stretchRun(runDays(days, from, block, ws.settings.workday), stroke.stretch.edge, dates[stroke.col1], ws.settings.workday)
     const changed = plan.add.length ? plan.add : plan.remove.map((day) => day.date)
     if (!changed.length) return null
     const cols = changed.map((date) => dates.indexOf(date))
-    return { row: stroke.row0, colFrom: Math.min(...cols), colTo: Math.max(...cols), competence: block.competence, erase: plan.remove.length > 0, cells: changed.map((date) => ({ personId: line.person.id, date })), blockIds: plan.remove.map((day) => day.block.id) }
+    return { row: stroke.row0, colFrom: Math.min(...cols), colTo: Math.max(...cols), competence: block.competence, erase: plan.remove.length > 0, cells: changed.map((date) => ({ personId: line.person.id, date })), blockIds: plan.remove.map((day) => day.block.id), whole: plan.whole }
   }, [stroke, listed, dates, ws.settings.workday])
   const { ghost, info, refused } = useMemo((): { ghost: Ghosts; info: StrokeInfo | null; refused: Day | null } => {
     const none = { ghost: NO_GHOST, info: null, refused: null }
@@ -332,7 +334,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       for (const cell of stretch.cells) {
         const gaps = paintGaps(ws, cell, stretch.competence, 'full', undefined, offDays)
         if (!gaps.length) {
-          if (dayType(cell.date) === 'arbeidsdag') stats.skipped += 1
+          if (dayType(cell.date) === 'arbeidsdag' && cell.date !== stretch.whole) stats.skipped += 1
           continue
         }
         put(cell, gaps.map((gap) => ({ ...gap, competence: stretch.competence })))
