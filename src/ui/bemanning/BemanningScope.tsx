@@ -188,8 +188,9 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   // Blocks that do not count and still leave a gap. One whose day is covered by others is no longer something to solve.
   const open = useMemo(() => (active ? openUnresolved(ws) : []), [active, ws])
   const openIds = useMemo(() => new Set(open.map((a) => a.id)), [open])
-  const ok = useMemo(() => new Set(active ? okAssignments(ws) : []), [active, ws])
-  const isOk = useCallback((a: Assignment) => ok.has(a), [ok])
+  // A block counts when some of it does: absence for a part of the day takes only the time it covers.
+  const ok = useMemo(() => new Set(active ? okAssignments(ws).map((a) => a.id) : []), [active, ws])
+  const isOk = useCallback((a: Assignment) => ok.has(a.id), [ok])
   const isOpen = useCallback((a: Assignment) => openIds.has(a.id), [openIds])
   const lines = useMemo<PersonLine[]>(() => {
     const byDay = <T extends { personId: string; date: ISODate }>(list: T[]) => {

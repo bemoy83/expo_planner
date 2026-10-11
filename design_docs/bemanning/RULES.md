@@ -72,7 +72,7 @@ Examples (Per Solberg, Tuesday, has Teppefliser 07:00–11:00 and FOGA 11:30–1
 
 `unresolved` if any of these hold:
 
-- the interval overlaps an unavailability of the person that day
+- the person is away for all of its time (absence for a part of the day takes only the time it covers out of the block: that time does not count, the rest of the block does, and the block is not unresolved)
 - the person no longer has the competence
 - the person is inactive
 

@@ -499,13 +499,18 @@ describe('sickness', () => {
     expect(openUnresolved(ws)).toEqual([])
   })
 
-  it('marks a block unresolved when it runs into a part of the day the person is away', () => {
+  it('takes only the time a person is away for out of a block, and marks it unresolved when nothing is left', () => {
     // Mona leaves at 12:00 on Friday.
     const late: Assignment = { id: 'late', personId: MONA, date: FRI, competence: 'banner', ...iv('11:30', '13:00'), source: 'manual' }
     const early: Assignment = { ...late, id: 'early', ...iv('07:00', '11:00') }
-    const state = withAssignments([late, early])
-    expect(assignmentStatus(late, state)).toBe('unresolved')
+    const gone: Assignment = { ...late, id: 'gone', ...iv('13:00', '15:00') }
+    const state = withAssignments([late, early, gone])
+    expect(assignmentStatus(late, state)).toBe('ok')
     expect(assignmentStatus(early, state)).toBe('ok')
+    expect(assignmentStatus(gone, state)).toBe('unresolved')
+    expect(unresolvedAssignments(state).map((a) => a.id)).toEqual(['gone'])
+    // 07:00–11:00 counts whole, and of 11:30–13:00 the half hour before she leaves.
+    expect(buildBalance(state, [FRI]).get('banner', FRI).assigned).toBe(4.5)
   })
 
   it('marks the blocks of a person who lost the competence, or was made inactive, unresolved', () => {

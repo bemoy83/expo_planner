@@ -219,22 +219,32 @@ export const clearDays = (assignments: Assignment[], cells: DayCell[]): Assignme
 export type AssignmentStatus = 'ok' | 'unresolved'
 
 /** R7: an assignment is unresolved when its person is away then, no longer has the competence, or is inactive. */
-export const assignmentStatus = (a: Assignment, ws: Workspace): AssignmentStatus => {
-  const person = ws.persons?.find((p) => p.id === a.personId)
-  if (!isEligible(person, a.competence)) return 'unresolved'
-  const away = absenceOf(ws.unavailability ?? [], a.personId, a.date).some((u) => isWholeDay(u) || overlap(a, { start: u.start!, end: u.end! }) > 0)
-  return away ? 'unresolved' : 'ok'
+export const assignmentStatus = (a: Assignment, ws: Workspace): AssignmentStatus =>
+  workedParts(a, ws.persons?.find((p) => p.id === a.personId), absenceOf(ws.unavailability ?? [], a.personId, a.date)).length ? 'ok' : 'unresolved'
+
+/**
+ * R7: the time of a block that counts. None of it for a person without the competence or away the whole
+ * day. Absence for a part of the day takes the time it covers and leaves the rest of the block.
+ */
+export const workedParts = (a: Assignment, person: Person | undefined, absence: Unavailability[]): Interval[] => {
+  if (!isEligible(person, a.competence) || absence.some(isWholeDay)) return []
+  return subtract([{ start: a.start, end: a.end }], absence.map((u) => ({ start: u.start!, end: u.end! })))
 }
 
-/** The assignments that count: the hours of an unresolved one are back in the demand. */
+/**
+ * The assignments that count, each cut to the time that does: the hours of an unresolved one, and of the
+ * part of a block the person is away for, are back in the demand. A block that counts whole is itself.
+ */
 export const okAssignments = (ws: Workspace): Assignment[] => {
   const persons = new Map((ws.persons ?? []).map((p) => [p.id, p]))
   const absence = new Map<string, Unavailability[]>()
   for (const u of ws.unavailability ?? []) absence.set(keyOf(u), [...(absence.get(keyOf(u)) ?? []), u])
-  return (ws.assignments ?? []).filter(
-    (a) => isEligible(persons.get(a.personId), a.competence) && !(absence.get(keyOf(a)) ?? []).some((u) => isWholeDay(u) || overlap(a, { start: u.start!, end: u.end! }) > 0),
-  )
+  return (ws.assignments ?? []).flatMap((a) => {
+    const parts = workedParts(a, persons.get(a.personId), absence.get(keyOf(a)) ?? NO_ABSENCE)
+    return parts.length === 1 && parts[0].start === a.start && parts[0].end === a.end ? [a] : parts.map((part) => ({ ...a, start: part.start, end: part.end }))
+  })
 }
+const NO_ABSENCE: Unavailability[] = []
 
 /**
  * The overtime drawn in Bemanning, as hours per day and the number of people who work it, for the Kalender's
@@ -265,9 +275,10 @@ export const overtimeLine = (ws: Workspace): CapacityLine => {
   return { id: OVERTIME_LINE_ID, label: 'Overtid faste', group: 'overtime', values, hours }
 }
 
+/** The assignments nothing of which counts. */
 export const unresolvedAssignments = (ws: Workspace): Assignment[] => {
-  const ok = new Set(okAssignments(ws))
-  return (ws.assignments ?? []).filter((a) => !ok.has(a))
+  const ok = new Set(okAssignments(ws).map((a) => a.id))
+  return (ws.assignments ?? []).filter((a) => !ok.has(a.id))
 }
 
 export interface EditOptions {

@@ -40,7 +40,9 @@ export function FoldedDay({ cell, styles, brush, width, names, links }: { cell: 
         const name = style?.label ?? block.competence
         // The blocks share the day's width less the air around them, see `.bm-timeline`.
         const link = links?.get(block.id)
-        const label = link ? 'none' : blockLabel(((width - 2 * DAY_INSET) * block.width) / 100, name, style?.shortLabel ?? '', names, hoursText(block.hours))
+        // The name comes after a stretch the person is away for at the start of the block, in the room that is left.
+        const lead = block.away[0]?.left === 0 ? block.away[0].width : 0
+        const label = link ? 'none' : blockLabel(((width - 2 * DAY_INSET) * block.width * (100 - lead)) / 10000, name, style?.shortLabel ?? '', names, hoursText(block.hours))
         // A block that goes on reaches over the air beside it, and over the rule after the day.
         const before = link?.prev ? DAY_INSET : 0
         const after = link?.next ? DAY_INSET + 1 : 0
@@ -48,9 +50,12 @@ export function FoldedDay({ cell, styles, brush, width, names, links }: { cell: 
           <span
             key={block.id}
             className={`bm-block ${link?.prev ? 'join-prev' : ''} ${link?.next ? 'join-next' : ''} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
-            style={{ left: `calc(${block.left}% - ${before}px)`, width: `calc(${block.width}% + ${before + after}px)`, ...colorOf(styles, block.competence) }}
-            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : ''}`}
+            style={{ left: `calc(${block.left}% - ${before}px)`, width: `calc(${block.width}% + ${before + after}px)`, paddingLeft: lead ? `calc(${lead}% + 7px)` : undefined, ...colorOf(styles, block.competence) }}
+            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
           >
+            {block.away.map((part) => (
+              <i key={part.left} className="bm-away-part" style={{ left: `${part.left}%`, width: `${part.width}%` }} />
+            ))}
             {label === 'short' ? <b>{style?.shortLabel}</b> : label !== 'none' ? <b>{name}</b> : null}
             {label === 'hours' && <em>{hoursText(block.hours)}</em>}
           </span>

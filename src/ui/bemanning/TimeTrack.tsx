@@ -4,7 +4,7 @@ import { dayType } from '../../domain/holidays'
 import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, moveTarget, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, type EditOptions } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Minute, Person, Workspace } from '../../domain/types'
 import { X } from 'lucide-react'
-import { ABSENCE_LABELS } from './dayCell'
+import { ABSENCE_LABELS, absenceNote } from './dayCell'
 import { HOUR_PX } from './layout'
 import type { Tool } from './tools'
 import { competenceColor } from '../dom'
@@ -190,7 +190,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
           <>
             {away(range.start, normal[0]?.start ?? range.end, 'before')}
             {away(normal[normal.length - 1]?.end ?? range.start, range.end, 'after')}
-            {firstAway && <span className="bm-track-note" style={{ top: `${share(firstAway.end! >= wd.dayEnd ? firstAway.start! : range.start)}%` }}>{firstAway.note || (firstAway.end! >= wd.dayEnd ? `Går ${clock(firstAway.start!)}` : `Fra ${clock(firstAway.end!)}`)}</span>}
+            {firstAway && <span className="bm-track-note" style={{ top: `${share(firstAway.end! >= wd.dayEnd ? firstAway.start! : range.start)}%` }}>{absenceNote(firstAway, wd)}</span>}
           </>
         )
       )}
@@ -223,6 +223,13 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
               onChange((w) => splitBlock(w, block.id, t))
             }}
           >
+            {!unresolved &&
+              absence.map((u) => {
+                // The part of the block the person is away for: its hours are back in the demand.
+                const top = Math.max(u.start!, block.start)
+                const bottom = Math.min(u.end!, block.end)
+                return bottom > top ? <i key={u.id} className="bm-away-part" style={{ left: 0, right: 0, top: `${((top - block.start) / length) * 100}%`, height: `${((bottom - top) / length) * 100}%` }} /> : null
+              })}
             {offDay && <i className="bm-ot-part" style={{ top: 0, height: '100%' }} />}
             {early > 0 && <i className="bm-ot-part" style={{ top: 0, height: `${early}%` }} />}
             {late < 100 && <i className="bm-ot-part" style={{ top: `${late}%`, height: `${100 - late}%` }} />}

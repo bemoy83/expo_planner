@@ -55,7 +55,13 @@ export interface CellBlock extends Span {
   unresolved: boolean
   /** Unresolved, but others cover the day's demand, so nothing is left to solve. */
   replaced: boolean
+  /** The stretches of a block that counts which the person is away for, as shares of the block's width. Their hours are back in the demand. */
+  away: Span[]
 }
+
+/** What a day says of absence for a part of it, where no note is written: when the person leaves, comes, or is gone between. */
+export const absenceNote = (u: Unavailability, wd: WorkdaySettings): string =>
+  u.note || (u.end! >= wd.dayEnd ? `Går ${clock(u.start!)}` : u.start! <= wd.dayStart ? `Kommer ${clock(u.end!)}` : `Borte ${clock(u.start!)}–${clock(u.end!)}`)
 
 export const ABSENCE_LABELS: Record<UnavailabilityKind, string> = { syk: 'Syk', ferie: 'Ferie', kurs: 'Kurs', annet: 'Fravær' }
 
@@ -87,20 +93,22 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
   const whole = absence.find((u) => u.start === undefined || u.end === undefined)
   const partial = whole ? [] : absence
   const sorted = [...assignments].sort((a, b) => a.start - b.start)
+  const awayFor = (whole ? [{ start: wd.dayStart, end: wd.dayEnd }] : partial.map((u) => ({ start: Math.max(u.start!, wd.dayStart), end: Math.min(u.end!, wd.dayEnd) }))).filter((iv) => iv.end > iv.start)
   const blocks = sorted.flatMap((a): CellBlock[] => {
     const start = Math.max(a.start, wd.dayStart)
     const end = Math.min(a.end, wd.dayEnd)
     if (end <= start) return []
-    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours: paidHours(a, wd), unresolved: !ok(a), replaced: !ok(a) && !open(a), ...span(start, end) }]
+    // Of a block that counts, the time the person is away for: what the block loses when the time they are there for is taken out of it.
+    const here = subtract([{ start, end }], awayFor)
+    const away = ok(a) ? subtract([{ start, end }], here).map((iv) => ({ left: ((iv.start - start) / (end - start)) * 100, width: ((iv.end - iv.start) / (end - start)) * 100 })) : []
+    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours: paidHours(a, wd), unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...span(start, end) }]
   })
   const first = partial[0]
-  const awayFor = (whole ? [{ start: wd.dayStart, end: wd.dayEnd }] : partial.map((u) => ({ start: Math.max(u.start!, wd.dayStart), end: Math.min(u.end!, wd.dayEnd) }))).filter((iv) => iv.end > iv.start)
-  const derivedNote = !first ? '' : first.end! >= wd.dayEnd ? `Går ${clock(first.start!)}` : first.start! <= wd.dayStart ? `Fra ${clock(first.end!)}` : `Borte ${clock(first.start!)}–${clock(first.end!)}`
   return {
     offDay,
     away: whole ? whole.kind : null,
     hatches: subtract(awayFor, sorted).map((iv) => span(iv.start, iv.end)),
-    note: (whole ?? first)?.note || derivedNote,
+    note: whole?.note || (first ? absenceNote(first, wd) : ''),
     blocks,
     unresolved: assignments.filter((a) => !ok(a) && open(a)).length,
     overtime: assignments.filter(ok).reduce((sum, a) => sum + overtimeHours(a, kind, wd), 0),

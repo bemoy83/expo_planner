@@ -35,7 +35,7 @@ describe('folded day cell', () => {
     expect(cell.hatches).toEqual([{ left: 62.5, width: 37.5 }])
     expect(cell.note).toBe('Går 12:00')
     const late: Unavailability = { ...leaves, start: 420, end: 600, note: 'Tannlege' }
-    expect(dayCell(TUE, [], [{ ...late, note: undefined }], yes, wd).note).toBe('Fra 10:00')
+    expect(dayCell(TUE, [], [{ ...late, note: undefined }], yes, wd).note).toBe('Kommer 10:00')
     expect(dayCell(TUE, [], [late], yes, wd).note).toBe('Tannlege')
   })
 
@@ -51,6 +51,13 @@ describe('folded day cell', () => {
     expect(runLabel(2 * 40 - 10, 'Vegger', 'VEG', 'full', 2)).toBe('Vegger')
     expect(runLabel(2 * 40 - 10, 'Teppefliser', 'TEP', 'full', 2)).toBe('TEP · 2 d')
     expect(runLabel(5 * 105 - 10, 'Vegger', 'VEG', 'short', 5)).toBe('VEG · 5 d')
+  })
+
+  it('hatches only the stretch of a block the person is away for', () => {
+    const morning: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'annet', start: 420, end: 720 }
+    const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [morning], yes, wd)
+    expect(cell.blocks[0]).toMatchObject({ unresolved: false, away: [{ left: 0, width: 62.5 }] })
+    expect(cell).toMatchObject({ hatches: [], unresolved: 0, note: 'Kommer 12:00' })
   })
 
   it('marks a whole day away, and the blocks that are unresolved by it', () => {
