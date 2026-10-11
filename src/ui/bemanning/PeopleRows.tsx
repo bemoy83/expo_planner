@@ -252,23 +252,21 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
         </div>
       )}
       {chosen && (
-        // The days that are selected: a tint with no outline, and what can be done with them.
+        // The days that are selected, one or many: a tint with no outline, and what can be done with them.
         <div className="bm-selection" style={box(chosen)}>
-          {(chosen.rowFrom !== chosen.rowTo || chosen.colFrom !== chosen.colTo || clip) && (
-            <span className={`bm-pill ${topOf(chosen.rowFrom) < 34 ? 'below' : ''}`}>
-              {clip ? (
-                <span>Kopiert · {shortcut('V')} limer inn ved markøren</span>
-              ) : (
-                <>
-                  <span>
-                    {plural(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
-                  </span>
-                  <span>{shortcut('C')} kopier</span>
-                  <span>Esc fjern</span>
-                </>
-              )}
-            </span>
-          )}
+          <span className={`bm-pill ${topOf(chosen.rowFrom) < 34 ? 'below' : ''}`}>
+            {clip ? (
+              <span>Kopiert · {shortcut('V')} limer inn ved markøren</span>
+            ) : (
+              <>
+                <span>
+                  {plural(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
+                </span>
+                <span>{shortcut('C')} kopier</span>
+                <span>Esc fjern</span>
+              </>
+            )}
+          </span>
         </div>
       )}
       {!bm.persons.length && (
