@@ -157,14 +157,14 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 [data-tool='erase'] .bm-cell{cursor:crosshair}
 [data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
 [data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
-/* What a stroke would do is flat: tints and thin edges, and never a hatch, which says a person is not there. */
+/* What a stroke would do is flat: tints and thin edges. A hatch says hours are not there: a person who is away, and the hours the eraser would take. */
 /* where the brush would put time: a tint of its colour, with the hours it gives */
 .bm-ghosts{pointer-events:none}
 .bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 26%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
 /* the day whose blocks are on their way to another: a fainter tint, while the preview shows where they land */
 .bm-cell.moving .bm-block{background:color-mix(in oklab,var(--cc) 18%,var(--bg));color:var(--muted)}
-/* what the eraser would take: its blocks emptied, with a thin red edge */
-.bm-cell.erasing .bm-block{background:var(--bg);box-shadow:inset 0 0 0 1px var(--neg);color:var(--muted)}
+/* what the eraser would take: its blocks hatched in their colour, as hours that do not count are, with a thin red edge */
+.bm-cell.erasing .bm-block{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);box-shadow:inset 0 0 0 1px var(--neg);color:var(--text)}
 /* a stroke: one thin outline over all its days, and what it will do on a pill that sits on it, red when it erases */
 .bm-stroke{position:absolute;z-index:1;border-radius:4px;box-shadow:inset 0 0 0 1.5px var(--cc);pointer-events:none}
 .bm-stroke.erase{--cc:var(--neg);--pill:var(--neg)}
