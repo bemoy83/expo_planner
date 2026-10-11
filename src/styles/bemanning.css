@@ -177,7 +177,9 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* what the eraser would take: its blocks hatched in their colour, as hours that do not count are. No edge: a run under the eraser stays one piece, and the stroke's red outline says what is happening. */
 .bm-cell.erasing .bm-block{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);color:var(--text)}
 /* a stroke: one thin outline over all its days, and what it will do on a pill that sits on it, red when it erases */
-.bm-stroke{position:absolute;z-index:1;border-radius:4px;box-shadow:inset 0 0 0 1.5px var(--cc);pointer-events:none}
+/* a pulled end of a run has the pill alone: its days are not selected, and the preview shows what they get or lose */
+.bm-stroke{position:absolute;z-index:1;border-radius:4px;pointer-events:none}
+.bm-stroke:not(.bare){box-shadow:inset 0 0 0 1.5px var(--cc)}
 .bm-stroke.erase{--cc:var(--neg);--pill:var(--neg)}
 .bm-stroke.select{--cc:color-mix(in srgb,var(--text) 70%,transparent)}
 /* the days that are selected: a tint, with no outline */

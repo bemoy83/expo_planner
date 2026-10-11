@@ -167,7 +167,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
   const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, stretch, selection, clip, refused, ghost, info, actions, bodyRef, dates, shift } = bm
   const gap = listedAble < listed.length && brush ? DIVIDER_H : 0
   const topOf = (row: number) => row * PERSON_H + (row >= listedAble ? gap : 0)
-  // A stroke that moves a day's blocks has no outline: the blocks show where they would land. A pulled end of a run has one over the days it changes.
+  // A stroke that moves a day's blocks has no outline: the blocks show where they would land. A pulled end of a run has the pill of one over the days it changes, without the outline.
   const range = !stroke || stroke.mode === 'move' ? null : stroke.mode !== 'stretch' ? strokeRange(stroke) : stretch ? { rowFrom: stretch.row, rowTo: stretch.row, colFrom: stretch.colFrom, colTo: stretch.colTo } : null
   const erasing = stroke?.mode === 'erase' || (stroke?.mode === 'stretch' && stretch?.erase === true)
   const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
@@ -229,7 +229,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
       })}
       {range && (
         // One outline over all the days of the stroke, and what it will do on a pill above it.
-        <div className={`bm-stroke ${stroke!.mode === 'stretch' ? (erasing ? 'erase' : 'paint') : stroke!.mode}`} style={stretch && !erasing ? { ...box(range), ...competenceColor(styles.get(stretch.competence)) } : box(range)}>
+        <div className={`bm-stroke ${stroke!.mode === 'stretch' ? `bare ${erasing ? 'erase' : 'paint'}` : stroke!.mode}`} style={stretch && !erasing ? { ...box(range), ...competenceColor(styles.get(stretch.competence)) } : box(range)}>
           {info && (
             <span className={`bm-pill ${topOf(range.rowFrom) < 34 ? 'below' : ''}`}>
               {info.mode === 'select' ? null : info.mode === 'erase' ? (
