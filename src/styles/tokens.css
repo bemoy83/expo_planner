@@ -112,6 +112,9 @@
   --mode-tag:color-mix(in oklab,var(--bg) 55%,transparent);
   --mode-key:oklch(0.3 .05 var(--mode-h) / .1);                        /* behind a key */
   --mode-shadow:oklch(0.3 .05 var(--mode-h) / .18);                    /* under the chosen segment */
+  /* An alert on the band is a solid chip with its own ink: 4.5:1 for the text on the chip and 3:1 for the chip on the band, in
+     both modes. The light ones are at the limit, so they are not made lighter; check both again if the band changes. */
+  --alert-warn:#a16606; --alert-block:#cb4543; --alert-on:#fff;
 }
 .kalender[data-mode='bemanning']{--mode-h:40; --mode-c:.11}
 .dark .kalender{
@@ -122,6 +125,7 @@
   --mode-mute:oklch(0.78 calc(var(--mode-c) * .45) var(--mode-h));
   --mode-field:oklch(0.47 calc(var(--mode-c) * .45) var(--mode-h) / .6);
   --mode-field-hover:oklch(0.52 calc(var(--mode-c) * .45) var(--mode-h) / .8);
+  --alert-warn:var(--over); --alert-block:var(--neg); --alert-on:var(--bg);
 }
 
 /* The dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende). */

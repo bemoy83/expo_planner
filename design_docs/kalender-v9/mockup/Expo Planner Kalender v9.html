@@ -124,6 +124,7 @@ html[data-mtone="ink"]{--work-m:#4a4642;--work-m-ink:#f5f2ec}.dark[data-mtone="i
 :root{--accent:212 108 44;--accent-ink:24 12 4}.dark{--accent:232 140 84;--accent-ink:24 12 4}
 /* mode hue: Plan = olive, Bemanning = terracotta */
 html{--vh:115;--vc:.09}html[data-vmode="bemanning"]{--vh:40;--vc:.11}
+:root{--al-warn:#a16606;--al-block:#cb4543;--al-on:#fff}.dark{--al-warn:rgb(var(--draft));--al-block:rgb(var(--danger));--al-on:rgb(var(--canvas))}
 html{--v-band:oklch(0.86 calc(var(--vc) * .6) var(--vh));--v-band-line:oklch(0.7 calc(var(--vc) * .85) var(--vh));--v-track:oklch(0.79 calc(var(--vc) * .7) var(--vh));--v-tb-ink:oklch(0.3 calc(var(--vc) * .55) var(--vh));--v-tb-mute:oklch(0.42 calc(var(--vc) * .6) var(--vh));--v-field:color-mix(in oklab,rgb(var(--surface)) 55%,transparent);--v-field-h:color-mix(in oklab,rgb(var(--surface)) 80%,transparent);--v-sec:color-mix(in oklab,rgb(var(--canvas)) 96%,rgb(var(--ink)));--g-col:rgb(var(--border) / .55);--g-row:rgb(var(--border) / .4);--g-phase:rgb(var(--border) / .5);--g-top:rgb(var(--border-strong));--we-row:var(--sunken-2);--we-sec:color-mix(in oklab,var(--sunken-2) 95%,rgb(var(--ink)));--we-top:color-mix(in oklab,rgb(var(--ink)) 9%,rgb(var(--canvas)))}
 .dark{--v-band:oklch(0.4 calc(var(--vc) * .5) var(--vh));--v-band-line:oklch(0.55 calc(var(--vc) * .7) var(--vh));--v-track:oklch(0.32 calc(var(--vc) * .45) var(--vh));--v-tb-ink:oklch(0.93 calc(var(--vc) * .3) var(--vh));--v-tb-mute:oklch(0.78 calc(var(--vc) * .45) var(--vh));--v-field:oklch(0.47 calc(var(--vc) * .45) var(--vh) / .6);--v-field-h:oklch(0.52 calc(var(--vc) * .45) var(--vh) / .8);--v-sec:color-mix(in oklab,rgb(var(--canvas)) 82%,#000)}
 /* mode band = page header + toolbar, framed top & bottom, no line between */
@@ -138,7 +139,10 @@ html{--v-band:oklch(0.86 calc(var(--vc) * .6) var(--vh));--v-band-line:oklch(0.7
 .kpbar-in [role="radio"][aria-checked="false"]:hover{background:color-mix(in oklab,rgb(var(--surface)) 35%,transparent)!important;color:var(--v-tb-ink)!important}
 .kpbar-in .kseg kbd{background:oklch(0.3 .05 var(--vh) / .1);color:var(--v-tb-mute)}
 .kpbar-in .kfbtn{background:var(--v-field);color:var(--v-tb-ink);box-shadow:inset 0 0 0 1px oklch(0.3 .05 var(--vh) / .08)}.kpbar-in .kfbtn:hover{background:var(--v-field-h)}.kpbar-in .kfbtn svg{color:var(--v-tb-mute)}
-.kpbar-in button:not([role]):not(.kfbtn){color:var(--v-tb-ink)!important}.kpbar-in button:not([role]):not(.kfbtn):hover{background:var(--v-field)!important}
+.kpbar-in button:not([role]):not(.kfbtn):not(.ps-otw):not(.ps-unres button){color:var(--v-tb-ink)!important}.kpbar-in button:not([role]):not(.kfbtn):not(.ps-otw):not(.ps-unres button):hover{background:var(--v-field)!important}
+/* alerts on the band: solid chips with their own ink (text on chip 4.5:1, chip on band 3:1) */
+.kpbar-in .ps-otw,.kpbar-in .ps-otw:hover{background:var(--al-warn);color:var(--al-on)}.kpbar-in .ps-otw:hover{filter:brightness(1.06)}
+.kpbar-in .ps-unres{background:var(--al-block);color:var(--al-on)}.kpbar-in .ps-unres button{color:inherit}.kpbar-in .ps-unres button:hover{background:color-mix(in oklab,currentColor 18%,transparent)}
 .kpbar-in :is(.kphint,.kzlab){color:var(--v-tb-mute)}.kpbar-in .kphint b{color:var(--v-tb-ink)}.kpbar-in .kzdiv{background:oklch(0.3 .05 var(--vh) / .18)}
 /* column header: one soft line under the whole header */
 .kdate2{border-bottom:0!important}.khead{border-bottom:1px solid rgb(var(--border))}

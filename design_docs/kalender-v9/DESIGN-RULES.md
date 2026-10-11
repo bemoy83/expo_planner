@@ -32,6 +32,7 @@ Do not invent new line colours. If a line is needed it is one of the four `--g-*
 - The mode tag next to the title ("Plan" / "Bemanning") is a translucent canvas pill.
 - Mode colour appears **only** in the band. Grid, sections and panels stay neutral.
 - Accent orange is never used as band colour, and band hues are never used for actions.
+- Alerts on the band are solid chips (`--al-warn` / `--al-block`, text `--al-on`). Never use a tinted `*-bg` and never use band ink. Re-check both contrast ratios if `--v-band` changes.
 
 ## 3. Row types and what they get
 
