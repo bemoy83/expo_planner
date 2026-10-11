@@ -25,7 +25,7 @@ export function WeekMeter({ week, overLimit = false }: { week: PersonWeek; /** T
 }
 
 /** What a person's day shows when it is folded: a small timeline of the normal day, `width` pixels wide. */
-export function FoldedDay({ cell, styles, brush, width, names, links }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink> }) {
+export function FoldedDay({ cell, styles, brush, width, names, links, edges = false }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink>; /** The ends of a run, and of a single day, can be taken hold of. */ edges?: boolean }) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
   // A weekend or a holiday with nothing on it is left empty, whatever absence covers it.
@@ -35,7 +35,7 @@ export function FoldedDay({ cell, styles, brush, width, names, links }: { cell: 
       {cell.hatches.map((hatch) => (
         <i key={hatch.left} className="bm-hatch" style={{ left: `${hatch.left}%`, width: `${hatch.width}%` }} />
       ))}
-      {cell.blocks.map((block) => {
+      {cell.blocks.map((block, i) => {
         const style = styles.get(block.competence)
         const name = style?.label ?? block.competence
         // The blocks share the day's width less the air around them, see `.bm-timeline`.
@@ -56,6 +56,9 @@ export function FoldedDay({ cell, styles, brush, width, names, links }: { cell: 
             {block.away.map((part) => (
               <i key={part.left} className="bm-away-part" style={{ left: `${part.left}%`, width: `${part.width}%` }} />
             ))}
+            {/* An end of a run, or of a single day: the first block of the day where nothing comes before it, the last where nothing follows. */}
+            {edges && !block.unresolved && i === 0 && !link?.prev && <i className="bm-edge start" data-edge="start" data-block={block.id} />}
+            {edges && !block.unresolved && i === cell.blocks.length - 1 && !link?.next && <i className="bm-edge end" data-edge="end" data-block={block.id} />}
             {label === 'short' ? <b>{style?.shortLabel}</b> : label !== 'none' ? <b>{name}</b> : null}
             {label === 'hours' && <em>{hoursText(block.hours)}</em>}
           </span>

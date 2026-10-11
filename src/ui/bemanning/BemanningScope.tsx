@@ -17,6 +17,7 @@ import type { AbsenceDraft } from './PersonPanel'
 import { DIVIDER_H, PANEL_W, PERSON_H } from './layout'
 import type { ProjectSpan } from './projectsInView'
 import type { CrossMove } from './TimeTrack'
+import { runDays, stretchRun, type BlocksOn } from './runs'
 import { strokeRange, TOOL_KEYS, type Rect, type Stroke, type Tool } from './tools'
 import { EPSILON, weekDates, WEEKDAYS_LONG } from './week'
 
@@ -80,6 +81,20 @@ export interface StrokeInfo {
   people: number
   /** Workdays in the stroke that the brush cannot fill. */
   skipped: number
+  /** The competence the time is of, when it is not the brush's: that of a run whose end is pulled. */
+  competence?: string
+}
+
+/** What a pulled end of a run does: the days of the person's line it covers, and whether they get time or lose their blocks of the run. */
+export interface StretchPlan {
+  row: number
+  colFrom: number
+  colTo: number
+  competence: string
+  erase: boolean
+  cells: Day[]
+  /** The blocks of the run that are given up. */
+  blockIds: string[]
 }
 
 /** Time a stroke would give a day; with the competence it is of when that is not the brush. */
@@ -281,6 +296,20 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
 
   // ---- what a stroke, or the brush over a day, would do ------------------------------------------------
   const blocksOn = (cell: Day): Assignment[] => lines.find((line) => line.person.id === cell.personId)?.assignments?.get(cell.date) ?? []
+  /** R46: what the end of a run that is being pulled does, or `null` while it is where it was. */
+  const stretch = useMemo((): StretchPlan | null => {
+    if (stroke?.mode !== 'stretch' || !stroke.stretch || stroke.row0 >= listed.length) return null
+    const line = listed[stroke.row0]
+    const from = dates[stroke.col0]
+    const block = line.assignments?.get(from)?.find((a) => a.id === stroke.stretch!.blockId)
+    if (!block) return null
+    const days: BlocksOn = (date) => line.assignments?.get(date)
+    const plan = stretchRun(runDays(days, from, block, ws.settings.workday), stroke.stretch.edge, dates[stroke.col1])
+    const changed = plan.add.length ? plan.add : plan.remove.map((day) => day.date)
+    if (!changed.length) return null
+    const cols = changed.map((date) => dates.indexOf(date))
+    return { row: stroke.row0, colFrom: Math.min(...cols), colTo: Math.max(...cols), competence: block.competence, erase: plan.remove.length > 0, cells: changed.map((date) => ({ personId: line.person.id, date })), blockIds: plan.remove.map((day) => day.block.id) }
+  }, [stroke, listed, dates, ws.settings.workday])
   const { ghost, info, refused } = useMemo((): { ghost: Ghosts; info: StrokeInfo | null; refused: Day | null } => {
     const none = { ghost: NO_GHOST, info: null, refused: null }
     if (!active) return none
@@ -290,6 +319,27 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       if (!blocks.length) return
       if (!found.has(cell.personId)) found.set(cell.personId, new Map())
       found.get(cell.personId)!.set(cell.date, blocks)
+    }
+    if (stroke?.mode === 'stretch') {
+      if (!stretch) return none
+      if (stretch.erase) {
+        const gone = stretch.cells.flatMap(blocksOn).filter((a) => stretch.blockIds.includes(a.id))
+        return { ...none, info: { mode: 'erase', half: false, days: gone.length, hours: gone.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0), people: 1, skipped: 0 } }
+      }
+      // The days the run is to go on over get what the brush would give them, drawn across.
+      const stats: StrokeInfo = { mode: 'paint', half: false, days: 0, hours: 0, people: 1, skipped: 0, competence: stretch.competence }
+      const offDays = onlyOffDays(stretch.cells)
+      for (const cell of stretch.cells) {
+        const gaps = paintGaps(ws, cell, stretch.competence, 'full', undefined, offDays)
+        if (!gaps.length) {
+          if (dayType(cell.date) === 'arbeidsdag') stats.skipped += 1
+          continue
+        }
+        put(cell, gaps.map((gap) => ({ ...gap, competence: stretch.competence })))
+        stats.days += 1
+        stats.hours += gaps.reduce((sum, gap) => sum + paidHours(gap, ws.settings.workday), 0)
+      }
+      return { ghost: found, info: stats, refused: null }
     }
     if (stroke?.mode === 'erase') {
       const blocks = strokeCells(stroke).flatMap(blocksOn)
@@ -334,7 +384,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     stats.people = found.size
     return { ghost: found, info: stroke ? stats : null, refused: null }
     // `strokeCells`, `dayAt` and `blocksOn` read `lines`, `listed` and `dates`.
-  }, [active, ws, lines, listed, dates, activeTool, activeBrush, stroke, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, ws, lines, listed, dates, activeTool, activeBrush, stroke, stretch, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- what the tools do ------------------------------------------------------------------------------
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
@@ -371,7 +421,12 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const finishStroke = (s: Stroke, copy: boolean) => {
     cancelStroke()
     const dragged = s.row0 !== s.row1 || s.col0 !== s.col1
-    if (s.mode === 'erase') clear(strokeCells(s))
+    if (s.mode === 'stretch') {
+      // R46: an end of a run let go where it was pulled to. Its days are painted as the brush would, or the run's blocks on them removed.
+      if (!stretch) return
+      if (stretch.erase) updateStaffing((w) => ({ ...w, assignments: (w.assignments ?? []).filter((a) => !stretch.blockIds.includes(a.id)) }))
+      else paint(stretch.cells, stretch.competence, false)
+    } else if (s.mode === 'erase') clear(strokeCells(s))
     else if (s.mode === 'paint') {
       if (activeBrush) paint(strokeCells(s), activeBrush, s.half)
     } else if (!dragged) {
@@ -460,11 +515,13 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       if (!at) return
       // With «Velg», a press on a block can drag the day's blocks to another day; a press beside them selects days.
       const onBlock = event.target instanceof Element && event.target.closest('.bm-block') !== null
-      const mode = event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : onBlock ? 'move' : 'select'
+      // The ends of a run answer to «Velg» alone, see `.bm-edge`.
+      const edge = event.target instanceof HTMLElement && !event.altKey && activeTool === 'select' ? event.target.closest<HTMLElement>('.bm-edge') : null
+      const mode = edge ? 'stretch' : event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : onBlock ? 'move' : 'select'
       event.preventDefault()
       if (mode === 'paint' || mode === 'erase') setSelection(null)
       pointer.current = { x: event.clientX, y: event.clientY }
-      setStroke({ mode, half: mode === 'paint' && event.shiftKey, row0: at.row, col0: at.col, row1: at.row, col1: at.col })
+      setStroke({ mode, half: mode === 'paint' && event.shiftKey, row0: at.row, col0: at.col, row1: at.row, col1: at.col, stretch: edge ? { edge: edge.dataset.edge === 'start' ? 'start' : 'end', blockId: edge.dataset.block ?? '' } : undefined })
       followStroke()
     },
     cellMenu: (personId: string, date: ISODate, event: React.MouseEvent) => {
@@ -489,7 +546,9 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     move: (x: number, y: number) => {
       const at = cellAt(x, y)
       const s = strokeRef.current
-      if (at && s && (s.row1 !== at.row || s.col1 !== at.col)) setStroke({ ...s, row1: at.row, col1: at.col })
+      // The end of a run is pulled along its own line, wherever the pointer strays.
+      const row = s?.mode === 'stretch' ? s.row0 : at?.row
+      if (at && s && row !== undefined && (s.row1 !== row || s.col1 !== at.col)) setStroke({ ...s, row1: row, col1: at.col })
     },
     finish: (copy: boolean) => strokeRef.current && finishStroke(strokeRef.current, copy),
   })
@@ -588,7 +647,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
     balance, totals, remainingOf, demandRows, capacity, uncoverable,
-    lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, selected, selection, clip, setClip,
+    lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,
     menu, setMenu, demandPop, setDemandPop, panel, setPanel, overtimeLimit, breaches, overLimit, blockNames, onShowDate, firstWorkday,

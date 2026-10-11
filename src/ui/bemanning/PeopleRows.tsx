@@ -42,6 +42,8 @@ interface LineProps {
   names: BlockNames
   /** The tool the days answer to, for what a day shows that the brush cannot fill. */
   painting: boolean
+  /** With «Velg», the ends of a run can be taken hold of. */
+  edges: boolean
   /** The columns of the line a stroke covers, and what it does to them. */
   strokeFrom: number
   strokeTo: number
@@ -56,7 +58,7 @@ interface LineProps {
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, movingCol, refusedCol, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, edges, strokeFrom, strokeTo, erasing, movingCol, refusedCol, ghost, actions }: LineProps) {
   const span = workday.dayEnd - workday.dayStart
   const blocksOn: BlocksOn = (date) => assignments?.get(date)
   // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
@@ -117,7 +119,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} edges={edges} />
             {gaps && (
               <span className="bm-timeline bm-ghosts">
                 {gaps.map((gap) => (
@@ -162,11 +164,12 @@ export function PeopleHeading() {
 /** The people, one line each, with what a stroke under way covers laid over them. */
 export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void }) {
   const bm = useBemanning()
-  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, selection, clip, refused, ghost, info, actions, bodyRef, dates, shift } = bm
+  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, stretch, selection, clip, refused, ghost, info, actions, bodyRef, dates, shift } = bm
   const gap = listedAble < listed.length && brush ? DIVIDER_H : 0
   const topOf = (row: number) => row * PERSON_H + (row >= listedAble ? gap : 0)
-  // A stroke that moves a day's blocks has no outline: the blocks show where they would land.
-  const range = stroke && stroke.mode !== 'move' ? strokeRange(stroke) : null
+  // A stroke that moves a day's blocks has no outline: the blocks show where they would land. A pulled end of a run has one over the days it changes.
+  const range = !stroke || stroke.mode === 'move' ? null : stroke.mode !== 'stretch' ? strokeRange(stroke) : stretch ? { rowFrom: stretch.row, rowTo: stretch.row, colFrom: stretch.colFrom, colTo: stretch.colTo } : null
+  const erasing = stroke?.mode === 'erase' || (stroke?.mode === 'stretch' && stretch?.erase === true)
   const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
   const refusedCol = refused ? dates.indexOf(refused.date) : -1
   const shortcut = (key: string) => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`)
@@ -212,9 +215,10 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               overLimit={bm.overLimit.has(person.id)}
               names={bm.blockNames}
               painting={tool === 'paint'}
+              edges={tool === 'select'}
               strokeFrom={inStroke ? range.colFrom : -1}
               strokeTo={inStroke ? range.colTo : -1}
-              erasing={inStroke && stroke!.mode === 'erase'}
+              erasing={inStroke && erasing}
               movingCol={stroke?.mode === 'move' && stroke.row0 === row && (stroke.row1 !== row || stroke.col1 !== stroke.col0) ? stroke.col0 : -1}
               refusedCol={refused?.personId === person.id ? refusedCol : -1}
               ghost={ghost.get(person.id)}
@@ -225,14 +229,14 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
       })}
       {range && (
         // One outline over all the days of the stroke, and what it will do on a pill above it.
-        <div className={`bm-stroke ${stroke!.mode}`} style={box(range)}>
+        <div className={`bm-stroke ${stroke!.mode === 'stretch' ? (erasing ? 'erase' : 'paint') : stroke!.mode}`} style={stretch && !erasing ? { ...box(range), ...competenceColor(styles.get(stretch.competence)) } : box(range)}>
           {info && (
             <span className={`bm-pill ${topOf(range.rowFrom) < 34 ? 'below' : ''}`}>
               {info.mode === 'select' ? null : info.mode === 'erase' ? (
                 <b>Tøm</b>
               ) : (
                 <b>
-                  <i className="swatch" /> {bm.labelOf(brush!)}
+                  <i className="swatch" /> {bm.labelOf(info.competence ?? brush!)}
                 </b>
               )}
               {info.mode === 'select' ? (

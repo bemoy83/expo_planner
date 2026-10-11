@@ -50,20 +50,44 @@ export interface Run {
   endShare: number
 }
 
-/** The whole run a block is a part of. A block that is joined to nothing is a run of one day. */
+/** A day of a run, with the block the run has on it. */
+export interface RunDay {
+  date: ISODate
+  block: Assignment
+}
+
+/** The days of the run a block is a part of, in order. A block that is joined to nothing is a run of one day. */
+export const runDays = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): RunDay[] => {
+  const days: RunDay[] = [{ date, block }]
+  for (let prev = prevInRun(blocks, days[0].date, days[0].block, wd); prev; prev = prevInRun(blocks, days[0].date, days[0].block, wd)) days.unshift({ date: addDays(days[0].date, -1), block: prev })
+  for (let last = days[days.length - 1], next = nextInRun(blocks, last.date, last.block, wd); next; last = days[days.length - 1], next = nextInRun(blocks, last.date, last.block, wd)) days.push({ date: addDays(last.date, 1), block: next })
+  return days
+}
+
+/** The whole run a block is a part of. */
 export const runOf = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Run => {
   const share = (t: number) => (Math.min(Math.max(t, wd.dayStart), wd.dayEnd) - wd.dayStart) / (wd.dayEnd - wd.dayStart)
-  let from = date
-  let first = block
-  for (let prev = prevInRun(blocks, from, first, wd); prev; prev = prevInRun(blocks, from, first, wd)) {
-    from = addDays(from, -1)
-    first = prev
-  }
-  let to = date
-  let last = block
-  for (let next = nextInRun(blocks, to, last, wd); next; next = nextInRun(blocks, to, last, wd)) {
-    to = addDays(to, 1)
-    last = next
-  }
-  return { competence: block.competence, from, to, days: daysBetween(from, to) + 1, startShare: share(first.start), endShare: share(last.end) }
+  const days = runDays(blocks, date, block, wd)
+  const first = days[0]
+  const last = days[days.length - 1]
+  return { competence: block.competence, from: first.date, to: last.date, days: days.length, startShare: share(first.block.start), endShare: share(last.block.end) }
+}
+
+/** What an end of a run that is pulled to a day does: the days the run is to go on over, or the days of it that are given up. */
+export interface Stretch {
+  add: ISODate[]
+  remove: RunDay[]
+}
+
+/**
+ * An end of a run pulled along the days to `to`. Pulled outward, the run is to go on over the days up to it:
+ * what they get is the brush's to decide, as if it were drawn over them. Pulled inward, the days of the run
+ * past it are given up. The day at the other end is always left: a run is not pulled away to nothing.
+ */
+export const stretchRun = (days: RunDay[], edge: 'start' | 'end', to: ISODate): Stretch => {
+  const first = days[0].date
+  const last = days[days.length - 1].date
+  const between = (from: ISODate, until: ISODate) => Array.from({ length: Math.max(0, daysBetween(from, until) + 1) }, (_, i) => addDays(from, i))
+  if (edge === 'end') return to > last ? { add: between(addDays(last, 1), to), remove: [] } : { add: [], remove: days.filter((day) => day.date > to && day.date > first) }
+  return to < first ? { add: between(to, addDays(first, -1)), remove: [] } : { add: [], remove: days.filter((day) => day.date < to && day.date < last) }
 }

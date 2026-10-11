@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WORKDAY as wd, type Assignment } from '../../domain/types'
-import { runLink, runOf, type BlocksOn } from './runs'
+import { runDays, runLink, runOf, stretchRun, type BlocksOn } from './runs'
 
 // Week 42 of 2026: Monday the 12th to Friday the 16th, and the Monday after.
 const MON = '2026-10-12'
@@ -57,5 +57,33 @@ describe('runs of days', () => {
   it('counts a block that is joined to nothing as a run of one day', () => {
     const one = block(MON, 'vegger', 420, 660)
     expect(runOf(on(one), MON, one, wd)).toEqual({ competence: 'vegger', from: MON, to: MON, days: 1, startShare: 0, endShare: 0.5 })
+  })
+})
+
+describe('pulling an end of a run (R46)', () => {
+  const week = [MON, TUE, WED].map((date) => block(date, 'vegger'))
+  const days = runDays(on(...week), TUE, week[1], wd)
+
+  it('finds the days of a run from any block of it', () => {
+    expect(days.map((day) => day.date)).toEqual([MON, TUE, WED])
+    expect(days.map((day) => day.block)).toEqual(week)
+  })
+
+  it('goes on over the days up to where its end is pulled, at either end', () => {
+    expect(stretchRun(days, 'end', FRI)).toEqual({ add: [THU, FRI], remove: [] })
+    const later = runDays(on(block(WED, 'vegger'), block(THU, 'vegger')), WED, block(WED, 'vegger'), wd)
+    expect(stretchRun(later, 'start', MON)).toEqual({ add: [MON, TUE], remove: [] })
+  })
+
+  it('gives up the days past where its end is pulled back to', () => {
+    expect(stretchRun(days, 'end', MON).remove.map((day) => day.date)).toEqual([TUE, WED])
+    expect(stretchRun(days, 'start', WED).remove.map((day) => day.date)).toEqual([MON, TUE])
+  })
+
+  it('always leaves the day at the other end, and does nothing where the end is', () => {
+    expect(stretchRun(days, 'end', '2026-10-05').remove.map((day) => day.date)).toEqual([TUE, WED])
+    expect(stretchRun(days, 'start', NEXT_MON).remove.map((day) => day.date)).toEqual([MON, TUE])
+    expect(stretchRun(days, 'end', WED)).toEqual({ add: [], remove: [] })
+    expect(stretchRun(days, 'start', MON)).toEqual({ add: [], remove: [] })
   })
 })
