@@ -49,15 +49,15 @@
   --ph-movingout:color-mix(in oklab,oklch(0.56 0.13 85) 34%,#fff);   /* amber */
   --ph-dismantle:color-mix(in oklab,oklch(0.56 0.13 10) 34%,#fff);   /* rose */
 
-  /* competences in Bemanning: one hue each, picked on Personell. Light fills with dark text, as the work phases */
-  --line-blue:oklch(0.76 0.11 250);
-  --line-teal:oklch(0.76 0.11 185);
-  --line-green:oklch(0.76 0.11 140);
-  --line-amber:oklch(0.76 0.11 85);
-  --line-rose:oklch(0.76 0.11 10);
-  --line-violet:oklch(0.76 0.11 300);
-  --line-slate:oklch(0.74 0.03 250);
-  --line-orange:oklch(0.78 0.12 50);
+  /* competences in Bemanning: one hue each, picked on Personell. Light fills with dark text, at the strength of the work phases, and of uneven lightness so that eight muted hues stay apart */
+  --line-blue:oklch(0.74 0.05 245);
+  --line-teal:oklch(0.77 0.045 195);
+  --line-green:oklch(0.78 0.055 145);
+  --line-amber:oklch(0.83 0.075 90);
+  --line-rose:oklch(0.76 0.06 20);
+  --line-violet:oklch(0.74 0.045 315);
+  --line-slate:oklch(0.79 0.012 80);
+  --line-orange:oklch(0.78 0.075 55);
   --on-line:#140c05;       /* text on a competence colour */
   --on-line-soft:rgba(20,12,5,.16);
   --on-line-rule:rgba(20,12,5,.35);
@@ -114,7 +114,7 @@
   --mode-shadow:oklch(0.3 .05 var(--mode-h) / .18);                    /* under the chosen segment */
   /* An alert on the band, and the badge of a sick day in Bemanning, is a solid chip with its own ink: 4.5:1 for the text on the chip and 3:1 for the chip on the band, in
      both modes. The light ones are at the limit, so they are not made lighter; check both again if the band changes. */
-  --alert-warn:#f2b54f; --alert-block:#f97770; --alert-on:#0f0f0e;   /* a light chip with dark ink */
+  --alert-warn:oklch(0.8 0.1 80); --alert-block:oklch(0.7 0.12 28); --alert-on:#0f0f0e;   /* a light chip with dark ink */
 }
 .kalender[data-mode='bemanning']{--mode-h:40; --mode-c:.11}
 .dark .kalender{
