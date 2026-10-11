@@ -388,6 +388,41 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     // `strokeCells`, `dayAt` and `blocksOn` read `lines`, `listed` and `dates`.
   }, [active, ws, lines, listed, dates, activeTool, activeBrush, stroke, stretch, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---- the demand as it would be after the stroke under way ---------------------------------------------
+  // What remains is counted while a stroke is drawn, so it can be stopped where the demand is met. The stroke is worked out as
+  // it will be when the button is let go, by the same rules, and the balance of its days is built from that.
+  const afterStroke = useMemo((): { assignments: Assignment[]; dates: ISODate[] } | null => {
+    if (!active || !stroke || stroke.mode === 'select') return null
+    const all = ws.assignments ?? []
+    const between = dates.slice(Math.min(stroke.col0, stroke.col1), Math.max(stroke.col0, stroke.col1) + 1)
+    if (stroke.mode === 'stretch') {
+      if (!stretch) return null
+      const days = stretch.cells.map((cell) => cell.date)
+      return { assignments: stretch.erase ? all.filter((a) => !stretch.blockIds.includes(a.id)) : paintDays(ws, stretch.cells, stretch.competence, 'full'), dates: days }
+    }
+    if (stroke.mode === 'erase') return { assignments: clearDays(all, strokeCells(stroke)), dates: between }
+    if (stroke.mode === 'paint') return activeBrush ? { assignments: paintDays(ws, strokeCells(stroke), activeBrush, stroke.half ? 'half' : 'full'), dates: between } : null
+    const from = dayAt(stroke.row0, stroke.col0)
+    const to = dayAt(stroke.row1, stroke.col1)
+    const moved = moveDay(ws, { from, to, blockIds: blocksOn(from).map((a) => a.id) })
+    return typeof moved === 'string' ? null : { assignments: moved, dates: [from.date, to.date] }
+    // `strokeCells`, `dayAt` and `blocksOn` read `lines`, `listed` and `dates`.
+  }, [active, ws, lines, listed, dates, activeBrush, stroke, stretch]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** The balance the demand shows: as it is, and on the days of a stroke under way as the stroke would leave it. */
+  const shownBalance = useMemo<Balance>(() => {
+    if (!afterStroke || afterStroke.assignments === (ws.assignments ?? [])) return balance
+    const days = new Set(afterStroke.dates)
+    const after = buildBalance({ ...ws, allocations: planned, assignments: afterStroke.assignments }, afterStroke.dates)
+    return { get: (competence, date) => (days.has(date) ? after.get(competence, date) : balance.get(competence, date)), competences: [...new Set([...balance.competences, ...after.competences])] }
+  }, [afterStroke, balance, ws, planned])
+  /** Per competence: the hours that remain in the days in view, as the demand shows them. */
+  const shownRemaining = useMemo(() => {
+    if (shownBalance === balance) return remainingOf
+    const remaining = new Map<string, number>()
+    for (const competence of shownBalance.competences) remaining.set(competence, viewDates.reduce((sum, date) => sum + Math.max(0, shownBalance.get(competence, date).remaining), 0))
+    return remaining
+  }, [shownBalance, balance, remainingOf, viewDates])
+
   // ---- what the tools do ------------------------------------------------------------------------------
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
   const labelOf = (competence: string) => styles.get(competence)?.label ?? competence
@@ -648,7 +683,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     ws, dates, cols, room, viewFrom, viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
-    balance, totals, remainingOf, demandRows, capacity, uncoverable,
+    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, capacity, uncoverable,
     lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,

@@ -129,10 +129,12 @@ const CapacityLine = memo(function CapacityLine({ cols, capacity, label }: { col
 /**
  * The demand per competence, summed over the projects (R10): what remains of each day's hours against
  * what is assigned. A competence in focus is also the brush. Folded, only the competence in focus shows.
+ * While a stroke is drawn over the people, the days it covers show what would remain after it, and so does
+ * the sum in the label: the figures fall as hours are given, and a day given more than it needs turns to over.
  */
 export function DemandRows() {
   const bm = useBemanning()
-  const { demandRows, remainingOf, balance, uncoverable, cols, brush, demandOpen: open, demandDensity, idleOpen, capacity, onFocusDate, pickFromDemand, setDemandPop } = bm
+  const { demandRows, remainingOf, shownBalance, shownRemaining, uncoverable, cols, brush, demandOpen: open, demandDensity, idleOpen, capacity, onFocusDate, pickFromDemand, setDemandPop } = bm
   const compact = demandDensity === 'compact'
   // A competence with neither demand nor assigned hours in the period is set aside under one line. The one in focus stays.
   const isIdle = (key: string) => key !== brush && !remainingOf.has(key)
@@ -148,7 +150,7 @@ export function DemandRows() {
   const handlers = useStableActions({ onPick: pickFromDemand, onDay })
   const line = (row: DemandRow) =>
     !open && row.style.key !== brush ? null : (
-      <DemandLine key={row.style.key} row={row} cols={cols} balance={balance} uncoverable={uncoverable} remaining={remainingOf.get(row.style.key) ?? 0} compact={compact} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} />
+      <DemandLine key={row.style.key} row={row} cols={cols} balance={shownBalance} uncoverable={uncoverable} remaining={shownRemaining.get(row.style.key) ?? 0} compact={compact} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} />
     )
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
