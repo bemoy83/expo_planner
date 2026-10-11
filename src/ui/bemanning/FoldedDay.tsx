@@ -4,7 +4,7 @@ import { competenceColor } from '../dom'
 import { ABSENCE_LABELS, blockLabel, type BlockNames, type DayCell } from './dayCell'
 import { DAY_INSET } from './layout'
 import type { RunLink } from './runs'
-import { clock, EPSILON, hoursText } from './week'
+import { EPSILON, hoursText } from './week'
 
 const colorOf = (styles: Map<string, CompetenceStyle>, competence: string) => competenceColor(styles.get(competence))
 
@@ -51,7 +51,7 @@ export function FoldedDay({ cell, styles, brush, width, names, links }: { cell: 
             key={block.id}
             className={`bm-block ${link?.prev ? 'join-prev' : ''} ${link?.next ? 'join-next' : ''} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
             style={{ left: `calc(${block.left}% - ${before}px)`, width: `calc(${block.width}% + ${before + after}px)`, paddingLeft: lead ? `calc(${lead}% + 7px)` : undefined, ...colorOf(styles, block.competence) }}
-            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
+            title={`${name} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
           >
             {block.away.map((part) => (
               <i key={part.left} className="bm-away-part" style={{ left: `${part.left}%`, width: `${part.width}%` }} />

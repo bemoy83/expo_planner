@@ -56,7 +56,7 @@ describe('folded day cell', () => {
   it('hatches only the stretch of a block the person is away for', () => {
     const morning: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'annet', start: 420, end: 720 }
     const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [morning], yes, wd)
-    expect(cell.blocks[0]).toMatchObject({ unresolved: false, away: [{ left: 0, width: 62.5 }] })
+    expect(cell.blocks[0]).toMatchObject({ unresolved: false, away: [{ left: 0, width: 62.5 }], hours: 3, times: '12:00–15:00' })
     expect(cell).toMatchObject({ hatches: [], unresolved: 0, note: 'Kommer 12:00' })
   })
 

@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, moveTarget, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, type EditOptions } from '../../domain/staffing'
+import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, moveTarget, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, workedParts, type EditOptions } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Minute, Person, Workspace } from '../../domain/types'
 import { X } from 'lucide-react'
 import { ABSENCE_LABELS, absenceNote } from './dayCell'
 import { HOUR_PX } from './layout'
 import type { Tool } from './tools'
 import { competenceColor } from '../dom'
-import { clock, EPSILON, hoursText, spanText } from './week'
+import { EPSILON, hoursText, spanText } from './week'
 
 /** The pixel heights from which a block has room for its name, its time and its hours. */
 const NAME_FROM_PX = 18
@@ -201,9 +201,12 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
         const to = Math.min(block.end, range.end)
         if (to <= from) return null
         const length = block.end - block.start
-        const total = paidHours(block, wd)
-        const overtime = overtimeHours(block, dayType(date), wd)
         const unresolved = assignmentStatus(block, ws) === 'unresolved'
+        // A block says the time and the hours of it that count: what the person is away for is left out. One that does not count says its own.
+        const counted = unresolved ? [block] : workedParts(block, person, absence)
+        const total = counted.reduce((sum, part) => sum + paidHours(part, wd), 0)
+        const overtime = counted.reduce((sum, part) => sum + overtimeHours(part, dayType(date), wd), 0)
+        const times = (short: boolean) => counted.map((part) => spanText(part.start, part.end, short)).join(' · ')
         const replaced = unresolved && !stillOpen.has(block.id)
         // The person is away for the start of the block, where its name is: the name is read on the hatch there.
         const awayAtStart = !unresolved && absence.some((u) => u.start !== undefined && u.start <= block.start && u.end! > block.start)
@@ -217,7 +220,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
             key={block.id}
             className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${awayAtStart ? 'away-start' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${cross?.id === block.id ? 'leaving' : ''} ${selectedId === block.id ? 'selected' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
             style={{ ...place(from, to), ...competenceColor(style) }}
-            title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
+            title={`${name} · ${times(false)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
             onMouseDown={(e) => blockDown(e, block, 'move')}
             onDoubleClick={(e) => {
               e.stopPropagation()
@@ -242,7 +245,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
               </>
             )}
             {px >= NAME_FROM_PX && <b>{narrow ? (style?.shortLabel ?? name) : name}</b>}
-            {px >= TIME_FROM_PX && <em>{spanText(block.start, block.end, colW < TIME_FROM_W)}</em>}
+            {px >= TIME_FROM_PX && <em>{times(colW < TIME_FROM_W)}</em>}
             {px >= HOURS_FROM_PX && !narrow && (
               <em>
                 {hoursText(total - overtime)} t{overtime > EPSILON ? ` + ${hoursText(overtime)} OT` : ''}

@@ -50,7 +50,10 @@ export interface CellBlock extends Span {
   competence: string
   start: Minute
   end: Minute
+  /** The hours of it that count; of a block that does not count, its own. */
   hours: number
+  /** The time of it that count, as it is said: «12:00–15:00». */
+  times: string
   /** Its hours do not count: the person is away, or lacks the competence. */
   unresolved: boolean
   /** Unresolved, but others cover the day's demand, so nothing is left to solve. */
@@ -101,7 +104,10 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
     // Of a block that counts, the time the person is away for: what the block loses when the time they are there for is taken out of it.
     const here = subtract([{ start, end }], awayFor)
     const away = ok(a) ? subtract([{ start, end }], here).map((iv) => ({ left: ((iv.start - start) / (end - start)) * 100, width: ((iv.end - iv.start) / (end - start)) * 100 })) : []
-    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours: paidHours(a, wd), unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...span(start, end) }]
+    const counted = ok(a) ? subtract([{ start: a.start, end: a.end }], partial.map((u) => ({ start: u.start!, end: u.end! }))) : [a]
+    const hours = counted.reduce((sum, part) => sum + paidHours(part, wd), 0)
+    const times = counted.map((part) => `${clock(part.start)}–${clock(part.end)}`).join(' · ')
+    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours, times, unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...span(start, end) }]
   })
   const first = partial[0]
   return {
