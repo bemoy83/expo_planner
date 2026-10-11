@@ -127,21 +127,20 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-timeline{position:absolute;inset:7px 5px}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
-.bm-block b{overflow:hidden;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
+.bm-block b{margin:0 -7px;padding:1px 7px;overflow:hidden;border-radius:4px;background:var(--cc);color:var(--on-line);font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
 .bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
-/* a run: the blocks of days in a row with one competence meet, square where they do, and have one name between them. The name is written as the name of a single block is: light on the block's colour, dark where the day under it is hatched, and stepped back with the blocks of a competence that is not in focus. */
+/* a run: the blocks of days in a row with one competence meet, square where they do, and have one name between them. */
 .bm-block.join-prev{border-top-left-radius:0;border-bottom-left-radius:0}
 .bm-block.join-next{border-top-right-radius:0;border-bottom-right-radius:0}
 .bm-block.join-prev:not(.join-next){clip-path:inset(-1px -1px -1px 0)}
 .bm-block.join-next:not(.join-prev){clip-path:inset(-1px 0 -1px -1px)}
 .bm-block.join-prev.join-next{clip-path:inset(-1px 0)}
 .bm-run{position:absolute;top:7px;bottom:7px;z-index:1;display:flex;align-items:center;pointer-events:none}
-.bm-run-name{position:sticky;padding:0 7px;overflow:hidden;white-space:nowrap;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
-/* A dimmed block is see-through with its name, so the name is its colour mixed into the ground by as much. The run's name lies over the block and is given that colour outright: see-through itself, it would be mixed into the dimmed block and be fainter than the name of a single day. */
-.bm-run-name:not(.on-hatch):not(.other){color:var(--on-line)}
-.bm-run-name.on-hatch:not(.other){color:var(--text)}
-.bm-run-name.other:not(.on-hatch){color:color-mix(in srgb,var(--on-line) 28%,var(--bg))}
-.bm-run-name.other.on-hatch{color:color-mix(in srgb,var(--text) 28%,var(--bg))}
+/* A name is written one way, on a single day and on a run: light, on a badge of the competence's colour. On the block's own colour the badge is not seen; over a hatch, and where a run's name slides over what is under it as the days scroll, it is what keeps the name readable. */
+.bm-run-name{position:sticky;padding:1px 7px;overflow:hidden;white-space:nowrap;border-radius:4px;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
+.bm-run-name:not(.other){background:var(--cc);color:var(--on-line)}
+/* A dimmed block is see-through with its name and badge, so they are their colours mixed into the ground by as much. The run's name lies over its blocks and is given those colours outright. */
+.bm-run-name.other{background:color-mix(in srgb,var(--cc) 28%,var(--bg));color:color-mix(in srgb,var(--on-line) 28%,var(--bg))}
 /* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the open hours. */
 .bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other{opacity:.28}
