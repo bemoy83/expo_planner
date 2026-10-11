@@ -112,7 +112,7 @@
   --mode-tag:color-mix(in oklab,var(--bg) 55%,transparent);
   --mode-key:oklch(0.3 .05 var(--mode-h) / .1);                        /* behind a key */
   --mode-shadow:oklch(0.3 .05 var(--mode-h) / .18);                    /* under the chosen segment */
-  --pick:var(--mode-ink);                                              /* the ring of the cell in focus, and of what is selected */
+  --pick:var(--mode-ink);                                              /* the ring of the cell in focus, of what is selected, and of what the keyboard stands on */
   --pick-soft:color-mix(in oklab,var(--mode-ink) 14%,transparent);      /* the tint of what is selected */
   /* An alert on the band, and the badge of a sick day in Bemanning, is a solid chip with its own ink: 4.5:1 for the text on the chip and 3:1 for the chip on the band, in
      both modes. The light ones are at the limit, so they are not made lighter; check both again if the band changes. */
