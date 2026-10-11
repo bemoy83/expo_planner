@@ -105,9 +105,10 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         const runOn = [...links.values()].some((link) => link.next)
         const inStroke = col >= strokeFrom && col <= strokeTo
         const gaps = ghost?.get(date)
-        // A day the brush cannot fill says so under the pointer, and inside a stroke.
-        const blocked = painting && !gaps && (cell.offDay || cell.away !== null || dim)
-        const refused = refusedCol === col || (painting && !gaps && inStroke && !erasing)
+        // A day the brush cannot fill says so under the pointer, and inside a stroke. A weekend or a holiday does not:
+        // the brush fills it when it is picked by itself, and passes over it without a mark when it is drawn across.
+        const blocked = painting && !gaps && !cell.offDay && (cell.away !== null || dim)
+        const refused = refusedCol === col || (painting && !gaps && inStroke && !erasing && !cell.offDay)
         return (
           <div
             key={date}
