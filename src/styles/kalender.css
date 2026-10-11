@@ -82,12 +82,13 @@
 .day-head{flex-direction:column;justify-content:center!important;line-height:1.1}
 .day-head .wd{font-size:var(--fs-2xs);color:var(--faint)}
 .day-head .dn{color:var(--text);font-size:var(--fs-sm);font-weight:500}
-.day-head.today .dn{color:var(--accent);font-weight:600}
+/* today: its date on a badge, the ink of the band with the band's fill as text, as the primary action on the band. It keeps that under the focus and on a red day. */
+.day-head.today .dn{padding:0 4px;border-radius:4px;background:var(--mode-ink);color:var(--mode-band);font-weight:600}
 /* the date of the focused cell */
 .day-head.active::before{content:'';position:absolute;inset:2px 3px;border-radius:6px;background:var(--accent-soft);pointer-events:none}
-.day-head.active .wd,.day-head.active .dn{color:var(--accent);font-weight:600}
+.day-head.active .wd,.day-head.active:not(.today) .dn{color:var(--accent);font-weight:600}
 /* a red day keeps its red date */
-.day-head.helligdag .wd,.day-head.helligdag .dn{color:var(--neg)}
+.day-head.helligdag .wd,.day-head.helligdag:not(.today) .dn{color:var(--neg)}
 
 /* ---- the sections of the top block: the hall calendar and the staffing ---- */
 /* A section opens with a heading on a neutral tint, across the whole grid. The tint sets it apart. It is a heading and not a line of days: it has no rules, and neither the weekends nor the red days nor the today line go through it. */

@@ -18,7 +18,7 @@ kbd{font:500 var(--fs-2xs)/14px var(--font-num);padding:0 4px;border-radius:4px;
 /* ---- buttons ---- */
 button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;background:var(--sunken);padding:7px 12px;cursor:pointer;transition:background .12s}
 /* The ring of what the keyboard stands on: ink, and in the Kalender the ink of the mode's band (`--pick`). Set here, or the browser draws it in the colour of the system. */
-:focus-visible{outline:2px solid var(--pick,var(--text));outline-offset:2px}
+:focus-visible{outline:1.5px solid var(--pick,var(--text));outline-offset:1.5px}
 button svg{flex:none}
 button:hover{background:color-mix(in oklab,var(--sunken) 80%,var(--text))}
 button:disabled{opacity:.45;cursor:default}
