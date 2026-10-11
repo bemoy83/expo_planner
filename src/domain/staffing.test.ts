@@ -597,6 +597,18 @@ describe('copy and paste (R34)', () => {
     expect(of(assignments, PER, '2026-10-20')).toEqual([{ competence: 'teppefliser', ...iv('11:30', '15:00') }])
     expect({ pasted, skipped }).toEqual({ pasted: 3, skipped: 0 })
   })
+  it('pastes onto other people, line for line, and leaves out work they lack the competence for', () => {
+    const own = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', PER, MON, '07:00', '11:00')])
+    const clip = copyDays(own, [...days(ANDERS, [MON]), ...days(PER, [MON])])!
+    expect(clip.people).toEqual([ANDERS, PER])
+    // Anders's Monday lands on Per the Tuesday, and Per's on Geir, who has not the competence.
+    const { assignments, pasted } = pasteDays(own, clip, TUE, '2026-12-31', id, [PER, GEIR])
+    expect(of(assignments, PER, TUE)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+    expect(of(assignments, GEIR, TUE)).toEqual([])
+    expect(pasted).toBe(1)
+    // A line past the end of the list has no one to land on.
+    expect(pasteDays(own, clip, TUE, '2026-12-31', id, [PER, undefined]).pasted).toBe(1)
+  })
   it('D45 fills only free time, and skips and counts the days a person is away', () => {
     const base = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', ANDERS, TUE, '07:00', '15:00'), tep('x', ANDERS, NEXT_MON, '07:00', '11:00')])
     const own = { ...base, unavailability: [...(base.unavailability ?? []), ...sick(ANDERS, ['2026-10-20'])] }

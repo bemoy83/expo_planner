@@ -418,9 +418,11 @@ const isAwayAt = (ws: Workspace, cell: DayCell, blocks: Interval[]): boolean => 
   return blocks.every((block) => open.every((iv) => overlap(iv, block) === 0))
 }
 
-/** What is copied: the blocks of some days of some people, each day counted from the first day copied. */
+/** What is copied: the blocks of some days of some people, each day counted from the first day copied and each person from the first one copied. */
 export interface Clipboard {
   from: ISODate
+  /** The people copied from, in the order of their lines. */
+  people: string[]
   items: { personId: string; dayOffset: number; blocks: BlockShape[] }[]
 }
 
@@ -430,16 +432,22 @@ export const copyDays = (ws: Workspace, cells: DayCell[]): Clipboard | null => {
   const items = cells
     .map((cell) => ({ personId: cell.personId, dayOffset: daysBetween(from, cell.date), blocks: blocksOf(ws.assignments ?? [], cell.personId, cell.date).map(({ competence, start, end }) => ({ competence, start, end })) }))
     .filter((item) => item.blocks.length > 0)
-  return items.length ? { from, items } : null
+  return items.length ? { from, people: [...new Set(cells.map((cell) => cell.personId))], items } : null
 }
 
-/** Where a paste would put each copied day: the day it lands on, and the time its blocks find free there. A day the person is away has none. */
-export const pasteTargets = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate): { cell: DayCell; blocks: BlockShape[] }[] => {
+/**
+ * Where a paste would put each copied day: the day it lands on, and the time its blocks find free there. A day the person is away
+ * has none. `onto` is the people it lands on, one for each of the people copied from, in their order; without it, the same people.
+ * What was copied from a person who has none to land on is left out.
+ */
+export const pasteTargets = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate, onto: (string | undefined)[] = clip.people): { cell: DayCell; blocks: BlockShape[] }[] => {
   let assignments = ws.assignments ?? []
   return clip.items.flatMap((item) => {
-    const cell = { personId: item.personId, date: addDays(anchor, item.dayOffset) }
+    const personId = onto[clip.people.indexOf(item.personId)]
+    if (!personId) return []
+    const cell = { personId, date: addDays(anchor, item.dayOffset) }
     if (cell.date > lastDate) return []
-    const person = ws.persons?.find((p) => p.id === item.personId)
+    const person = ws.persons?.find((p) => p.id === personId)
     const blocks = isAwayAllDay(ws, cell)
       ? []
       : item.blocks.flatMap((block) => {
@@ -454,12 +462,13 @@ export const pasteTargets = (ws: Workspace, clip: Clipboard, anchor: ISODate, la
 }
 
 /**
- * R34: pastes what was copied, for the same people, with the first copied day on `anchor`. Only free time
- * is filled. Days past the end of the period are left out, and days the person is away are skipped.
+ * R34: pastes what was copied with the first copied day on `anchor`, for the people of `onto`, or the same
+ * people without it. Only free time is filled, and only work the person has the competence for. Days past
+ * the end of the period are left out, and days the person is away are skipped.
  */
-export const pasteDays = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate, makeId: () => string = newId): { assignments: Assignment[]; pasted: number; skipped: number } => {
+export const pasteDays = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate, makeId: () => string = newId, onto?: (string | undefined)[]): { assignments: Assignment[]; pasted: number; skipped: number } => {
   const all = ws.assignments ?? []
-  const targets = pasteTargets(ws, clip, anchor, lastDate)
+  const targets = pasteTargets(ws, clip, anchor, lastDate, onto)
   const added = targets.flatMap(({ cell, blocks }) => blocks.map((block): Assignment => ({ ...block, id: makeId(), personId: cell.personId, date: cell.date, source: 'manual' })))
   if (!added.length) return { assignments: all, pasted: 0, skipped: targets.length }
   return { assignments: mergeAdjacent([...all, ...added], new Set(targets.map(({ cell }) => keyOf(cell)))), pasted: added.length, skipped: targets.filter(({ blocks }) => !blocks.length).length }

@@ -52,7 +52,7 @@ Given start width `W0`, scroll `s0`, target `W1`, `s1`: anchor day positions `d0
 Both modes read and write `planningFocus`. Plan → Bemanning: R18's range is the project window if it contains the focus day, else the stored range if it contains it, else 10 days from the Monday of its week. Bemanning → Plan: centre on the focus day only if it would fall outside the restored view.
 
 ### R34 Paste
-`paste(ws, clip, anchorDate)`: for each item, target = anchor + dayOffset (skip past the range end). Skip if the person is absent or sick that day. For each block, fill `freeIntervals([start, end))` with copies; then `mergeAdjacent`. One undo step. Same people only (no row shifting).
+`paste(ws, clip, anchorDate)`: for each item, target = anchor + dayOffset (skip past the range end). Skip if the person is absent or sick that day. For each block, fill `freeIntervals([start, end))` with copies; then `mergeAdjacent`. One undo step. It lands on the lines from the one under the pointer: the first person copied on that line, the next on the line under it (changed 2026-10-11; it was the same people only). Blocks of a competence the person lacks are left out.
 
 ### R35 Absence as date ranges
 The Person panel's form (replacing `AbsenceDialog`) takes kind, from, to, whole day or part of a day, note. It writes one `Unavailability` per day in the range (as the app does today); the panel groups consecutive days of the same kind back into periods for display and editing. Editing a period rewrites its days; «Friskmeld fra d» deletes the sick days from d on. Blocks on those days follow the v1 rule (R7 as implemented: `openUnresolved`).

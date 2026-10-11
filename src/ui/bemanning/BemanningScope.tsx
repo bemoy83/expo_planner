@@ -276,6 +276,9 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     return cells
   }
 
+  /** The people a paste lands on: the line under the pointer for the first person copied, and the lines under it for the next. */
+  const pasteOnto = (copied: Clipboard, row: number) => copied.people.map((_, i) => listed[row + i]?.person.id)
+
   // ---- what a stroke, or the brush over a day, would do ------------------------------------------------
   const blocksOn = (cell: Day): Assignment[] => lines.find((line) => line.person.id === cell.personId)?.assignments?.get(cell.date) ?? []
   const { ghost, info, refused } = useMemo((): { ghost: Ghosts; info: StrokeInfo | null; refused: Day | null } => {
@@ -309,7 +312,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     if (activeTool === 'select') {
       // What was copied, where a paste would put it: for the same people, from the day under the pointer.
       if (!clip || !hover || stroke) return none
-      for (const { cell, blocks } of pasteTargets(ws, clip, dates[hover.col], lastDate)) put(cell, blocks)
+      for (const { cell, blocks } of pasteTargets(ws, clip, dates[hover.col], lastDate, pasteOnto(clip, hover.row))) put(cell, blocks)
       return { ...none, ghost: found }
     }
     if (activeTool !== 'paint' || !activeBrush) return none
@@ -399,13 +402,15 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   }
   /** R34: pastes at the day under the pointer, else at the first selected day. */
   const pasteClip = () => {
-    const anchor = hover ? dates[hover.col] : selection ? dates[Math.min(selection.col0, selection.col1)] : undefined
-    if (!clip || !anchor) return
+    const at = hover ?? (selection ? { row: Math.min(selection.row0, selection.row1), col: Math.min(selection.col0, selection.col1) } : null)
+    if (!clip || !at) return
+    const anchor = dates[at.col]
+    const onto = pasteOnto(clip, at.row)
     const lastDate = dates[dates.length - 1]
-    const { pasted, skipped } = pasteDays(ws, clip, anchor, lastDate)
+    const { pasted, skipped } = pasteDays(ws, clip, anchor, lastDate, undefined, onto)
     const skippedText = skipped ? ` · ${skipped} hoppet over` : ''
-    if (!pasted) return toast(`Ingenting ble limt inn fra ${fmtDay(anchor)}: dagene er opptatt eller personen er borte.`)
-    updateStaffing((w) => ({ ...w, assignments: pasteDays(w, clip, anchor, lastDate).assignments }))
+    if (!pasted) return toast(`Ingenting ble limt inn fra ${fmtDay(anchor)}: dagene er opptatt, eller personen er borte eller har ikke kompetansen.`)
+    updateStaffing((w) => ({ ...w, assignments: pasteDays(w, clip, anchor, lastDate, undefined, onto).assignments }))
     toast(`Limte inn ${pasted === 1 ? '1 blokk' : `${pasted} blokker`} fra ${fmtDay(anchor)}${skippedText}`, { label: 'Angre', run: undo })
   }
 
