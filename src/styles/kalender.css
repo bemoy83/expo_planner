@@ -57,8 +57,8 @@
    under the label column. The heading of a section is a heading and carries a legend, so it lies over the line, which breaks there. Each block
    that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the dates, the top block and the
    hall calendar. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
-.today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--accent);pointer-events:none}
-.group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--accent)}
+.today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--mode-ink);pointer-events:none}
+.group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--mode-ink)}
 /* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the halls, the staffing lines and the planning rows,
    and in Bemanning down the project lines, the demand and the people */
 :is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag,:is(.bm-need,.bm-free,.bm-cell).helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
