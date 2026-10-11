@@ -25,9 +25,9 @@ const INDENT = 14
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
 /** One line of the grid: the label column, then a cell per drawn day. */
-export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, style, project, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** The project the line belongs to, for the hover cue, see `useProjectHover`. */ project?: string; /** On a hall's line: its projects, see `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
+export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, style, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** On a hall's line: its projects, for the hover cue, see `useProjectHover` and `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
   return (
-    <div className={`grid-row ${className}`} style={style ? { ...style, height } : { height }} data-project={project} data-projects={projects}>
+    <div className={`grid-row ${className}`} style={style ? { ...style, height } : { height }} data-projects={projects}>
       <div className="grid-label" style={{ width: LEFT_W }} onClick={onLabelClick}>
         {label}
       </div>
@@ -365,7 +365,6 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
     <Line
       className={`group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`}
       height={node.depth === 0 ? TOP_ROW_H : ROW_H}
-      project={node.projectKey}
       cols={cols}
       label={
         <>
@@ -470,7 +469,6 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
       onLabelClick={(e) => {
         if (!(e.target instanceof Element && e.target.closest('button'))) actions.selectRow(lane)
       }}
-      project={item.project.venue ? item.project.key : undefined}
       cols={cols}
       label={
         <>

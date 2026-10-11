@@ -40,8 +40,6 @@ export interface GroupNode {
   daily: Map<ISODate, number>
   /** Set on project levels. */
   project?: ProjectGroup
-  /** The project of every row below: set on project levels and the levels under them, where the project is in the hall calendar. */
-  projectKey?: string
 }
 
 export type GridItem =
@@ -229,7 +227,7 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
   const entries: Entry[] = groups.flatMap((project) => project.rows.map((row) => ({ row, totals: rowTotals(index, row, settings), project })))
   const items: GridItem[] = []
 
-  const walk = (list: Entry[], depth: number, path: string, emptyProjects: ProjectGroup[], within?: string) => {
+  const walk = (list: Entry[], depth: number, path: string, emptyProjects: ProjectGroup[]) => {
     const dimension = grouping[depth]
     if (!dimension) {
       for (const entry of list) items.push({ kind: 'row', ...entry, depth })
@@ -260,8 +258,7 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
         continue
       }
       const key = `${path}${dimension}:${value}`
-      const inProject = bucket.project ? (bucket.project.venue ? bucket.project.key : undefined) : within
-      const node: GroupNode = { key, dimension, label: bucket.label, depth, rows: bucket.entries.map((e) => e.row), totals: { requiredFte: 0, plannedFte: 0 }, daily: new Map(), project: bucket.project, projectKey: inProject }
+      const node: GroupNode = { key, dimension, label: bucket.label, depth, rows: bucket.entries.map((e) => e.row), totals: { requiredFte: 0, plannedFte: 0 }, daily: new Map(), project: bucket.project }
       for (const { row, totals } of bucket.entries) {
         node.totals.requiredFte += totals.requiredFte ?? 0
         node.totals.plannedFte += totals.plannedFte
@@ -270,7 +267,7 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
       const isEntry = entry.has(key) && bucket.entries.length > 0
       const isCollapsed = isEntry || collapsed.has(key)
       items.push({ kind: 'group', node, collapsed: isCollapsed, entry: isEntry })
-      if (!isCollapsed) walk(bucket.entries, depth + 1, `${key}/`, [], inProject)
+      if (!isCollapsed) walk(bucket.entries, depth + 1, `${key}/`, [])
     }
   }
   walk(entries, 0, '', grouping[0] === 'project' ? groups.filter((group) => group.rows.length === 0) : [])

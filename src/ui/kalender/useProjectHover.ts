@@ -21,10 +21,10 @@ export const projectHoverCss = (project: string): string => {
 }
 
 /**
- * Pointing at a project, on one of its lines or one of its bars, lights its bars in every hall and the
- * names of those halls. The planning lines themselves are left as they are. Lines and bars carry their project in `data-project`, and the cue is one
- * style rule written into the page. Nothing is drawn again by React, and lines that scroll into view
- * are lit by the same rule. Returns the handlers for the element that holds the grid.
+ * Pointing at a project in the hall calendar, on one of its bars or its name there, lights its bars in
+ * every hall and the names of those halls. The planning lines light nothing: the mouse is on them to
+ * work, not to ask. Bars carry their project in `data-project`, and the cue is one style rule written
+ * into the page. Nothing is drawn again by React, and bars that scroll into view are lit by the same rule. Returns the handlers for the element that holds the grid.
  * It follows the setting for tooltips: switched off, nothing is lit.
  * `pin` keeps one project lit whatever the setting, while the mouse is on no other project.
  */
