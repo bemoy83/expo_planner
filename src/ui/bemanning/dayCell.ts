@@ -1,6 +1,6 @@
 import { dayType } from '../../domain/holidays'
 import type { ISODate } from '../../domain/dates'
-import { overtimeHours, paidHours } from '../../domain/staffing'
+import { overtimeHours, paidHours, subtract } from '../../domain/staffing'
 import type { Assignment, Minute, Unavailability, UnavailabilityKind, WorkdaySettings } from '../../domain/types'
 import { clock } from './week'
 
@@ -25,6 +25,18 @@ export const blockLabel = (width: number, name: string, shortName: string, names
   const short = room >= shortName.length * SHORT_CHAR_W ? 'short' : 'none'
   if (names === 'short' || room < name.length * NAME_CHAR_W) return short
   return names === 'auto' && room >= name.length * NAME_CHAR_W + hours.length * HOURS_CHAR_W + 6 ? 'hours' : 'name'
+}
+
+/**
+ * R24: what a run of days `width` pixels wide says: its name as a block would, and the days it lasts where
+ * they fit after the name («Vegger · 5 d»).
+ */
+export const runLabel = (width: number, name: string, shortName: string, names: BlockNames, days: number): string => {
+  const label = blockLabel(width, name, shortName, names)
+  if (label === 'none') return ''
+  const said = label === 'short' ? shortName : name
+  const count = ` · ${days} d`
+  return width - BLOCK_PAD >= said.length * NAME_CHAR_W + count.length * HOURS_CHAR_W ? said + count : said
 }
 
 /** A stretch of the normal day, as a share of its width. */
@@ -53,7 +65,7 @@ export interface DayCell {
   offDay: boolean
   /** Away the whole day, and why. */
   away: UnavailabilityKind | null
-  /** The parts of the normal day the person is away for. */
+  /** The parts of the normal day the person is away for and has nothing planned in. What is planned there is hatched itself. */
   hatches: Span[]
   /** «Går 12:00», or the note written on the absence. */
   note: string
@@ -82,11 +94,12 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
     return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours: paidHours(a, wd), unresolved: !ok(a), replaced: !ok(a) && !open(a), ...span(start, end) }]
   })
   const first = partial[0]
+  const awayFor = (whole ? [{ start: wd.dayStart, end: wd.dayEnd }] : partial.map((u) => ({ start: Math.max(u.start!, wd.dayStart), end: Math.min(u.end!, wd.dayEnd) }))).filter((iv) => iv.end > iv.start)
   const derivedNote = !first ? '' : first.end! >= wd.dayEnd ? `Går ${clock(first.start!)}` : first.start! <= wd.dayStart ? `Fra ${clock(first.end!)}` : `Borte ${clock(first.start!)}–${clock(first.end!)}`
   return {
     offDay,
     away: whole ? whole.kind : null,
-    hatches: offDay ? [] : partial.map((u) => span(Math.max(u.start!, wd.dayStart), Math.min(u.end!, wd.dayEnd))).filter((s) => s.width > 0),
+    hatches: offDay ? [] : subtract(awayFor, sorted).map((iv) => span(iv.start, iv.end)),
     note: (whole ?? first)?.note || derivedNote,
     blocks,
     unresolved: assignments.filter((a) => !ok(a) && open(a)).length,

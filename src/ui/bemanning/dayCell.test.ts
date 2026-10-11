@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WORKDAY as wd, type Assignment, type Unavailability } from '../../domain/types'
-import { blockLabel, dayCell } from './dayCell'
+import { blockLabel, dayCell, runLabel } from './dayCell'
 
 const TUE = '2026-10-13'
 const SAT = '2026-10-17'
@@ -37,6 +37,20 @@ describe('folded day cell', () => {
     const late: Unavailability = { ...leaves, start: 420, end: 600, note: 'Tannlege' }
     expect(dayCell(TUE, [], [{ ...late, note: undefined }], yes, wd).note).toBe('Fra 10:00')
     expect(dayCell(TUE, [], [late], yes, wd).note).toBe('Tannlege')
+  })
+
+  it('hatches a whole day away where nothing is planned, and leaves what is planned to be hatched itself', () => {
+    const holiday: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'ferie' }
+    expect(dayCell(TUE, [], [holiday], () => false, wd).hatches).toEqual([{ left: 0, width: 100 }])
+    expect(dayCell(TUE, [block('a', 'foga', 420, 660)], [holiday], () => false, wd).hatches).toEqual([{ left: 50, width: 50 }])
+    expect(dayCell(TUE, [block('a', 'foga', 420, 900)], [holiday], () => false, wd).hatches).toEqual([])
+  })
+
+  it('names a run with the days it lasts where they fit (R24)', () => {
+    expect(runLabel(5 * 105 - 10, 'Vegger', 'VEG', 'full', 5)).toBe('Vegger · 5 d')
+    expect(runLabel(2 * 40 - 10, 'Vegger', 'VEG', 'full', 2)).toBe('Vegger')
+    expect(runLabel(2 * 40 - 10, 'Teppefliser', 'TEP', 'full', 2)).toBe('TEP · 2 d')
+    expect(runLabel(5 * 105 - 10, 'Vegger', 'VEG', 'short', 5)).toBe('VEG · 5 d')
   })
 
   it('marks a whole day away, and the blocks that are unresolved by it', () => {

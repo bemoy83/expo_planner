@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { ChevronRight } from 'lucide-react'
-import type { ISODate } from '../../domain/dates'
+import { daysBetween, type ISODate } from '../../domain/dates'
 import { paidHours } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Person, Unavailability, WorkdaySettings } from '../../domain/types'
 import type { PersonWeek } from '../../domain/staffing'
@@ -9,8 +9,9 @@ import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
 import { useBemanning, type GhostBlock, type PersonActions } from './BemanningScope'
-import { dayCell, type BlockNames } from './dayCell'
-import { DIVIDER_H, PERSON_H } from './layout'
+import { dayCell, runLabel, type BlockNames } from './dayCell'
+import { DAY_INSET, DIVIDER_H, PERSON_H } from './layout'
+import { runLink, runOf, type BlocksOn, type RunLink } from './runs'
 import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
 import { UnfoldedPerson } from './UnfoldedPerson'
@@ -55,6 +56,20 @@ interface LineProps {
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
 const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, refusedCol, ghost, actions }: LineProps) {
   const span = workday.dayEnd - workday.dayStart
+  const blocksOn: BlocksOn = (date) => assignments?.get(date)
+  // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
+  const runs = cols.dates.flatMap((date, i) =>
+    (assignments?.get(date) ?? NO_ASSIGNMENTS).flatMap((block) => {
+      const link = runLink(blocksOn, date, block, workday)
+      if (!link.next || (link.prev && i > 0) || (brush && brush !== block.competence)) return []
+      const run = runOf(blocksOn, date, block, workday)
+      const style = styles.get(run.competence)
+      const from = cols.c0 + i - daysBetween(run.from, date) + run.startShare
+      const length = run.days - 1 + run.endShare - run.startShare
+      const text = runLabel(length * cols.colW - 2 * DAY_INSET, style?.label ?? run.competence, style?.shortLabel ?? '', names, run.days)
+      return text ? [{ key: block.id, from, length, text: `${from < cols.first ? '‹ ' : ''}${text}`, style }] : []
+    }),
+  )
   return (
     <Line
       className={`bm-person ${dim ? 'dim' : ''}`}
@@ -77,7 +92,14 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
       }
       cols={cols}
       cells={(date, col) => {
-        const cell = dayCell(date, assignments?.get(date) ?? NO_ASSIGNMENTS, absence?.get(date) ?? NO_ABSENCE, isOk, workday, isOpen)
+        const blocks = assignments?.get(date) ?? NO_ASSIGNMENTS
+        const cell = dayCell(date, blocks, absence?.get(date) ?? NO_ABSENCE, isOk, workday, isOpen)
+        const links = new Map<string, RunLink>()
+        for (const block of blocks) {
+          const link = runLink(blocksOn, date, block, workday)
+          if (link.prev || link.next) links.set(block.id, link)
+        }
+        const runOn = [...links.values()].some((link) => link.next)
         const inStroke = col >= strokeFrom && col <= strokeTo
         const gaps = ghost?.get(date)
         // A day the brush cannot fill says so under the pointer, and inside a stroke.
@@ -86,12 +108,12 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         return (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${cell.away === 'syk' ? 'sick' : cell.away ? 'away' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
+            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${runOn ? 'run-on' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
             onMouseDown={actions.cellDown}
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} />
             {gaps && (
               <span className="bm-timeline bm-ghosts">
                 {gaps.map((gap) => (
@@ -104,6 +126,14 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
           </div>
         )
       }}
+      overlay={runs.map((run) => (
+        // As the name of an event in the hall calendar: it starts with its run and stays at the left edge of the days while the run is in view.
+        <span key={run.key} className="bm-run" style={{ left: daysWide(run.from, LEFT_W + DAY_INSET), width: daysWide(run.length, -2 * DAY_INSET), ...competenceColor(run.style) }}>
+          <span className="bm-run-name" style={{ left: LEFT_W + DAY_INSET }}>
+            {run.text}
+          </span>
+        </span>
+      ))}
     />
   )
 })

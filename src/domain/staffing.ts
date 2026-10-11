@@ -25,7 +25,7 @@ const intersect = (a: Interval, b: Interval): Interval | null => {
 }
 
 /** The intervals with the given stretches cut out, sorted. */
-const subtract = (intervals: Interval[], cuts: Interval[]): Interval[] => {
+export const subtract = (intervals: Interval[], cuts: Interval[]): Interval[] => {
   let left = intervals
   for (const cut of cuts) {
     left = left.flatMap((iv) => {

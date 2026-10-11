@@ -4,6 +4,8 @@ import type { WorkdaySettings } from '../../domain/types'
 export const PERSON_H = 40
 /** The line between the people who have the competence in focus and those who do not. */
 export const DIVIDER_H = 24
+/** The air beside a folded day's blocks, see `.bm-timeline`. A block that goes on into the next day reaches over it, and over the rule between the days. */
+export const DAY_INSET = 5
 export const DEMAND_H = 32
 export const DEMAND_COMPACT_H = 14
 export const PROJECT_H = 22
