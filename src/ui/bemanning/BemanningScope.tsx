@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
+import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, onlyOffDays, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
 import type { AllocationRow, Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -316,8 +316,9 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     if (!cells.length) return none
     const half = stroke ? stroke.half : shift
     const stats: StrokeInfo = { mode: 'paint', half, days: 0, hours: 0, people: 0, skipped: 0 }
+    const offDays = onlyOffDays(cells)
     for (const cell of cells) {
-      const gaps = paintGaps(ws, cell, activeBrush, half ? 'half' : 'full')
+      const gaps = paintGaps(ws, cell, activeBrush, half ? 'half' : 'full', undefined, offDays)
       if (!gaps.length) {
         if (dayType(cell.date) === 'arbeidsdag') stats.skipped += 1
         continue
@@ -338,19 +339,18 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
 
   /** Why a day cannot be painted, for the one day a click hit. */
   const blockText = (cell: Day, competence: string): string => {
-    const why = paintBlock(ws, cell, competence)
+    const why = paintBlock(ws, cell, competence, true)
     if (why === 'ineligible') return `${nameOf(cell.personId)} har ikke ${labelOf(competence)}.`
     if (!why) return `${nameOf(cell.personId)} har ingen ledig tid ${dayName(cell.date)}.`
-    const kind = dayType(cell.date)
     const away = (ws.unavailability ?? []).find((u) => u.personId === cell.personId && u.date === cell.date)
-    const reason = kind !== 'arbeidsdag' ? `${kind}. Overtid legges inn når timene er brettet ut` : away ? ABSENCE_LABELS[away.kind].toLowerCase() : ''
+    const reason = away ? ABSENCE_LABELS[away.kind].toLowerCase() : ''
     return `${nameOf(cell.personId)} er ikke tilgjengelig ${dayName(cell.date)}${reason ? ` (${reason})` : ''}.`
   }
 
   /** Paints the free time of the days (R6). A paint never replaces what is there. */
   const paint = (cells: Day[], competence: string, half: boolean) => {
     const span = half ? 'half' : 'full'
-    if (cells.every((cell) => !paintGaps(ws, cell, competence, span).length)) {
+    if (cells.every((cell) => !paintGaps(ws, cell, competence, span, undefined, onlyOffDays(cells)).length)) {
       if (cells.length === 1) toast(blockText(cells[0], competence))
       return
     }
@@ -453,7 +453,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       const at = cellAt(event.clientX, event.clientY)
       if (!at) return
       // With «Velg», a press on a block can drag the day's blocks to another day; a press beside them selects days.
-      const onBlock = event.target instanceof Element && event.target.closest('.bm-block, .bm-off-blocks > i') !== null
+      const onBlock = event.target instanceof Element && event.target.closest('.bm-block') !== null
       const mode = event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : onBlock ? 'move' : 'select'
       event.preventDefault()
       if (mode === 'paint' || mode === 'erase') setSelection(null)

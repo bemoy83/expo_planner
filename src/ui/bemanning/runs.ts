@@ -1,5 +1,4 @@
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
-import { dayType } from '../../domain/holidays'
 import type { Assignment, WorkdaySettings } from '../../domain/types'
 
 /** The blocks of one person on a day. */
@@ -7,25 +6,25 @@ export type BlocksOn = (date: ISODate) => Assignment[] | undefined
 
 /**
  * A run: the days in a row a person has one competence, drawn as one piece. A block goes on into the next
- * day when it lasts to the end of the normal day and a block of its competence begins the next working day
- * from its start. A weekend or a holiday ends a run, and so does another competence or time left empty.
- * What happens to the person (sickness, absence, overtime) does not: the blocks are still there.
+ * day when it lasts to the end of the normal day and a block of its competence begins the next day
+ * from its start. Another competence or time left empty ends a run, so a weekend does when it is not worked,
+ * and a run goes on through one that is. What happens to the person (sickness, absence, overtime) does not
+ * end it: the blocks are still there.
  */
 const reachesEnd = (a: Assignment, wd: WorkdaySettings) => a.end >= wd.dayEnd && a.start < wd.dayEnd
 const fromStart = (a: Assignment, wd: WorkdaySettings) => a.start <= wd.dayStart && a.end > wd.dayStart
-const isWorkday = (date: ISODate) => dayType(date) === 'arbeidsdag'
 
 /** The block the run of `block` goes on with the day after, if any. */
 export const nextInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
   const next = addDays(date, 1)
-  if (!isWorkday(date) || !isWorkday(next) || !reachesEnd(block, wd)) return undefined
+  if (!reachesEnd(block, wd)) return undefined
   return blocks(next)?.find((a) => a.competence === block.competence && fromStart(a, wd))
 }
 
 /** The block the run of `block` comes from the day before, if any. */
 export const prevInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
   const prev = addDays(date, -1)
-  if (!isWorkday(date) || !isWorkday(prev) || !fromStart(block, wd)) return undefined
+  if (!fromStart(block, wd)) return undefined
   return blocks(prev)?.find((a) => a.competence === block.competence && reachesEnd(a, wd))
 }
 

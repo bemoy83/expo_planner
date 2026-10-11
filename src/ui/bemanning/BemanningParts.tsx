@@ -157,7 +157,7 @@ export function BemanningOverlays() {
           x={menu.x}
           y={menu.y}
           title={`${menuPerson.name} · ${dayText(menu.cell.date)}`}
-          competences={staffed.filter((style) => menuPerson.competences.includes(style.key)).map((style) => ({ style, blocked: paintBlock(ws, menu.cell, style.key) !== null }))}
+          competences={staffed.filter((style) => menuPerson.competences.includes(style.key)).map((style) => ({ style, blocked: paintBlock(ws, menu.cell, style.key, true) !== null }))}
           hasBlocks={(ws.assignments ?? []).some((a) => a.personId === menu.cell.personId && a.date === menu.cell.date)}
           open={bm.unfolded === menu.cell.personId}
           onToggleOpen={() => bm.toggleUnfolded(menu.cell.personId)}

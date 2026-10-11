@@ -123,7 +123,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-cell{min-width:0;border-bottom:1px solid var(--grid-row)}
 .bm-cell:not(.run-on){border-right:1px solid var(--grid-col)}
 .bm-cell.run-on{border-right:1px solid transparent}
-.bm-cell.off-day{background:var(--weekend) var(--hatch)}
+.bm-cell.off-day{background-color:var(--weekend)}
 .bm-timeline{position:absolute;inset:7px 5px}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
@@ -139,20 +139,15 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-run-name{position:sticky;padding:1px 7px;overflow:hidden;white-space:nowrap;border-radius:4px;background:var(--cc);color:var(--on-line);font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
 /* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the open hours. */
 .bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
-.bm-block.other,.bm-edit-block.other,.bm-off-blocks>i.other{opacity:.28}
+.bm-block.other,.bm-edit-block.other{opacity:.28}
 /* unresolved, but the day is covered by others: a faint trace of what was planned */
 .bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--cc) 60%,transparent)}
-.bm-off-blocks>i.replaced{opacity:.4}
 /* why the person is away the whole day: one badge in the middle of it, red for sickness alone */
 .bm-reason{position:absolute;left:50%;top:50%;z-index:1;transform:translate(-50%,-50%);padding:2px 7px;border-radius:999px;font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
 .bm-reason:not(.sick){background:var(--bg);color:var(--muted)}
 .bm-reason.sick{background:var(--neg-bg);color:var(--neg)}
 .bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .bm-ot-tag{position:absolute;right:-2px;top:-6px;z-index:1;padding:0 4px;border-radius:4px;background:var(--text);color:var(--bg);font:600 var(--fs-2xs)/13px var(--font-num)}
-.bm-off-blocks{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px}
-.bm-off-blocks>i{width:6px;height:22px;border-radius:3px;background:var(--cc)}
-.bm-off-blocks>i.unresolved{background:transparent;box-shadow:inset 0 0 0 1.5px var(--cc)}
-.bm-off-blocks .bm-ot-tag{position:static;margin-left:2px}
 
 /* what the pointer does to a day */
 [data-tool='paint'] .bm-cell{cursor:cell}
@@ -165,7 +160,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 5px,color-mix(in oklab,var(--cc) 18%,transparent) 5px 10px);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--cc) 65%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
 /* what the eraser would take: its blocks as dashed outlines */
 .bm-cell.erasing .bm-block{background:transparent;box-shadow:none;outline:1.5px dashed color-mix(in srgb,var(--text) 45%,transparent);outline-offset:-1.5px;color:var(--muted)}
-.bm-cell.erasing .bm-off-blocks>i{background:transparent;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--text) 45%,transparent)}
 /* a stroke: one outline over all its days, and what it will do on a pill */
 .bm-stroke{position:absolute;z-index:1;border-radius:7px;background:color-mix(in oklab,var(--cc) 4%,transparent);box-shadow:inset 0 0 0 1.5px var(--cc),0 0 0 4px color-mix(in oklab,var(--cc) 13%,transparent);pointer-events:none}
 .bm-stroke.erase{--cc:var(--neg)}
@@ -197,7 +191,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-axis span{position:absolute;right:6px;transform:translateY(-50%);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .bm-axis span.day-edge{color:var(--text);font-weight:600}
 .bm-editor-cell{border-bottom:0}
-.bm-editor-cell.off-day{background-image:none}
 
 /* the track of a day: the day's own cell with hour lines, hatched where time is overtime, lunch, or away */
 .bm-track{position:absolute;left:0;right:0;top:12px;bottom:12px;background-image:repeating-linear-gradient(180deg,color-mix(in srgb,var(--text) 7%,transparent) 0 1px,transparent 1px 20px)}

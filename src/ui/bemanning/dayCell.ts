@@ -61,7 +61,7 @@ export const ABSENCE_LABELS: Record<UnavailabilityKind, string> = { syk: 'Syk', 
 
 /** What a person's day shows when it is folded: a small timeline of the normal day. */
 export interface DayCell {
-  /** A weekend or a holiday: no normal time, only overtime. */
+  /** A weekend or a holiday: no normal time, only overtime. Its blocks are drawn as a working day's; absence shows only where it has blocks. */
   offDay: boolean
   /** Away the whole day, and why. */
   away: UnavailabilityKind | null
@@ -69,7 +69,7 @@ export interface DayCell {
   hatches: Span[]
   /** «Går 12:00», or the note written on the absence. */
   note: string
-  /** The blocks, cut to the normal day. On an off day they are kept whole. */
+  /** The blocks, cut to the normal day. */
   blocks: CellBlock[]
   /** How many blocks are unresolved and still leave a gap. */
   unresolved: number
@@ -88,8 +88,8 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
   const partial = whole ? [] : absence
   const sorted = [...assignments].sort((a, b) => a.start - b.start)
   const blocks = sorted.flatMap((a): CellBlock[] => {
-    const start = offDay ? a.start : Math.max(a.start, wd.dayStart)
-    const end = offDay ? a.end : Math.min(a.end, wd.dayEnd)
+    const start = Math.max(a.start, wd.dayStart)
+    const end = Math.min(a.end, wd.dayEnd)
     if (end <= start) return []
     return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours: paidHours(a, wd), unresolved: !ok(a), replaced: !ok(a) && !open(a), ...span(start, end) }]
   })
@@ -99,7 +99,7 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
   return {
     offDay,
     away: whole ? whole.kind : null,
-    hatches: offDay ? [] : subtract(awayFor, sorted).map((iv) => span(iv.start, iv.end)),
+    hatches: subtract(awayFor, sorted).map((iv) => span(iv.start, iv.end)),
     note: (whole ?? first)?.note || derivedNote,
     blocks,
     unresolved: assignments.filter((a) => !ok(a) && open(a)).length,

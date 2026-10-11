@@ -57,8 +57,11 @@ const absenceOf = (unavailability: Unavailability[], personId: string, date: ISO
   unavailability.filter((u) => u.personId === personId && u.date === date)
 
 /** R3: the person's normal time that day: the normal day on a workday, less any absence. */
-export const normalWindows = (personId: string, date: ISODate, unavailability: Unavailability[], wd: WorkdaySettings): Interval[] => {
-  if (dayType(date) !== 'arbeidsdag') return []
+export const normalWindows = (personId: string, date: ISODate, unavailability: Unavailability[], wd: WorkdaySettings): Interval[] =>
+  dayType(date) === 'arbeidsdag' ? dayWindows(personId, date, unavailability, wd) : []
+
+/** The hours of the normal day the person is not away for, on any day: where the brush fills a weekend or a holiday that is picked by itself. */
+const dayWindows = (personId: string, date: ISODate, unavailability: Unavailability[], wd: WorkdaySettings): Interval[] => {
   const absence = absenceOf(unavailability, personId, date)
   if (absence.some(isWholeDay)) return []
   return subtract([normalDay(wd)], absence.map((u) => ({ start: u.start!, end: u.end! })))
@@ -153,11 +156,22 @@ export interface DayCell {
 
 export type PaintBlock = 'ineligible' | 'unavailable'
 
+/**
+ * Whether the days are weekends and holidays alone. The brush skips such a day when it is drawn across
+ * with working days, and fills it as a working day, from the start to the end of the normal day, when
+ * it is picked by itself.
+ */
+export const onlyOffDays = (cells: DayCell[]): boolean => cells.length > 0 && cells.every((cell) => dayType(cell.date) !== 'arbeidsdag')
+
+/** The time the brush has to fill for a person on a day; with `offDays`, on a weekend or a holiday too. */
+const paintWindows = (ws: Workspace, cell: DayCell, offDays: boolean): Interval[] =>
+  (offDays ? dayWindows : normalWindows)(cell.personId, cell.date, ws.unavailability ?? [], ws.settings.workday)
+
 /** Why the brush cannot fill a day for a person, or `null` when it can. */
-export const paintBlock = (ws: Workspace, cell: DayCell, competence: CompetenceKey): PaintBlock | null => {
+export const paintBlock = (ws: Workspace, cell: DayCell, competence: CompetenceKey, offDays = false): PaintBlock | null => {
   const person = ws.persons?.find((p) => p.id === cell.personId)
   if (!isEligible(person, competence)) return 'ineligible'
-  return normalWindows(cell.personId, cell.date, ws.unavailability ?? [], ws.settings.workday).length ? null : 'unavailable'
+  return paintWindows(ws, cell, offDays).length ? null : 'unavailable'
 }
 
 /** A paint fills a whole day, or the first half of it that is free. */
@@ -165,12 +179,13 @@ export type PaintSpan = 'full' | 'half'
 
 /**
  * R6: the time a paint would give a person on a day: the free part of their normal day, or of its first
- * free half. Nothing for a person without the competence or a day without normal time: painting never makes overtime.
+ * free half. Nothing for a person without the competence or a day without normal time. A weekend or a
+ * holiday has that time with `offDays` alone, see `onlyOffDays`; all of it is overtime.
  */
-export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKey, span: PaintSpan, assignments: Assignment[] = ws.assignments ?? []): Interval[] => {
-  if (paintBlock(ws, cell, competence)) return []
+export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKey, span: PaintSpan, assignments: Assignment[] = ws.assignments ?? [], offDays = false): Interval[] => {
+  if (paintBlock(ws, cell, competence, offDays)) return []
   const wd = ws.settings.workday
-  const normal = normalWindows(cell.personId, cell.date, ws.unavailability ?? [], wd)
+  const normal = paintWindows(ws, cell, offDays)
   const taken = blocksOf(assignments, cell.personId, cell.date)
   // A gap that is all lunch gives no hours, so it is not work to hand out.
   const free = (target: Interval[]) => freeIntervals(target, taken, wd.snap).filter((iv) => paidHours(iv, wd) > 0)
@@ -179,14 +194,14 @@ export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKe
   return halves.map(free).find((found) => found.length) ?? []
 }
 
-/** R6: gives each cell's person work of the competence in the time `paintGaps` finds. Cells that have none are skipped. */
+/** R6: gives each cell's person work of the competence in the time `paintGaps` finds. Cells that have none are skipped, as weekends and holidays are among working days. */
 export const paintDays = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, span: PaintSpan, makeId: () => string = newId): Assignment[] => {
   const before = ws.assignments ?? []
   let assignments = before
   const touched = new Set<string>()
+  const offDays = onlyOffDays(cells)
   for (const cell of cells) {
-    if (paintBlock(ws, cell, competence)) continue
-    const gaps = paintGaps(ws, cell, competence, span, assignments)
+    const gaps = paintGaps(ws, cell, competence, span, assignments, offDays)
     if (!gaps.length) continue
     assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, start: gap.start, end: gap.end, source: 'manual' }))]
     touched.add(keyOf(cell))

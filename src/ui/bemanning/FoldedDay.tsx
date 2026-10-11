@@ -28,16 +28,8 @@ export function WeekMeter({ week, overLimit = false }: { week: PersonWeek; /** T
 export function FoldedDay({ cell, styles, brush, width, names, links }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink> }) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
-  if (cell.offDay) {
-    return cell.blocks.length ? (
-      <span className="bm-off-blocks">
-        {cell.blocks.map((block) => (
-          <i key={block.id} className={`${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`} style={colorOf(styles, block.competence)} title={`${styles.get(block.competence)?.label ?? block.competence} · ${clock(block.start)}–${clock(block.end)}`} />
-        ))}
-        {overtime}
-      </span>
-    ) : null
-  }
+  // A weekend or a holiday with nothing on it is left empty, whatever absence covers it.
+  if (cell.offDay && !cell.blocks.length) return overtime && <span className="bm-timeline">{overtime}</span>
   return (
     <span className="bm-timeline">
       {cell.hatches.map((hatch) => (

@@ -67,10 +67,10 @@ describe('folded day cell', () => {
     expect(cell.blocks[0]).toMatchObject({ unresolved: true, replaced: true })
   })
 
-  it('keeps the blocks of a Saturday whole, all of it overtime', () => {
+  it('places the blocks of a Saturday as those of a working day, all of it overtime', () => {
     const cell = dayCell(SAT, [block('a', 'foga', 480, 720, SAT)], [], yes, wd)
     expect(cell).toMatchObject({ offDay: true, overtime: 3.5 })
-    expect(cell.blocks).toHaveLength(1)
+    expect(cell.blocks).toMatchObject([{ left: 12.5, width: 50 }])
   })
 
   it('B16 names a block in full where it fits, else with the short name, and never with its hours (R24)', () => {

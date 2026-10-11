@@ -180,9 +180,14 @@ describe('painting', () => {
     expect(paintDays(withAssignments(second), [cell], 'teppefliser', half, id)).toBe(second)
   })
 
-  it('D11 never makes overtime: a Saturday is left alone', () => {
-    expect(paintDays(ws, [{ personId: ANDERS, date: SAT }], 'teppefliser', full, id)).toBe(ws.assignments)
+  it('D11 skips a Saturday drawn across with working days, and fills one picked by itself as a working day', () => {
+    const across = paintDays(ws, [FRI, SAT].map((date) => ({ personId: ANDERS, date })), 'teppefliser', full, id)
+    expect(of(across, ANDERS, SAT)).toEqual([])
     expect(paintBlock(ws, { personId: ANDERS, date: SAT }, 'teppefliser')).toBe('unavailable')
+    const alone = paintDays(ws, [SAT, SUN].map((date) => ({ personId: ANDERS, date })), 'teppefliser', full, id)
+    expect(of(alone, ANDERS, SAT)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+    expect(of(alone, ANDERS, SUN)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
+    expect(paintBlock(ws, { personId: ANDERS, date: SAT }, 'teppefliser', true)).toBeNull()
   })
 
   it('D12 paints only the cells of a rectangle that can be painted', () => {
