@@ -205,6 +205,8 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
         const overtime = overtimeHours(block, dayType(date), wd)
         const unresolved = assignmentStatus(block, ws) === 'unresolved'
         const replaced = unresolved && !stillOpen.has(block.id)
+        // The person is away for the start of the block, where its name is: the name is read on the hatch there.
+        const awayAtStart = !unresolved && absence.some((u) => u.start !== undefined && u.start <= block.start && u.end! > block.start)
         const ghost = !storedIds.has(block.id)
         const dragging = draft !== null && draft.kind !== 'draw' && draft.id === block.id
         const px = (length / 60) * HOUR_PX
@@ -213,7 +215,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
         return (
           <span
             key={block.id}
-            className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${cross?.id === block.id ? 'leaving' : ''} ${selectedId === block.id ? 'selected' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
+            className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${awayAtStart ? 'away-start' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${cross?.id === block.id ? 'leaving' : ''} ${selectedId === block.id ? 'selected' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
             style={{ ...place(from, to), ...competenceColor(style) }}
             title={`${name} · ${clock(block.start)}–${clock(block.end)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
             onMouseDown={(e) => blockDown(e, block, 'move')}

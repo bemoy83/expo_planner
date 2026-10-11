@@ -213,6 +213,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-edit-block.leaving{opacity:.3}
 .bm-edit-block.selected{z-index:2;box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--accent)}
 .bm-edit-block.unresolved{cursor:default}
+.bm-edit-block.away-start{color:var(--text)}
 [data-tool='erase'] .bm-edit-block{cursor:crosshair}
 .bm-ot-part{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,var(--on-line-soft) 0 2px,transparent 2px 7px);pointer-events:none}
 .bm-grip{position:absolute;left:0;right:0;z-index:2;height:6px;cursor:ns-resize}
