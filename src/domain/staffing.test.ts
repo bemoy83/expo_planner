@@ -23,6 +23,7 @@ import {
   assignmentStatus,
   balanceTotals,
   buildBalance,
+  cellsToDemand,
   carry,
   clearDays,
   clickBlock,
@@ -633,6 +634,41 @@ describe('copy and paste (R34)', () => {
     const clip = copyDays(own, days(ANDERS, [MON, TUE]))!
     expect(pasteDays(own, clip, NEXT_MON, NEXT_MON, id).pasted).toBe(1)
     expect(copyDays(own, days(ANDERS, [THU, FRI]))).toBeNull()
+  })
+})
+
+describe('a stroke cut to where the demand is met (R47)', () => {
+  /** A balance that lacks the given hours on each day, and none on any other. */
+  const lacking = (hours: Record<string, number>) => ({ get: (_competence: string, date: string) => ({ demand: 0, carried: 0, assigned: 0, assignedOT: 0, covered: 0, remaining: hours[date] ?? 0 }), competences: [] })
+  const cellsOf = (personId: string, dates: string[]) => dates.map((date) => ({ personId, date }))
+  let free: Workspace
+  beforeAll(() => {
+    free = withAssignments([])
+  })
+
+  it('ends on the last day that lacks hours, filled no further than they ask', () => {
+    const cut = cellsToDemand(free, cellsOf(ANDERS, [MON, TUE, WED]), 'teppefliser', lacking({ [MON]: 7.5, [TUE]: 4 }))
+    expect(cut).toEqual([{ personId: ANDERS, date: MON }, { personId: ANDERS, date: TUE, within: iv('07:00', '11:00') }])
+  })
+
+  it('shares what a day lacks between the people of the stroke', () => {
+    const cut = cellsToDemand(free, [...cellsOf(ANDERS, [MON]), ...cellsOf(PER, [MON])], 'teppefliser', lacking({ [MON]: 6 }))
+    expect(cut.map((cell) => cell.within)).toEqual([iv('07:00', '10:00'), iv('07:00', '10:00')])
+  })
+
+  it('leaves a day whole that lacks more than the stroke can give it, and keeps to where the stroke was drawn', () => {
+    expect(cellsToDemand(free, cellsOf(ANDERS, [MON]), 'teppefliser', lacking({ [MON]: 30 }))).toEqual([{ personId: ANDERS, date: MON }])
+    const drawn = [{ personId: ANDERS, date: MON, within: iv('07:00', '09:00') }]
+    expect(cellsToDemand(free, drawn, 'teppefliser', lacking({ [MON]: 7.5 }))).toEqual(drawn)
+  })
+
+  it('counts from the far end of a stroke drawn back over earlier days', () => {
+    const cut = cellsToDemand(free, cellsOf(ANDERS, [TUE, WED]), 'teppefliser', lacking({ [TUE]: 2 }), true)
+    expect(cut).toEqual([{ personId: ANDERS, date: TUE, within: iv('13:00', '15:00') }, { personId: ANDERS, date: WED }])
+  })
+
+  it('leaves nothing of a stroke over days that lack no hours', () => {
+    expect(cellsToDemand(free, cellsOf(ANDERS, [MON, TUE]), 'teppefliser', lacking({}))).toEqual([])
   })
 })
 

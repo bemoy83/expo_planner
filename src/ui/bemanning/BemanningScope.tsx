@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, onlyOffDays, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
+import { buildBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, onlyOffDays, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
 import type { AllocationRow, Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -81,6 +81,8 @@ export interface StrokeInfo {
   people: number
   /** Workdays in the stroke that the brush cannot fill. */
   skipped: number
+  /** The stroke goes no further than where the demand is met. */
+  toDemand?: boolean
   /** The competence the time is of, when it is not the brush's: that of a run whose end is pulled. */
   competence?: string
 }
@@ -132,6 +134,8 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const endStroke = useRef<(() => void) | null>(null)
   /** Where across the window the button went down for the stroke under way. */
   const pressedAt = useRef(0)
+  /** Shift is down, as a stroke under way reads it: beside the state, so a stroke answers the key at once. */
+  const shiftHeld = useRef(false)
   const panelOpen = useRef(false)
   const [hover, setHover] = useState<{ row: number; col: number } | null>(null)
   const [shift, setShift] = useState(false)
@@ -313,6 +317,11 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
    * earlier days, the day under the pointer is filled from the stop on. A click fills its day.
    */
   const paintCells = (s: Stroke): Day[] => {
+    const drawn = drawnCells(s)
+    // With Shift held, the stroke goes no further than where the demand is met (R47).
+    return s.toDemand && activeBrush ? cellsToDemand(ws, drawn, activeBrush, balance, s.col1 < s.col0) : drawn
+  }
+  const drawnCells = (s: Stroke): Day[] => {
     const cells = strokeCells(s)
     if (s.at === undefined) return cells
     const wd = ws.settings.workday
@@ -334,7 +343,10 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     if (stroke.stretch.at === undefined) return null
     const plan = stretchRun(runDays(days, from, block, ws.settings.workday), stroke.stretch.edge, dates[stroke.col1], stroke.stretch.at, ws.settings.workday)
     const erase = plan.remove.length > 0 || plan.trim !== undefined
-    const changed = erase ? [...plan.remove.map((day) => day.date), ...(plan.trim ? [plan.trim.block.date] : [])] : plan.add.map((day) => day.date)
+    const drawn: Day[] = erase ? plan.remove.map((day) => ({ personId: line.person.id, date: day.date })) : plan.add.map((day) => ({ personId: line.person.id, date: day.date, within: day.within }))
+    // With Shift held, an end pulled outward goes no further than where the demand is met (R47).
+    const cells = !erase && stroke.toDemand ? cellsToDemand(ws, drawn, block.competence, balance, stroke.stretch.edge === 'start') : drawn
+    const changed = erase ? [...plan.remove.map((day) => day.date), ...(plan.trim ? [plan.trim.block.date] : [])] : cells.map((cell) => cell.date)
     if (!changed.length) return null
     const cols = changed.map((date) => dates.indexOf(date))
     return {
@@ -343,12 +355,19 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       colTo: Math.max(...cols),
       competence: block.competence,
       erase,
-      cells: erase ? plan.remove.map((day) => ({ personId: line.person.id, date: day.date })) : plan.add.map((day) => ({ personId: line.person.id, date: day.date, within: day.within })),
+      cells,
       blockIds: plan.remove.map((day) => day.block.id),
       trim: plan.trim && { blockId: plan.trim.block.id, date: plan.trim.block.date, start: plan.trim.start, end: plan.trim.end },
       own: plan.add.find((day) => day.own)?.date,
     }
-  }, [stroke, listed, dates, ws.settings.workday])
+  }, [stroke, listed, dates, ws, balance])
+  /** The days a brush stroke that stops where the demand is met reaches, `null` where it lacks nothing; `undefined` for any other stroke. */
+  const paintReach = useMemo(() => {
+    if (stroke?.mode !== 'paint' || !stroke.toDemand) return undefined
+    const cols = paintCells(stroke).map((cell) => dates.indexOf(cell.date))
+    return cols.length ? { colFrom: Math.min(...cols), colTo: Math.max(...cols) } : null
+    // `paintCells` reads `lines`, `listed`, `dates`, the brush and the balance.
+  }, [stroke, ws, lines, listed, dates, activeBrush, balance]) // eslint-disable-line react-hooks/exhaustive-deps
   /** R46: the assignments as a pulled end of a run leaves them: its days painted as the brush would, or the run's blocks on them removed and the one it stops in cut. */
   const stretched = (w: Workspace, plan: StretchPlan): Assignment[] =>
     plan.erase
@@ -373,7 +392,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
         return { ...none, info: { mode: 'erase', half: false, days: gone.length + (cut ? 1 : 0), hours: gone.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0) + cutHours, people: 1, skipped: 0 } }
       }
       // The days the run is to go on over get what the brush would give them, drawn across.
-      const stats: StrokeInfo = { mode: 'paint', half: false, days: 0, hours: 0, people: 1, skipped: 0, competence: stretch.competence }
+      const stats: StrokeInfo = { mode: 'paint', half: false, days: 0, hours: 0, people: 1, skipped: 0, competence: stretch.competence, toDemand: stroke.toDemand }
       const offDays = onlyOffDays(stretch.cells)
       for (const cell of stretch.cells) {
         const gaps = paintGaps(ws, cell, stretch.competence, 'full', undefined, offDays)
@@ -415,7 +434,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     const cells = stroke ? paintCells(stroke) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
     if (!cells.length) return none
     const half = stroke ? stroke.half : shift
-    const stats: StrokeInfo = { mode: 'paint', half, days: 0, hours: 0, people: 0, skipped: 0 }
+    const stats: StrokeInfo = { mode: 'paint', half, days: 0, hours: 0, people: 0, skipped: 0, toDemand: stroke?.toDemand }
     const offDays = onlyOffDays(cells)
     for (const cell of cells) {
       const gaps = paintGaps(ws, cell, activeBrush, half ? 'half' : 'full', undefined, offDays)
@@ -633,7 +652,8 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
         const share = (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW - at.col
         const wd = ws.settings.workday
         const time = colW < STOPS_FROM_W ? (share < 0.5 ? wd.dayStart : wd.dayEnd) : stretchStop(share, s.stretch.edge, wd)
-        if (s.col1 !== at.col || s.stretch.at !== time) setStroke({ ...s, col1: at.col, stretch: { ...s.stretch, at: time } })
+        const toDemand = shiftHeld.current
+        if (s.col1 !== at.col || s.stretch.at !== time || !s.toDemand !== !toDemand) setStroke({ ...s, col1: at.col, toDemand, stretch: { ...s.stretch, at: time } })
       } else if (s.mode === 'paint' && !s.half && colW >= STOPS_FROM_W) {
         // The brush is drawn to a stop of the day under the pointer too, once the pointer has left where it was pressed.
         const el = scrollRef.current!
@@ -645,7 +665,8 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
         const short = stop !== undefined && (at.col > s.col0 ? stop <= wd.dayStart : at.col < s.col0 && stop >= wd.dayEnd)
         const col = short ? at.col + (at.col > s.col0 ? -1 : 1) : at.col
         const time = short ? (at.col > s.col0 ? wd.dayEnd : wd.dayStart) : stop
-        if (s.row1 !== at.row || s.col1 !== col || s.at !== time) setStroke({ ...s, row1: at.row, col1: col, at: time })
+        const toDemand = moved && shiftHeld.current
+        if (s.row1 !== at.row || s.col1 !== col || s.at !== time || !s.toDemand !== !toDemand) setStroke({ ...s, row1: at.row, col1: col, at: time, toDemand })
       } else if (s.row1 !== at.row || s.col1 !== at.col) setStroke({ ...s, row1: at.row, col1: at.col })
     },
     finish: (copy: boolean) => strokeRef.current && finishStroke(strokeRef.current, copy),
@@ -682,10 +703,16 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   }
   useEffect(() => () => endStroke.current?.(), [])
 
+  /** Shift goes down or up: a stroke under way is worked out again where the pointer is. */
+  const holdShift = (down: boolean) => {
+    setShift(down)
+    shiftHeld.current = down
+    if (strokeRef.current && pointer.current) strokeEnv.move(pointer.current.x, pointer.current.y)
+  }
   const keys = useStableActions({
     down: (e: KeyboardEvent) => {
       if (!active) return
-      if (e.key === 'Shift') setShift(true)
+      if (e.key === 'Shift') holdShift(true)
       if (isTyping(e.target)) return
       const key = e.key.toLowerCase()
       if (e.metaKey || e.ctrlKey) {
@@ -724,19 +751,20 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       }
     },
     up: (e: KeyboardEvent) => {
-      if (e.key === 'Shift') setShift(false)
+      if (e.key === 'Shift') holdShift(false)
     },
+    /** The window is left: no key is held any more. */
+    lost: () => holdShift(false),
   })
   useEffect(() => {
-    const lost = () => setShift(false)
     // In the capture phase, so Escape is seen while a menu that closes on it is still open.
     window.addEventListener('keydown', keys.down, true)
     window.addEventListener('keyup', keys.up)
-    window.addEventListener('blur', lost)
+    window.addEventListener('blur', keys.lost)
     return () => {
       window.removeEventListener('keydown', keys.down, true)
       window.removeEventListener('keyup', keys.up)
-      window.removeEventListener('blur', lost)
+      window.removeEventListener('blur', keys.lost)
     }
   }, [keys])
 
@@ -745,7 +773,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
     balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, capacity, uncoverable,
-    lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, selected, selection, clip, setClip,
+    lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, paintReach, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,
     menu, setMenu, demandPop, setDemandPop, panel, setPanel, overtimeLimit, breaches, overLimit, blockNames, onShowDate, firstWorkday,

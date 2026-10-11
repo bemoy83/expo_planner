@@ -670,6 +670,38 @@ export const removeUnresolved = (ws: Workspace, dates: ISODate[]): Assignment[] 
   return gone.size ? all.filter((a) => !gone.has(a)) : all
 }
 
+/**
+ * R47: a stroke of the brush cut to where the demand is met. The days run from where the stroke began to its
+ * far end, `back` when that is towards earlier days. The stroke ends on the last of its days that still lacks
+ * hours of the competence: the days before it are left as they are, the days past it are dropped, and that
+ * day is filled no further than its remaining hours ask, to the quarter of an hour, by all the people of the
+ * stroke together. Where they have too little free time for that, they get what the stroke gave them. Nothing
+ * is left of a stroke over days that lack no hours.
+ */
+export const cellsToDemand = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, balance: Balance, back = false): DayCell[] => {
+  const wd = ws.settings.workday
+  const offDays = onlyOffDays(cells)
+  const outward = [...new Set(cells.map((cell) => cell.date))].sort((a, b) => (back ? b.localeCompare(a) : a.localeCompare(b)))
+  const last = outward.findLastIndex((date) => (offDays || dayType(date) === 'arbeidsdag') && balance.get(competence, date).remaining > 0.01)
+  if (last < 0) return []
+  const far = outward[last]
+  const kept = new Set(outward.slice(0, last + 1))
+  const ends = cells.filter((cell) => cell.date === far)
+  const need = balance.get(competence, far).remaining
+  const given = (within: Interval) => ends.reduce((sum, cell) => sum + paintGaps(ws, { ...cell, within }, competence, 'full', undefined, offDays).reduce((hours, gap) => hours + paidHours(gap, wd), 0), 0)
+  // Every end of the stroke on that day has the same bounds: the normal day, or the part of it the stroke was drawn to.
+  const bounds = ends[0].within ?? normalDay(wd)
+  let within = bounds
+  for (let t = wd.snap; t < length(bounds); t += wd.snap) {
+    const tried = back ? { start: bounds.end - t, end: bounds.end } : { start: bounds.start, end: bounds.start + t }
+    if (given(tried) < need - 0.01) continue
+    within = tried
+    break
+  }
+  const whole = within.start <= wd.dayStart && within.end >= wd.dayEnd
+  return cells.filter((cell) => kept.has(cell.date)).map((cell) => (cell.date !== far || (whole && !cell.within) ? cell : { ...cell, within }))
+}
+
 /** R11: the remaining hours that the people with the competence have no free normal time for. Workdays only. */
 export const uncoverable = (ws: Workspace, competence: CompetenceKey, date: ISODate, balance: Balance = buildBalance(ws, [date])): number =>
   dayType(date) === 'arbeidsdag' ? Math.max(0, balance.get(competence, date).remaining - freeCapacity(ws, date, competence).hours) : 0

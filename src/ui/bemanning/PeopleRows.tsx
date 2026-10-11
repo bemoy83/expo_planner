@@ -201,11 +201,13 @@ export function PeopleHeading() {
 /** The people, one line each, with what a stroke under way covers laid over them. */
 export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void }) {
   const bm = useBemanning()
-  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, stretch, selection, clip, refused, ghost, info, actions, bodyRef, dates, shift } = bm
+  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, stretch, paintReach, selection, clip, refused, ghost, info, actions, bodyRef, dates, shift } = bm
   const gap = listedAble < listed.length && brush ? DIVIDER_H : 0
   const topOf = (row: number) => row * PERSON_H + (row >= listedAble ? gap : 0)
   // A stroke that moves a day's blocks has no outline: the blocks show where they would land. A pulled end of a run has the pill of one over the days it changes, without the outline.
-  const range = !stroke || stroke.mode === 'move' ? null : stroke.mode !== 'stretch' ? strokeRange(stroke) : stretch ? { rowFrom: stretch.row, rowTo: stretch.row, colFrom: stretch.colFrom, colTo: stretch.colTo } : null
+  // A brush stroke that stops where the demand is met covers the days it reaches, and none where nothing is lacking.
+  const range =
+    !stroke || stroke.mode === 'move' || paintReach === null ? null : stroke.mode !== 'stretch' ? { ...strokeRange(stroke), ...paintReach } : stretch ? { rowFrom: stretch.row, rowTo: stretch.row, colFrom: stretch.colFrom, colTo: stretch.colTo } : null
   const erasing = stroke?.mode === 'erase' || (stroke?.mode === 'stretch' && stretch?.erase === true)
   const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
   const refusedCol = refused ? dates.indexOf(refused.date) : -1
@@ -293,6 +295,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
                 </span>
               )}
               {info.half && <span>halv dag</span>}
+              {info.toDemand && <span>til behovet er dekket</span>}
               {info.skipped > 0 && <span>{info.skipped} hoppes over</span>}
             </span>
           )}

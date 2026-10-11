@@ -10,6 +10,8 @@ export interface Stroke {
   stretch?: { edge: 'start' | 'end'; blockId: string; /** The time of the day under the pointer the end is pulled to, at a stop; unset until the pointer moves. */ at?: number }
   /** Shift was held when a paint stroke started: half days. */
   half: boolean
+  /** Shift is held while a brush stroke or an end of a run is drawn out: it goes no further than where the demand is met, see `cellsToDemand`. */
+  toDemand?: boolean
   /** With `paint`: the time of the day under the pointer the brush is drawn to, at a stop; unset for a click, which fills the day, and with half days. */
   at?: number
   row0: number
