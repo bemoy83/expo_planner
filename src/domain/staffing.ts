@@ -152,6 +152,8 @@ export const isEligible = (person: Person | undefined, competence: CompetenceKey
 export interface DayCell {
   personId: string
   date: ISODate
+  /** Where only a part of the day is meant: the brush fills free time within it alone, as where an end of a run is pulled to a time of the day. */
+  within?: Interval
 }
 
 export type PaintBlock = 'ineligible' | 'unavailable'
@@ -163,9 +165,11 @@ export type PaintBlock = 'ineligible' | 'unavailable'
  */
 export const onlyOffDays = (cells: DayCell[]): boolean => cells.length > 0 && cells.every((cell) => dayType(cell.date) !== 'arbeidsdag')
 
-/** The time the brush has to fill for a person on a day; with `offDays`, on a weekend or a holiday too. */
-const paintWindows = (ws: Workspace, cell: DayCell, offDays: boolean): Interval[] =>
-  (offDays ? dayWindows : normalWindows)(cell.personId, cell.date, ws.unavailability ?? [], ws.settings.workday)
+/** The time the brush has to fill for a person on a day; with `offDays`, on a weekend or a holiday too. Of a part of a day, that part alone. */
+const paintWindows = (ws: Workspace, cell: DayCell, offDays: boolean): Interval[] => {
+  const windows = (offDays ? dayWindows : normalWindows)(cell.personId, cell.date, ws.unavailability ?? [], ws.settings.workday)
+  return cell.within ? windows.flatMap((iv) => intersect(iv, cell.within!) ?? []) : windows
+}
 
 /** Why the brush cannot fill a day for a person, or `null` when it can. */
 export const paintBlock = (ws: Workspace, cell: DayCell, competence: CompetenceKey, offDays = false): PaintBlock | null => {

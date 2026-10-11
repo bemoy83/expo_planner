@@ -190,6 +190,14 @@ describe('painting', () => {
     expect(paintBlock(ws, { personId: ANDERS, date: SAT }, 'teppefliser', true)).toBeNull()
   })
 
+  it('fills only the part of a day that is meant, where a part is', () => {
+    const cell = { personId: ANDERS, date: THU, within: iv('07:00', '11:00') }
+    const before = of(ws.assignments!, ANDERS, THU)
+    const painted = paintDays(ws, [cell], 'teppefliser', full, id)
+    expect(before).toEqual([])
+    expect(of(painted, ANDERS, THU)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '11:00') }])
+  })
+
   it('D12 paints only the cells of a rectangle that can be painted', () => {
     // Anders has Teppefliser, Geir has not, Hanne is on holiday from Wednesday.
     const cells = [ANDERS, GEIR, HANNE].flatMap((personId) => [WED, THU, FRI, SAT].map((date) => ({ personId, date })))

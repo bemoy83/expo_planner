@@ -7,7 +7,7 @@ export interface Stroke {
   /** With «Velg», a drag from an empty day selects days and a drag from a block moves the day's blocks. With any tool, a drag from an end of a run stretches it. */
   mode: 'paint' | 'erase' | 'select' | 'move' | 'stretch'
   /** With `stretch`: the end of a run that is pulled, and the block it was taken hold of by. The stroke keeps to that person's line. */
-  stretch?: { edge: 'start' | 'end'; blockId: string }
+  stretch?: { edge: 'start' | 'end'; blockId: string; /** The time of the day under the pointer the end is pulled to, at a stop; unset until the pointer moves. */ at?: number }
   /** Shift was held when a paint stroke started: half days. */
   half: boolean
   row0: number

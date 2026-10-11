@@ -1,5 +1,5 @@
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
-import type { Assignment, WorkdaySettings } from '../../domain/types'
+import type { Assignment, Minute, WorkdaySettings } from '../../domain/types'
 
 /** The blocks of one person on a day. */
 export type BlocksOn = (date: ISODate) => Assignment[] | undefined
@@ -79,30 +79,69 @@ export const runOf = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: Wo
   return { competence: block.competence, from: first.date, to: last.date, days: days.length, startShare: share(first.block.start), endShare: share(last.block.end) }
 }
 
-/** What an end of a run that is pulled to a day does: the days the run is to go on over, or the days of it that are given up. */
+/** A day a pulled end of a run is to give time. */
+export interface StretchDay {
+  date: ISODate
+  /** Where the end stops within the day: the part of it that is to be filled. Without it, the whole day. */
+  within?: { start: Minute; end: Minute }
+  /** The day of the end itself, which the run has a part of already: no day the run comes to anew. */
+  own?: boolean
+}
+
+/** What an end of a run that is pulled to a time of a day does: the days the run is to go on over, or what of it is given up. */
 export interface Stretch {
-  add: ISODate[]
+  add: StretchDay[]
+  /** The days of the run that are given up whole. */
   remove: RunDay[]
-  /** The day of the end itself, where the run has only a part of it and is to have the rest: it is among `add`, and is no day the run comes to anew. */
-  whole?: ISODate
+  /** The block the end is pulled back into, and the time it is cut to. */
+  trim?: { block: Assignment; start: Minute; end: Minute }
 }
 
 /**
- * An end of a run pulled along the days to `to`. Pulled outward, the run is to go on over the days up to it:
- * what they get is the brush's to decide, as if it were drawn over them. An end in the middle of a day is to
- * have the rest of that day too, or the days after it would not be of the run. Pulled inward, the days of the
- * run past it are given up. The day at the other end is always left: a run is not pulled away to nothing.
+ * The stops an end can be pulled to within a day: every two hours from the start of the normal day. One
+ * that falls in the lunch break is the break's start for the end of a run and its end for the start of one,
+ * so the half day is a stop: 07, 09, 11, 13 and 15 with the usual day. `share` is where in the day the pointer is.
  */
-export const stretchRun = (days: RunDay[], edge: 'start' | 'end', to: ISODate, wd: WorkdaySettings): Stretch => {
+export const stretchStop = (share: number, edge: 'start' | 'end', wd: WorkdaySettings): Minute => {
+  const stop = Math.min(wd.dayEnd, Math.max(wd.dayStart, wd.dayStart + Math.round((share * (wd.dayEnd - wd.dayStart)) / STOP) * STOP))
+  return stop >= wd.breakStart && stop < wd.breakEnd ? (edge === 'end' ? wd.breakStart : wd.breakEnd) : stop
+}
+const STOP = 120
+
+/**
+ * R46: an end of a run pulled to the time `at` of the day `to`. Pulled outward, the run is to go on up to
+ * there: what the days get is the brush's to decide, as if it were drawn over them, and the last of them is
+ * filled no further than the time. A day the run has only a part of is to have the rest. Pulled inward, the
+ * days past the time are given up and the block it lands in is cut to it. The day at the other end is
+ * always left, with something of its block: a run is not pulled away to nothing.
+ */
+export const stretchRun = (days: RunDay[], edge: 'start' | 'end', to: ISODate, at: Minute, wd: WorkdaySettings): Stretch => {
   const first = days[0]
   const last = days[days.length - 1]
   const between = (from: ISODate, until: ISODate) => Array.from({ length: Math.max(0, daysBetween(from, until) + 1) }, (_, i) => addDays(from, i))
+  const time = Math.min(Math.max(at, wd.dayStart), wd.dayEnd)
   if (edge === 'end') {
-    if (to <= last.date) return { add: [], remove: days.filter((day) => day.date > to && day.date > first.date) }
-    const whole = reachesEnd(last.block, wd) ? undefined : last.date
-    return { add: between(whole ?? addDays(last.date, 1), to), remove: [], ...(whole && { whole }) }
+    // The start of a day is the end of the day before it.
+    const [date, t] = time <= wd.dayStart ? [addDays(to, -1), wd.dayEnd] : [to, time]
+    const end = Math.min(last.block.end, wd.dayEnd)
+    if (date > last.date || (date === last.date && t > end)) {
+      const own = end < wd.dayEnd
+      return { add: between(own ? last.date : addDays(last.date, 1), date).map((d) => ({ date: d, ...(d === date && t < wd.dayEnd && { within: { start: wd.dayStart, end: t } }), ...(own && d === last.date && { own }) })), remove: [] }
+    }
+    if (date < first.date) return { add: [], remove: days.slice(1) }
+    const kept = days.find((day) => day.date === date)!
+    const cut = t < Math.min(kept.block.end, wd.dayEnd) && t > kept.block.start
+    return { add: [], remove: days.filter((day) => day.date > date), ...(cut && { trim: { block: kept.block, start: kept.block.start, end: t } }) }
   }
-  if (to >= first.date) return { add: [], remove: days.filter((day) => day.date < to && day.date < last.date) }
-  const whole = fromStart(first.block, wd) ? undefined : first.date
-  return { add: between(to, whole ?? addDays(first.date, -1)), remove: [], ...(whole && { whole }) }
+  // The end of a day is the start of the day after it.
+  const [date, t] = time >= wd.dayEnd ? [addDays(to, 1), wd.dayStart] : [to, time]
+  const start = Math.max(first.block.start, wd.dayStart)
+  if (date < first.date || (date === first.date && t < start)) {
+    const own = start > wd.dayStart
+    return { add: between(date, own ? first.date : addDays(first.date, -1)).map((d) => ({ date: d, ...(d === date && t > wd.dayStart && { within: { start: t, end: wd.dayEnd } }), ...(own && d === first.date && { own }) })), remove: [] }
+  }
+  if (date > last.date) return { add: [], remove: days.slice(0, -1) }
+  const kept = days.find((day) => day.date === date)!
+  const cut = t > Math.max(kept.block.start, wd.dayStart) && t < kept.block.end
+  return { add: [], remove: days.filter((day) => day.date < date), ...(cut && { trim: { block: kept.block, start: t, end: kept.block.end } }) }
 }

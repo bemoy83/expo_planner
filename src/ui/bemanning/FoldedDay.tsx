@@ -24,8 +24,16 @@ export function WeekMeter({ week, overLimit = false }: { week: PersonWeek; /** T
   )
 }
 
+/** Where in a block the time that a pulled end takes from it lies, as shares of the part of the block that is drawn: hatched as hours that go are. */
+const cutPlace = (block: { start: number; end: number }, cut: { start: number; end: number }, dayStart: number, dayEnd: number) => {
+  const from = Math.max(block.start, dayStart)
+  const length = Math.min(block.end, dayEnd) - from
+  const start = Math.max(cut.start, from)
+  return { left: `${((start - from) / length) * 100}%`, width: `${((Math.min(cut.end, from + length) - start) / length) * 100}%` }
+}
+
 /** What a person's day shows when it is folded: a small timeline of the normal day, `width` pixels wide. */
-export function FoldedDay({ cell, styles, brush, width, names, links, shapes = links, edges = false }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink>; /** How the blocks are drawn at their ends: joined as their run has them, and to what a stroke would put beside them. Without it, as `links`. */ shapes?: Map<string, EndShape>; /** The ends of a run, and of a single day, can be taken hold of. */ edges?: boolean }) {
+export function FoldedDay({ cell, styles, brush, width, names, links, shapes = links, edges = false, cut, dayStart = 0, dayEnd = 0 }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink>; /** How the blocks are drawn at their ends: joined as their run has them, and to what a stroke would put beside them. Without it, as `links`. */ shapes?: Map<string, EndShape>; /** The ends of a run, and of a single day, can be taken hold of. */ edges?: boolean; /** A block of the day that a pulled end of a run is cut back into, with the time of it that goes, and the normal day to place it in. */ cut?: { blockId: string; start: number; end: number }; dayStart?: number; dayEnd?: number }) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
   // A weekend or a holiday with nothing on it is left empty, whatever absence covers it.
@@ -58,6 +66,7 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes = l
             style={{ left: `calc(${block.left}% - ${before}px)`, width: `calc(${block.width}% + ${before + after}px)`, paddingLeft: lead ? `calc(${lead}% + 7px)` : undefined, ...colorOf(styles, block.competence) }}
             title={`${name} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
           >
+            {cut?.blockId === block.id && <i className="bm-away-part" style={cutPlace(block, cut, dayStart, dayEnd)} />}
             {block.away.map((part) => (
               <i key={part.left} className="bm-away-part" style={{ left: `${part.left}%`, width: `${part.width}%` }} />
             ))}

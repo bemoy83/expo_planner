@@ -3,7 +3,7 @@ import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { buildBalance, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, onlyOffDays, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
-import type { AllocationRow, Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase } from '../../domain/types'
+import type { AllocationRow, Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
@@ -17,7 +17,7 @@ import type { AbsenceDraft } from './PersonPanel'
 import { DIVIDER_H, PANEL_W, PERSON_H } from './layout'
 import type { ProjectSpan } from './projectsInView'
 import type { CrossMove } from './TimeTrack'
-import { runDays, stretchRun, type BlocksOn } from './runs'
+import { runDays, stretchRun, stretchStop, type BlocksOn } from './runs'
 import { strokeRange, TOOL_KEYS, type Rect, type Stroke, type Tool } from './tools'
 import { EPSILON, weekDates, WEEKDAYS_LONG } from './week'
 
@@ -95,9 +95,14 @@ export interface StretchPlan {
   cells: Day[]
   /** The blocks of the run that are given up. */
   blockIds: string[]
-  /** The day of the end itself, which gets the rest of its normal time: no day to count as passed over when it has none free. */
-  whole?: ISODate
+  /** The block the end is pulled back into, with the time it is cut to and the day it is on. */
+  trim?: { blockId: string; date: ISODate; start: number; end: number }
+  /** The day of the end itself, which gets more of its normal time: no day to count as passed over when it has none free. */
+  own?: ISODate
 }
+
+/** Below this width of a day, an end is pulled by whole days: two hours are too little to aim at. */
+const STOPS_FROM_W = 64
 
 /** Time a stroke would give a day; with the competence it is of when that is not the brush. */
 export type GhostBlock = Interval & { competence?: string }
@@ -306,12 +311,29 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     const block = line.assignments?.get(from)?.find((a) => a.id === stroke.stretch!.blockId)
     if (!block) return null
     const days: BlocksOn = (date) => line.assignments?.get(date)
-    const plan = stretchRun(runDays(days, from, block, ws.settings.workday), stroke.stretch.edge, dates[stroke.col1], ws.settings.workday)
-    const changed = plan.add.length ? plan.add : plan.remove.map((day) => day.date)
+    if (stroke.stretch.at === undefined) return null
+    const plan = stretchRun(runDays(days, from, block, ws.settings.workday), stroke.stretch.edge, dates[stroke.col1], stroke.stretch.at, ws.settings.workday)
+    const erase = plan.remove.length > 0 || plan.trim !== undefined
+    const changed = erase ? [...plan.remove.map((day) => day.date), ...(plan.trim ? [plan.trim.block.date] : [])] : plan.add.map((day) => day.date)
     if (!changed.length) return null
     const cols = changed.map((date) => dates.indexOf(date))
-    return { row: stroke.row0, colFrom: Math.min(...cols), colTo: Math.max(...cols), competence: block.competence, erase: plan.remove.length > 0, cells: changed.map((date) => ({ personId: line.person.id, date })), blockIds: plan.remove.map((day) => day.block.id), whole: plan.whole }
+    return {
+      row: stroke.row0,
+      colFrom: Math.min(...cols),
+      colTo: Math.max(...cols),
+      competence: block.competence,
+      erase,
+      cells: erase ? plan.remove.map((day) => ({ personId: line.person.id, date: day.date })) : plan.add.map((day) => ({ personId: line.person.id, date: day.date, within: day.within })),
+      blockIds: plan.remove.map((day) => day.block.id),
+      trim: plan.trim && { blockId: plan.trim.block.id, date: plan.trim.block.date, start: plan.trim.start, end: plan.trim.end },
+      own: plan.add.find((day) => day.own)?.date,
+    }
   }, [stroke, listed, dates, ws.settings.workday])
+  /** R46: the assignments as a pulled end of a run leaves them: its days painted as the brush would, or the run's blocks on them removed and the one it stops in cut. */
+  const stretched = (w: Workspace, plan: StretchPlan): Assignment[] =>
+    plan.erase
+      ? (w.assignments ?? []).filter((a) => !plan.blockIds.includes(a.id)).map((a) => (plan.trim && a.id === plan.trim.blockId ? { ...a, start: plan.trim.start, end: plan.trim.end } : a))
+      : paintDays(w, plan.cells, plan.competence, 'full')
   const { ghost, info, refused } = useMemo((): { ghost: Ghosts; info: StrokeInfo | null; refused: Day | null } => {
     const none = { ghost: NO_GHOST, info: null, refused: null }
     if (!active) return none
@@ -326,7 +348,9 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       if (!stretch) return none
       if (stretch.erase) {
         const gone = stretch.cells.flatMap(blocksOn).filter((a) => stretch.blockIds.includes(a.id))
-        return { ...none, info: { mode: 'erase', half: false, days: gone.length, hours: gone.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0), people: 1, skipped: 0 } }
+        const cut = stretch.trim && blocksOn({ personId: listed[stretch.row].person.id, date: stretch.trim.date }).find((a) => a.id === stretch.trim!.blockId)
+        const cutHours = cut && stretch.trim ? paidHours(cut, ws.settings.workday) - paidHours(stretch.trim, ws.settings.workday) : 0
+        return { ...none, info: { mode: 'erase', half: false, days: gone.length + (cut ? 1 : 0), hours: gone.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0) + cutHours, people: 1, skipped: 0 } }
       }
       // The days the run is to go on over get what the brush would give them, drawn across.
       const stats: StrokeInfo = { mode: 'paint', half: false, days: 0, hours: 0, people: 1, skipped: 0, competence: stretch.competence }
@@ -334,7 +358,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       for (const cell of stretch.cells) {
         const gaps = paintGaps(ws, cell, stretch.competence, 'full', undefined, offDays)
         if (!gaps.length) {
-          if (dayType(cell.date) === 'arbeidsdag' && cell.date !== stretch.whole) stats.skipped += 1
+          if (dayType(cell.date) === 'arbeidsdag' && cell.date !== stretch.own) stats.skipped += 1
           continue
         }
         put(cell, gaps.map((gap) => ({ ...gap, competence: stretch.competence })))
@@ -397,8 +421,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     const between = dates.slice(Math.min(stroke.col0, stroke.col1), Math.max(stroke.col0, stroke.col1) + 1)
     if (stroke.mode === 'stretch') {
       if (!stretch) return null
-      const days = stretch.cells.map((cell) => cell.date)
-      return { assignments: stretch.erase ? all.filter((a) => !stretch.blockIds.includes(a.id)) : paintDays(ws, stretch.cells, stretch.competence, 'full'), dates: days }
+      return { assignments: stretched(ws, stretch), dates: dates.slice(stretch.colFrom, stretch.colTo + 1) }
     }
     if (stroke.mode === 'erase') return { assignments: clearDays(all, strokeCells(stroke)), dates: between }
     if (stroke.mode === 'paint') return activeBrush ? { assignments: paintDays(ws, strokeCells(stroke), activeBrush, stroke.half ? 'half' : 'full'), dates: between } : null
@@ -460,9 +483,8 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     const dragged = s.row0 !== s.row1 || s.col0 !== s.col1
     if (s.mode === 'stretch') {
       // R46: an end of a run let go where it was pulled to. Its days are painted as the brush would, or the run's blocks on them removed.
-      if (!stretch) return
-      if (stretch.erase) updateStaffing((w) => ({ ...w, assignments: (w.assignments ?? []).filter((a) => !stretch.blockIds.includes(a.id)) }))
-      else paint(stretch.cells, stretch.competence, false)
+      if (!stretch || stretched(ws, stretch) === (ws.assignments ?? [])) return
+      updateStaffing((w) => ({ ...w, assignments: stretched(w, stretch) }))
     } else if (s.mode === 'erase') clear(strokeCells(s))
     else if (s.mode === 'paint') {
       if (activeBrush) paint(strokeCells(s), activeBrush, s.half)
@@ -583,9 +605,15 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     move: (x: number, y: number) => {
       const at = cellAt(x, y)
       const s = strokeRef.current
-      // The end of a run is pulled along its own line, wherever the pointer strays.
-      const row = s?.mode === 'stretch' ? s.row0 : at?.row
-      if (at && s && row !== undefined && (s.row1 !== row || s.col1 !== at.col)) setStroke({ ...s, row1: row, col1: at.col })
+      if (!at || !s) return
+      if (s.mode === 'stretch' && s.stretch) {
+        // The end of a run is pulled along its own line, wherever the pointer strays, to a stop of the day under the pointer.
+        const el = scrollRef.current!
+        const share = (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW - at.col
+        const wd = ws.settings.workday
+        const time = colW < STOPS_FROM_W ? (share < 0.5 ? wd.dayStart : wd.dayEnd) : stretchStop(share, s.stretch.edge, wd)
+        if (s.col1 !== at.col || s.stretch.at !== time) setStroke({ ...s, col1: at.col, stretch: { ...s.stretch, at: time } })
+      } else if (s.row1 !== at.row || s.col1 !== at.col) setStroke({ ...s, row1: at.row, col1: at.col })
     },
     finish: (copy: boolean) => strokeRef.current && finishStroke(strokeRef.current, copy),
   })

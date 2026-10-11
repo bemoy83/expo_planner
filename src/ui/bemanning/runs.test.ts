@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WORKDAY as wd, type Assignment } from '../../domain/types'
-import { runDays, runLink, runOf, stretchRun, type BlocksOn } from './runs'
+import { runDays, runLink, runOf, stretchRun, stretchStop, type BlocksOn } from './runs'
 
 // Week 42 of 2026: Monday the 12th to Friday the 16th, and the Monday after.
 const MON = '2026-10-12'
@@ -63,40 +63,66 @@ describe('runs of days', () => {
 describe('pulling an end of a run (R46)', () => {
   const week = [MON, TUE, WED].map((date) => block(date, 'vegger'))
   const days = runDays(on(...week), TUE, week[1], wd)
+  // The start and the end of the normal day, and the stops between them.
+  const [DAWN, NINE, ELEVEN, HALF_PAST, ONE, DUSK] = [420, 540, 660, 690, 780, 900]
 
   it('finds the days of a run from any block of it', () => {
     expect(days.map((day) => day.date)).toEqual([MON, TUE, WED])
     expect(days.map((day) => day.block)).toEqual(week)
   })
 
+  it('has a stop every two hours, with the half day at the lunch break', () => {
+    expect([0, 0.2, 0.5, 0.8, 1].map((share) => stretchStop(share, 'end', wd))).toEqual([DAWN, NINE, ELEVEN, ONE, DUSK])
+    expect(stretchStop(0.5, 'start', wd)).toBe(HALF_PAST)
+    expect(stretchStop(-1, 'end', wd)).toBe(DAWN)
+    expect(stretchStop(3, 'end', wd)).toBe(DUSK)
+  })
+
   it('goes on over the days up to where its end is pulled, at either end', () => {
-    expect(stretchRun(days, 'end', FRI, wd)).toEqual({ add: [THU, FRI], remove: [] })
+    expect(stretchRun(days, 'end', FRI, DUSK, wd)).toEqual({ add: [{ date: THU }, { date: FRI }], remove: [] })
     const later = runDays(on(block(WED, 'vegger'), block(THU, 'vegger')), WED, block(WED, 'vegger'), wd)
-    expect(stretchRun(later, 'start', MON, wd)).toEqual({ add: [MON, TUE], remove: [] })
+    expect(stretchRun(later, 'start', MON, DAWN, wd)).toEqual({ add: [{ date: MON }, { date: TUE }], remove: [] })
   })
 
-  it('gives up the days past where its end is pulled back to', () => {
-    expect(stretchRun(days, 'end', MON, wd).remove.map((day) => day.date)).toEqual([TUE, WED])
-    expect(stretchRun(days, 'start', WED, wd).remove.map((day) => day.date)).toEqual([MON, TUE])
+  it('fills the last day no further than the time the end is pulled to', () => {
+    expect(stretchRun(days, 'end', FRI, ELEVEN, wd)).toEqual({ add: [{ date: THU }, { date: FRI, within: { start: DAWN, end: ELEVEN } }], remove: [] })
+    expect(stretchRun(days, 'start', '2026-10-09', ONE, wd).add).toEqual([{ date: '2026-10-09', within: { start: ONE, end: DUSK } }, { date: '2026-10-10' }, { date: '2026-10-11' }])
+    // The start of a day is the end of the day before: nothing of that day is taken.
+    expect(stretchRun(days, 'end', FRI, DAWN, wd).add).toEqual([{ date: THU }])
   })
 
-  it('makes a half day at the end whole when the end is pulled outward', () => {
+  it('gives up the days past where its end is pulled back to, and cuts the block it stops in', () => {
+    expect(stretchRun(days, 'end', MON, DUSK, wd).remove.map((day) => day.date)).toEqual([TUE, WED])
+    expect(stretchRun(days, 'start', WED, DAWN, wd).remove.map((day) => day.date)).toEqual([MON, TUE])
+    const back = stretchRun(days, 'end', TUE, ELEVEN, wd)
+    expect(back.remove.map((day) => day.date)).toEqual([WED])
+    expect(back.trim).toEqual({ block: week[1], start: DAWN, end: ELEVEN })
+    expect(stretchRun(days, 'start', TUE, HALF_PAST, wd)).toMatchObject({ remove: [{ date: MON }], trim: { block: week[1], start: HALF_PAST, end: DUSK } })
+    // A single day is cut too.
+    const one = runDays(on(week[0]), MON, week[0], wd)
+    expect(stretchRun(one, 'end', MON, ONE, wd)).toEqual({ add: [], remove: [], trim: { block: week[0], start: DAWN, end: ONE } })
+  })
+
+  it('makes a half day at the end whole, or longer, when the end is pulled outward', () => {
     // Monday whole, Tuesday until 11:00.
-    const half = block(TUE, 'vegger', 420, 660)
+    const half = block(TUE, 'vegger', DAWN, ELEVEN)
     const short = runDays(on(block(MON, 'vegger'), half), TUE, half, wd)
-    expect(stretchRun(short, 'end', THU, wd)).toEqual({ add: [TUE, WED, THU], remove: [], whole: TUE })
+    expect(stretchRun(short, 'end', THU, DUSK, wd)).toEqual({ add: [{ date: TUE, own: true }, { date: WED }, { date: THU }], remove: [] })
+    expect(stretchRun(short, 'end', TUE, ONE, wd)).toEqual({ add: [{ date: TUE, within: { start: DAWN, end: ONE }, own: true }], remove: [] })
     // Thursday from 11:30, Friday whole.
-    const late = block(THU, 'vegger', 690, 900)
+    const late = block(THU, 'vegger', HALF_PAST, DUSK)
     const begun = runDays(on(late, block(FRI, 'vegger')), THU, late, wd)
-    expect(stretchRun(begun, 'start', WED, wd)).toEqual({ add: [WED, THU], remove: [], whole: THU })
+    expect(stretchRun(begun, 'start', WED, DAWN, wd)).toEqual({ add: [{ date: WED }, { date: THU, own: true }], remove: [] })
     // Pulled inward, the half day is given up as any day of the run.
-    expect(stretchRun(short, 'end', MON, wd).remove.map((day) => day.date)).toEqual([TUE])
+    expect(stretchRun(short, 'end', MON, DUSK, wd).remove.map((day) => day.date)).toEqual([TUE])
   })
 
   it('always leaves the day at the other end, and does nothing where the end is', () => {
-    expect(stretchRun(days, 'end', '2026-10-05', wd).remove.map((day) => day.date)).toEqual([TUE, WED])
-    expect(stretchRun(days, 'start', NEXT_MON, wd).remove.map((day) => day.date)).toEqual([MON, TUE])
-    expect(stretchRun(days, 'end', WED, wd)).toEqual({ add: [], remove: [] })
-    expect(stretchRun(days, 'start', MON, wd)).toEqual({ add: [], remove: [] })
+    expect(stretchRun(days, 'end', '2026-10-05', DUSK, wd)).toEqual({ add: [], remove: days.slice(1) })
+    expect(stretchRun(days, 'start', NEXT_MON, DAWN, wd)).toEqual({ add: [], remove: days.slice(0, -1) })
+    expect(stretchRun(days, 'end', WED, DUSK, wd)).toEqual({ add: [], remove: [] })
+    expect(stretchRun(days, 'start', MON, DAWN, wd)).toEqual({ add: [], remove: [] })
+    // The start of its own first day is no time to cut a run's end to.
+    expect(stretchRun(days, 'end', MON, DAWN, wd)).toEqual({ add: [], remove: days.slice(1) })
   })
 })

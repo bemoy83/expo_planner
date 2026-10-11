@@ -46,6 +46,8 @@ interface LineProps {
   strokeFrom: number
   strokeTo: number
   erasing: boolean
+  /** The block on the line that a pulled end of a run is cut back into: the day it is on, and the time of it that goes. */
+  cut: { col: number; blockId: string; start: number; end: number } | undefined
   /** The column of the line whose blocks are being dragged to another day, or -1. */
   movingCol: number
   /** The column of the line where blocks dragged from another day cannot go, or -1. */
@@ -56,7 +58,7 @@ interface LineProps {
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, movingCol, refusedCol, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, cut, movingCol, refusedCol, ghost, actions }: LineProps) {
   const span = workday.dayEnd - workday.dayStart
   const blocksOn: BlocksOn = (date) => assignments?.get(date)
   // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
@@ -141,12 +143,12 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         return (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${runOn ? 'run-on' : ''} ${movingCol === col ? 'moving' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
+            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${runOn ? 'run-on' : ''} ${movingCol === col ? 'moving' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing && cut?.col !== col ? 'erasing' : ''}`}
             onMouseDown={actions.cellDown}
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} edges />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} edges cut={cut?.col === col ? cut : undefined} dayStart={workday.dayStart} dayEnd={workday.dayEnd} />
             {gaps && (
               <span className="bm-timeline bm-ghosts">
                 {previews.map(({ gap, prev, next, meetsBefore, meetsAfter }) => (
@@ -207,6 +209,12 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
   const erasing = stroke?.mode === 'erase' || (stroke?.mode === 'stretch' && stretch?.erase === true)
   const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
   const refusedCol = refused ? dates.indexOf(refused.date) : -1
+  /** Of a block a pulled end is cut back into, the time that goes: what the block has now and will not have. */
+  const cutOf = (trim: NonNullable<typeof stretch>['trim'] & object) => {
+    const block = listed[stretch!.row].assignments?.get(trim.date)?.find((a) => a.id === trim.blockId)
+    if (!block) return undefined
+    return { col: dates.indexOf(trim.date), blockId: trim.blockId, start: trim.start > block.start ? block.start : trim.end, end: trim.start > block.start ? trim.start : block.end }
+  }
   const shortcut = (key: string) => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`)
   const box = (r: { rowFrom: number; rowTo: number; colFrom: number; colTo: number }) => ({ left: daysWide(r.colFrom, LEFT_W), width: daysWide(r.colTo - r.colFrom + 1), top: topOf(r.rowFrom), height: topOf(Math.min(r.rowTo, listed.length - 1)) + PERSON_H - topOf(r.rowFrom) })
   const pillStyle = brush ? competenceColor(styles.get(brush)) : undefined
@@ -253,6 +261,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               strokeFrom={inStroke ? range.colFrom : -1}
               strokeTo={inStroke ? range.colTo : -1}
               erasing={inStroke && erasing}
+              cut={inStroke && stretch?.trim ? cutOf(stretch.trim) : undefined}
               movingCol={stroke?.mode === 'move' && stroke.row0 === row && (stroke.row1 !== row || stroke.col1 !== stroke.col0) ? stroke.col0 : -1}
               refusedCol={refused?.personId === person.id ? refusedCol : -1}
               ghost={ghost.get(person.id)}
