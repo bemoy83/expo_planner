@@ -6,6 +6,8 @@ export const PERSON_H = 40
 export const DIVIDER_H = 24
 /** The air beside a folded day's blocks, see `.bm-timeline`. A block that goes on into the next day reaches over it, and over the rule between the days. */
 export const DAY_INSET = 5
+/** The width of the part at an end of a run that the end is pulled by, see `.bm-edge`. */
+export const EDGE_W = 10
 export const DEMAND_H = 32
 export const DEMAND_COMPACT_H = 14
 export const PROJECT_H = 22

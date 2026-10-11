@@ -2,7 +2,7 @@ import type { PersonWeek } from '../../domain/staffing'
 import type { CompetenceStyle } from '../../domain/types'
 import { competenceColor } from '../dom'
 import { ABSENCE_LABELS, blockLabel, type BlockNames, type DayCell } from './dayCell'
-import { DAY_INSET } from './layout'
+import { DAY_INSET, EDGE_W } from './layout'
 import type { RunLink } from './runs'
 import { EPSILON, hoursText } from './week'
 
@@ -44,6 +44,10 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes = l
         const lead = block.away[0]?.left === 0 ? block.away[0].width : 0
         const label = link ? 'none' : blockLabel(((width - 2 * DAY_INSET) * block.width * (100 - lead)) / 10000, name, style?.shortLabel ?? '', names, hoursText(block.hours))
         // A block that goes on reaches over the air beside it, and over the rule after the day.
+        // An end is taken hold of only where the block has room for it and for a part to take the block itself by.
+        const ends = edges && !block.unresolved ? [i === 0 && !link?.prev, i === cell.blocks.length - 1 && !link?.next] : [false, false]
+        const roomy = ((width - 2 * DAY_INSET) * block.width) / 100 >= (ends.filter(Boolean).length + 1) * EDGE_W
+        const [atStart, atEnd] = roomy ? ends : [false, false]
         const shape = shapes?.get(block.id)
         const before = shape?.prev ? DAY_INSET : 0
         const after = shape?.next ? DAY_INSET + 1 : 0
@@ -58,8 +62,8 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes = l
               <i key={part.left} className="bm-away-part" style={{ left: `${part.left}%`, width: `${part.width}%` }} />
             ))}
             {/* An end of a run, or of a single day: the first block of the day where nothing comes before it, the last where nothing follows. */}
-            {edges && !block.unresolved && i === 0 && !link?.prev && <i className="bm-edge start" data-edge="start" data-block={block.id} />}
-            {edges && !block.unresolved && i === cell.blocks.length - 1 && !link?.next && <i className="bm-edge end" data-edge="end" data-block={block.id} />}
+            {atStart && <i className="bm-edge start" data-edge="start" data-block={block.id} />}
+            {atEnd && <i className="bm-edge end" data-edge="end" data-block={block.id} />}
             {label === 'short' ? <b>{style?.shortLabel}</b> : label !== 'none' ? <b>{name}</b> : null}
             {label === 'hours' && <em>{hoursText(block.hours)}</em>}
           </span>
