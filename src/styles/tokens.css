@@ -49,15 +49,15 @@
   --ph-movingout:color-mix(in oklab,oklch(0.56 0.13 85) 34%,#fff);   /* amber */
   --ph-dismantle:color-mix(in oklab,oklch(0.56 0.13 10) 34%,#fff);   /* rose */
 
-  /* competences in Bemanning: one hue each, picked on Personell. Light fills with dark text, at the strength of the work phases, and of uneven lightness so that eight muted hues stay apart */
-  --line-blue:oklch(0.74 0.05 245);
-  --line-teal:oklch(0.77 0.045 195);
-  --line-green:oklch(0.78 0.055 145);
-  --line-amber:oklch(0.83 0.075 90);
-  --line-rose:oklch(0.76 0.06 20);
-  --line-violet:oklch(0.74 0.045 315);
-  --line-slate:oklch(0.79 0.012 80);
-  --line-orange:oklch(0.78 0.075 55);
+  /* competences in Bemanning: one hue each, picked on Personell. Light fills with dark text */
+  --line-blue:#94b1d0;
+  --line-teal:#86bab3;
+  --line-green:#9cb796;
+  --line-amber:#beac86;
+  --line-rose:#cea0a6;
+  --line-violet:#b2a7cd;
+  --line-slate:#a3afbe;
+  --line-orange:#cca48f;
   --on-line:#140c05;       /* text on a competence colour */
   --on-line-soft:rgba(20,12,5,.16);
   --on-line-rule:rgba(20,12,5,.35);
@@ -97,8 +97,9 @@
   background:var(--bg);
 }
 
-/* The mode band of the Kalender: its page header and its planning bar are filled with the hue of the mode, olive for Plan and
-   terracotta for Bemanning. The hue is set here alone and is seen in the band alone; the grid, the sections and the panels stay neutral. */
+/* The mode band of the Kalender: its page header and its planning bar are filled with the colour of the mode, olive for Plan and
+   fjord blue for Bemanning. It is set here alone and is seen in the band alone; the grid, the sections and the panels stay neutral.
+   The two lines that frame the band are darker than its fill in both palettes: they read as a shadow. */
 .kalender{
   --mode-h:115; --mode-c:.09;
   --mode-band:oklch(0.86 calc(var(--mode-c) * .6) var(--mode-h));
@@ -116,10 +117,13 @@
      both modes. The light ones are at the limit, so they are not made lighter; check both again if the band changes. */
   --alert-warn:oklch(0.8 0.1 80); --alert-block:oklch(0.7 0.12 28); --alert-on:#0f0f0e;   /* a light chip with dark ink */
 }
-.kalender[data-mode='bemanning']{--mode-h:40; --mode-c:.11}
+.kalender[data-mode='bemanning']{
+  --mode-h:235; --mode-c:.07;
+  --mode-band:#b9d6e7; --mode-line:#7da5bc; --mode-track:#9fc0d4; --mode-ink:#1b313d; --mode-mute:#385160;
+}
 .dark .kalender{
   --mode-band:oklch(0.4 calc(var(--mode-c) * .5) var(--mode-h));
-  --mode-line:oklch(0.55 calc(var(--mode-c) * .7) var(--mode-h));
+  --mode-line:oklch(0.25 calc(var(--mode-c) * .4) var(--mode-h));
   --mode-track:oklch(0.32 calc(var(--mode-c) * .45) var(--mode-h));
   --mode-ink:oklch(0.93 calc(var(--mode-c) * .3) var(--mode-h));
   --mode-mute:oklch(0.78 calc(var(--mode-c) * .45) var(--mode-h));
@@ -127,6 +131,7 @@
   --mode-field-hover:oklch(0.52 calc(var(--mode-c) * .45) var(--mode-h) / .8);
   --alert-warn:#a16606; --alert-block:#cb4543; --alert-on:#fff;         /* a dark chip with light ink */
 }
+.dark .kalender[data-mode='bemanning']{--mode-band:#374b57; --mode-line:#13212a; --mode-track:#243540; --mode-ink:#dceaf3; --mode-mute:#a6bbc8}
 
 /* The dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende). */
 :root.dark{
@@ -162,14 +167,14 @@
   --ph-dismantle:color-mix(in oklab,oklch(0.76 0.11 10) 40%,#1f1f1c);
 
   /* competences: dark fills with light text */
-  --line-blue:oklch(0.56 0.13 250);
-  --line-teal:oklch(0.53 0.13 185);
-  --line-green:oklch(0.55 0.13 140);
-  --line-amber:oklch(0.56 0.13 85);
-  --line-rose:oklch(0.56 0.13 10);
-  --line-violet:oklch(0.56 0.13 300);
-  --line-slate:oklch(0.52 0.03 250);
-  --line-orange:oklch(0.6 0.14 50);
+  --line-blue:#365575;
+  --line-teal:#1e5e58;
+  --line-green:#3f5b39;
+  --line-amber:#635025;
+  --line-rose:#72434a;
+  --line-violet:#574a72;
+  --line-slate:#475462;
+  --line-orange:#6f4831;
   --on-line:#ffffff;
   --on-line-soft:rgba(255,255,255,.22);
   --on-line-rule:rgba(255,255,255,.45);
