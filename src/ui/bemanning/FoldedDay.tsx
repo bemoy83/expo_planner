@@ -25,7 +25,7 @@ export function WeekMeter({ week, overLimit = false }: { week: PersonWeek; /** T
 }
 
 /** What a person's day shows when it is folded: a small timeline of the normal day, `width` pixels wide. */
-export function FoldedDay({ cell, styles, brush, width, names, links, edges = false }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink>; /** The ends of a run, and of a single day, can be taken hold of. */ edges?: boolean }) {
+export function FoldedDay({ cell, styles, brush, width, names, links, shapes = links, edges = false }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink>; /** How the blocks are drawn at their ends: joined as their run has them, and to what a stroke would put beside them. Without it, as `links`. */ shapes?: Map<string, RunLink>; /** The ends of a run, and of a single day, can be taken hold of. */ edges?: boolean }) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
   // A weekend or a holiday with nothing on it is left empty, whatever absence covers it.
@@ -44,12 +44,13 @@ export function FoldedDay({ cell, styles, brush, width, names, links, edges = fa
         const lead = block.away[0]?.left === 0 ? block.away[0].width : 0
         const label = link ? 'none' : blockLabel(((width - 2 * DAY_INSET) * block.width * (100 - lead)) / 10000, name, style?.shortLabel ?? '', names, hoursText(block.hours))
         // A block that goes on reaches over the air beside it, and over the rule after the day.
-        const before = link?.prev ? DAY_INSET : 0
-        const after = link?.next ? DAY_INSET + 1 : 0
+        const shape = shapes?.get(block.id)
+        const before = shape?.prev ? DAY_INSET : 0
+        const after = shape?.next ? DAY_INSET + 1 : 0
         return (
           <span
             key={block.id}
-            className={`bm-block ${link?.prev ? 'join-prev' : ''} ${link?.next ? 'join-next' : ''} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
+            className={`bm-block ${shape?.prev ? 'join-prev' : ''} ${shape?.next ? 'join-next' : ''} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
             style={{ left: `calc(${block.left}% - ${before}px)`, width: `calc(${block.width}% + ${before + after}px)`, paddingLeft: lead ? `calc(${lead}% + 7px)` : undefined, ...colorOf(styles, block.competence) }}
             title={`${name} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
           >

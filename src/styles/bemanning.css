@@ -130,8 +130,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-block b{margin:0 -7px;padding:1px 7px;overflow:hidden;border-radius:4px;background:var(--cc);color:var(--on-line);font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
 .bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
 /* a run: the blocks of days in a row with one competence meet, square where they do, and have one name between them. */
-.bm-block.join-prev{border-top-left-radius:0;border-bottom-left-radius:0}
-.bm-block.join-next{border-top-right-radius:0;border-bottom-right-radius:0}
+:is(.bm-block,.bm-ghosts i).join-prev{border-top-left-radius:0;border-bottom-left-radius:0}
+:is(.bm-block,.bm-ghosts i).join-next{border-top-right-radius:0;border-bottom-right-radius:0}
 .bm-block.join-prev:not(.join-next){clip-path:inset(-1px -1px -1px 0)}
 .bm-block.join-next:not(.join-prev){clip-path:inset(-1px 0 -1px -1px)}
 .bm-block.join-prev.join-next{clip-path:inset(-1px 0)}
@@ -169,7 +169,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 [data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
 [data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
 /* What a stroke would do is flat: tints and thin edges. A hatch says hours are not there: a person who is away, and the hours the eraser would take. */
-/* where the brush would put time: a tint of its colour, with the hours it gives */
+/* where the brush would put time: a tint of its colour, with the hours it gives. It is joined over the days as the run it makes will be, see `.join-prev`. */
 .bm-ghosts{pointer-events:none}
 .bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 26%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
 /* the day whose blocks are on their way to another: a fainter tint, while the preview shows where they land */

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { daysBetween, type ISODate } from '../../domain/dates'
+import { addDays, daysBetween, type ISODate } from '../../domain/dates'
 import { paidHours } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Person, Unavailability, WorkdaySettings } from '../../domain/types'
 import type { PersonWeek } from '../../domain/staffing'
@@ -104,9 +104,30 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
           const link = runLink(blocksOn, date, block, workday)
           if (link.prev || link.next) links.set(block.id, link)
         }
-        const runOn = [...links.values()].some((link) => link.next)
         const inStroke = col >= strokeFrom && col <= strokeTo
         const gaps = ghost?.get(date)
+        // What a stroke would put down is drawn as it will lie: joined to the day before and after where a run would go on,
+        // through time that is only previewed as through blocks that are there.
+        const of = (gap: GhostBlock) => gap.competence ?? brush
+        const reaches = (iv: { start: number; end: number }) => iv.end >= workday.dayEnd && iv.start < workday.dayEnd
+        const begins = (iv: { start: number; end: number }) => iv.start <= workday.dayStart && iv.end > workday.dayStart
+        const before = addDays(date, -1)
+        const after = addDays(date, 1)
+        const previewBefore = (competence: string | null) => ghost?.get(before)?.some((gap) => of(gap) === competence && reaches(gap)) === true
+        const previewAfter = (competence: string | null) => ghost?.get(after)?.some((gap) => of(gap) === competence && begins(gap)) === true
+        // The shape of a block: as its run has it, and going on into time a stroke would put beside it.
+        const shapes = new Map<string, RunLink>()
+        for (const block of blocks) {
+          const link = links.get(block.id)
+          const shape = { prev: link?.prev === true || (begins(block) && previewBefore(block.competence)), next: link?.next === true || (reaches(block) && previewAfter(block.competence)) }
+          if (shape.prev || shape.next) shapes.set(block.id, shape)
+        }
+        const previews = (gaps ?? []).map((gap) => ({
+          gap,
+          prev: begins(gap) && (previewBefore(of(gap)) || assignments?.get(before)?.some((a) => a.competence === of(gap) && reaches(a)) === true),
+          next: reaches(gap) && (previewAfter(of(gap)) || assignments?.get(after)?.some((a) => a.competence === of(gap) && begins(a)) === true),
+        }))
+        const runOn = [...shapes.values()].some((shape) => shape.next) || previews.some((preview) => preview.next)
         // A day the brush cannot fill says so under the pointer, and inside a stroke. A weekend or a holiday does not:
         // the brush fills it when it is picked by itself, and passes over it without a mark when it is drawn across.
         const blocked = painting && !gaps && !cell.offDay && (cell.away !== null || dim)
@@ -119,11 +140,19 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} edges={edges} />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} edges={edges} />
             {gaps && (
               <span className="bm-timeline bm-ghosts">
-                {gaps.map((gap) => (
-                  <i key={gap.start} style={{ left: `${(Math.max(0, gap.start - workday.dayStart) / span) * 100}%`, width: `${((Math.min(gap.end, workday.dayEnd) - Math.max(gap.start, workday.dayStart)) / span) * 100}%`, ...(gap.competence ? competenceColor(styles.get(gap.competence)) : undefined) }}>
+                {previews.map(({ gap, prev, next }) => (
+                  <i
+                    key={gap.start}
+                    className={`${prev ? 'join-prev' : ''} ${next ? 'join-next' : ''}`}
+                    style={{
+                      left: `calc(${(Math.max(0, gap.start - workday.dayStart) / span) * 100}% - ${prev ? DAY_INSET : 0}px)`,
+                      width: `calc(${((Math.min(gap.end, workday.dayEnd) - Math.max(gap.start, workday.dayStart)) / span) * 100}% + ${(prev ? DAY_INSET : 0) + (next ? DAY_INSET + 1 : 0)}px)`,
+                      ...(gap.competence ? competenceColor(styles.get(gap.competence)) : undefined),
+                    }}
+                  >
                     +{hoursText(paidHours(gap, workday))}
                   </i>
                 ))}
