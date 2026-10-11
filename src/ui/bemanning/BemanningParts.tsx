@@ -4,7 +4,7 @@ import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } 
 import { dayType } from '../../domain/holidays'
 import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
 import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
-import { competenceColor } from '../dom'
+import { competenceColor, modKey } from '../dom'
 import { ModeSwitch, ModeTag } from '../kalender/KalenderBar'
 import { PlanBar } from '../kalender/PlanBar'
 import type { PlanMode } from '../kalender/zoom'
@@ -69,7 +69,6 @@ interface ToolbarProps {
  */
 export function BemanningToolbar({ width, mode, onMode, projects, project, onProject, onToday, onFit }: ToolbarProps) {
   const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
-  const paste = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V'
   const style = brush ? styles.get(brush) : undefined
   const tools: ToolChoice<Tool>[] = [
     { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager: klikk en dag, eller dra over flere for å kopiere dem. Dra en blokk til en annen dag eller person for å flytte dagens blokker, med Alt for å kopiere (V).' },
@@ -108,8 +107,8 @@ export function BemanningToolbar({ width, mode, onMode, projects, project, onPro
           </button>
         )}
         {clip && (
-          <span className="bm-clip" title="Dagene som er kopiert. De limes inn for de samme personene, fra dagen under markøren.">
-            <ClipboardCopy size={14} aria-hidden /> Kopiert · {paste}
+          <span className="bm-clip" title="Dagene som er kopiert. De limes inn fra dagen og linjen under markøren.">
+            <ClipboardCopy size={14} aria-hidden /> Kopiert · {modKey('V')}
             <button className="row-action" aria-label="Tøm utklippet" title="Tøm utklippet" onClick={() => setClip(null)}>
               <X size={13} aria-hidden />
             </button>

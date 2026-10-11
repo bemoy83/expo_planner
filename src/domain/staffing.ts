@@ -13,6 +13,8 @@ const MIN_SPLIT_PART: Minute = 30
 /** How near the start or end of the normal day a dragged edge has to be to land on it. */
 const DAY_EDGE_PULL: Minute = 10
 const CLICK_OVERTIME_BLOCK: Minute = 60
+/** Hours of demand nearer zero than this are met. */
+const MET = 0.01
 
 const length = (iv: Interval): Minute => iv.end - iv.start
 
@@ -43,6 +45,9 @@ const normalDay = (wd: WorkdaySettings): Interval => ({ start: wd.dayStart, end:
 
 /** R1: the hours of an interval that are paid, which is all of it but the lunch break. */
 export const paidHours = (iv: Interval, wd: WorkdaySettings): number => (length(iv) - overlap(iv, { start: wd.breakStart, end: wd.breakEnd })) / 60
+
+/** The paid hours of several stretches of time together. */
+export const paidTotal = (intervals: Interval[], wd: WorkdaySettings): number => intervals.reduce((sum, iv) => sum + paidHours(iv, wd), 0)
 
 /** R2: the paid hours outside the normal day; on a weekend or a holiday that is all of them. */
 export const overtimeHours = (iv: Interval, dayKind: DayType, wd: WorkdaySettings): number => {
@@ -81,7 +86,7 @@ export const absenceFte = ({ persons, unavailability, settings }: Pick<Workspace
     const key = `${u.personId}|${u.date}`
     if (!active.has(u.personId) || seen.has(key) || dayType(u.date) !== 'arbeidsdag' || !(full > 0)) continue
     seen.add(key)
-    const left = normalWindows(u.personId, u.date, unavailability ?? [], wd).reduce((sum, iv) => sum + paidHours(iv, wd), 0)
+    const left = paidTotal(normalWindows(u.personId, u.date, unavailability ?? [], wd), wd)
     const away = Math.round(((full - left) / full) * 100) / 100
     if (away > 0) days[u.date] = Math.round(((days[u.date] ?? 0) + away) * 100) / 100
   }
@@ -110,7 +115,7 @@ export const freeIntervals = (windows: Interval[], assignments: Interval[], snap
   subtract(windows, assignments).filter((iv) => length(iv) >= snap)
 
 export const freeHours = (windows: Interval[], assignments: Interval[], wd: WorkdaySettings): number =>
-  freeIntervals(windows, assignments, wd.snap).reduce((sum, iv) => sum + paidHours(iv, wd), 0)
+  paidTotal(freeIntervals(windows, assignments, wd.snap), wd)
 
 const dayKey = (personId: string, date: ISODate) => `${personId}|${date}`
 const keyOf = (a: { personId: string; date: ISODate }) => dayKey(a.personId, a.date)
@@ -186,7 +191,7 @@ export type PaintSpan = 'full' | 'half'
  * free half. Nothing for a person without the competence or a day without normal time. A weekend or a
  * holiday has that time with `offDays` alone, see `onlyOffDays`; all of it is overtime.
  */
-export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKey, span: PaintSpan, assignments: Assignment[] = ws.assignments ?? [], offDays = false): Interval[] => {
+export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKey, span: PaintSpan, offDays = false, assignments: Assignment[] = ws.assignments ?? []): Interval[] => {
   if (paintBlock(ws, cell, competence, offDays)) return []
   const wd = ws.settings.workday
   const normal = paintWindows(ws, cell, offDays)
@@ -205,7 +210,7 @@ export const paintDays = (ws: Workspace, cells: DayCell[], competence: Competenc
   const touched = new Set<string>()
   const offDays = onlyOffDays(cells)
   for (const cell of cells) {
-    const gaps = paintGaps(ws, cell, competence, span, assignments, offDays)
+    const gaps = paintGaps(ws, cell, competence, span, offDays, assignments)
     if (!gaps.length) continue
     assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, start: gap.start, end: gap.end, source: 'manual' }))]
     touched.add(keyOf(cell))
@@ -470,7 +475,7 @@ export const pasteTargets = (ws: Workspace, clip: Clipboard, anchor: ISODate, la
  * people without it. Only free time is filled, and only work the person has the competence for. Days past
  * the end of the period are left out, and days the person is away are skipped.
  */
-export const pasteDays = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate, makeId: () => string = newId, onto?: (string | undefined)[]): { assignments: Assignment[]; pasted: number; skipped: number } => {
+export const pasteDays = (ws: Workspace, clip: Clipboard, anchor: ISODate, lastDate: ISODate, onto?: (string | undefined)[], makeId: () => string = newId): { assignments: Assignment[]; pasted: number; skipped: number } => {
   const all = ws.assignments ?? []
   const targets = pasteTargets(ws, clip, anchor, lastDate, onto)
   const added = targets.flatMap(({ cell, blocks }) => blocks.map((block): Assignment => ({ ...block, id: makeId(), personId: cell.personId, date: cell.date, source: 'manual' })))
@@ -659,7 +664,7 @@ export const openUnresolved = (ws: Workspace): Assignment[] => {
   const unresolved = unresolvedAssignments(ws)
   if (!unresolved.length) return unresolved
   const balance = buildBalance(ws, [...new Set(unresolved.map((a) => a.date))])
-  return unresolved.filter((a) => balance.get(a.competence, a.date).remaining > 0.01)
+  return unresolved.filter((a) => balance.get(a.competence, a.date).remaining > MET)
 }
 
 /** «Fjern uløste»: the assignments without the open unresolved ones on the given dates. Those whose day others cover are left as they are. */
@@ -682,19 +687,19 @@ export const cellsToDemand = (ws: Workspace, cells: DayCell[], competence: Compe
   const wd = ws.settings.workday
   const offDays = onlyOffDays(cells)
   const outward = [...new Set(cells.map((cell) => cell.date))].sort((a, b) => (back ? b.localeCompare(a) : a.localeCompare(b)))
-  const last = outward.findLastIndex((date) => (offDays || dayType(date) === 'arbeidsdag') && balance.get(competence, date).remaining > 0.01)
+  const last = outward.findLastIndex((date) => (offDays || dayType(date) === 'arbeidsdag') && balance.get(competence, date).remaining > MET)
   if (last < 0) return []
   const far = outward[last]
   const kept = new Set(outward.slice(0, last + 1))
   const ends = cells.filter((cell) => cell.date === far)
   const need = balance.get(competence, far).remaining
-  const given = (within: Interval) => ends.reduce((sum, cell) => sum + paintGaps(ws, { ...cell, within }, competence, 'full', undefined, offDays).reduce((hours, gap) => hours + paidHours(gap, wd), 0), 0)
+  const given = (within: Interval) => ends.reduce((sum, cell) => sum + paidTotal(paintGaps(ws, { ...cell, within }, competence, 'full', offDays), wd), 0)
   // Every end of the stroke on that day has the same bounds: the normal day, or the part of it the stroke was drawn to.
   const bounds = ends[0].within ?? normalDay(wd)
   let within = bounds
   for (let t = wd.snap; t < length(bounds); t += wd.snap) {
     const tried = back ? { start: bounds.end - t, end: bounds.end } : { start: bounds.start, end: bounds.start + t }
-    if (given(tried) < need - 0.01) continue
+    if (given(tried) < need - MET) continue
     within = tried
     break
   }
@@ -761,7 +766,7 @@ export const personWeek = (ws: Workspace, personId: string, dates: ISODate[]): P
   const wd = ws.settings.workday
   const wanted = new Set(dates)
   const total: PersonWeek = { normal: 0, capacity: 0, overtime: 0 }
-  for (const date of dates) total.capacity += normalWindows(personId, date, ws.unavailability ?? [], wd).reduce((sum, iv) => sum + paidHours(iv, wd), 0)
+  for (const date of dates) total.capacity += paidTotal(normalWindows(personId, date, ws.unavailability ?? [], wd), wd)
   for (const a of okAssignments(ws)) {
     if (a.personId !== personId || !wanted.has(a.date)) continue
     const overtime = overtimeHours(a, dayType(a.date), wd)

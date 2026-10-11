@@ -1,7 +1,7 @@
 import { dayType } from '../../domain/holidays'
 import type { ISODate } from '../../domain/dates'
-import { overtimeHours, paidHours, subtract } from '../../domain/staffing'
-import type { Assignment, Minute, Unavailability, UnavailabilityKind, WorkdaySettings } from '../../domain/types'
+import { overtimeHours, paidTotal, subtract } from '../../domain/staffing'
+import type { Assignment, Interval, Minute, Unavailability, UnavailabilityKind, WorkdaySettings } from '../../domain/types'
 import { clock } from './week'
 
 /** What a block says: the name with its hours, the name, the short name, or nothing. */
@@ -39,10 +39,16 @@ export const runLabel = (width: number, name: string, shortName: string, names: 
   return width - BLOCK_PAD >= said.length * NAME_CHAR_W + count.length * HOURS_CHAR_W ? said + count : said
 }
 
-/** A stretch of the normal day, as a share of its width. */
+/** A stretch of the normal day, or of a block, as a share of its width. */
 export interface Span {
   left: number
   width: number
+}
+
+/** Where the part of `whole` that `part` covers lies in it. */
+export const spanOf = (part: Interval, whole: Interval): Span => {
+  const start = Math.max(part.start, whole.start)
+  return { left: ((start - whole.start) / (whole.end - whole.start)) * 100, width: ((Math.min(part.end, whole.end) - start) / (whole.end - whole.start)) * 100 }
 }
 
 export interface CellBlock extends Span {
@@ -92,28 +98,27 @@ export interface DayCell {
 export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unavailability[], ok: (a: Assignment) => boolean, wd: WorkdaySettings, open: (a: Assignment) => boolean = (a) => !ok(a)): DayCell => {
   const kind = dayType(date)
   const offDay = kind !== 'arbeidsdag'
-  const span = (start: Minute, end: Minute): Span => ({ left: ((start - wd.dayStart) / (wd.dayEnd - wd.dayStart)) * 100, width: ((end - start) / (wd.dayEnd - wd.dayStart)) * 100 })
+  const day = { start: wd.dayStart, end: wd.dayEnd }
   const whole = absence.find((u) => u.start === undefined || u.end === undefined)
   const partial = whole ? [] : absence
   const sorted = [...assignments].sort((a, b) => a.start - b.start)
-  const awayFor = (whole ? [{ start: wd.dayStart, end: wd.dayEnd }] : partial.map((u) => ({ start: Math.max(u.start!, wd.dayStart), end: Math.min(u.end!, wd.dayEnd) }))).filter((iv) => iv.end > iv.start)
+  const awayFor = (whole ? [day] : partial.map((u) => ({ start: Math.max(u.start!, wd.dayStart), end: Math.min(u.end!, wd.dayEnd) }))).filter((iv) => iv.end > iv.start)
   const blocks = sorted.flatMap((a): CellBlock[] => {
-    const start = Math.max(a.start, wd.dayStart)
-    const end = Math.min(a.end, wd.dayEnd)
-    if (end <= start) return []
+    const drawn = { start: Math.max(a.start, wd.dayStart), end: Math.min(a.end, wd.dayEnd) }
+    if (drawn.end <= drawn.start) return []
     // Of a block that counts, the time the person is away for: what the block loses when the time they are there for is taken out of it.
-    const here = subtract([{ start, end }], awayFor)
-    const away = ok(a) ? subtract([{ start, end }], here).map((iv) => ({ left: ((iv.start - start) / (end - start)) * 100, width: ((iv.end - iv.start) / (end - start)) * 100 })) : []
+    const here = subtract([drawn], awayFor)
+    const away = ok(a) ? subtract([drawn], here).map((iv) => spanOf(iv, drawn)) : []
     const counted = ok(a) ? subtract([{ start: a.start, end: a.end }], partial.map((u) => ({ start: u.start!, end: u.end! }))) : [a]
-    const hours = counted.reduce((sum, part) => sum + paidHours(part, wd), 0)
+    const hours = paidTotal(counted, wd)
     const times = counted.map((part) => `${clock(part.start)}–${clock(part.end)}`).join(' · ')
-    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours, times, unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...span(start, end) }]
+    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours, times, unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...spanOf(drawn, day) }]
   })
   const first = partial[0]
   return {
     offDay,
     away: whole ? whole.kind : null,
-    hatches: subtract(awayFor, sorted).map((iv) => span(iv.start, iv.end)),
+    hatches: subtract(awayFor, sorted).map((iv) => spanOf(iv, day)),
     note: whole?.note || (first ? absenceNote(first, wd) : ''),
     blocks,
     unresolved: assignments.filter((a) => !ok(a) && open(a)).length,

@@ -1,4 +1,6 @@
 import type { WorkdaySettings } from '../../domain/types'
+import type { Span } from './dayCell'
+import type { EndShape } from './runs'
 
 /** The heights of Bemanning's lines in the Kalender's grid. */
 export const PERSON_H = 40
@@ -6,6 +8,16 @@ export const PERSON_H = 40
 export const DIVIDER_H = 24
 /** The air beside a folded day's blocks, see `.bm-timeline`. A block that goes on into the next day reaches over it, and over the rule between the days. */
 export const DAY_INSET = 5
+/** Where a block of a folded day, or time a stroke would put there, lies in the day's timeline: one that goes on into the day beside it reaches over the air there, and over the rule after the day. */
+export const joinedPlace = (span: Span, shape: EndShape | undefined): { left: string; width: string } => {
+  const before = shape?.prev ? DAY_INSET : 0
+  const after = shape?.next ? DAY_INSET + 1 : 0
+  return { left: `calc(${span.left}% - ${before}px)`, width: `calc(${span.width}% + ${before + after}px)` }
+}
+/** The classes of its ends, which are square where it is joined to the day beside it or meets what lies beside it in its own day, see `.join-prev`. */
+export const joinedClass = (shape: EndShape | undefined): string => `${shape?.prev ? 'join-prev' : ''} ${shape?.next ? 'join-next' : ''} ${shape?.meetsBefore ? 'meet-prev' : ''} ${shape?.meetsAfter ? 'meet-next' : ''}`
+/** A pill sits above its stroke, or under it where the lines above leave it no room. */
+export const PILL_ROOM = 34
 /** The width of the part at an end of a run that the end is pulled by, see `.bm-edge`. */
 export const EDGE_W = 10
 export const DEMAND_H = 32
