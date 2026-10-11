@@ -141,13 +141,13 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-run-name:not(.other){background:var(--cc);color:var(--on-line)}
 /* A dimmed block is see-through with its name and badge, so they are their colours mixed into the ground by as much. The run's name lies over its blocks and is given those colours outright. */
 .bm-run-name.other{background:color-mix(in srgb,var(--cc) 28%,var(--bg));color:color-mix(in srgb,var(--on-line) 28%,var(--bg))}
-/* a block whose hours are back in the demand: hatched, outlined in its colour. The same in the folded day and in the open hours. */
-.bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);color:var(--text);opacity:.85}
+/* a block whose hours are back in the demand: hatched in its colour, with no outline, so a run it is a part of stays one piece. The same in the folded day and in the open hours. */
+.bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other{opacity:.28}
 /* the stretch of a block the person is away for: the block keeps its shape, and that stretch is hatched as a block that does not count is. In the folded day and in the open hours. */
-.bm-away-part{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);box-shadow:inset 0 0 0 1.5px var(--cc);pointer-events:none}
+.bm-away-part{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);pointer-events:none}
 /* unresolved, but the day is covered by others: a faint trace of what was planned */
-.bm-block.replaced,.bm-edit-block.replaced{opacity:.4;box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--cc) 60%,transparent)}
+.bm-block.replaced,.bm-edit-block.replaced{opacity:.4}
 /* why the person is away the whole day: one badge in the middle of it, red for sickness alone */
 .bm-reason{position:absolute;left:50%;top:50%;z-index:1;transform:translate(-50%,-50%);padding:2px 7px;border-radius:999px;font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
 .bm-reason:not(.sick){background:var(--bg);color:var(--muted)}

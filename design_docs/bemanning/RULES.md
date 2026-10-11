@@ -79,7 +79,7 @@ Examples (Per Solberg, Tuesday, has Teppefliser 07:00–11:00 and FOGA 11:30–1
 Unresolved assignments:
 
 - **do not count** in `assignedHours`, so their hours are back in remaining demand at once
-- stay visible (hatched, outlined in the competence colour)
+- stay visible (hatched in the competence colour, with no outline)
 - can be deleted one by one, or all at once with «Fjern uløste» (one undo step)
 
 ## R8 Editing blocks (week editor and row timeline)
