@@ -22,6 +22,9 @@
 .mode-band .bar-button svg{color:var(--mode-mute)}
 .mode-band .bar-zone>.icon-button{background:transparent}
 .mode-band .bar-zone>:is(.ghost,.icon-button):hover:not(:disabled),.page-head.mode-band>.ghost:hover:not(:disabled),.page-head.mode-band .icon-button.active{background:var(--mode-field)}
+/* The primary action on the band is the band's own ink, filled: the accent is not seen on a mode's hue. */
+.page-head.mode-band>.primary{background:var(--mode-ink);color:var(--mode-band)}
+.page-head.mode-band>.primary:hover:not(:disabled){background:var(--mode-mute)}
 .mode-band .bar-hint{color:var(--mode-mute)}
 .mode-band .bar-hint b{color:var(--mode-ink)}
 .mode-band :is(.menu-pop,.col-filter-pop){color:var(--text)}
