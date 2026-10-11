@@ -98,15 +98,29 @@ export interface Stretch {
 }
 
 /**
- * The stops an end can be pulled to within a day: every two hours from the start of the normal day. One
- * that falls in the lunch break is the break's start for the end of a run and its end for the start of one,
- * so the half day is a stop: 07, 09, 11, 13 and 15 with the usual day. `share` is where in the day the pointer is.
+ * The stops an end can be pulled to within a day: where two, four and six hours of the normal day are
+ * worked, and so on, and its end. They are counted in paid hours, so they hold wherever the lunch break is
+ * laid: 09:00, 11:00, 13:30 and 15:00 with lunch from 11:30. A stop at the start of the break is the break's
+ * end for the start of a run, which does not begin with a lunch.
  */
-export const stretchStop = (share: number, edge: 'start' | 'end', wd: WorkdaySettings): Minute => {
-  const stop = Math.min(wd.dayEnd, Math.max(wd.dayStart, wd.dayStart + Math.round((share * (wd.dayEnd - wd.dayStart)) / STOP) * STOP))
-  return stop >= wd.breakStart && stop < wd.breakEnd ? (edge === 'end' ? wd.breakStart : wd.breakEnd) : stop
+export const stretchStops = (edge: 'start' | 'end', wd: WorkdaySettings): Minute[] => {
+  const lunch = wd.breakEnd - wd.breakStart
+  const stops = [wd.dayStart]
+  for (let worked = STOP; ; worked += STOP) {
+    const clock = wd.dayStart + worked > wd.breakStart ? wd.dayStart + worked + lunch : wd.dayStart + worked
+    if (clock >= wd.dayEnd) break
+    stops.push(edge === 'start' && clock === wd.breakStart ? wd.breakEnd : clock)
+  }
+  return [...stops, wd.dayEnd]
 }
+/** Two hours of work between one stop and the next. */
 const STOP = 120
+
+/** The stop nearest to where in the day the pointer is, `share` being 0 at the start of the normal day and 1 at its end. */
+export const stretchStop = (share: number, edge: 'start' | 'end', wd: WorkdaySettings): Minute => {
+  const time = wd.dayStart + share * (wd.dayEnd - wd.dayStart)
+  return stretchStops(edge, wd).reduce((nearest, stop) => (Math.abs(stop - time) < Math.abs(nearest - time) ? stop : nearest))
+}
 
 /**
  * R46: an end of a run pulled to the time `at` of the day `to`. Pulled outward, the run is to go on up to

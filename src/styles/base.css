@@ -111,6 +111,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .dialog h2{margin:0;font-size:var(--fs-title-sm);font-weight:600}
 .dialog label{display:flex;flex-direction:column;gap:4px;font-weight:500}
 .dialog label.radio{flex-direction:row;align-items:center;font-weight:400}
+.dialog .time-range{display:flex;align-items:center;gap:8px;font-weight:400}
 .dialog fieldset{border:none;padding:0;margin:0;display:flex;gap:16px;align-items:center}
 .dialog legend{font-weight:500;float:left;margin-right:8px}
 .dialog-result{margin:0;padding:8px 10px;background:var(--sunken);border-radius:8px}

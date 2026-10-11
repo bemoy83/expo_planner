@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_WORKDAY as wd, type Assignment } from '../../domain/types'
-import { runDays, runLink, runOf, stretchRun, stretchStop, type BlocksOn } from './runs'
+import { DEFAULT_WORKDAY, type Assignment } from '../../domain/types'
+
+// The cases are written for lunch from 11:00 to 11:30.
+const wd = { ...DEFAULT_WORKDAY, breakStart: 660, breakEnd: 690 }
+import { runDays, runLink, runOf, stretchRun, stretchStop, stretchStops, type BlocksOn } from './runs'
 
 // Week 42 of 2026: Monday the 12th to Friday the 16th, and the Monday after.
 const MON = '2026-10-12'
@@ -71,8 +74,19 @@ describe('pulling an end of a run (R46)', () => {
     expect(days.map((day) => day.block)).toEqual(week)
   })
 
-  it('has a stop every two hours, with the half day at the lunch break', () => {
-    expect([0, 0.2, 0.5, 0.8, 1].map((share) => stretchStop(share, 'end', wd))).toEqual([DAWN, NINE, ELEVEN, ONE, DUSK])
+  it('has a stop for every two hours worked, wherever the lunch is', () => {
+    // Lunch from 11:00: four hours are worked when it starts, and six at 13:30.
+    expect(stretchStops('end', wd)).toEqual([DAWN, NINE, ELEVEN, 810, DUSK])
+    expect(stretchStops('start', wd)).toEqual([DAWN, NINE, HALF_PAST, 810, DUSK])
+    // Lunch from 11:30, as the app has it at first.
+    expect(stretchStops('end', DEFAULT_WORKDAY)).toEqual([DAWN, NINE, ELEVEN, 810, DUSK])
+    expect(stretchStops('start', DEFAULT_WORKDAY)).toEqual([DAWN, NINE, ELEVEN, 810, DUSK])
+    // An hour's lunch from 10:00.
+    expect(stretchStops('end', { ...wd, breakStart: 600, breakEnd: 660 })).toEqual([DAWN, NINE, 720, 840, DUSK])
+  })
+
+  it('stops at the stop nearest the pointer', () => {
+    expect([0, 0.2, 0.5, 0.8, 1].map((share) => stretchStop(share, 'end', wd))).toEqual([DAWN, NINE, ELEVEN, 810, DUSK])
     expect(stretchStop(0.5, 'start', wd)).toBe(HALF_PAST)
     expect(stretchStop(-1, 'end', wd)).toBe(DAWN)
     expect(stretchStop(3, 'end', wd)).toBe(DUSK)

@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { decimalText, parseDecimal } from '../domain/numbers'
 import { useWorkspace } from '../store/workspaceStore'
+import { clock } from './bemanning/week'
 
-/** The base crew and the hours of a normal day. */
+/** «11:30» as minutes after midnight, or NaN. */
+const minutes = (text: string): number => {
+  const [hours, mins] = text.split(':').map(Number)
+  return Number.isInteger(hours) && Number.isInteger(mins) ? hours * 60 + mins : NaN
+}
+
+/** The base crew, the hours of a normal day and its lunch break. */
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { workspace, updateSettings } = useWorkspace()
   const settings = workspace!.settings
@@ -11,11 +18,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const active = workspace!.persons?.filter((person) => person.active).length ?? 0
   const [baseCrew, setBaseCrew] = useState(String(settings.baseCrew))
   const [hoursPerDay, setHoursPerDay] = useState(decimalText(settings.hoursPerDay))
+  const day = settings.workday
+  const [lunchFrom, setLunchFrom] = useState(clock(day.breakStart))
+  const [lunchTo, setLunchTo] = useState(clock(day.breakEnd))
 
   // An empty crew is none; text that is no number is NaN, which no comparison lets through.
   const crew = parseDecimal(baseCrew) === null ? 0 : (parseDecimal(baseCrew) ?? NaN)
   const hours = parseDecimal(hoursPerDay) ?? NaN
-  const valid = crew >= 0 && hours > 0
+  // The lunch lies within the normal day, on the quarters of an hour the blocks keep to.
+  const breakStart = minutes(lunchFrom)
+  const breakEnd = minutes(lunchTo)
+  const lunchValid = breakStart > day.dayStart && breakEnd > breakStart && breakEnd < day.dayEnd && breakStart % day.snap === 0 && breakEnd % day.snap === 0
+  const valid = crew >= 0 && hours > 0 && lunchValid
+  const worked = (day.dayEnd - day.dayStart - (breakEnd - breakStart)) / 60
 
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -24,7 +39,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return
-          updateSettings({ ...settings, baseCrew: crew, hoursPerDay: hours })
+          updateSettings({ ...settings, baseCrew: crew, hoursPerDay: hours, workday: { ...day, breakStart, breakEnd } })
           onClose()
         }}
       >
@@ -44,6 +59,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           Timer per FTE-dag (normaltid)
           <input inputMode="decimal" value={hoursPerDay} onChange={(e) => setHoursPerDay(e.target.value)} />
           <span className="hint">Brukes til å regne behov i timer om til FTE-dager.</span>
+        </label>
+        <label>
+          Lunsj i Bemanning
+          <span className="time-range">
+            <input type="time" step={day.snap * 60} value={lunchFrom} onChange={(e) => setLunchFrom(e.target.value)} aria-label="Lunsj fra" />
+            –
+            <input type="time" step={day.snap * 60} value={lunchTo} onChange={(e) => setLunchTo(e.target.value)} aria-label="Lunsj til" />
+          </span>
+          <span className="hint">
+            {lunchValid
+              ? `Normaldagen er ${clock(day.dayStart)}–${clock(day.dayEnd)}, som med denne lunsjen gir ${decimalText(worked)} timer. Lunsjen er ubetalt.`
+              : `Lunsjen må ligge innenfor normaldagen ${clock(day.dayStart)}–${clock(day.dayEnd)}, på hele kvarter.`}
+          </span>
         </label>
         <p className="hint">
           Kalenderens periode følger hallbookingene fra Venyou. Helger, helligdager og julaften regnes som fridager.

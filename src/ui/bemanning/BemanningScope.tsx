@@ -103,6 +103,8 @@ export interface StretchPlan {
 
 /** Below this width of a day, an end is pulled by whole days: two hours are too little to aim at. */
 const STOPS_FROM_W = 64
+/** How far the pointer goes from where it was pressed before a press is a stroke that stops at a time, and no longer a click on the day. */
+const DRAG_FROM = 4
 
 /** Time a stroke would give a day; with the competence it is of when that is not the brush. */
 export type GhostBlock = Interval & { competence?: string }
@@ -128,6 +130,8 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     setStrokeState(next)
   }
   const endStroke = useRef<(() => void) | null>(null)
+  /** Where across the window the button went down for the stroke under way. */
+  const pressedAt = useRef(0)
   const panelOpen = useRef(false)
   const [hover, setHover] = useState<{ row: number; col: number } | null>(null)
   const [shift, setShift] = useState(false)
@@ -303,6 +307,22 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
 
   // ---- what a stroke, or the brush over a day, would do ------------------------------------------------
   const blocksOn = (cell: Day): Assignment[] => lines.find((line) => line.person.id === cell.personId)?.assignments?.get(cell.date) ?? []
+  /**
+   * The days a brush stroke fills. Drawn out, it stops at a time of the day under the pointer, as a pulled end of a run does:
+   * the days before it are filled whole and that day no further than the stop, on every line of the stroke. Drawn back over
+   * earlier days, the day under the pointer is filled from the stop on. A click fills its day.
+   */
+  const paintCells = (s: Stroke): Day[] => {
+    const cells = strokeCells(s)
+    if (s.at === undefined) return cells
+    const wd = ws.settings.workday
+    const back = s.col1 < s.col0
+    const far = dates[s.col1]
+    const within = back ? { start: s.at, end: wd.dayEnd } : { start: wd.dayStart, end: s.at }
+    // Nothing of the day under the pointer is taken where the stop is its near edge; a stroke that has only that day fills it.
+    if (within.end <= within.start) return s.col0 === s.col1 ? cells : cells.filter((cell) => cell.date !== far)
+    return cells.map((cell) => (cell.date === far && (within.start > wd.dayStart || within.end < wd.dayEnd) ? { ...cell, within } : cell))
+  }
   /** R46: what the end of a run that is being pulled does, or `null` while it is where it was. */
   const stretch = useMemo((): StretchPlan | null => {
     if (stroke?.mode !== 'stretch' || !stroke.stretch || stroke.row0 >= listed.length) return null
@@ -392,7 +412,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       return { ...none, ghost: found }
     }
     if (activeTool !== 'paint' || !activeBrush) return none
-    const cells = stroke ? strokeCells(stroke) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
+    const cells = stroke ? paintCells(stroke) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
     if (!cells.length) return none
     const half = stroke ? stroke.half : shift
     const stats: StrokeInfo = { mode: 'paint', half, days: 0, hours: 0, people: 0, skipped: 0 }
@@ -424,7 +444,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       return { assignments: stretched(ws, stretch), dates: dates.slice(stretch.colFrom, stretch.colTo + 1) }
     }
     if (stroke.mode === 'erase') return { assignments: clearDays(all, strokeCells(stroke)), dates: between }
-    if (stroke.mode === 'paint') return activeBrush ? { assignments: paintDays(ws, strokeCells(stroke), activeBrush, stroke.half ? 'half' : 'full'), dates: between } : null
+    if (stroke.mode === 'paint') return activeBrush ? { assignments: paintDays(ws, paintCells(stroke), activeBrush, stroke.half ? 'half' : 'full'), dates: between } : null
     const from = dayAt(stroke.row0, stroke.col0)
     const to = dayAt(stroke.row1, stroke.col1)
     const moved = moveDay(ws, { from, to, blockIds: blocksOn(from).map((a) => a.id) })
@@ -487,7 +507,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       updateStaffing((w) => ({ ...w, assignments: stretched(w, stretch) }))
     } else if (s.mode === 'erase') clear(strokeCells(s))
     else if (s.mode === 'paint') {
-      if (activeBrush) paint(strokeCells(s), activeBrush, s.half)
+      if (activeBrush) paint(paintCells(s), activeBrush, s.half)
     } else if (!dragged) {
       // A press that goes nowhere is a click: it selects the day, and lets go of it when it was the one selected.
       const same = selection !== null && selection.row0 === s.row0 && selection.col0 === s.col0 && selection.row1 === s.row0 && selection.col1 === s.col0
@@ -580,6 +600,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       event.preventDefault()
       if (mode === 'paint' || mode === 'erase') setSelection(null)
       pointer.current = { x: event.clientX, y: event.clientY }
+      pressedAt.current = event.clientX
       setStroke({ mode, half: mode === 'paint' && event.shiftKey, row0: at.row, col0: at.col, row1: at.row, col1: at.col, stretch: edge ? { edge: edge.dataset.edge === 'start' ? 'start' : 'end', blockId: edge.dataset.block ?? '' } : undefined })
       followStroke()
     },
@@ -613,6 +634,18 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
         const wd = ws.settings.workday
         const time = colW < STOPS_FROM_W ? (share < 0.5 ? wd.dayStart : wd.dayEnd) : stretchStop(share, s.stretch.edge, wd)
         if (s.col1 !== at.col || s.stretch.at !== time) setStroke({ ...s, col1: at.col, stretch: { ...s.stretch, at: time } })
+      } else if (s.mode === 'paint' && !s.half && colW >= STOPS_FROM_W) {
+        // The brush is drawn to a stop of the day under the pointer too, once the pointer has left where it was pressed.
+        const el = scrollRef.current!
+        const share = (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW - at.col
+        const moved = s.at !== undefined || at.row !== s.row0 || at.col !== s.col0 || Math.abs(x - pressedAt.current) > DRAG_FROM
+        const wd = ws.settings.workday
+        const stop = moved ? stretchStop(share, at.col < s.col0 ? 'start' : 'end', wd) : undefined
+        // A day the stroke has only reached the near edge of is not in it yet: the stroke ends with the day before, whole.
+        const short = stop !== undefined && (at.col > s.col0 ? stop <= wd.dayStart : at.col < s.col0 && stop >= wd.dayEnd)
+        const col = short ? at.col + (at.col > s.col0 ? -1 : 1) : at.col
+        const time = short ? (at.col > s.col0 ? wd.dayEnd : wd.dayStart) : stop
+        if (s.row1 !== at.row || s.col1 !== col || s.at !== time) setStroke({ ...s, row1: at.row, col1: col, at: time })
       } else if (s.row1 !== at.row || s.col1 !== at.col) setStroke({ ...s, row1: at.row, col1: at.col })
     },
     finish: (copy: boolean) => strokeRef.current && finishStroke(strokeRef.current, copy),

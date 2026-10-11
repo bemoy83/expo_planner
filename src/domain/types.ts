@@ -33,12 +33,12 @@ export interface WorkdaySettings {
   snap: Minute
 }
 
-/** 07:00–15:00 with lunch 11:00–11:30, which is 7,5 paid hours. */
+/** 07:00–15:00 with lunch 11:30–12:00, which is 7,5 paid hours. The lunch is the planner's to move, under Innstillinger. */
 export const DEFAULT_WORKDAY: WorkdaySettings = {
   dayStart: 420,
   dayEnd: 900,
-  breakStart: 660,
-  breakEnd: 690,
+  breakStart: 690,
+  breakEnd: 720,
   overtimeEarliest: 360,
   overtimeLatest: 1260,
   snap: 15,

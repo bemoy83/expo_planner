@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_WORKDAY as wd, type Assignment, type Unavailability } from '../../domain/types'
+import { DEFAULT_WORKDAY, type Assignment, type Unavailability } from '../../domain/types'
+
+// The cases are written for lunch from 11:00 to 11:30.
+const wd = { ...DEFAULT_WORKDAY, breakStart: 660, breakEnd: 690 }
 import { blockLabel, dayCell, runLabel } from './dayCell'
 
 const TUE = '2026-10-13'

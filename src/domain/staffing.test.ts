@@ -51,7 +51,7 @@ import {
   unresolvedAssignments,
   weekTotals,
 } from './staffing'
-import { competenceKey, DEFAULT_SETTINGS, DEFAULT_WORKDAY as wd, type Assignment, type Unavailability, type Workspace } from './types'
+import { competenceKey, DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type Unavailability, type Workspace } from './types'
 
 /** `hh:mm` as minutes after midnight. */
 const t = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3))
@@ -72,7 +72,9 @@ const HANNE = 'p8'
 const MONA = 'p13'
 const PER = 'p16'
 
-const empty: Workspace = { settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [] }
+// The cases are written for lunch from 11:00 to 11:30.
+const wd = { ...DEFAULT_WORKDAY, breakStart: 660, breakEnd: 690 }
+const empty: Workspace = { settings: { ...DEFAULT_SETTINGS, workday: wd }, venue: [], projects: [], demand: [], allocations: [] }
 /** The fixture week: 20 people, six competences, week 42 of 2026. */
 let ws: Workspace
 beforeAll(async () => {
