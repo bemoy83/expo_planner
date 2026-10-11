@@ -157,22 +157,26 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 [data-tool='erase'] .bm-cell{cursor:crosshair}
 [data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
 [data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
-/* where the brush would put time: striped in its colour, with the hours it gives */
+/* What a stroke would do is flat: tints and thin edges, and never a hatch, which says a person is not there. */
+/* where the brush would put time: a tint of its colour, with the hours it gives */
 .bm-ghosts{pointer-events:none}
-.bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 5px,color-mix(in oklab,var(--cc) 18%,transparent) 5px 10px);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--cc) 65%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
-/* what the eraser would take: its blocks as dashed outlines */
-.bm-cell.erasing .bm-block{background:transparent;box-shadow:none;outline:1.5px dashed color-mix(in srgb,var(--text) 45%,transparent);outline-offset:-1.5px;color:var(--muted)}
-/* a stroke: one outline over all its days, and what it will do on a pill */
-.bm-stroke{position:absolute;z-index:1;border-radius:7px;background:color-mix(in oklab,var(--cc) 4%,transparent);box-shadow:inset 0 0 0 1.5px var(--cc),0 0 0 4px color-mix(in oklab,var(--cc) 13%,transparent);pointer-events:none}
-.bm-stroke.erase{--cc:var(--neg)}
+.bm-ghosts i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 26%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num);font-style:normal}
+/* the day whose blocks are on their way to another: a fainter tint, while the preview shows where they land */
+.bm-cell.moving .bm-block{background:color-mix(in oklab,var(--cc) 18%,var(--bg));color:var(--muted)}
+/* what the eraser would take: its blocks emptied, with a thin red edge */
+.bm-cell.erasing .bm-block{background:var(--bg);box-shadow:inset 0 0 0 1px var(--neg);color:var(--muted)}
+/* a stroke: one thin outline over all its days, and what it will do on a pill that sits on it, red when it erases */
+.bm-stroke{position:absolute;z-index:1;border-radius:4px;box-shadow:inset 0 0 0 1.5px var(--cc);pointer-events:none}
+.bm-stroke.erase{--cc:var(--neg);--pill:var(--neg)}
 .bm-stroke.select{--cc:color-mix(in srgb,var(--text) 70%,transparent)}
 /* the days that are selected: a tint, with no outline */
-.bm-selection{position:absolute;z-index:1;border-radius:7px;background:color-mix(in srgb,var(--accent) 10%,transparent);pointer-events:none}
-.bm-pill{position:absolute;left:0;bottom:calc(100% + 8px);display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:8px;background:var(--text);color:var(--bg);font-size:var(--fs-sm);white-space:nowrap}
-.bm-pill.below{top:calc(100% + 8px);bottom:auto}
+.bm-selection{position:absolute;z-index:1;border-radius:4px;background:color-mix(in srgb,var(--accent) 10%,transparent);pointer-events:none}
+.bm-pill{position:absolute;left:0;display:flex;align-items:center;gap:8px;height:20px;padding:0 8px;background:var(--pill,var(--text));color:var(--bg);font-size:var(--fs-xs);white-space:nowrap}
+.bm-pill:not(.below){bottom:100%;border-radius:4px 4px 0 0}
+.bm-pill.below{top:100%;border-radius:0 0 4px 4px}
 .bm-pill b{display:inline-flex;align-items:center;gap:6px;font-weight:600}
 .bm-pill span{font-family:var(--font-num)}
-.bm-pill span+span{padding-left:10px;border-left:1px solid color-mix(in srgb,var(--bg) 30%,transparent)}
+.bm-pill span+span{padding-left:8px;border-left:1px solid color-mix(in srgb,var(--bg) 30%,transparent)}
 
 /* ---- the open hours of one person: a tall line above the others, every day a track of time ---- */
 .bm-unfolded{border-bottom:1px solid var(--line);user-select:none}

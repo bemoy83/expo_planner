@@ -46,6 +46,8 @@ interface LineProps {
   strokeFrom: number
   strokeTo: number
   erasing: boolean
+  /** The column of the line whose blocks are being dragged to another day, or -1. */
+  movingCol: number
   /** The column of the line where blocks dragged from another day cannot go, or -1. */
   refusedCol: number
   /** Where the brush, a paste or blocks dragged from another day would put time on the line's days. */
@@ -54,7 +56,7 @@ interface LineProps {
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, refusedCol, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, movingCol, refusedCol, ghost, actions }: LineProps) {
   const span = workday.dayEnd - workday.dayStart
   const blocksOn: BlocksOn = (date) => assignments?.get(date)
   // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
@@ -108,7 +110,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         return (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${runOn ? 'run-on' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
+            className={`${dayClass(cols, date)} cell bm-cell ${cell.offDay ? 'off-day' : ''} ${runOn ? 'run-on' : ''} ${movingCol === col ? 'moving' : ''} ${blocked ? 'blocked' : ''} ${refused ? 'refused' : ''} ${inStroke && erasing ? 'erasing' : ''}`}
             onMouseDown={actions.cellDown}
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
@@ -211,6 +213,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               strokeFrom={inStroke ? range.colFrom : -1}
               strokeTo={inStroke ? range.colTo : -1}
               erasing={inStroke && stroke!.mode === 'erase'}
+              movingCol={stroke?.mode === 'move' && stroke.row0 === row && (stroke.row1 !== row || stroke.col1 !== stroke.col0) ? stroke.col0 : -1}
               refusedCol={refused?.personId === person.id ? refusedCol : -1}
               ghost={ghost.get(person.id)}
               actions={actions}
