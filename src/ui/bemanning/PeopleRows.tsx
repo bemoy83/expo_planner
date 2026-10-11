@@ -63,13 +63,13 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
   const runs = cols.dates.flatMap((date, i) =>
     (assignments?.get(date) ?? NO_ASSIGNMENTS).flatMap((block) => {
       const link = runLink(blocksOn, date, block, workday)
-      if (!link.next || (link.prev && i > 0) || (brush && brush !== block.competence)) return []
+      if (!link.next || (link.prev && i > 0)) return []
       const run = runOf(blocksOn, date, block, workday)
       const style = styles.get(run.competence)
       const from = cols.c0 + i - daysBetween(run.from, date) + run.startShare
       const length = run.days - 1 + run.endShare - run.startShare
       const text = runLabel(length * cols.colW - 2 * DAY_INSET, style?.label ?? run.competence, style?.shortLabel ?? '', names, run.days)
-      return text ? [{ key: block.id, from, length, text: `${from < cols.first ? '‹ ' : ''}${text}`, style }] : []
+      return text ? [{ key: block.id, from, length, text: `${from < cols.first ? '‹ ' : ''}${text}`, style, other: brush !== null && brush !== run.competence }] : []
     }),
   )
   return (
@@ -131,7 +131,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
       overlay={runs.map((run) => (
         // As the name of an event in the hall calendar: it starts with its run and stays at the left edge of the days while the run is in view.
         <span key={run.key} className="bm-run" style={{ left: daysWide(run.from, LEFT_W + DAY_INSET), width: daysWide(run.length, -2 * DAY_INSET), ...competenceColor(run.style) }}>
-          <span className="bm-run-name" style={{ left: LEFT_W + DAY_INSET }}>
+          <span className={`bm-run-name ${run.other ? 'other' : ''}`} style={{ left: LEFT_W + DAY_INSET }}>
             {run.text}
           </span>
         </span>
