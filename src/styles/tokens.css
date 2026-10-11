@@ -22,10 +22,9 @@
   --hatch:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px);   /* the one hatch, laid over a fill: a hall day two events share, FTE outside a row's window, time away in Bemanning */
   --tip-bg:#4a4642; --tip-text:#f5f2ec;                           /* the tooltip */
 
-  /* accent: burnt orange (selection, focus, today, active tab, the primary action). Never the mark of a mode. */
+  /* accent: burnt orange (selection, focus, today, active tab): where the planner is and what is picked. Never the mark of a mode, and not the fill of a button: the primary action is ink. */
   --accent:#d46c2c;
   --accent-soft:color-mix(in oklab,var(--accent) 15%,transparent);
-  --on-accent:#180c04;     /* text on the accent fill */
 
   /* days off: one step darker than what the line itself is filled with, and never see-through */
   --weekend:color-mix(in srgb,#e7e4dd 50%,#f2f0eb);
@@ -151,7 +150,6 @@
 
   --accent:#e88c54;
   --accent-soft:color-mix(in oklab,var(--accent) 18%,transparent);
-  --on-accent:#180c04;
 
   --weekend:color-mix(in srgb,#f3f2ee 4%,#0f0f0e);
   --section:color-mix(in oklab,var(--bg) 82%,#000);
