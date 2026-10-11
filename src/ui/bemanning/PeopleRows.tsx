@@ -11,7 +11,7 @@ import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
 import { useBemanning, type GhostBlock, type PersonActions } from './BemanningScope'
 import { dayCell, runLabel, type BlockNames } from './dayCell'
 import { DAY_INSET, DIVIDER_H, PERSON_H } from './layout'
-import { runLink, runOf, type BlocksOn, type RunLink } from './runs'
+import { runLink, runOf, type BlocksOn, type EndShape, type RunLink } from './runs'
 import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
 import { UnfoldedPerson } from './UnfoldedPerson'
@@ -114,14 +114,22 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         const previewBefore = (competence: string | null) => ghost?.get(before)?.some((gap) => of(gap) === competence && reaches(gap)) === true
         const previewAfter = (competence: string | null) => ghost?.get(after)?.some((gap) => of(gap) === competence && begins(gap)) === true
         // The shape of a block: as its run has it, and going on into time a stroke would put beside it.
-        const shapes = new Map<string, RunLink>()
+        const shapes = new Map<string, EndShape>()
         for (const block of blocks) {
           const link = links.get(block.id)
-          const shape = { prev: link?.prev === true || (begins(block) && previewBefore(block.competence)), next: link?.next === true || (reaches(block) && previewAfter(block.competence)) }
-          if (shape.prev || shape.next) shapes.set(block.id, shape)
+          const shape = {
+            prev: link?.prev === true || (begins(block) && previewBefore(block.competence)),
+            next: link?.next === true || (reaches(block) && previewAfter(block.competence)),
+            // In its own day, a block and what a stroke would put right beside it are one piece too.
+            meetsBefore: gaps?.some((gap) => of(gap) === block.competence && gap.end === block.start) === true,
+            meetsAfter: gaps?.some((gap) => of(gap) === block.competence && gap.start === block.end) === true,
+          }
+          if (shape.prev || shape.next || shape.meetsBefore || shape.meetsAfter) shapes.set(block.id, shape)
         }
         const previews = (gaps ?? []).map((gap) => ({
           gap,
+          meetsBefore: blocks.some((a) => a.competence === of(gap) && a.end === gap.start),
+          meetsAfter: blocks.some((a) => a.competence === of(gap) && a.start === gap.end),
           prev: begins(gap) && (previewBefore(of(gap)) || assignments?.get(before)?.some((a) => a.competence === of(gap) && reaches(a)) === true),
           next: reaches(gap) && (previewAfter(of(gap)) || assignments?.get(after)?.some((a) => a.competence === of(gap) && begins(a)) === true),
         }))
@@ -141,10 +149,10 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} edges />
             {gaps && (
               <span className="bm-timeline bm-ghosts">
-                {previews.map(({ gap, prev, next }) => (
+                {previews.map(({ gap, prev, next, meetsBefore, meetsAfter }) => (
                   <i
                     key={gap.start}
-                    className={`${prev ? 'join-prev' : ''} ${next ? 'join-next' : ''}`}
+                    className={`${prev ? 'join-prev' : ''} ${next ? 'join-next' : ''} ${meetsBefore ? 'meet-prev' : ''} ${meetsAfter ? 'meet-next' : ''}`}
                     style={{
                       left: `calc(${(Math.max(0, gap.start - workday.dayStart) / span) * 100}% - ${prev ? DAY_INSET : 0}px)`,
                       width: `calc(${((Math.min(gap.end, workday.dayEnd) - Math.max(gap.start, workday.dayStart)) / span) * 100}% + ${(prev ? DAY_INSET : 0) + (next ? DAY_INSET + 1 : 0)}px)`,

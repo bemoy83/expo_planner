@@ -83,10 +83,11 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-hints{font-size:var(--fs-sm);color:var(--faint)}
 .bm-clip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--sunken);font-size:var(--fs-sm);color:var(--muted)}
 .bm-clip .row-action{height:22px}
-.bar-controls .bm-over-limit{height:30px;padding:0 10px;background:color-mix(in srgb,var(--over) 14%,transparent);color:var(--over);font-size:var(--fs-sm);font-weight:500}
-.bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--neg-bg);color:var(--neg);font-size:var(--fs-md);font-weight:500}
+.bar-controls .bm-over-limit{height:30px;padding:0 10px;background:var(--alert-warn);color:var(--alert-on);font-size:var(--fs-sm);font-weight:500}
+.bar-controls .bm-over-limit:hover{filter:brightness(1.06)}
+.bm-unresolved{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 4px 0 10px;border-radius:8px;background:var(--alert-block);color:var(--alert-on);font-size:var(--fs-md);font-weight:500}
 .bm-unresolved button{height:22px;padding:0 8px;border-radius:6px;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:600}
-.bm-unresolved button:hover{background:color-mix(in srgb,var(--neg) 12%,transparent)}
+.bm-unresolved button:hover{background:color-mix(in oklab,currentColor 18%,transparent)}
 
 /* what opens at the pointer: the balance of a day of a demand line */
 .bm-demand-pop{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:var(--fs-md)}
@@ -126,15 +127,15 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-cell.off-day{background-color:var(--weekend)}
 .bm-timeline{position:absolute;inset:7px 5px}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
-.bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);transition:opacity 160ms var(--ease)}
+.bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);clip-path:inset(-1px var(--cut-end,-1px) -1px var(--cut-start,-1px));transition:opacity 160ms var(--ease)}
 .bm-block b{margin:0 -7px;padding:1px 7px;overflow:hidden;border-radius:4px;background:var(--cc);color:var(--on-line);font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
 .bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
 /* a run: the blocks of days in a row with one competence meet, square where they do, and have one name between them. */
-:is(.bm-block,.bm-ghosts i).join-prev{border-top-left-radius:0;border-bottom-left-radius:0}
-:is(.bm-block,.bm-ghosts i).join-next{border-top-right-radius:0;border-bottom-right-radius:0}
-.bm-block.join-prev:not(.join-next){clip-path:inset(-1px -1px -1px 0)}
-.bm-block.join-next:not(.join-prev){clip-path:inset(-1px 0 -1px -1px)}
-.bm-block.join-prev.join-next{clip-path:inset(-1px 0)}
+/* An end that is joined to the day beside it (`join-`), or that meets what a stroke would put right beside it in its own day (`meet-`), is square, and the block's edge of the ground's colour is cut away there, see `.bm-block`. */
+:is(.bm-block,.bm-ghosts i):is(.join-prev,.meet-prev){border-top-left-radius:0;border-bottom-left-radius:0}
+:is(.bm-block,.bm-ghosts i):is(.join-next,.meet-next){border-top-right-radius:0;border-bottom-right-radius:0}
+.bm-block:is(.join-prev,.meet-prev){--cut-start:0px}
+.bm-block:is(.join-next,.meet-next){--cut-end:0px}
 .bm-run{position:absolute;top:7px;bottom:7px;z-index:1;display:flex;align-items:center;pointer-events:none}
 /* A name is written one way, on a single day and on a run: light, on a badge of the competence's colour. On the block's own colour the badge is not seen; over a hatch, and where a run's name slides over what is under it as the days scroll, it is what keeps the name readable. */
 .bm-run-name{position:sticky;padding:1px 7px;overflow:hidden;white-space:nowrap;border-radius:4px;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}

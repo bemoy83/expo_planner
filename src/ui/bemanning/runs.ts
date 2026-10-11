@@ -34,6 +34,12 @@ export interface RunLink {
   next: boolean
 }
 
+/** How a block is drawn at its ends: joined over the days, and meeting what a stroke would put right before or after it in its own day. */
+export interface EndShape extends RunLink {
+  meetsBefore?: boolean
+  meetsAfter?: boolean
+}
+
 export const runLink = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): RunLink => ({
   prev: prevInRun(blocks, date, block, wd) !== undefined,
   next: nextInRun(blocks, date, block, wd) !== undefined,

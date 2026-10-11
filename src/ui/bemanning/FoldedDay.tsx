@@ -3,7 +3,7 @@ import type { CompetenceStyle } from '../../domain/types'
 import { competenceColor } from '../dom'
 import { ABSENCE_LABELS, blockLabel, type BlockNames, type DayCell } from './dayCell'
 import { DAY_INSET, EDGE_W } from './layout'
-import type { RunLink } from './runs'
+import type { EndShape, RunLink } from './runs'
 import { EPSILON, hoursText } from './week'
 
 const colorOf = (styles: Map<string, CompetenceStyle>, competence: string) => competenceColor(styles.get(competence))
@@ -25,7 +25,7 @@ export function WeekMeter({ week, overLimit = false }: { week: PersonWeek; /** T
 }
 
 /** What a person's day shows when it is folded: a small timeline of the normal day, `width` pixels wide. */
-export function FoldedDay({ cell, styles, brush, width, names, links, shapes = links, edges = false }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink>; /** How the blocks are drawn at their ends: joined as their run has them, and to what a stroke would put beside them. Without it, as `links`. */ shapes?: Map<string, RunLink>; /** The ends of a run, and of a single day, can be taken hold of. */ edges?: boolean }) {
+export function FoldedDay({ cell, styles, brush, width, names, links, shapes = links, edges = false }: { cell: DayCell; styles: Map<string, CompetenceStyle>; brush: string | null; width: number; names: BlockNames; /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name. */ links?: Map<string, RunLink>; /** How the blocks are drawn at their ends: joined as their run has them, and to what a stroke would put beside them. Without it, as `links`. */ shapes?: Map<string, EndShape>; /** The ends of a run, and of a single day, can be taken hold of. */ edges?: boolean }) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
   // A weekend or a holiday with nothing on it is left empty, whatever absence covers it.
@@ -54,7 +54,7 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes = l
         return (
           <span
             key={block.id}
-            className={`bm-block ${shape?.prev ? 'join-prev' : ''} ${shape?.next ? 'join-next' : ''} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
+            className={`bm-block ${shape?.prev ? 'join-prev' : ''} ${shape?.next ? 'join-next' : ''} ${shape?.meetsBefore ? 'meet-prev' : ''} ${shape?.meetsAfter ? 'meet-next' : ''} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
             style={{ left: `calc(${block.left}% - ${before}px)`, width: `calc(${block.width}% + ${before + after}px)`, paddingLeft: lead ? `calc(${lead}% + 7px)` : undefined, ...colorOf(styles, block.competence) }}
             title={`${name} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
           >
