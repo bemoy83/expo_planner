@@ -69,7 +69,14 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
       const from = cols.c0 + i - daysBetween(run.from, date) + run.startShare
       const length = run.days - 1 + run.endShare - run.startShare
       const text = runLabel(length * cols.colW - 2 * DAY_INSET, style?.label ?? run.competence, style?.shortLabel ?? '', names, run.days)
-      return text ? [{ key: block.id, from, length, text: `${from < cols.first ? '‹ ' : ''}${text}`, style, other: brush !== null && brush !== run.competence }] : []
+      if (!text) return []
+      // The name is read on what lies under it: the run's block on the day the name stands on, which is its first day in view.
+      const at = Math.min(Math.max(Math.floor(from), cols.first), cols.c0 + cols.dates.length - 1)
+      const day = cols.dates[at - cols.c0] ?? date
+      const under = day === run.from ? (assignments?.get(day) ?? NO_ASSIGNMENTS).findLast((a) => a.competence === run.competence && a.end >= workday.dayEnd) : (assignments?.get(day) ?? NO_ASSIGNMENTS).find((a) => a.competence === run.competence && a.start <= workday.dayStart)
+      const awayAtStart = under !== undefined && (absence?.get(day) ?? NO_ABSENCE).some((u) => u.start !== undefined && u.start <= Math.max(under.start, workday.dayStart) && u.end! > Math.max(under.start, workday.dayStart))
+      const onHatch = (under !== undefined && !isOk(under)) || awayAtStart || (erasing && at >= strokeFrom && at <= strokeTo)
+      return [{ key: block.id, from, length, text: `${from < cols.first ? '‹ ' : ''}${text}`, style, onHatch, other: brush !== null && brush !== run.competence }]
     }),
   )
   return (
@@ -131,7 +138,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
       overlay={runs.map((run) => (
         // As the name of an event in the hall calendar: it starts with its run and stays at the left edge of the days while the run is in view.
         <span key={run.key} className="bm-run" style={{ left: daysWide(run.from, LEFT_W + DAY_INSET), width: daysWide(run.length, -2 * DAY_INSET), ...competenceColor(run.style) }}>
-          <span className={`bm-run-name ${run.other ? 'other' : ''}`} style={{ left: LEFT_W + DAY_INSET }}>
+          <span className={`bm-run-name ${run.onHatch ? 'on-hatch' : ''} ${run.other ? 'other' : ''}`} style={{ left: LEFT_W + DAY_INSET }}>
             {run.text}
           </span>
         </span>
