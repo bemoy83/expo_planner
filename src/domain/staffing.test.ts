@@ -602,7 +602,7 @@ describe('copy and paste (R34)', () => {
     const own = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', ANDERS, WED, '07:00', '11:00'), tep('c', PER, TUE, '11:30', '15:00')])
     const clip = copyDays(own, [...days(ANDERS, [MON, TUE, WED]), ...days(PER, [MON, TUE, WED])])!
     expect(clip.items.map((item) => [item.personId, item.dayOffset])).toEqual([[ANDERS, 0], [ANDERS, 2], [PER, 1]])
-    const { assignments, pasted, skipped } = pasteDays(own, clip, NEXT_MON, '2026-12-31', id)
+    const { assignments, pasted, skipped } = pasteDays(own, clip, NEXT_MON, '2026-12-31', undefined, id)
     expect(of(assignments, ANDERS, NEXT_MON)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
     expect(of(assignments, ANDERS, '2026-10-21')).toEqual([{ competence: 'teppefliser', ...iv('07:00', '11:00') }])
     expect(of(assignments, PER, '2026-10-20')).toEqual([{ competence: 'teppefliser', ...iv('11:30', '15:00') }])
@@ -613,18 +613,18 @@ describe('copy and paste (R34)', () => {
     const clip = copyDays(own, [...days(ANDERS, [MON]), ...days(PER, [MON])])!
     expect(clip.people).toEqual([ANDERS, PER])
     // Anders's Monday lands on Per the Tuesday, and Per's on Geir, who has not the competence.
-    const { assignments, pasted } = pasteDays(own, clip, TUE, '2026-12-31', id, [PER, GEIR])
+    const { assignments, pasted } = pasteDays(own, clip, TUE, '2026-12-31', [PER, GEIR], id)
     expect(of(assignments, PER, TUE)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
     expect(of(assignments, GEIR, TUE)).toEqual([])
     expect(pasted).toBe(1)
     // A line past the end of the list has no one to land on.
-    expect(pasteDays(own, clip, TUE, '2026-12-31', id, [PER, undefined]).pasted).toBe(1)
+    expect(pasteDays(own, clip, TUE, '2026-12-31', [PER, undefined], id).pasted).toBe(1)
   })
   it('D45 fills only free time, and skips and counts the days a person is away', () => {
     const base = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', ANDERS, TUE, '07:00', '15:00'), tep('x', ANDERS, NEXT_MON, '07:00', '11:00')])
     const own = { ...base, unavailability: [...(base.unavailability ?? []), ...sick(ANDERS, ['2026-10-20'])] }
     const clip = copyDays(own, days(ANDERS, [MON, TUE]))!
-    const { assignments, pasted, skipped } = pasteDays(own, clip, NEXT_MON, '2026-12-31', id)
+    const { assignments, pasted, skipped } = pasteDays(own, clip, NEXT_MON, '2026-12-31', undefined, id)
     expect(of(assignments, ANDERS, NEXT_MON)).toEqual([{ competence: 'teppefliser', ...iv('07:00', '15:00') }])
     expect(of(assignments, ANDERS, '2026-10-20')).toEqual([])
     expect({ pasted, skipped }).toEqual({ pasted: 1, skipped: 1 })
@@ -632,7 +632,7 @@ describe('copy and paste (R34)', () => {
   it('leaves out the days past the end of the period, and copies nothing from empty days', () => {
     const own = withAssignments([tep('a', ANDERS, MON, '07:00', '15:00'), tep('b', ANDERS, TUE, '07:00', '15:00')])
     const clip = copyDays(own, days(ANDERS, [MON, TUE]))!
-    expect(pasteDays(own, clip, NEXT_MON, NEXT_MON, id).pasted).toBe(1)
+    expect(pasteDays(own, clip, NEXT_MON, NEXT_MON, undefined, id).pasted).toBe(1)
     expect(copyDays(own, days(ANDERS, [THU, FRI]))).toBeNull()
   })
 })

@@ -128,7 +128,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-timeline{position:absolute;inset:7px 5px}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);clip-path:inset(-1px var(--cut-end,-1px) -1px var(--cut-start,-1px));transition:opacity 160ms var(--ease)}
-.bm-block b{margin:0 -7px;padding:1px 7px;overflow:hidden;border-radius:4px;background:var(--cc);color:var(--on-line);font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
+.bm-block b{margin:0 -7px}
 .bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
 /* a run: the blocks of days in a row with one competence meet, square where they do, and have one name between them. */
 /* An end that is joined to the day beside it (`join-`), or that meets what a stroke would put right beside it in its own day (`meet-`), is square, and the block's edge of the ground's colour is cut away there, see `.bm-block`. */
@@ -138,15 +138,18 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-block:is(.join-next,.meet-next){--cut-end:0px}
 .bm-run{position:absolute;top:7px;bottom:7px;z-index:1;display:flex;align-items:center;pointer-events:none}
 /* A name is written one way, on a single day and on a run: light, on a badge of the competence's colour. On the block's own colour the badge is not seen; over a hatch, and where a run's name slides over what is under it as the days scroll, it is what keeps the name readable. */
-.bm-run-name{position:sticky;padding:1px 7px;overflow:hidden;white-space:nowrap;border-radius:4px;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
-.bm-run-name:not(.other){background:var(--cc);color:var(--on-line)}
+.bm-block b,.bm-run-name{padding:1px 7px;overflow:hidden;border-radius:4px;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
+.bm-block b,.bm-run-name:not(.other){background:var(--cc);color:var(--on-line)}
+.bm-run-name{position:sticky;white-space:nowrap}
 /* A dimmed block is see-through with its name and badge, so they are their colours mixed into the ground by as much. The run's name lies over its blocks and is given those colours outright. */
 .bm-run-name.other{background:color-mix(in srgb,var(--cc) 28%,var(--bg));color:color-mix(in srgb,var(--on-line) 28%,var(--bg))}
 /* a block whose hours are back in the demand: hatched in its colour, with no outline, so a run it is a part of stays one piece. The same in the folded day and in the open hours. */
 .bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other{opacity:.28}
 /* the stretch of a block the person is away for: the block keeps its shape, and that stretch is hatched as a block that does not count is. In the folded day and in the open hours. */
-.bm-away-part{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);pointer-events:none}
+.bm-away-part{position:absolute;top:0;bottom:0;pointer-events:none}
+/* hours of a block that go, on the ground's colour: the stretch a person is away for, the time a pulled end takes, and the blocks under the eraser */
+.bm-away-part,.bm-cell.erasing .bm-block{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px)}
 /* unresolved, but the day is covered by others: a faint trace of what was planned */
 .bm-block.replaced,.bm-edit-block.replaced{opacity:.4}
 /* why the person is away the whole day: one badge in the middle of it, a solid fill with its own ink so it is read on a hatch of any colour, red for sickness alone */
@@ -175,7 +178,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* the day whose blocks are on their way to another: a fainter tint, while the preview shows where they land */
 .bm-cell.moving .bm-block{background:color-mix(in oklab,var(--cc) 18%,var(--bg));color:var(--muted)}
 /* what the eraser would take: its blocks hatched in their colour, as hours that do not count are. No edge: a run under the eraser stays one piece, and the stroke's red outline says what is happening. */
-.bm-cell.erasing .bm-block{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);color:var(--text)}
+.bm-cell.erasing .bm-block{color:var(--text)}
 /* a stroke: one thin outline over all its days, and what it will do on a pill that sits on it, red when it erases */
 /* a pulled end of a run has the pill alone: its days are not selected, and the preview shows what they get or lose */
 .bm-stroke{position:absolute;z-index:1;border-radius:4px;pointer-events:none}

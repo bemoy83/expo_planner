@@ -1,5 +1,5 @@
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
-import type { Assignment, Minute, WorkdaySettings } from '../../domain/types'
+import type { Assignment, Interval, Minute, WorkdaySettings } from '../../domain/types'
 
 /** The blocks of one person on a day. */
 export type BlocksOn = (date: ISODate) => Assignment[] | undefined
@@ -11,8 +11,8 @@ export type BlocksOn = (date: ISODate) => Assignment[] | undefined
  * and a run goes on through one that is. What happens to the person (sickness, absence, overtime) does not
  * end it: the blocks are still there.
  */
-const reachesEnd = (a: Assignment, wd: WorkdaySettings) => a.end >= wd.dayEnd && a.start < wd.dayEnd
-const fromStart = (a: Assignment, wd: WorkdaySettings) => a.start <= wd.dayStart && a.end > wd.dayStart
+const reachesEnd = (iv: Interval, wd: WorkdaySettings) => iv.end >= wd.dayEnd && iv.start < wd.dayEnd
+const fromStart = (iv: Interval, wd: WorkdaySettings) => iv.start <= wd.dayStart && iv.end > wd.dayStart
 
 /** The block the run of `block` goes on with the day after, if any. */
 export const nextInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
@@ -34,10 +34,30 @@ export interface RunLink {
   next: boolean
 }
 
-/** How a block is drawn at its ends: joined over the days, and meeting what a stroke would put right before or after it in its own day. */
+/** How a block, or time a stroke would put down, is drawn at its ends: joined over the days, and meeting what lies right before or after it in its own day. */
 export interface EndShape extends RunLink {
-  meetsBefore?: boolean
-  meetsAfter?: boolean
+  meetsBefore: boolean
+  meetsAfter: boolean
+}
+
+/** Time of one competence in a day: a block, or what a stroke would put down. */
+export type Piece = Interval & { competence: string }
+export type PiecesOn = (date: ISODate) => Piece[] | undefined
+
+/**
+ * The shape of a piece of the day `date`, with what a stroke would put down counted as there: joined to the
+ * day before or after where a run would go on, through time that is only previewed as through blocks, and
+ * one piece with what lies right `beside` it in its own day: the previews for a block, the blocks for a preview.
+ */
+export const endShape = (piece: Piece, date: ISODate, beside: Piece[], blocks: PiecesOn, previews: PiecesOn, wd: WorkdaySettings): EndShape => {
+  const same = (other: Piece) => other.competence === piece.competence
+  const on = (day: ISODate, joins: (iv: Interval, wd: WorkdaySettings) => boolean) => [blocks, previews].some((pieces) => pieces(day)?.some((other) => same(other) && joins(other, wd)) === true)
+  return {
+    prev: fromStart(piece, wd) && on(addDays(date, -1), reachesEnd),
+    next: reachesEnd(piece, wd) && on(addDays(date, 1), fromStart),
+    meetsBefore: beside.some((other) => same(other) && other.end === piece.start),
+    meetsAfter: beside.some((other) => same(other) && other.start === piece.end),
+  }
 }
 
 export const runLink = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): RunLink => ({
@@ -64,9 +84,13 @@ export interface RunDay {
 
 /** The days of the run a block is a part of, in order. A block that is joined to nothing is a run of one day. */
 export const runDays = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): RunDay[] => {
+  const step = (from: RunDay, by: 1 | -1): RunDay | undefined => {
+    const beside = (by > 0 ? nextInRun : prevInRun)(blocks, from.date, from.block, wd)
+    return beside && { date: addDays(from.date, by), block: beside }
+  }
   const days: RunDay[] = [{ date, block }]
-  for (let prev = prevInRun(blocks, days[0].date, days[0].block, wd); prev; prev = prevInRun(blocks, days[0].date, days[0].block, wd)) days.unshift({ date: addDays(days[0].date, -1), block: prev })
-  for (let last = days[days.length - 1], next = nextInRun(blocks, last.date, last.block, wd); next; last = days[days.length - 1], next = nextInRun(blocks, last.date, last.block, wd)) days.push({ date: addDays(last.date, 1), block: next })
+  for (let day = step(days[0], -1); day; day = step(day, -1)) days.unshift(day)
+  for (let day = step(days[days.length - 1], 1); day; day = step(day, 1)) days.push(day)
   return days
 }
 
@@ -97,6 +121,9 @@ export interface Stretch {
   trim?: { block: Assignment; start: Minute; end: Minute }
 }
 
+/** Two hours of work between one stop and the next. */
+const STOP = 120
+
 /**
  * The stops an end can be pulled to within a day: where two, four and six hours of the normal day are
  * worked, and so on, and its end. They are counted in paid hours, so they hold wherever the lunch break is
@@ -113,8 +140,6 @@ export const stretchStops = (edge: 'start' | 'end', wd: WorkdaySettings): Minute
   }
   return [...stops, wd.dayEnd]
 }
-/** Two hours of work between one stop and the next. */
-const STOP = 120
 
 /** The stop nearest to where in the day the pointer is, `share` being 0 at the start of the normal day and 1 at its end. */
 export const stretchStop = (share: number, edge: 'start' | 'end', wd: WorkdaySettings): Minute => {

@@ -21,6 +21,12 @@ export const hoursShort = (hours: number): string => formatFte(Math.round(hours 
 
 export const clock = (minute: Minute): string => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
 
+/** «11:30» as minutes after midnight, or NaN: what `clock` writes, read back. */
+export const clockMinutes = (text: string): Minute => {
+  const [hours, mins] = text.split(':').map(Number)
+  return Number.isInteger(hours) && Number.isInteger(mins) ? hours * 60 + mins : NaN
+}
+
 /** A stretch of time, «07:00–15:00». Short, whole hours lose their minutes: «07–15», «11:30–15». */
 export const spanText = (start: Minute, end: Minute, short: boolean): string => {
   const part = (minute: Minute) => (short && minute % 60 === 0 ? String(Math.floor(minute / 60)).padStart(2, '0') : clock(minute))

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, moveTarget, normalWindows, overtimeHours, paidHours, recolourBlock, resizeBlock, splitBlock, workedParts, type EditOptions } from '../../domain/staffing'
+import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, moveTarget, normalWindows, overtimeHours, paidTotal, recolourBlock, resizeBlock, splitBlock, workedParts, type EditOptions } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Minute, Person, Workspace } from '../../domain/types'
 import { X } from 'lucide-react'
 import { ABSENCE_LABELS, absenceNote } from './dayCell'
@@ -204,7 +204,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
         const unresolved = assignmentStatus(block, ws) === 'unresolved'
         // A block says the time and the hours of it that count: what the person is away for is left out. One that does not count says its own.
         const counted = unresolved ? [block] : workedParts(block, person, absence)
-        const total = counted.reduce((sum, part) => sum + paidHours(part, wd), 0)
+        const total = paidTotal(counted, wd)
         const overtime = counted.reduce((sum, part) => sum + overtimeHours(part, dayType(date), wd), 0)
         const times = (short: boolean) => counted.map((part) => spanText(part.start, part.end, short)).join(' · ')
         const replaced = unresolved && !stillOpen.has(block.id)

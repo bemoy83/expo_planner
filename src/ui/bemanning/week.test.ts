@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hoursShort, hoursText } from './week'
+import { clock, clockMinutes, hoursShort, hoursText } from './week'
 
 describe('hours as text', () => {
   it('keeps quarter hours where the exact figure is wanted', () => {
@@ -12,5 +12,18 @@ describe('hours as text', () => {
     expect(hoursShort(95.25)).toBe('95,3')
     expect(hoursShort(15)).toBe('15')
     expect(hoursShort(0)).toBe('0')
+  })
+})
+
+describe('a time of the day as text', () => {
+  it('is read back as it is written', () => {
+    expect(clock(690)).toBe('11:30')
+    expect(clockMinutes('11:30')).toBe(690)
+    expect(clockMinutes('07:00')).toBe(420)
+  })
+
+  it('is no number where the text is no time', () => {
+    expect(clockMinutes('')).toBeNaN()
+    expect(clockMinutes('11')).toBeNaN()
   })
 })

@@ -13,3 +13,6 @@ export const inWindow = (x: number, y: number, width: number, height: number): {
 
 /** A competence's colour, handed to the style sheet as `--cc`. One without a style is slate. */
 export const competenceColor = (style: Pick<CompetenceStyle, 'color'> | undefined): CSSProperties => ({ '--cc': `var(--${style?.color ?? 'line-slate'})` }) as CSSProperties
+
+/** A key pressed with the platform's own modifier, as it is written: «⌘V» on a Mac, «Ctrl+V» elsewhere. */
+export const modKey = (key: string): string => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`)

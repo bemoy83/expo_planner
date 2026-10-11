@@ -3,7 +3,7 @@ import { DEFAULT_WORKDAY, type Assignment } from '../../domain/types'
 
 // The cases are written for lunch from 11:00 to 11:30.
 const wd = { ...DEFAULT_WORKDAY, breakStart: 660, breakEnd: 690 }
-import { runDays, runLink, runOf, stretchRun, stretchStop, stretchStops, type BlocksOn } from './runs'
+import { endShape, runDays, runLink, runOf, stretchRun, stretchStop, stretchStops, type BlocksOn, type Piece } from './runs'
 
 // Week 42 of 2026: Monday the 12th to Friday the 16th, and the Monday after.
 const MON = '2026-10-12'
@@ -138,5 +138,40 @@ describe('pulling an end of a run (R46)', () => {
     expect(stretchRun(days, 'start', MON, DAWN, wd)).toEqual({ add: [], remove: [] })
     // The start of its own first day is no time to cut a run's end to.
     expect(stretchRun(days, 'end', MON, DAWN, wd)).toEqual({ add: [], remove: days.slice(1) })
+  })
+})
+
+describe('the ends of a piece of a day', () => {
+  const none = () => undefined
+  const NOWHERE = { prev: false, next: false, meetsBefore: false, meetsAfter: false }
+
+  it('is the link of its run where no stroke is drawn', () => {
+    const days = [MON, TUE, WED].map((date) => block(date, 'vegger'))
+    expect(endShape(days[1], TUE, [], on(...days), none, wd)).toEqual({ ...NOWHERE, prev: true, next: true })
+    expect(endShape(days[2], WED, [], on(...days), none, wd)).toEqual({ ...NOWHERE, prev: true })
+  })
+
+  it('joins a block to what a stroke would put on the day beside it, and that to the block', () => {
+    const tue = block(TUE, 'vegger')
+    const preview: Piece = { competence: 'vegger', start: 420, end: 660 }
+    const previews = (date: string) => (date === WED ? [preview] : undefined)
+    expect(endShape(tue, TUE, [], on(tue), previews, wd)).toEqual({ ...NOWHERE, next: true })
+    // The preview stops at 11:00, so it goes on into no day after it.
+    expect(endShape(preview, WED, [], on(tue), previews, wd)).toEqual({ ...NOWHERE, prev: true })
+  })
+
+  it('joins what a stroke would put on days in a row, as the run it makes', () => {
+    const whole: Piece = { competence: 'vegger', start: 420, end: 900 }
+    const previews = (date: string) => (date === TUE || date === WED ? [whole] : undefined)
+    expect(endShape(whole, TUE, [], none, previews, wd)).toEqual({ ...NOWHERE, next: true })
+    expect(endShape(whole, WED, [], none, previews, wd)).toEqual({ ...NOWHERE, prev: true })
+  })
+
+  it('meets what lies right beside it in its own day, of its competence alone', () => {
+    const morning = block(TUE, 'vegger', 420, 660)
+    const rest: Piece = { competence: 'vegger', start: 660, end: 900 }
+    expect(endShape(morning, TUE, [rest], on(morning), none, wd)).toEqual({ ...NOWHERE, meetsAfter: true })
+    expect(endShape(rest, TUE, [morning], on(morning), none, wd)).toEqual({ ...NOWHERE, meetsBefore: true })
+    expect(endShape(morning, TUE, [{ ...rest, competence: 'tepper' }], on(morning), none, wd)).toEqual(NOWHERE)
   })
 })

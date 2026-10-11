@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, onlyOffDays, paidHours, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PersonWeek, type WeekTotals } from '../../domain/staffing'
-import type { AllocationRow, Assignment, CompetenceStyle, Interval, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
+import { buildBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PaintSpan, type PersonWeek, type WeekTotals } from '../../domain/staffing'
+import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
@@ -17,7 +17,7 @@ import type { AbsenceDraft } from './PersonPanel'
 import { DIVIDER_H, PANEL_W, PERSON_H } from './layout'
 import type { ProjectSpan } from './projectsInView'
 import type { CrossMove } from './TimeTrack'
-import { runDays, stretchRun, stretchStop, type BlocksOn } from './runs'
+import { runDays, stretchRun, stretchStop, type BlocksOn, type Piece } from './runs'
 import { strokeRange, TOOL_KEYS, type Rect, type Stroke, type Tool } from './tools'
 import { EPSILON, weekDates, WEEKDAYS_LONG } from './week'
 
@@ -27,6 +27,10 @@ const LAST_KEY = 9
 const SCROLL_NEAR_RIGHT = 40
 const SCROLL_NEAR_LEFT = 16
 const SCROLL_NEAR_BOTTOM = 30
+/** Below this width of a day, an end is pulled by whole days: two hours are too little to aim at. */
+const STOPS_FROM_W = 64
+/** How far the pointer goes from where it was pressed before a press is a stroke that stops at a time, and no longer a click on the day. */
+const DRAG_FROM = 4
 
 export type Density = 'detail' | 'compact'
 const cleanDensity = (stored: unknown): Density => (stored === 'compact' ? 'compact' : 'detail')
@@ -103,20 +107,22 @@ export interface StretchPlan {
   own?: ISODate
 }
 
-/** Below this width of a day, an end is pulled by whole days: two hours are too little to aim at. */
-const STOPS_FROM_W = 64
-/** How far the pointer goes from where it was pressed before a press is a stroke that stops at a time, and no longer a click on the day. */
-const DRAG_FROM = 4
-
-/** Time a stroke would give a day; with the competence it is of when that is not the brush. */
-export type GhostBlock = Interval & { competence?: string }
-type Ghosts = Map<string, Map<ISODate, GhostBlock[]>>
+/** The time a stroke would give the days of each person, with the competence it is of. */
+type Ghosts = Map<string, Map<ISODate, Piece[]>>
 const NO_GHOST: Ghosts = new Map()
 const NO_HOURS = new Map<string, number>()
+
+/** Where across the days a point of the window is, counted in days from the first: the whole of it is the column, the rest how far into that day. */
+const daysAcross = (el: HTMLElement, x: number, colW: number): number => (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW
+
+/** Per competence: the hours that remain in the days. A day that is over does not make up for one that is short. */
+const remainingIn = (balance: Balance, days: ISODate[]): Map<string, number> =>
+  new Map(balance.competences.map((competence) => [competence, days.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0)]))
 
 function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
   const { workspace, updateStaffing, undo } = useWorkspace()
   const ws = workspace!
+  const wd = ws.settings.workday
   const { colW } = cols
   const [tool, setTool] = useState<Tool>('select')
   /** The competence in focus, which is also what the brush paints. */
@@ -180,11 +186,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const viewDates = useMemo(() => (active ? dates.slice(viewFrom, viewTo + 1) : []), [active, dates, viewFrom, viewTo])
   const totals = useMemo<WeekTotals>(() => balanceTotals(balance, viewDates), [balance, viewDates])
   /** Per competence: the hours that remain in the days in view. A competence with neither demand nor assigned hours in the period is not in it. */
-  const remainingOf = useMemo(() => {
-    const remaining = new Map<string, number>()
-    for (const competence of balance.competences) remaining.set(competence, viewDates.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0))
-    return remaining
-  }, [balance, viewDates])
+  const remainingOf = useMemo(() => remainingIn(balance, viewDates), [balance, viewDates])
   // The demand lists the competences people have, and any other with demand or assigned hours in the period.
   const demandRows = useMemo(() => {
     const held = new Set(staffed.map((style) => style.key))
@@ -262,7 +264,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     const el = scrollRef.current
     const body = bodyRef.current
     if (!el || !body || !listed.length) return null
-    const col = Math.floor((x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW)
+    const col = Math.floor(daysAcross(el, x, colW))
     const top = y - body.getBoundingClientRect().top
     const gap = divided && listedAble < listed.length ? DIVIDER_H : 0
     const row = top < listedAble * PERSON_H ? Math.floor(top / PERSON_H) : top < listedAble * PERSON_H + gap ? listedAble - 1 : listedAble + Math.floor((top - listedAble * PERSON_H - gap) / PERSON_H)
@@ -273,8 +275,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     (x: number): ISODate | null => {
       const el = scrollRef.current
       if (!el) return null
-      const col = Math.floor((x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW)
-      return x < el.getBoundingClientRect().left + LEFT_W ? null : (dates[col] ?? null)
+      return x < el.getBoundingClientRect().left + LEFT_W ? null : (dates[Math.floor(daysAcross(el, x, colW))] ?? null)
     },
     [scrollRef, colW, dates],
   )
@@ -310,21 +311,21 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   const pasteOnto = (copied: Clipboard, row: number) => copied.people.map((_, i) => listed[row + i]?.person.id)
 
   // ---- what a stroke, or the brush over a day, would do ------------------------------------------------
-  const blocksOn = (cell: Day): Assignment[] => lines.find((line) => line.person.id === cell.personId)?.assignments?.get(cell.date) ?? []
+  const lineOf = useMemo(() => new Map(lines.map((line) => [line.person.id, line])), [lines])
+  const blocksOn = (cell: Day): Assignment[] => lineOf.get(cell.personId)?.assignments?.get(cell.date) ?? []
+  /** The first and the last of the columns the days are in. */
+  const colsOf = (days: ISODate[]) => {
+    const at = days.map((date) => dates.indexOf(date))
+    return { colFrom: Math.min(...at), colTo: Math.max(...at) }
+  }
   /**
-   * The days a brush stroke fills. Drawn out, it stops at a time of the day under the pointer, as a pulled end of a run does:
+   * The days a brush stroke is drawn over. Drawn out, it stops at a time of the day under the pointer, as a pulled end of a run does:
    * the days before it are filled whole and that day no further than the stop, on every line of the stroke. Drawn back over
    * earlier days, the day under the pointer is filled from the stop on. A click fills its day.
    */
-  const paintCells = (s: Stroke): Day[] => {
-    const drawn = drawnCells(s)
-    // With Shift held, the stroke goes no further than where the demand is met (R47).
-    return s.toDemand && activeBrush ? cellsToDemand(ws, drawn, activeBrush, balance, s.col1 < s.col0) : drawn
-  }
   const drawnCells = (s: Stroke): Day[] => {
     const cells = strokeCells(s)
     if (s.at === undefined) return cells
-    const wd = ws.settings.workday
     const back = s.col1 < s.col0
     const far = dates[s.col1]
     const within = back ? { start: s.at, end: wd.dayEnd } : { start: wd.dayStart, end: s.at }
@@ -332,27 +333,35 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     if (within.end <= within.start) return s.col0 === s.col1 ? cells : cells.filter((cell) => cell.date !== far)
     return cells.map((cell) => (cell.date === far && (within.start > wd.dayStart || within.end < wd.dayEnd) ? { ...cell, within } : cell))
   }
+  /** The days a brush stroke fills: those it is drawn over, and with Shift held no further than where the demand is met (R47). */
+  const paintCells = (s: Stroke): Day[] => {
+    const drawn = drawnCells(s)
+    return s.toDemand && activeBrush ? cellsToDemand(ws, drawn, activeBrush, balance, s.col1 < s.col0) : drawn
+  }
+  /** The days the brush stroke under way fills, worked out once for its preview, its outline and the count of the demand. */
+  const painted = useMemo(
+    () => (stroke?.mode === 'paint' ? paintCells(stroke) : null),
+    // `paintCells` reads `listed`, `dates`, the brush and the balance.
+    [stroke, ws, listed, dates, activeBrush, balance], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   /** R46: what the end of a run that is being pulled does, or `null` while it is where it was. */
   const stretch = useMemo((): StretchPlan | null => {
-    if (stroke?.mode !== 'stretch' || !stroke.stretch || stroke.row0 >= listed.length) return null
+    if (stroke?.mode !== 'stretch' || stroke.stretch?.at === undefined || stroke.row0 >= listed.length) return null
     const line = listed[stroke.row0]
     const from = dates[stroke.col0]
     const block = line.assignments?.get(from)?.find((a) => a.id === stroke.stretch!.blockId)
     if (!block) return null
     const days: BlocksOn = (date) => line.assignments?.get(date)
-    if (stroke.stretch.at === undefined) return null
-    const plan = stretchRun(runDays(days, from, block, ws.settings.workday), stroke.stretch.edge, dates[stroke.col1], stroke.stretch.at, ws.settings.workday)
+    const plan = stretchRun(runDays(days, from, block, wd), stroke.stretch.edge, dates[stroke.col1], stroke.stretch.at, wd)
     const erase = plan.remove.length > 0 || plan.trim !== undefined
     const drawn: Day[] = erase ? plan.remove.map((day) => ({ personId: line.person.id, date: day.date })) : plan.add.map((day) => ({ personId: line.person.id, date: day.date, within: day.within }))
     // With Shift held, an end pulled outward goes no further than where the demand is met (R47).
     const cells = !erase && stroke.toDemand ? cellsToDemand(ws, drawn, block.competence, balance, stroke.stretch.edge === 'start') : drawn
     const changed = erase ? [...plan.remove.map((day) => day.date), ...(plan.trim ? [plan.trim.block.date] : [])] : cells.map((cell) => cell.date)
     if (!changed.length) return null
-    const cols = changed.map((date) => dates.indexOf(date))
     return {
       row: stroke.row0,
-      colFrom: Math.min(...cols),
-      colTo: Math.max(...cols),
+      ...colsOf(changed),
       competence: block.competence,
       erase,
       cells,
@@ -360,14 +369,10 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       trim: plan.trim && { blockId: plan.trim.block.id, date: plan.trim.block.date, start: plan.trim.start, end: plan.trim.end },
       own: plan.add.find((day) => day.own)?.date,
     }
-  }, [stroke, listed, dates, ws, balance])
+    // `colsOf` reads `dates`.
+  }, [stroke, listed, dates, ws, wd, balance]) // eslint-disable-line react-hooks/exhaustive-deps
   /** The days a brush stroke that stops where the demand is met reaches, `null` where it lacks nothing; `undefined` for any other stroke. */
-  const paintReach = useMemo(() => {
-    if (stroke?.mode !== 'paint' || !stroke.toDemand) return undefined
-    const cols = paintCells(stroke).map((cell) => dates.indexOf(cell.date))
-    return cols.length ? { colFrom: Math.min(...cols), colTo: Math.max(...cols) } : null
-    // `paintCells` reads `lines`, `listed`, `dates`, the brush and the balance.
-  }, [stroke, ws, lines, listed, dates, activeBrush, balance]) // eslint-disable-line react-hooks/exhaustive-deps
+  const paintReach = !painted || !stroke?.toDemand ? undefined : painted.length ? colsOf(painted.map((cell) => cell.date)) : null
   /** R46: the assignments as a pulled end of a run leaves them: its days painted as the brush would, or the run's blocks on them removed and the one it stops in cut. */
   const stretched = (w: Workspace, plan: StretchPlan): Assignment[] =>
     plan.erase
@@ -378,37 +383,40 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     if (!active) return none
     const lastDate = dates[dates.length - 1]
     const found: Ghosts = new Map()
-    const put = (cell: Day, blocks: GhostBlock[]) => {
+    const put = (cell: Day, blocks: Piece[]) => {
       if (!blocks.length) return
       if (!found.has(cell.personId)) found.set(cell.personId, new Map())
       found.get(cell.personId)!.set(cell.date, blocks)
+    }
+    /** What the brush would give the days, drawn across: the time as a preview, and the count of it. A working day it cannot fill is passed over; `own` is none. */
+    const brushed = (cells: Day[], competence: string, span: PaintSpan, own?: ISODate) => {
+      const count = { days: 0, hours: 0, skipped: 0 }
+      const offDays = onlyOffDays(cells)
+      for (const cell of cells) {
+        const gaps = paintGaps(ws, cell, competence, span, offDays)
+        if (gaps.length) {
+          put(cell, gaps.map((gap) => ({ ...gap, competence })))
+          count.days += 1
+          count.hours += paidTotal(gaps, wd)
+        } else if (dayType(cell.date) === 'arbeidsdag' && cell.date !== own) count.skipped += 1
+      }
+      return count
     }
     if (stroke?.mode === 'stretch') {
       if (!stretch) return none
       if (stretch.erase) {
         const gone = stretch.cells.flatMap(blocksOn).filter((a) => stretch.blockIds.includes(a.id))
         const cut = stretch.trim && blocksOn({ personId: listed[stretch.row].person.id, date: stretch.trim.date }).find((a) => a.id === stretch.trim!.blockId)
-        const cutHours = cut && stretch.trim ? paidHours(cut, ws.settings.workday) - paidHours(stretch.trim, ws.settings.workday) : 0
-        return { ...none, info: { mode: 'erase', half: false, days: gone.length + (cut ? 1 : 0), hours: gone.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0) + cutHours, people: 1, skipped: 0 } }
+        const cutHours = cut && stretch.trim ? paidHours(cut, wd) - paidHours(stretch.trim, wd) : 0
+        return { ...none, info: { mode: 'erase', half: false, days: gone.length + (cut ? 1 : 0), hours: paidTotal(gone, wd) + cutHours, people: 1, skipped: 0 } }
       }
-      // The days the run is to go on over get what the brush would give them, drawn across.
-      const stats: StrokeInfo = { mode: 'paint', half: false, days: 0, hours: 0, people: 1, skipped: 0, competence: stretch.competence, toDemand: stroke.toDemand }
-      const offDays = onlyOffDays(stretch.cells)
-      for (const cell of stretch.cells) {
-        const gaps = paintGaps(ws, cell, stretch.competence, 'full', undefined, offDays)
-        if (!gaps.length) {
-          if (dayType(cell.date) === 'arbeidsdag' && cell.date !== stretch.own) stats.skipped += 1
-          continue
-        }
-        put(cell, gaps.map((gap) => ({ ...gap, competence: stretch.competence })))
-        stats.days += 1
-        stats.hours += gaps.reduce((sum, gap) => sum + paidHours(gap, ws.settings.workday), 0)
-      }
-      return { ghost: found, info: stats, refused: null }
+      // The days the run is to go on over get what the brush would give them.
+      const count = brushed(stretch.cells, stretch.competence, 'full', stretch.own)
+      return { ghost: found, info: { mode: 'paint', half: false, people: 1, competence: stretch.competence, toDemand: stroke.toDemand, ...count }, refused: null }
     }
     if (stroke?.mode === 'erase') {
       const blocks = strokeCells(stroke).flatMap(blocksOn)
-      return { ...none, info: { mode: 'erase', half: false, days: new Set(blocks.map((a) => `${a.personId}|${a.date}`)).size, hours: blocks.reduce((sum, a) => sum + paidHours(a, ws.settings.workday), 0), people: new Set(blocks.map((a) => a.personId)).size, skipped: 0 } }
+      return { ...none, info: { mode: 'erase', half: false, days: new Set(blocks.map((a) => `${a.personId}|${a.date}`)).size, hours: paidTotal(blocks, wd), people: new Set(blocks.map((a) => a.personId)).size, skipped: 0 } }
     }
     if (stroke?.mode === 'select') {
       const { rowFrom, rowTo, colFrom, colTo } = strokeRange(stroke)
@@ -431,25 +439,13 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       return { ...none, ghost: found }
     }
     if (activeTool !== 'paint' || !activeBrush) return none
-    const cells = stroke ? paintCells(stroke) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
+    const cells = stroke ? (painted ?? []) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
     if (!cells.length) return none
     const half = stroke ? stroke.half : shift
-    const stats: StrokeInfo = { mode: 'paint', half, days: 0, hours: 0, people: 0, skipped: 0, toDemand: stroke?.toDemand }
-    const offDays = onlyOffDays(cells)
-    for (const cell of cells) {
-      const gaps = paintGaps(ws, cell, activeBrush, half ? 'half' : 'full', undefined, offDays)
-      if (!gaps.length) {
-        if (dayType(cell.date) === 'arbeidsdag') stats.skipped += 1
-        continue
-      }
-      put(cell, gaps)
-      stats.days += 1
-      stats.hours += gaps.reduce((sum, gap) => sum + paidHours(gap, ws.settings.workday), 0)
-    }
-    stats.people = found.size
-    return { ghost: found, info: stroke ? stats : null, refused: null }
-    // `strokeCells`, `dayAt` and `blocksOn` read `lines`, `listed` and `dates`.
-  }, [active, ws, lines, listed, dates, activeTool, activeBrush, stroke, stretch, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
+    const count = brushed(cells, activeBrush, half ? 'half' : 'full')
+    return { ghost: found, info: stroke ? { mode: 'paint', half, people: found.size, toDemand: stroke.toDemand, ...count } : null, refused: null }
+    // `strokeCells`, `dayAt` and `blocksOn` read `lineOf`, `listed` and `dates`.
+  }, [active, ws, lineOf, listed, dates, activeTool, activeBrush, stroke, stretch, painted, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- the demand as it would be after the stroke under way ---------------------------------------------
   // What remains is counted while a stroke is drawn, so it can be stopped where the demand is met. The stroke is worked out as
@@ -463,13 +459,13 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       return { assignments: stretched(ws, stretch), dates: dates.slice(stretch.colFrom, stretch.colTo + 1) }
     }
     if (stroke.mode === 'erase') return { assignments: clearDays(all, strokeCells(stroke)), dates: between }
-    if (stroke.mode === 'paint') return activeBrush ? { assignments: paintDays(ws, paintCells(stroke), activeBrush, stroke.half ? 'half' : 'full'), dates: between } : null
+    if (stroke.mode === 'paint') return activeBrush && painted ? { assignments: paintDays(ws, painted, activeBrush, stroke.half ? 'half' : 'full'), dates: between } : null
     const from = dayAt(stroke.row0, stroke.col0)
     const to = dayAt(stroke.row1, stroke.col1)
     const moved = moveDay(ws, { from, to, blockIds: blocksOn(from).map((a) => a.id) })
     return typeof moved === 'string' ? null : { assignments: moved, dates: [from.date, to.date] }
-    // `strokeCells`, `dayAt` and `blocksOn` read `lines`, `listed` and `dates`.
-  }, [active, ws, lines, listed, dates, activeBrush, stroke, stretch]) // eslint-disable-line react-hooks/exhaustive-deps
+    // `strokeCells`, `dayAt` and `blocksOn` read `lineOf`, `listed` and `dates`.
+  }, [active, ws, lineOf, listed, dates, activeBrush, stroke, stretch, painted]) // eslint-disable-line react-hooks/exhaustive-deps
   /** The balance the demand shows: as it is, and on the days of a stroke under way as the stroke would leave it. */
   const shownBalance = useMemo<Balance>(() => {
     if (!afterStroke || afterStroke.assignments === (ws.assignments ?? [])) return balance
@@ -478,12 +474,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     return { get: (competence, date) => (days.has(date) ? after.get(competence, date) : balance.get(competence, date)), competences: [...new Set([...balance.competences, ...after.competences])] }
   }, [afterStroke, balance, ws, planned])
   /** Per competence: the hours that remain in the days in view, as the demand shows them. */
-  const shownRemaining = useMemo(() => {
-    if (shownBalance === balance) return remainingOf
-    const remaining = new Map<string, number>()
-    for (const competence of shownBalance.competences) remaining.set(competence, viewDates.reduce((sum, date) => sum + Math.max(0, shownBalance.get(competence, date).remaining), 0))
-    return remaining
-  }, [shownBalance, balance, remainingOf, viewDates])
+  const shownRemaining = useMemo(() => (shownBalance === balance ? remainingOf : remainingIn(shownBalance, viewDates)), [shownBalance, balance, remainingOf, viewDates])
 
   // ---- what the tools do ------------------------------------------------------------------------------
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
@@ -503,7 +494,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   /** Paints the free time of the days (R6). A paint never replaces what is there. */
   const paint = (cells: Day[], competence: string, half: boolean) => {
     const span = half ? 'half' : 'full'
-    if (cells.every((cell) => !paintGaps(ws, cell, competence, span, undefined, onlyOffDays(cells)).length)) {
+    if (cells.every((cell) => !paintGaps(ws, cell, competence, span, onlyOffDays(cells)).length)) {
       if (cells.length === 1) toast(blockText(cells[0], competence))
       return
     }
@@ -560,10 +551,10 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
     const anchor = dates[at.col]
     const onto = pasteOnto(clip, at.row)
     const lastDate = dates[dates.length - 1]
-    const { pasted, skipped } = pasteDays(ws, clip, anchor, lastDate, undefined, onto)
+    const { pasted, skipped } = pasteDays(ws, clip, anchor, lastDate, onto)
     const skippedText = skipped ? ` · ${skipped} hoppet over` : ''
     if (!pasted) return toast(`Ingenting ble limt inn fra ${fmtDay(anchor)}: dagene er opptatt, eller personen er borte eller har ikke kompetansen.`)
-    updateStaffing((w) => ({ ...w, assignments: pasteDays(w, clip, anchor, lastDate, undefined, onto).assignments }))
+    updateStaffing((w) => ({ ...w, assignments: pasteDays(w, clip, anchor, lastDate, onto).assignments }))
     toast(`Limte inn ${pasted === 1 ? '1 blokk' : `${pasted} blokker`} fra ${fmtDay(anchor)}${skippedText}`, { label: 'Angre', run: undo })
   }
 
@@ -646,20 +637,17 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       const at = cellAt(x, y)
       const s = strokeRef.current
       if (!at || !s) return
+      // How far into the day under it the pointer is, and whether a day is wide enough to aim at a stop of it.
+      const share = daysAcross(scrollRef.current!, x, colW) - at.col
+      const stops = colW >= STOPS_FROM_W
       if (s.mode === 'stretch' && s.stretch) {
         // The end of a run is pulled along its own line, wherever the pointer strays, to a stop of the day under the pointer.
-        const el = scrollRef.current!
-        const share = (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW - at.col
-        const wd = ws.settings.workday
-        const time = colW < STOPS_FROM_W ? (share < 0.5 ? wd.dayStart : wd.dayEnd) : stretchStop(share, s.stretch.edge, wd)
+        const time = stops ? stretchStop(share, s.stretch.edge, wd) : share < 0.5 ? wd.dayStart : wd.dayEnd
         const toDemand = shiftHeld.current
         if (s.col1 !== at.col || s.stretch.at !== time || !s.toDemand !== !toDemand) setStroke({ ...s, col1: at.col, toDemand, stretch: { ...s.stretch, at: time } })
-      } else if (s.mode === 'paint' && !s.half && colW >= STOPS_FROM_W) {
+      } else if (s.mode === 'paint' && !s.half && stops) {
         // The brush is drawn to a stop of the day under the pointer too, once the pointer has left where it was pressed.
-        const el = scrollRef.current!
-        const share = (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW - at.col
         const moved = s.at !== undefined || at.row !== s.row0 || at.col !== s.col0 || Math.abs(x - pressedAt.current) > DRAG_FROM
-        const wd = ws.settings.workday
         const stop = moved ? stretchStop(share, at.col < s.col0 ? 'start' : 'end', wd) : undefined
         // A day the stroke has only reached the near edge of is not in it yet: the stroke ends with the day before, whole.
         const short = stop !== undefined && (at.col > s.col0 ? stop <= wd.dayStart : at.col < s.col0 && stop >= wd.dayEnd)

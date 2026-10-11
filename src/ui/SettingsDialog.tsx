@@ -1,13 +1,7 @@
 import { useState } from 'react'
 import { decimalText, parseDecimal } from '../domain/numbers'
 import { useWorkspace } from '../store/workspaceStore'
-import { clock } from './bemanning/week'
-
-/** «11:30» as minutes after midnight, or NaN. */
-const minutes = (text: string): number => {
-  const [hours, mins] = text.split(':').map(Number)
-  return Number.isInteger(hours) && Number.isInteger(mins) ? hours * 60 + mins : NaN
-}
+import { clock, clockMinutes } from './bemanning/week'
 
 /** The base crew, the hours of a normal day and its lunch break. */
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
@@ -26,8 +20,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const crew = parseDecimal(baseCrew) === null ? 0 : (parseDecimal(baseCrew) ?? NaN)
   const hours = parseDecimal(hoursPerDay) ?? NaN
   // The lunch lies within the normal day, on the quarters of an hour the blocks keep to.
-  const breakStart = minutes(lunchFrom)
-  const breakEnd = minutes(lunchTo)
+  const breakStart = clockMinutes(lunchFrom)
+  const breakEnd = clockMinutes(lunchTo)
   const lunchValid = breakStart > day.dayStart && breakEnd > breakStart && breakEnd < day.dayEnd && breakStart % day.snap === 0 && breakEnd % day.snap === 0
   const valid = crew >= 0 && hours > 0 && lunchValid
   const worked = (day.dayEnd - day.dayStart - (breakEnd - breakStart)) / 60

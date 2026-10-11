@@ -1,17 +1,17 @@
 import { memo } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { addDays, daysBetween, type ISODate } from '../../domain/dates'
+import { daysBetween, type ISODate } from '../../domain/dates'
 import { paidHours } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Person, Unavailability, WorkdaySettings } from '../../domain/types'
 import type { PersonWeek } from '../../domain/staffing'
-import { competenceColor } from '../dom'
+import { competenceColor, modKey } from '../dom'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
-import { useBemanning, type GhostBlock, type PersonActions } from './BemanningScope'
-import { dayCell, runLabel, type BlockNames } from './dayCell'
-import { DAY_INSET, DIVIDER_H, PERSON_H } from './layout'
-import { runLink, runOf, type BlocksOn, type EndShape, type RunLink } from './runs'
+import { useBemanning, type PersonActions, type StretchPlan } from './BemanningScope'
+import { dayCell, runLabel, spanOf, type BlockNames, type Span } from './dayCell'
+import { DAY_INSET, DIVIDER_H, joinedClass, joinedPlace, PERSON_H, PILL_ROOM } from './layout'
+import { endShape, runLink, runOf, type BlocksOn, type EndShape, type Piece, type PiecesOn, type RunLink } from './runs'
 import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
 import { UnfoldedPerson } from './UnfoldedPerson'
@@ -19,6 +19,9 @@ import { hoursText } from './week'
 
 const NO_ASSIGNMENTS: Assignment[] = []
 const NO_ABSENCE: Unavailability[] = []
+const NO_PREVIEW: Piece[] = []
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 interface LineProps {
   person: Person
@@ -46,21 +49,22 @@ interface LineProps {
   strokeFrom: number
   strokeTo: number
   erasing: boolean
-  /** The block on the line that a pulled end of a run is cut back into: the day it is on, and the time of it that goes. */
-  cut: { col: number; blockId: string; start: number; end: number } | undefined
+  /** The block on the line that a pulled end of a run is cut back into: the day it is on, and where in the block the time that goes lies. */
+  cut: (Span & { col: number; blockId: string }) | undefined
   /** The column of the line whose blocks are being dragged to another day, or -1. */
   movingCol: number
   /** The column of the line where blocks dragged from another day cannot go, or -1. */
   refusedCol: number
   /** Where the brush, a paste or blocks dragged from another day would put time on the line's days. */
-  ghost: Map<ISODate, GhostBlock[]> | undefined
+  ghost: Map<ISODate, Piece[]> | undefined
   actions: PersonActions
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
 const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, cut, movingCol, refusedCol, ghost, actions }: LineProps) {
-  const span = workday.dayEnd - workday.dayStart
+  const day = { start: workday.dayStart, end: workday.dayEnd }
   const blocksOn: BlocksOn = (date) => assignments?.get(date)
+  const previewsOn: PiecesOn = (date) => ghost?.get(date)
   // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
   const runs = cols.dates.flatMap((date, i) =>
     (assignments?.get(date) ?? NO_ASSIGNMENTS).flatMap((block) => {
@@ -99,47 +103,24 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
       cells={(date, col) => {
         const blocks = assignments?.get(date) ?? NO_ASSIGNMENTS
         const cell = dayCell(date, blocks, absence?.get(date) ?? NO_ABSENCE, isOk, workday, isOpen)
+        const gaps = ghost?.get(date) ?? NO_PREVIEW
+        // A block is joined to its run, which has the name; it is drawn joined to what a stroke would put beside it too, see `endShape`.
         const links = new Map<string, RunLink>()
+        const shapes = new Map<string, EndShape>()
         for (const block of blocks) {
           const link = runLink(blocksOn, date, block, workday)
           if (link.prev || link.next) links.set(block.id, link)
+          shapes.set(block.id, endShape(block, date, gaps, blocksOn, previewsOn, workday))
         }
+        // What a stroke would put down is drawn as it will lie, joined in the same way.
+        const previews = gaps.map((gap) => ({ gap, shape: endShape(gap, date, blocks, blocksOn, previewsOn, workday) }))
+        const runOn = [...shapes.values(), ...previews.map((preview) => preview.shape)].some((shape) => shape.next)
         const inStroke = col >= strokeFrom && col <= strokeTo
-        const gaps = ghost?.get(date)
-        // What a stroke would put down is drawn as it will lie: joined to the day before and after where a run would go on,
-        // through time that is only previewed as through blocks that are there.
-        const of = (gap: GhostBlock) => gap.competence ?? brush
-        const reaches = (iv: { start: number; end: number }) => iv.end >= workday.dayEnd && iv.start < workday.dayEnd
-        const begins = (iv: { start: number; end: number }) => iv.start <= workday.dayStart && iv.end > workday.dayStart
-        const before = addDays(date, -1)
-        const after = addDays(date, 1)
-        const previewBefore = (competence: string | null) => ghost?.get(before)?.some((gap) => of(gap) === competence && reaches(gap)) === true
-        const previewAfter = (competence: string | null) => ghost?.get(after)?.some((gap) => of(gap) === competence && begins(gap)) === true
-        // The shape of a block: as its run has it, and going on into time a stroke would put beside it.
-        const shapes = new Map<string, EndShape>()
-        for (const block of blocks) {
-          const link = links.get(block.id)
-          const shape = {
-            prev: link?.prev === true || (begins(block) && previewBefore(block.competence)),
-            next: link?.next === true || (reaches(block) && previewAfter(block.competence)),
-            // In its own day, a block and what a stroke would put right beside it are one piece too.
-            meetsBefore: gaps?.some((gap) => of(gap) === block.competence && gap.end === block.start) === true,
-            meetsAfter: gaps?.some((gap) => of(gap) === block.competence && gap.start === block.end) === true,
-          }
-          if (shape.prev || shape.next || shape.meetsBefore || shape.meetsAfter) shapes.set(block.id, shape)
-        }
-        const previews = (gaps ?? []).map((gap) => ({
-          gap,
-          meetsBefore: blocks.some((a) => a.competence === of(gap) && a.end === gap.start),
-          meetsAfter: blocks.some((a) => a.competence === of(gap) && a.start === gap.end),
-          prev: begins(gap) && (previewBefore(of(gap)) || assignments?.get(before)?.some((a) => a.competence === of(gap) && reaches(a)) === true),
-          next: reaches(gap) && (previewAfter(of(gap)) || assignments?.get(after)?.some((a) => a.competence === of(gap) && begins(a)) === true),
-        }))
-        const runOn = [...shapes.values()].some((shape) => shape.next) || previews.some((preview) => preview.next)
         // A day the brush cannot fill says so under the pointer, and inside a stroke. A weekend or a holiday does not:
         // the brush fills it when it is picked by itself, and passes over it without a mark when it is drawn across.
-        const blocked = painting && !gaps && !cell.offDay && (cell.away !== null || dim)
-        const refused = refusedCol === col || (painting && !gaps && inStroke && !erasing && !cell.offDay)
+        const unfilled = painting && !gaps.length && !cell.offDay
+        const blocked = unfilled && (cell.away !== null || dim)
+        const refused = refusedCol === col || (unfilled && inStroke && !erasing)
         return (
           <div
             key={date}
@@ -148,19 +129,11 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} edges cut={cut?.col === col ? cut : undefined} dayStart={workday.dayStart} dayEnd={workday.dayEnd} />
-            {gaps && (
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} cut={cut?.col === col ? cut : undefined} />
+            {previews.length > 0 && (
               <span className="bm-timeline bm-ghosts">
-                {previews.map(({ gap, prev, next, meetsBefore, meetsAfter }) => (
-                  <i
-                    key={gap.start}
-                    className={`${prev ? 'join-prev' : ''} ${next ? 'join-next' : ''} ${meetsBefore ? 'meet-prev' : ''} ${meetsAfter ? 'meet-next' : ''}`}
-                    style={{
-                      left: `calc(${(Math.max(0, gap.start - workday.dayStart) / span) * 100}% - ${prev ? DAY_INSET : 0}px)`,
-                      width: `calc(${((Math.min(gap.end, workday.dayEnd) - Math.max(gap.start, workday.dayStart)) / span) * 100}% + ${(prev ? DAY_INSET : 0) + (next ? DAY_INSET + 1 : 0)}px)`,
-                      ...(gap.competence ? competenceColor(styles.get(gap.competence)) : undefined),
-                    }}
-                  >
+                {previews.map(({ gap, shape }) => (
+                  <i key={gap.start} className={joinedClass(shape)} style={{ ...joinedPlace(spanOf(gap, day), shape), ...competenceColor(styles.get(gap.competence)) }}>
                     +{hoursText(paidHours(gap, workday))}
                   </i>
                 ))}
@@ -207,20 +180,22 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
   // A stroke that moves a day's blocks has no outline: the blocks show where they would land. A pulled end of a run has the pill of one over the days it changes, without the outline.
   // A brush stroke that stops where the demand is met covers the days it reaches, and none where nothing is lacking.
   const range =
-    !stroke || stroke.mode === 'move' || paintReach === null ? null : stroke.mode !== 'stretch' ? { ...strokeRange(stroke), ...paintReach } : stretch ? { rowFrom: stretch.row, rowTo: stretch.row, colFrom: stretch.colFrom, colTo: stretch.colTo } : null
+    !stroke || stroke.mode === 'move' ? null : stroke.mode === 'stretch' ? stretch && { rowFrom: stretch.row, rowTo: stretch.row, colFrom: stretch.colFrom, colTo: stretch.colTo } : paintReach === null ? null : { ...strokeRange(stroke), ...paintReach }
   const erasing = stroke?.mode === 'erase' || (stroke?.mode === 'stretch' && stretch?.erase === true)
   const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
   const refusedCol = refused ? dates.indexOf(refused.date) : -1
-  /** Of a block a pulled end is cut back into, the time that goes: what the block has now and will not have. */
-  const cutOf = (trim: NonNullable<typeof stretch>['trim'] & object) => {
+  /** Of a block a pulled end is cut back into, where the time that goes lies in what is drawn of it: what the block has now and will not have. */
+  const cutOf = (trim: NonNullable<StretchPlan['trim']>) => {
     const block = listed[stretch!.row].assignments?.get(trim.date)?.find((a) => a.id === trim.blockId)
     if (!block) return undefined
-    return { col: dates.indexOf(trim.date), blockId: trim.blockId, start: trim.start > block.start ? block.start : trim.end, end: trim.start > block.start ? trim.start : block.end }
+    const wd = ws.settings.workday
+    const drawn = { start: Math.max(block.start, wd.dayStart), end: Math.min(block.end, wd.dayEnd) }
+    const gone = trim.start > block.start ? { start: block.start, end: trim.start } : { start: trim.end, end: block.end }
+    return { col: dates.indexOf(trim.date), blockId: trim.blockId, ...spanOf(gone, drawn) }
   }
-  const shortcut = (key: string) => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`)
   const box = (r: { rowFrom: number; rowTo: number; colFrom: number; colTo: number }) => ({ left: daysWide(r.colFrom, LEFT_W), width: daysWide(r.colTo - r.colFrom + 1), top: topOf(r.rowFrom), height: topOf(Math.min(r.rowTo, listed.length - 1)) + PERSON_H - topOf(r.rowFrom) })
   const pillStyle = brush ? competenceColor(styles.get(brush)) : undefined
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+  const pillClass = (r: { rowFrom: number }) => `bm-pill ${topOf(r.rowFrom) < PILL_ROOM ? 'below' : ''}`
   return (
     <>
     <UnfoldedPerson />
@@ -276,7 +251,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
         // One outline over all the days of the stroke, and what it will do on a pill above it.
         <div className={`bm-stroke ${stroke!.mode === 'stretch' ? `bare ${erasing ? 'erase' : 'paint'}` : stroke!.mode}`} style={stretch && !erasing ? { ...box(range), ...competenceColor(styles.get(stretch.competence)) } : box(range)}>
           {info && (
-            <span className={`bm-pill ${topOf(range.rowFrom) < 34 ? 'below' : ''}`}>
+            <span className={pillClass(range)}>
               {info.mode === 'select' ? null : info.mode === 'erase' ? (
                 <b>Tøm</b>
               ) : (
@@ -304,15 +279,15 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
       {chosen && (
         // The days that are selected, one or many: a tint with no outline, and what can be done with them.
         <div className="bm-selection" style={box(chosen)}>
-          <span className={`bm-pill ${topOf(chosen.rowFrom) < 34 ? 'below' : ''}`}>
+          <span className={pillClass(chosen)}>
             {clip ? (
-              <span>Kopiert · {shortcut('V')} limer inn ved markøren</span>
+              <span>Kopiert · {modKey('V')} limer inn ved markøren</span>
             ) : (
               <>
                 <span>
                   {plural(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
                 </span>
-                <span>{shortcut('C')} kopier</span>
+                <span>{modKey('C')} kopier</span>
                 <span>Esc fjern</span>
               </>
             )}

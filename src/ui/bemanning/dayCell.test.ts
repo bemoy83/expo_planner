@@ -3,7 +3,7 @@ import { DEFAULT_WORKDAY, type Assignment, type Unavailability } from '../../dom
 
 // The cases are written for lunch from 11:00 to 11:30.
 const wd = { ...DEFAULT_WORKDAY, breakStart: 660, breakEnd: 690 }
-import { blockLabel, dayCell, runLabel } from './dayCell'
+import { blockLabel, dayCell, runLabel, spanOf } from './dayCell'
 
 const TUE = '2026-10-13'
 const SAT = '2026-10-17'
@@ -96,5 +96,19 @@ describe('folded day cell', () => {
     expect(blockLabel(70, 'Vegger', 'VEG', 'auto', '7,5')).toBe('name')
     expect(blockLabel(95, 'Vegger', 'VEG', 'full', '7,5')).toBe('name')
     expect(blockLabel(95, 'Vegger', 'VEG', 'short', '7,5')).toBe('short')
+  })
+})
+
+describe('a stretch of time as a share', () => {
+  const day = { start: 420, end: 900 }
+
+  it('lies where its time is in the whole', () => {
+    expect(spanOf({ start: 420, end: 660 }, day)).toEqual({ left: 0, width: 50 })
+    expect(spanOf({ start: 780, end: 900 }, day)).toEqual({ left: 75, width: 25 })
+  })
+
+  it('is cut to the whole it is a share of', () => {
+    expect(spanOf({ start: 360, end: 540 }, day)).toEqual({ left: 0, width: 25 })
+    expect(spanOf({ start: 780, end: 1020 }, day)).toEqual({ left: 75, width: 25 })
   })
 })
