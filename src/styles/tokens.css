@@ -98,7 +98,7 @@
 }
 
 /* The mode band of the Kalender: its page header and its planning bar are filled with the colour of the mode, olive for Plan and
-   fjord blue for Bemanning. It is set here alone and is seen in the band alone; the grid, the sections and the panels stay neutral.
+   spruce green («Gran») for Bemanning. It is set here alone and is seen in the band alone; the grid, the sections and the panels stay neutral.
    The two lines that frame the band are darker than its fill in both palettes: they read as a shadow. */
 .kalender{
   --mode-h:115; --mode-c:.09;
@@ -118,8 +118,8 @@
   --alert-warn:oklch(0.8 0.1 80); --alert-block:oklch(0.7 0.12 28); --alert-on:#0f0f0e;   /* a light chip with dark ink */
 }
 .kalender[data-mode='bemanning']{
-  --mode-h:235; --mode-c:.07;
-  --mode-band:#b9d6e7; --mode-line:#7da5bc; --mode-track:#9fc0d4; --mode-ink:#1b313d; --mode-mute:#385160;
+  --mode-h:195; --mode-c:.07;
+  --mode-band:#b7d9d8; --mode-line:#79a9a8; --mode-track:#9cc3c3; --mode-ink:#183333; --mode-mute:#355353;
 }
 .dark .kalender{
   --mode-band:oklch(0.4 calc(var(--mode-c) * .5) var(--mode-h));
@@ -131,7 +131,7 @@
   --mode-field-hover:oklch(0.52 calc(var(--mode-c) * .45) var(--mode-h) / .8);
   --alert-warn:#a16606; --alert-block:#cb4543; --alert-on:#fff;         /* a dark chip with light ink */
 }
-.dark .kalender[data-mode='bemanning']{--mode-band:#374b57; --mode-line:#13212a; --mode-track:#243540; --mode-ink:#dceaf3; --mode-mute:#a6bbc8}
+.dark .kalender[data-mode='bemanning']{--mode-band:#344d4d; --mode-line:#112323; --mode-track:#223737; --mode-ink:#dbeceb; --mode-mute:#a4bdbd}
 
 /* The dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende). */
 :root.dark{
