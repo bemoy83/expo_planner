@@ -4,7 +4,7 @@ export const TOOL_KEYS: Record<string, Tool> = { v: 'select', b: 'paint', t: 'er
 
 /** A stroke over the folded days: from the cell it started in to the one the pointer is over. */
 export interface Stroke {
-  /** With «Velg», a drag from an empty day selects days, a drag from a block moves the day's blocks, and a drag from an end of a run stretches it. */
+  /** With «Velg», a drag from an empty day selects days and a drag from a block moves the day's blocks. With any tool, a drag from an end of a run stretches it. */
   mode: 'paint' | 'erase' | 'select' | 'move' | 'stretch'
   /** With `stretch`: the end of a run that is pulled, and the block it was taken hold of by. The stroke keeps to that person's line. */
   stretch?: { edge: 'start' | 'end'; blockId: string }

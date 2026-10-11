@@ -42,8 +42,6 @@ interface LineProps {
   names: BlockNames
   /** The tool the days answer to, for what a day shows that the brush cannot fill. */
   painting: boolean
-  /** With «Velg», the ends of a run can be taken hold of. */
-  edges: boolean
   /** The columns of the line a stroke covers, and what it does to them. */
   strokeFrom: number
   strokeTo: number
@@ -58,7 +56,7 @@ interface LineProps {
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, edges, strokeFrom, strokeTo, erasing, movingCol, refusedCol, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, movingCol, refusedCol, ghost, actions }: LineProps) {
   const span = workday.dayEnd - workday.dayStart
   const blocksOn: BlocksOn = (date) => assignments?.get(date)
   // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
@@ -140,7 +138,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} edges={edges} />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} edges />
             {gaps && (
               <span className="bm-timeline bm-ghosts">
                 {previews.map(({ gap, prev, next }) => (
@@ -244,7 +242,6 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               overLimit={bm.overLimit.has(person.id)}
               names={bm.blockNames}
               painting={tool === 'paint'}
-              edges={tool === 'select'}
               strokeFrom={inStroke ? range.colFrom : -1}
               strokeTo={inStroke ? range.colTo : -1}
               erasing={inStroke && erasing}

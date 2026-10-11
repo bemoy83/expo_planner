@@ -515,8 +515,8 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
       if (!at) return
       // With «Velg», a press on a block can drag the day's blocks to another day; a press beside them selects days.
       const onBlock = event.target instanceof Element && event.target.closest('.bm-block') !== null
-      // The ends of a run answer to «Velg» alone, see `.bm-edge`.
-      const edge = event.target instanceof HTMLElement && !event.altKey && activeTool === 'select' ? event.target.closest<HTMLElement>('.bm-edge') : null
+      // The ends of a run answer to every tool, see `.bm-edge`: a run is given more days or fewer without a change of tool or brush.
+      const edge = event.target instanceof HTMLElement && !event.altKey ? event.target.closest<HTMLElement>('.bm-edge') : null
       const mode = edge ? 'stretch' : event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : onBlock ? 'move' : 'select'
       event.preventDefault()
       if (mode === 'paint' || mode === 'erase') setSelection(null)
