@@ -55,8 +55,8 @@
 .day.helg,.day.helligdag{background:var(--weekend)}
 /* Today: one line down the grid wherever a day has something in it, over the rules, the weekends, the bars and the selection, and
    under the label column. The heading of a section is a heading and carries a legend, so it lies over the line, which breaks there. Each block
-   that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the dates, the top block and the
-   hall calendar. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
+   that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the top block and the
+   hall calendar. The dates have none: there today is the badge on its date. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
 .today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--mode-ink);pointer-events:none}
 .group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--mode-ink)}
 /* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the halls, the staffing lines and the planning rows,

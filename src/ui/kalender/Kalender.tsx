@@ -803,7 +803,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows. Where it leaves the rows no room it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef}>
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
-            {todayLine}
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
           <div
