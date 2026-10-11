@@ -112,7 +112,7 @@
   --mode-tag:color-mix(in oklab,var(--bg) 55%,transparent);
   --mode-key:oklch(0.3 .05 var(--mode-h) / .1);                        /* behind a key */
   --mode-shadow:oklch(0.3 .05 var(--mode-h) / .18);                    /* under the chosen segment */
-  /* An alert on the band is a solid chip with its own ink: 4.5:1 for the text on the chip and 3:1 for the chip on the band, in
+  /* An alert on the band, and the badge of a sick day in Bemanning, is a solid chip with its own ink: 4.5:1 for the text on the chip and 3:1 for the chip on the band, in
      both modes. The light ones are at the limit, so they are not made lighter; check both again if the band changes. */
   --alert-warn:#a16606; --alert-block:#cb4543; --alert-on:#fff;
 }
