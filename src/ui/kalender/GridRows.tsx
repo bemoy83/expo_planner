@@ -65,22 +65,20 @@ interface ValueCell {
   lane: number
   /** A right-click on the cell opens the cell menu. */
   menu?: boolean
-  /** The line is a row, which draws what a stroke would do on its spans, see `AllocRow`. */
-  spans?: boolean
 }
 
-const valueCell = ({ cols, edit, actions, lane, menu, spans }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
+const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
   const focus = edit.focusCol === col
   // The cell in focus has its ring and no tint, as the active cell of a selection in Excel.
   const selected = col >= edit.selFrom && col <= edit.selTo && !focus
   // During a stroke or a pull of a span's end the cell shows what it would put there.
   const drawn = edit.ghost?.get(date)
-  // A row shows it on the span itself: the day has the look of a planned day, and a day that would be emptied keeps its figure.
-  const shown = drawn !== undefined && !(spans && !drawn) ? drawn || undefined : value
+  // It is shown on the span itself, see `spanClass`: the day has the look of a planned day, and a day that would be emptied keeps its figure.
+  const shown = drawn || value
   return (
     <div
       key={date}
-      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined && !spans ? edit.ghostClass : ''}`}
+      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''}`}
       title={note}
       onMouseDown={(e) => actions.cellDown(lane, col, e)}
       onMouseEnter={() => actions.cellEnter(lane, col)}
@@ -93,6 +91,35 @@ const valueCell = ({ cols, edit, actions, lane, menu, spans }: ValueCell, date: 
         formatFte(shown)
       )}
     </div>
+  )
+}
+
+/**
+ * The classes of a day on a line that draws its FTE as spans, a row or a level in entry: the phase its colour is of, where a run of days
+ * starts and ends, and whether the day is one the line can be worked on.
+ *
+ * Planned days in a row are drawn as one span, rounded where the run starts and ends: a day without FTE ends it. While a stroke is drawn
+ * or an end is pulled, the spans are drawn as it would leave them, as a stroke is in Bemanning: the days that would get FTE as a tint of
+ * the line's colour with their figures, and the days that would lose it hatched, since their FTE would not be there.
+ */
+const spanClass = (valueAt: (date: ISODate) => number | undefined, ghost: CellEdit['ghost'], window: Set<ISODate> | undefined, phase: string, date: ISODate): string => {
+  const value = valueAt(date)
+  const on = (day: ISODate) => !!(valueAt(day) || ghost?.get(day))
+  const drawn = ghost?.get(date)
+  const stroke = drawn === undefined ? '' : drawn === 0 ? (value ? 'going' : '') : value ? '' : 'filled coming'
+  const run = on(date) ? `${on(addDays(date, -1)) ? '' : 'run-start'} ${on(addDays(date, 1)) ? '' : 'run-end'}` : ''
+  const inWindow = window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && value ? 'outside-window' : ''
+  return `${phase === 'Demontering' ? 'dem' : 'mon'} ${run} ${stroke} ${inWindow}`
+}
+
+/** A mark in a line's label for FTE on days outside its window, the days it can be worked on in the halls. */
+function OutsideWindow({ dates, window, where }: { dates: ISODate[]; window: Set<ISODate> | undefined; where: string }) {
+  const outside = window?.size ? dates.filter((date) => !window.has(date)).sort() : []
+  if (!outside.length) return null
+  return (
+    <span className="lbl-warning" title={`${outside.length} ${outside.length === 1 ? 'dag' : 'dager'} med FTE ligger utenfor ${where}: ${outside.map((d) => `${d.slice(8)}.${d.slice(5, 7)}.`).join(' ')}`}>
+      <TriangleAlert size={13} aria-hidden />
+    </span>
   )
 }
 
@@ -332,25 +359,33 @@ interface GroupRowProps extends CellEdit {
   lane: number
   /** The hall phase of each day of the project, for the strip on a project's line. */
   phases: Map<ISODate, VenuePhase> | undefined
+  /** In entry mode: the days the rows under the level can be worked on, see `AllocRow`. */
+  window?: Set<ISODate>
   cols: Columns
   actions: GridActions
 }
 
 /**
  * A level of the hierarchy. Open, it shows no figures per day: the rows below carry them. Folded, it shows
- * its sums on a strip in the colour of the work phase. In entry mode it always shows cells to type in.
- * A project's line carries the hall-phase strip either way.
+ * its sums on a strip in the colour of the work phase. In entry mode it is a row: its sums are its FTE, typed, drawn
+ * as spans and pulled by their ends as a row's are, and what a day gets is shared out over the rows under it.
+ * A project's line carries the hall-phase strip unless it is in entry.
  */
-export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actions, ...edit }: GroupRowProps) {
+export const GroupRow = memo(function GroupRow({ item, lane, phases, window, cols, actions, ...edit }: GroupRowProps) {
   const { node } = item
   const project = node.project
-  const delta = node.totals.plannedFte - node.totals.requiredFte
+  // While an end of one of the level's spans is pulled, its figures count what the pull would leave.
+  const planned = edit.livePlanned ?? node.totals.plannedFte
+  const delta = planned - node.totals.requiredFte
   const cell: ValueCell = { cols, edit, actions, lane }
+  // The colour of a day in entry: the phase most of its FTE is for, and where it has none yet, the phase of the level or of its first row.
+  const phaseOn = (date: ISODate) => (node.dimension === 'phase' ? node.label : (workPhaseOn(node.rows, date) ?? node.rows[0]?.phase ?? ''))
+  const valueAt = (date: ISODate) => node.daily.get(date)
   // What the strip shows on a day: the hall phase on a project's line, else the work phase of a folded level.
   const stripOn = (date: ISODate): string | null => {
     const hallPhase = phases?.get(date)
     if (hallPhase) return hallPhase
-    if (!item.collapsed || item.entry || phases) return null
+    if (!item.collapsed || phases) return null
     if (!node.daily.get(date)) return null
     if (node.dimension === 'phase') return node.label === 'Demontering' ? 'dem' : 'mon'
     return workPhaseOn(node.rows, date) === 'Demontering' ? 'dem' : 'mon'
@@ -380,10 +415,11 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
               </span>
             </>
           )}
+          {item.entry && <OutsideWindow dates={[...node.daily].filter(([, fte]) => fte).map(([date]) => date)} window={window} where="monterings- og demonteringsdagene i hallene" />}
           {node.rows.length ? (
             <span className="lbl-nums">
               <span className="lbl-num">{formatFte(node.totals.requiredFte)}</span>
-              <span className="lbl-num">{formatFte(node.totals.plannedFte)}</span>
+              <span className={`lbl-num ${edit.livePlanned === undefined ? '' : 'live'}`}>{formatFte(planned)}</span>
               <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
             </span>
           ) : (
@@ -422,11 +458,11 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, cols, actio
         </>
       }
       cells={(date, col) => {
+        if (item.entry) return valueCell(cell, date, col, valueAt(date), undefined, spanClass(valueAt, edit.ghost, window, phaseOn(date), date))
         const phase = stripOn(date)
         // The strip is rounded where a phase starts and ends.
         const strip = phase ? `strip strip-${phase} ${stripOn(addDays(date, -1)) === phase ? '' : 'strip-start'} ${stripOn(addDays(date, 1)) === phase ? '' : 'strip-end'}` : ''
         const inSpan = strip || (project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : '')
-        if (item.entry) return valueCell(cell, date, col, node.daily.get(date), undefined, `group-cell ${inSpan}`)
         return readCell(cols, date, item.collapsed ? node.daily.get(date) : undefined, `group-cell ${inSpan}`)
       }}
     />
@@ -453,9 +489,9 @@ interface AllocRowProps extends CellEdit {
 export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensions, cols, actions, ...edit }: AllocRowProps) {
   const { row: r, totals } = item
   const phaseDays = r.phase === 'Demontering' ? 'demonteringsdagene' : 'monteringsdagene'
-  const outside = window?.size ? Object.keys(r.fte).filter((date) => r.fte[date] && !window.has(date)) : []
   const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
-  const cell: ValueCell = { cols, edit, actions, lane, menu: true, spans: true }
+  const cell: ValueCell = { cols, edit, actions, lane, menu: true }
+  const valueAt = (date: ISODate) => r.fte[date]
   const remaining = (totals.requiredFte ?? 0) - totals.plannedFte
   // While an end of one of the row's spans is pulled, its figures count what the pull would leave.
   const planned = edit.livePlanned ?? totals.plannedFte
@@ -474,11 +510,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
           <span className="lbl-desc" title={[describeRow(r, ALL_DIMENSIONS), r.refYear, r.basis].filter(Boolean).join(' · ')}>
             {description || <em className="muted">rad</em>}
           </span>
-          {outside.length > 0 && (
-            <span className="lbl-warning" title={`${outside.length} ${outside.length === 1 ? 'dag' : 'dager'} med FTE ligger utenfor ${phaseDays} i hallen: ${outside.sort().map((d) => `${d.slice(8)}.${d.slice(5, 7)}.`).join(' ')}`}>
-              <TriangleAlert size={13} aria-hidden />
-            </span>
-          )}
+          <OutsideWindow dates={Object.keys(r.fte).filter((date) => r.fte[date])} window={window} where={`${phaseDays} i hallen`} />
           <span className="lbl-nums">
             <span className="lbl-num" title={totals.requiredHours === null ? '' : `${formatFte(totals.requiredHours, 2)} timer`}>
               {formatFte(totals.requiredFte)}
@@ -502,25 +534,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
           </span>
         </>
       }
-      cells={(date, col) => {
-        const value = r.fte[date]
-        // While a stroke is drawn or something is dragged, the spans are drawn as it would leave them, as a stroke is in Bemanning: the
-        // days that would get FTE as a tint of the row's colour with their figures, and the days that would lose it hatched, since
-        // their FTE would not be there.
-        const on = (day: ISODate) => !!(r.fte[day] || edit.ghost?.get(day))
-        const drawnDay = edit.ghost?.get(date)
-        const pull = drawnDay === undefined ? '' : drawnDay === 0 ? (value ? 'going' : '') : value ? '' : 'filled coming'
-        // Planned days in a row are drawn as one span, rounded where the run starts and ends: a day without FTE ends it.
-        const run = on(date) ? `${on(addDays(date, -1)) ? '' : 'run-start'} ${on(addDays(date, 1)) ? '' : 'run-end'}` : ''
-        return valueCell(
-          cell,
-          date,
-          col,
-          value,
-          r.notes[date],
-          `${r.phase === 'Demontering' ? 'dem' : 'mon'} ${run} ${pull} ${window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && value ? 'outside-window' : ''}`,
-        )
-      }}
+      cells={(date, col) => valueCell(cell, date, col, valueAt(date), r.notes[date], spanClass(valueAt, edit.ghost, window, r.phase, date))}
     />
   )
 })

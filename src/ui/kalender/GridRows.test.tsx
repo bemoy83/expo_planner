@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
 import { buildDemandIndex, rowTotals } from '../../domain/calc'
 import type { HallSegment } from '../../domain/venue'
-import { AllocRow, HallRow } from './GridRows'
+import { AllocRow, GroupRow, HallRow } from './GridRows'
 import type { CellEdit, Columns, GridActions } from './gridTypes'
-import type { RowItem } from './rows'
+import type { GroupItem, RowItem } from './rows'
 import { useStableActions } from './useStableActions'
 
 const row: AllocationRow = {
@@ -23,9 +23,27 @@ const row: AllocationRow = {
 const item = { kind: 'row', row, totals: rowTotals(buildDemandIndex([]), row, DEFAULT_SETTINGS), project: { key: '26970' }, depth: 0 } as RowItem
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07']
 const cols: Columns = { dates, c0: 0, first: 0, colW: 36, classes: new Map(dates.map((date) => [date, 'day'])) }
-const idle: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
+const idle: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, livePlanned: undefined }
 const noActions = new Proxy({}, { get: () => () => {} }) as GridActions
 const rowDimensions = ['competence' as const]
+
+describe('a level in entry', () => {
+  const node = { key: 'p/Montering', dimension: 'phase', label: 'Montering', depth: 1, rows: [row], totals: { requiredFte: 5, plannedFte: 2 }, daily: new Map([['2026-10-06', 2]]) }
+  const level = { kind: 'group', node, collapsed: true, entry: true } as GroupItem
+  const marks = (container: HTMLElement) => [...container.querySelectorAll('.cell')].map((cell) => ['filled', 'run-start', 'run-end', 'coming', 'going', 'in-window', 'outside-window', 'mon'].filter((name) => cell.classList.contains(name)).join(' '))
+
+  it('draws its sums as spans, in its window, as a row does', () => {
+    const { container } = render(<GroupRow item={level} lane={0} phases={undefined} window={new Set(['2026-10-05'])} cols={cols} actions={noActions} {...idle} />)
+    expect(marks(container)).toEqual(['in-window mon', 'filled run-start run-end outside-window mon', 'mon'])
+    expect(container.querySelector('.lbl-warning')).not.toBeNull()
+  })
+
+  it('shows what a stroke would do on its spans, and counts along in its label', () => {
+    const { container } = render(<GroupRow item={level} lane={0} phases={undefined} window={undefined} cols={cols} actions={noActions} {...idle} ghost={new Map([['2026-10-06', 0], ['2026-10-07', 3]])} livePlanned={3} />)
+    expect(marks(container)).toEqual(['mon', 'filled run-start going mon', 'filled run-end coming mon'])
+    expect([...container.querySelectorAll('.lbl-num')].map((num) => num.textContent)).toEqual(['5', '3', '−2'])
+  })
+})
 
 describe('AllocRow', () => {
   afterEach(() => vi.restoreAllMocks())

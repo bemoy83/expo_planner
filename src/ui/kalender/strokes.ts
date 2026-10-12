@@ -12,6 +12,13 @@ import { rangeOf, type DrawnCell, type Pull, type Selection } from './selection'
 
 type GetValue = (lane: number, date: ISODate) => number | undefined
 
+/** What a line that takes FTE has on a day: a row's own figure, or the sum of the rows under a level. */
+export const laneValue = ({ row, node }: Partial<AllocLane>, date: ISODate): number | undefined => {
+  // A level's value is a sum of rounded parts; keep float noise out of the editor, the clipboard and the spans.
+  const sum = node?.daily.get(date)
+  return node ? (sum === undefined ? undefined : Math.round(sum * 100) / 100) : row?.fte[date]
+}
+
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 const days = (n: number) => count(n, 'dag', 'dager')
 
@@ -121,13 +128,14 @@ export const proposalNotice = ({ done, hadPlan, noWindow, noDemand }: Proposal):
     .join(' · ')
 }
 
-/** The span a planning row has an end of on a day: the days in a row with FTE around it. Null where the day is empty or inside a span. */
-export const spanEndAt = (row: AllocationRow, dates: ISODate[], col: number): { from: number; to: number } | null => {
-  if (!row.fte[dates[col]]) return null
+/** The span a line has an end of on a day: the days in a row with FTE around it. Null where the day is empty or inside a span. */
+export const spanEndAt = (lane: Partial<AllocLane>, dates: ISODate[], col: number): { from: number; to: number } | null => {
+  const on = (at: number) => !!laneValue(lane, dates[at])
+  if (!on(col)) return null
   let from = col
   let to = col
-  while (from > 0 && row.fte[dates[from - 1]]) from -= 1
-  while (to < dates.length - 1 && row.fte[dates[to + 1]]) to += 1
+  while (from > 0 && on(from - 1)) from -= 1
+  while (to < dates.length - 1 && on(to + 1)) to += 1
   return col === from || col === to ? { from, to } : null
 }
 
@@ -137,7 +145,7 @@ export interface PullPreview {
   added: number
   cleared: number
   perDay: number
-  /** The row's planned FTE-days as the pull would leave them, and what it would then lack; null where its demand is not known. */
+  /** The line's planned FTE-days as the pull would leave them, and what it would then lack; null where its demand is not known. */
   planned: number
   lacking: number | null
   blocked: boolean
@@ -146,17 +154,20 @@ export interface PullPreview {
   noDemand: boolean
 }
 
-/** What pulling an end of a span would do to its row, see `stretchSpan`. */
+/**
+ * What pulling an end of a span would do to its line, see `stretchSpan`. On a level in entry the span is that of
+ * the sums of its rows, and what the pull gives a day is shared out over them as a number typed there is.
+ */
 export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: AllocLane[], demandIndex: DemandIndex, settings: Settings): PullPreview | null => {
-  const row = pull && allocLanes[pull.lane]?.row
-  if (!pull || !row) return null
-  const required = rowTotals(demandIndex, row, settings).requiredFte
-  const before = sumValues(row.fte)
+  const lane = pull && allocLanes[pull.lane]
+  if (!pull || !lane || (!lane.row && !lane.node)) return null
+  const required = lane.node ? lane.node.totals.requiredFte : rowTotals(demandIndex, lane.row!, settings).requiredFte
+  const before = lane.node ? lane.node.totals.plannedFte : sumValues(lane.row!.fte)
   const known = required !== null && required > FTE_NOISE
   // A span of one day is pulled by the end the pointer is on the side of.
   const end = pull.from === pull.to ? (pull.toCol < pull.from ? 'start' : 'end') : pull.end
   const { cells: changes, blocked, met } = stretchSpan({
-    values: dates.map((date) => row.fte[date]),
+    values: dates.map((date) => laneValue(lane, date)),
     workdays: dates.map((date) => dayType(date) === 'arbeidsdag'),
     from: pull.from,
     to: pull.to,
@@ -166,10 +177,10 @@ export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: All
     lacking: known ? required - before : null,
   })
   const cells = [...changes].sort((a, b) => a[0] - b[0]).map(([col, value]): DrawnCell => ({ lane: pull.lane, date: dates[col], value }))
-  const planned = cells.reduce((sum, cell) => sum + (cell.value ?? 0) - (row.fte[cell.date] ?? 0), before)
+  const planned = cells.reduce((sum, cell) => sum + (cell.value ?? 0) - (laneValue(lane, cell.date) ?? 0), before)
   return {
     cells,
-    added: cells.filter((cell) => cell.value !== null && !row.fte[cell.date]).length,
+    added: cells.filter((cell) => cell.value !== null && !laneValue(lane, cell.date)).length,
     cleared: cells.filter((cell) => cell.value === null).length,
     perDay: Math.max(0, ...cells.map((cell) => cell.value ?? 0)),
     planned,

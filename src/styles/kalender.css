@@ -314,28 +314,27 @@
    the label column alone, and its strong line. */
 .group-row .row-action.level-mode.entry{visibility:visible;color:var(--accent);font-weight:600}
 .group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}
-.group-row.entry-level .cell.editable{color:var(--text);font-weight:600}
 
 /* Rows are typed in, so they are ruled: a rule between the days, and one above each row's cells, which is the rule under the row
    before it. The rule sits on the cells and not on the line, so it has their fill behind it, and the label column has none. The
    last row has none under it, since the line of the next level is there. The line under the pointer is tinted. */
 .alloc-row .grid-label{cursor:pointer}
 .alloc-row:hover,.alloc-row:hover .grid-label{background:var(--wash-bg)}
-.entry-level .cell,.alloc-row .cell:is(:not(.filled),.run-end){border-right:1px solid var(--grid-col)}
+:is(.alloc-row,.entry-level) .cell:is(:not(.filled),.run-end){border-right:1px solid var(--grid-col)}
 .alloc-row .cell{border-top:1px solid var(--grid-row)}
 .cell.editable:not(.run-start,.run-end){cursor:cell}
 /* An end of a span is its grip: dragged sideways it pulls that end along the days, with any tool. The pointer says so, and nothing else does. */
-.alloc-row .cell:is(.run-start,.run-end),.kalender.pulling .cell.editable{cursor:ew-resize}
+:is(.alloc-row,.entry-level) .cell:is(.run-start,.run-end),.kalender.pulling .cell.editable{cursor:ew-resize}
 /* The planned days of a row are a span in the colour of its work phase, as a phase is in the hall calendar: a bar behind the
    figures, slimmer than the line, rounded where a run of days starts and ends. A day without FTE ends the run. Inside a run the
    bar lies over the rule between the days, which is left out there, so the run reads as one piece. The cell itself has no fill:
    a weekend shows behind the bar. What is laid over a cell is laid over its bar too: the selection, a day planned above the
    crew, and the hatch of a day outside the row's window. */
-.alloc-row .cell.filled{isolation:isolate;color:var(--text);font-weight:500}
-.alloc-row .cell.filled:not(.run-end){border-right:1px solid transparent}
-.alloc-row .cell.filled::before{content:'';position:absolute;top:5px;bottom:5px;left:-1px;right:-1px;z-index:-1;background-image:var(--over-selected,none),var(--over-booked,none),var(--over-hatch,none)}
-.alloc-row .cell.filled.run-start::before{left:2px;border-top-left-radius:5px;border-bottom-left-radius:5px}
-.alloc-row .cell.filled.run-end::before{right:2px;border-top-right-radius:5px;border-bottom-right-radius:5px}
+:is(.alloc-row,.entry-level) .cell.filled{isolation:isolate;color:var(--text);font-weight:500}
+:is(.alloc-row,.entry-level) .cell.filled:not(.run-end){border-right:1px solid transparent}
+:is(.alloc-row,.entry-level) .cell.filled::before{content:'';position:absolute;top:5px;bottom:5px;left:-1px;right:-1px;z-index:-1;background-image:var(--over-selected,none),var(--over-booked,none),var(--over-hatch,none)}
+:is(.alloc-row,.entry-level) .cell.filled.run-start::before{left:2px;border-top-left-radius:5px;border-bottom-left-radius:5px}
+:is(.alloc-row,.entry-level) .cell.filled.run-end::before{right:2px;border-top-right-radius:5px;border-bottom-right-radius:5px}
 .cell.mon{--phase:var(--mon)}
 .cell.dem{--phase:var(--dem)}
 .cell.filled::before{background-color:var(--bar,var(--phase))}
@@ -343,13 +342,13 @@
    as a stroke is in Bemanning: flat, with a hatch for what would not be there. The days that would get FTE are a tint of the row's colour,
    and the days that would lose it are hatched in that colour on the ground. What the stroke does is said on one pill over those days
    (`.stroke-box`). */
-.alloc-row .cell.coming{--bar:color-mix(in oklab,var(--phase) 50%,var(--bg))}
-.alloc-row .cell.going{--bar:var(--bg);--over-hatch:repeating-linear-gradient(135deg,var(--phase) 0 2px,transparent 2px 6px)}
+:is(.alloc-row,.entry-level) .cell.coming{--bar:color-mix(in oklab,var(--phase) 50%,var(--bg))}
+:is(.alloc-row,.entry-level) .cell.going{--bar:var(--bg);--over-hatch:repeating-linear-gradient(135deg,var(--phase) 0 2px,transparent 2px 6px)}
 .cell.has-note::after{content:'';position:absolute;top:0;right:0;border-left:6px solid transparent;border-top:6px solid var(--accent)}
 /* The days a row can be worked on, its project's build-up or tear-down days in its hall: a faint dot in the empty working days. */
-.alloc-row .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--text) 28%,transparent)}
+:is(.alloc-row,.entry-level) .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--text) 28%,transparent)}
 /* FTE placed on a day outside the window: hatched over the colour of its phase, as a hall shared by two events is. The legend's mark is the same. */
-.alloc-row .cell.outside-window{--over-hatch:var(--hatch)}
+:is(.alloc-row,.entry-level) .cell.outside-window{--over-hatch:var(--hatch)}
 .phase-legend i.outside{background-image:var(--hatch)}
 
 /* ---- a stroke in both modes: a box over its days and lines, and a pill on its edge (`StrokeBox`) ---- */
@@ -380,13 +379,10 @@
 input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;background:var(--surface);outline:none;text-align:center;font-family:var(--font-num);font-size:var(--fs-sm);caret-color:var(--pick)}
 /* The pencil and the eraser, chosen in the bar or held with Shift or Alt: the cell under the pointer shows what a drag would do. */
 .kalender:is(.pencil,.eraser) :is(.alloc-row,.entry-level) .cell.editable:not(.run-start,.run-end){cursor:crosshair}
-.kalender.pencil .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 60%,transparent)}
-.kalender.eraser .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--neg) 70%,transparent)}
-/* On a level in entry, which has no spans: what a pencil stroke would put in a cell, while it is being drawn, and a cell an eraser stroke is about to clear. */
-/* A row's planned FTE-days count along in its label while an end of one of its spans is pulled. */
-.cell.editable.drawn,.lbl-num.live{color:var(--accent)}
-.cell.editable.drawn:not(.filled){font-weight:600}
-.grid-canvas .cell.editable.erasing,.grid-canvas .cell.editable.erasing::before{background-color:var(--neg-bg)}
+.kalender.pencil :is(.alloc-row,.entry-level) .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 60%,transparent)}
+.kalender.eraser :is(.alloc-row,.entry-level) .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--neg) 70%,transparent)}
+/* A line's planned FTE-days count along in its label while an end of one of its spans is pulled. */
+.lbl-num.live{color:var(--accent)}
 
 /* the menu a right-click on a planning cell opens */
 .cell-menu{position:fixed;margin:0;width:280px;z-index:70;font-size:var(--fs-md)}

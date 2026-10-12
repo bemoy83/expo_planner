@@ -43,11 +43,11 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
 import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode } from './zoom'
-import { copyText, eraserCells, eraserPill, ghostCells, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
+import { copyText, eraserCells, eraserPill, ghostCells, laneValue, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Press, type Pull, type Selection, type Tool } from './selection'
 
 /** A line that takes no numbers has nothing selected on it. */
-const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
+const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, livePlanned: undefined }
 
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
@@ -222,6 +222,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const planned = useMemo(() => (outside.size ? ws.allocations.filter((row) => !outside.has(projectOfRow.get(row.id) ?? projectKey(row))) : ws.allocations), [ws.allocations, outside, projectOfRow])
   const need = useMemo(() => dailyNeed(planned), [planned])
   const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
+  // A level in entry is a row of its own: the days it can be worked on are those of the rows under it, together.
+  const levelWindows = useMemo(
+    () => new Map(items.flatMap((item) => (item.kind === 'group' && item.entry ? [[item.node.key, new Set(item.node.rows.flatMap((row) => [...(windowOf(row) ?? [])]))] as const] : []))),
+    [items, windowOf],
+  )
 
   const details = useMemo<RowDetails | null>(() => {
     const row = inspectorOpen && detailId ? rows.find((r) => r.id === detailId) : undefined
@@ -307,15 +312,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   }, [reveal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- cell values ----------------------------------------------------------------------------
-  const getValue = useCallback(
-    (lane: number, date: ISODate): number | undefined => {
-      const { row, node } = allocLanes[lane] ?? {}
-      // A level's value is a sum of rounded parts; keep float noise out of the editor and the clipboard.
-      const sum = node?.daily.get(date)
-      return node ? (sum === undefined ? undefined : Math.round(sum * 100) / 100) : row?.fte[date]
-    },
-    [allocLanes],
-  )
+  const getValue = useCallback((lane: number, date: ISODate): number | undefined => laneValue(allocLanes[lane] ?? {}, date), [allocLanes])
 
   const setRowFte = useCallback(
     (row: AllocationRow, date: ISODate, value: number | null) => (isSuggestedRow(row) ? setSuggestedFte(row, date, value) : setAllocationFte(row.id, date, value)),
@@ -546,8 +543,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift or Alt held
       // steer the pull, from the press or from later on; let go without a drag, or dragged up or down, the press
       // is what it is on any cell with them.
-      const row = drags ? allocLanes[lane]?.row : undefined
-      const span = row && spanEndAt(row, dates, col)
+      const span = drags && allocLanes[lane] ? spanEndAt(allocLanes[lane], dates, col) : null
       const started = extends_ ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
       // A plain press with «Velg» selects nothing yet either: let go, it is a click on the cell, and dragged on to another cell a range from it.
       const waits = !!span || (drags && tool === 'select' && !e.shiftKey && !erases)
@@ -759,7 +755,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const closeInspector = useCallback(() => setInspectorOpen(false), [setInspectorOpen])
 
   // What one line of cells is told about the selection: plain values, so only the lines it touches are drawn again.
-  const ghostClass = stroke === 'eraser' ? 'erasing' : 'drawn'
   // While a stroke is drawn or an end of a span is pulled, the cells are not marked as selected: the preview and its pill say what is happening.
   const quiet = !!stroke || !!pull
   const editOf = (lane: number): CellEdit => {
@@ -771,7 +766,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       focusCol: focused ? selection.focus.col : -1,
       draft: focused ? draft : null,
       ghost: ghost.get(lane),
-      ghostClass,
       livePlanned: pull?.lane === lane ? pullView?.planned : undefined,
     }
   }
@@ -812,7 +806,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const groupRow = (item: GroupItem) => {
     // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
     const lane = item.entry ? laneOfRow.get(`level:${item.node.key}`)! : -1
-    return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project ? phasesOfProject.get(item.node.project.key) : undefined} cols={cols} actions={actions} {...(item.entry ? editOf(lane) : NO_EDIT)} />
+    return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project && !item.entry ? phasesOfProject.get(item.node.project.key) : undefined} window={levelWindows.get(item.node.key)} cols={cols} actions={actions} {...(item.entry ? editOf(lane) : NO_EDIT)} />
   }
 
   // ---- render ---------------------------------------------------------------------------------

@@ -134,11 +134,11 @@ describe('pulling an end of a span', () => {
 
   it('finds the span a day is an end of', () => {
     const r = row('a', { fte: { [MON]: 2, [TUE]: 2, [WED]: 1, [FRI]: 1 } })
-    expect(spanEndAt(r, dates, 0)).toEqual({ from: 0, to: 2 })
-    expect(spanEndAt(r, dates, 2)).toEqual({ from: 0, to: 2 })
-    expect(spanEndAt(r, dates, 4)).toEqual({ from: 4, to: 4 })
-    expect(spanEndAt(r, dates, 1)).toBeNull()
-    expect(spanEndAt(r, dates, 3)).toBeNull()
+    expect(spanEndAt({ row: r }, dates, 0)).toEqual({ from: 0, to: 2 })
+    expect(spanEndAt({ row: r }, dates, 2)).toEqual({ from: 0, to: 2 })
+    expect(spanEndAt({ row: r }, dates, 4)).toEqual({ from: 4, to: 4 })
+    expect(spanEndAt({ row: r }, dates, 1)).toBeNull()
+    expect(spanEndAt({ row: r }, dates, 3)).toBeNull()
   })
 
   it('carries the crew on, and counts what the row would then have planned', () => {
@@ -201,7 +201,21 @@ describe('pulling an end of a span', () => {
     expect(pill(pull({ toCol: 1 }))).toBeNull()
   })
 
-  it('has nothing to do on a level or before the end has moved', () => {
+  it('pulls an end of the span of a level in entry, by its sums and its own demand', () => {
+    // The level has 2 on Monday and 2,5 on Tuesday over its rows, and needs 8 FTE-days.
+    const node = { totals: { requiredFte: 8, plannedFte: 4.5 }, daily: new Map([[MON, 2], [TUE, 2.5000000001]]) } as GroupNode
+    const lanes: AllocLane[] = [{ node, index: 0 }]
+    expect(spanEndAt(lanes[0], dates, 1)).toEqual({ from: 0, to: 1 })
+    expect(spanEndAt(lanes[0], dates, 2)).toBeNull()
+    const view = pullPreview(pull(), dates, lanes, index, settings)!
+    expect(view.cells.map((cell) => cell.value)).toEqual([2.5, 2.5, 2.5])
+    expect(view).toMatchObject({ added: 3, planned: 12, lacking: -4 })
+    const shift = pullPreview(pull({ mode: 'demand' }), dates, lanes, index, settings)!
+    expect(shift.cells).toEqual([{ lane: 0, date: WED, value: 2.5 }, { lane: 0, date: dates[3], value: 1 }])
+    expect(shift).toMatchObject({ planned: 8, met: true, noDemand: false })
+  })
+
+  it('has nothing to do without a pull or before the end has moved', () => {
     expect(pullPreview(null, dates, lanesOf(foga), index, settings)).toBeNull()
     const still = pullPreview(pull({ toCol: 1 }), dates, lanesOf(foga), index, settings)!
     expect(still.cells).toEqual([])
