@@ -53,7 +53,8 @@ describe('AllocRow', () => {
     rerender(view({ ...idle, selFrom: 1, selTo: 2, focusCol: 2, handle: true }))
     expect(drawn()).toBe(2)
     const cells = [...container.querySelectorAll('.cell')]
-    expect(cells.map((cell) => cell.classList.contains('selected'))).toEqual([false, true, true])
+    // The cell in focus has the ring alone.
+    expect(cells.map((cell) => cell.classList.contains('selected'))).toEqual([false, true, false])
     expect(cells[2].classList.contains('focus')).toBe(true)
     expect(cells[2].querySelector('.fill-handle')).not.toBeNull()
     expect(cells[1].textContent).toBe('2')

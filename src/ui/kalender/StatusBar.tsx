@@ -38,8 +38,8 @@ export function StatusBar({ focus, selectionSum, notice, progress, onSaveNote }:
           {focus.rowId && <NoteEditor key={`${focus.rowId}:${focus.date}`} note={focus.note} onSave={(note) => onSaveNote(focus.rowId!, focus.date, note)} />}
           {!focus.rowId && focus.note && <span>Notat: {focus.note}</span>}
         </>
-      ) : notice ? (
-        <span className="status-notice">{notice}</span>
+      ) : (progress ?? notice) ? (
+        <span className="status-notice">{progress ?? notice}</span>
       ) : (
         <span className="muted">Klikk en celle for å planlegge. Skriv tall (f.eks. 1,5), Enter for neste rad, dra eller Shift+klikk for å markere flere, Ctrl/Cmd+C/V for kopier og lim inn.</span>
       )}

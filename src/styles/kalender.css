@@ -351,7 +351,7 @@
 /* ---- selection, typing and the tools ---- */
 /* What is selected, and the cell in focus, are marked in the ink of the band: it is read on the colours of the phases, where the accent is not. */
 .cell.selected{background:var(--pick-soft)!important;--over-selected:linear-gradient(var(--pick-soft),var(--pick-soft))}
-.cell.focus{outline:1.5px solid var(--pick);outline-offset:-1.5px;z-index:1;box-shadow:0 0 0 3px var(--pick-soft)}
+.cell.focus{outline:1.5px solid var(--pick);outline-offset:-1.5px;z-index:1}
 /* The field a cell is typed in fills the cell; `input` in the selector puts it above the look fields have elsewhere.
    Its frame stays inside the cell, or it would show over the label column when the cell is scrolled in under it. */
 input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;background:var(--surface);outline:1.5px solid var(--pick);outline-offset:-1.5px;text-align:center;font-family:var(--font-num);font-size:var(--fs-sm);caret-color:var(--pick)}

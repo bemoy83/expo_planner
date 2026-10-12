@@ -21,6 +21,8 @@ interface Options {
   spring: RefObject<Cell | null>
   /** The press on an end of a span that has not moved yet, and the pull of that end in progress. */
   gripRef: RefObject<Grip | null>
+  /** The cell a plain press with «Velg» is on, until the mouse reaches another cell or is let go: a press selects nothing by itself. */
+  pressed: RefObject<Cell | null>
   pullRef: RefObject<Pull | null>
   setPull: Dispatch<SetStateAction<Pull | null>>
   setFill: Dispatch<SetStateAction<Fill | null>>
@@ -31,6 +33,8 @@ interface Options {
   eraseDrawn: () => void
   commitFill: () => void
   startPull: (grip: Grip, toCol: number, mode: Pull['mode']) => void
+  /** Selects the cell of a press, once it is a click or, on an end of a span, no pull. */
+  gripSelect: (cell: Cell) => void
   commitPull: () => void
   colW: number
   dayCount: number
@@ -42,7 +46,7 @@ interface Options {
  * and a stroke or a selection as from any cell once it moves up or down. The listeners are attached once and read what they need from a ref, so a drag is not
  * disturbed when the rows or the tool change under it.
  */
-export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, gripRef, pullRef, setFill, setPull, setSelection, setStroke, ...latest }: Options) {
+export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, gripRef, pressed, pullRef, setFill, setPull, setSelection, setStroke, ...latest }: Options) {
   const env = useRef(latest)
   useEffect(() => {
     env.current = latest
@@ -85,10 +89,11 @@ export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, g
       const grip = gripRef.current
       if (grip && Math.max(Math.abs(e.clientX - grip.x), Math.abs(e.clientY - grip.y)) >= GRIP_SLOP) {
         gripRef.current = null
-        if (Math.abs(e.clientX - grip.x) >= Math.abs(e.clientY - grip.y)) {
-          dragging.current = false
-          env.current.startPull(grip, colAt(e.clientX), pullMode(e))
-        } else {
+        if (Math.abs(e.clientX - grip.x) >= Math.abs(e.clientY - grip.y)) env.current.startPull(grip, colAt(e.clientX), pullMode(e))
+        else {
+          // Up or down, it is a drag as from any cell, and starts on the cell that was pressed.
+          env.current.gripSelect(grip)
+          dragging.current = true
           strokeRef.current = grip.stroke
           setStroke(grip.stroke)
         }
@@ -110,7 +115,7 @@ export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, g
     }
     const onUp = () => {
       rest()
-      const { drawDemand, eraseDrawn, commitFill, commitPull } = env.current
+      const { drawDemand, eraseDrawn, commitFill, commitPull, gripSelect } = env.current
       if (fillRef.current) {
         commitFill()
         return
@@ -120,8 +125,15 @@ export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, g
         return
       }
       // A press on an end of a span that never moved is a click, and the tool does what it does on any cell.
-      if (gripRef.current) strokeRef.current = gripRef.current.stroke
+      if (gripRef.current) {
+        gripSelect(gripRef.current)
+        dragging.current = true
+        strokeRef.current = gripRef.current.stroke
+      }
       gripRef.current = null
+      // A press that never reached another cell is a click, and selects its cell now.
+      if (pressed.current) gripSelect(pressed.current)
+      pressed.current = null
       const dragged = dragging.current
       const drawn = strokeRef.current
       dragging.current = false

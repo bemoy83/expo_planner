@@ -37,6 +37,8 @@ export interface Pull {
 }
 /** The press on an end of a span, until the mouse has moved far enough to say what it is: a pull, a stroke or a click. */
 export interface Grip extends Pick<Pull, 'lane' | 'from' | 'to' | 'end'> {
+  /** The cell that was pressed. It is not selected until the press turns out to be a click or a drag up or down. */
+  col: number
   x: number
   y: number
   /** The tool of the stroke the press starts, where it turns out to be no pull. */

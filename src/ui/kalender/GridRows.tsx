@@ -71,7 +71,8 @@ interface ValueCell {
 
 const valueCell = ({ cols, edit, actions, lane, menu, spans }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
   const focus = edit.focusCol === col
-  const selected = col >= edit.selFrom && col <= edit.selTo
+  // The cell in focus has its ring and no tint, as the active cell of a selection in Excel.
+  const selected = col >= edit.selFrom && col <= edit.selTo && !focus
   // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
   const drawn = edit.ghost?.get(date)
   // A row shows it on the span itself: the day has the look of a planned day, and a day that would be emptied keeps its figure.

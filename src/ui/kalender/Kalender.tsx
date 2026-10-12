@@ -106,6 +106,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const pullRef = useRef<Pull | null>(null)
   const pullViewRef = useRef<PullPreview | null>(null)
   const grip = useRef<Grip | null>(null)
+  // The cell a plain press with «Velg» is on: it is selected when the mouse is let go, or starts a range when another cell is reached.
+  const pressed = useRef<Cell | null>(null)
   const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
@@ -386,6 +388,13 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   useEffect(() => {
     selectionRef.current = selection
   }, [selection])
+  /** A press selects its cell only once it is a click, or, on an end of a span, when it is dragged up or down and so is no pull. */
+  const gripSelect = ({ lane, col }: Cell) => {
+    const cell = { lane, col }
+    select(cell, false)
+    // A stroke that ends in the same event reads the selection from here.
+    selectionRef.current = { anchor: cell, focus: cell }
+  }
 
   const strokeFor = useCallback((sel: Selection | null) => pencilStroke(sel, dates, allocLanes, demandIndex, settings), [dates, allocLanes, demandIndex, settings])
 
@@ -454,9 +463,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     pullRef.current = started
     setPull(started)
     setNotice(null)
-    // The press may have reached a cell beside its own before it was known to be a pull.
-    const cell = { lane: from.lane, col: from.end === 'end' ? from.to : from.from }
-    setSelection({ anchor: cell, focus: cell })
   }, [])
 
   const commitPull = useCallback(() => {
@@ -466,9 +472,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     setPull(null)
     if (!done || !view) return
     for (const cell of view.cells) setValue(cell.lane, cell.date, cell.value)
-    // The end is where it was pulled to, so it can be pulled on from there.
-    const cell = { lane: done.lane, col: view.tip }
-    setSelection({ anchor: cell, focus: cell })
+    // A pull selects nothing, as a pulled end of a run does not in Bemanning: what was selected is selected still.
     setNotice(pullNotice(done, view))
   }, [setValue])
 
@@ -476,7 +480,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const drawnCells = pullView ? pullView.cells : fillCells
   const ghost = useMemo(() => ghostCells([...pencilCells(preview), ...eraserCells(stroke === 'eraser' ? selection : null, dates), ...drawnCells]), [preview, stroke, selection, dates, drawnCells])
 
-  useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, gripRef: grip, pullRef, setFill, setPull, setSelection, setStroke, drawDemand, eraseDrawn, commitFill, startPull, commitPull, colW, dayCount: dates.length })
+  useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, gripRef: grip, pressed, pullRef, setFill, setPull, setSelection, setStroke, drawDemand, eraseDrawn, commitFill, startPull, commitPull, gripSelect, colW, dayCount: dates.length })
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -565,23 +569,43 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       // selection on a click; the stroke starts once the mouse is dragged on.
       const erases = drags && e.altKey
       const extends_ = e.shiftKey && !erases && (!drags || tool === 'select')
-      select({ lane, col }, extends_)
+      // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift and Alt
+      // held at the press mean what they do on any cell; held while the end is pulled they steer the pull.
+      const row = !drags || e.shiftKey || e.altKey ? undefined : allocLanes[lane]?.row
+      const span = row && spanEndAt(row, dates, col)
+      if (span) {
+        // What the press is shows once the mouse moves or is let go: until then nothing is selected and no stroke is drawn from it.
+        if (draft !== null) commitDraft()
+        setNotice(null)
+        scrollRef.current?.focus({ preventScroll: true })
+        grip.current = { lane, col, ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end', x: e.clientX, y: e.clientY, stroke: tool === 'select' ? null : tool }
+        strokeRef.current = null
+        setStroke(null)
+        return
+      }
+      grip.current = null
+      // A plain press with «Velg» selects nothing yet: let go, it is a click on the cell, and dragged on to another cell it is a range from it.
+      pressed.current = drags && tool === 'select' && !e.shiftKey && !erases ? { lane, col } : null
+      if (pressed.current) {
+        if (draft !== null) commitDraft()
+        setNotice(null)
+        scrollRef.current?.focus({ preventScroll: true })
+      } else select({ lane, col }, extends_)
       if (!drags) return
       dragging.current = true
       spring.current = extends_ ? { lane, col } : null
       const started = spring.current ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
-      // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift and Alt
-      // held at the press mean what they do on any cell; held while the end is pulled they steer the pull.
-      const row = e.shiftKey || e.altKey ? undefined : allocLanes[lane]?.row
-      const span = row && spanEndAt(row, dates, col)
-      grip.current = span ? { lane, ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end', x: e.clientX, y: e.clientY, stroke: started } : null
-      // What the press is shows once the mouse moves; until then no stroke is drawn from it.
-      strokeRef.current = span ? null : started
-      setStroke(span ? null : started)
+      strokeRef.current = started
+      setStroke(started)
     },
     cellEnter: (lane, col) => {
       if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
-      else if (dragging.current && spring.current) {
+      else if (dragging.current && pressed.current) {
+        const anchor = pressed.current
+        pressed.current = null
+        if (anchor.lane !== lane || anchor.col !== col) setSelection({ anchor, focus: { lane, col } })
+        else pressed.current = anchor
+      } else if (dragging.current && spring.current) {
         const anchor = spring.current
         spring.current = null
         strokeRef.current = 'pencil'
@@ -598,6 +622,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       strokeRef.current = null
       spring.current = null
       grip.current = null
+      pressed.current = null
       setStroke(null)
       select({ lane, col }, false)
       setCellMenu({ x: e.clientX, y: e.clientY, rowId: row.id, col })
@@ -773,9 +798,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
 
   // What one line of cells is told about the selection: plain values, so only the lines it touches are drawn again.
   const ghostClass = stroke === 'eraser' ? 'erasing' : 'drawn'
+  // While a stroke is drawn or an end of a span is pulled, the cells are not marked as selected: the preview and its pill say what is happening.
+  const quiet = !!stroke || !!pull
   const editOf = (lane: number): CellEdit => {
-    const selected = !!selectionRange && lane >= selectionRange.lane0 && lane <= selectionRange.lane1
-    const focused = selection?.focus.lane === lane
+    const selected = !quiet && !!selectionRange && lane >= selectionRange.lane0 && lane <= selectionRange.lane1
+    const focused = !quiet && selection?.focus.lane === lane
     return {
       selFrom: selected ? selectionRange.col0 : -1,
       selTo: selected ? selectionRange.col1 : -1,
