@@ -147,7 +147,7 @@ General
 
 An end of a span (the days in a row a planning row has FTE) is pulled along the days (2026-10-12): the whole first and last cell is the grip, with any tool. Checked in the browser: outward over a weekend with the day of the decimals lifted, inward, the start pulled back, a click and a drag up from an end cell, and one undo step per pull. Checked by the tests alone: Shift (stop where the demand is met) and Alt (keep the sum) held while an end is pulled, and the stop before the next span.
 
-- Shift or Alt steer a pull whether they are held from the press or from later on. On an end cell they give the pencil and the eraser only on a click or a drag up or down.
+- Shift steers a pull whether it is held from the press or from later on; on an end cell it gives the pencil only on a drag up or down. Alt at the press is the eraser everywhere, also on an end cell, and keeps the sum only when it is pressed after a pull has started.
 - The day that «holds the decimals» is one whose figure is no whole number and lower than its neighbour's inside the span. It is lifted only when the pull reaches a new day.
 - Not done: moving a whole span.
 - A level in entry (✎) draws, previews and pulls as a row does (2026-10-12). What a pull, a stroke or a typed number gives a day there is shared by required hours over the rows whose window holds the day (a row with no window counts as open), and over all the rows where no window holds it; only then can a row get FTE outside its own window. A project's line in entry shows its spans in place of the hall-phase strip.

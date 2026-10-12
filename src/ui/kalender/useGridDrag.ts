@@ -20,6 +20,8 @@ interface Options {
   /** The press that has selected nothing yet, and the pull of an end of a span in progress. */
   press: RefObject<Press | null>
   pullRef: RefObject<Pull | null>
+  /** What was selected when the mouse went down. */
+  before: RefObject<Selection | null>
   setPull: (pull: Pull | null) => void
   setSelection: Dispatch<SetStateAction<Selection | null>>
   setStroke: (stroke: Stroke | null) => void
@@ -40,7 +42,7 @@ interface Options {
  * and a stroke or a selection as from any cell once it moves up or down. The listeners are attached once
  * and read what they need from a ref, so a drag is not disturbed when the rows or the tool change under it.
  */
-export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pullRef, setPull, setSelection, setStroke, ...latest }: Options) {
+export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pullRef, before, setPull, setSelection, setStroke, ...latest }: Options) {
   const env = useRef(latest)
   useEffect(() => {
     env.current = latest
@@ -129,6 +131,8 @@ export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pul
       setStroke(null)
       if (dragged && drawn === 'pencil') drawDemand()
       if (dragged && drawn === 'eraser') eraseDrawn()
+      // A stroke is no selection: what was selected before it is selected again, and the cells it was drawn across are not.
+      if (dragged && drawn) setSelection(before.current)
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)

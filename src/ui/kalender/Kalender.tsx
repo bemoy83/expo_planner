@@ -104,6 +104,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const pullRef = useRef<Pull | null>(null)
   // The press that has selected nothing yet: a click once the mouse is let go, a range or a stroke once it reaches another cell, and on an end of a span a pull once it moves sideways.
   const press = useRef<Press | null>(null)
+  // What was selected when the mouse went down: a stroke gives it back when it ends.
+  const before = useRef<Selection | null>(null)
   const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
@@ -456,7 +458,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const written = useMemo(() => [...pencilCells(preview), ...(pullView?.cells ?? [])], [preview, pullView])
   const ghost = useMemo(() => ghostCells([...written, ...eraserCells(stroke === 'eraser' ? selection : null, dates)]), [written, stroke, selection, dates])
 
-  useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pullRef, setPull, setSelection, setStroke, drawDemand, eraseDrawn, startPull, commitPull, pressSelect, colW, dayCount: dates.length })
+  useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pullRef, before, setPull, setSelection, setStroke, drawDemand, eraseDrawn, startPull, commitPull, pressSelect, colW, dayCount: dates.length })
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -545,10 +547,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       // selection on a click; the stroke starts once the mouse is dragged on.
       const erases = drags && e.altKey
       const extends_ = e.shiftKey && !erases && (!drags || tool === 'select')
-      // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift or Alt held
-      // steer the pull, from the press or from later on; let go without a drag, or dragged up or down, the press
-      // is what it is on any cell with them.
-      const span = drags && allocLanes[lane] ? spanEndAt(allocLanes[lane], dates, col) : null
+      before.current = selection
+      // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift steers the pull
+      // from the press or from later on, and Alt once it has started; let go without a drag, or dragged up or down,
+      // a press with Shift is what it is on any cell. Alt at the press is the eraser, here as anywhere.
+      const span = drags && !erases && allocLanes[lane] ? spanEndAt(allocLanes[lane], dates, col) : null
       const started = extends_ ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
       // A plain press with «Velg» selects nothing yet either: let go, it is a click on the cell, and dragged on to another cell a range from it.
       const waits = !!span || (drags && tool === 'select' && !e.shiftKey && !erases)
