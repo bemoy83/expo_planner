@@ -287,14 +287,17 @@
 .group-row.depth-0:not(.entry-level),.group-row.depth-0 .grid-label{background:var(--band)}
 .group-row.depth-0 .lbl-project{font-size:var(--fs-base);font-weight:700}
 .group-row:not(.depth-0) :is(.lbl-project,.lbl-num:not(.delta)){color:var(--muted)}
-.group-row:not(.depth-0) .group-cell{color:var(--muted);font-weight:500}
+.group-row:not(.depth-0) .group-cell{font-weight:500}
+.group-row:not(.depth-0) .group-cell:not(.strip-mon,.strip-dem){color:var(--muted)}
 .empty-group .lbl-project{font-weight:500}
 .group-row.depth-0:not(.entry-level) :is(.day.helg,.day.helligdag){background-color:var(--band-we)}
 .group-cell{font-weight:600}
 /* the days of a project that is in the hall calendar but has no phase on the day */
 .group-row .cell.group-cell.in-span{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--text) 22%,transparent)}
 /* A strip behind a level's cells, slimmer than the line and rounded where it starts and ends: the hall phase
-   of the day on a project's line, the work phase on a folded level. */
+   of the day on a project's line, the work phase on a folded level. A folded level's strip is the span of the
+   rows under it: the days they have FTE, in the colour of the phase most of it is for, with the sums in the
+   ink the rows have theirs in. An open level has none: its rows show their own. */
 .group-row .cell.group-cell.strip{isolation:isolate;box-shadow:none}
 .group-row .cell.group-cell.strip::before{content:'';position:absolute;top:calc(50% - 9.5px);height:18px;left:0;right:0;z-index:-1}
 .group-row .cell.group-cell.strip-start::before{left:2px;border-top-left-radius:5px;border-bottom-left-radius:5px}
@@ -304,6 +307,8 @@
 .strip-event::before{background:var(--ph-event)}
 .strip-movingOut::before{background:var(--ph-movingout)}
 .strip-dismantle::before{background:var(--ph-dismantle)}
+.strip-mon::before{background:var(--mon)}
+.strip-dem::before{background:var(--dem)}
 /* A level that takes FTE itself instead of only summing its rows: typed in, so its days are a row's days for as long as it is:
    on the canvas with a row's weekends, ruled off between the days, the figures in a row's ink. A top level keeps its band in
    the label column alone, and its strong line. */
