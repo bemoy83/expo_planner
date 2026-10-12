@@ -23,6 +23,25 @@ export interface FillCell {
   /** `null` clears the cell. */
   value: number | null
 }
+/** A pull of one end of a span, the days in a row a planning row has FTE: the span as it was, and how far its end has been pulled. */
+export interface Pull {
+  lane: number
+  /** The first and the last day of the span. */
+  from: number
+  to: number
+  /** The end that was gripped. A span of one day has both in its one cell, and the way it is pulled says which. */
+  end: 'start' | 'end'
+  toCol: number
+  /** Shift stops the end where the demand is met; Alt keeps the sum of the span. */
+  mode: 'carry' | 'demand' | 'sum'
+}
+/** The press on an end of a span, until the mouse has moved far enough to say what it is: a pull, a stroke or a click. */
+export interface Grip extends Pick<Pull, 'lane' | 'from' | 'to' | 'end'> {
+  x: number
+  y: number
+  /** The tool of the stroke the press starts, where it turns out to be no pull. */
+  stroke: Exclude<Tool, 'select'> | null
+}
 export const rangeOf = (sel: Selection) => ({
   lane0: Math.min(sel.anchor.lane, sel.focus.lane),
   lane1: Math.max(sel.anchor.lane, sel.focus.lane),

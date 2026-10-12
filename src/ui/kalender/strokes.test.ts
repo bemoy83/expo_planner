@@ -3,8 +3,8 @@ import { buildDemandIndex } from '../../domain/calc'
 import { DEFAULT_SETTINGS, type AllocationRow, type DemandLine } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import type { GroupNode } from './rows'
-import type { Fill, Selection } from './selection'
-import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
+import type { Fill, Pull, Selection } from './selection'
+import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPreview, pullProgress, spanEndAt } from './strokes'
 
 // Monday 5 to Sunday 11 October 2026.
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11']
@@ -153,6 +153,79 @@ describe('the fill handle', () => {
     expect(fillNotice(fill(), [])).toBeNull()
     expect(fillProgress(fill(), [])).toBe('Dra sidelengs for å fylle · hold Alt for å strekke')
     expect(fillProgress(fill({ stretch: true }), [])).toBe('Strekker: ingenting å fordele')
+  })
+})
+
+describe('pulling an end of a span', () => {
+  // FOGA needs 5 FTE-days; Banner has no demand.
+  const foga = row('a', { fte: { [MON]: 2, [TUE]: 2 } })
+  const pull = (overrides: Partial<Pull> = {}): Pull => ({ lane: 0, from: 0, to: 1, end: 'end', toCol: 4, mode: 'carry', ...overrides })
+
+  it('finds the span a day is an end of', () => {
+    const r = row('a', { fte: { [MON]: 2, [TUE]: 2, [WED]: 1, [FRI]: 1 } })
+    expect(spanEndAt(r, dates, 0)).toEqual({ from: 0, to: 2 })
+    expect(spanEndAt(r, dates, 2)).toEqual({ from: 0, to: 2 })
+    expect(spanEndAt(r, dates, 4)).toEqual({ from: 4, to: 4 })
+    expect(spanEndAt(r, dates, 1)).toBeNull()
+    expect(spanEndAt(r, dates, 3)).toBeNull()
+  })
+
+  it('carries the crew on, and counts what the row would then have planned', () => {
+    const view = pullPreview(pull(), dates, lanesOf(foga), index, settings)!
+    expect(view.cells.map((cell) => cell.value)).toEqual([2, 2, 2])
+    expect(view).toMatchObject({ added: 3, cleared: 0, planned: 10, lacking: -5, tip: 4, blocked: false, noDemand: false })
+    expect(pullProgress(pull(), view)).toBe('Forlenger 3 dager med 2 FTE · Shift stopper når behovet er dekket, Alt beholder summen')
+    expect(pullNotice(pull(), view)).toBe('Forlenget med 3 dager')
+  })
+
+  it('stops where the demand is met with Shift', () => {
+    const shift = pull({ mode: 'demand' })
+    const view = pullPreview(shift, dates, lanesOf(foga), index, settings)!
+    expect(view.cells).toEqual([{ lane: 0, date: WED, value: 1 }])
+    expect(view).toMatchObject({ planned: 5, lacking: 0, tip: 2, met: true })
+    expect(pullProgress(shift, view)).toBe('Forlenger 1 dag med 1 FTE · behovet er dekket')
+    expect(pullNotice(shift, view)).toBe('Forlenget med 1 dag · behovet er dekket')
+  })
+
+  it('says so when the row has no demand to stop at, and is not stopped', () => {
+    const shift = pull({ mode: 'demand' })
+    const view = pullPreview(shift, dates, lanesOf(row('b', { competence: 'Banner', fte: foga.fte })), index, settings)!
+    expect(view).toMatchObject({ added: 3, noDemand: true, met: false })
+    expect(pullProgress(shift, view)).toBe('Forlenger 3 dager med 2 FTE · raden har ikke noe kjent behov å stoppe ved')
+  })
+
+  it('clears the days let go of', () => {
+    const view = pullPreview(pull({ toCol: 0 }), dates, lanesOf(foga), index, settings)!
+    expect(view.cells).toEqual([{ lane: 0, date: TUE, value: null }])
+    expect(view).toMatchObject({ cleared: 1, planned: 2, tip: 0 })
+    expect(pullNotice(pull({ toCol: 0 }), view)).toBe('Kortet inn 1 dag')
+  })
+
+  it('keeps the sum with Alt', () => {
+    const alt = pull({ toCol: 3, mode: 'sum' })
+    const view = pullPreview(alt, dates, lanesOf(foga), index, settings)!
+    expect(view.cells.map((cell) => cell.value)).toEqual([1, 1, 1, 1])
+    expect(view).toMatchObject({ planned: 4, tip: 3 })
+    expect(pullProgress(alt, view)).toBe('Strekker: opptil 1 FTE per dag, samme sum')
+    expect(pullNotice(alt, view)).toBe('Strakk summen over 4 dager')
+  })
+
+  it('pulls a span of one day by the end the pointer is on the side of, and stops before the next span', () => {
+    const r = row('a', { fte: { [MON]: 4, [WED]: 2, [FRI]: 1 } })
+    const one = pull({ from: 2, to: 2, toCol: 0 })
+    const back = pullPreview(one, dates, lanesOf(r), index, settings)!
+    expect(back.cells).toEqual([{ lane: 0, date: TUE, value: 2 }])
+    expect(back).toMatchObject({ blocked: true, tip: 1 })
+    expect(pullNotice(one, back)).toBe('Forlenget med 1 dag · stopper før neste planlagte dag')
+    expect(pullPreview({ ...one, toCol: 3 }, dates, lanesOf(r), index, settings)!.cells).toEqual([{ lane: 0, date: dates[3], value: 2 }])
+  })
+
+  it('has nothing to do on a level or before the end has moved', () => {
+    expect(pullPreview(null, dates, lanesOf(foga), index, settings)).toBeNull()
+    const still = pullPreview(pull({ toCol: 1 }), dates, lanesOf(foga), index, settings)!
+    expect(still.cells).toEqual([])
+    expect(pullNotice(pull({ toCol: 1 }), still)).toBeNull()
+    expect(pullProgress(pull({ toCol: 1 }), still)).toMatch(/^Dra enden sidelengs/)
   })
 })
 

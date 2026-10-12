@@ -35,6 +35,8 @@ export interface CellEdit {
   /** What a pencil or eraser stroke, or a drag of the fill handle, would put in this line's cells. */
   ghost: Map<ISODate, number> | undefined
   ghostClass: 'drawn' | 'erasing'
+  /** The line's planned FTE-days as the pull of a span's end in progress would leave them. */
+  livePlanned: number | undefined
 }
 
 /** A line of the planning grid that takes FTE: a row, or a level whose number is shared out to its rows. */

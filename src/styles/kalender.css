@@ -318,7 +318,9 @@
 .alloc-row:hover,.alloc-row:hover .grid-label{background:var(--wash-bg)}
 .entry-level .cell,.alloc-row .cell:is(:not(.filled),.run-end){border-right:1px solid var(--grid-col)}
 .alloc-row .cell{border-top:1px solid var(--grid-row)}
-.cell.editable{cursor:cell}
+.cell.editable:not(.run-start,.run-end){cursor:cell}
+/* An end of a span is its grip: dragged sideways it pulls that end along the days, with any tool. The pointer says so, and nothing else does. */
+.alloc-row .cell:is(.run-start,.run-end),.kalender.pulling .cell.editable{cursor:ew-resize}
 /* The planned days of a row are a span in the colour of its work phase, as a phase is in the hall calendar: a bar behind the
    figures, slimmer than the line, rounded where a run of days starts and ends. A day without FTE ends the run. Inside a run the
    bar lies over the rule between the days, which is left out there, so the run reads as one piece. The cell itself has no fill:
@@ -348,11 +350,12 @@ input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;
 /* The fill handle on the last cell of the selection: drag to copy, Alt-drag to stretch. Above the neighbouring cells, below the pinned label column. */
 .fill-handle{position:absolute;right:-4px;bottom:-4px;z-index:1;width:8px;height:8px;border:1px solid var(--surface);background:var(--pick);cursor:crosshair}
 /* The pencil and the eraser, chosen in the bar or held with Shift or Alt: the cell under the pointer shows what a drag would do. */
-.kalender.pencil .alloc-row .cell.editable,.kalender.pencil .entry-level .cell.editable,.kalender.eraser .alloc-row .cell.editable,.kalender.eraser .entry-level .cell.editable{cursor:crosshair}
+.kalender:is(.pencil,.eraser) :is(.alloc-row,.entry-level) .cell.editable:not(.run-start,.run-end){cursor:crosshair}
 .kalender.pencil .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 60%,transparent)}
 .kalender.eraser .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--neg) 70%,transparent)}
 /* What a pencil stroke would put in a cell, while it is being drawn, and a cell an eraser stroke is about to clear. */
-.cell.editable.drawn{color:var(--accent)}
+/* A row's planned FTE-days count along in its label while an end of one of its spans is pulled. */
+.cell.editable.drawn,.lbl-num.live{color:var(--accent)}
 .cell.editable.drawn:not(.filled){font-weight:600}
 .grid-canvas .cell.editable.erasing,.grid-canvas .cell.editable.erasing::before{background-color:var(--neg-bg)}
 

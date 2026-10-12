@@ -1,8 +1,13 @@
 import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import { LEFT_W } from './layout'
-import type { Cell, Fill, Selection, Tool } from './selection'
+import type { Cell, Fill, Grip, Pull, Selection, Tool } from './selection'
 
 type Stroke = Exclude<Tool, 'select'>
+
+/** How far the mouse moves from a press on an end of a span before it says what the press is. */
+const GRIP_SLOP = 4
+
+const pullMode = (e: MouseEvent | KeyboardEvent): Pull['mode'] => (e.altKey ? 'sum' : e.shiftKey ? 'demand' : 'carry')
 
 interface Options {
   scrollRef: RefObject<HTMLDivElement | null>
@@ -14,6 +19,10 @@ interface Options {
   strokeRef: RefObject<Stroke | null>
   /** The cell a Shift-click started on, until the mouse is dragged on. */
   spring: RefObject<Cell | null>
+  /** The press on an end of a span that has not moved yet, and the pull of that end in progress. */
+  gripRef: RefObject<Grip | null>
+  pullRef: RefObject<Pull | null>
+  setPull: Dispatch<SetStateAction<Pull | null>>
   setFill: Dispatch<SetStateAction<Fill | null>>
   setSelection: Dispatch<SetStateAction<Selection | null>>
   setStroke: (stroke: Stroke | null) => void
@@ -21,16 +30,19 @@ interface Options {
   drawDemand: () => void
   eraseDrawn: () => void
   commitFill: () => void
+  startPull: (grip: Grip, toCol: number, mode: Pull['mode']) => void
+  commitPull: () => void
   colW: number
   dayCount: number
 }
 
 /**
  * A drag ends wherever the mouse is released. While it lasts, the grid follows the mouse past its left
- * and right edges. The listeners are attached once and read what they need from a ref, so a drag is not
+ * and right edges. A press on an end of a span becomes a pull of that end once the mouse moves sideways,
+ * and a stroke or a selection as from any cell once it moves up or down. The listeners are attached once and read what they need from a ref, so a drag is not
  * disturbed when the rows or the tool change under it.
  */
-export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, setFill, setSelection, setStroke, ...latest }: Options) {
+export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, gripRef, pullRef, setFill, setPull, setSelection, setStroke, ...latest }: Options) {
   const env = useRef(latest)
   useEffect(() => {
     env.current = latest
@@ -38,17 +50,27 @@ export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, s
   useEffect(() => {
     let mouseX: number | null = null
     let timer: ReturnType<typeof setInterval> | undefined
+    /** The day under the mouse, or the nearest one in view. */
+    const colAt = (x: number) => {
+      const el = scrollRef.current
+      if (!el) return 0
+      const { colW, dayCount } = env.current
+      const rect = el.getBoundingClientRect()
+      return Math.max(0, Math.min(dayCount - 1, Math.floor((Math.min(Math.max(x, rect.left + LEFT_W), rect.right - 1) - rect.left - LEFT_W + el.scrollLeft) / colW)))
+    }
+    const pullTo = (toCol: number, mode?: Pull['mode']) => setPull((p) => (p && (p.toCol !== toCol || (mode && p.mode !== mode)) ? { ...p, toCol, mode: mode ?? p.mode } : p))
     const follow = () => {
       const el = scrollRef.current
-      if (!el || mouseX === null || !(dragging.current || fillRef.current)) return
-      const { colW, dayCount } = env.current
+      if (!el || mouseX === null || !(dragging.current || fillRef.current || pullRef.current)) return
+      const { colW } = env.current
       const rect = el.getBoundingClientRect()
       const step = mouseX > rect.right - 24 ? colW : mouseX < rect.left + LEFT_W + 24 ? -colW : 0
       if (!step) return
       el.scrollLeft += step
       // No cell is entered while the grid moves under a still mouse, so the selection follows the scroll.
-      const col = Math.max(0, Math.min(dayCount - 1, Math.floor((Math.min(Math.max(mouseX, rect.left + LEFT_W), rect.right - 1) - rect.left - LEFT_W + el.scrollLeft) / colW)))
-      if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
+      const col = colAt(mouseX)
+      if (pullRef.current) pullTo(col)
+      else if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
       else setSelection((sel) => (sel && sel.focus.col !== col ? { ...sel, focus: { ...sel.focus, col } } : sel))
     }
     const rest = () => {
@@ -60,25 +82,46 @@ export function useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, s
       if (fillRef.current && fillRef.current.stretch !== stretch) setFill((f) => f && { ...f, stretch })
     }
     const onMove = (e: MouseEvent) => {
-      mouseX = dragging.current || fillRef.current ? e.clientX : null
+      const grip = gripRef.current
+      if (grip && Math.max(Math.abs(e.clientX - grip.x), Math.abs(e.clientY - grip.y)) >= GRIP_SLOP) {
+        gripRef.current = null
+        if (Math.abs(e.clientX - grip.x) >= Math.abs(e.clientY - grip.y)) {
+          dragging.current = false
+          env.current.startPull(grip, colAt(e.clientX), pullMode(e))
+        } else {
+          strokeRef.current = grip.stroke
+          setStroke(grip.stroke)
+        }
+      } else if (pullRef.current) pullTo(colAt(e.clientX), pullMode(e))
+      mouseX = dragging.current || fillRef.current || pullRef.current ? e.clientX : null
       // The timer runs only while something is being dragged.
       if (mouseX !== null && timer === undefined) timer = setInterval(follow, 60)
       setStretch(e.altKey)
     }
-    // Alt can be pressed or let go while the mouse rests.
+    // Alt and Shift can be pressed or let go while the mouse rests.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Alt' && fillRef.current) {
+      if ((e.key === 'Alt' || e.key === 'Shift') && pullRef.current) {
+        e.preventDefault()
+        setPull((p) => p && { ...p, mode: pullMode(e) })
+      } else if (e.key === 'Alt' && fillRef.current) {
         e.preventDefault()
         setStretch(e.type === 'keydown')
       }
     }
     const onUp = () => {
       rest()
-      const { drawDemand, eraseDrawn, commitFill } = env.current
+      const { drawDemand, eraseDrawn, commitFill, commitPull } = env.current
       if (fillRef.current) {
         commitFill()
         return
       }
+      if (pullRef.current) {
+        commitPull()
+        return
+      }
+      // A press on an end of a span that never moved is a click, and the tool does what it does on any cell.
+      if (gripRef.current) strokeRef.current = gripRef.current.stroke
+      gripRef.current = null
       const dragged = dragging.current
       const drawn = strokeRef.current
       dragging.current = false

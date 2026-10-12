@@ -463,6 +463,9 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
   const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
   const cell: ValueCell = { cols, edit, actions, lane, menu: true }
   const remaining = (totals.requiredFte ?? 0) - totals.plannedFte
+  // While an end of one of the row's spans is pulled, its figures count what the pull would leave.
+  const planned = edit.livePlanned ?? totals.plannedFte
+  const delta = totals.requiredFte === null ? null : planned - totals.requiredFte
   return (
     <Line
       className="alloc-row"
@@ -486,8 +489,8 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
             <span className="lbl-num" title={totals.requiredHours === null ? '' : `${formatFte(totals.requiredHours, 2)} timer`}>
               {formatFte(totals.requiredFte)}
             </span>
-            <span className="lbl-num">{formatFte(totals.plannedFte)}</span>
-            <span className={`lbl-num delta ${deltaClass(totals.deltaFte)}`}>{formatFte(totals.deltaFte)}</span>
+            <span className={`lbl-num ${edit.livePlanned === undefined ? '' : 'live'}`}>{formatFte(planned)}</span>
+            <span className={`lbl-num delta ${deltaClass(delta)}`}>{formatFte(delta)}</span>
           </span>
           <span className="row-slot row-actions">
             <button

@@ -42,11 +42,11 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
 import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode } from './zoom'
-import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice } from './strokes'
-import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Selection, type Tool } from './selection'
+import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPreview, pullProgress, spanEndAt, type PullPreview } from './strokes'
+import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Grip, type Pull, type Selection, type Tool } from './selection'
 
 /** A line that takes no numbers has nothing selected on it. */
-const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn' }
+const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
 
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
@@ -101,6 +101,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [fill, setFill] = useState<Fill | null>(null)
   const fillRef = useRef<Fill | null>(null)
   const fillCellsRef = useRef<FillCell[]>([])
+  // An end of a span being pulled along the days, and the press on one that has not moved yet.
+  const [pull, setPull] = useState<Pull | null>(null)
+  const pullRef = useRef<Pull | null>(null)
+  const pullViewRef = useRef<PullPreview | null>(null)
+  const grip = useRef<Grip | null>(null)
   const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
@@ -438,10 +443,40 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     setNotice(fillNotice(done, cells))
   }, [setValue])
 
-  // What the cells of each line would hold if the stroke or the drag ended now, keyed by lane.
-  const ghost = useMemo(() => ghostCells(preview, stroke === 'eraser' ? selection : null, dates, fillCells), [preview, stroke, selection, dates, fillCells])
+  const pullView = useMemo(() => pullPreview(pull, dates, allocLanes, demandIndex, settings), [pull, dates, allocLanes, demandIndex, settings])
+  useEffect(() => {
+    pullRef.current = pull
+    pullViewRef.current = pullView
+  }, [pull, pullView])
 
-  useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, setFill, setSelection, setStroke, drawDemand, eraseDrawn, commitFill, colW, dayCount: dates.length })
+  const startPull = useCallback((from: Grip, toCol: number, mode: Pull['mode']) => {
+    const started: Pull = { lane: from.lane, from: from.from, to: from.to, end: from.end, toCol, mode }
+    pullRef.current = started
+    setPull(started)
+    setNotice(null)
+    // The press may have reached a cell beside its own before it was known to be a pull.
+    const cell = { lane: from.lane, col: from.end === 'end' ? from.to : from.from }
+    setSelection({ anchor: cell, focus: cell })
+  }, [])
+
+  const commitPull = useCallback(() => {
+    const done = pullRef.current
+    const view = pullViewRef.current
+    pullRef.current = null
+    setPull(null)
+    if (!done || !view) return
+    for (const cell of view.cells) setValue(cell.lane, cell.date, cell.value)
+    // The end is where it was pulled to, so it can be pulled on from there.
+    const cell = { lane: done.lane, col: view.tip }
+    setSelection({ anchor: cell, focus: cell })
+    setNotice(pullNotice(done, view))
+  }, [setValue])
+
+  // What the cells of each line would hold if the stroke or the drag ended now, keyed by lane.
+  const drawnCells = pullView ? pullView.cells : fillCells
+  const ghost = useMemo(() => ghostCells(preview, stroke === 'eraser' ? selection : null, dates, drawnCells), [preview, stroke, selection, dates, drawnCells])
+
+  useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, gripRef: grip, pullRef, setFill, setPull, setSelection, setStroke, drawDemand, eraseDrawn, commitFill, startPull, commitPull, colW, dayCount: dates.length })
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -488,7 +523,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // ---- rendering helpers --------------------------------------------------------------------
   // Days planned above the available crew. Without the heat map they are tinted down the whole grid; with it,
   // the Avvik line alone carries them. A pencil stroke in progress counts, so the clash shows while it is being drawn.
-  const overbooked = useMemo(() => overbookedDays(need, preview, fillCells, allocLanes, getValue, capacity, settings), [need, preview, fillCells, allocLanes, getValue, capacity, settings])
+  const overbooked = useMemo(() => overbookedDays(need, preview, drawnCells, allocLanes, getValue, capacity, settings), [need, preview, drawnCells, allocLanes, getValue, capacity, settings])
 
   // Every cell of a day shares these classes; they are worked out once per day, not once per cell.
   const dayClasses = useMemo(() => {
@@ -503,7 +538,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, first: leftCol, colW, classes: dayClasses }), [visibleDates, c0, leftCol, colW, dayClasses])
 
   // What the stroke or the drag in progress would do, for the status bar.
-  const progress = fill ? fillProgress(fill, fillCells) : preview ? pencilProgress(preview) : null
+  const progress = pull && pullView ? pullProgress(pull, pullView) : fill ? fillProgress(fill, fillCells) : preview ? pencilProgress(preview) : null
 
   const toggled = (prev: Set<string>, key: string) => {
     const next = new Set(prev)
@@ -535,8 +570,14 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       dragging.current = true
       spring.current = extends_ ? { lane, col } : null
       const started = spring.current ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
-      strokeRef.current = started
-      setStroke(started)
+      // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift and Alt
+      // held at the press mean what they do on any cell; held while the end is pulled they steer the pull.
+      const row = e.shiftKey || e.altKey ? undefined : allocLanes[lane]?.row
+      const span = row && spanEndAt(row, dates, col)
+      grip.current = span ? { lane, ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end', x: e.clientX, y: e.clientY, stroke: started } : null
+      // What the press is shows once the mouse moves; until then no stroke is drawn from it.
+      strokeRef.current = span ? null : started
+      setStroke(span ? null : started)
     },
     cellEnter: (lane, col) => {
       if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
@@ -556,6 +597,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       dragging.current = false
       strokeRef.current = null
       spring.current = null
+      grip.current = null
       setStroke(null)
       select({ lane, col }, false)
       setCellMenu({ x: e.clientX, y: e.clientY, rowId: row.id, col })
@@ -743,6 +785,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       draft: focused ? draft : null,
       ghost: ghost.get(lane),
       ghostClass,
+      livePlanned: pull?.lane === lane ? pullView?.planned : undefined,
     }
   }
 
@@ -784,7 +827,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const todayLine = today >= range.start && today <= range.end ? <i className="today-line" style={{ left: daysWide(daysBetween(range.start, today), LEFT_W) }} /> : null
   const places = <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
   return (
-    <div className={`kalender ${bemanning ? 'bemanning-mode' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode}>
+    <div className={`kalender ${bemanning ? 'bemanning-mode' : pull ? 'pulling' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode}>
       <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
       {bemanning ? <BemanningHead places={places} /> : <KalenderHead
         places={places}

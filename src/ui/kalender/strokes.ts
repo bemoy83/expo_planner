@@ -2,11 +2,11 @@ import { capacityForDate, formatFte, FTE_NOISE, rowTotals, sumValues, type Deman
 import type { ISODate } from '../../domain/dates'
 import { decimalText } from '../../domain/numbers'
 import { dayType } from '../../domain/holidays'
-import { fillAcross, shareOverDays } from '../../domain/spread'
+import { fillAcross, shareOverDays, stretchSpan } from '../../domain/spread'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import { parseCellInput } from './layout'
-import { rangeOf, type Fill, type FillCell, type Selection } from './selection'
+import { rangeOf, type Fill, type FillCell, type Pull, type Selection } from './selection'
 
 /** What the grid's tools would write, worked out from the selection and the rows: no state and no storage here. */
 
@@ -156,6 +156,104 @@ export const fillProgress = (fill: Fill, cells: FillCell[]): string => {
   if (fill.stretch) return perDay.size ? `Strekker: opptil ${formatFte(Math.max(...perDay.values()), 1)} FTE per dag over ${days(perDay.size)}` : 'Strekker: ingenting å fordele'
   if (perDay.size) return `Fyller ${days(perDay.size)} · hold Alt for å strekke i stedet`
   return cleared ? `Tømmer ${days(cleared)}` : 'Dra sidelengs for å fylle · hold Alt for å strekke'
+}
+
+/** The span a planning row has an end of on a day: the days in a row with FTE around it. Null where the day is empty or inside a span. */
+export const spanEndAt = (row: AllocationRow, dates: ISODate[], col: number): { from: number; to: number } | null => {
+  if (!row.fte[dates[col]]) return null
+  let from = col
+  let to = col
+  while (from > 0 && row.fte[dates[from - 1]]) from -= 1
+  while (to < dates.length - 1 && row.fte[dates[to + 1]]) to += 1
+  return col === from || col === to ? { from, to } : null
+}
+
+export interface PullPreview {
+  cells: FillCell[]
+  /** The days that get FTE they did not have, the days that are cleared, and the most a day ends up with. */
+  added: number
+  cleared: number
+  perDay: number
+  /** The row's planned FTE-days as the pull would leave them, and what it would then lack; null where its demand is not known. */
+  planned: number
+  lacking: number | null
+  /** The day the span ends on after the pull. */
+  tip: number
+  blocked: boolean
+  met: boolean
+  /** Shift is held on a row with no demand to stop at. */
+  noDemand: boolean
+}
+
+/** What pulling an end of a span would do to its row, see `stretchSpan`. */
+export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: AllocLane[], demandIndex: DemandIndex, settings: Settings): PullPreview | null => {
+  const row = pull && allocLanes[pull.lane]?.row
+  if (!pull || !row) return null
+  const required = rowTotals(demandIndex, row, settings).requiredFte
+  const before = sumValues(row.fte)
+  const known = required !== null && required > FTE_NOISE
+  // A span of one day is pulled by the end the pointer is on the side of.
+  const end = pull.from === pull.to ? (pull.toCol < pull.from ? 'start' : 'end') : pull.end
+  const { cells: changes, blocked, met } = stretchSpan({
+    values: dates.map((date) => row.fte[date]),
+    workdays: dates.map((date) => dayType(date) === 'arbeidsdag'),
+    from: pull.from,
+    to: pull.to,
+    end,
+    at: pull.toCol,
+    mode: pull.mode,
+    lacking: known ? required - before : null,
+  })
+  const cells = [...changes].sort((a, b) => a[0] - b[0]).map(([col, value]): FillCell => ({ lane: pull.lane, date: dates[col], value }))
+  const planned = cells.reduce((sum, cell) => sum + (cell.value ?? 0) - (row.fte[cell.date] ?? 0), before)
+  const filled = [...changes].filter(([, value]) => value !== null).map(([col]) => col)
+  // Where the end is now: the outermost day that has FTE once the pull is done.
+  const inner = end === 'end' ? pull.from : pull.to
+  const kept = (col: number) => (changes.has(col) ? changes.get(col) !== null : col >= pull.from && col <= pull.to)
+  let tip = inner
+  for (let col = inner; kept(col); col += end === 'end' ? 1 : -1) tip = col
+  if (filled.length) tip = end === 'end' ? Math.max(tip, ...filled) : Math.min(tip, ...filled)
+  return {
+    cells,
+    added: cells.filter((cell) => cell.value !== null && !row.fte[cell.date]).length,
+    cleared: cells.filter((cell) => cell.value === null).length,
+    perDay: Math.max(0, ...cells.map((cell) => cell.value ?? 0)),
+    planned,
+    lacking: required === null ? null : required - planned,
+    tip,
+    blocked,
+    met,
+    noDemand: pull.mode === 'demand' && !known,
+  }
+}
+
+const pullTail = (pull: Pull, { blocked, met, noDemand, lacking }: PullPreview): string =>
+  [
+    noDemand ? 'raden har ikke noe kjent behov å stoppe ved' : '',
+    pull.mode === 'demand' && !noDemand ? (met ? 'behovet er dekket' : lacking !== null && lacking > FTE_NOISE ? `${formatFte(lacking, 1)} FTE-dager igjen av behovet` : '') : '',
+    blocked ? 'stopper før neste planlagte dag' : '',
+  ]
+    .filter(Boolean)
+    .map((text) => ` · ${text}`)
+    .join('')
+
+/** What the status bar says while an end of a span is pulled. */
+export const pullProgress = (pull: Pull, preview: PullPreview): string => {
+  const { added, cleared, perDay, cells } = preview
+  const tail = pullTail(pull, preview)
+  if (pull.mode === 'sum') return cells.length ? `Strekker: opptil ${formatFte(perDay, 1)} FTE per dag, samme sum${tail}` : `Strekker: dra enden for å fordele summen på nytt${tail}`
+  if (added) return `Forlenger ${days(added)} med ${formatFte(perDay, 1)} FTE${tail}${pull.mode === 'carry' ? ' · Shift stopper når behovet er dekket, Alt beholder summen' : ''}`
+  if (cleared) return `Korter inn ${days(cleared)}${tail}`
+  return cells.length ? `Løfter siste dag til ${formatFte(perDay, 1)} FTE${tail}` : `Dra enden sidelengs for å forlenge eller korte inn${tail || ' · Shift stopper når behovet er dekket, Alt beholder summen'}`
+}
+
+/** What the status bar says once the end is let go. */
+export const pullNotice = (pull: Pull, preview: PullPreview): string | null => {
+  const { added, cleared, cells } = preview
+  const tail = pullTail(pull, preview)
+  if (!cells.length) return tail ? `Ingenting endret${tail}` : null
+  if (pull.mode === 'sum') return `Strakk summen over ${days(cells.filter((cell) => cell.value !== null).length)}${tail}`
+  return `${added ? `Forlenget med ${days(added)}` : cleared ? `Kortet inn ${days(cleared)}` : 'Løftet siste dag'}${tail}`
 }
 
 /** What the cells of each line would hold if the stroke or the drag ended now, keyed by lane. */
