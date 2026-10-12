@@ -237,35 +237,64 @@ const pullTail = (pull: Pull, { blocked, met, noDemand, lacking }: PullPreview):
     .map((text) => ` · ${text}`)
     .join('')
 
-export interface PullPill {
-  /** The days the pull changes: where the pill sits. */
+/** What a stroke or a drag in progress would do, for the pill over the days it changes, as a stroke has one in Bemanning. */
+export interface StrokePill {
+  /** The days and the lines the stroke changes: where the pill sits. */
   from: ISODate
   to: ISODate
-  /** The pull takes FTE away. */
+  lane0: number
+  lane1: number
+  /** The stroke only takes FTE away. */
   erase: boolean
   title: string
   parts: string[]
 }
 
-/** What a pull of a span's end would do, for the pill over the days it changes, as a stroke has one in Bemanning. Nothing while it changes nothing. */
-export const pullPill = (pull: Pull, row: AllocationRow, { cells, added, cleared, planned, blocked, met, noDemand }: PullPreview): PullPill | null => {
-  if (!cells.length) return null
-  const change = planned - sumValues(row.fte)
-  const fte = `${change > 0 ? '+' : change < 0 ? '−' : ''}${formatFte(Math.abs(change), 1) || '0'} FTE`
-  const erase = pull.mode !== 'sum' && cleared > 0
+/**
+ * The pill of a stroke that would leave `cells` as they are given. `titles` name it where it gives FTE and where it only
+ * takes FTE away; a stroke that keeps its sum has one name and says so. Nothing while the stroke changes nothing.
+ */
+const strokePill = (titles: { gain: string; lose: string } | { sameSum: string }, cells: FillCell[], getValue: GetValue, extra: string[] = []): StrokePill | null => {
+  const changed = cells.filter((cell) => (cell.value ?? 0) !== (getValue(cell.lane, cell.date) ?? 0))
+  if (!changed.length) return null
+  const sorted = changed.map((cell) => cell.date).sort()
+  const lanes = changed.map((cell) => cell.lane)
+  const change = changed.reduce((sum, cell) => sum + (cell.value ?? 0) - (getValue(cell.lane, cell.date) ?? 0), 0)
+  const sameSum = 'sameSum' in titles
+  const erase = !sameSum && changed.every((cell) => !cell.value)
+  const dayCount = new Set((sameSum ? cells.filter((cell) => cell.value) : changed).map((cell) => cell.date)).size
   return {
-    from: cells[0].date,
-    to: cells[cells.length - 1].date,
+    from: sorted[0],
+    to: sorted[sorted.length - 1],
+    lane0: Math.min(...lanes),
+    lane1: Math.max(...lanes),
     erase,
-    title: pull.mode === 'sum' ? 'Strekk' : erase ? 'Kort inn' : 'Forleng',
-    parts: [
-      pull.mode === 'sum' ? `${days(cells.filter((cell) => cell.value !== null).length)} · samme sum` : `${days(erase ? cleared : added || 1)} · ${fte}`,
-      pull.mode === 'demand' && met ? 'til behovet er dekket' : '',
-      noDemand ? 'ikke noe kjent behov' : '',
-      blocked ? 'stopper før neste planlagte dag' : '',
-    ].filter(Boolean),
+    title: sameSum ? titles.sameSum : erase ? titles.lose : titles.gain,
+    parts: [sameSum ? `${days(dayCount)} · samme sum` : `${days(dayCount)} · ${change > FTE_NOISE / 10 ? '+' : change < -FTE_NOISE / 10 ? '−' : ''}${formatFte(Math.abs(change), 1) || '0'} FTE`, ...extra.filter(Boolean)],
   }
 }
+
+/** The cells a pencil stroke would write. */
+export const pencilCells = (preview: PencilStroke | null): FillCell[] => (preview?.lanes ?? []).flatMap(({ lane, parts }) => preview!.target.map((date, i) => ({ lane, date, value: parts[i] || null })))
+
+/** The cells an eraser stroke would clear: every cell drawn across. */
+export const eraserCells = (sel: Selection | null, dates: ISODate[]): FillCell[] => {
+  if (!sel) return []
+  const { lane0, lane1, col0, col1 } = rangeOf(sel)
+  const cells: FillCell[] = []
+  for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) cells.push({ lane, date: dates[col], value: null })
+  return cells
+}
+
+export const pencilPill = (preview: PencilStroke, getValue: GetValue): StrokePill | null => strokePill({ gain: 'Fordel', lose: 'Tøm' }, pencilCells(preview), getValue)
+export const eraserPill = (sel: Selection, dates: ISODate[], getValue: GetValue): StrokePill | null => strokePill({ gain: 'Tøm', lose: 'Tøm' }, eraserCells(sel, dates), getValue)
+export const fillPill = (fill: Fill, cells: FillCell[], getValue: GetValue): StrokePill | null => strokePill(fill.stretch ? { sameSum: 'Strekk' } : { gain: 'Fyll', lose: 'Tøm' }, cells, getValue)
+export const pullPill = (pull: Pull, { cells, blocked, met, noDemand }: PullPreview, getValue: GetValue): StrokePill | null =>
+  strokePill(pull.mode === 'sum' ? { sameSum: 'Strekk' } : { gain: 'Forleng', lose: 'Kort inn' }, cells, getValue, [
+    pull.mode === 'demand' && met ? 'til behovet er dekket' : '',
+    noDemand ? 'ikke noe kjent behov' : '',
+    blocked ? 'stopper før neste planlagte dag' : '',
+  ])
 
 /** What the status bar says while an end of a span is pulled. */
 export const pullProgress = (pull: Pull, preview: PullPreview): string => {
@@ -286,21 +315,14 @@ export const pullNotice = (pull: Pull, preview: PullPreview): string | null => {
   return `${added ? `Forlenget med ${days(added)}` : cleared ? `Kortet inn ${days(cleared)}` : 'Løftet siste dag'}${tail}`
 }
 
-/** What the cells of each line would hold if the stroke or the drag ended now, keyed by lane. */
-export const ghostCells = (preview: PencilStroke | null, erasing: Selection | null, dates: ISODate[], fillCells: FillCell[]): Map<number, Map<ISODate, number>> => {
+/** What the cells of each line would hold if the stroke or the drag ended now, keyed by lane. An emptied cell holds 0. */
+export const ghostCells = (cells: FillCell[]): Map<number, Map<ISODate, number>> => {
   const lanes = new Map<number, Map<ISODate, number>>()
-  const set = (lane: number, date: ISODate, value: number) => {
-    let cells = lanes.get(lane)
-    if (!cells) lanes.set(lane, (cells = new Map()))
-    cells.set(date, value)
+  for (const cell of cells) {
+    let line = lanes.get(cell.lane)
+    if (!line) lanes.set(cell.lane, (line = new Map()))
+    line.set(cell.date, cell.value ?? 0)
   }
-  for (const { lane, parts } of preview?.lanes ?? []) preview!.target.forEach((date, i) => set(lane, date, parts[i]))
-  // An eraser stroke shows the cells it is about to clear as empty.
-  if (erasing) {
-    const { lane0, lane1, col0, col1 } = rangeOf(erasing)
-    for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) set(lane, dates[col], 0)
-  }
-  for (const cell of fillCells) set(cell.lane, cell.date, cell.value ?? 0)
   return lanes
 }
 

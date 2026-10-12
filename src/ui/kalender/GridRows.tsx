@@ -65,22 +65,23 @@ interface ValueCell {
   lane: number
   /** A right-click on the cell opens the cell menu. */
   menu?: boolean
+  /** The line is a row, which draws what a stroke would do on its spans, see `AllocRow`. */
+  spans?: boolean
 }
 
-const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
+const valueCell = ({ cols, edit, actions, lane, menu, spans }: ValueCell, date: ISODate, col: number, value: number | undefined, note?: string, extraClass = '') => {
   const focus = edit.focusCol === col
   const selected = col >= edit.selFrom && col <= edit.selTo
   // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
   const drawn = edit.ghost?.get(date)
-  // A pull of a span's end is shown on the span itself, see `AllocRow`: the day keeps the look of a planned day, and a day that is let go of keeps its figure.
-  const pulled = edit.ghostClass === 'pulled'
-  const shown = drawn !== undefined && !(pulled && !drawn) ? drawn || undefined : value
+  // A row shows it on the span itself: the day has the look of a planned day, and a day that would be emptied keeps its figure.
+  const shown = drawn !== undefined && !(spans && !drawn) ? drawn || undefined : value
   // The fill handle sits on the last cell of the selection, as in Excel.
   const corner = edit.handle && edit.selTo === col
   return (
     <div
       key={date}
-      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined && !pulled ? edit.ghostClass : ''}`}
+      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined && !spans ? edit.ghostClass : ''}`}
       title={note}
       onMouseDown={(e) => actions.cellDown(lane, col, e)}
       onMouseEnter={() => actions.cellEnter(lane, col)}
@@ -462,7 +463,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
   const phaseDays = r.phase === 'Demontering' ? 'demonteringsdagene' : 'monteringsdagene'
   const outside = window?.size ? Object.keys(r.fte).filter((date) => r.fte[date] && !window.has(date)) : []
   const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
-  const cell: ValueCell = { cols, edit, actions, lane, menu: true }
+  const cell: ValueCell = { cols, edit, actions, lane, menu: true, spans: true }
   const remaining = (totals.requiredFte ?? 0) - totals.plannedFte
   // While an end of one of the row's spans is pulled, its figures count what the pull would leave.
   const planned = edit.livePlanned ?? totals.plannedFte
@@ -511,12 +512,12 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
       }
       cells={(date, col) => {
         const value = r.fte[date]
-        // While an end of a span is pulled, the span is drawn as the pull would leave it, as a stroke is in Bemanning: the days it would
-        // get as a tint of its colour with their figures, and the days it would lose hatched, since their FTE would not be there.
-        const pulledTo = edit.ghostClass === 'pulled' ? edit.ghost : undefined
-        const on = (day: ISODate) => !!(r.fte[day] || pulledTo?.get(day))
-        const pulledDay = pulledTo?.get(date)
-        const pull = pulledDay === undefined ? '' : pulledDay === 0 ? (value ? 'going' : '') : value ? '' : 'filled coming'
+        // While a stroke is drawn or something is dragged, the spans are drawn as it would leave them, as a stroke is in Bemanning: the
+        // days that would get FTE as a tint of the row's colour with their figures, and the days that would lose it hatched, since
+        // their FTE would not be there.
+        const on = (day: ISODate) => !!(r.fte[day] || edit.ghost?.get(day))
+        const drawnDay = edit.ghost?.get(date)
+        const pull = drawnDay === undefined ? '' : drawnDay === 0 ? (value ? 'going' : '') : value ? '' : 'filled coming'
         // Planned days in a row are drawn as one span, rounded where the run starts and ends: a day without FTE ends it.
         const run = on(date) ? `${on(addDays(date, -1)) ? '' : 'run-start'} ${on(addDays(date, 1)) ? '' : 'run-end'}` : ''
         return valueCell(

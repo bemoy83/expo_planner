@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, type AllocationRow, type DemandLine } from '../../dom
 import type { AllocLane } from './gridTypes'
 import type { GroupNode } from './rows'
 import type { Fill, Pull, Selection } from './selection'
-import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
+import { copyText, eraserCells, eraserPill, fillPill, pencilCells, pencilPill, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
 
 // Monday 5 to Sunday 11 October 2026.
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11']
@@ -222,10 +222,10 @@ describe('pulling an end of a span', () => {
 
   it('says on a pill what the pull does, over the days it changes', () => {
     const lanes = lanesOf(foga)
-    const pill = (p: Pull) => pullPill(p, foga, pullPreview(p, dates, lanes, index, settings)!)
-    expect(pill(pull())).toEqual({ from: WED, to: FRI, erase: false, title: 'Forleng', parts: ['3 dager · +6 FTE'] })
-    expect(pill(pull({ mode: 'demand' }))).toEqual({ from: WED, to: WED, erase: false, title: 'Forleng', parts: ['1 dag · +1 FTE', 'til behovet er dekket'] })
-    expect(pill(pull({ toCol: 0 }))).toEqual({ from: TUE, to: TUE, erase: true, title: 'Kort inn', parts: ['1 dag · −2 FTE'] })
+    const pill = (p: Pull) => pullPill(p, pullPreview(p, dates, lanes, index, settings)!, valueOf(lanes))
+    expect(pill(pull())).toEqual({ from: WED, to: FRI, lane0: 0, lane1: 0, erase: false, title: 'Forleng', parts: ['3 dager · +6 FTE'] })
+    expect(pill(pull({ mode: 'demand' }))).toEqual({ from: WED, to: WED, lane0: 0, lane1: 0, erase: false, title: 'Forleng', parts: ['1 dag · +1 FTE', 'til behovet er dekket'] })
+    expect(pill(pull({ toCol: 0 }))).toEqual({ from: TUE, to: TUE, lane0: 0, lane1: 0, erase: true, title: 'Kort inn', parts: ['1 dag · −2 FTE'] })
     expect(pill(pull({ toCol: 3, mode: 'sum' }))).toMatchObject({ from: MON, to: dates[3], erase: false, title: 'Strekk', parts: ['4 dager · samme sum'] })
     expect(pill(pull({ toCol: 1 }))).toBeNull()
   })
@@ -239,13 +239,40 @@ describe('pulling an end of a span', () => {
   })
 })
 
-describe('ghostCells', () => {
+describe('what a stroke would leave in the cells, and its pill', () => {
   it('shows what a pencil stroke, an eraser stroke and a fill would leave in the cells', () => {
     const preview = pencilStroke(over(0, 0, 0, 1), dates, lanesOf(row('a')), index, settings)
-    expect(ghostCells(preview, null, dates, []).get(0)).toEqual(new Map([[MON, 3], [TUE, 2]]))
-    expect(ghostCells(null, over(1, 0, 1, 1), dates, []).get(1)).toEqual(new Map([[MON, 0], [TUE, 0]]))
-    const filled = ghostCells(null, null, dates, [{ lane: 2, date: WED, value: null }, { lane: 2, date: TUE, value: 4 }])
+    expect(ghostCells(pencilCells(preview)).get(0)).toEqual(new Map([[MON, 3], [TUE, 2]]))
+    expect(ghostCells(eraserCells(over(1, 0, 1, 1), dates)).get(1)).toEqual(new Map([[MON, 0], [TUE, 0]]))
+    const filled = ghostCells([{ lane: 2, date: WED, value: null }, { lane: 2, date: TUE, value: 4 }])
     expect(filled.get(2)).toEqual(new Map([[WED, 0], [TUE, 4]]))
+    expect(pencilCells(null)).toEqual([])
+    expect(eraserCells(null, dates)).toEqual([])
+  })
+
+  it('has one pill for a pencil stroke over several lines', () => {
+    const lanes = lanesOf(row('a', { fte: { [MON]: 1 } }), row('b', { competence: 'Print' }))
+    const preview = pencilStroke(over(0, 0, 1, 1), dates, lanes, index, settings)!
+    // FOGA gets 3 and 2 where it had 1, Print 1 and 0,2.
+    expect(pencilPill(preview, valueOf(lanes))).toEqual({ from: MON, to: TUE, lane0: 0, lane1: 1, erase: false, title: 'Fordel', parts: ['2 dager · +5,2 FTE'] })
+    expect(pencilPill(pencilStroke(over(0, 0, 0, 1), dates, lanesOf(row('c', { competence: 'Banner' })), index, settings)!, () => undefined)).toBeNull()
+  })
+
+  it('has a pill for the days an eraser stroke empties, and none over empty days', () => {
+    const lanes = lanesOf(row('a', { fte: { [TUE]: 2, [WED]: 1.5 } }))
+    expect(eraserPill(over(0, 0, 0, 4), dates, valueOf(lanes))).toEqual({ from: TUE, to: WED, lane0: 0, lane1: 0, erase: true, title: 'Tøm', parts: ['2 dager · −3,5 FTE'] })
+    expect(eraserPill(over(0, 3, 0, 4), dates, valueOf(lanes))).toBeNull()
+  })
+
+  it('has a pill for the fill handle: filling, emptying and stretching', () => {
+    const lanes = lanesOf(row('a', { fte: { [MON]: 2, [TUE]: 2 } }))
+    const value = valueOf(lanes)
+    const out: Fill = { lane0: 0, lane1: 0, col0: 0, col1: 0, toCol: 2, stretch: false }
+    expect(fillPill(out, fillPreview(out, dates, value), value)).toMatchObject({ from: WED, to: WED, erase: false, title: 'Fyll', parts: ['1 dag · +2 FTE'] })
+    const back: Fill = { lane0: 0, lane1: 0, col0: 0, col1: 1, toCol: 0, stretch: false }
+    expect(fillPill(back, fillPreview(back, dates, value), value)).toMatchObject({ from: TUE, to: TUE, erase: true, title: 'Tøm', parts: ['1 dag · −2 FTE'] })
+    const stretch: Fill = { lane0: 0, lane1: 0, col0: 0, col1: 1, toCol: 3, stretch: true }
+    expect(fillPill(stretch, fillPreview(stretch, dates, value), value)).toMatchObject({ from: MON, to: dates[3], erase: false, title: 'Strekk', parts: ['4 dager · samme sum'] })
   })
 })
 

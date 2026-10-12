@@ -34,8 +34,8 @@ export interface CellEdit {
   draft: string | null
   /** What a pencil or eraser stroke, or a drag of the fill handle, would put in this line's cells. */
   ghost: Map<ISODate, number> | undefined
-  /** How those cells are shown: as the pencil draws, as the eraser clears, or as a span whose end is pulled. */
-  ghostClass: 'drawn' | 'erasing' | 'pulled'
+  /** How those cells are shown on a level in entry: as the pencil draws or as the eraser clears. A row shows them on its spans. */
+  ghostClass: 'drawn' | 'erasing'
   /** The line's planned FTE-days as the pull of a span's end in progress would leave them. */
   livePlanned: number | undefined
 }

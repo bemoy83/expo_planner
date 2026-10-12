@@ -60,11 +60,23 @@ describe('AllocRow', () => {
   })
 
   it('shows what a stroke would put in the cells', () => {
+    // Tuesday has 2: a stroke gives Wednesday 1,5, as a day the span would get.
     const { container } = render(view({ ...idle, ghost: new Map([['2026-10-07', 1.5]]) }))
     const cells = [...container.querySelectorAll('.cell')]
-    expect(cells[2].classList.contains('drawn')).toBe(true)
+    expect(cells[2].className).toMatch(/\bfilled coming\b/)
     expect(cells[2].textContent).toBe('1,5')
-    expect(cells[1].classList.contains('drawn')).toBe(false)
+    expect(cells[1].classList.contains('coming')).toBe(false)
+    // The span is rounded where it would end.
+    expect(cells[1].classList.contains('run-end')).toBe(false)
+    expect(cells[2].classList.contains('run-end')).toBe(true)
+  })
+
+  it('hatches a day a stroke would empty, and keeps its figure', () => {
+    const { container } = render(view({ ...idle, ghost: new Map([['2026-10-06', 0], ['2026-10-05', 0]]) }))
+    const cells = [...container.querySelectorAll('.cell')]
+    expect(cells[1].classList.contains('going')).toBe(true)
+    expect(cells[1].textContent).toBe('2')
+    expect(cells[0].classList.contains('going')).toBe(false)
   })
 
   it('marks where a run of planned days starts and ends', () => {
