@@ -72,12 +72,14 @@ const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate
   const selected = col >= edit.selFrom && col <= edit.selTo
   // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
   const drawn = edit.ghost?.get(date)
+  // A day that would be left empty is shown as the eraser shows it, whatever the stroke or the drag is.
+  const ghostClass = drawn === undefined ? '' : drawn === 0 && value ? 'erasing' : edit.ghostClass
   // The fill handle sits on the last cell of the selection, as in Excel.
   const corner = edit.handle && edit.selTo === col
   return (
     <div
       key={date}
-      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined ? edit.ghostClass : ''}`}
+      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${ghostClass}`}
       title={note}
       onMouseDown={(e) => actions.cellDown(lane, col, e)}
       onMouseEnter={() => actions.cellEnter(lane, col)}
