@@ -28,7 +28,7 @@ interface Options {
   eraseDrawn: () => void
   startPull: (pull: Pull) => void
   /** Selects the cell of a press, once it is a click or, on an end of a span, no pull. */
-  pressSelect: (cell: Cell) => void
+  pressSelect: (cell: Cell, extend?: boolean) => void
   commitPull: () => void
   colW: number
   dayCount: number
@@ -88,8 +88,9 @@ export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pul
         if (Math.abs(e.clientX - grip.x) >= Math.abs(e.clientY - grip.y)) env.current.startPull({ lane: grip.lane, ...grip.span!, toCol: colAt(e.clientX), mode: pullMode(e) })
         else {
           // Up or down, it is a drag as from any cell, and starts on the cell that was pressed.
-          env.current.pressSelect(grip)
+          env.current.pressSelect(grip, grip.extend)
           dragging.current = true
+          if (grip.extend) spring.current = { lane: grip.lane, col: grip.col }
           strokeRef.current = grip.stroke
           setStroke(grip.stroke)
         }
@@ -115,7 +116,7 @@ export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pul
       // A press that never reached another cell is a click: its cell is selected now, and on an end of a span the tool does what it does on any cell.
       const clicked = press.current
       press.current = null
-      if (clicked) pressSelect(clicked)
+      if (clicked) pressSelect(clicked, clicked.extend)
       if (clicked?.span) {
         dragging.current = true
         strokeRef.current = clicked.stroke

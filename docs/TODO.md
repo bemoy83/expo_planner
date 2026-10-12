@@ -147,7 +147,7 @@ General
 
 An end of a span (the days in a row a planning row has FTE) is pulled along the days (2026-10-12): the whole first and last cell is the grip, with any tool. Checked in the browser: outward over a weekend with the day of the decimals lifted, inward, the start pulled back, a click and a drag up from an end cell, and one undo step per pull. Checked by the tests alone: Shift (stop where the demand is met) and Alt (keep the sum) held while an end is pulled, and the stop before the next span.
 
-- Shift or Alt held at the press still give the pencil and the eraser for one stroke, also on an end cell; they steer a pull only once it has started.
+- Shift or Alt steer a pull whether they are held from the press or from later on. On an end cell they give the pencil and the eraser only on a click or a drag up or down.
 - The day that «holds the decimals» is one whose figure is no whole number and lower than its neighbour's inside the span. It is lifted only when the pull reaches a new day.
 - Not done: moving a whole span, and pulling on a level in entry (✎).
 - The fill handle of the selection is removed (2026-10-12): pulling an end of a span does what it did, and copying a block over other days is copy and paste.

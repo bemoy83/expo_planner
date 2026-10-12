@@ -387,11 +387,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     selectionRef.current = selection
   }, [selection])
   /** A press selects its cell only once it is a click, or, on an end of a span, when it is dragged up or down and so is no pull. */
-  const pressSelect = ({ lane, col }: Cell) => {
+  const pressSelect = ({ lane, col }: Cell, extend = false) => {
     const cell = { lane, col }
-    select(cell, false)
+    select(cell, extend)
     // A stroke that ends in the same event reads the selection from here.
-    selectionRef.current = { anchor: cell, focus: cell }
+    if (!extend) selectionRef.current = { anchor: cell, focus: cell }
   }
 
   const strokeFor = useCallback((sel: Selection | null) => pencilStroke(sel, dates, allocLanes, demandIndex, settings), [dates, allocLanes, demandIndex, settings])
@@ -543,13 +543,15 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       // selection on a click; the stroke starts once the mouse is dragged on.
       const erases = drags && e.altKey
       const extends_ = e.shiftKey && !erases && (!drags || tool === 'select')
-      // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift and Alt
-      // held at the press mean what they do on any cell; held while the end is pulled they steer the pull.
-      const row = !drags || e.shiftKey || e.altKey ? undefined : allocLanes[lane]?.row
+      // An end of a span is also its grip: dragged sideways it pulls that end, with any tool. Shift or Alt held
+      // steer the pull, from the press or from later on; let go without a drag, or dragged up or down, the press
+      // is what it is on any cell with them.
+      const row = drags ? allocLanes[lane]?.row : undefined
       const span = row && spanEndAt(row, dates, col)
+      const started = extends_ ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
       // A plain press with «Velg» selects nothing yet either: let go, it is a click on the cell, and dragged on to another cell a range from it.
       const waits = !!span || (drags && tool === 'select' && !e.shiftKey && !erases)
-      press.current = waits ? { lane, col, x: e.clientX, y: e.clientY, stroke: tool === 'select' ? null : tool, span: span ? { ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end' } : undefined } : null
+      press.current = waits ? { lane, col, x: e.clientX, y: e.clientY, stroke: started, extend: extends_, span: span ? { ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end' } : undefined } : null
       if (waits) {
         if (draft !== null) commitDraft()
         setNotice(null)
@@ -563,7 +565,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       }
       dragging.current = true
       spring.current = extends_ ? { lane, col } : null
-      const started = spring.current ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
       strokeRef.current = started
       setStroke(started)
     },

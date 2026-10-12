@@ -36,6 +36,8 @@ export interface Press extends Cell {
   y: number
   /** The tool of the stroke the press starts, where it is on an end of a span and turns out to be no pull. */
   stroke: Exclude<Tool, 'select'> | null
+  /** Shift was held with «Velg»: where the press is no pull, it extends the selection to the cell. */
+  extend?: boolean
   /** The span the cell is an end of. */
   span?: Pick<Pull, 'from' | 'to' | 'end'>
 }
