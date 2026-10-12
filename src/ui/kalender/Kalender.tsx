@@ -20,7 +20,7 @@ import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
 import { PersonPanel } from '../bemanning/PersonPanel'
 import type { BlockNames } from '../bemanning/dayCell'
-import { PILL_ROOM, unfoldedHeight } from '../bemanning/layout'
+import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
 import { AreaMenu } from './AreaMenu'
 import { CellMenu } from './CellMenu'
@@ -33,6 +33,7 @@ import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
 import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, itemDepth, levelSections, pathKeys, projectIndex, projectKey, type Dimension, type GroupItem, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
+import { PILL_ROOM, StrokeBox } from './StrokeBox'
 import { HallSection, PlanningHeading, StaffingSection } from './TopSections'
 import { useGridDrag } from './useGridDrag'
 import { useGridViewport } from './useGridViewport'
@@ -42,10 +43,8 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
 import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode } from './zoom'
-import { copyText, eraserCells, eraserPill, ghostCells, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt, type PullPreview } from './strokes'
-import { followLanes, rangeOf, type Cell, type DrawnCell, type LaneKey, type Grip, type Pull, type Selection, type Tool } from './selection'
-
-const NO_CELLS: DrawnCell[] = []
+import { copyText, eraserCells, eraserPill, ghostCells, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
+import { followLanes, rangeOf, type Cell, type LaneKey, type Press, type Pull, type Selection, type Tool } from './selection'
 
 /** A line that takes no numbers has nothing selected on it. */
 const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
@@ -103,10 +102,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // An end of a span being pulled along the days, and the press on one that has not moved yet.
   const [pull, setPull] = useState<Pull | null>(null)
   const pullRef = useRef<Pull | null>(null)
-  const pullViewRef = useRef<PullPreview | null>(null)
-  const grip = useRef<Grip | null>(null)
-  // The cell a plain press with «Velg» is on: it is selected when the mouse is let go, or starts a range when another cell is reached.
-  const pressed = useRef<Cell | null>(null)
+  // The press that has selected nothing yet: a click once the mouse is let go, a range or a stroke once it reaches another cell, and on an end of a span a pull once it moves sideways.
+  const press = useRef<Press | null>(null)
   const selectionRef = useRef<Selection | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
@@ -390,7 +387,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     selectionRef.current = selection
   }, [selection])
   /** A press selects its cell only once it is a click, or, on an end of a span, when it is dragged up or down and so is no pull. */
-  const gripSelect = ({ lane, col }: Cell) => {
+  const pressSelect = ({ lane, col }: Cell) => {
     const cell = { lane, col }
     select(cell, false)
     // A stroke that ends in the same event reads the selection from here.
@@ -436,34 +433,28 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // The total is left out: a stroke always places all that is left, so it would not move.
   const preview = useMemo(() => (stroke === 'pencil' ? strokeFor(selection) : null), [stroke, strokeFor, selection])
   const pullView = useMemo(() => pullPreview(pull, dates, allocLanes, demandIndex, settings), [pull, dates, allocLanes, demandIndex, settings])
-  useEffect(() => {
-    pullRef.current = pull
-    pullViewRef.current = pullView
-  }, [pull, pullView])
-
-  const startPull = useCallback((from: Grip, toCol: number, mode: Pull['mode']) => {
-    const started: Pull = { lane: from.lane, from: from.from, to: from.to, end: from.end, toCol, mode }
+  const startPull = useCallback((started: Pull) => {
     pullRef.current = started
     setPull(started)
     setNotice(null)
   }, [])
 
-  const commitPull = useCallback(() => {
+  const commitPull = () => {
     const done = pullRef.current
-    const view = pullViewRef.current
+    const view = pullPreview(done, dates, allocLanes, demandIndex, settings)
     pullRef.current = null
     setPull(null)
     if (!done || !view) return
     for (const cell of view.cells) setValue(cell.lane, cell.date, cell.value)
     // A pull selects nothing, as a pulled end of a run does not in Bemanning: what was selected is selected still.
     setNotice(pullNotice(done, view))
-  }, [setValue])
+  }
 
-  // What the cells of each line would hold if the stroke or the drag ended now, keyed by lane.
-  const drawnCells = pullView?.cells ?? NO_CELLS
-  const ghost = useMemo(() => ghostCells([...pencilCells(preview), ...eraserCells(stroke === 'eraser' ? selection : null, dates), ...drawnCells]), [preview, stroke, selection, dates, drawnCells])
+  // What the stroke or the pull in progress would write, and from it what the cells of each line would hold if it ended now, keyed by lane.
+  const written = useMemo(() => [...pencilCells(preview), ...(pullView?.cells ?? [])], [preview, pullView])
+  const ghost = useMemo(() => ghostCells([...written, ...eraserCells(stroke === 'eraser' ? selection : null, dates)]), [written, stroke, selection, dates])
 
-  useGridDrag({ scrollRef, dragging, strokeRef, spring, gripRef: grip, pressed, pullRef, setPull, setSelection, setStroke, drawDemand, eraseDrawn, startPull, commitPull, gripSelect, colW, dayCount: dates.length })
+  useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pullRef, setPull, setSelection, setStroke, drawDemand, eraseDrawn, startPull, commitPull, pressSelect, colW, dayCount: dates.length })
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -510,7 +501,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // ---- rendering helpers --------------------------------------------------------------------
   // Days planned above the available crew. Without the heat map they are tinted down the whole grid; with it,
   // the Avvik line alone carries them. A pencil stroke in progress counts, so the clash shows while it is being drawn.
-  const overbooked = useMemo(() => overbookedDays(need, preview, drawnCells, allocLanes, getValue, capacity, settings), [need, preview, drawnCells, allocLanes, getValue, capacity, settings])
+  const overbooked = useMemo(() => overbookedDays(need, written, getValue, capacity, settings), [need, written, getValue, capacity, settings])
 
   // Every cell of a day shares these classes; they are worked out once per day, not once per cell.
   const dayClasses = useMemo(() => {
@@ -556,25 +547,20 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       // held at the press mean what they do on any cell; held while the end is pulled they steer the pull.
       const row = !drags || e.shiftKey || e.altKey ? undefined : allocLanes[lane]?.row
       const span = row && spanEndAt(row, dates, col)
-      if (span) {
-        // What the press is shows once the mouse moves or is let go: until then nothing is selected and no stroke is drawn from it.
-        if (draft !== null) commitDraft()
-        setNotice(null)
-        scrollRef.current?.focus({ preventScroll: true })
-        grip.current = { lane, col, ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end', x: e.clientX, y: e.clientY, stroke: tool === 'select' ? null : tool }
-        strokeRef.current = null
-        setStroke(null)
-        return
-      }
-      grip.current = null
-      // A plain press with «Velg» selects nothing yet: let go, it is a click on the cell, and dragged on to another cell it is a range from it.
-      pressed.current = drags && tool === 'select' && !e.shiftKey && !erases ? { lane, col } : null
-      if (pressed.current) {
+      // A plain press with «Velg» selects nothing yet either: let go, it is a click on the cell, and dragged on to another cell a range from it.
+      const waits = !!span || (drags && tool === 'select' && !e.shiftKey && !erases)
+      press.current = waits ? { lane, col, x: e.clientX, y: e.clientY, stroke: tool === 'select' ? null : tool, span: span ? { ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end' } : undefined } : null
+      if (waits) {
         if (draft !== null) commitDraft()
         setNotice(null)
         scrollRef.current?.focus({ preventScroll: true })
       } else select({ lane, col }, extends_)
-      if (!drags) return
+      // What a press on an end of a span is shows once the mouse moves or is let go: until then no stroke is drawn from it.
+      if (!drags || span) {
+        strokeRef.current = null
+        setStroke(null)
+        return
+      }
       dragging.current = true
       spring.current = extends_ ? { lane, col } : null
       const started = spring.current ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
@@ -582,11 +568,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       setStroke(started)
     },
     cellEnter: (lane, col) => {
-      if (dragging.current && pressed.current) {
-        const anchor = pressed.current
-        pressed.current = null
-        if (anchor.lane !== lane || anchor.col !== col) setSelection({ anchor, focus: { lane, col } })
-        else pressed.current = anchor
+      if (dragging.current && press.current) {
+        const { lane: fromLane, col: fromCol } = press.current
+        if (fromLane === lane && fromCol === col) return
+        press.current = null
+        setSelection({ anchor: { lane: fromLane, col: fromCol }, focus: { lane, col } })
       } else if (dragging.current && spring.current) {
         const anchor = spring.current
         spring.current = null
@@ -603,8 +589,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       dragging.current = false
       strokeRef.current = null
       spring.current = null
-      grip.current = null
-      pressed.current = null
+      press.current = null
       setStroke(null)
       select({ lane, col }, false)
       setCellMenu({ x: e.clientX, y: e.clientY, rowId: row.id, col })
@@ -950,14 +935,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               return groupRow(item)
             })}
             {pill && pillFrom !== undefined && pillTo !== undefined && (
-              <div className={`bm-stroke bare plan ${pill.erase ? 'erase' : ''}`} style={{ left: daysWide(daysBetween(range.start, pill.from), LEFT_W), width: daysWide(daysBetween(pill.from, pill.to) + 1), top: rowTops[pillFrom], height: rowTops[pillTo + 1] - rowTops[pillFrom] }}>
-                <span className={`bm-pill ${pillBelow ? 'below' : ''}`}>
-                  <b>{pill.title}</b>
-                  {pill.parts.map((part) => (
-                    <span key={part}>{part}</span>
-                  ))}
-                </span>
-              </div>
+              <StrokeBox kind={`bare plan ${pill.erase ? 'erase' : ''}`} style={{ left: daysWide(daysBetween(range.start, pill.from), LEFT_W), width: daysWide(daysBetween(pill.from, pill.to) + 1), top: rowTops[pillFrom], height: rowTops[pillTo + 1] - rowTops[pillFrom] }} below={pillBelow}>
+                <b>{pill.title}</b>
+                {pill.parts.map((part) => (
+                  <span key={part}>{part}</span>
+                ))}
+              </StrokeBox>
             )}
             {allSections
               .filter((section) => section.end > r0 && section.index < r1)

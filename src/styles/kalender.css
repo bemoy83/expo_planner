@@ -342,8 +342,7 @@
 /* While a stroke is drawn or an end of a span is pulled, the spans of a row are drawn as it would leave them,
    as a stroke is in Bemanning: flat, with a hatch for what would not be there. The days that would get FTE are a tint of the row's colour,
    and the days that would lose it are hatched in that colour on the ground. What the stroke does is said on one pill over those days
-   (`.bm-stroke` and `.bm-pill` in bemanning.css). In the plan the pill is ink, and the blocking alert's chip where the stroke only takes FTE away. */
-.bm-stroke.plan.erase{--pill:var(--alert-block);--pill-on:var(--alert-on)}
+   (`.stroke-box`). */
 .alloc-row .cell.coming{--bar:color-mix(in oklab,var(--phase) 50%,var(--bg))}
 .alloc-row .cell.going{--bar:var(--bg);--over-hatch:repeating-linear-gradient(135deg,var(--phase) 0 2px,transparent 2px 6px)}
 .cell.has-note::after{content:'';position:absolute;top:0;right:0;border-left:6px solid transparent;border-top:6px solid var(--accent)}
@@ -352,6 +351,25 @@
 /* FTE placed on a day outside the window: hatched over the colour of its phase, as a hall shared by two events is. The legend's mark is the same. */
 .alloc-row .cell.outside-window{--over-hatch:var(--hatch)}
 .phase-legend i.outside{background-image:var(--hatch)}
+
+/* ---- a stroke in both modes: a box over its days and lines, and a pill on its edge (`StrokeBox`) ---- */
+/* In Bemanning the box is one thin outline in the colour of the competence, red when it erases; a pulled end of a run, and every stroke of
+   the plan, has the pill alone (`bare`), since the preview shows what the days get or lose. The days that are selected in Bemanning are a
+   tint with no outline (`chosen`), in the ink of the band, which is read on a competence's colour where the accent is not. The pill is ink
+   unless the box gives it a colour: the competence's in Bemanning and red where it erases; in the plan the blocking alert's chip where the
+   stroke only takes FTE away. */
+.stroke-box{position:absolute;z-index:1;border-radius:4px;pointer-events:none}
+.stroke-box:not(.bare){box-shadow:inset 0 0 0 1.5px var(--cc)}
+.stroke-box.erase:not(.plan){--cc:var(--neg);--pill:var(--neg)}
+.stroke-box.plan.erase{--pill:var(--alert-block);--pill-on:var(--alert-on)}
+.stroke-box.select{--cc:color-mix(in srgb,var(--text) 70%,transparent)}
+.stroke-box.chosen{background:var(--pick-soft)}
+.stroke-pill{position:absolute;left:0;display:flex;align-items:center;gap:8px;height:20px;padding:0 8px;background:var(--pill,var(--text));color:var(--pill-on,var(--bg));font-size:var(--fs-xs);white-space:nowrap}
+.stroke-pill:not(.below){bottom:100%;border-radius:4px 4px 0 0}
+.stroke-pill.below{top:100%;border-radius:0 0 4px 4px}
+.stroke-pill b{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.stroke-pill span{font-family:var(--font-num)}
+.stroke-pill span+span{padding-left:8px;border-left:1px solid color-mix(in srgb,currentColor 30%,transparent)}
 
 /* ---- selection, typing and the tools ---- */
 /* What is selected, and the cell in focus, are marked in the ink of the band: it is read on the colours of the phases, where the accent is not. */

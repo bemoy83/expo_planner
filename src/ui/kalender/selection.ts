@@ -27,14 +27,17 @@ export interface Pull {
   /** Shift stops the end where the demand is met; Alt keeps the sum of the span. */
   mode: 'carry' | 'demand' | 'sum'
 }
-/** The press on an end of a span, until the mouse has moved far enough to say what it is: a pull, a stroke or a click. */
-export interface Grip extends Pick<Pull, 'lane' | 'from' | 'to' | 'end'> {
-  /** The cell that was pressed. It is not selected until the press turns out to be a click or a drag up or down. */
-  col: number
+/**
+ * A press on a cell that selects nothing yet. Let go, it is a click on the cell; dragged on to another cell it is a range or a stroke
+ * from it. On an end of a span it is also the grip of that end: dragged sideways it becomes a pull, and only up or down a drag as from any cell.
+ */
+export interface Press extends Cell {
   x: number
   y: number
-  /** The tool of the stroke the press starts, where it turns out to be no pull. */
+  /** The tool of the stroke the press starts, where it is on an end of a span and turns out to be no pull. */
   stroke: Exclude<Tool, 'select'> | null
+  /** The span the cell is an end of. */
+  span?: Pick<Pull, 'from' | 'to' | 'end'>
 }
 export const rangeOf = (sel: Selection) => ({
   lane0: Math.min(sel.anchor.lane, sel.focus.lane),

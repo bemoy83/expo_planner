@@ -16,8 +16,6 @@ export const joinedPlace = (span: Span, shape: EndShape | undefined): { left: st
 }
 /** The classes of its ends, which are square where it is joined to the day beside it or meets what lies beside it in its own day, see `.join-prev`. */
 export const joinedClass = (shape: EndShape | undefined): string => `${shape?.prev ? 'join-prev' : ''} ${shape?.next ? 'join-next' : ''} ${shape?.meetsBefore ? 'meet-prev' : ''} ${shape?.meetsAfter ? 'meet-next' : ''}`
-/** A pill sits above its stroke, or under it where the lines above leave it no room. */
-export const PILL_ROOM = 34
 /** The width of the part at an end of a run that the end is pulled by, see `.bm-edge`. */
 export const EDGE_W = 10
 export const DEMAND_H = 32

@@ -140,8 +140,6 @@ export interface PullPreview {
   /** The row's planned FTE-days as the pull would leave them, and what it would then lack; null where its demand is not known. */
   planned: number
   lacking: number | null
-  /** The day the span ends on after the pull. */
-  tip: number
   blocked: boolean
   met: boolean
   /** Shift is held on a row with no demand to stop at. */
@@ -169,13 +167,6 @@ export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: All
   })
   const cells = [...changes].sort((a, b) => a[0] - b[0]).map(([col, value]): DrawnCell => ({ lane: pull.lane, date: dates[col], value }))
   const planned = cells.reduce((sum, cell) => sum + (cell.value ?? 0) - (row.fte[cell.date] ?? 0), before)
-  const filled = [...changes].filter(([, value]) => value !== null).map(([col]) => col)
-  // Where the end is now: the outermost day that has FTE once the pull is done.
-  const inner = end === 'end' ? pull.from : pull.to
-  const kept = (col: number) => (changes.has(col) ? changes.get(col) !== null : col >= pull.from && col <= pull.to)
-  let tip = inner
-  for (let col = inner; kept(col); col += end === 'end' ? 1 : -1) tip = col
-  if (filled.length) tip = end === 'end' ? Math.max(tip, ...filled) : Math.min(tip, ...filled)
   return {
     cells,
     added: cells.filter((cell) => cell.value !== null && !row.fte[cell.date]).length,
@@ -183,7 +174,6 @@ export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: All
     perDay: Math.max(0, ...cells.map((cell) => cell.value ?? 0)),
     planned,
     lacking: required === null ? null : required - planned,
-    tip,
     blocked,
     met,
     noDemand: pull.mode === 'demand' && !known,
@@ -289,24 +279,12 @@ export const ghostCells = (cells: DrawnCell[]): Map<number, Map<ISODate, number>
 }
 
 /**
- * Days planned above the available crew. A pencil stroke or a pull of a span's end in progress counts,
- * so the clash shows while it is being drawn.
+ * Days planned above the available crew. The cells a pencil stroke or a pull of a span's end in progress
+ * would write count, so the clash shows while it is being drawn.
  */
-export const overbookedDays = (
-  need: Map<ISODate, number>,
-  preview: PencilStroke | null,
-  pulled: DrawnCell[],
-  allocLanes: AllocLane[],
-  getValue: GetValue,
-  capacity: CapacityLine[],
-  settings: Settings,
-): Map<ISODate, { need: number; available: number }> => {
+export const overbookedDays = (need: Map<ISODate, number>, cells: DrawnCell[], getValue: GetValue, capacity: CapacityLine[], settings: Settings): Map<ISODate, { need: number; available: number }> => {
   const drawn = new Map<ISODate, number>()
-  for (const { lane, parts } of preview?.lanes ?? []) {
-    const { row, node } = allocLanes[lane] ?? {}
-    preview!.target.forEach((date, i) => drawn.set(date, (drawn.get(date) ?? 0) + parts[i] - ((node ? node.daily.get(date) : row?.fte[date]) ?? 0)))
-  }
-  for (const cell of pulled) drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue(cell.lane, cell.date) ?? 0))
+  for (const cell of cells) drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue(cell.lane, cell.date) ?? 0))
   const result = new Map<ISODate, { need: number; available: number }>()
   for (const date of new Set([...need.keys(), ...drawn.keys()])) {
     const planned = (need.get(date) ?? 0) + (drawn.get(date) ?? 0)

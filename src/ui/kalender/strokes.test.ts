@@ -144,7 +144,7 @@ describe('pulling an end of a span', () => {
   it('carries the crew on, and counts what the row would then have planned', () => {
     const view = pullPreview(pull(), dates, lanesOf(foga), index, settings)!
     expect(view.cells.map((cell) => cell.value)).toEqual([2, 2, 2])
-    expect(view).toMatchObject({ added: 3, cleared: 0, planned: 10, lacking: -5, tip: 4, blocked: false, noDemand: false })
+    expect(view).toMatchObject({ added: 3, cleared: 0, planned: 10, lacking: -5, blocked: false, noDemand: false })
     expect(pullProgress(pull(), view)).toBe('Forlenger 3 dager med 2 FTE · Shift stopper når behovet er dekket, Alt beholder summen')
     expect(pullNotice(pull(), view)).toBe('Forlenget med 3 dager')
   })
@@ -153,7 +153,7 @@ describe('pulling an end of a span', () => {
     const shift = pull({ mode: 'demand' })
     const view = pullPreview(shift, dates, lanesOf(foga), index, settings)!
     expect(view.cells).toEqual([{ lane: 0, date: WED, value: 1 }])
-    expect(view).toMatchObject({ planned: 5, lacking: 0, tip: 2, met: true })
+    expect(view).toMatchObject({ planned: 5, lacking: 0, met: true })
     expect(pullProgress(shift, view)).toBe('Forlenger 1 dag med 1 FTE · behovet er dekket')
     expect(pullNotice(shift, view)).toBe('Forlenget med 1 dag · behovet er dekket')
   })
@@ -168,7 +168,7 @@ describe('pulling an end of a span', () => {
   it('clears the days let go of', () => {
     const view = pullPreview(pull({ toCol: 0 }), dates, lanesOf(foga), index, settings)!
     expect(view.cells).toEqual([{ lane: 0, date: TUE, value: null }])
-    expect(view).toMatchObject({ cleared: 1, planned: 2, tip: 0 })
+    expect(view).toMatchObject({ cleared: 1, planned: 2 })
     expect(pullNotice(pull({ toCol: 0 }), view)).toBe('Kortet inn 1 dag')
   })
 
@@ -176,7 +176,7 @@ describe('pulling an end of a span', () => {
     const alt = pull({ toCol: 3, mode: 'sum' })
     const view = pullPreview(alt, dates, lanesOf(foga), index, settings)!
     expect(view.cells.map((cell) => cell.value)).toEqual([1, 1, 1, 1])
-    expect(view).toMatchObject({ planned: 4, tip: 3 })
+    expect(view).toMatchObject({ planned: 4 })
     expect(pullProgress(alt, view)).toBe('Strekker: opptil 1 FTE per dag, samme sum')
     expect(pullNotice(alt, view)).toBe('Strakk summen over 4 dager')
   })
@@ -186,7 +186,7 @@ describe('pulling an end of a span', () => {
     const one = pull({ from: 2, to: 2, toCol: 0 })
     const back = pullPreview(one, dates, lanesOf(r), index, settings)!
     expect(back.cells).toEqual([{ lane: 0, date: TUE, value: 2 }])
-    expect(back).toMatchObject({ blocked: true, tip: 1 })
+    expect(back).toMatchObject({ blocked: true })
     expect(pullNotice(one, back)).toBe('Forlenget med 1 dag · stopper før neste planlagte dag')
     expect(pullPreview({ ...one, toCol: 3 }, dates, lanesOf(r), index, settings)!.cells).toEqual([{ lane: 0, date: dates[3], value: 2 }])
   })
@@ -241,18 +241,18 @@ describe('overbookedDays', () => {
   const crew = { ...settings, baseCrew: 2 }
 
   it('lists the days planned above the crew', () => {
-    const days = overbookedDays(new Map([[MON, 3], [TUE, 2]]), null, [], [], () => undefined, [], crew)
+    const days = overbookedDays(new Map([[MON, 3], [TUE, 2]]), [], () => undefined, [], crew)
     expect([...days]).toEqual([[MON, { need: 3, available: 2 }]])
   })
 
-  it('counts a stroke and a fill in progress as the change they would make', () => {
+  it('counts a stroke and a pull in progress as the change they would make', () => {
     const lanes = lanesOf(row('a', { fte: { [MON]: 1 } }))
     const need = new Map([[MON, 1]])
     const preview = pencilStroke(over(0, 0, 0, 0), dates, lanes, index, settings)
     // The stroke puts all 5 on Monday in place of the 1 that is there.
-    expect(overbookedDays(need, preview, [], lanes, valueOf(lanes), [], crew).get(MON)).toEqual({ need: 5, available: 2 })
+    expect(overbookedDays(need, pencilCells(preview), valueOf(lanes), [], crew).get(MON)).toEqual({ need: 5, available: 2 })
     const dragged = [{ lane: 0, date: TUE, value: 3 }]
-    expect(overbookedDays(need, null, dragged, lanes, valueOf(lanes), [], crew).get(TUE)).toEqual({ need: 3, available: 2 })
+    expect(overbookedDays(need, dragged, valueOf(lanes), [], crew).get(TUE)).toEqual({ need: 3, available: 2 })
   })
 })
 

@@ -10,7 +10,8 @@ import { dayClass, type Columns } from '../kalender/gridTypes'
 import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
 import { useBemanning, type PersonActions, type StretchPlan } from './BemanningScope'
 import { dayCell, runLabel, spanOf, type BlockNames, type Span } from './dayCell'
-import { DAY_INSET, DIVIDER_H, joinedClass, joinedPlace, PERSON_H, PILL_ROOM } from './layout'
+import { DAY_INSET, DIVIDER_H, joinedClass, joinedPlace, PERSON_H } from './layout'
+import { PILL_ROOM, StrokeBox } from '../kalender/StrokeBox'
 import { endShape, runLink, runOf, type BlocksOn, type EndShape, type Piece, type PiecesOn, type RunLink } from './runs'
 import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
@@ -195,7 +196,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
   }
   const box = (r: { rowFrom: number; rowTo: number; colFrom: number; colTo: number }) => ({ left: daysWide(r.colFrom, LEFT_W), width: daysWide(r.colTo - r.colFrom + 1), top: topOf(r.rowFrom), height: topOf(Math.min(r.rowTo, listed.length - 1)) + PERSON_H - topOf(r.rowFrom) })
   const pillStyle = brush ? competenceColor(styles.get(brush)) : undefined
-  const pillClass = (r: { rowFrom: number }) => `bm-pill ${topOf(r.rowFrom) < PILL_ROOM ? 'below' : ''}`
+  const pillBelow = (r: { rowFrom: number }) => topOf(r.rowFrom) < PILL_ROOM
   return (
     <>
     <UnfoldedPerson />
@@ -249,9 +250,9 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
       })}
       {range && (
         // One outline over all the days of the stroke, and what it will do on a pill above it.
-        <div className={`bm-stroke ${stroke!.mode === 'stretch' ? `bare ${erasing ? 'erase' : 'paint'}` : stroke!.mode}`} style={stretch && !erasing ? { ...box(range), ...competenceColor(styles.get(stretch.competence)) } : box(range)}>
+        <StrokeBox kind={stroke!.mode === 'stretch' ? `bare ${erasing ? 'erase' : 'paint'}` : stroke!.mode} style={stretch && !erasing ? { ...box(range), ...competenceColor(styles.get(stretch.competence)) } : box(range)} below={pillBelow(range)}>
           {info && (
-            <span className={pillClass(range)}>
+            <>
               {info.mode === 'select' ? null : info.mode === 'erase' ? (
                 <b>Tøm</b>
               ) : (
@@ -272,27 +273,25 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               {info.half && <span>halv dag</span>}
               {info.toDemand && <span>til behovet er dekket</span>}
               {info.skipped > 0 && <span>{info.skipped} hoppes over</span>}
-            </span>
+            </>
           )}
-        </div>
+        </StrokeBox>
       )}
       {chosen && (
         // The days that are selected, one or many: a tint with no outline, and what can be done with them.
-        <div className="bm-selection" style={box(chosen)}>
-          <span className={pillClass(chosen)}>
-            {clip ? (
-              <span>Kopiert · {modKey('V')} limer inn ved markøren</span>
-            ) : (
-              <>
-                <span>
-                  {plural(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
-                </span>
-                <span>{modKey('C')} kopier</span>
-                <span>Esc fjern</span>
-              </>
-            )}
-          </span>
-        </div>
+        <StrokeBox kind="bare chosen" style={box(chosen)} below={pillBelow(chosen)}>
+          {clip ? (
+            <span>Kopiert · {modKey('V')} limer inn ved markøren</span>
+          ) : (
+            <>
+              <span>
+                {plural(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
+              </span>
+              <span>{modKey('C')} kopier</span>
+              <span>Esc fjern</span>
+            </>
+          )}
+        </StrokeBox>
       )}
       {!bm.persons.length && (
         <div className="bm-empty">
