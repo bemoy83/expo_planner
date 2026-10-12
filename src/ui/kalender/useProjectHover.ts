@@ -44,7 +44,7 @@ export const useProjectHover = (enabled = true) => {
     }
     return {
       onMouseOver: (e: { target: EventTarget; buttons: number }) => {
-        // Not while a selection, a pencil stroke or the fill handle is being dragged.
+        // Not while a selection, a pencil stroke or an end of a span is being dragged.
         const project = on.current && e.buttons === 0 && e.target instanceof Element ? (e.target.closest<HTMLElement>('[data-project]')?.dataset.project ?? null) : null
         clearTimeout(state.current.timer)
         if (project === null) show(null)

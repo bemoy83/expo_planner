@@ -73,12 +73,10 @@ const valueCell = ({ cols, edit, actions, lane, menu, spans }: ValueCell, date: 
   const focus = edit.focusCol === col
   // The cell in focus has its ring and no tint, as the active cell of a selection in Excel.
   const selected = col >= edit.selFrom && col <= edit.selTo && !focus
-  // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
+  // During a stroke or a pull of a span's end the cell shows what it would put there.
   const drawn = edit.ghost?.get(date)
   // A row shows it on the span itself: the day has the look of a planned day, and a day that would be emptied keeps its figure.
   const shown = drawn !== undefined && !(spans && !drawn) ? drawn || undefined : value
-  // The fill handle sits on the last cell of the selection, as in Excel.
-  const corner = edit.handle && edit.selTo === col
   return (
     <div
       key={date}
@@ -93,13 +91,6 @@ const valueCell = ({ cols, edit, actions, lane, menu, spans }: ValueCell, date: 
         <input className="cell-input" autoFocus value={edit.draft} onChange={(e) => actions.setDraft(e.target.value)} onBlur={() => actions.commitDraft()} onKeyDown={actions.draftKey} />
       ) : (
         formatFte(shown)
-      )}
-      {corner && (
-        <span
-          className="fill-handle"
-          title="Dra sidelengs for å kopiere til flere dager, eller tilbake for å tømme. Hold Alt for å strekke: samme sum fordelt på nytt over dagene."
-          onMouseDown={(e) => actions.fillDown(e)}
-        />
       )}
     </div>
   )

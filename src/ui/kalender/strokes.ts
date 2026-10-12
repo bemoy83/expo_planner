@@ -2,11 +2,11 @@ import { capacityForDate, formatFte, FTE_NOISE, rowTotals, sumValues, type Deman
 import type { ISODate } from '../../domain/dates'
 import { decimalText } from '../../domain/numbers'
 import { dayType } from '../../domain/holidays'
-import { fillAcross, shareOverDays, stretchSpan } from '../../domain/spread'
+import { shareOverDays, stretchSpan } from '../../domain/spread'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import { parseCellInput } from './layout'
-import { rangeOf, type Fill, type FillCell, type Pull, type Selection } from './selection'
+import { rangeOf, type DrawnCell, type Pull, type Selection } from './selection'
 
 /** What the grid's tools would write, worked out from the selection and the rows: no state and no storage here. */
 
@@ -121,43 +121,6 @@ export const proposalNotice = ({ done, hadPlan, noWindow, noDemand }: Proposal):
     .join(' · ')
 }
 
-/** What a drag of the fill handle would do, line by line: copy the block over the new days, or stretch its sum. */
-export const fillPreview = (fill: Fill | null, dates: ISODate[], getValue: GetValue): FillCell[] => {
-  if (!fill) return []
-  const cells: FillCell[] = []
-  const span = dates.slice(fill.col0, Math.max(fill.col1, fill.toCol) + 1)
-  const workdays = span.map((date) => dayType(date) === 'arbeidsdag')
-  for (let lane = fill.lane0; lane <= fill.lane1; lane++) {
-    const result = fillAcross({
-      values: span.map((date) => getValue(lane, date)),
-      workdays,
-      sourceLength: fill.col1 - fill.col0 + 1,
-      length: fill.toCol - fill.col0 + 1,
-      mode: fill.stretch ? 'stretch' : 'copy',
-    })
-    result.forEach((value, i) => value !== undefined && cells.push({ lane, date: span[i], value }))
-  }
-  return cells
-}
-
-const daysWith = (cells: FillCell[], cleared: boolean) => new Set(cells.filter((cell) => (cell.value === null) === cleared).map((cell) => cell.date)).size
-
-/** What the status bar says once the fill handle is let go. */
-export const fillNotice = (fill: Fill, cells: FillCell[]): string | null => {
-  const filled = daysWith(cells, false)
-  return !cells.length ? null : fill.stretch ? `Strakk over ${days(filled)}` : filled ? `Fylte ${days(filled)}` : `Tømte ${days(daysWith(cells, true))}`
-}
-
-/** What the status bar says while the fill handle is dragged. */
-export const fillProgress = (fill: Fill, cells: FillCell[]): string => {
-  const perDay = new Map<ISODate, number>()
-  for (const cell of cells) if (cell.value !== null) perDay.set(cell.date, (perDay.get(cell.date) ?? 0) + cell.value)
-  const cleared = daysWith(cells, true)
-  if (fill.stretch) return perDay.size ? `Strekker: opptil ${formatFte(Math.max(...perDay.values()), 1)} FTE per dag over ${days(perDay.size)}` : 'Strekker: ingenting å fordele'
-  if (perDay.size) return `Fyller ${days(perDay.size)} · hold Alt for å strekke i stedet`
-  return cleared ? `Tømmer ${days(cleared)}` : 'Dra sidelengs for å fylle · hold Alt for å strekke'
-}
-
 /** The span a planning row has an end of on a day: the days in a row with FTE around it. Null where the day is empty or inside a span. */
 export const spanEndAt = (row: AllocationRow, dates: ISODate[], col: number): { from: number; to: number } | null => {
   if (!row.fte[dates[col]]) return null
@@ -169,7 +132,7 @@ export const spanEndAt = (row: AllocationRow, dates: ISODate[], col: number): { 
 }
 
 export interface PullPreview {
-  cells: FillCell[]
+  cells: DrawnCell[]
   /** The days that get FTE they did not have, the days that are cleared, and the most a day ends up with. */
   added: number
   cleared: number
@@ -204,7 +167,7 @@ export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: All
     mode: pull.mode,
     lacking: known ? required - before : null,
   })
-  const cells = [...changes].sort((a, b) => a[0] - b[0]).map(([col, value]): FillCell => ({ lane: pull.lane, date: dates[col], value }))
+  const cells = [...changes].sort((a, b) => a[0] - b[0]).map(([col, value]): DrawnCell => ({ lane: pull.lane, date: dates[col], value }))
   const planned = cells.reduce((sum, cell) => sum + (cell.value ?? 0) - (row.fte[cell.date] ?? 0), before)
   const filled = [...changes].filter(([, value]) => value !== null).map(([col]) => col)
   // Where the end is now: the outermost day that has FTE once the pull is done.
@@ -254,7 +217,7 @@ export interface StrokePill {
  * The pill of a stroke that would leave `cells` as they are given. `titles` name it where it gives FTE and where it only
  * takes FTE away; a stroke that keeps its sum has one name and says so. Nothing while the stroke changes nothing.
  */
-const strokePill = (titles: { gain: string; lose: string } | { sameSum: string }, cells: FillCell[], getValue: GetValue, extra: string[] = []): StrokePill | null => {
+const strokePill = (titles: { gain: string; lose: string } | { sameSum: string }, cells: DrawnCell[], getValue: GetValue, extra: string[] = []): StrokePill | null => {
   const changed = cells.filter((cell) => (cell.value ?? 0) !== (getValue(cell.lane, cell.date) ?? 0))
   if (!changed.length) return null
   const sorted = changed.map((cell) => cell.date).sort()
@@ -275,20 +238,19 @@ const strokePill = (titles: { gain: string; lose: string } | { sameSum: string }
 }
 
 /** The cells a pencil stroke would write. */
-export const pencilCells = (preview: PencilStroke | null): FillCell[] => (preview?.lanes ?? []).flatMap(({ lane, parts }) => preview!.target.map((date, i) => ({ lane, date, value: parts[i] || null })))
+export const pencilCells = (preview: PencilStroke | null): DrawnCell[] => (preview?.lanes ?? []).flatMap(({ lane, parts }) => preview!.target.map((date, i) => ({ lane, date, value: parts[i] || null })))
 
 /** The cells an eraser stroke would clear: every cell drawn across. */
-export const eraserCells = (sel: Selection | null, dates: ISODate[]): FillCell[] => {
+export const eraserCells = (sel: Selection | null, dates: ISODate[]): DrawnCell[] => {
   if (!sel) return []
   const { lane0, lane1, col0, col1 } = rangeOf(sel)
-  const cells: FillCell[] = []
+  const cells: DrawnCell[] = []
   for (let lane = lane0; lane <= lane1; lane++) for (let col = col0; col <= col1; col++) cells.push({ lane, date: dates[col], value: null })
   return cells
 }
 
 export const pencilPill = (preview: PencilStroke, getValue: GetValue): StrokePill | null => strokePill({ gain: 'Fordel', lose: 'Tøm' }, pencilCells(preview), getValue)
 export const eraserPill = (sel: Selection, dates: ISODate[], getValue: GetValue): StrokePill | null => strokePill({ gain: 'Tøm', lose: 'Tøm' }, eraserCells(sel, dates), getValue)
-export const fillPill = (fill: Fill, cells: FillCell[], getValue: GetValue): StrokePill | null => strokePill(fill.stretch ? { sameSum: 'Strekk' } : { gain: 'Fyll', lose: 'Tøm' }, cells, getValue)
 export const pullPill = (pull: Pull, { cells, blocked, met, noDemand }: PullPreview, getValue: GetValue): StrokePill | null =>
   strokePill(pull.mode === 'sum' ? { sameSum: 'Strekk' } : { gain: 'Forleng', lose: 'Kort inn' }, cells, getValue, [
     pull.mode === 'demand' && met ? 'til behovet er dekket' : '',
@@ -316,7 +278,7 @@ export const pullNotice = (pull: Pull, preview: PullPreview): string | null => {
 }
 
 /** What the cells of each line would hold if the stroke or the drag ended now, keyed by lane. An emptied cell holds 0. */
-export const ghostCells = (cells: FillCell[]): Map<number, Map<ISODate, number>> => {
+export const ghostCells = (cells: DrawnCell[]): Map<number, Map<ISODate, number>> => {
   const lanes = new Map<number, Map<ISODate, number>>()
   for (const cell of cells) {
     let line = lanes.get(cell.lane)
@@ -327,13 +289,13 @@ export const ghostCells = (cells: FillCell[]): Map<number, Map<ISODate, number>>
 }
 
 /**
- * Days planned above the available crew. A pencil stroke or a drag of the fill handle in progress counts,
+ * Days planned above the available crew. A pencil stroke or a pull of a span's end in progress counts,
  * so the clash shows while it is being drawn.
  */
 export const overbookedDays = (
   need: Map<ISODate, number>,
   preview: PencilStroke | null,
-  fillCells: FillCell[],
+  pulled: DrawnCell[],
   allocLanes: AllocLane[],
   getValue: GetValue,
   capacity: CapacityLine[],
@@ -344,7 +306,7 @@ export const overbookedDays = (
     const { row, node } = allocLanes[lane] ?? {}
     preview!.target.forEach((date, i) => drawn.set(date, (drawn.get(date) ?? 0) + parts[i] - ((node ? node.daily.get(date) : row?.fte[date]) ?? 0)))
   }
-  for (const cell of fillCells) drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue(cell.lane, cell.date) ?? 0))
+  for (const cell of pulled) drawn.set(cell.date, (drawn.get(cell.date) ?? 0) + (cell.value ?? 0) - (getValue(cell.lane, cell.date) ?? 0))
   const result = new Map<ISODate, { need: number; available: number }>()
   for (const date of new Set([...need.keys(), ...drawn.keys()])) {
     const planned = (need.get(date) ?? 0) + (drawn.get(date) ?? 0)

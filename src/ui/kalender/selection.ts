@@ -8,16 +8,8 @@ export interface Selection {
   anchor: Cell
   focus: Cell
 }
-/** A drag of the fill handle: the block that was selected, how far it has been dragged, and whether it stretches. */
-export interface Fill {
-  lane0: number
-  lane1: number
-  col0: number
-  col1: number
-  toCol: number
-  stretch: boolean
-}
-export interface FillCell {
+/** A cell as a stroke or a pull would leave it. */
+export interface DrawnCell {
   lane: number
   date: ISODate
   /** `null` clears the cell. */

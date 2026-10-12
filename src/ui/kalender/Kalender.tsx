@@ -42,11 +42,13 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
 import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode } from './zoom'
-import { copyText, eraserCells, eraserPill, fillNotice, fillPill, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt, type PullPreview } from './strokes'
-import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Grip, type Pull, type Selection, type Tool } from './selection'
+import { copyText, eraserCells, eraserPill, ghostCells, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt, type PullPreview } from './strokes'
+import { followLanes, rangeOf, type Cell, type DrawnCell, type LaneKey, type Grip, type Pull, type Selection, type Tool } from './selection'
+
+const NO_CELLS: DrawnCell[] = []
 
 /** A line that takes no numbers has nothing selected on it. */
-const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
+const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
 
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
@@ -98,9 +100,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [inspectorOpen, setInspectorOpen] = usePref('inspectorOpen', false)
   // The row the details panel shows: the last planning row that had the focus.
   const [detailId, setDetailId] = useState<string | null>(null)
-  const [fill, setFill] = useState<Fill | null>(null)
-  const fillRef = useRef<Fill | null>(null)
-  const fillCellsRef = useRef<FillCell[]>([])
   // An end of a span being pulled along the days, and the press on one that has not moved yet.
   const [pull, setPull] = useState<Pull | null>(null)
   const pullRef = useRef<Pull | null>(null)
@@ -434,24 +433,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // While a stroke is being drawn, what it would give: shown in the cells, with the level per day in the status bar.
   // The total is left out: a stroke always places all that is left, so it would not move.
   const preview = useMemo(() => (stroke === 'pencil' ? strokeFor(selection) : null), [stroke, strokeFor, selection])
-  const fillCells = useMemo(() => fillPreview(fill, dates, getValue), [fill, dates, getValue])
-  useEffect(() => {
-    fillRef.current = fill
-    fillCellsRef.current = fillCells
-  }, [fill, fillCells])
-
-  const commitFill = useCallback(() => {
-    const done = fillRef.current
-    const cells = fillCellsRef.current
-    fillRef.current = null
-    setFill(null)
-    if (!done) return
-    for (const cell of cells) setValue(cell.lane, cell.date, cell.value)
-    // The block is now what was dragged out, so it can be dragged on from there.
-    setSelection({ anchor: { lane: done.lane0, col: done.col0 }, focus: { lane: done.lane1, col: done.toCol } })
-    setNotice(fillNotice(done, cells))
-  }, [setValue])
-
   const pullView = useMemo(() => pullPreview(pull, dates, allocLanes, demandIndex, settings), [pull, dates, allocLanes, demandIndex, settings])
   useEffect(() => {
     pullRef.current = pull
@@ -477,10 +458,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   }, [setValue])
 
   // What the cells of each line would hold if the stroke or the drag ended now, keyed by lane.
-  const drawnCells = pullView ? pullView.cells : fillCells
+  const drawnCells = pullView?.cells ?? NO_CELLS
   const ghost = useMemo(() => ghostCells([...pencilCells(preview), ...eraserCells(stroke === 'eraser' ? selection : null, dates), ...drawnCells]), [preview, stroke, selection, dates, drawnCells])
 
-  useGridDrag({ scrollRef, dragging, fillRef, strokeRef, spring, gripRef: grip, pressed, pullRef, setFill, setPull, setSelection, setStroke, drawDemand, eraseDrawn, commitFill, startPull, commitPull, gripSelect, colW, dayCount: dates.length })
+  useGridDrag({ scrollRef, dragging, strokeRef, spring, gripRef: grip, pressed, pullRef, setPull, setSelection, setStroke, drawDemand, eraseDrawn, startPull, commitPull, gripSelect, colW, dayCount: dates.length })
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -541,8 +522,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const leftCol = held ? held.left : Math.floor(viewport.left / colW)
   const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, first: leftCol, colW, classes: dayClasses }), [visibleDates, c0, leftCol, colW, dayClasses])
 
-  // What the stroke or the drag in progress would do, for the status bar.
-  const progress = pull && pullView ? pullProgress(pull, pullView) : fill ? fillProgress(fill, fillCells) : preview ? pencilProgress(preview) : null
+  // What the stroke or the pull in progress would do, for the status bar.
+  const progress = pull && pullView ? pullProgress(pull, pullView) : preview ? pencilProgress(preview) : null
 
   const toggled = (prev: Set<string>, key: string) => {
     const next = new Set(prev)
@@ -599,8 +580,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       setStroke(started)
     },
     cellEnter: (lane, col) => {
-      if (fillRef.current) setFill((f) => f && { ...f, toCol: Math.max(f.col0, col) })
-      else if (dragging.current && pressed.current) {
+      if (dragging.current && pressed.current) {
         const anchor = pressed.current
         pressed.current = null
         if (anchor.lane !== lane || anchor.col !== col) setSelection({ anchor, focus: { lane, col } })
@@ -644,14 +624,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         setDraft(null)
         scrollRef.current?.focus({ preventScroll: true })
       }
-    },
-    fillDown: (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (!selectionRange) return
-      const started: Fill = { ...selectionRange, toCol: selectionRange.col1, stretch: e.altKey }
-      fillRef.current = started
-      setFill(started)
     },
     // Shows where and when a project is: its days are brought into view, in narrower columns if they do not
     // fit, and its halls and bars stay lit. A click on the same project again lets go of it.
@@ -807,8 +779,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       selFrom: selected ? selectionRange.col0 : -1,
       selTo: selected ? selectionRange.col1 : -1,
       focusCol: focused ? selection.focus.col : -1,
-      // The fill handle sits on the last cell of the selection, as in Excel.
-      handle: selected && tool === 'select' && draft === null && selectionRange.lane1 === lane,
       draft: focused ? draft : null,
       ghost: ghost.get(lane),
       ghostClass,
@@ -844,7 +814,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const activeDate = selectedDate ?? planningFocus?.date
 
   // What the stroke or the drag in progress would do, on one pill over the days and the lines it changes: above them, or below where the top of the rows leaves it no room.
-  const pill = pull && pullView ? pullPill(pull, pullView, getValue) : fill ? fillPill(fill, fillCells, getValue) : preview ? pencilPill(preview, getValue) : stroke === 'eraser' && selection ? eraserPill(selection, dates, getValue) : null
+  const pill = pull && pullView ? pullPill(pull, pullView, getValue) : preview ? pencilPill(preview, getValue) : stroke === 'eraser' && selection ? eraserPill(selection, dates, getValue) : null
   const pillFrom = pill ? allocLanes[pill.lane0]?.index : undefined
   const pillTo = pill ? allocLanes[pill.lane1]?.index : undefined
   const pillBelow = pillFrom !== undefined && rowTops[pillFrom] - (viewport.top - tucked) - headOver(pillFrom) < PILL_ROOM

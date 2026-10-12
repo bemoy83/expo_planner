@@ -109,7 +109,6 @@ Kalender
 - Demand whose Hall/Sted names no hall or place is gathered under «Mangler hall» until the planner picks a place under Plassering on Behov, or makes a rule on Hallregler. A choice is for the text in every project, or for one project; there is none for a single line.
 - If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. «Rader uten behov» under Filter lists such rows, in the whole period; they are moved or deleted by hand, one at a time. Rows made for several texts that are now all «Mangler hall» each show the whole unresolved demand.
 - Selecting by dragging follows the mouse past the left and right edges but not up or down.
-- The fill handle works sideways and to the right of the block's first day only: it does not copy down to other rows, and it cannot be dragged left past the start. Stretching (Alt) on several rows stretches each row by itself.
 - The pencil («Fordel behov») shares in whole people, evenly, with what does not divide on the first days and the decimals on the last day. A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.
 - A row's window is the build-up (A) or tear-down (D) days of its project in its hall; moving in and out are not counted as work days. Levels do not show a window, and a row for all halls or for «Mangler hall» gets the days of all the project's halls together.
 - «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row. Small rows therefore get one day with a decimal each (0,2 here, 0,6 there) instead of being gathered into whole people across rows. It does not look at the available crew.
@@ -151,6 +150,7 @@ An end of a span (the days in a row a planning row has FTE) is pulled along the 
 - Shift or Alt held at the press still give the pencil and the eraser for one stroke, also on an end cell; they steer a pull only once it has started.
 - The day that «holds the decimals» is one whose figure is no whole number and lower than its neighbour's inside the span. It is lifted only when the pull reaches a new day.
 - Not done: moving a whole span, and pulling on a level in entry (✎).
+- The fill handle of the selection is removed (2026-10-12): pulling an end of a span does what it did, and copying a block over other days is copy and paste.
 
 ## Test notes
 

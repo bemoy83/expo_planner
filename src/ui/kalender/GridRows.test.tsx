@@ -23,7 +23,7 @@ const row: AllocationRow = {
 const item = { kind: 'row', row, totals: rowTotals(buildDemandIndex([]), row, DEFAULT_SETTINGS), project: { key: '26970' }, depth: 0 } as RowItem
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07']
 const cols: Columns = { dates, c0: 0, first: 0, colW: 36, classes: new Map(dates.map((date) => [date, 'day'])) }
-const idle: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, handle: false, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
+const idle: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, ghostClass: 'drawn', livePlanned: undefined }
 const noActions = new Proxy({}, { get: () => () => {} }) as GridActions
 const rowDimensions = ['competence' as const]
 
@@ -46,17 +46,16 @@ describe('AllocRow', () => {
     expect(drawn()).toBe(1)
   })
 
-  it('shows the selection, the focus and the fill handle on its own line', () => {
+  it('shows the selection and the focus on its own line', () => {
     const drawn = draws()
     const { container, rerender } = render(view(idle))
     expect(container.querySelectorAll('.cell.selected')).toHaveLength(0)
-    rerender(view({ ...idle, selFrom: 1, selTo: 2, focusCol: 2, handle: true }))
+    rerender(view({ ...idle, selFrom: 1, selTo: 2, focusCol: 2 }))
     expect(drawn()).toBe(2)
     const cells = [...container.querySelectorAll('.cell')]
     // The cell in focus has the ring alone.
     expect(cells.map((cell) => cell.classList.contains('selected'))).toEqual([false, true, false])
     expect(cells[2].classList.contains('focus')).toBe(true)
-    expect(cells[2].querySelector('.fill-handle')).not.toBeNull()
     expect(cells[1].textContent).toBe('2')
   })
 

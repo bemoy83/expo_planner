@@ -3,8 +3,8 @@ import { buildDemandIndex } from '../../domain/calc'
 import { DEFAULT_SETTINGS, type AllocationRow, type DemandLine } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import type { GroupNode } from './rows'
-import type { Fill, Pull, Selection } from './selection'
-import { copyText, eraserCells, eraserPill, fillPill, pencilCells, pencilPill, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
+import type { Pull, Selection } from './selection'
+import { copyText, eraserCells, eraserPill, pencilCells, pencilPill, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
 
 // Monday 5 to Sunday 11 October 2026.
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11']
@@ -127,35 +127,6 @@ describe('proposal', () => {
   })
 })
 
-describe('the fill handle', () => {
-  const lanes = lanesOf(row('a', { fte: { [MON]: 2 } }))
-  const fill = (overrides: Partial<Fill> = {}): Fill => ({ lane0: 0, lane1: 0, col0: 0, col1: 0, toCol: 2, stretch: false, ...overrides })
-
-  it('copies the block over the days dragged across', () => {
-    const cells = fillPreview(fill(), dates, valueOf(lanes))
-    expect(cells.filter((cell) => cell.date !== MON)).toEqual([
-      { lane: 0, date: TUE, value: 2 },
-      { lane: 0, date: WED, value: 2 },
-    ])
-    expect(fillProgress(fill(), cells)).toMatch(/^Fyller \d dager · hold Alt/)
-    expect(fillNotice(fill(), cells)).toMatch(/^Fylte \d dager$/)
-  })
-
-  it('stretches the sum of the block with Alt', () => {
-    const stretched = fillPreview(fill({ toCol: 1, stretch: true }), dates, valueOf(lanes))
-    expect(stretched.map((cell) => cell.value)).toEqual([1, 1])
-    expect(fillProgress(fill({ toCol: 1, stretch: true }), stretched)).toBe('Strekker: opptil 1 FTE per dag over 2 dager')
-    expect(fillNotice(fill({ toCol: 1, stretch: true }), stretched)).toBe('Strakk over 2 dager')
-  })
-
-  it('has nothing to say before the drag has moved, and no cells without a drag', () => {
-    expect(fillPreview(null, dates, valueOf(lanes))).toEqual([])
-    expect(fillNotice(fill(), [])).toBeNull()
-    expect(fillProgress(fill(), [])).toBe('Dra sidelengs for å fylle · hold Alt for å strekke')
-    expect(fillProgress(fill({ stretch: true }), [])).toBe('Strekker: ingenting å fordele')
-  })
-})
-
 describe('pulling an end of a span', () => {
   // FOGA needs 5 FTE-days; Banner has no demand.
   const foga = row('a', { fte: { [MON]: 2, [TUE]: 2 } })
@@ -240,7 +211,7 @@ describe('pulling an end of a span', () => {
 })
 
 describe('what a stroke would leave in the cells, and its pill', () => {
-  it('shows what a pencil stroke, an eraser stroke and a fill would leave in the cells', () => {
+  it('shows what a pencil stroke, an eraser stroke and a pull would leave in the cells', () => {
     const preview = pencilStroke(over(0, 0, 0, 1), dates, lanesOf(row('a')), index, settings)
     expect(ghostCells(pencilCells(preview)).get(0)).toEqual(new Map([[MON, 3], [TUE, 2]]))
     expect(ghostCells(eraserCells(over(1, 0, 1, 1), dates)).get(1)).toEqual(new Map([[MON, 0], [TUE, 0]]))
@@ -264,16 +235,6 @@ describe('what a stroke would leave in the cells, and its pill', () => {
     expect(eraserPill(over(0, 3, 0, 4), dates, valueOf(lanes))).toBeNull()
   })
 
-  it('has a pill for the fill handle: filling, emptying and stretching', () => {
-    const lanes = lanesOf(row('a', { fte: { [MON]: 2, [TUE]: 2 } }))
-    const value = valueOf(lanes)
-    const out: Fill = { lane0: 0, lane1: 0, col0: 0, col1: 0, toCol: 2, stretch: false }
-    expect(fillPill(out, fillPreview(out, dates, value), value)).toMatchObject({ from: WED, to: WED, erase: false, title: 'Fyll', parts: ['1 dag · +2 FTE'] })
-    const back: Fill = { lane0: 0, lane1: 0, col0: 0, col1: 1, toCol: 0, stretch: false }
-    expect(fillPill(back, fillPreview(back, dates, value), value)).toMatchObject({ from: TUE, to: TUE, erase: true, title: 'Tøm', parts: ['1 dag · −2 FTE'] })
-    const stretch: Fill = { lane0: 0, lane1: 0, col0: 0, col1: 1, toCol: 3, stretch: true }
-    expect(fillPill(stretch, fillPreview(stretch, dates, value), value)).toMatchObject({ from: MON, to: dates[3], erase: false, title: 'Strekk', parts: ['4 dager · samme sum'] })
-  })
 })
 
 describe('overbookedDays', () => {

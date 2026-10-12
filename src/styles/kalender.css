@@ -334,7 +334,7 @@
 .cell.mon{--phase:var(--mon)}
 .cell.dem{--phase:var(--dem)}
 .cell.filled::before{background-color:var(--bar,var(--phase))}
-/* While a stroke is drawn, the fill handle is dragged or an end of a span is pulled, the spans of a row are drawn as it would leave them,
+/* While a stroke is drawn or an end of a span is pulled, the spans of a row are drawn as it would leave them,
    as a stroke is in Bemanning: flat, with a hatch for what would not be there. The days that would get FTE are a tint of the row's colour,
    and the days that would lose it are hatched in that colour on the ground. What the stroke does is said on one pill over those days
    (`.bm-stroke` and `.bm-pill` in bemanning.css). In the plan the pill is ink, and the blocking alert's chip where the stroke only takes FTE away. */
@@ -355,8 +355,6 @@
 /* The field a cell is typed in fills the cell; `input` in the selector puts it above the look fields have elsewhere.
    It has no frame of its own: the ring of the cell in focus is around it, and one ring is enough. */
 input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;background:var(--surface);outline:none;text-align:center;font-family:var(--font-num);font-size:var(--fs-sm);caret-color:var(--pick)}
-/* The fill handle on the last cell of the selection: drag to copy, Alt-drag to stretch. Above the neighbouring cells, below the pinned label column. */
-.fill-handle{position:absolute;right:-4px;bottom:-4px;z-index:1;width:8px;height:8px;border:1px solid var(--surface);background:var(--pick);cursor:crosshair}
 /* The pencil and the eraser, chosen in the bar or held with Shift or Alt: the cell under the pointer shows what a drag would do. */
 .kalender:is(.pencil,.eraser) :is(.alloc-row,.entry-level) .cell.editable:not(.run-start,.run-end){cursor:crosshair}
 .kalender.pencil .alloc-row .cell.editable:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 60%,transparent)}

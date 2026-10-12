@@ -28,11 +28,9 @@ export interface CellEdit {
   selTo: number
   /** The column in focus on this line, or -1. */
   focusCol: number
-  /** The fill handle sits on the last selected cell of this line. */
-  handle: boolean
   /** What is being typed into the cell in focus on this line. */
   draft: string | null
-  /** What a pencil or eraser stroke, or a drag of the fill handle, would put in this line's cells. */
+  /** What a pencil or eraser stroke, or a pull of a span's end, would put in this line's cells. */
   ghost: Map<ISODate, number> | undefined
   /** How those cells are shown on a level in entry: as the pencil draws or as the eraser clears. A row shows them on its spans. */
   ghostClass: 'drawn' | 'erasing'
@@ -60,7 +58,6 @@ export interface GridActions {
   setDraft: (text: string) => void
   commitDraft: () => void
   draftKey: (e: KeyboardEvent) => void
-  fillDown: (e: MouseEvent) => void
   /** A click on the name of a project that is in the hall calendar. */
   showProject: (key: string) => void
   /** A click on a project's bar in the hall calendar: the rows scroll to the project. */
