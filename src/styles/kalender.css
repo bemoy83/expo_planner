@@ -331,8 +331,14 @@
 .alloc-row .cell.filled::before{content:'';position:absolute;top:5px;bottom:5px;left:-1px;right:-1px;z-index:-1;background-image:var(--over-selected,none),var(--over-booked,none),var(--over-hatch,none)}
 .alloc-row .cell.filled.run-start::before{left:2px;border-top-left-radius:5px;border-bottom-left-radius:5px}
 .alloc-row .cell.filled.run-end::before{right:2px;border-top-right-radius:5px;border-bottom-right-radius:5px}
-.cell.filled.mon::before{background-color:var(--mon)}
-.cell.filled.dem::before{background-color:var(--dem)}
+.cell.mon{--phase:var(--mon)}
+.cell.dem{--phase:var(--dem)}
+.cell.filled::before{background-color:var(--bar,var(--phase))}
+/* While an end of a span is pulled, the span is drawn as the pull would leave it, as a stroke is in Bemanning: flat, with a hatch for what
+   would not be there. The days it would get are a tint of its colour, and the days it would lose are hatched in its colour on the ground.
+   What the pull does is said on a pill over those days (`.bm-stroke` and `.bm-pill` in bemanning.css). */
+.alloc-row .cell.coming{--bar:color-mix(in oklab,var(--phase) 50%,var(--bg))}
+.alloc-row .cell.going{--bar:var(--bg);--over-hatch:repeating-linear-gradient(135deg,var(--phase) 0 2px,transparent 2px 6px)}
 .cell.has-note::after{content:'';position:absolute;top:0;right:0;border-left:6px solid transparent;border-top:6px solid var(--accent)}
 /* The days a row can be worked on, its project's build-up or tear-down days in its hall: a faint dot in the empty working days. */
 .alloc-row .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--text) 28%,transparent)}

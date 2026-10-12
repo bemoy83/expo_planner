@@ -20,7 +20,7 @@ import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
 import { PersonPanel } from '../bemanning/PersonPanel'
 import type { BlockNames } from '../bemanning/dayCell'
-import { unfoldedHeight } from '../bemanning/layout'
+import { PILL_ROOM, unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
 import { AreaMenu } from './AreaMenu'
 import { CellMenu } from './CellMenu'
@@ -42,7 +42,7 @@ import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
 import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode } from './zoom'
-import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPreview, pullProgress, spanEndAt, type PullPreview } from './strokes'
+import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt, type PullPreview } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Fill, type FillCell, type Grip, type Pull, type Selection, type Tool } from './selection'
 
 /** A line that takes no numbers has nothing selected on it. */
@@ -772,7 +772,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const closeInspector = useCallback(() => setInspectorOpen(false), [setInspectorOpen])
 
   // What one line of cells is told about the selection: plain values, so only the lines it touches are drawn again.
-  const ghostClass = stroke === 'eraser' ? 'erasing' : 'drawn'
+  const ghostClass = pull ? 'pulled' : stroke === 'eraser' ? 'erasing' : 'drawn'
   const editOf = (lane: number): CellEdit => {
     const selected = !!selectionRange && lane >= selectionRange.lane0 && lane <= selectionRange.lane1
     const focused = selection?.focus.lane === lane
@@ -815,6 +815,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const selectedDate = selection ? dates[selection.focus.col] : undefined
   if (selectedDate && selectedDate !== planningFocus?.date) setPlanningFocus({ date: selectedDate })
   const activeDate = selectedDate ?? planningFocus?.date
+
+  // What a pull of a span's end would do, on a pill over the days it changes: above them, or below where the top of the rows leaves it no room.
+  const pullLane = pull ? allocLanes[pull.lane] : undefined
+  const pill = pull && pullView && pullLane?.row ? pullPill(pull, pullLane.row, pullView) : null
+  const pillBelow = !!pullLane && rowTops[pullLane.index] - (viewport.top - tucked) - headOver(pullLane.index) < PILL_ROOM
 
   const groupRow = (item: GroupItem) => {
     // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
@@ -942,6 +947,16 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               if (item.node.depth === 0) return <div key={`g:${item.node.key}`} style={{ height: TOP_ROW_H }} />
               return groupRow(item)
             })}
+            {pill && pullLane && (
+              <div className={`bm-stroke bare ${pill.erase ? 'erase' : ''}`} style={{ left: daysWide(daysBetween(range.start, pill.from), LEFT_W), width: daysWide(daysBetween(pill.from, pill.to) + 1), top: rowTops[pullLane.index], height: ROW_H }}>
+                <span className={`bm-pill ${pillBelow ? 'below' : ''}`}>
+                  <b>{pill.title}</b>
+                  {pill.parts.map((part) => (
+                    <span key={part}>{part}</span>
+                  ))}
+                </span>
+              </div>
+            )}
             {allSections
               .filter((section) => section.end > r0 && section.index < r1)
               .map(({ item, index, end }) => (

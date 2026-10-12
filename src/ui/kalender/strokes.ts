@@ -237,6 +237,36 @@ const pullTail = (pull: Pull, { blocked, met, noDemand, lacking }: PullPreview):
     .map((text) => ` · ${text}`)
     .join('')
 
+export interface PullPill {
+  /** The days the pull changes: where the pill sits. */
+  from: ISODate
+  to: ISODate
+  /** The pull takes FTE away. */
+  erase: boolean
+  title: string
+  parts: string[]
+}
+
+/** What a pull of a span's end would do, for the pill over the days it changes, as a stroke has one in Bemanning. Nothing while it changes nothing. */
+export const pullPill = (pull: Pull, row: AllocationRow, { cells, added, cleared, planned, blocked, met, noDemand }: PullPreview): PullPill | null => {
+  if (!cells.length) return null
+  const change = planned - sumValues(row.fte)
+  const fte = `${change > 0 ? '+' : change < 0 ? '−' : ''}${formatFte(Math.abs(change), 1) || '0'} FTE`
+  const erase = pull.mode !== 'sum' && cleared > 0
+  return {
+    from: cells[0].date,
+    to: cells[cells.length - 1].date,
+    erase,
+    title: pull.mode === 'sum' ? 'Strekk' : erase ? 'Kort inn' : 'Forleng',
+    parts: [
+      pull.mode === 'sum' ? `${days(cells.filter((cell) => cell.value !== null).length)} · samme sum` : `${days(erase ? cleared : added || 1)} · ${fte}`,
+      pull.mode === 'demand' && met ? 'til behovet er dekket' : '',
+      noDemand ? 'ikke noe kjent behov' : '',
+      blocked ? 'stopper før neste planlagte dag' : '',
+    ].filter(Boolean),
+  }
+}
+
 /** What the status bar says while an end of a span is pulled. */
 export const pullProgress = (pull: Pull, preview: PullPreview): string => {
   const { added, cleared, perDay, cells } = preview

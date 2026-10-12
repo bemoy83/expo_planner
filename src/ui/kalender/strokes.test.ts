@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, type AllocationRow, type DemandLine } from '../../dom
 import type { AllocLane } from './gridTypes'
 import type { GroupNode } from './rows'
 import type { Fill, Pull, Selection } from './selection'
-import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPreview, pullProgress, spanEndAt } from './strokes'
+import { copyText, fillNotice, fillPreview, fillProgress, ghostCells, overbookedDays, pasteCells, pencilNotice, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
 
 // Monday 5 to Sunday 11 October 2026.
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11']
@@ -218,6 +218,16 @@ describe('pulling an end of a span', () => {
     expect(back).toMatchObject({ blocked: true, tip: 1 })
     expect(pullNotice(one, back)).toBe('Forlenget med 1 dag · stopper før neste planlagte dag')
     expect(pullPreview({ ...one, toCol: 3 }, dates, lanesOf(r), index, settings)!.cells).toEqual([{ lane: 0, date: dates[3], value: 2 }])
+  })
+
+  it('says on a pill what the pull does, over the days it changes', () => {
+    const lanes = lanesOf(foga)
+    const pill = (p: Pull) => pullPill(p, foga, pullPreview(p, dates, lanes, index, settings)!)
+    expect(pill(pull())).toEqual({ from: WED, to: FRI, erase: false, title: 'Forleng', parts: ['3 dager · +6 FTE'] })
+    expect(pill(pull({ mode: 'demand' }))).toEqual({ from: WED, to: WED, erase: false, title: 'Forleng', parts: ['1 dag · +1 FTE', 'til behovet er dekket'] })
+    expect(pill(pull({ toCol: 0 }))).toEqual({ from: TUE, to: TUE, erase: true, title: 'Kort inn', parts: ['1 dag · −2 FTE'] })
+    expect(pill(pull({ toCol: 3, mode: 'sum' }))).toMatchObject({ from: MON, to: dates[3], erase: false, title: 'Strekk', parts: ['4 dager · samme sum'] })
+    expect(pill(pull({ toCol: 1 }))).toBeNull()
   })
 
   it('has nothing to do on a level or before the end has moved', () => {

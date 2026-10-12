@@ -72,14 +72,15 @@ const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate
   const selected = col >= edit.selFrom && col <= edit.selTo
   // During a pencil stroke or a drag of the fill handle the cell shows what it would put there.
   const drawn = edit.ghost?.get(date)
-  // A day that would be left empty is shown as the eraser shows it, whatever the stroke or the drag is.
-  const ghostClass = drawn === undefined ? '' : drawn === 0 && value ? 'erasing' : edit.ghostClass
+  // A pull of a span's end is shown on the span itself, see `AllocRow`: the day keeps the look of a planned day, and a day that is let go of keeps its figure.
+  const pulled = edit.ghostClass === 'pulled'
+  const shown = drawn !== undefined && !(pulled && !drawn) ? drawn || undefined : value
   // The fill handle sits on the last cell of the selection, as in Excel.
   const corner = edit.handle && edit.selTo === col
   return (
     <div
       key={date}
-      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${ghostClass}`}
+      className={`${dayClass(cols, date)} cell editable ${selected ? 'selected' : ''} ${focus ? 'focus' : ''} ${value ? 'filled' : ''} ${extraClass} ${note ? 'has-note' : ''} ${drawn !== undefined && !pulled ? edit.ghostClass : ''}`}
       title={note}
       onMouseDown={(e) => actions.cellDown(lane, col, e)}
       onMouseEnter={() => actions.cellEnter(lane, col)}
@@ -88,10 +89,8 @@ const valueCell = ({ cols, edit, actions, lane, menu }: ValueCell, date: ISODate
     >
       {focus && edit.draft !== null ? (
         <input className="cell-input" autoFocus value={edit.draft} onChange={(e) => actions.setDraft(e.target.value)} onBlur={() => actions.commitDraft()} onKeyDown={actions.draftKey} />
-      ) : drawn !== undefined ? (
-        formatFte(drawn || undefined)
       ) : (
-        formatFte(value)
+        formatFte(shown)
       )}
       {corner && (
         <span
@@ -512,15 +511,21 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
       }
       cells={(date, col) => {
         const value = r.fte[date]
+        // While an end of a span is pulled, the span is drawn as the pull would leave it, as a stroke is in Bemanning: the days it would
+        // get as a tint of its colour with their figures, and the days it would lose hatched, since their FTE would not be there.
+        const pulledTo = edit.ghostClass === 'pulled' ? edit.ghost : undefined
+        const on = (day: ISODate) => !!(r.fte[day] || pulledTo?.get(day))
+        const pulledDay = pulledTo?.get(date)
+        const pull = pulledDay === undefined ? '' : pulledDay === 0 ? (value ? 'going' : '') : value ? '' : 'filled coming'
         // Planned days in a row are drawn as one span, rounded where the run starts and ends: a day without FTE ends it.
-        const run = value ? `${r.fte[addDays(date, -1)] ? '' : 'run-start'} ${r.fte[addDays(date, 1)] ? '' : 'run-end'}` : ''
+        const run = on(date) ? `${on(addDays(date, -1)) ? '' : 'run-start'} ${on(addDays(date, 1)) ? '' : 'run-end'}` : ''
         return valueCell(
           cell,
           date,
           col,
           value,
           r.notes[date],
-          `${r.phase === 'Demontering' ? 'dem' : 'mon'} ${run} ${window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && value ? 'outside-window' : ''}`,
+          `${r.phase === 'Demontering' ? 'dem' : 'mon'} ${run} ${pull} ${window?.has(date) ? `in-window ${dayType(date) === 'arbeidsdag' ? 'workday' : ''}` : window?.size && value ? 'outside-window' : ''}`,
         )
       }}
     />
