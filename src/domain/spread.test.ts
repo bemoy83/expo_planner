@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shareOverDays, spread, stretchSpan, type SpanInput } from './spread'
+import { shareOverDays, spread, spreadOpen, stretchSpan, type SpanInput } from './spread'
 
 const sum = (values: number[]) => Math.round(values.reduce((a, b) => a + b, 0) * 100) / 100
 
@@ -34,6 +34,26 @@ describe('sharing a number typed on a level out over its rows', () => {
     expect(spread(2.5, [7])).toEqual([2.5])
     expect(spread(2, [])).toEqual([])
     expect(spread(0, [1, 2])).toEqual([0, 0])
+  })
+})
+
+describe('sharing a day of a level over the rows that are open that day', () => {
+  it('shares by weight among the open rows, and gives the others nothing', () => {
+    expect(spreadOpen(4, [30, 10, 60], [true, true, false])).toEqual([3, 1, 0])
+    expect(spreadOpen(2, [30, 10], [false, true])).toEqual([0, 2])
+  })
+
+  it('shares alike among the open rows when none of them has a weight', () => {
+    expect(spreadOpen(2, [0, 0, 50], [true, true, false])).toEqual([1, 1, 0])
+  })
+
+  it('shares over all the rows when none is open', () => {
+    expect(spreadOpen(4, [30, 10], [false, false])).toEqual([3, 1])
+  })
+
+  it('is as spread when every row is open, and handles no rows', () => {
+    expect(spreadOpen(2, [3.1, 4.8, 1.2, 7.7, 0.2], [true, true, true, true, true])).toEqual(spread(2, [3.1, 4.8, 1.2, 7.7, 0.2]))
+    expect(spreadOpen(2, [], [])).toEqual([])
   })
 })
 

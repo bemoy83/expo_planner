@@ -150,7 +150,7 @@ An end of a span (the days in a row a planning row has FTE) is pulled along the 
 - Shift or Alt steer a pull whether they are held from the press or from later on. On an end cell they give the pencil and the eraser only on a click or a drag up or down.
 - The day that «holds the decimals» is one whose figure is no whole number and lower than its neighbour's inside the span. It is lifted only when the pull reaches a new day.
 - Not done: moving a whole span.
-- A level in entry (✎) draws, previews and pulls as a row does (2026-10-12). What a pull or a stroke gives a day there is shared over the rows under it by required hours, as a typed number is, whatever the window of each row: a row can get FTE on a day outside its own window when the rows have different halls. A project's line in entry shows its spans in place of the hall-phase strip.
+- A level in entry (✎) draws, previews and pulls as a row does (2026-10-12). What a pull, a stroke or a typed number gives a day there is shared by required hours over the rows whose window holds the day (a row with no window counts as open), and over all the rows where no window holds it; only then can a row get FTE outside its own window. A project's line in entry shows its spans in place of the hall-phase strip.
 - The fill handle of the selection is removed (2026-10-12): pulling an end of a span does what it did, and copying a block over other days is copy and paste.
 
 ## Test notes

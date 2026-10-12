@@ -10,7 +10,7 @@ import { hallNames, projectPhases } from '../../domain/venue'
 import { locateRows, sharedPlaces } from '../../domain/locations'
 import { absenceLine, overtimeLine } from '../../domain/staffing'
 import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
-import { spread } from '../../domain/spread'
+import { spreadOpen } from '../../domain/spread'
 import { buildWindows, windowFor } from '../../domain/windows'
 import { loadPref, savePref, usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -324,15 +324,20 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       const { row, node } = allocLanes[lane] ?? {}
       if (row) setRowFte(row, date, value)
       else if (node) {
-        // A number typed on a level replaces that day for every row below it, shared out by their required hours.
-        const parts = value === null ? [] : spread(value, node.rows.map((r) => requiredHours(demandIndex, r) ?? 0))
+        // A number typed on a level replaces that day for every row below it, shared out by their required hours over the
+        // rows that can be worked on that day: those whose window holds it, and those that have no window at all.
+        const open = node.rows.map((r) => {
+          const window = windowOf(r)
+          return !window?.size || window.has(date)
+        })
+        const parts = value === null ? [] : spreadOpen(value, node.rows.map((r) => requiredHours(demandIndex, r) ?? 0), open)
         node.rows.forEach((r, i) => {
           const part = parts[i] || null
           if (part !== null || r.fte[date] !== undefined) setRowFte(r, date, part)
         })
       }
     },
-    [allocLanes, setRowFte, demandIndex],
+    [allocLanes, setRowFte, demandIndex, windowOf],
   )
 
   const fillSelection = useCallback(

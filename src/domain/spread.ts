@@ -26,6 +26,20 @@ export const spread = (total: number, weights: number[]): number[] => {
 }
 
 /**
+ * Shares a number typed on a level for one day over its rows, as `spread` does, but only over the rows that are
+ * open that day: those whose window holds the day. The others get nothing. Where no row is open, all of them share.
+ */
+export const spreadOpen = (total: number, weights: number[], open: boolean[]): number[] => {
+  const all = weights.map((_, i) => i)
+  const some = all.filter((i) => open[i])
+  const among = some.length ? some : all
+  const parts = spread(total, among.map((i) => weights[i]))
+  const out = weights.map(() => 0)
+  among.forEach((i, at) => (out[i] = parts[at]))
+  return out
+}
+
+/**
  * Shares FTE-days over a number of days in whole people, for demand drawn across days in the Kalender.
  * The whole FTE-days are shared evenly, with the ones that do not divide on the first days. The decimals
  * are kept for the last day of the work: the last day drawn, or, where there are fewer whole FTE-days
