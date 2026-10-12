@@ -365,9 +365,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     [dates.length, ensureVisible], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
+  // Escape leaves the field without writing what was typed, though the field loses the focus as it does when it is left.
+  const draftCancelled = useRef(false)
   const commitDraft = useCallback(
     (then?: () => void) => {
-      if (draft === null || !selection) return
+      if (draft === null || !selection || draftCancelled.current) return
       const value = parseCellInput(draft)
       setDraft(null)
       if (value !== undefined) fillSelection(value)
@@ -621,8 +623,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         e.preventDefault()
         commitDraft(several ? undefined : () => move(0, e.shiftKey ? -1 : 1))
       } else if (e.key === 'Escape') {
+        draftCancelled.current = true
         setDraft(null)
         scrollRef.current?.focus({ preventScroll: true })
+        draftCancelled.current = false
       }
     },
     // Shows where and when a project is: its days are brought into view, in narrower columns if they do not
