@@ -353,8 +353,8 @@
 .cell.selected{background:var(--pick-soft)!important;--over-selected:linear-gradient(var(--pick-soft),var(--pick-soft))}
 .cell.focus{outline:1.5px solid var(--pick);outline-offset:-1.5px;z-index:1}
 /* The field a cell is typed in fills the cell; `input` in the selector puts it above the look fields have elsewhere.
-   Its frame stays inside the cell, or it would show over the label column when the cell is scrolled in under it. */
-input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;background:var(--surface);outline:1.5px solid var(--pick);outline-offset:-1.5px;text-align:center;font-family:var(--font-num);font-size:var(--fs-sm);caret-color:var(--pick)}
+   It has no frame of its own: the ring of the cell in focus is around it, and one ring is enough. */
+input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;background:var(--surface);outline:none;text-align:center;font-family:var(--font-num);font-size:var(--fs-sm);caret-color:var(--pick)}
 /* The fill handle on the last cell of the selection: drag to copy, Alt-drag to stretch. Above the neighbouring cells, below the pinned label column. */
 .fill-handle{position:absolute;right:-4px;bottom:-4px;z-index:1;width:8px;height:8px;border:1px solid var(--surface);background:var(--pick);cursor:crosshair}
 /* The pencil and the eraser, chosen in the bar or held with Shift or Alt: the cell under the pointer shows what a drag would do. */
