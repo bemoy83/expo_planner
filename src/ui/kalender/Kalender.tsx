@@ -949,7 +949,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               return groupRow(item)
             })}
             {pill && pillFrom !== undefined && pillTo !== undefined && (
-              <div className={`bm-stroke bare ${pill.erase ? 'erase' : ''}`} style={{ left: daysWide(daysBetween(range.start, pill.from), LEFT_W), width: daysWide(daysBetween(pill.from, pill.to) + 1), top: rowTops[pillFrom], height: rowTops[pillTo + 1] - rowTops[pillFrom] }}>
+              <div className={`bm-stroke bare plan ${pill.erase ? 'erase' : ''}`} style={{ left: daysWide(daysBetween(range.start, pill.from), LEFT_W), width: daysWide(daysBetween(pill.from, pill.to) + 1), top: rowTops[pillFrom], height: rowTops[pillTo + 1] - rowTops[pillFrom] }}>
                 <span className={`bm-pill ${pillBelow ? 'below' : ''}`}>
                   <b>{pill.title}</b>
                   {pill.parts.map((part) => (

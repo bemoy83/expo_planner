@@ -337,7 +337,8 @@
 /* While a stroke is drawn, the fill handle is dragged or an end of a span is pulled, the spans of a row are drawn as it would leave them,
    as a stroke is in Bemanning: flat, with a hatch for what would not be there. The days that would get FTE are a tint of the row's colour,
    and the days that would lose it are hatched in that colour on the ground. What the stroke does is said on one pill over those days
-   (`.bm-stroke` and `.bm-pill` in bemanning.css). */
+   (`.bm-stroke` and `.bm-pill` in bemanning.css). In the plan the pill is ink, and the blocking alert's chip where the stroke only takes FTE away. */
+.bm-stroke.plan.erase{--pill:var(--alert-block);--pill-on:var(--alert-on)}
 .alloc-row .cell.coming{--bar:color-mix(in oklab,var(--phase) 50%,var(--bg))}
 .alloc-row .cell.going{--bar:var(--bg);--over-hatch:repeating-linear-gradient(135deg,var(--phase) 0 2px,transparent 2px 6px)}
 .cell.has-note::after{content:'';position:absolute;top:0;right:0;border-left:6px solid transparent;border-top:6px solid var(--accent)}
