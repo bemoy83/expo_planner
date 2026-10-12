@@ -284,12 +284,12 @@
 .group-row{background:var(--bg)}
 .group-row.depth-0{border-top:1px solid var(--grid-top)}
 .group-row:not(.depth-0) .cell{border-top:1px solid var(--grid-phase)}
-.group-row.depth-0,.group-row.depth-0 .grid-label{background:var(--band)}
+.group-row.depth-0:not(.entry-level),.group-row.depth-0 .grid-label{background:var(--band)}
 .group-row.depth-0 .lbl-project{font-size:var(--fs-base);font-weight:700}
 .group-row:not(.depth-0) :is(.lbl-project,.lbl-num:not(.delta)){color:var(--muted)}
 .group-row:not(.depth-0) .group-cell{color:var(--muted);font-weight:500}
 .empty-group .lbl-project{font-weight:500}
-.group-row.depth-0 .day.helg,.group-row.depth-0 .day.helligdag{background-color:var(--band-we)}
+.group-row.depth-0:not(.entry-level) :is(.day.helg,.day.helligdag){background-color:var(--band-we)}
 .group-cell{font-weight:600}
 /* the days of a project that is in the hall calendar but has no phase on the day */
 .group-row .cell.group-cell.in-span{box-shadow:inset 0 -3px 0 color-mix(in oklab,var(--text) 22%,transparent)}
@@ -304,10 +304,12 @@
 .strip-event::before{background:var(--ph-event)}
 .strip-movingOut::before{background:var(--ph-movingout)}
 .strip-dismantle::before{background:var(--ph-dismantle)}
-/* A level that takes FTE itself instead of only summing its rows: typed in, so its days are ruled off as a row's are. */
+/* A level that takes FTE itself instead of only summing its rows: typed in, so its days are a row's days for as long as it is:
+   on the canvas with a row's weekends, ruled off between the days, the figures in a row's ink. A top level keeps its band in
+   the label column alone, and its strong line. */
 .group-row .row-action.level-mode.entry{visibility:visible;color:var(--accent);font-weight:600}
 .group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}
-.group-row.entry-level .cell.editable{background-color:var(--surface);color:var(--text);font-weight:600}
+.group-row.entry-level .cell.editable{color:var(--text);font-weight:600}
 
 /* Rows are typed in, so they are ruled: a rule between the days, and one above each row's cells, which is the rule under the row
    before it. The rule sits on the cells and not on the line, so it has their fill behind it, and the label column has none. The
