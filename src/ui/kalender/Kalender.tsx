@@ -112,8 +112,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
   // The cell to scroll to, and whether the grid takes the keys, once it is selected.
   const [reveal, setReveal] = useState<{ cell: Cell; takeKeys: boolean } | null>(null)
-  // The project whose halls and days the hall calendar is showing, after a click on its name.
-  const [located, setLocated] = useState<string | null>(null)
 
   // The period follows the hall bookings, see `calendarRange`.
   const range = useMemo(() => calendarRange({ venue: ws.venue, allocations: ws.allocations }, todayIso()), [ws.venue, ws.allocations])
@@ -619,12 +617,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         draftCancelled.current = false
       }
     },
-    // Shows where and when a project is: its days are brought into view, in narrower columns if they do not
-    // fit, and its halls and bars stay lit. A click on the same project again lets go of it.
+    // Shows when a project is: its days are brought into view, in narrower columns if they do not fit.
+    // Nothing is left lit after it.
     showProject: (key) => {
-      const span = located === key ? undefined : allGroups.find((group) => group.key === key)?.venue
-      setLocated(span ? key : null)
-      projectHover.pin(span ? key : null)
+      const span = allGroups.find((group) => group.key === key)?.venue
       if (!span) return
       const el = scrollRef.current
       const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
@@ -683,9 +679,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     setSelection(null)
     setCellMenu(null)
     setTool('select')
-    // A project kept lit in the plan would leave every other project's bars faint in Bemanning, where Escape does not let go of it.
-    setLocated(null)
-    projectHover.pin(null)
     // The two modes share the timeline: the day at the left edge of the one is the day at the left edge
     // of the other. Only the width of a day differs, and Bemanning keeps the width it was last seen in.
     const left = Math.floor(zoomFrom().left + 0.01)
@@ -744,17 +737,13 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const showDate = useCallback((date: ISODate) => scrollToDate(date, 1), [scrollToDate])
 
   // ---- tools: keys and modifiers --------------------------------------------------------------
-  // Escape first closes the menu, then puts the pencil or the eraser away, then lets go of the project that is lit.
+  // Escape first closes the menu, then puts the pencil or the eraser away.
   const modifier = useToolKeys({
     blocked: !!dialog || bemanning,
     onTool: setTool,
     onEscape: () => {
       if (cellMenu) setCellMenu(null)
       else if (tool !== 'select') setTool('select')
-      else if (located) {
-        setLocated(null)
-        projectHover.pin(null)
-      }
     },
   })
   const activeTool = stroke ?? modifier ?? tool

@@ -26,16 +26,14 @@ export const projectHoverCss = (project: string): string => {
  * work, not to ask. Bars carry their project in `data-project`, and the cue is one style rule written
  * into the page. Nothing is drawn again by React, and bars that scroll into view are lit by the same rule. Returns the handlers for the element that holds the grid.
  * It follows the setting for tooltips: switched off, nothing is lit.
- * `pin` keeps one project lit whatever the setting, while the mouse is on no other project.
  */
 export const useProjectHover = (enabled = true) => {
-  const state = useRef<{ style: HTMLStyleElement | null; shown: string | null; hovered: string | null; pinned: string | null; timer: ReturnType<typeof setTimeout> | undefined }>({ style: null, shown: null, hovered: null, pinned: null, timer: undefined })
+  const state = useRef<{ style: HTMLStyleElement | null; shown: string | null; hovered: string | null; timer: ReturnType<typeof setTimeout> | undefined }>({ style: null, shown: null, hovered: null, timer: undefined })
   const hover = useMemo(() => {
-    const show = (hovered: string | null) => {
+    const show = (project: string | null) => {
       const now = state.current
       clearTimeout(now.timer)
-      now.hovered = hovered
-      const project = hovered ?? now.pinned
+      now.hovered = project
       if (project === now.shown) return
       now.shown = project
       now.style ??= document.createElement('style')
@@ -51,12 +49,7 @@ export const useProjectHover = (enabled = true) => {
         else if (project !== state.current.hovered) state.current.timer = setTimeout(() => show(project), DELAY_MS)
       },
       onMouseLeave: () => show(null),
-      pin: (project: string | null) => {
-        state.current.pinned = project
-        show(state.current.hovered)
-      },
       dispose: () => {
-        state.current.pinned = null
         show(null)
         state.current.style?.remove()
       },
