@@ -260,8 +260,8 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
             onMouseEnter={() => actions.dayEnter(style.key, date)}
           >
             <span className="il-cover">
-              {/* What the brush would order here, on the day's own line: a preview never changes the height of the line. */}
-              {ghost !== undefined && <i className="il-ghost">{ghost}</i>}
+              {/* What the brush would order here. On a folded competence it is on the day's own line, so the line keeps its height under the pointer. */}
+              {ghost !== undefined && !open && <i className="il-ghost">{ghost}</i>}
               {cover.rest > 0 && (
                 <span className="il-bar">
                   <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
@@ -270,7 +270,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
               )}
               {figure !== null && <b className={figure < 0 ? 'short' : 'over'}>{signedHours(figure)}</b>}
             </span>
-            {chips.length > 0 && (
+            {(chips.length > 0 || (ghost !== undefined && open)) && (
               <span className="il-chips">
                 {shown.map((chip) => (
                   <span
@@ -284,6 +284,13 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
                   </span>
                 ))}
                 {shown.length < chips.length && <span className="il-more">+{chips.length - shown.length} til</span>}
+                {/* Unfolded, the line has the room of its editor: the preview is the chip the order would be, with the supplier's name. */}
+                {ghost !== undefined && open && strokeSupplier && (
+                  <span className="il-chip ghost">
+                    <b>{ghost}</b>
+                    <span>{nameOf(strokeSupplier)}</span>
+                  </span>
+                )}
               </span>
             )}
           </div>
