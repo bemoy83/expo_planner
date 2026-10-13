@@ -181,8 +181,6 @@ const coverTitle = (label: string, date: ISODate, cover: Coverage): string => {
 const chipTitle = (name: string, chip: OrderChip, wd: WorkdaySettings): string =>
   `${name}\n${chip.orders.map((order) => `${order.fte} pers. ${shiftText(order, wd)} · ${isWaiting(order) ? 'venter på svar' : order.asked ? `bekreftet, ${order.fte} av ${order.asked}` : 'bekreftet'}`).join('\n')}`
 
-/** Columns narrower than this have no room for a supplier's name on a chip: the people alone are shown. */
-const NAME_FROM_W = 84
 /** A day shows at most this many chips; where there are more, one fewer and the count of the rest. */
 const CHIPS_MAX = 3
 
@@ -222,7 +220,6 @@ interface RowProps {
 const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, strokeFrom, strokeTo, strokePeople, strokeSupplier, cursor, actions }: RowProps) {
   const open = pickedFrom !== null && pickedTo !== null
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
-  const named = cols.colW >= NAME_FROM_W
   return (
     <div className={`grid-row il-row ${open ? 'open' : ''} ${cursor}`} style={{ ...competenceColor(style), minHeight: DEMAND_H }}>
       <div className="grid-label" style={{ width: LEFT_W }} onClick={open ? undefined : () => actions.openFirst(style.key)} title={open ? undefined : `Bestill ${style.label}`}>
@@ -281,14 +278,14 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
                   >
                     {chip.waits && <AnswerGlyph waits size={12} />}
                     <b>{chip.fte}</b>
-                    {named && <span>{nameOf(chip.supplierId)}</span>}
+                    <span>{nameOf(chip.supplierId)}</span>
                   </span>
                 ))}
                 {shown.length < chips.length && <span className="il-more">+{chips.length - shown.length} til</span>}
                 {ghost !== undefined && strokeSupplier && (
                   <span className="il-chip ghost">
                     <b>{ghost}</b>
-                    {named && <span>{nameOf(strokeSupplier)}</span>}
+                    <span>{nameOf(strokeSupplier)}</span>
                   </span>
                 )}
               </span>

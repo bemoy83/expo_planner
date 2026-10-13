@@ -46,7 +46,7 @@ import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
-import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode, cleanCrewPart, type CrewPart } from './zoom'
+import { BEMANNING_DAYS, cleanPlanMode, INNLEID_W, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode, cleanCrewPart, type CrewPart } from './zoom'
 import { copyText, eraserCells, eraserPill, ghostCells, laneValue, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Press, type Pull, type Selection, type Tool } from './selection'
 
@@ -136,6 +136,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [planMode, setPlanMode] = usePref<PlanMode>('planMode', 'plan', cleanPlanMode)
   const [shown, setShown] = useState<PlanMode>(planMode)
   // Bemanning has two parts on the same days: the permanent staff, and the people hired for what they leave.
+  // The days of Innleid have one width; those of the permanent staff are as wide as the span they show asks for.
   const [crewPart, setCrewPart] = usePref<CrewPart>('crewPart', 'faste', cleanCrewPart)
   // Bemanning has no steps of zoom: its days are as wide as the span it shows asks for.
   // A page that opens in Bemanning opens on the days last seen there.
@@ -146,7 +147,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [bemanningW, setBemanningW] = useState(() => fitWidth(spanDays(openSpan), window.innerWidth - LEFT_W))
   // The width the lines are drawn at. While the switch zooms, the width on screen is on its way from
   // one mode's to the other's (`useModeZoom`), and the days it passes are held drawn.
-  const colW = shown === 'bemanning' ? bemanningW : ZOOM_WIDTHS[zoom]
+  const colW = shown === 'bemanning' ? (crewPart === 'innleid' ? INNLEID_W : bemanningW) : ZOOM_WIDTHS[zoom]
   const [held, setHeld] = useState<HeldColumns | null>(null)
   // The person whose hours are open in Bemanning. The top block gives way by as much as they need.
   const [unfolded, setUnfolded] = useState<string | null>(null)
@@ -699,9 +700,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     setHeldWindow({ start: dates[left], end: dates[Math.min(dates.length - 1, left + Math.floor(dayRoom() / ZOOM_WIDTHS[zoom]))] })
     if (next === 'bemanning') {
       const stored = loadPref<DaySpan | null>('bemanningRange', null)
-      const width = fitWidth(stored && stored.start <= stored.end ? spanDays(stored) : BEMANNING_DAYS, dayRoom())
-      zoomTo({ colW: width, left }, () => {
-        setBemanningW(width)
+      const fitted = fitWidth(stored && stored.start <= stored.end ? spanDays(stored) : BEMANNING_DAYS, dayRoom())
+      zoomTo({ colW: crewPart === 'innleid' ? INNLEID_W : fitted, left }, () => {
+        setBemanningW(fitted)
         setShown('bemanning')
         setHeldWindow(null)
       })
@@ -713,11 +714,18 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       })
     }
   }
-  // The days seen in Bemanning are remembered, for the next time it is opened.
+  /** Goes to the other part of Bemanning: the day at the left edge stays, and the days zoom to the width of the part. */
+  const switchPart = (next: CrewPart) => {
+    if (next === crewPart) return
+    const width = next === 'innleid' ? INNLEID_W : bemanningW
+    if (width === colW) return setCrewPart(next)
+    zoomTo({ colW: width, left: Math.floor(zoomFrom().left + 0.01) }, () => setCrewPart(next))
+  }
+  // The days seen with the permanent staff are remembered, for the next time Bemanning is opened: their width is theirs alone.
   // Whole days, so the same days give the same width when they are opened again.
   const seenFrom = Math.min(dates.length - 1, Math.round(viewport.left / colW))
   const seenTo = Math.min(dates.length - 1, seenFrom + Math.max(1, Math.round((viewport.width - LEFT_W) / colW)) - 1)
-  const bemanningSpan = shown === 'bemanning' && held === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
+  const bemanningSpan = shown === 'bemanning' && crewPart === 'faste' && held === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
   useEffect(() => {
     if (!bemanningSpan) return
     const [start, end] = bemanningSpan.split('|')
@@ -729,7 +737,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     return () => clearTimeout(timer)
   }, [bemanningSpan, scrollRef])
   useLayoutEffect(() => {
-    if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), bemanningW)
+    if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), colW)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const bemanning = shown === 'bemanning'
   const innleid = bemanning && crewPart === 'innleid'
@@ -880,13 +888,13 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and follow the top block when part of it gives way. */}
           <div className="grid-tools" ref={toolsRef} style={{ top: pinnedHeight - barHeight }}>
             {innleid ? (
-              <InnleidToolbar width={viewport.width} mode={planMode} onMode={switchMode} onPart={setCrewPart} onToday={() => scrollToDate(today, 1)} />
+              <InnleidToolbar width={viewport.width} mode={planMode} onMode={switchMode} onPart={switchPart} onToday={() => scrollToDate(today, 1)} />
             ) : bemanning ? (
               <BemanningToolbar
                 width={viewport.width}
                 mode={planMode}
                 onMode={switchMode}
-                onPart={setCrewPart}
+                onPart={switchPart}
                 projects={projects}
                 project={filter.project}
                 onProject={(key) => {
