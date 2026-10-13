@@ -95,7 +95,7 @@ export function InnleidTop() {
 
 /** The planning bar in Innleid: the mode and the part, undo, the tools with the supplier they work with, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
-  const { board, waiting, openFirstUnder, openFirstWaiting, tool, pickTool, brush, pickBrush, suppliers, panel, setPanel } = useInnleid()
+  const { board, waiting, openNextUnder, openFirstWaiting, tool, pickTool, brush, pickBrush, suppliers, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   const tools: ToolChoice<HireTool>[] = [
     { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager på en kompetanse: klikk en dag, dra over flere, eller Shift+klikk for å utvide (V).' },
@@ -136,7 +136,7 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             </button>
           )}
           {under > 0 && (
-            <button className="il-under" title="Dager der det mangler timer. Klikk for å åpne den første." onClick={openFirstUnder}>
+            <button className="il-under" title="Dager der det mangler timer. Klikk for å gå til den neste, fra dagene som vises." onClick={openNextUnder}>
               <TriangleAlert size={14} aria-hidden /> {days(under)} udekket
             </button>
           )}

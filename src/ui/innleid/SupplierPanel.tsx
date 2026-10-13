@@ -224,6 +224,8 @@ function Help() {
           <dd>Fjern bestillinger (T)</dd>
           <dt>← → ↑ ↓</dt>
           <dd>Flytt dager og linje. Shift utvider.</dd>
+          <dt>‹ ›</dt>
+          <dd>Forrige og neste dag som mangler timer, for kompetansen</dd>
           <dt>+ −</dt>
           <dd>Flere eller færre personer</dd>
           <dt>Enter</dt>

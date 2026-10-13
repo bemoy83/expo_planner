@@ -53,11 +53,11 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
       </div>
       <div className="il-daybar">
         <span className="il-days">
-          <button aria-label="Dagen før" title="Dagen før (←). Shift utvider." onClick={(e) => il.stepDays(-1, e.shiftKey)}>
+          <button aria-label="Forrige dag som mangler timer" title={il.shortBefore ? `Forrige dag som mangler timer: ${fmtDay(il.shortBefore)}` : 'Ingen tidligere dag mangler timer'} disabled={!il.shortBefore} onClick={() => il.stepShort(-1)}>
             <ChevronLeft size={14} aria-hidden />
           </button>
-          <b>{daysText(open.from, open.to)}</b>
-          <button aria-label="Dagen etter" title="Dagen etter (→). Shift utvider." onClick={(e) => il.stepDays(1, e.shiftKey)}>
+          <b title="Piltastene flytter en dag om gangen. Shift utvider.">{daysText(open.from, open.to)}</b>
+          <button aria-label="Neste dag som mangler timer" title={il.shortAfter ? `Neste dag som mangler timer: ${fmtDay(il.shortAfter)}` : 'Ingen senere dag mangler timer'} disabled={!il.shortAfter} onClick={() => il.stepShort(1)}>
             <ChevronRight size={14} aria-hidden />
           </button>
         </span>

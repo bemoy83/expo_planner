@@ -55,7 +55,7 @@ const NO_ORDERS: HireOrder[] = []
 const NO_SUPPLIERS: Supplier[] = []
 
 function useInnleidState(active: boolean) {
-  const { ws, dates, balance, styles, updateStaffing, onShowDate } = useBemanning()
+  const { ws, dates, balance, styles, updateStaffing, onShowDate, viewFrom, viewTo } = useBemanning()
   const orders = ws.hireOrders ?? NO_ORDERS
   const suppliers = ws.suppliers ?? NO_SUPPLIERS
   const wd = ws.settings.workday
@@ -117,12 +117,32 @@ function useInnleidState(active: boolean) {
     setPop(null)
     setOpen(null)
   }
+  /** Brings a day into view if it is not there already: nothing moves for a day the planner can see. */
+  const reveal = (date: ISODate) => {
+    const at = dates.indexOf(date)
+    if (at < viewFrom || at > viewTo) onShowDate(date)
+  }
   /** Moves the days picked by a day, or with `extend` their end alone. */
   const stepDays = (by: number, extend: boolean) => {
     if (!open) return
     const from = dates.indexOf(open.from) + (extend ? 0 : by)
     const to = dates.indexOf(open.to) + by
-    if (from >= 0 && to < dates.length && from <= to) setOpen({ ...open, from: dates[from], to: dates[to] })
+    if (from < 0 || to >= dates.length || from > to) return
+    setOpen({ ...open, from: dates[from], to: dates[to] })
+    reveal(dates[by < 0 ? from : to])
+  }
+  /** The nearest day before or after the days picked where hours of the competence are missing. */
+  const shortDay = (by: -1 | 1): ISODate | undefined => {
+    if (!open) return undefined
+    for (let at = dates.indexOf(by < 0 ? open.from : open.to) + by; at >= 0 && at < dates.length; at += by) if (board.cover(open.competence, dates[at]).state === 'short') return dates[at]
+    return undefined
+  }
+  /** Goes to the previous or the next day that is short, and picks it alone. */
+  const stepShort = (by: -1 | 1) => {
+    const date = shortDay(by)
+    if (!open || !date) return
+    openOn(open.competence, date)
+    reveal(date)
   }
   const stepCompetence = (by: number) => {
     if (!open) return
@@ -172,12 +192,14 @@ function useInnleidState(active: boolean) {
       // The days open with what was ordered picked, to adjust it.
       setOpen({ competence: now.competence, ...span(now.anchor, now.focus), group: groupKey(brush.id, added[0]) })
     },
-    /** A click on a competence's label opens it on its first day that is short, else on the first with orders or hours. */
+    /**
+     * A click on a competence's label opens it on a day that is in view, and moves nothing: the first of them that is
+     * short, else the first with hours that remain or orders, else the first.
+     */
     openFirst: (competence: CompetenceKey) => {
-      const first = dates.find((date) => board.cover(competence, date).state === 'short') ?? dates.find((date) => board.cover(competence, date).state !== 'none')
-      if (!first) return
-      openOn(competence, first)
-      onShowDate(first)
+      const view = dates.slice(viewFrom, viewTo + 1)
+      const first = view.find((date) => board.cover(competence, date).state === 'short') ?? view.find((date) => board.cover(competence, date).state !== 'none') ?? view[0]
+      if (first) openOn(competence, first)
     },
   })
   useEffect(() => {
@@ -233,13 +255,13 @@ function useInnleidState(active: boolean) {
     if (first) setPanel({ kind: 'supplier', id: first.supplierId })
   }
 
-  /** Opens the first day that is short, on its first competence that is. */
-  const openFirstUnder = () => {
-    const date = board.underDays[0]
+  /** Opens the next day that is short, on its first competence that is: the first from the days in view on, else the first of the period. */
+  const openNextUnder = () => {
+    const date = board.underDays.find((day) => day >= dates[viewFrom]) ?? board.underDays[0]
     const style = date && rows.find((row) => board.cover(row.key, date).state === 'short')
     if (!style) return
     openOn(style.key, date)
-    onShowDate(date)
+    reveal(date)
   }
 
   const preview = useMemo<StrokePreview | null>(() => {
@@ -302,7 +324,7 @@ function useInnleidState(active: boolean) {
     board, rows, scale, waiting, suppliers, orders, ordersOn, wd,
     tool, pickTool, brush, pickBrush, preview,
     panel, setPanel, openSupplier, openFirstWaiting,
-    open, openDates, groups, picked, summary, pick, openOn, fold, stepDays, stepCompetence, openFirstUnder,
+    open, openDates, groups, picked, summary, pick, openOn, fold, stepDays, stepShort, shortBefore: shortDay(-1), shortAfter: shortDay(1), stepCompetence, openNextUnder,
     pop, setPop, edits, actions,
     /** The days a drag has reached on a competence. */
     dragOn: drag && dragDays ? { competence: drag.competence, ...dragDays } : null,
