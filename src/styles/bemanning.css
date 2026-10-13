@@ -295,6 +295,29 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-chip.on{box-shadow:inset 0 0 0 1.5px color-mix(in oklab,var(--cc) 60%,var(--text))}
 .il-glyph{flex:none}
 .il-more{height:20px;padding:0 6px;border-radius:5px;background:var(--sunken);font:600 var(--fs-2xs)/20px var(--font-ui);color:var(--muted)}
+/* What a stroke would do. The brush: a chip in outline on the days that would be ordered. The eraser: the days tinted, and the chips that would go without their fill. */
+.il-chip.ghost{background:var(--bg);color:var(--text);box-shadow:inset 0 0 0 1.5px var(--cc)}
+.il-chip.ghost b{background:transparent;box-shadow:none}
+.il-day.erasing{background-image:linear-gradient(color-mix(in oklab,var(--alert-block) 12%,transparent),color-mix(in oklab,var(--alert-block) 12%,transparent))}
+.il-chip.gone{background:var(--bg);color:var(--faint);box-shadow:none}
+.il-chip.gone b{background:transparent;color:var(--faint);box-shadow:none}
+.il-row.brush .il-day{cursor:crosshair}
+.il-row.nobrush .il-day{cursor:not-allowed}
+.il-row.erase .il-day{cursor:cell}
+/* The suppliers under the competences: figures that are read across, so a line under each and none between the days. */
+.il-suppliers{margin-top:14px}
+.il-supplier .cell{border-bottom:1px solid var(--grid-row)}
+.il-supplier .grid-label{gap:8px}
+.il-supplier.on .lbl-desc{font-weight:600}
+.il-supplier.faint .grid-label>:not(.il-brush){opacity:.45}
+.il-brush{flex:none;width:22px;height:22px;padding:0;border-radius:6px;background:transparent;color:var(--faint)}
+.il-brush:hover{background:var(--sunken);color:var(--text)}
+.il-brush[aria-pressed='true']{background:var(--pick);color:var(--bg)}
+.il-offers{display:inline-flex;flex:none;gap:2px}
+.il-offers i{width:6px;height:10px;border-radius:1.5px;background:var(--line)}
+.il-offers i.on{background:var(--cc)}
+.il-supplier .il-total{min-width:28px;margin-left:8px;justify-content:flex-end}
+.il-people{gap:4px;color:var(--muted)}
 /* The label of a competence whose days are picked is the editor of their orders. */
 .il-row.open .grid-label{align-items:stretch;padding:0;background:var(--panel);cursor:default;white-space:normal}
 .il-editor{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;padding:0 14px 10px 10px}

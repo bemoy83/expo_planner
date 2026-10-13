@@ -1,9 +1,9 @@
 import { memo, type CSSProperties, type ReactNode } from 'react'
-import { Check, ChevronsUpDown, Clock, TriangleAlert } from 'lucide-react'
+import { Check, ChevronsUpDown, Clock, Eraser, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { coverFigure, dayChips, HOURS_NOISE, isWaiting, shiftOf, SHIFT_LABELS, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
-import { Segmented, UndoRedoButtons } from '../common'
+import { Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor } from '../dom'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { DEMAND_H } from '../bemanning/layout'
@@ -17,8 +17,9 @@ import { fmtDay } from '../kalender/labels'
 import { daysWide, HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
 import { PlanBar } from '../kalender/PlanBar'
 import type { PlanMode } from '../kalender/zoom'
-import { useInnleid, type CrewPart, type InnleidActions } from './InnleidScope'
+import { useInnleid, type CrewPart, type HireTool, type InnleidActions } from './InnleidScope'
 import { OrderEditor } from './OrderEditor'
+import { SupplierRows } from './SupplierRows'
 import { AnswerGlyph, AnswerPopover, ShiftMenu, SupplierMenu, TimePopover } from './OrderPopovers'
 
 export function PartSwitch({ part, onChange }: { part: CrewPart; onChange: (part: CrewPart) => void }) {
@@ -107,16 +108,40 @@ export function InnleidTop() {
   )
 }
 
-/** The planning bar in Innleid: the mode and the part, undo, and what is still to do. */
+/** The planning bar in Innleid: the mode and the part, undo, the tools with the supplier they work with, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
-  const { board, waiting, openFirstUnder } = useInnleid()
+  const { board, waiting, openFirstUnder, tool, pickTool, brush, pickBrush, suppliers } = useInnleid()
   const under = board.underDays.length
+  const tools: ToolChoice<HireTool>[] = [
+    { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager på en kompetanse: klikk en dag, dra over flere, eller Shift+klikk for å utvide (V).' },
+    { value: 'paint', icon: <Paintbrush size={14} aria-hidden />, name: 'Pensel', shortcut: 'B', title: 'Bestill en leverandør: dra over dager på en kompetanse, så bestilles det som mangler på hver av dem (B, eller 1–9 for leverandøren).' },
+    { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Fjern bestillinger: dra over dager på en kompetanse (T, eller hold Alt).' },
+  ]
   return (
-    <PlanBar width={width} fitKey={`innleid|${under}|${waiting > HOURS_NOISE}`}>
+    <PlanBar width={width} fitKey={`innleid|${under}|${waiting > HOURS_NOISE}|${tool}|${brush?.id}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <PartSwitch part="innleid" onChange={onPart} />
         <UndoRedoButtons />
+        <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
+        {tool !== 'select' && (
+          <select
+            className="bar-select"
+            aria-label="Leverandør"
+            title={tool === 'paint' ? 'Leverandøren penselen bestiller fra' : 'Leverandøren som tømmes, eller alle'}
+            value={brush?.id ?? ''}
+            onChange={(e) => pickBrush(e.target.value || null)}
+          >
+            {tool === 'erase' && <option value="">Alle leverandører</option>}
+            {suppliers.map((supplier, index) => (
+              <option key={supplier.id} value={supplier.id}>
+                {index < 9 ? `${index + 1} · ` : ''}
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        )}
+        {tool === 'paint' && !suppliers.length && <span className="bm-hints">Ingen leverandører ennå</span>}
       </div>
       <div className="bar-view">
         <div className="bar-zone bar-zone-end">
@@ -151,7 +176,7 @@ export function InnleidHeading() {
         <span className="bm-label-note bm-label-end">t mangler</span>
       </div>
       <span className="phase-legend" style={{ left: LEFT_W }}>
-        <span>Klikk en dag for å bestille, eller dra over flere · Shift+klikk utvider · −: timer som mangler · +: timer over</span>
+        <span>Klikk en dag for å bestille, eller dra over flere · Shift+klikk utvider · med Pensel bestiller draget · Alt+dra tømmer</span>
       </span>
     </div>
   )
@@ -186,6 +211,14 @@ interface RowProps {
   /** The days a drag has reached on this competence. */
   dragFrom: ISODate | null
   dragTo: ISODate | null
+  /** What a stroke on this competence would do: the days it covers, and with the brush the people each would get. */
+  strokeFrom: ISODate | null
+  strokeTo: ISODate | null
+  strokePeople: Map<ISODate, number> | null
+  /** The supplier the stroke orders, or the one whose orders it removes; none where it removes every supplier's. */
+  strokeSupplier: string | undefined
+  /** How the pointer shows what a press would do here: the brush, a brush whose supplier does not offer the competence, or the eraser. */
+  cursor: '' | 'brush' | 'nobrush' | 'erase'
   actions: InnleidActions
 }
 
@@ -193,12 +226,12 @@ interface RowProps {
  * One competence: its name with what is missing in the days in view, and per day a line of how far it is covered,
  * the hours missing or over, and a chip per supplier ordered. With days picked, its label is the editor of their orders.
  */
-const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, actions }: RowProps) {
+const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, strokeFrom, strokeTo, strokePeople, strokeSupplier, cursor, actions }: RowProps) {
   const open = pickedFrom !== null && pickedTo !== null
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
   const named = cols.colW >= NAME_FROM_W
   return (
-    <div className={`grid-row il-row ${open ? 'open' : ''}`} style={{ ...competenceColor(style), minHeight: DEMAND_H }}>
+    <div className={`grid-row il-row ${open ? 'open' : ''} ${cursor}`} style={{ ...competenceColor(style), minHeight: DEMAND_H }}>
       <div className="grid-label" style={{ width: LEFT_W }} onClick={open ? undefined : () => actions.openFirst(style.key)} title={open ? undefined : `Bestill ${style.label}`}>
         {open ? (
           <OrderEditor style={style} />
@@ -216,6 +249,10 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         const cover = board.cover(style.key, date)
         const picked = open && date >= pickedFrom && date <= pickedTo
         const dragged = dragFrom !== null && dragTo !== null && date >= dragFrom && date <= dragTo
+        const stroked = strokeFrom !== null && strokeTo !== null && date >= strokeFrom && date <= strokeTo
+        // The stroke is the eraser where it has no people to give.
+        const erasing = stroked && strokePeople === null
+        const ghost = stroked ? strokePeople?.get(date) : undefined
         const figure = coverFigure(cover)
         const confirmed = cover.rest > 0 ? Math.min(1, cover.confirmed / cover.rest) : 0
         const waiting = cover.rest > 0 ? Math.min(1 - confirmed, (cover.planned - cover.confirmed) / cover.rest) : 0
@@ -228,12 +265,12 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         return (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell il-day ${cover.state} ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''}`}
+            className={`${dayClass(cols, date)} cell il-day ${cover.state} ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''} ${erasing ? 'erasing' : ''}`}
             title={title}
             onMouseDown={(e) => {
               if (e.button !== 0) return
               e.preventDefault()
-              actions.dayDown(style.key, date, e.shiftKey)
+              actions.dayDown(style.key, date, e.shiftKey, e.altKey)
             }}
             onMouseEnter={() => actions.dayEnter(style.key, date)}
           >
@@ -246,12 +283,12 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
               )}
               {figure !== null && <b className={figure < 0 ? 'short' : 'over'}>{signedHours(figure)}</b>}
             </span>
-            {chips.length > 0 && (
+            {(chips.length > 0 || ghost !== undefined) && (
               <span className="il-chips">
                 {shown.map((chip) => (
                   <span
                     key={chip.key}
-                    className={`il-chip ${chip.waits ? 'waits' : ''} ${picked && pickedGroup !== null && chip.key === pickedGroup ? 'on' : ''}`}
+                    className={`il-chip ${chip.waits ? 'waits' : ''} ${picked && pickedGroup !== null && chip.key === pickedGroup ? 'on' : ''} ${erasing && (strokeSupplier === undefined || chip.supplierId === strokeSupplier) ? 'gone' : ''}`}
                     title={`${nameOf(chip.supplierId)}\n${chip.orders.map((order) => `${order.fte} pers. ${timeText(order, wd)} · ${isWaiting(order) ? 'venter på svar' : order.asked ? `bekreftet, ${order.fte} av ${order.asked}` : 'bekreftet'}`).join('\n')}`}
                   >
                     {chip.waits && <AnswerGlyph waits size={12} />}
@@ -260,6 +297,12 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
                   </span>
                 ))}
                 {shown.length < chips.length && <span className="il-more">+{chips.length - shown.length} til</span>}
+                {ghost !== undefined && strokeSupplier && (
+                  <span className="il-chip ghost">
+                    <b>{ghost}</b>
+                    {named && <span>{nameOf(strokeSupplier)}</span>}
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -273,7 +316,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
 export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, dates, viewFrom, viewTo, styles } = useBemanning()
   const il = useInnleid()
-  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions } = il
+  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions, tool, brush, preview } = il
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
   const popGroup = pop?.group ? groups.find((group) => group.key === pop.group) : undefined
@@ -281,10 +324,11 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
   const openStyle = open ? styles.get(open.competence) : undefined
   const close = () => setPop(null)
   return (
-    <div className="bm-people il-rows">
+    <div className="bm-people il-rows" onMouseLeave={actions.rowsLeave}>
       {rows.map((style) => {
         const mine = open?.competence === style.key
         const dragged = dragOn?.competence === style.key
+        const stroked = preview?.competence === style.key ? preview : null
         return (
           <CompetenceRow
             key={style.key}
@@ -300,10 +344,16 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
             pickedGroup={mine ? open.group : null}
             dragFrom={dragged ? dragOn.from : null}
             dragTo={dragged ? dragOn.to : null}
+            strokeFrom={stroked ? stroked.from : null}
+            strokeTo={stroked ? stroked.to : null}
+            strokePeople={stroked?.mode === 'paint' ? stroked.people : null}
+            strokeSupplier={stroked?.supplierId}
+            cursor={tool === 'erase' ? 'erase' : tool === 'paint' ? (brush?.competences.includes(style.key) ? 'brush' : 'nobrush') : ''}
             actions={actions}
           />
         )
       })}
+      <SupplierRows />
       {rows.length === 0 && <p className="empty-rows">Ingen restbehov i perioden: de faste dekker det som er planlagt, eller ingenting er planlagt ennå.</p>}
       {rows.length > 0 && !suppliers.length && (
         <p className="empty-rows">

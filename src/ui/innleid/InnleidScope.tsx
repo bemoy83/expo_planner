@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ISODate } from '../../domain/dates'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, fillGroup, hireBoard, mergeOrders, orderGroups, planOrders, rangeSummary, removeOrders, setWaiting, waitingHours, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, eraseOrders, fillGroup, hireBoard, mergeOrders, orderGroups, planOrders, rangeSummary, removeOrders, setWaiting, waitingHours, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
 import type { CompetenceKey, CompetenceStyle, HireOrder, Interval, Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { isTyping } from '../dom'
@@ -29,6 +29,29 @@ export interface OrderPop {
   at: DOMRect
 }
 
+/** The tools of Innleid: pick days, order a supplier across days, or remove orders across days. */
+export type HireTool = 'select' | 'paint' | 'erase'
+
+/** A stroke across the days of a competence, with the tool it was started with. */
+interface DayDrag {
+  competence: CompetenceKey
+  mode: HireTool
+  anchor: ISODate
+  focus: ISODate
+}
+
+/** What a stroke would do, or the brush where the pointer is: the people a day would get, or the days whose orders would go. */
+export interface StrokePreview {
+  competence: CompetenceKey
+  mode: 'paint' | 'erase'
+  from: ISODate
+  to: ISODate
+  /** With the brush: the people ordered per day. */
+  people: Map<ISODate, number>
+  /** The supplier ordered, or the one whose orders go; none where every supplier's go. */
+  supplierId: string | undefined
+}
+
 const NO_ORDERS: HireOrder[] = []
 const NO_SUPPLIERS: Supplier[] = []
 
@@ -52,7 +75,23 @@ function useInnleidState(active: boolean) {
   const [stored, setOpen] = useState<OpenDays | null>(null)
   const [pop, setPop] = useState<OrderPop | null>(null)
   // The days a drag across a competence's line has reached, until the mouse is let go.
-  const [drag, setDrag] = useState<{ competence: CompetenceKey; anchor: ISODate; focus: ISODate } | null>(null)
+  const [drag, setDrag] = useState<DayDrag | null>(null)
+  // The tool, and the supplier it works with: the one the brush orders, or the one whose orders «Tøm» removes (none: every supplier's).
+  const [tool, setTool] = useState<HireTool>('select')
+  const [brushId, setBrushId] = useState<string | null>(null)
+  // The day under the pointer while the brush is held, to show what a click there would order.
+  const [hover, setHover] = useState<{ competence: CompetenceKey; date: ISODate } | null>(null)
+  const brush = suppliers.find((supplier) => supplier.id === brushId) ?? null
+  const pickTool = (next: HireTool) => {
+    setTool(next)
+    setHover(null)
+    // The brush needs a supplier: the one last picked, else the first.
+    if (next === 'paint' && !brush) setBrushId(suppliers[0]?.id ?? null)
+  }
+  const pickBrush = (id: string | null) => {
+    setBrushId(id)
+    if (id && tool === 'select') setTool('paint')
+  }
   // A competence that has left the board, or days outside the period, are not open.
   const open = active && stored && rows.some((style) => style.key === stored.competence) && dates.includes(stored.from) && dates.includes(stored.to) ? stored : null
 
@@ -95,27 +134,46 @@ function useInnleidState(active: boolean) {
   }
 
   // The drag is also kept where the next event reads it at once: a press and its release can come before the press is drawn.
-  const dragNow = useRef<typeof drag>(null)
-  const dragTo = (next: typeof drag) => {
+  const dragNow = useRef<DayDrag | null>(null)
+  const dragTo = (next: DayDrag | null) => {
     dragNow.current = next
     setDrag(next)
   }
+  const daysOf = (stroke: { anchor: ISODate; focus: ISODate }) => {
+    const { from, to } = span(stroke.anchor, stroke.focus)
+    return dates.slice(dates.indexOf(from), dates.indexOf(to) + 1)
+  }
+  /** I4: what the brush would order on the days: the supplier's people on those that are short, and nothing where none is. */
+  const brushed = (competence: CompetenceKey, days: ISODate[]) => (brush ? planOrders(orders, brush, competence, days, (date) => restOf(competence, date), wd, true) : [])
   const actions = useStableActions({
-    /** A press on a day of a competence: with Shift the days picked reach to it, else a drag starts there. */
-    dayDown: (competence: CompetenceKey, date: ISODate, shift: boolean) => {
-      if (shift && open?.competence === competence) return openOn(competence, date <= open.from ? open.to : open.from, date)
-      dragTo({ competence, anchor: date, focus: date })
+    /** A press on a day of a competence. Alt is the eraser for the stroke; with Velg and Shift the days picked reach to the day; else a stroke starts there. */
+    dayDown: (competence: CompetenceKey, date: ISODate, shift: boolean, alt: boolean) => {
+      const mode: HireTool = alt ? 'erase' : tool
+      if (mode === 'select' && shift && open?.competence === competence) return openOn(competence, date <= open.from ? open.to : open.from, date)
+      // A supplier that does not offer the competence orders nothing.
+      if (mode === 'paint' && !brush?.competences.includes(competence)) return
+      setPop(null)
+      dragTo({ competence, mode, anchor: date, focus: date })
     },
     dayEnter: (competence: CompetenceKey, date: ISODate) => {
       const now = dragNow.current
       if (now?.competence === competence && now.focus !== date) dragTo({ ...now, focus: date })
+      if (!now && tool === 'paint') setHover({ competence, date })
     },
-    /** The mouse is let go: the days the drag reached are picked. */
+    rowsLeave: () => setHover(null),
+    /** The mouse is let go: the days the stroke reached are picked, ordered or emptied. */
     dayUp: () => {
       const now = dragNow.current
       if (!now) return
       dragTo(null)
-      openOn(now.competence, now.anchor, now.focus)
+      const days = daysOf(now)
+      if (now.mode === 'select') return openOn(now.competence, now.anchor, now.focus)
+      if (now.mode === 'erase') return setOrders((list) => eraseOrders(list, now.competence, days, tool === 'erase' ? (brush?.id ?? undefined) : undefined))
+      const added = brushed(now.competence, days)
+      if (!added.length || !brush) return
+      setOrders((list) => mergeOrders([...list, ...added]))
+      // The days open with what was ordered picked, to adjust it.
+      setOpen({ competence: now.competence, ...span(now.anchor, now.focus), group: keyOf(brush.id, added[0]) })
     },
     /** A click on a competence's label opens it on its first day that is short, else on the first with orders or hours. */
     openFirst: (competence: CompetenceKey) => {
@@ -170,10 +228,31 @@ function useInnleidState(active: boolean) {
     onShowDate(date)
   }
 
+  const preview = useMemo<StrokePreview | null>(() => {
+    const at = drag && drag.mode !== 'select' ? drag : !drag && hover && tool === 'paint' ? { competence: hover.competence, mode: 'paint' as const, anchor: hover.date, focus: hover.date } : null
+    if (!at) return null
+    const days = daysOf(at)
+    const mode = at.mode === 'erase' ? 'erase' : 'paint'
+    const people = new Map(mode === 'paint' ? brushed(at.competence, days).map((order) => [order.date, order.fte]) : [])
+    return { competence: at.competence, mode, from: days[0], to: days[days.length - 1], people, supplierId: mode === 'paint' ? brush?.id : tool === 'erase' ? brush?.id : undefined }
+  }, [drag, hover, tool, brush, orders, dates, restOf, wd]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const keys = useStableActions({
     down: (e: KeyboardEvent) => {
       if (!active || isTyping(e.target)) return
       const key = e.key
+      if (!(e.metaKey || e.ctrlKey || e.altKey || pop)) {
+        // The tools have their keys whether days are picked or not: V, B and T, and 1 to 9 for the supplier of the brush.
+        const letter = key.toLowerCase()
+        const number = /^[1-9]$/.test(key) ? suppliers[Number(key) - 1] : undefined
+        if (letter === 'v' || letter === 't' || letter === 'b' || number) {
+          e.preventDefault()
+          if (number) return pickBrush(number.id), setTool('paint')
+          return pickTool(letter === 'v' ? 'select' : letter === 't' ? 'erase' : tool === 'paint' ? 'select' : 'paint')
+        }
+        // Escape puts the tool away first, then folds the editor.
+        if (key === 'Escape' && tool !== 'select') return e.preventDefault(), pickTool('select')
+      }
       // Undo and redo are the app's own keys. A popover has the keys while it is open.
       if (e.metaKey || e.ctrlKey || e.altKey || pop || !open) return
       const at = picked ? groups.indexOf(picked) : -1
@@ -202,9 +281,10 @@ function useInnleidState(active: boolean) {
     return () => window.removeEventListener('keydown', keys.down)
   }, [keys])
 
-  const dragDays = drag ? span(drag.anchor, drag.focus) : null
+  const dragDays = drag?.mode === 'select' ? span(drag.anchor, drag.focus) : null
   return {
     board, rows, scale, waiting, suppliers, orders, ordersOn, wd,
+    tool, pickTool, brush, pickBrush, preview,
     open, openDates, openOrders, groups, picked, summary, pick, openOn, fold, stepDays, stepCompetence, openFirstUnder,
     pop, setPop, edits, actions,
     /** The days a drag has reached on a competence. */
