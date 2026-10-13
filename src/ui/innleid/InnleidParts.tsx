@@ -1,26 +1,25 @@
-import { createContext, memo, useContext, useMemo, type CSSProperties, type ReactNode } from 'react'
-import { Check, Clock, TriangleAlert } from 'lucide-react'
-import { coverFigure, hireBoard, HOURS_NOISE, waitingHours, type HireBoard } from '../../domain/hire'
-import type { CompetenceStyle } from '../../domain/types'
+import { memo, type CSSProperties, type ReactNode } from 'react'
+import { Check, ChevronsUpDown, Clock, TriangleAlert } from 'lucide-react'
+import type { ISODate } from '../../domain/dates'
+import { coverFigure, dayChips, HOURS_NOISE, isWaiting, shiftOf, SHIFT_LABELS, type HireBoard } from '../../domain/hire'
+import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { Segmented, UndoRedoButtons } from '../common'
 import { competenceColor } from '../dom'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { DEMAND_H } from '../bemanning/layout'
 import { ProjectLines } from '../bemanning/ProjectLines'
-import { hoursShort, hoursText } from '../bemanning/week'
+import { clock, hoursShort, hoursText } from '../bemanning/week'
 import { HeatLegend, Line, SectionLine } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { heatScale, heatTile, HEAT_LABELS, signed } from '../kalender/heat'
+import { heatTile, HEAT_LABELS, signed } from '../kalender/heat'
 import { ModeSwitch, ModeTag } from '../kalender/KalenderBar'
 import { fmtDay } from '../kalender/labels'
-import { HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
+import { daysWide, HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
 import { PlanBar } from '../kalender/PlanBar'
 import type { PlanMode } from '../kalender/zoom'
-
-/** The two parts of Bemanning: the permanent staff, and the people hired for what they leave. */
-export type CrewPart = 'faste' | 'innleid'
-// eslint-disable-next-line react-refresh/only-export-components
-export const cleanCrewPart = (stored: unknown): CrewPart => (stored === 'innleid' ? 'innleid' : 'faste')
+import { useInnleid, type CrewPart, type InnleidActions } from './InnleidScope'
+import { OrderEditor } from './OrderEditor'
+import { AnswerGlyph, AnswerPopover, ShiftMenu, SupplierMenu, TimePopover } from './OrderPopovers'
 
 export function PartSwitch({ part, onChange }: { part: CrewPart; onChange: (part: CrewPart) => void }) {
   return (
@@ -38,41 +37,6 @@ export function PartSwitch({ part, onChange }: { part: CrewPart; onChange: (part
 
 /** Hours with their sign, as Innleid writes them: «−» for what is missing, «+» for what is over. */
 const signedHours = (hours: number): string => signed(hoursShort(hours))
-
-interface InnleidState {
-  board: HireBoard
-  /** The competences of the board with how each is shown. */
-  rows: CompetenceStyle[]
-  /** The largest shortage and surplus of a day in the period, in hours, which the Avvik line is scaled by. */
-  scale: { maxShortage: number; maxSurplus: number }
-  /** The hours ordered that wait for an answer. */
-  waiting: number
-}
-
-const InnleidContext = createContext<InnleidState | null>(null)
-
-/** What the parts of Innleid share: the board of the period, worked out once. Nothing is worked out while Innleid is not shown. */
-export function InnleidScope({ active, children }: { active: boolean; children: ReactNode }) {
-  const { ws, dates, balance, styles } = useBemanning()
-  const orders = ws.hireOrders
-  const wd = ws.settings.workday
-  const state = useMemo<InnleidState>(() => {
-    const board = hireBoard(active ? [...styles.keys()] : [], dates, (competence, date) => Math.max(0, balance.get(competence, date).remaining), orders ?? [], wd)
-    return {
-      board,
-      rows: board.competences.map((key) => styles.get(key)!),
-      scale: heatScale([...board.deviations.values()].map((dev) => dev.value)),
-      waiting: waitingHours(orders ?? [], wd),
-    }
-  }, [active, styles, dates, balance, orders, wd])
-  return <InnleidContext.Provider value={state}>{children}</InnleidContext.Provider>
-}
-
-const useInnleid = (): InnleidState => {
-  const state = useContext(InnleidContext)
-  if (!state) throw new Error('Innleid is read outside its scope')
-  return state
-}
 
 const days = (n: number) => (n === 1 ? '1 dag' : `${n} dager`)
 
@@ -145,8 +109,7 @@ export function InnleidTop() {
 
 /** The planning bar in Innleid: the mode and the part, undo, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
-  const { onShowDate } = useBemanning()
-  const { board, waiting } = useInnleid()
+  const { board, waiting, openFirstUnder } = useInnleid()
   const under = board.underDays.length
   return (
     <PlanBar width={width} fitKey={`innleid|${under}|${waiting > HOURS_NOISE}`}>
@@ -163,7 +126,7 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             </span>
           )}
           {under > 0 && (
-            <button className="il-under" title="Dager der det mangler timer. Klikk for å gå til den første." onClick={() => onShowDate(board.underDays[0])}>
+            <button className="il-under" title="Dager der det mangler timer. Klikk for å åpne den første." onClick={openFirstUnder}>
               <TriangleAlert size={14} aria-hidden /> {days(under)} udekket
             </button>
           )}
@@ -188,72 +151,161 @@ export function InnleidHeading() {
         <span className="bm-label-note bm-label-end">t mangler</span>
       </div>
       <span className="phase-legend" style={{ left: LEFT_W }}>
-        <span>Linjen under tallet viser hvor mye av restbehovet som er bestilt · −: timer som mangler · +: timer over</span>
+        <span>Klikk en dag for å bestille, eller dra over flere · Shift+klikk utvider · −: timer som mangler · +: timer over</span>
       </span>
     </div>
   )
 }
 
+/** When an order is worked: the name of its shift, or its own times. */
+const timeText = (order: HireOrder, wd: WorkdaySettings): string => {
+  const shift = shiftOf(order, wd)
+  return shift ? SHIFT_LABELS[shift] : `${clock(order.start)}–${clock(order.end)}`
+}
+
+/** Columns narrower than this have no room for a supplier's name on a chip: the people alone are shown. */
+const NAME_FROM_W = 84
+/** A day shows at most this many chips; where there are more, one fewer and the count of the rest. */
+const CHIPS_MAX = 3
+
 interface RowProps {
   style: CompetenceStyle
   cols: Columns
   board: HireBoard
+  /** The orders per competence and day. */
+  ordersOn: Map<string, HireOrder[]>
+  suppliers: Supplier[]
+  wd: WorkdaySettings
   /** The hours missing in the days in view. */
   missing: number
+  /** The days picked on this competence, whose editor is its label; `null` on the others. */
+  pickedFrom: ISODate | null
+  pickedTo: ISODate | null
+  /** The line of the editor that is picked. */
+  pickedGroup: string | null
+  /** The days a drag has reached on this competence. */
+  dragFrom: ISODate | null
+  dragTo: ISODate | null
+  actions: InnleidActions
 }
 
-/** One competence: its name with what is missing in the days in view, and per day a line of how far it is covered and the hours missing or over. */
-const CompetenceRow = memo(function CompetenceRow({ style, cols, board, missing }: RowProps) {
+/**
+ * One competence: its name with what is missing in the days in view, and per day a line of how far it is covered,
+ * the hours missing or over, and a chip per supplier ordered. With days picked, its label is the editor of their orders.
+ */
+const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, actions }: RowProps) {
+  const open = pickedFrom !== null && pickedTo !== null
+  const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
+  const named = cols.colW >= NAME_FROM_W
   return (
-    <Line
-      className="il-row"
-      height={DEMAND_H}
-      style={competenceColor(style)}
-      label={
-        <>
-          <i className="swatch" />
-          <span className="lbl-desc">{style.label}</span>
-          <span className="il-total">{missing > HOURS_NOISE ? `${signedHours(-missing)} t` : <Check size={13} aria-label="Dekket" />}</span>
-        </>
-      }
-      cols={cols}
-      cells={(date) => {
+    <div className={`grid-row il-row ${open ? 'open' : ''}`} style={{ ...competenceColor(style), minHeight: DEMAND_H }}>
+      <div className="grid-label" style={{ width: LEFT_W }} onClick={open ? undefined : () => actions.openFirst(style.key)} title={open ? undefined : `Bestill ${style.label}`}>
+        {open ? (
+          <OrderEditor style={style} />
+        ) : (
+          <>
+            <ChevronsUpDown className="il-unfold" size={13} aria-hidden />
+            <i className="swatch" />
+            <span className="lbl-desc">{style.label}</span>
+            <span className="il-total">{missing > HOURS_NOISE ? `${signedHours(-missing)} t` : <Check size={13} aria-label="Dekket" />}</span>
+          </>
+        )}
+      </div>
+      <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />
+      {cols.dates.map((date) => {
         const cover = board.cover(style.key, date)
-        const classes = `${dayClass(cols, date)} cell il-cover`
-        if (cover.state === 'none') return <div key={date} className={classes} />
+        const picked = open && date >= pickedFrom && date <= pickedTo
+        const dragged = dragFrom !== null && dragTo !== null && date >= dragFrom && date <= dragTo
         const figure = coverFigure(cover)
         const confirmed = cover.rest > 0 ? Math.min(1, cover.confirmed / cover.rest) : 0
         const waiting = cover.rest > 0 ? Math.min(1 - confirmed, (cover.planned - cover.confirmed) / cover.rest) : 0
-        const title = `${style.label} · ${fmtDay(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` + (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`)
+        const chips = dayChips(ordersOn.get(`${style.key}|${date}`) ?? [], suppliers, open)
+        const shown = chips.length > CHIPS_MAX && !open ? chips.slice(0, CHIPS_MAX - 1) : chips
+        const title =
+          cover.state === 'none'
+            ? `${style.label} · ${fmtDay(date)}\nIngen restbehov`
+            : `${style.label} · ${fmtDay(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` + (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`)
         return (
-          <div key={date} className={`${classes} ${cover.state}`} title={title}>
-            {cover.rest > 0 && (
-              <span className="il-bar">
-                <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
-                {waiting > 0 && <i className="waiting" style={{ left: `${confirmed * 100}%`, width: `${waiting * 100}%` }} />}
+          <div
+            key={date}
+            className={`${dayClass(cols, date)} cell il-day ${cover.state} ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''}`}
+            title={title}
+            onMouseDown={(e) => {
+              if (e.button !== 0) return
+              e.preventDefault()
+              actions.dayDown(style.key, date, e.shiftKey)
+            }}
+            onMouseEnter={() => actions.dayEnter(style.key, date)}
+          >
+            <span className="il-cover">
+              {cover.rest > 0 && (
+                <span className="il-bar">
+                  <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
+                  {waiting > 0 && <i className="waiting" style={{ left: `${confirmed * 100}%`, width: `${waiting * 100}%` }} />}
+                </span>
+              )}
+              {figure !== null && <b className={figure < 0 ? 'short' : 'over'}>{signedHours(figure)}</b>}
+            </span>
+            {chips.length > 0 && (
+              <span className="il-chips">
+                {shown.map((chip) => (
+                  <span
+                    key={chip.key}
+                    className={`il-chip ${chip.waits ? 'waits' : ''} ${picked && pickedGroup !== null && chip.key === pickedGroup ? 'on' : ''}`}
+                    title={`${nameOf(chip.supplierId)}\n${chip.orders.map((order) => `${order.fte} pers. ${timeText(order, wd)} · ${isWaiting(order) ? 'venter på svar' : order.asked ? `bekreftet, ${order.fte} av ${order.asked}` : 'bekreftet'}`).join('\n')}`}
+                  >
+                    {chip.waits && <AnswerGlyph waits size={12} />}
+                    <b>{chip.fte}</b>
+                    {named && <span>{nameOf(chip.supplierId)}</span>}
+                  </span>
+                ))}
+                {shown.length < chips.length && <span className="il-more">+{chips.length - shown.length} til</span>}
               </span>
             )}
-            {figure !== null && <b className={figure < 0 ? 'short' : 'over'}>{signedHours(figure)}</b>}
           </div>
         )
-      }}
-    />
+      })}
+    </div>
   )
 })
 
 /** The rows of Innleid: a line per competence with hours that remain after the permanent staff, or with orders. */
 export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
-  const { ws, cols, dates, viewFrom, viewTo } = useBemanning()
-  const { board, rows } = useInnleid()
+  const { cols, dates, viewFrom, viewTo, styles } = useBemanning()
+  const il = useInnleid()
+  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions } = il
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
+  const popGroup = pop?.group ? groups.find((group) => group.key === pop.group) : undefined
+  const popSupplier = popGroup && suppliers.find((supplier) => supplier.id === popGroup.supplierId)
+  const openStyle = open ? styles.get(open.competence) : undefined
+  const close = () => setPop(null)
   return (
     <div className="bm-people il-rows">
-      {rows.map((style) => (
-        <CompetenceRow key={style.key} style={style} cols={cols} board={board} missing={missing(style.key)} />
-      ))}
+      {rows.map((style) => {
+        const mine = open?.competence === style.key
+        const dragged = dragOn?.competence === style.key
+        return (
+          <CompetenceRow
+            key={style.key}
+            style={style}
+            cols={cols}
+            board={board}
+            ordersOn={ordersOn}
+            suppliers={suppliers}
+            wd={wd}
+            missing={missing(style.key)}
+            pickedFrom={mine ? open.from : null}
+            pickedTo={mine ? open.to : null}
+            pickedGroup={mine ? open.group : null}
+            dragFrom={dragged ? dragOn.from : null}
+            dragTo={dragged ? dragOn.to : null}
+            actions={actions}
+          />
+        )
+      })}
       {rows.length === 0 && <p className="empty-rows">Ingen restbehov i perioden: de faste dekker det som er planlagt, eller ingenting er planlagt ennå.</p>}
-      {rows.length > 0 && !ws.suppliers?.length && (
+      {rows.length > 0 && !suppliers.length && (
         <p className="empty-rows">
           Ingen leverandører er registrert ennå. Legg dem inn på{' '}
           <button className="link" onClick={onOpenSuppliers}>
@@ -262,6 +314,11 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
           for å kunne bestille.
         </p>
       )}
+      {pop?.kind === 'add' && openStyle && <SupplierMenu at={pop.at} competence={openStyle} suppliers={suppliers} onPick={edits.addSupplier} onClose={close} />}
+      {pop?.kind === 'supplier' && popGroup && openStyle && <SupplierMenu at={pop.at} competence={openStyle} suppliers={suppliers} current={popGroup.supplierId} onPick={(supplier) => edits.supplier(popGroup, supplier.id)} onClose={close} />}
+      {pop?.kind === 'shift' && popGroup && <ShiftMenu at={pop.at} group={popGroup} supplier={popSupplier} wd={wd} onPick={(times) => edits.times(popGroup, times)} onOwn={() => setPop({ ...pop, kind: 'time' })} onClose={close} />}
+      {pop?.kind === 'time' && popGroup && <TimePopover at={pop.at} group={popGroup} wd={wd} onTimes={(times) => edits.times(popGroup, times)} onClose={close} />}
+      {pop?.kind === 'answer' && popGroup && <AnswerPopover at={pop.at} group={popGroup} supplier={popSupplier} onWaits={() => edits.waits(popGroup)} onConfirm={() => edits.confirm(popGroup)} onFewer={edits.fewer} onClose={close} />}
     </div>
   )
 }

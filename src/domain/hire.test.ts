@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hireHours, mergeOrders, orderGroups, orderText, planOrders, setWaiting, shiftOf, shiftTimes, waitingHours } from './hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hireHours, mergeOrders, orderGroups, orderText, planOrders, rangeSummary, setWaiting, shiftOf, shiftTimes, waitingHours } from './hire'
 import { DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
 const wd = DEFAULT_WORKDAY
@@ -228,5 +228,27 @@ describe('the board of Innleid', () => {
     expect(board.deviations.get('d2')).toEqual({ state: 'under', value: -15, pending: 0 })
     expect(board.deviations.get('d3')).toEqual({ state: 'over', value: 7.5, pending: 0 })
     expect(board.underDays).toEqual(['d2'])
+  })
+})
+
+describe('the chips of a day and the sum of a range', () => {
+  const orders = [order('a', 'k3', 'vegger', 'd1', 1, 1), order('b', 'k1', 'vegger', 'd1', 2, null, KVELD), order('c', 'k1', 'vegger', 'd1', 4, 4)]
+
+  it('has one chip per supplier with its times summed, or one per time (A13)', () => {
+    expect(dayChips(orders, [manpower, nordic]).map((chip) => [chip.key, chip.fte, chip.waits])).toEqual([
+      ['k1', 6, true],
+      ['k3', 1, false],
+    ])
+    expect(dayChips(orders, [manpower, nordic], true).map((chip) => [chip.supplierId, chip.fte, chip.waits])).toEqual([
+      ['k1', 4, false],
+      ['k1', 2, true],
+      ['k3', 1, false],
+    ])
+  })
+
+  it('sums the days picked: what is missing, and the people on a day shift that would cover it', () => {
+    const covers = [coverage(60, orders, wd), coverage(22, [], wd)]
+    expect(rangeSummary(covers, orders, wd)).toEqual({ rest: 82, planned: 52.5, short: 29.5, over: 0, people: 7, peopleShort: 4 })
+    expect(rangeSummary([coverage(45, orders, wd)], orders, wd)).toMatchObject({ short: 0, over: 7.5, peopleShort: 0 })
   })
 })

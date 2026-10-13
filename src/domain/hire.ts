@@ -292,3 +292,52 @@ export const hireBoard = (competences: CompetenceKey[], dates: ISODate[], restOf
     underDays: dates.filter((date) => deviations.get(date)?.state === 'under'),
   }
 }
+
+/** What a day of a competence shows of its orders: a chip per supplier, or per supplier and time. */
+export interface OrderChip {
+  key: string
+  supplierId: string
+  /** The people of the chip's orders together. */
+  fte: number
+  waits: boolean
+  orders: HireOrder[]
+}
+
+/**
+ * The chips of one competence on one day, in the suppliers' order: a supplier's times merged into one chip, with
+ * its people summed, or with `perTime` a chip per time, as the lines of the editor are.
+ */
+export const dayChips = (orders: HireOrder[], suppliers: Supplier[], perTime = false): OrderChip[] =>
+  orderGroups(orders, suppliers).reduce<OrderChip[]>((chips, group) => {
+    const last = chips[chips.length - 1]
+    const fte = group.orders.reduce((sum, order) => sum + order.fte, 0)
+    if (!perTime && last?.supplierId === group.supplierId) chips[chips.length - 1] = { ...last, fte: last.fte + fte, waits: last.waits || groupWaits(group), orders: [...last.orders, ...group.orders] }
+    else chips.push({ key: perTime ? group.key : group.supplierId, supplierId: group.supplierId, fte, waits: groupWaits(group), orders: group.orders })
+    return chips
+  }, [])
+
+/** The days picked on a competence, together: what remains, what is ordered, and what is still missing or over. */
+export interface RangeSummary {
+  rest: number
+  planned: number
+  /** The hours missing on the days that are short. */
+  short: number
+  /** The hours ordered over what remains, where no day is short. */
+  over: number
+  /** The people ordered, a person counted once per day. */
+  people: number
+  /** The people on a day shift that would cover what is missing. */
+  peopleShort: number
+}
+
+export const rangeSummary = (covers: Coverage[], orders: HireOrder[], wd: WorkdaySettings): RangeSummary => {
+  const short = covers.reduce((sum, cover) => sum + Math.max(0, cover.remaining), 0)
+  return {
+    rest: covers.reduce((sum, cover) => sum + cover.rest, 0),
+    planned: covers.reduce((sum, cover) => sum + cover.planned, 0),
+    short,
+    over: short > HOURS_NOISE ? 0 : covers.reduce((sum, cover) => sum + Math.max(0, -cover.remaining), 0),
+    people: orders.reduce((sum, order) => sum + order.fte, 0),
+    peopleShort: Math.max(0, Math.ceil(short / hireHours(shiftTimes('dag', wd), wd) - 1e-6)),
+  }
+}
