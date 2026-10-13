@@ -1,6 +1,6 @@
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { projectHoverCss, projectList, useProjectHover } from './useProjectHover'
+import { FLASH_MS, projectHoverCss, projectList, useProjectHover } from './useProjectHover'
 
 function Grid({ enabled = true }: { enabled?: boolean }) {
   const hover = useProjectHover(enabled)
@@ -78,6 +78,38 @@ describe('useProjectHover', () => {
     act(() => void vi.advanceTimersByTime(300))
     expect(rule()).toBe(projectHoverCss('26970'))
     rerender(<Grid enabled={false} />)
+    expect(rule()).toBe('')
+  })
+
+  it('lights a project for a moment after a jump, whatever the setting, and lets go by itself', () => {
+    const { result, unmount } = renderHook(() => useProjectHover(false))
+    act(() => result.current.flash('26970'))
+    expect(rule()).toBe(projectHoverCss('26970'))
+    act(() => void vi.advanceTimersByTime(FLASH_MS))
+    expect(rule()).toBe('')
+    act(() => result.current.flash('26970'))
+    unmount()
+    expect(rule()).toBe('')
+  })
+
+  it('keeps the project of a jump lit while the mouse moves over what is no project', () => {
+    const { result } = renderHook(() => useProjectHover())
+    const hover = result.current
+    const { getByTestId } = render(
+      <div data-testid="grid" onMouseOver={hover.onMouseOver} onMouseLeave={hover.onMouseLeave}>
+        <span data-project="26970" data-testid="bar" />
+        <span data-testid="cell" />
+      </div>,
+    )
+    act(() => hover.flash('navn:hage'))
+    fireEvent.mouseOver(getByTestId('cell'))
+    expect(rule()).toBe(projectHoverCss('navn:hage'))
+    fireEvent.mouseOver(getByTestId('bar'))
+    act(() => void vi.advanceTimersByTime(300))
+    expect(rule()).toBe(projectHoverCss('26970'))
+    fireEvent.mouseLeave(getByTestId('grid'))
+    expect(rule()).toBe(projectHoverCss('navn:hage'))
+    act(() => void vi.advanceTimersByTime(FLASH_MS))
     expect(rule()).toBe('')
   })
 

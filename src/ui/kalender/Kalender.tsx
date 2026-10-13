@@ -617,11 +617,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         draftCancelled.current = false
       }
     },
-    // Shows when a project is: its days are brought into view, in narrower columns if they do not fit.
-    // Nothing is left lit after it.
+    // Shows where and when a project is: its days are brought into view, in narrower columns if they do not
+    // fit, and its halls and bars are lit for a moment, to say where the view landed.
     showProject: (key) => {
       const span = allGroups.find((group) => group.key === key)?.venue
       if (!span) return
+      projectHover.flash(key)
       const el = scrollRef.current
       const fit = fitSpan(0, daysBetween(span.start, span.end) + 1, (el?.clientWidth ?? viewport.width) - LEFT_W, zoom)
       if (fit.zoom !== zoom) setZoom(fit.zoom)
