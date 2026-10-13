@@ -76,6 +76,14 @@ Gaps
 - **Overtime is in.** The overtime drawn in Bemanning shows as «Overtid faste (FTE)» (`overtimeByDay` and `overtimeLine` in `domain/staffing.ts`: hours outside the normal day, and every paid hour on a weekend or holiday, divided by the hours of an FTE-day) and is added to «Tilgjengelig». Read-only in the Kalender.
 - **Deferred by the user (2026-10-07): the lines typed in by hand** (Innleid, trade crews, Admin, margin). The workbook was their only source; with its import gone, their storage and editing in the Kalender are removed too. Do not build them again. The user will design another system for hired crew, like Bemanning but for innleid: in his words it is basically every competence demand that is not met after the permanent staff are assigned. Wait for his design. The Kalender shows «Faste», «Fravær faste» and «Overtid faste».
 
+## Innleid: begun
+
+Built from `design_docs/innleid/` in the six slices of the Claude Doc «Innleid: build plan» (2026-10-13). The user's answers: only confirmed orders count in «Tilgjengelig»; the Kalender's Avvik changes to the three states (under, ok, over) with slice 2; the suppliers are a tab made from Personell.
+
+- **Slice 1 is in: rules, storage and suppliers.** `domain/hire.ts` holds the rules I1 to I10 with the handoff's acceptance cases as tests, `Supplier` and `HireOrder` are stored (tables `suppliers` and `hireOrders`) and undone as the records of Bemanning are, and the tab «Leverandører» has the suppliers with export and import. A competence a supplier has counts as in use, and is renamed with the rest.
+- Next: slice 2, Innleid read-only (the «Faste · Innleid» switch, rest demand per competence with its Avvik line) and the Kalender's Avvik in three states. Then ordering and answers, the line «Innleid (FTE)» into «Tilgjengelig», the brush with the supplier rows, and the supplier panel.
+- Where the package and the app disagree, the defaults are in the Claude Doc. Not asked for by the package, chosen here: an order moved to another supplier or another time waits for an answer again; two orders that become the same add up what was asked of each.
+
 ## What the workbook has and the app does not
 
 - **History for earlier years.** The workbook's ledger has «Historikk Antall» and «Historikk Timer». In the app, earlier years exist only if older Visma exports are read in. No dedicated flow.

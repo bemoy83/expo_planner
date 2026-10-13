@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import { withSettingsDefaults, type AllocationRow, type Assignment, type CompetenceStyle, type DemandAdjustment, type DemandLine, type HallRules, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
+import { withSettingsDefaults, type AllocationRow, type Assignment, type CompetenceStyle, type DemandAdjustment, type DemandLine, type HallRules, type HireOrder, type KpiConfig, type LineOverride, type Person, type ProjectRef, type Settings, type Supplier, type Unavailability, type VenueBooking, type VenueImportInfo, type VismaImport, type Workspace } from '../domain/types'
 
 interface MetaRecord {
   key: 'settings' | 'kpi' | 'overrides' | 'venueImport' | 'hiddenVenue' | 'hallRules' | 'competenceStyles'
@@ -20,6 +20,8 @@ class PlannerDb extends Dexie {
   unavailability!: EntityTable<Unavailability, 'id'>
   assignments!: EntityTable<Assignment, 'id'>
   demandAdjustments!: EntityTable<DemandAdjustment, 'id'>
+  suppliers!: EntityTable<Supplier, 'id'>
+  hireOrders!: EntityTable<HireOrder, 'id'>
 
   constructor(name = 'expo-planner') {
     super(name)
@@ -35,20 +37,21 @@ class PlannerDb extends Dexie {
     this.version(3).stores({ persons: 'id', unavailability: 'id, personId, date', assignments: 'id, personId, date', demandAdjustments: 'id, date' })
     // The staffing lines typed in by hand came with the planner workbook only; their table is dropped.
     this.version(4).stores({ capacity: null })
+    this.version(5).stores({ suppliers: 'id', hireOrders: 'id, supplierId, date' })
   }
 }
 
 export const db = new PlannerDb()
 
-/** The tables of Bemanning: people, their absence and assignments, and hours moved between days. */
-export const STAFFING_TABLES = () => [db.persons, db.unavailability, db.assignments, db.demandAdjustments]
+/** The tables of Bemanning: people, their absence and assignments, hours moved between days, and the suppliers with their orders. */
+export const STAFFING_TABLES = () => [db.persons, db.unavailability, db.assignments, db.demandAdjustments, db.suppliers, db.hireOrders]
 
 const TABLES = () => [db.meta, db.venue, db.projects, db.demand, db.allocations, db.visma, ...STAFFING_TABLES()]
 
 export const loadWorkspace = async (): Promise<Workspace | null> => {
   const settings = await db.meta.get('settings')
   if (!settings) return null
-  const [hallRules, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, persons, unavailability, assignments, demandAdjustments] = await Promise.all([
+  const [hallRules, hiddenVenue, venueImport, kpi, overrides, competenceStyles, visma, venue, projects, demand, allocations, persons, unavailability, assignments, demandAdjustments, suppliers, hireOrders] = await Promise.all([
     db.meta.get('hallRules'),
     db.meta.get('hiddenVenue'),
     db.meta.get('venueImport'),
@@ -64,6 +67,8 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     db.unavailability.toArray(),
     db.assignments.toArray(),
     db.demandAdjustments.toArray(),
+    db.suppliers.toArray(),
+    db.hireOrders.toArray(),
   ])
   return {
     settings: withSettingsDefaults(settings.value as Partial<Settings>),
@@ -81,6 +86,8 @@ export const loadWorkspace = async (): Promise<Workspace | null> => {
     unavailability,
     assignments,
     demandAdjustments,
+    suppliers: suppliers.sort((a, b) => a.order - b.order),
+    hireOrders,
     competenceStyles: (competenceStyles?.value as Record<string, CompetenceStyle> | undefined) ?? {},
   }
 }
@@ -107,6 +114,8 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
     await db.unavailability.bulkPut(workspace.unavailability ?? [])
     await db.assignments.bulkPut(workspace.assignments ?? [])
     await db.demandAdjustments.bulkPut(workspace.demandAdjustments ?? [])
+    await db.suppliers.bulkPut(workspace.suppliers ?? [])
+    await db.hireOrders.bulkPut(workspace.hireOrders ?? [])
   })
 }
 
@@ -140,6 +149,10 @@ export interface StaffingWrite {
   deleteAssignments?: string[]
   putAdjustments?: DemandAdjustment[]
   deleteAdjustments?: string[]
+  putSuppliers?: Supplier[]
+  deleteSuppliers?: string[]
+  putOrders?: HireOrder[]
+  deleteOrders?: string[]
   competenceStyles?: Record<string, CompetenceStyle> | null
 }
 
@@ -153,6 +166,10 @@ export const putStaffing = async (change: StaffingWrite) => {
   if (change.putAssignments?.length) await db.assignments.bulkPut(change.putAssignments)
   if (change.deleteAdjustments?.length) await db.demandAdjustments.bulkDelete(change.deleteAdjustments)
   if (change.putAdjustments?.length) await db.demandAdjustments.bulkPut(change.putAdjustments)
+  if (change.deleteSuppliers?.length) await db.suppliers.bulkDelete(change.deleteSuppliers)
+  if (change.putSuppliers?.length) await db.suppliers.bulkPut(change.putSuppliers)
+  if (change.deleteOrders?.length) await db.hireOrders.bulkDelete(change.deleteOrders)
+  if (change.putOrders?.length) await db.hireOrders.bulkPut(change.putOrders)
   if (change.competenceStyles) await db.meta.put({ key: 'competenceStyles', value: change.competenceStyles })
 }
 

@@ -22,6 +22,7 @@ const textsInUse = (ws: Workspace): Map<CompetenceKey, string> => {
   for (const line of ws.demand) add(line.competence)
   for (const row of ws.allocations) add(row.competence)
   for (const person of ws.persons ?? []) for (const key of person.competences) add(key)
+  for (const supplier of ws.suppliers ?? []) for (const key of supplier.competences) add(key)
   return texts
 }
 
@@ -85,6 +86,8 @@ export const renameCompetence = (ws: Workspace, from: CompetenceKey, toLabel: st
     persons: ws.persons && mapChanged(ws.persons, (person) => (to !== from && person.competences.includes(from) ? { ...person, competences: person.competences.map((key) => (key === from ? to : key)) } : person)),
     assignments: keyed(ws.assignments),
     demandAdjustments: keyed(ws.demandAdjustments),
+    suppliers: ws.suppliers && mapChanged(ws.suppliers, (supplier) => (to !== from && supplier.competences.includes(from) ? { ...supplier, competences: supplier.competences.map((key) => (key === from ? to : key)) } : supplier)),
+    hireOrders: keyed(ws.hireOrders),
     competenceStyles: stored ? asRecord(styles.map((s) => (s === style ? renamed : s))) : ws.competenceStyles,
   }
   const same = (Object.keys(next) as (keyof Workspace)[]).every((part) => next[part] === ws[part])
@@ -128,7 +131,7 @@ export const competenceUse = (ws: Workspace, key: CompetenceKey): CompetenceUse 
 })
 
 /** Whether a competence is only there because the planner added it, so that it can be removed again. */
-export const isUnusedCompetence = (ws: Workspace, key: CompetenceKey): boolean => !textsInUse(ws).has(key) && !(ws.assignments ?? []).some((a) => a.competence === key)
+export const isUnusedCompetence = (ws: Workspace, key: CompetenceKey): boolean => !textsInUse(ws).has(key) && !(ws.assignments ?? []).some((a) => a.competence === key) && !(ws.hireOrders ?? []).some((order) => order.competence === key)
 
 export const removeCompetence = (ws: Workspace, key: CompetenceKey): Record<CompetenceKey, CompetenceStyle> => asRecord(competenceStyles(ws).filter((style) => style.key !== key))
 
@@ -191,7 +194,10 @@ export const replaceCompetence = (ws: Workspace, from: CompetenceKey, toLabel: s
     const { [from]: old, ...rest } = styles
     styles = rest[to] ? rest : { ...rest, [to]: { ...old, key: to, label: toLabel.trim(), shortLabel: defaultShortLabel(toLabel.trim()) } }
   }
-  return { ...ws, persons, assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), competenceStyles: styles }
+  const suppliers = ws.suppliers?.some((supplier) => supplier.competences.includes(from))
+    ? ws.suppliers.map((supplier) => (supplier.competences.includes(from) ? { ...supplier, competences: [...new Set(supplier.competences.map((key) => (key === from ? to : key)))] } : supplier))
+    : ws.suppliers
+  return { ...ws, persons, suppliers, assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), hireOrders: swap(ws.hireOrders), competenceStyles: styles }
 }
 
 const nameKey = (name: string): string => name.trim().toLowerCase()

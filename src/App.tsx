@@ -10,6 +10,7 @@ import { Haller } from './ui/haller/Haller'
 import { Kpi } from './ui/kpi/Kpi'
 import { Kompetanser } from './ui/personell/Kompetanser'
 import { Personell } from './ui/personell/Personell'
+import { Leverandorer } from './ui/leverandorer/Leverandorer'
 import { Prosjekter } from './ui/prosjekter/Prosjekter'
 import { HallRules } from './ui/behov/HallRules'
 import { Kalender } from './ui/kalender/Kalender'
@@ -37,6 +38,7 @@ const TABS = [
   ['hallregler', 'Hallregler'],
   ['kpi', 'KPI'],
   ['personell', 'Personell'],
+  ['leverandorer', 'Leverandører'],
   ['kompetanser', 'Kompetanser'],
 ] as const
 type View = (typeof TABS)[number][0]
@@ -314,6 +316,7 @@ function Shell() {
       {status === 'ready' && workspace && view === 'prosjekter' && <Prosjekter onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi />}
       {status === 'ready' && workspace && view === 'personell' && <Personell onOpenCompetences={() => setView('kompetanser')} />}
+      {status === 'ready' && workspace && view === 'leverandorer' && <Leverandorer onOpenCompetences={() => setView('kompetanser')} />}
       {status === 'ready' && workspace && view === 'kompetanser' && <Kompetanser onOpenPersonell={() => setView('personell')} />}
       {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={() => setView('kpi')} onOpenRules={() => setView('hallregler')} />}
       {status === 'ready' && workspace && view === 'hallregler' && <HallRules onOpenBehov={() => setView('behov')} />}

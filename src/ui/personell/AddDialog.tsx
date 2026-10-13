@@ -9,7 +9,7 @@ interface AddProps {
   onClose: () => void
 }
 
-/** Asks for the name of a new person or competence. */
+/** Asks for the name of a new person, supplier or competence. */
 export function AddDialog({ title, label, taken, onAdd, onClose }: AddProps) {
   const [name, setName] = useState('')
   const duplicate = name.trim() !== '' && taken(name)

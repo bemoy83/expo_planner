@@ -269,6 +269,41 @@ export interface Assignment {
   hall?: string
 }
 
+/** The shifts a supplier can be ordered for. An order can also have times of its own. */
+export type ShiftId = 'dag' | 'kveld' | 'natt'
+export const SHIFT_IDS: ShiftId[] = ['dag', 'kveld', 'natt']
+
+/** A company the planner hires people from. */
+export interface Supplier {
+  id: string
+  name: string
+  order: number
+  /** What its people can do: it can be ordered for these competences only. */
+  competences: CompetenceKey[]
+  shifts: ShiftId[]
+  /** Kroner per hour. */
+  rate?: number
+  contact?: string
+  note?: string
+}
+
+/** People ordered from a supplier for one competence, one day and one stretch of time. */
+export interface HireOrder {
+  id: string
+  supplierId: string
+  competence: CompetenceKey
+  date: ISODate
+  /** The number of people. */
+  fte: number
+  /** `end` at or before `start` is a shift through the night; it counts on the day it starts. */
+  start: Minute
+  end: Minute
+  /** `null` while the supplier has not answered, else the number of people it confirmed, which is `fte`. */
+  conf: number | null
+  /** What was asked for, where the supplier confirmed fewer. */
+  asked?: number
+}
+
 /** Hours added to a day's demand for a competence, on top of what the Kalender plans. */
 export interface DemandAdjustment {
   id: string
@@ -320,5 +355,7 @@ export interface Workspace {
   unavailability?: Unavailability[]
   assignments?: Assignment[]
   demandAdjustments?: DemandAdjustment[]
+  suppliers?: Supplier[]
+  hireOrders?: HireOrder[]
   competenceStyles?: Record<CompetenceKey, CompetenceStyle>
 }

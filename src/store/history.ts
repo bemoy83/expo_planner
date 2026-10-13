@@ -1,4 +1,4 @@
-import type { AllocationRow, Assignment, CompetenceStyle, DemandAdjustment, DemandLine, HallRules, KpiConfig, LineOverride, Person, ProjectRef, Settings, Unavailability, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
+import type { AllocationRow, Assignment, CompetenceStyle, DemandAdjustment, DemandLine, HallRules, HireOrder, KpiConfig, LineOverride, Person, ProjectRef, Settings, Supplier, Unavailability, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface Delta<T> {
   before: T
@@ -29,6 +29,8 @@ export interface Change {
   unavailability: Map<string, Delta<Unavailability | null>>
   assignments: Map<string, Delta<Assignment | null>>
   demandAdjustments: Map<string, Delta<DemandAdjustment | null>>
+  suppliers: Map<string, Delta<Supplier | null>>
+  hireOrders: Map<string, Delta<HireOrder | null>>
   competenceStyles?: Delta<Record<string, CompetenceStyle>>
 }
 
@@ -40,6 +42,8 @@ export const emptyChange = (): Change => ({
   unavailability: new Map(),
   assignments: new Map(),
   demandAdjustments: new Map(),
+  suppliers: new Map(),
+  hireOrders: new Map(),
 })
 
 /** Several edits to the same record within one step keep the first `before` and the last `after`. */
@@ -110,12 +114,14 @@ const recordList = <T extends { id: string }>(map: Map<string, Delta<T | null>>,
   for (const [id, item] of old) record(map, id, item, null)
 }
 
-/** Notes what a change to people, absence, assignments and moved hours did, by comparing the workspace before and after it. */
+/** Notes what a change to people, absence, assignments, moved hours, suppliers and orders did, by comparing the workspace before and after it. */
 export const recordStaffing = (change: Change, before: Workspace, after: Workspace) => {
   recordList(change.persons, before.persons, after.persons)
   recordList(change.unavailability, before.unavailability, after.unavailability)
   recordList(change.assignments, before.assignments, after.assignments)
   recordList(change.demandAdjustments, before.demandAdjustments, after.demandAdjustments)
+  recordList(change.suppliers, before.suppliers, after.suppliers)
+  recordList(change.hireOrders, before.hireOrders, after.hireOrders)
   if (before.competenceStyles !== after.competenceStyles) {
     change.competenceStyles = { before: change.competenceStyles ? change.competenceStyles.before : (before.competenceStyles ?? {}), after: after.competenceStyles ?? {} }
   }
@@ -130,7 +136,7 @@ export const isEmptyChange = (change: Change): boolean =>
   !change.hallRules &&
   !change.projects &&
   !change.competenceStyles &&
-  [change.persons, change.unavailability, change.assignments, change.demandAdjustments].every((map) => [...map.values()].every((d) => d.before === d.after)) &&
+  [change.persons, change.unavailability, change.assignments, change.demandAdjustments, change.suppliers, change.hireOrders].every((map) => [...map.values()].every((d) => d.before === d.after)) &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
   [...change.visma.values()].every((d) => d.before === d.after) &&
   [...change.allocations.values()].every((d) => d.before === d.after)
@@ -171,6 +177,8 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
     unavailability: applyList(workspace.unavailability, change.unavailability, direction),
     assignments: applyList(workspace.assignments, change.assignments, direction),
     demandAdjustments: applyList(workspace.demandAdjustments, change.demandAdjustments, direction),
+    suppliers: change.suppliers.size ? applyList(workspace.suppliers, change.suppliers, direction)?.sort((a, b) => a.order - b.order) : workspace.suppliers,
+    hireOrders: applyList(workspace.hireOrders, change.hireOrders, direction),
     competenceStyles: change.competenceStyles ? target(change.competenceStyles, direction) : workspace.competenceStyles,
   }
 }
@@ -201,6 +209,10 @@ export const changeWrites = (change: Change, direction: Direction) => ({
     deleteAssignments: deletes(change.assignments, direction),
     putAdjustments: puts(change.demandAdjustments, direction),
     deleteAdjustments: deletes(change.demandAdjustments, direction),
+    putSuppliers: puts(change.suppliers, direction),
+    deleteSuppliers: deletes(change.suppliers, direction),
+    putOrders: puts(change.hireOrders, direction),
+    deleteOrders: deletes(change.hireOrders, direction),
     competenceStyles: change.competenceStyles ? target(change.competenceStyles, direction) : null,
   },
 })

@@ -1,0 +1,11 @@
+:root {
+  /* Elevation — flat. Hierarchy comes from surface steps + hairlines, not shadow. */
+  --shadow-card: none;
+  --shadow-panel: none;
+  --focus-ring: 0 0 0 3px var(--accent-soft);
+  --field-focus: inset 0 0 0 1.5px rgb(var(--accent)), 0 0 0 3px var(--accent-soft);
+  --field-error: inset 0 0 0 1px rgb(var(--danger));
+  --field-error-focus: inset 0 0 0 1.5px rgb(var(--danger)), 0 0 0 3px rgb(var(--danger) / 0.15);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --dur: 150ms; /* @kind other */
+}
