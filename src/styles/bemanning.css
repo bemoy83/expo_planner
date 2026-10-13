@@ -295,9 +295,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-chip.on{box-shadow:inset 0 0 0 1.5px color-mix(in oklab,var(--cc) 60%,var(--text))}
 .il-glyph{flex:none}
 .il-more{height:20px;padding:0 6px;border-radius:5px;background:var(--sunken);font:600 var(--fs-2xs)/20px var(--font-ui);color:var(--muted)}
-/* What a stroke would do. The brush: a chip in outline on the days that would be ordered. The eraser: the days tinted, and the chips that would go without their fill. */
-.il-chip.ghost{background:var(--bg);color:var(--text);box-shadow:inset 0 0 0 1.5px var(--cc)}
-.il-chip.ghost b{background:transparent;box-shadow:none}
+/* What a stroke would do, drawn so that no line changes its height. The brush: the people a day would get, as a badge in outline on the day's own line. The eraser: the days tinted, and the chips that would go without their fill. */
+.il-ghost{flex:none;min-width:18px;height:16px;padding:0 4px;border-radius:4px;box-shadow:inset 0 0 0 1.5px var(--cc);font:700 var(--fs-xs)/16px var(--font-num);font-style:normal;text-align:center}
 .il-day.erasing{background-image:linear-gradient(color-mix(in oklab,var(--alert-block) 12%,transparent),color-mix(in oklab,var(--alert-block) 12%,transparent))}
 .il-chip.gone{background:var(--bg);color:var(--faint);box-shadow:none}
 .il-chip.gone b{background:transparent;color:var(--faint);box-shadow:none}

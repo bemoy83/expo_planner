@@ -260,6 +260,8 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
             onMouseEnter={() => actions.dayEnter(style.key, date)}
           >
             <span className="il-cover">
+              {/* What the brush would order here, on the day's own line: a preview never changes the height of the line. */}
+              {ghost !== undefined && <i className="il-ghost">{ghost}</i>}
               {cover.rest > 0 && (
                 <span className="il-bar">
                   <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
@@ -268,7 +270,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
               )}
               {figure !== null && <b className={figure < 0 ? 'short' : 'over'}>{signedHours(figure)}</b>}
             </span>
-            {(chips.length > 0 || ghost !== undefined) && (
+            {chips.length > 0 && (
               <span className="il-chips">
                 {shown.map((chip) => (
                   <span
@@ -282,12 +284,6 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
                   </span>
                 ))}
                 {shown.length < chips.length && <span className="il-more">+{chips.length - shown.length} til</span>}
-                {ghost !== undefined && strokeSupplier && (
-                  <span className="il-chip ghost">
-                    <b>{ghost}</b>
-                    <span>{nameOf(strokeSupplier)}</span>
-                  </span>
-                )}
               </span>
             )}
           </div>
