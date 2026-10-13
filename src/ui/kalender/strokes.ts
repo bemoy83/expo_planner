@@ -7,6 +7,7 @@ import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import { parseCellInput } from './layout'
 import { rangeOf, type DrawnCell, type Pull, type Selection } from './selection'
+import { count } from '../dom'
 
 /** What the grid's tools would write, worked out from the selection and the rows: no state and no storage here. */
 
@@ -19,7 +20,6 @@ export const laneValue = ({ row, node }: Partial<AllocLane>, date: ISODate): num
   return node ? (sum === undefined ? undefined : Math.round(sum * 100) / 100) : row?.fte[date]
 }
 
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 const days = (n: number) => count(n, 'dag', 'dager')
 
 /** The working days of a span, or the whole span when it has none. */

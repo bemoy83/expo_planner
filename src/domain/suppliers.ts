@@ -1,13 +1,11 @@
-import { addCompetence, competenceStyles } from './competences'
+import { competencesFromFile, nameKey, newFileCompetences, oneEach, sameSet, withFileCompetences } from './competences'
 import type { TableDiff } from './tableDiff'
-import { competenceKey, SHIFT_IDS, type CompetenceKey, type ShiftId, type Supplier, type Workspace } from './types'
+import { SHIFT_IDS, type CompetenceKey, type ShiftId, type Supplier, type Workspace } from './types'
 
 /**
  * The suppliers the planner hires people from: a table of his own, as the permanent staff are.
  * No two have the same name: a file tells them apart by it.
  */
-
-const nameKey = (name: string): string => name.trim().toLowerCase()
 
 export const isSupplierNameTaken = (suppliers: Supplier[], name: string, exceptId?: string): boolean => suppliers.some((s) => s.id !== exceptId && nameKey(s.name) === nameKey(name))
 
@@ -47,14 +45,10 @@ export interface FileSupplier {
   competences: Record<string, boolean>
 }
 
-const sameSet = <T,>(a: T[], b: T[]) => a.length === b.length && a.every((item) => b.includes(item))
-
 /** The supplier as the file has it: what it says wins, what it does not say is kept. An empty cell empties the field. */
 const fromFile = (supplier: Supplier, file: FileSupplier): Supplier => {
-  const said = new Map(Object.entries(file.competences).map(([label, has]) => [competenceKey(label), has]))
-  const competences = [...supplier.competences.filter((key) => said.get(key) !== false), ...[...said].filter(([key, has]) => key && has && !supplier.competences.includes(key)).map(([key]) => key)]
   const shifts = SHIFT_IDS.filter((shift) => file.shifts[shift] ?? supplier.shifts.includes(shift))
-  const next: Supplier = { ...supplier, competences: sameSet(competences, supplier.competences) ? supplier.competences : competences, shifts: sameSet(shifts, supplier.shifts) ? supplier.shifts : shifts }
+  const next: Supplier = { ...supplier, competences: competencesFromFile(supplier.competences, file.competences), shifts: sameSet(shifts, supplier.shifts) ? supplier.shifts : shifts }
   const text = (part: 'contact' | 'note') => {
     if (file[part] === undefined) return
     if (file[part]) next[part] = file[part]
@@ -68,22 +62,6 @@ const fromFile = (supplier: Supplier, file: FileSupplier): Supplier => {
   }
   const same = next.competences === supplier.competences && next.shifts === supplier.shifts && next.contact === supplier.contact && next.note === supplier.note && next.rate === supplier.rate
   return same ? supplier : next
-}
-
-/** The suppliers of a file, one per name: the first row of a name counts. */
-const oneEach = (file: FileSupplier[]): FileSupplier[] => {
-  const seen = new Set<string>()
-  return file.filter((s) => nameKey(s.name) && !seen.has(nameKey(s.name)) && seen.add(nameKey(s.name)))
-}
-
-/** The workspace with the competences a file names that the app does not know, added by hand. */
-const withFileCompetences = (ws: Workspace, file: FileSupplier[]): Workspace => {
-  let next = ws
-  for (const label of new Set(file.flatMap((s) => Object.keys(s.competences)))) {
-    const added = addCompetence(next, label)
-    if (added) next = { ...next, competenceStyles: added }
-  }
-  return next
 }
 
 /** Suppliers from a file win over those in the app, matched by name; suppliers only in the app are kept. New ones come last. */
@@ -117,7 +95,6 @@ export const diffSuppliers = (ws: Workspace, file: FileSupplier[]): SuppliersDif
   const suppliers = new Map((ws.suppliers ?? []).map((s) => [nameKey(s.name), s]))
   const inFile = new Set(rows.map((row) => nameKey(row.name)))
   const onlyIds = new Set([...suppliers.values()].filter((s) => !inFile.has(nameKey(s.name))).map((s) => s.id))
-  const known = new Set(competenceStyles(ws).map((style) => style.key))
   const changed = rows.filter((row) => suppliers.has(nameKey(row.name)) && fromFile(suppliers.get(nameKey(row.name))!, row) !== suppliers.get(nameKey(row.name))).length
   const added = rows.filter((row) => !suppliers.has(nameKey(row.name))).length
   return {
@@ -126,6 +103,6 @@ export const diffSuppliers = (ws: Workspace, file: FileSupplier[]): SuppliersDif
     unchanged: rows.length - added - changed,
     onlyInApp: onlyIds.size,
     lostOrders: (ws.hireOrders ?? []).filter((order) => onlyIds.has(order.supplierId)).length,
-    newCompetences: [...new Set(rows.flatMap((row) => Object.keys(row.competences)))].filter((label) => competenceKey(label) && !known.has(competenceKey(label))),
+    newCompetences: newFileCompetences(ws, rows),
   }
 }

@@ -12,6 +12,7 @@ import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { PickField, TextField } from '../fields'
+import { count } from '../dom'
 
 const LACKING_TEXT: Record<ProjectLacking, string> = {
   number: 'Mangler prosjekt',
@@ -20,7 +21,6 @@ const LACKING_TEXT: Record<ProjectLacking, string> = {
 }
 
 const day = (date: string) => `${date.slice(8)}.${date.slice(5, 7)}.${date.slice(0, 4)}`
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 const isYear = (text: string) => text === '' || /^(19|20)\d\d$/.test(text)
 
 /** Where the number is in use: orders read in, demand lines, planning rows. */

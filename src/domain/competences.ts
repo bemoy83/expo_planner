@@ -61,6 +61,10 @@ const mapChanged = <T,>(list: T[], change: (item: T) => T): T[] => {
   return next.some((item, index) => item !== list[index]) ? next : list
 }
 
+/** People or suppliers with one competence replaced by another, where they hold it; the list itself where none does. */
+const withKeySwapped = <T extends { competences: CompetenceKey[] }>(list: T[] | undefined, from: CompetenceKey, to: CompetenceKey): T[] | undefined =>
+  list && to !== from ? mapChanged(list, (item) => (item.competences.includes(from) ? { ...item, competences: [...new Set(item.competences.map((key) => (key === from ? to : key)))] } : item)) : list
+
 /**
  * Gives a competence another name, everywhere it is named: on the product types, the demand lines, the planning
  * rows, the people, their blocks and the hours moved between days. Its short name follows unless the planner has
@@ -83,10 +87,10 @@ export const renameCompetence = (ws: Workspace, from: CompetenceKey, toLabel: st
     kpi: ws.kpi && workTypes !== ws.kpi.workTypes ? { ...ws.kpi, workTypes } : ws.kpi,
     demand: text(ws.demand),
     allocations: text(ws.allocations),
-    persons: ws.persons && mapChanged(ws.persons, (person) => (to !== from && person.competences.includes(from) ? { ...person, competences: person.competences.map((key) => (key === from ? to : key)) } : person)),
+    persons: withKeySwapped(ws.persons, from, to),
     assignments: keyed(ws.assignments),
     demandAdjustments: keyed(ws.demandAdjustments),
-    suppliers: ws.suppliers && mapChanged(ws.suppliers, (supplier) => (to !== from && supplier.competences.includes(from) ? { ...supplier, competences: supplier.competences.map((key) => (key === from ? to : key)) } : supplier)),
+    suppliers: withKeySwapped(ws.suppliers, from, to),
     hireOrders: keyed(ws.hireOrders),
     competenceStyles: stored ? asRecord(styles.map((s) => (s === style ? renamed : s))) : ws.competenceStyles,
   }
@@ -186,21 +190,16 @@ export const replaceCompetence = (ws: Workspace, from: CompetenceKey, toLabel: s
   const to = competenceKey(toLabel)
   if (!to || to === from) return ws
   const swap = <T extends { competence: CompetenceKey }>(list: T[] | undefined) => (list?.some((item) => item.competence === from) ? list.map((item) => (item.competence === from ? { ...item, competence: to } : item)) : list)
-  const persons = ws.persons?.some((person) => person.competences.includes(from))
-    ? ws.persons.map((person) => (person.competences.includes(from) ? { ...person, competences: [...new Set(person.competences.map((key) => (key === from ? to : key)))] } : person))
-    : ws.persons
   let styles = ws.competenceStyles
   if (styles?.[from]) {
     const { [from]: old, ...rest } = styles
     styles = rest[to] ? rest : { ...rest, [to]: { ...old, key: to, label: toLabel.trim(), shortLabel: defaultShortLabel(toLabel.trim()) } }
   }
-  const suppliers = ws.suppliers?.some((supplier) => supplier.competences.includes(from))
-    ? ws.suppliers.map((supplier) => (supplier.competences.includes(from) ? { ...supplier, competences: [...new Set(supplier.competences.map((key) => (key === from ? to : key)))] } : supplier))
-    : ws.suppliers
-  return { ...ws, persons, suppliers, assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), hireOrders: swap(ws.hireOrders), competenceStyles: styles }
+  return { ...ws, persons: withKeySwapped(ws.persons, from, to), suppliers: withKeySwapped(ws.suppliers, from, to), assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), hireOrders: swap(ws.hireOrders), competenceStyles: styles }
 }
 
-const nameKey = (name: string): string => name.trim().toLowerCase()
+/** How the rows of a table are told apart by name, in a file and in the app: without regard to case and the spaces around it. */
+export const nameKey = (name: string): string => name.trim().toLowerCase()
 
 /** Whether a person already has the name, other than the person given. People are told apart by their names in a file. */
 export const isNameTaken = (persons: Person[], name: string, exceptId?: string): boolean => persons.some((p) => p.id !== exceptId && nameKey(p.name) === nameKey(name))
@@ -214,13 +213,21 @@ export interface FilePerson {
   competences: Record<string, boolean>
 }
 
-const sameSet = (a: CompetenceKey[], b: CompetenceKey[]) => a.length === b.length && a.every((key) => b.includes(key))
+export const sameSet = <T,>(a: T[], b: T[]) => a.length === b.length && a.every((item) => b.includes(item))
+
+/**
+ * The competences someone has after a file: for each competence the file has a column for, by its name, what it says wins;
+ * the others are kept. The list itself is returned when the file changes nothing.
+ */
+export const competencesFromFile = (held: CompetenceKey[], file: Record<string, boolean>): CompetenceKey[] => {
+  const said = new Map(Object.entries(file).map(([label, has]) => [competenceKey(label), has]))
+  const next = [...held.filter((key) => said.get(key) !== false), ...[...said].filter(([key, has]) => key && has && !held.includes(key)).map(([key]) => key)]
+  return sameSet(next, held) ? held : next
+}
 
 /** The person as the file has them: what it says wins, what it does not say is kept. */
 const fromFile = (person: Person, file: FilePerson): Person => {
-  const said = new Map(Object.entries(file.competences).map(([label, has]) => [competenceKey(label), has]))
-  const competences = [...person.competences.filter((key) => said.get(key) !== false), ...[...said].filter(([key, has]) => key && has && !person.competences.includes(key)).map(([key]) => key)]
-  const next: Person = { ...person, active: file.active ?? person.active, competences: sameSet(competences, person.competences) ? person.competences : competences }
+  const next: Person = { ...person, active: file.active ?? person.active, competences: competencesFromFile(person.competences, file.competences) }
   if (file.note !== undefined) {
     if (file.note) next.note = file.note
     else delete next.note
@@ -228,20 +235,26 @@ const fromFile = (person: Person, file: FilePerson): Person => {
   return next.active === person.active && next.competences === person.competences && (next.note ?? '') === (person.note ?? '') ? person : next
 }
 
-/** The people of a file, one per name: the first row of a name counts. */
-const oneEach = (file: FilePerson[]): FilePerson[] => {
+/** The rows of a file, one per name: the first row of a name counts. */
+export const oneEach = <T extends { name: string }>(file: T[]): T[] => {
   const seen = new Set<string>()
-  return file.filter((person) => nameKey(person.name) && !seen.has(nameKey(person.name)) && seen.add(nameKey(person.name)))
+  return file.filter((row) => nameKey(row.name) && !seen.has(nameKey(row.name)) && seen.add(nameKey(row.name)))
 }
 
 /** The workspace with the competences a file names that the app does not know, added by hand. */
-const withFileCompetences = (ws: Workspace, file: FilePerson[]): Workspace => {
+export const withFileCompetences = (ws: Workspace, file: { competences: Record<string, boolean> }[]): Workspace => {
   let next = ws
-  for (const label of new Set(file.flatMap((person) => Object.keys(person.competences)))) {
+  for (const label of new Set(file.flatMap((row) => Object.keys(row.competences)))) {
     const added = addCompetence(next, label)
     if (added) next = { ...next, competenceStyles: added }
   }
   return next
+}
+
+/** The competences a file names that the app does not know. */
+export const newFileCompetences = (ws: Workspace, file: { competences: Record<string, boolean> }[]): string[] => {
+  const known = new Set(competenceStyles(ws).map((style) => style.key))
+  return [...new Set(file.flatMap((row) => Object.keys(row.competences)))].filter((label) => competenceKey(label) && !known.has(competenceKey(label)))
 }
 
 /** People from a file win over those in the app, matched by name; people only in the app are kept. New people come last. */
@@ -277,7 +290,6 @@ export const diffPersons = (ws: Workspace, file: FilePerson[]): PersonsDiff => {
   const inFile = new Set(rows.map((row) => nameKey(row.name)))
   const only = [...persons.values()].filter((person) => !inFile.has(nameKey(person.name)))
   const onlyIds = new Set(only.map((person) => person.id))
-  const known = new Set(competenceStyles(ws).map((style) => style.key))
   const changed = rows.filter((row) => persons.has(nameKey(row.name)) && fromFile(persons.get(nameKey(row.name))!, row) !== persons.get(nameKey(row.name))).length
   const added = rows.filter((row) => !persons.has(nameKey(row.name))).length
   return {
@@ -286,7 +298,7 @@ export const diffPersons = (ws: Workspace, file: FilePerson[]): PersonsDiff => {
     unchanged: rows.length - added - changed,
     onlyInApp: only.length,
     lostBlocks: (ws.assignments ?? []).filter((a) => onlyIds.has(a.personId)).length + (ws.unavailability ?? []).filter((u) => onlyIds.has(u.personId)).length,
-    newCompetences: [...new Set(rows.flatMap((row) => Object.keys(row.competences)))].filter((label) => competenceKey(label) && !known.has(competenceKey(label))),
+    newCompetences: newFileCompetences(ws, rows),
   }
 }
 

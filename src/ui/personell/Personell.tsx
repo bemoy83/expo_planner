@@ -4,16 +4,16 @@ import { todayIso } from '../../domain/dates'
 import type { Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
-import { Menu, MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { DataTable } from '../DataTable'
-import { competenceColor } from '../dom'
 import { TextField } from '../fields'
 import { useTable, type Column } from '../useTable'
 import { AddDialog } from './AddDialog'
-import { Plus, X } from 'lucide-react'
+import { CompetenceToggles } from './CompetenceToggles'
+import { X } from 'lucide-react'
 
 /** The permanent staff and what each of them can do. How the competences are shown is on Kompetanser. */
 export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void }) {
@@ -75,33 +75,7 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
       key: 'competences',
       head: 'Kompetanser',
       text: (person) => styles.filter((style) => person.competences.includes(style.key)).map((style) => style.label),
-      cell: (person) => (
-        <span className="comp-toggles">
-          {styles
-            .filter((style) => person.competences.includes(style.key))
-            .map((style) => (
-              <button key={style.key} className="comp-toggle" title={`Ta bort ${style.label}`} onClick={() => setPersons((list) => togglePersonCompetence(list, person.id, style.key))}>
-                <i className="swatch" style={competenceColor(style)} />
-                {style.label}
-                <X size={11} aria-hidden />
-              </button>
-            ))}
-          {styles.some((style) => !person.competences.includes(style.key)) && (
-            <Menu label={<Plus size={13} aria-hidden />} ariaLabel={`Gi ${person.name} en kompetanse`} title="Legg til kompetanse" className="comp-add">
-              {() =>
-                styles
-                  .filter((style) => !person.competences.includes(style.key))
-                  .map((style) => (
-                    <button key={style.key} role="menuitem" onClick={() => setPersons((list) => togglePersonCompetence(list, person.id, style.key))}>
-                      <i className="swatch" style={competenceColor(style)} />
-                      {style.label}
-                    </button>
-                  ))
-              }
-            </Menu>
-          )}
-        </span>
-      ),
+      cell: (person) => <CompetenceToggles styles={styles} held={person.competences} owner={person.name} onToggle={(key) => setPersons((list) => togglePersonCompetence(list, person.id, key))} />,
     },
     {
       key: 'active',

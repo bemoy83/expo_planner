@@ -4,7 +4,7 @@ import { daysBetween, type ISODate } from '../../domain/dates'
 import { paidHours } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Person, Unavailability, WorkdaySettings } from '../../domain/types'
 import type { PersonWeek } from '../../domain/staffing'
-import { competenceColor, modKey } from '../dom'
+import { competenceColor, count, modKey } from '../dom'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
@@ -21,8 +21,6 @@ import { hoursText } from './week'
 const NO_ASSIGNMENTS: Assignment[] = []
 const NO_ABSENCE: Unavailability[] = []
 const NO_PREVIEW: Piece[] = []
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 interface LineProps {
   person: Person
@@ -262,11 +260,11 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               )}
               {info.mode === 'select' ? (
                 <span>
-                  {plural(info.days, 'dag', 'dager')} × {plural(info.people, 'rad', 'rader')}
+                  {count(info.days, 'dag', 'dager')} × {count(info.people, 'rad', 'rader')}
                 </span>
               ) : (
                 <span>
-                  {plural(info.days, 'dag', 'dager')} · {info.mode === 'paint' ? '+' : ''}
+                  {count(info.days, 'dag', 'dager')} · {info.mode === 'paint' ? '+' : ''}
                   {hoursText(info.hours)} t{info.mode === 'paint' ? ` · ${info.people} pers.` : ''}
                 </span>
               )}
@@ -285,7 +283,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
           ) : (
             <>
               <span>
-                {plural(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
+                {count(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {chosen.rowTo - chosen.rowFrom + 1} pers.
               </span>
               <span>{modKey('C')} kopier</span>
               <span>Esc fjern</span>

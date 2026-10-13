@@ -340,8 +340,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-order:hover{background:color-mix(in oklab,var(--surface) 50%,transparent)}
 .il-order.on{background:var(--surface);box-shadow:0 1px 2px var(--on-line-soft)}
 .il-order-line{display:flex;align-items:center;gap:4px;min-width:0}
-.il-order-line>button{background:transparent;white-space:nowrap}
-.il-order-line>button:hover{background:var(--sunken)}
+.il-order-line>:is(.il-order-supplier,.il-order-shift){background:transparent;white-space:nowrap}
+.il-order-line>:is(.il-order-supplier,.il-order-shift):hover{background:var(--sunken)}
 .il-order-supplier{flex:0 1 auto;min-width:64px;max-width:170px;margin-right:auto;padding:5px 6px;font-size:var(--fs-sm);font-weight:500}
 .il-order-supplier span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .il-order-shift{height:26px;padding:0 6px;font-size:var(--fs-xs);font-weight:500}
@@ -353,8 +353,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-step{display:inline-flex;align-items:center;gap:2px}
 .il-step button{width:23px;height:23px;padding:0;border-radius:6px}
 .il-step b{min-width:20px;font:700 var(--fs-md) var(--font-num);text-align:center}
-.il-order-line>.il-status{gap:5px;min-width:74px;height:24px;padding:0 7px;border-radius:6px;background:color-mix(in oklab,var(--bg) 60%,transparent);font-size:var(--fs-xs);font-weight:500}
-.il-order-line>.il-status.waits{background:transparent;color:var(--muted)}
+/* The answer of an order, on a line of the editor and in the panel: «Venter» is plain, «Bekreftet» has a fill. */
+.il-status{flex:none;gap:5px;min-width:74px;height:24px;padding:0 7px;border-radius:6px;background:color-mix(in oklab,var(--bg) 60%,transparent);font-size:var(--fs-xs);font-weight:500;white-space:nowrap}
+.il-status:hover{background:var(--sunken)}
+.il-status.waits{background:transparent;color:var(--muted)}
 .il-status .il-glyph{color:var(--text)}
 .il-add{display:flex;align-items:center;gap:10px}
 .il-add button{flex:none;height:28px;padding:0 9px;font-size:var(--fs-sm);white-space:nowrap}
@@ -362,9 +364,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* The popovers of the editor */
 .il-pop{position:fixed;z-index:80;display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:var(--panel);box-shadow:0 12px 32px -8px var(--shadow),0 0 0 1px var(--line-strong);font-size:var(--fs-md)}
 .il-pop.il-menu{gap:0;padding:6px}
-.il-menu>button{justify-content:flex-start;gap:8px;padding:8px 10px;background:transparent;text-align:left}
-.il-menu>button:hover:not(:disabled){background:var(--sunken)}
-.il-menu>button:disabled{opacity:.45}
+.il-menu>button{gap:8px}
 .il-menu>button svg{margin-left:auto}
 .il-menu-name{font-weight:500}
 .il-menu-note{font-size:var(--fs-xs);color:var(--muted)}
@@ -405,8 +405,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-panel-what{flex:1;min-width:0;justify-content:flex-start;gap:8px;margin-left:-6px;padding:5px 6px;background:transparent;text-align:left}
 .il-panel-what:hover{background:var(--wash)}
 .il-panel-what span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.il-panel-order .il-status{gap:5px;min-width:92px;height:24px;padding:0 7px;border-radius:6px;font-size:var(--fs-xs);font-weight:500}
-.il-panel-order .il-status.waits{background:transparent;color:var(--muted)}
+.il-panel-order .il-status{min-width:92px}
 .il-offer summary{margin:0;cursor:pointer}
 .il-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
 .il-tags button{gap:6px;padding:4px 9px;border-radius:6px;background:transparent;box-shadow:inset 0 0 0 1px var(--line);font-size:var(--fs-sm);color:var(--muted)}

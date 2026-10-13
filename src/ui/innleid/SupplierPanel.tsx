@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, Copy, Paintbrush } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
-import { isWaiting, orderText, shiftOf, SHIFT_LABELS, supplierTotals } from '../../domain/hire'
+import { groupKey, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierTotals } from '../../domain/hire'
 import { SHIFT_IDS, type HireOrder, type Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
-import { clock, hoursText } from '../bemanning/week'
+import { hoursText } from '../bemanning/week'
 import { SidePanel } from '../common'
-import { competenceColor } from '../dom'
+import { competenceColor, count } from '../dom'
 import { fmtDay } from '../kalender/labels'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+/** How long «Kopiert» stands on the button after the order is copied, in milliseconds. */
+const COPIED_MS = 1600
 
 /** A supplier's order: what it is ordered for per day, with the answer of each, a text of it to send, and what it offers. */
 function SupplierOrder({ supplier }: { supplier: Supplier }) {
@@ -20,12 +21,11 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1600)
+    const timer = setTimeout(() => setCopied(false), COPIED_MS)
     return () => clearTimeout(timer)
   }, [copied])
   const competences = [...styles.values()]
-  const place = (key: string) => competences.findIndex((style) => style.key === key)
-  const own = orders.filter((order) => order.supplierId === supplier.id).sort((a, b) => a.date.localeCompare(b.date) || place(a.competence) - place(b.competence) || a.start - b.start)
+  const own = supplierOrders(supplier, orders, competences)
   const byDay = new Map<ISODate, HireOrder[]>()
   for (const order of own) byDay.set(order.date, [...(byDay.get(order.date) ?? []), order])
   const totals = supplierTotals(supplier, orders, wd)
@@ -33,7 +33,7 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
   const copy = () => navigator.clipboard.writeText(orderText(supplier, orders, competences)).then(() => setCopied(true))
   const show = (order: HireOrder) => {
     openOn(order.competence, order.date)
-    pick(`${order.supplierId}|${order.start}|${order.end}`)
+    pick(groupKey(order.supplierId, order))
     onShowDate(order.date)
   }
   return (
@@ -95,13 +95,12 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
             <span className="insp-eyebrow">{fmtDay(date)}</span>
             {list.map((order) => {
               const style = styles.get(order.competence)
-              const shift = shiftOf(order, wd)
               return (
                 <div key={order.id} className="il-panel-order" style={competenceColor(style)}>
                   <button className="il-panel-what" title="Vis i rutenettet" onClick={() => show(order)}>
                     <i className="swatch" />
                     <span>{style?.label ?? order.competence}</span>
-                    <em>{shift ? SHIFT_LABELS[shift] : `${clock(order.start)}–${clock(order.end)}`}</em>
+                    <em>{shiftText(order, wd)}</em>
                   </button>
                   <b>{order.fte}</b>
                   {order.asked !== undefined && <em>av {order.asked}</em>}

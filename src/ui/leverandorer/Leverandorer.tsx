@@ -6,16 +6,17 @@ import { addSupplier, diffSuppliers, isSupplierNameTaken, mergeSuppliers, remove
 import { SHIFT_IDS, type Supplier } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { readLeverandorerWorkbook, writeLeverandorerWorkbook } from '../../import/leverandorerFile'
-import { Menu, MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileButtons } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { DataTable } from '../DataTable'
-import { competenceColor } from '../dom'
+import { count } from '../dom'
 import { NumberField, TextField } from '../fields'
 import { useTable, type Column } from '../useTable'
 import { AddDialog } from '../personell/AddDialog'
-import { Plus, X } from 'lucide-react'
+import { CompetenceToggles } from '../personell/CompetenceToggles'
+import { X } from 'lucide-react'
 
 /** The suppliers people are hired from, and what each of them can send. How the competences are shown is on Kompetanser. */
 export function Leverandorer({ onOpenCompetences }: { onOpenCompetences: () => void }) {
@@ -40,14 +41,14 @@ export function Leverandorer({ onOpenCompetences }: { onOpenCompetences: () => v
     setSuppliers((list) => updateSupplier(list, supplier.id, { name }))
   }
 
-  const count = (n: number) => (n === 1 ? '1 leverandør' : `${n} leverandører`)
+  const suppliersText = (n: number) => count(n, 'leverandør', 'leverandører')
 
   const { pending, onFile, done } = useTableFile<FileSupplier[]>({
     read: readLeverandorerWorkbook,
     empty: !suppliers.length,
     takeIn: (incoming, file) => {
       updateStaffing((w) => mergeSuppliers(w, incoming))
-      setMessage({ kind: 'ok', text: `${file} lest inn: ${count(incoming.length)}.` })
+      setMessage({ kind: 'ok', text: `${file} lest inn: ${suppliersText(incoming.length)}.` })
     },
     onError: (text) => setMessage({ kind: 'error', text }),
   })
@@ -63,7 +64,7 @@ export function Leverandorer({ onOpenCompetences }: { onOpenCompetences: () => v
 
   const remove = (supplier: Supplier) => {
     const orders = (ws.hireOrders ?? []).filter((order) => order.supplierId === supplier.id).length
-    const question = orders ? `Slette ${supplier.name}? ${orders === 1 ? '1 bestilling' : `${orders} bestillinger`} i Bemanning slettes også.` : `Slette ${supplier.name}?`
+    const question = orders ? `Slette ${supplier.name}? ${count(orders, 'bestilling', 'bestillinger')} i Bemanning slettes også.` : `Slette ${supplier.name}?`
     if (confirm(question)) updateStaffing((w) => removeSupplier(w, supplier.id))
   }
 
@@ -78,33 +79,7 @@ export function Leverandorer({ onOpenCompetences }: { onOpenCompetences: () => v
       key: 'competences',
       head: 'Kompetanser',
       text: (supplier) => styles.filter((style) => supplier.competences.includes(style.key)).map((style) => style.label),
-      cell: (supplier) => (
-        <span className="comp-toggles">
-          {styles
-            .filter((style) => supplier.competences.includes(style.key))
-            .map((style) => (
-              <button key={style.key} className="comp-toggle" title={`Ta bort ${style.label}`} onClick={() => setSuppliers((list) => toggleSupplierCompetence(list, supplier.id, style.key))}>
-                <i className="swatch" style={competenceColor(style)} />
-                {style.label}
-                <X size={11} aria-hidden />
-              </button>
-            ))}
-          {styles.some((style) => !supplier.competences.includes(style.key)) && (
-            <Menu label={<Plus size={13} aria-hidden />} ariaLabel={`Gi ${supplier.name} en kompetanse`} title="Legg til kompetanse" className="comp-add">
-              {() =>
-                styles
-                  .filter((style) => !supplier.competences.includes(style.key))
-                  .map((style) => (
-                    <button key={style.key} role="menuitem" onClick={() => setSuppliers((list) => toggleSupplierCompetence(list, supplier.id, style.key))}>
-                      <i className="swatch" style={competenceColor(style)} />
-                      {style.label}
-                    </button>
-                  ))
-              }
-            </Menu>
-          )}
-        </span>
-      ),
+      cell: (supplier) => <CompetenceToggles styles={styles} held={supplier.competences} owner={supplier.name} onToggle={(key) => setSuppliers((list) => toggleSupplierCompetence(list, supplier.id, key))} />,
     },
     ...SHIFT_IDS.map(
       (shift): Column<Supplier> => ({
@@ -152,7 +127,7 @@ export function Leverandorer({ onOpenCompetences }: { onOpenCompetences: () => v
     <div className="behov">
       <div className="toolbar">
         <input className="search" type="search" placeholder="Søk navn" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <span className="muted small">{count(suppliers.length)}</span>
+        <span className="muted small">{suppliersText(suppliers.length)}</span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
         <TableFileButtons
@@ -190,7 +165,7 @@ export function Leverandorer({ onOpenCompetences }: { onOpenCompetences: () => v
           title="Importer leverandører"
           source={pending.file}
           results={[describeDiff('Leverandører', diff), ...(diff.newCompetences.length ? [`Nye kompetanser: ${diff.newCompetences.join(', ')}`] : [])]}
-          replaceText={`leverandørene i appen byttes ut med dem i filen, i filens rekkefølge${diff.onlyInApp ? `; ${count(diff.onlyInApp)} som bare finnes i appen slettes${diff.lostOrders ? `, med ${diff.lostOrders === 1 ? '1 bestilling' : `${diff.lostOrders} bestillinger`}` : ''}` : ''}`}
+          replaceText={`leverandørene i appen byttes ut med dem i filen, i filens rekkefølge${diff.onlyInApp ? `; ${suppliersText(diff.onlyInApp)} som bare finnes i appen slettes${diff.lostOrders ? `, med ${count(diff.lostOrders, 'bestilling', 'bestillinger')}` : ''}` : ''}`}
           onCancel={done}
           onApply={apply}
         />

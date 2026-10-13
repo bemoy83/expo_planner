@@ -8,7 +8,8 @@ import { PlanBar } from './PlanBar'
 import { FilterMenu, PlanToolSwitch } from './PlanTools'
 import { filterSummary, type Dimension, type RowFilter } from './rows'
 import type { Tool } from './selection'
-import type { PlanMode } from './zoom'
+import type { CrewPart, PlanMode } from './zoom'
+import { count } from '../dom'
 
 /** What the rows are: the demand plan, or the people who do the work. First in the planning bar of both modes. */
 export function ModeSwitch({ mode, onChange }: { mode: PlanMode; onChange: (mode: PlanMode) => void }) {
@@ -20,6 +21,21 @@ export function ModeSwitch({ mode, onChange }: { mode: PlanMode; onChange: (mode
       options={[
         { value: 'plan', label: <><CalendarDays size={14} aria-hidden /> Plan</>, title: 'Plan: fordel behovet på dagene' },
         { value: 'bemanning', label: <><Users size={14} aria-hidden /> Bemanning</>, title: 'Bemanning: sett de faste på arbeidet som er planlagt, og lei inn til resten' },
+      ]}
+    />
+  )
+}
+
+/** The part of Bemanning that is shown, beside the mode. */
+export function PartSwitch({ part, onChange }: { part: CrewPart; onChange: (part: CrewPart) => void }) {
+  return (
+    <Segmented
+      label="Mannskap"
+      value={part}
+      onChange={onChange}
+      options={[
+        { value: 'faste', label: 'Faste', title: 'Faste: sett de faste på arbeidet som er planlagt' },
+        { value: 'innleid', label: 'Innleid', title: 'Innleid: dekk behovet som står igjen etter de faste, med folk fra leverandører' },
       ]}
     />
   )
@@ -125,8 +141,6 @@ interface HeadProps {
   onNewRow: () => void
   onPropose: () => void
 }
-
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** The page header of the Kalender: what is shown, and the actions that are not tools of the grid. */
 export function KalenderHead({ projects, rows, overbooked, places, inspectorOpen, onInspector, onNewRow, onPropose }: HeadProps) {

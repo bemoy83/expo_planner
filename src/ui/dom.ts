@@ -1,6 +1,9 @@
 import type { CSSProperties } from 'react'
 import type { CompetenceStyle } from '../domain/types'
 
+/** A number with what it counts, in the singular or the plural: «1 dag», «3 dager». */
+export const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
+
 /** Whether a key press belongs to a field that is being typed in, so the page's own keys leave it alone. */
 export const isTyping = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)

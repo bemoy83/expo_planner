@@ -30,7 +30,7 @@ import type { AllocLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
 import { hiredFte, hiredLine } from '../../domain/hire'
 import { InnleidHead, InnleidHeading, InnleidRows, InnleidToolbar, InnleidTop } from '../innleid/InnleidParts'
-import { cleanCrewPart, InnleidScope, type CrewPart } from '../innleid/InnleidScope'
+import { InnleidScope } from '../innleid/InnleidScope'
 import { InnleidSidePanel } from '../innleid/SupplierPanel'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
@@ -46,7 +46,7 @@ import { useProjectHover } from './useProjectHover'
 import { useStableActions } from './useStableActions'
 import { useToolKeys } from './useToolKeys'
 import { useModeZoom } from './useModeZoom'
-import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode } from './zoom'
+import { BEMANNING_DAYS, cleanPlanMode, enterSpan, fitWidth, spanDays, zoomOf, type DaySpan, type HeldColumns, type PlanMode, cleanCrewPart, type CrewPart } from './zoom'
 import { copyText, eraserCells, eraserPill, ghostCells, laneValue, overbookedDays, pasteCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress, spanEndAt } from './strokes'
 import { followLanes, rangeOf, type Cell, type LaneKey, type Press, type Pull, type Selection, type Tool } from './selection'
 
@@ -68,7 +68,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const overtime = useMemo(() => overtimeLine(ws), [ws.persons, ws.unavailability, ws.assignments, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
   // The people hired in Innleid: the confirmed orders are added to «Tilgjengelig», those that wait are only told of.
   const hired = useMemo(() => hiredFte(ws), [ws.hireOrders, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
-  const hiredCapacity = useMemo(() => hiredLine(ws), [ws.hireOrders, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  const hiredCapacity = useMemo(() => hiredLine(hired.confirmed), [hired])
   const capacity = useMemo(() => [absence, overtime, hiredCapacity], [absence, overtime, hiredCapacity])
   const fromBemanning = useMemo(() => {
     const overtimeFte = Object.fromEntries(Object.entries(overtime.values).map(([date, people]) => [date, Math.round(((people * (overtime.hours?.[date] ?? 0)) / settings.hoursPerDay) * 100) / 100]))

@@ -1,5 +1,5 @@
 import { dayOfMonth, monthShort, weekdayIndex, WEEKDAYS_NB, type ISODate } from './dates'
-import type { CapacityLine, CompetenceKey, DayValues, HireOrder, Interval, Minute, ShiftId, Supplier, WorkdaySettings, Workspace } from './types'
+import { SHIFT_IDS, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type WorkdaySettings, type Workspace } from './types'
 
 /**
  * The rules of Innleid: orders of people from suppliers against the hours of a competence that remain on a day
@@ -26,11 +26,21 @@ export const shiftTimes = (shift: ShiftId, wd: WorkdaySettings): Interval => {
 }
 
 /** The shift an order's times are, or `null` for times of its own. */
-export const shiftOf = (times: Interval, wd: WorkdaySettings, shifts: ShiftId[] = ['dag', 'kveld', 'natt']): ShiftId | null =>
-  shifts.find((shift) => shiftTimes(shift, wd).start === times.start && shiftTimes(shift, wd).end === times.end) ?? null
+export const shiftOf = (times: Interval, wd: WorkdaySettings): ShiftId | null => SHIFT_IDS.find((shift) => shiftTimes(shift, wd).start === times.start && shiftTimes(shift, wd).end === times.end) ?? null
+
+const clock = (minute: Minute) => `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+
+/** A stretch of time as it is written on an order: «07:00–15:00». */
+export const timesText = (times: Interval): string => `${clock(times.start)}–${clock(times.end)}`
+
+/** When an order is worked, as a line of the editor names it: its shift, or its own times. */
+export const shiftText = (times: Interval, wd: WorkdaySettings): string => {
+  const shift = shiftOf(times, wd)
+  return shift ? SHIFT_LABELS[shift] : timesText(times)
+}
 
 /** The length of an order's time, which goes through the night where its end is not after its start. */
-export const hireMinutes = ({ start, end }: Interval): Minute => (end > start ? end - start : end + DAY - start)
+const hireMinutes = ({ start, end }: Interval): Minute => (end > start ? end - start : end + DAY - start)
 
 /** The paid hours one person has in an order: its length, less a lunch break as long as the normal day's when it lasts six hours or more. */
 export const hireHours = (times: Interval, wd: WorkdaySettings): number => {
@@ -72,6 +82,13 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
   const remaining = need - planned
   const state: CoverState = need <= 0 && !orders.length ? 'none' : remaining > HOURS_NOISE ? 'short' : -remaining < Math.max(HOURS_NOISE, least - 1e-6) ? 'ok' : 'over'
   return { rest: need, planned, confirmed, remaining, state }
+}
+
+/** I1: how much of what remains is confirmed, and how much waits for an answer, as shares of it that together are at most the whole. */
+export const coverShares = (cover: Coverage): { confirmed: number; waiting: number } => {
+  if (!(cover.rest > 0)) return { confirmed: 0, waiting: 0 }
+  const confirmed = Math.min(1, cover.confirmed / cover.rest)
+  return { confirmed, waiting: Math.min(1 - confirmed, (cover.planned - cover.confirmed) / cover.rest) }
 }
 
 /** The figure a cover is shown with: the hours missing as a negative number, the hours over as a positive one, `null` where neither. */
@@ -197,6 +214,9 @@ export interface OrderGroup {
   orders: HireOrder[]
 }
 
+/** What tells the lines of the editor apart: a supplier and a time. */
+export const groupKey = (supplierId: string, times: Interval): string => `${supplierId}|${times.start}|${times.end}`
+
 /** How late in the working day a time is, counted from six in the morning, so that a night shift comes last. */
 const fromMorning = (minute: Minute) => (minute - 360 + DAY) % DAY
 
@@ -204,7 +224,7 @@ const fromMorning = (minute: Minute) => (minute - 360 + DAY) % DAY
 export const orderGroups = (orders: HireOrder[], suppliers: Supplier[]): OrderGroup[] => {
   const groups = new Map<string, OrderGroup>()
   for (const order of orders) {
-    const key = `${order.supplierId}|${order.start}|${order.end}`
+    const key = groupKey(order.supplierId, order)
     if (!groups.has(key)) groups.set(key, { key, supplierId: order.supplierId, start: order.start, end: order.end, orders: [] })
     groups.get(key)!.orders.push(order)
   }
@@ -223,21 +243,23 @@ export const fillGroup = (group: OrderGroup, competence: CompetenceKey, dates: I
   return dates.filter((date) => !have.has(date)).map((date) => ({ id: makeId(), supplierId: group.supplierId, competence, date, fte, start: group.start, end: group.end, conf: null }))
 }
 
-const clock = (minute: Minute) => `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+/** A supplier's orders as they are listed: by day, then in the planner's order of the competences, then by time. */
+export const supplierOrders = (supplier: Supplier, orders: HireOrder[], competences: { key: CompetenceKey }[]): HireOrder[] => {
+  const place = (key: CompetenceKey) => competences.findIndex((competence) => competence.key === key)
+  return orders.filter((order) => order.supplierId === supplier.id).sort((a, b) => a.date.localeCompare(b.date) || place(a.competence) - place(b.competence) || fromMorning(a.start) - fromMorning(b.start))
+}
 
 /**
  * I9: a supplier's order as text, to send: a heading per day, and under it a line per competence and time.
  * `competences` are the competences in the planner's order, with their names.
  */
 export const orderText = (supplier: Supplier, orders: HireOrder[], competences: { key: CompetenceKey; label: string }[]): string => {
-  const place = (key: CompetenceKey) => competences.findIndex((competence) => competence.key === key)
-  const own = orders.filter((order) => order.supplierId === supplier.id).sort((a, b) => a.date.localeCompare(b.date) || place(a.competence) - place(b.competence) || fromMorning(a.start) - fromMorning(b.start))
   const lines = [`Bestilling – ${supplier.name}`]
   let day = ''
-  for (const order of own) {
+  for (const order of supplierOrders(supplier, orders, competences)) {
     if (order.date !== day) lines.push(`${WEEKDAYS_NB[weekdayIndex(order.date)].toLowerCase()} ${dayOfMonth(order.date)}. ${monthShort(order.date)}`)
     day = order.date
-    lines.push(`  ${competences[place(order.competence)]?.label ?? order.competence}: ${order.fte} pers. ${clock(order.start)}–${clock(order.end)}`)
+    lines.push(`  ${competences.find((competence) => competence.key === order.competence)?.label ?? order.competence}: ${order.fte} pers. ${timesText(order)}`)
   }
   return lines.join('\n')
 }
@@ -257,6 +279,21 @@ export interface HireBoard {
   underDays: ISODate[]
 }
 
+/** The key of a competence on a day, in the maps of the board. */
+export const dayKey = (competence: CompetenceKey, date: ISODate): string => `${competence}|${date}`
+
+/** The orders per competence and day, by `dayKey`. */
+export const ordersByDay = (orders: HireOrder[]): Map<string, HireOrder[]> => {
+  const map = new Map<string, HireOrder[]>()
+  for (const order of orders) {
+    const key = dayKey(order.competence, order.date)
+    const list = map.get(key)
+    if (list) list.push(order)
+    else map.set(key, [order])
+  }
+  return map
+}
+
 const NO_COVER: Coverage = { rest: 0, planned: 0, confirmed: 0, remaining: 0, state: 'none' }
 
 /**
@@ -264,17 +301,13 @@ const NO_COVER: Coverage = { rest: 0, planned: 0, confirmed: 0, remaining: 0, st
  * the demand of the plan less what they are assigned, never less than nothing.
  */
 export const hireBoard = (competences: CompetenceKey[], dates: ISODate[], restOf: (competence: CompetenceKey, date: ISODate) => number, orders: HireOrder[], wd: WorkdaySettings): HireBoard => {
-  const ordered = new Map<string, HireOrder[]>()
-  for (const order of orders) {
-    const key = `${order.competence}|${order.date}`
-    ordered.set(key, [...(ordered.get(key) ?? []), order])
-  }
+  const ordered = ordersByDay(orders)
   const covers = new Map<string, Coverage>()
   const active = new Set<CompetenceKey>()
   const perDay = new Map<ISODate, Coverage[]>()
   for (const competence of competences) {
     for (const date of dates) {
-      const key = `${competence}|${date}`
+      const key = dayKey(competence, date)
       const rest = restOf(competence, date)
       const list = ordered.get(key)
       if (rest <= HOURS_NOISE && !list) continue
@@ -287,7 +320,7 @@ export const hireBoard = (competences: CompetenceKey[], dates: ISODate[], restOf
   const deviations = new Map([...perDay].map(([date, list]) => [date, deviation(list)]))
   return {
     competences: competences.filter((competence) => active.has(competence)),
-    cover: (competence, date) => covers.get(`${competence}|${date}`) ?? NO_COVER,
+    cover: (competence, date) => covers.get(dayKey(competence, date)) ?? NO_COVER,
     deviations,
     underDays: dates.filter((date) => deviations.get(date)?.state === 'under'),
   }
@@ -360,7 +393,7 @@ export const hiredFte = ({ hireOrders, settings }: Pick<Workspace, 'hireOrders' 
 
 /** The confirmed orders as a staffing line of the Kalender, added to «Tilgjengelig». It is worked out, never stored, and cannot be typed in. */
 export const HIRED_LINE_ID = 'hired:innleid'
-export const hiredLine = (ws: Pick<Workspace, 'hireOrders' | 'settings'>): CapacityLine => ({ id: HIRED_LINE_ID, label: 'Innleid', group: 'added', values: hiredFte(ws).confirmed })
+export const hiredLine = (confirmed: DayValues): CapacityLine => ({ id: HIRED_LINE_ID, label: 'Innleid', group: 'added', values: confirmed })
 
 /** What a supplier is ordered for, together: for the head of its order. */
 export interface SupplierTotals {

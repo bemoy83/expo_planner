@@ -6,6 +6,11 @@ export type PlanMode = 'plan' | 'bemanning'
 
 export const cleanPlanMode = (stored: unknown): PlanMode => (stored === 'bemanning' ? 'bemanning' : 'plan')
 
+/** The two parts of Bemanning: the permanent staff, and the people hired for what they leave. */
+export type CrewPart = 'faste' | 'innleid'
+
+export const cleanCrewPart = (stored: unknown): CrewPart => (stored === 'innleid' ? 'innleid' : 'faste')
+
 /** A day in Bemanning is never narrower or wider than this. */
 export const BEMANNING_MIN_W = 80
 export const BEMANNING_MAX_W = 160

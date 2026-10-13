@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ISODate } from '../../domain/dates'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, eraseOrders, fillGroup, hireBoard, mergeOrders, orderGroups, planOrders, rangeSummary, removeOrders, setWaiting, waitingHours, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, dayKey, eraseOrders, fillGroup, groupKey, hireBoard, isWaiting, mergeOrders, orderGroups, ordersByDay, planOrders, rangeSummary, removeOrders, setWaiting, waitingHours, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
 import type { CompetenceKey, CompetenceStyle, HireOrder, Interval, ShiftId, Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
@@ -8,13 +8,8 @@ import { isTyping } from '../dom'
 import { heatScale } from '../kalender/heat'
 import { useStableActions } from '../kalender/useStableActions'
 
-/** The two parts of Bemanning: the permanent staff, and the people hired for what they leave. */
-export type CrewPart = 'faste' | 'innleid'
-// eslint-disable-next-line react-refresh/only-export-components
-export const cleanCrewPart = (stored: unknown): CrewPart => (stored === 'innleid' ? 'innleid' : 'faste')
-
 /** The days picked on a competence, which the editor in its label works on, and the line of the editor that is picked. */
-export interface OpenDays {
+interface OpenDays {
   competence: CompetenceKey
   from: ISODate
   to: ISODate
@@ -23,7 +18,7 @@ export interface OpenDays {
 }
 
 /** What a popover of the editor is about, and the button it opens under. */
-export interface OrderPop {
+interface OrderPop {
   kind: 'add' | 'supplier' | 'shift' | 'time' | 'answer'
   /** The line of the editor it belongs to; none for «+ Leverandør». */
   group: string | null
@@ -31,7 +26,7 @@ export interface OrderPop {
 }
 
 /** What the side panel of Innleid shows: a supplier's order, what every supplier offers, or the help. */
-export type InnleidPanel = { kind: 'supplier'; id: string } | { kind: 'matrix' } | { kind: 'help' }
+type InnleidPanel = { kind: 'supplier'; id: string } | { kind: 'matrix' } | { kind: 'help' }
 
 /** The tools of Innleid: pick days, order a supplier across days, or remove orders across days. */
 export type HireTool = 'select' | 'paint' | 'erase'
@@ -45,7 +40,7 @@ interface DayDrag {
 }
 
 /** What a stroke would do, or the brush where the pointer is: the people a day would get, or the days whose orders would go. */
-export interface StrokePreview {
+interface StrokePreview {
   competence: CompetenceKey
   mode: 'paint' | 'erase'
   from: ISODate
@@ -70,11 +65,7 @@ function useInnleidState(active: boolean) {
   const scale = useMemo(() => heatScale([...board.deviations.values()].map((dev) => dev.value)), [board])
   const waiting = useMemo(() => waitingHours(orders, wd), [orders, wd])
   /** The orders per competence and day. */
-  const ordersOn = useMemo(() => {
-    const map = new Map<string, HireOrder[]>()
-    for (const order of orders) map.set(`${order.competence}|${order.date}`, [...(map.get(`${order.competence}|${order.date}`) ?? []), order])
-    return map
-  }, [orders])
+  const ordersOn = useMemo(() => ordersByDay(orders), [orders])
 
   const [stored, setOpen] = useState<OpenDays | null>(null)
   const [pop, setPop] = useState<OrderPop | null>(null)
@@ -103,14 +94,13 @@ function useInnleidState(active: boolean) {
   const open = active && stored && rows.some((style) => style.key === stored.competence) && dates.includes(stored.from) && dates.includes(stored.to) ? stored : null
 
   const openDates = useMemo(() => (open ? dates.slice(dates.indexOf(open.from), dates.indexOf(open.to) + 1) : []), [open, dates])
-  const openOrders = useMemo(() => (open ? openDates.flatMap((date) => ordersOn.get(`${open.competence}|${date}`) ?? []) : []), [open, openDates, ordersOn])
+  const openOrders = useMemo(() => (open ? openDates.flatMap((date) => ordersOn.get(dayKey(open.competence, date)) ?? []) : []), [open, openDates, ordersOn])
   const groups = useMemo<OrderGroup[]>(() => orderGroups(openOrders, suppliers), [openOrders, suppliers])
   const summary = useMemo<RangeSummary | null>(() => (open ? rangeSummary(openDates.map((date) => board.cover(open.competence, date)), openOrders, wd) : null), [open, openDates, openOrders, board, wd])
   const picked = open?.group ? (groups.find((group) => group.key === open.group) ?? null) : null
 
   const setOrders = (change: (orders: HireOrder[]) => HireOrder[]) => updateStaffing((w) => ({ ...w, hireOrders: change(w.hireOrders ?? []) }))
   const idsOf = (group: OrderGroup) => group.orders.map((order) => order.id)
-  const keyOf = (supplierId: string, times: Interval) => `${supplierId}|${times.start}|${times.end}`
   const pick = (group: string | null) => setOpen((now) => now && { ...now, group })
   /** A line that gets another supplier or other times is another line: what was picked and the popover open on it go with it. */
   const follow = (group: OrderGroup, key: string) => {
@@ -180,7 +170,7 @@ function useInnleidState(active: boolean) {
       if (!added.length || !brush) return
       setOrders((list) => mergeOrders([...list, ...added]))
       // The days open with what was ordered picked, to adjust it.
-      setOpen({ competence: now.competence, ...span(now.anchor, now.focus), group: keyOf(brush.id, added[0]) })
+      setOpen({ competence: now.competence, ...span(now.anchor, now.focus), group: groupKey(brush.id, added[0]) })
     },
     /** A click on a competence's label opens it on its first day that is short, else on the first with orders or hours. */
     openFirst: (competence: CompetenceKey) => {
@@ -201,19 +191,19 @@ function useInnleidState(active: boolean) {
     const added = planOrders(orders, supplier, open.competence, openDates, (date) => restOf(open.competence, date), wd)
     if (!added.length) return
     setOrders((list) => mergeOrders([...list, ...added]))
-    pick(keyOf(supplier.id, added[0]))
+    pick(groupKey(supplier.id, added[0]))
   }
   const edits = {
     addSupplier,
     count: (group: OrderGroup, by: number) => setOrders((list) => changeCount(list, idsOf(group), by)),
     supplier: (group: OrderGroup, supplierId: string) => {
       setOrders((list) => changeOrders(list, idsOf(group), { supplierId }))
-      follow(group, keyOf(supplierId, group))
+      follow(group, groupKey(supplierId, group))
     },
     times: (group: OrderGroup, times: Interval) => {
       if (times.start === times.end) return
       setOrders((list) => changeOrders(list, idsOf(group), times))
-      follow(group, keyOf(group.supplierId, times))
+      follow(group, groupKey(group.supplierId, times))
     },
     waits: (group: OrderGroup) => setOrders((list) => setWaiting(list, idsOf(group))),
     confirm: (group: OrderGroup) => setOrders((list) => confirmOrders(list, idsOf(group))),
@@ -224,9 +214,9 @@ function useInnleidState(active: boolean) {
       if (open?.group === group.key) pick(null)
     },
     /** Every order of a supplier that waits is confirmed, in one step. */
-    confirmAll: (supplierId: string) => setOrders((list) => confirmOrders(list, list.filter((order) => order.supplierId === supplierId && order.conf === null).map((order) => order.id))),
+    confirmAll: (supplierId: string) => setOrders((list) => confirmOrders(list, list.filter((order) => order.supplierId === supplierId && isWaiting(order)).map((order) => order.id))),
     /** An order's answer the other way: confirmed if it waits, waiting if it is confirmed. */
-    toggleAnswer: (order: HireOrder) => setOrders((list) => (order.conf === null ? confirmOrders(list, [order.id]) : setWaiting(list, [order.id]))),
+    toggleAnswer: (order: HireOrder) => setOrders((list) => (isWaiting(order) ? confirmOrders(list, [order.id]) : setWaiting(list, [order.id]))),
     offers: (supplierId: string, competence: CompetenceKey) => updateStaffing((w) => ({ ...w, suppliers: toggleSupplierCompetence(w.suppliers ?? [], supplierId, competence) })),
     shift: (supplierId: string, shift: ShiftId) => updateStaffing((w) => ({ ...w, suppliers: toggleSupplierShift(w.suppliers ?? [], supplierId, shift) })),
     fill: (group: OrderGroup) => open && setOrders((list) => mergeOrders([...list, ...fillGroup(group, open.competence, openDates)])),
@@ -239,7 +229,7 @@ function useInnleidState(active: boolean) {
   }
   /** The panel of the supplier of the first order that waits. */
   const openFirstWaiting = () => {
-    const first = [...orders].sort((a, b) => a.date.localeCompare(b.date)).find((order) => order.conf === null)
+    const first = [...orders].sort((a, b) => a.date.localeCompare(b.date)).find(isWaiting)
     if (first) setPanel({ kind: 'supplier', id: first.supplierId })
   }
 
@@ -312,14 +302,14 @@ function useInnleidState(active: boolean) {
     board, rows, scale, waiting, suppliers, orders, ordersOn, wd,
     tool, pickTool, brush, pickBrush, preview,
     panel, setPanel, openSupplier, openFirstWaiting,
-    open, openDates, openOrders, groups, picked, summary, pick, openOn, fold, stepDays, stepCompetence, openFirstUnder,
+    open, openDates, groups, picked, summary, pick, openOn, fold, stepDays, stepCompetence, openFirstUnder,
     pop, setPop, edits, actions,
     /** The days a drag has reached on a competence. */
     dragOn: drag && dragDays ? { competence: drag.competence, ...dragDays } : null,
   }
 }
 
-export type InnleidState = ReturnType<typeof useInnleidState>
+type InnleidState = ReturnType<typeof useInnleidState>
 export type InnleidActions = InnleidState['actions']
 
 const InnleidContext = createContext<InnleidState | null>(null)

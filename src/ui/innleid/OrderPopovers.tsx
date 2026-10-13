@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, Minus, Plus } from 'lucide-react'
-import { groupWaits, hireHours, shiftOf, SHIFT_LABELS, shiftTimes, type OrderGroup } from '../../domain/hire'
+import { groupWaits, hireHours, shiftOf, SHIFT_LABELS, shiftTimes, timesText, type OrderGroup } from '../../domain/hire'
 import { SHIFT_IDS, type CompetenceStyle, type Interval, type Supplier, type WorkdaySettings } from '../../domain/types'
 import { clock, clockMinutes, hoursText } from '../bemanning/week'
 import { Segmented } from '../common'
@@ -131,9 +131,7 @@ export function ShiftMenu({ at, group, supplier, wd, onPick, onOwn, onClose }: {
         return (
           <button key={shift} role="menuitem" disabled={!offered} title={offered ? undefined : `${supplier?.name ?? 'Leverandøren'} tilbyr ikke ${SHIFT_LABELS[shift].toLowerCase()}`} onClick={() => (onClose(), onPick(times))}>
             <span className="il-menu-name">{SHIFT_LABELS[shift]}</span>
-            <span className="il-menu-note">
-              {clock(times.start)}–{clock(times.end)}
-            </span>
+            <span className="il-menu-note">{timesText(times)}</span>
             {shift === now && <Check size={14} aria-label="Valgt" />}
           </button>
         )

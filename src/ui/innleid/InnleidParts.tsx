@@ -1,52 +1,36 @@
 import { memo, type CSSProperties, type ReactNode } from 'react'
 import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
-import { coverFigure, dayChips, HOURS_NOISE, isWaiting, shiftOf, SHIFT_LABELS, type HireBoard } from '../../domain/hire'
+import { coverFigure, coverShares, dayChips, dayKey, HOURS_NOISE, isWaiting, shiftText, type Coverage, type HireBoard, type OrderChip } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
-import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
-import { competenceColor } from '../dom'
+import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
+import { competenceColor, count } from '../dom'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { DEMAND_H } from '../bemanning/layout'
 import { ProjectLines } from '../bemanning/ProjectLines'
-import { clock, hoursShort, hoursText } from '../bemanning/week'
+import { hoursText } from '../bemanning/week'
 import { HeatLegend, Line, SectionLine } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { heatTile, HEAT_LABELS, signed } from '../kalender/heat'
-import { ModeSwitch, ModeTag } from '../kalender/KalenderBar'
+import { heatTile, HEAT_LABELS } from '../kalender/heat'
+import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
 import { fmtDay } from '../kalender/labels'
 import { daysWide, HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
 import { PlanBar } from '../kalender/PlanBar'
-import type { PlanMode } from '../kalender/zoom'
-import { useInnleid, type CrewPart, type HireTool, type InnleidActions } from './InnleidScope'
+import type { CrewPart, PlanMode } from '../kalender/zoom'
+import { signedHours } from './hours'
+import { useInnleid, type HireTool, type InnleidActions } from './InnleidScope'
 import { OrderEditor } from './OrderEditor'
 import { SupplierRows } from './SupplierRows'
 import { AnswerGlyph, AnswerPopover, ShiftMenu, SupplierMenu, TimePopover } from './OrderPopovers'
 
-export function PartSwitch({ part, onChange }: { part: CrewPart; onChange: (part: CrewPart) => void }) {
-  return (
-    <Segmented
-      label="Mannskap"
-      value={part}
-      onChange={onChange}
-      options={[
-        { value: 'faste', label: 'Faste', title: 'Faste: sett de faste på arbeidet som er planlagt' },
-        { value: 'innleid', label: 'Innleid', title: 'Innleid: dekk behovet som står igjen etter de faste, med folk fra leverandører' },
-      ]}
-    />
-  )
-}
-
-/** Hours with their sign, as Innleid writes them: «−» for what is missing, «+» for what is over. */
-const signedHours = (hours: number): string => signed(hoursShort(hours))
-
-const days = (n: number) => (n === 1 ? '1 dag' : `${n} dager`)
+const days = (n: number) => count(n, 'dag', 'dager')
 
 /** The page header in Innleid: how much of what the permanent staff leave is still missing. */
 export function InnleidHead({ places }: { places: ReactNode }) {
   const { ws } = useBemanning()
   const { board, rows, panel, setPanel, brush } = useInnleid()
   const suppliers = ws.suppliers?.length ?? 0
-  const meta = [suppliers === 1 ? '1 leverandør' : `${suppliers} leverandører`, `${rows.length} ${rows.length === 1 ? 'kompetanse' : 'kompetanser'} med restbehov`, board.underDays.length ? `${days(board.underDays.length)} udekket` : 'Alt dekket']
+  const meta = [count(suppliers, 'leverandør', 'leverandører'), `${count(rows.length, 'kompetanse', 'kompetanser')} med restbehov`, board.underDays.length ? `${days(board.underDays.length)} udekket` : 'Alt dekket']
   return (
     <div className="page-head mode-band">
       <h2>Kalender</h2>
@@ -186,11 +170,16 @@ export function InnleidHeading() {
   )
 }
 
-/** When an order is worked: the name of its shift, or its own times. */
-const timeText = (order: HireOrder, wd: WorkdaySettings): string => {
-  const shift = shiftOf(order, wd)
-  return shift ? SHIFT_LABELS[shift] : `${clock(order.start)}–${clock(order.end)}`
+/** What a day of a competence says when it is pointed at: what remains, what is ordered, and what is missing or over. */
+const coverTitle = (label: string, date: ISODate, cover: Coverage): string => {
+  if (cover.state === 'none') return `${label} · ${fmtDay(date)}\nIngen restbehov`
+  const figure = coverFigure(cover)
+  return `${label} · ${fmtDay(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` + (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`)
 }
+
+/** What a chip says when it is pointed at: the supplier, and each of its orders with its time and answer. */
+const chipTitle = (name: string, chip: OrderChip, wd: WorkdaySettings): string =>
+  `${name}\n${chip.orders.map((order) => `${order.fte} pers. ${shiftText(order, wd)} · ${isWaiting(order) ? 'venter på svar' : order.asked ? `bekreftet, ${order.fte} av ${order.asked}` : 'bekreftet'}`).join('\n')}`
 
 /** Columns narrower than this have no room for a supplier's name on a chip: the people alone are shown. */
 const NAME_FROM_W = 84
@@ -258,19 +247,14 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         const erasing = stroked && strokePeople === null
         const ghost = stroked ? strokePeople?.get(date) : undefined
         const figure = coverFigure(cover)
-        const confirmed = cover.rest > 0 ? Math.min(1, cover.confirmed / cover.rest) : 0
-        const waiting = cover.rest > 0 ? Math.min(1 - confirmed, (cover.planned - cover.confirmed) / cover.rest) : 0
-        const chips = dayChips(ordersOn.get(`${style.key}|${date}`) ?? [], suppliers, open)
+        const { confirmed, waiting } = coverShares(cover)
+        const chips = dayChips(ordersOn.get(dayKey(style.key, date)) ?? [], suppliers, open)
         const shown = chips.length > CHIPS_MAX && !open ? chips.slice(0, CHIPS_MAX - 1) : chips
-        const title =
-          cover.state === 'none'
-            ? `${style.label} · ${fmtDay(date)}\nIngen restbehov`
-            : `${style.label} · ${fmtDay(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` + (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`)
         return (
           <div
             key={date}
             className={`${dayClass(cols, date)} cell il-day ${cover.state} ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''} ${erasing ? 'erasing' : ''}`}
-            title={title}
+            title={coverTitle(style.label, date, cover)}
             onMouseDown={(e) => {
               if (e.button !== 0) return
               e.preventDefault()
@@ -293,7 +277,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
                   <span
                     key={chip.key}
                     className={`il-chip ${chip.waits ? 'waits' : ''} ${picked && pickedGroup !== null && chip.key === pickedGroup ? 'on' : ''} ${erasing && (strokeSupplier === undefined || chip.supplierId === strokeSupplier) ? 'gone' : ''}`}
-                    title={`${nameOf(chip.supplierId)}\n${chip.orders.map((order) => `${order.fte} pers. ${timeText(order, wd)} · ${isWaiting(order) ? 'venter på svar' : order.asked ? `bekreftet, ${order.fte} av ${order.asked}` : 'bekreftet'}`).join('\n')}`}
+                    title={chipTitle(nameOf(chip.supplierId), chip, wd)}
                   >
                     {chip.waits && <AnswerGlyph waits size={12} />}
                     <b>{chip.fte}</b>

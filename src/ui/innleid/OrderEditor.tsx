@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDownUp, Plus, X } from 'lucide-react'
 import { dayOfMonth, monthShort, weekdayIndex, WEEKDAYS_NB, type ISODate } from '../../domain/dates'
-import { groupWaits, HOURS_NOISE, shiftOf, SHIFT_LABELS, type OrderGroup } from '../../domain/hire'
+import { groupWaits, HOURS_NOISE, shiftText, type OrderGroup } from '../../domain/hire'
 import type { CompetenceStyle } from '../../domain/types'
-import { clock, hoursShort } from '../bemanning/week'
+import { hoursShort } from '../bemanning/week'
 import { fmtDay } from '../kalender/labels'
+import { signedHours } from './hours'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph, Stepper } from './OrderPopovers'
 
@@ -65,10 +66,10 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
             <span>Ingen restbehov</span>
           ) : summary.short > HOURS_NOISE ? (
             <b>
-              −{hoursShort(summary.short)} t ≈ {summary.peopleShort} pers.
+              {signedHours(-summary.short)} t ≈ {summary.peopleShort} pers.
             </b>
           ) : summary.over > HOURS_NOISE ? (
-            <b>+{hoursShort(summary.over)} t over</b>
+            <b>{signedHours(summary.over)} t over</b>
           ) : (
             <span>Dekket</span>
           )}
@@ -80,7 +81,6 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
       {groups.length > 0 && (
         <div className="il-orders">
           {groups.map((group) => {
-            const shift = shiftOf(group, wd)
             const waits = groupWaits(group)
             const have = new Set(group.orders.map((order) => order.date))
             return (
@@ -91,7 +91,7 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
                     <ChevronDown size={11} aria-hidden />
                   </button>
                   <button className="il-order-shift" title="Skift eller egen tid" onClick={pop('shift', group)}>
-                    {shift ? SHIFT_LABELS[shift] : `${clock(group.start)}–${clock(group.end)}`}
+                    {shiftText(group, wd)}
                     <ChevronDown size={11} aria-hidden />
                   </button>
                   <Stepper value={group.orders[0].fte} label="Antall personer" onStep={(by) => edits.count(group, by)} />

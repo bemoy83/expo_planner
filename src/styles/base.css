@@ -76,10 +76,10 @@ input[type='checkbox']{accent-color:var(--accent)}
 .menu{position:relative;display:inline-flex}
 .menu-pop{position:absolute;top:100%;left:0;margin-top:6px;min-width:230px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;z-index:50}
 .menu-pop.right{left:auto;right:0}
-.menu-pop>button{justify-content:flex-start;background:transparent;text-align:left;padding:8px 10px;border-radius:8px;white-space:nowrap}
-.menu-pop>button:hover{background:var(--sunken)}
-.menu-pop>button:disabled{opacity:.4;background:transparent}
-.menu-pop>button svg{color:var(--muted)}
+.menu-pop>button,.il-menu>button{justify-content:flex-start;background:transparent;text-align:left;padding:8px 10px;border-radius:8px;white-space:nowrap}
+.menu-pop>button:hover,.il-menu>button:hover{background:var(--sunken)}
+.menu-pop>button:disabled,.il-menu>button:disabled{opacity:.4;background:transparent}
+.menu-pop>button svg,.il-menu>button svg{color:var(--muted)}
 .menu-pop>button.danger{color:var(--neg)}
 .menu-pop>button.danger:hover{background:var(--neg-bg)}
 .menu-pop>button.danger svg{color:inherit}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, planOrders, rangeSummary, setWaiting, shiftOf, shiftTimes, supplierTotals, waitingHours } from './hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, coverShares, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planOrders, rangeSummary, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -24,6 +24,12 @@ describe('shifts and paid hours', () => {
     expect(shiftTimes('natt', wd)).toEqual({ start: 1380, end: 420 })
     expect(shiftOf({ start: 1380, end: 420 }, wd)).toBe('natt')
     expect(shiftOf({ start: 480, end: 900 }, wd)).toBeNull()
+  })
+
+  it('names an order by its shift, or by its own times', () => {
+    expect(shiftText(KVELD, wd)).toBe('Kveld')
+    expect(shiftText({ start: 480, end: 900 }, wd)).toBe('08:00–15:00')
+    expect(timesText({ start: 1380, end: 420 })).toBe('23:00–07:00')
   })
 
   it('pays a shift of six hours or more less the lunch, through the night too', () => {
@@ -58,6 +64,13 @@ describe('coverage of a competence on a day (I1)', () => {
     const within = coverage(4, [order('a', 'k4', 'elektro', '2026-10-07', 1, 1)], wd)
     expect(within.state).toBe('ok')
     expect(coverFigure(within)).toBe(3.5)
+  })
+
+  it('shares what remains in what is confirmed and what waits, never more than the whole', () => {
+    const cover = coverage(30, [order('a', 'k1', 'vegger', 'd', 2, 2), order('b', 'k5', 'vegger', 'd', 1, null)], wd)
+    expect(coverShares(cover)).toEqual({ confirmed: 0.5, waiting: 0.25 })
+    expect(coverShares(coverage(7.5, [order('a', 'k1', 'vegger', 'd', 1, 1), order('b', 'k5', 'vegger', 'd', 3, null)], wd))).toEqual({ confirmed: 1, waiting: 0 })
+    expect(coverShares(coverage(0, [order('a', 'k1', 'vegger', 'd', 1, 1)], wd))).toEqual({ confirmed: 0, waiting: 0 })
   })
 
   it('lacks the hours of the people a supplier could not send (A7)', () => {
@@ -207,6 +220,15 @@ describe('the order to send and what waits (I9, I10)', () => {
     expect(supplierTotals(nordic, orders, wd)).toMatchObject({ people: 9, cost: null, confirmed: 0, waiting: 1 })
   })
 
+  it('lists the orders of a supplier by day, competence and time, and the orders per competence and day', () => {
+    expect(supplierOrders(manpower, orders, [{ key: 'vegger' }, { key: 'tepper' }]).map((o) => o.id)).toEqual(['b', 'e', 'c', 'a'])
+    expect([...ordersByDay(orders)].map(([key, list]) => [key, list.map((o) => o.id)])).toEqual([
+      ['tepper|2026-10-09', ['a']],
+      ['vegger|2026-10-08', ['b', 'd']],
+      ['vegger|2026-10-09', ['c', 'e']],
+    ])
+  })
+
   it('sums the hours of the orders that wait', () => {
     expect(waitingHours(orders, wd)).toBe(11 * 7.5)
   })
@@ -271,9 +293,9 @@ describe('the orders in the plan', () => {
   })
 
   it('is a staffing line that is added to «Tilgjengelig»', () => {
-    const line = hiredLine(ws)
+    const line = hiredLine(hiredFte(ws).confirmed)
     expect(line).toMatchObject({ group: 'added', values: { '2026-10-08': 5.33, '2026-10-09': 1 } })
     expect(capacityForDate('2026-10-08', [line], DEFAULT_SETTINGS)).toMatchObject({ base: 21, added: 5.33, available: 26.33 })
-    expect(hiredLine({ settings: DEFAULT_SETTINGS }).values).toEqual({})
+    expect(hiredFte({ settings: DEFAULT_SETTINGS }).confirmed).toEqual({})
   })
 })
