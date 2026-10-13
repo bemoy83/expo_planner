@@ -10,6 +10,7 @@ import { PlanBar } from '../kalender/PlanBar'
 import type { PlanMode } from '../kalender/zoom'
 import { Toasts } from '../Toasts'
 import { useBemanning } from './BemanningScope'
+import { PartSwitch, type CrewPart } from '../innleid/InnleidParts'
 import { DemandRows } from './DemandRows'
 import { DayMenu, DemandPopover } from './Popovers'
 import { ProjectLines } from './ProjectLines'
@@ -58,6 +59,8 @@ interface ToolbarProps {
   projects: [key: string, name: string][]
   project: string
   onProject: (key: string) => void
+  /** Goes to Innleid, the other part of Bemanning. */
+  onPart: (part: CrewPart) => void
   onToday: () => void
   /** Sizes the days so the chosen project fills the grid. */
   onFit: () => void
@@ -67,7 +70,7 @@ interface ToolbarProps {
  * The planning bar in Bemanning: the mode, undo, the tools (Velg, the brush with the competence it paints,
  * and Tøm), the project, and where in the period.
  */
-export function BemanningToolbar({ width, mode, onMode, projects, project, onProject, onToday, onFit }: ToolbarProps) {
+export function BemanningToolbar({ width, mode, onMode, onPart, projects, project, onProject, onToday, onFit }: ToolbarProps) {
   const { tool, pickTool, brush, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
   const style = brush ? styles.get(brush) : undefined
   const tools: ToolChoice<Tool>[] = [
@@ -91,6 +94,7 @@ export function BemanningToolbar({ width, mode, onMode, projects, project, onPro
     <PlanBar width={width} fitKey={`${project}|${tool}|${brush}|${unresolved}|${!!clip}|${breaches.length}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
+        <PartSwitch part="faste" onChange={onPart} />
         <UndoRedoButtons />
         <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
         {!brush && <span className="bm-hints">Velg kompetanse i behovet{lastKey ? ` (1–${lastKey})` : ''}</span>}

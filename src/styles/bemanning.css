@@ -264,3 +264,23 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .pp-form label{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);color:var(--muted)}
 .pp-form label.radio{flex-direction:row;align-items:center;gap:6px;font-size:var(--fs-md);color:var(--text)}
 .pp-form input:not([type='checkbox']),.pp-form select{width:100%;box-sizing:border-box}
+
+/* ---- Innleid: the hours of each competence that remain after the permanent staff, and how far orders cover them ---- */
+.il-total{display:inline-flex;align-items:center;margin-left:auto;font:600 var(--fs-sm) var(--font-num);white-space:nowrap}
+.heat-legend+.il-total{min-width:64px;margin-left:10px;justify-content:flex-end}
+.il-row .grid-label{gap:8px;padding-left:36px}
+.il-row .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
+.il-cover{justify-content:flex-end;gap:6px;min-width:0;padding:0 8px}
+/* How far the day is covered: solid for what is confirmed, hatched for what waits for an answer. The line gives way to the figure. */
+.il-bar{position:relative;flex:1;min-width:0;height:3px;border-radius:2px;overflow:hidden;background:var(--sunken)}
+.il-bar>i{position:absolute;top:0;bottom:0;left:0}
+.il-bar>.confirmed{background:var(--cc)}
+.il-bar>.waiting{background:repeating-linear-gradient(135deg,var(--cc) 0 2px,transparent 2px 4px)}
+.il-cover b{flex:none;font-size:var(--fs-sm);font-weight:600}
+.il-cover b.over{font-weight:500;color:var(--muted)}
+/* An order waits for an answer: a clock in ink, never a colour. */
+.il-waits{position:absolute;top:5px;left:5px;z-index:1}
+.heat-cell.under.strong .il-waits{color:var(--on-neg)}
+.il-waiting{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;background:var(--surface);font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
+.bar-controls .il-under{height:30px;padding:0 10px;background:var(--alert-block);color:var(--alert-on);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
+.bar-controls .il-under:hover{filter:brightness(1.06)}

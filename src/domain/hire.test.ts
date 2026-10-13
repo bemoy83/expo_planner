@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, deviation, eraseOrders, fillGroup, groupWaits, hireHours, mergeOrders, orderGroups, orderText, planOrders, setWaiting, shiftOf, shiftTimes, waitingHours } from './hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hireHours, mergeOrders, orderGroups, orderText, planOrders, setWaiting, shiftOf, shiftTimes, waitingHours } from './hire'
 import { DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
 const wd = DEFAULT_WORKDAY
@@ -203,5 +203,30 @@ describe('the order to send and what waits (I9, I10)', () => {
 
   it('sums the hours of the orders that wait', () => {
     expect(waitingHours(orders, wd)).toBe(11 * 7.5)
+  })
+})
+
+describe('the board of Innleid', () => {
+  const rest: Record<string, number> = { 'vegger|d1': 30, 'vegger|d2': 15, 'elektro|d2': 7.5, 'rigg|d3': 0 }
+  const orders = [order('a', 'k1', 'vegger', 'd1', 4, null), order('b', 'k4', 'elektro', 'd2', 3, 3), order('c', 'k3', 'lys', 'd3', 1, 1)]
+  const board = hireBoard(['vegger', 'tepper', 'elektro', 'rigg', 'lys'], ['d1', 'd2', 'd3', 'd4'], (competence, date) => rest[`${competence}|${date}`] ?? 0, orders, wd)
+
+  it('lists the competences with hours that remain or with orders, in the order given', () => {
+    expect(board.competences).toEqual(['vegger', 'elektro', 'lys'])
+  })
+
+  it('has the cover of each competence and day, and none where nothing is', () => {
+    expect(board.cover('vegger', 'd1')).toMatchObject({ rest: 30, planned: 30, confirmed: 0, state: 'ok' })
+    expect(board.cover('vegger', 'd2').state).toBe('short')
+    expect(board.cover('lys', 'd3')).toMatchObject({ rest: 0, state: 'over' })
+    expect(board.cover('vegger', 'd4').state).toBe('none')
+  })
+
+  it('has the Avvik of the days that have something, and the days that are under', () => {
+    expect([...board.deviations.keys()]).toEqual(['d1', 'd2', 'd3'])
+    expect(board.deviations.get('d1')).toEqual({ state: 'ok', value: 0, pending: 30 })
+    expect(board.deviations.get('d2')).toEqual({ state: 'under', value: -15, pending: 0 })
+    expect(board.deviations.get('d3')).toEqual({ state: 'over', value: 7.5, pending: 0 })
+    expect(board.underDays).toEqual(['d2'])
   })
 })

@@ -186,7 +186,7 @@ function Shell() {
               <button role="menuitem" aria-pressed={tooltips} onClick={() => setTooltips(!tooltips)}>
                 Hjelpetekster {tooltips ? 'på' : 'av'}
               </button>
-              <button role="menuitem" aria-pressed={heat} title="Vis avviket mellom tilgjengelig og planlagt bemanning som fargede felt: rødt for underdekning, gult for stramt, grønt for ledig." onClick={() => setHeat(!heat)}>
+              <button role="menuitem" aria-pressed={heat} title="Vis avviket mellom tilgjengelig og planlagt bemanning som fargede felt: rødt for underdekning, grønt for ok, oker for over." onClick={() => setHeat(!heat)}>
                 Varmekart for avvik {heat ? 'på' : 'av'}
               </button>
               {workspace && (
@@ -311,7 +311,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} />}
+      {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} onOpenSuppliers={() => setView('leverandorer')} />}
       {status === 'ready' && workspace && view === 'haller' && <Haller onOpenProjects={() => setView('prosjekter')} />}
       {status === 'ready' && workspace && view === 'prosjekter' && <Prosjekter onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))} />}
       {status === 'ready' && workspace && view === 'kpi' && <Kpi />}

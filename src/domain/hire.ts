@@ -244,3 +244,51 @@ export const orderText = (supplier: Supplier, orders: HireOrder[], competences: 
 
 /** I10: the hours ordered that wait for an answer. */
 export const waitingHours = (orders: HireOrder[], wd: WorkdaySettings): number => orders.reduce((sum, order) => sum + (isWaiting(order) ? order.fte * hireHours(order, wd) : 0), 0)
+
+/** Innleid over a period: the cover of each competence on each day, and each day's Avvik. */
+export interface HireBoard {
+  /** The competences with hours that remain or with orders somewhere in the period, in the order given. */
+  competences: CompetenceKey[]
+  /** The cover of a competence on a day; a day with neither hours that remain nor orders is `none`. */
+  cover: (competence: CompetenceKey, date: ISODate) => Coverage
+  /** The days with hours that remain or with orders. */
+  deviations: Map<ISODate, Deviation>
+  /** The days where hours are missing, in order. */
+  underDays: ISODate[]
+}
+
+const NO_COVER: Coverage = { rest: 0, planned: 0, confirmed: 0, remaining: 0, state: 'none' }
+
+/**
+ * The board of Innleid. `restOf` gives the hours of a competence that remain on a day after the permanent staff:
+ * the demand of the plan less what they are assigned, never less than nothing.
+ */
+export const hireBoard = (competences: CompetenceKey[], dates: ISODate[], restOf: (competence: CompetenceKey, date: ISODate) => number, orders: HireOrder[], wd: WorkdaySettings): HireBoard => {
+  const ordered = new Map<string, HireOrder[]>()
+  for (const order of orders) {
+    const key = `${order.competence}|${order.date}`
+    ordered.set(key, [...(ordered.get(key) ?? []), order])
+  }
+  const covers = new Map<string, Coverage>()
+  const active = new Set<CompetenceKey>()
+  const perDay = new Map<ISODate, Coverage[]>()
+  for (const competence of competences) {
+    for (const date of dates) {
+      const key = `${competence}|${date}`
+      const rest = restOf(competence, date)
+      const list = ordered.get(key)
+      if (rest <= HOURS_NOISE && !list) continue
+      const cover = coverage(rest, list ?? [], wd)
+      covers.set(key, cover)
+      active.add(competence)
+      perDay.set(date, [...(perDay.get(date) ?? []), cover])
+    }
+  }
+  const deviations = new Map([...perDay].map(([date, list]) => [date, deviation(list)]))
+  return {
+    competences: competences.filter((competence) => active.has(competence)),
+    cover: (competence, date) => covers.get(`${competence}|${date}`) ?? NO_COVER,
+    deviations,
+    underDays: dates.filter((date) => deviations.get(date)?.state === 'under'),
+  }
+}

@@ -97,7 +97,7 @@
 }
 
 /* The mode band of the Kalender: its page header and its planning bar are filled with the colour of the mode, olive for Plan and
-   spruce green («Gran») for Bemanning. It is set here alone and is seen in the band alone; the grid, the sections and the panels stay neutral.
+   spruce green («Gran») for Bemanning, with fjord blue for its part Innleid. It is set here alone and is seen in the band alone; the grid, the sections and the panels stay neutral.
    The two lines that frame the band are darker than its fill in both palettes: they read as a shadow. */
 .kalender{
   --mode-h:115; --mode-c:.09;
@@ -122,6 +122,15 @@
   --mode-h:195; --mode-c:.07;
   --mode-band:#b7d9d8; --mode-line:#79a9a8; --mode-track:#9cc3c3; --mode-ink:#183333; --mode-mute:#355353;
 }
+/* Innleid, the other part of Bemanning: fjord blue, from the formulas of the band. */
+.kalender[data-mode='bemanning'][data-part='innleid']{
+  --mode-h:235; --mode-c:.065;
+  --mode-band:oklch(0.86 calc(var(--mode-c) * .6) var(--mode-h));
+  --mode-line:oklch(0.7 calc(var(--mode-c) * .85) var(--mode-h));
+  --mode-track:oklch(0.79 calc(var(--mode-c) * .7) var(--mode-h));
+  --mode-ink:oklch(0.3 calc(var(--mode-c) * .55) var(--mode-h));
+  --mode-mute:oklch(0.42 calc(var(--mode-c) * .6) var(--mode-h));
+}
 .dark .kalender{
   --mode-band:oklch(0.4 calc(var(--mode-c) * .5) var(--mode-h));
   --mode-line:oklch(0.25 calc(var(--mode-c) * .4) var(--mode-h));
@@ -132,7 +141,7 @@
   --mode-field-hover:oklch(0.52 calc(var(--mode-c) * .45) var(--mode-h) / .8);
   --alert-warn:#856224; --alert-block:#9b462c; --alert-on:#fff;         /* a dark chip with light ink */
 }
-.dark .kalender[data-mode='bemanning']{--mode-band:#344d4d; --mode-line:#112323; --mode-track:#223737; --mode-ink:#dbeceb; --mode-mute:#a4bdbd}
+.dark .kalender[data-mode='bemanning']:not([data-part='innleid']){--mode-band:#344d4d; --mode-line:#112323; --mode-track:#223737; --mode-ink:#dbeceb; --mode-mute:#a4bdbd}
 
 /* The dark palette, switched on with class="dark" on <html> (Innstillinger → Utseende). */
 :root.dark{

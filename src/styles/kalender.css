@@ -146,14 +146,14 @@
 .dev.pos{color:var(--pos);font-weight:600}
 /* Avvik as a heat map: a tile per day, with a little air between neighbours */
 .heat{position:absolute;inset:3px 2px;border-radius:5px;z-index:0;background:color-mix(in oklab,var(--heat-c) var(--p),var(--bg))}
-.heat.short{--heat-c:var(--neg)}
-.heat.tight{--heat-c:var(--over)}
-.heat.spare{--heat-c:var(--pos)}
+.heat.under{--heat-c:var(--neg)}
+.heat.ok{--heat-c:var(--pos)}
+.heat.over{--heat-c:var(--over)}
 .heat-value{position:relative;z-index:1;font-weight:600}
-.heat-cell.short .heat-value{color:var(--neg)}
-.heat-cell.short.strong .heat-value{color:var(--on-neg)}
-.heat-cell.tight .heat-value{color:var(--text)}
-.heat-cell.spare .heat-value{color:var(--pos)}
+.heat-cell.under .heat-value{color:var(--neg)}
+.heat-cell.under.strong .heat-value{color:var(--on-neg)}
+.heat-cell.ok .heat-value{color:var(--pos)}
+.heat-cell.over .heat-value{color:var(--text)}
 .heat-legend{display:inline-flex;gap:2px;margin-left:6px;cursor:help}
 .heat-legend .heat{position:static;width:10px;height:10px;border-radius:2px}
 

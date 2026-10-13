@@ -78,6 +78,22 @@ Rules that fall out of the table:
 - Section labels: eyebrow style, uppercase, `--ink-faint`.
 - Numbers: `--font-numeric`. Readout labels right-aligned.
 
+## 6b. Avvik colour: three states (approved 2026-10-13, from `design_docs/innleid/`)
+
+The planner needs three answers only: under, ok, over. The same in the plan and in Innleid.
+
+| State | Fill | Number |
+|---|---|---|
+| Under | `--neg`, scaled 22 to 85 % by size (the ink turns light past half) | `−x`, always |
+| Ok | `--pos` flat 20 % | shown if it is not 0 (no hidden figure), else colour only |
+| Over | `--over` (ochre), scaled 18 to 55 %, on the same scale as under and capped below red | `+x` |
+
+- Ok band: in the Kalender 0 to +1 FTE (`OK_UP_TO` in `kalender/heat.ts`). In Innleid within one person of the shortest order over (`coverage` in `domain/hire.ts`).
+- Green means ok, never «a lot to spare». There is no «stramt».
+- An order that waits for an answer (Innleid) is not a state: a clock in ink, never a colour.
+- Legend: three swatches, under, ok, over.
+- The band of Bemanning's part Innleid is fjord blue (`--mode-h:235; --mode-c:.065`), set by `data-part` on `.kalender`.
+
 ## 7. Checklist before shipping a grid change
 
 1. Did I add a line? Which `--g-*` token, and which rule in §3 allows it?

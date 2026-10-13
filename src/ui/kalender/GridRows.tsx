@@ -7,7 +7,7 @@ import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import { dayClass, type CellEdit, type Columns, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { daysWide, HALL_COMPACT_H, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
-import { HEAT_LABELS, heatFigure, heatTile } from './heat'
+import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, signed, type HeatKind } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
 import { Twisty } from '../common'
 import { Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
@@ -282,12 +282,22 @@ interface SumRowsProps {
 }
 
 /** What the colours of the heat map mean, beside the name of the Avvik line. */
-const HEAT_LEGEND: [string, number][] = [
-  ['short', 85],
-  ['short', 35],
-  ['tight', 22],
-  ['spare', 22],
+const HEAT_LEGEND: [HeatKind, number][] = [
+  ['under', 70],
+  ['ok', 20],
+  ['over', 45],
 ]
+
+/** The three swatches beside the name of an Avvik line: under, ok, over. */
+export function HeatLegend({ title }: { title: string }) {
+  return (
+    <span className="heat-legend" title={title}>
+      {HEAT_LEGEND.map(([kind, percent]) => (
+        <i key={kind} className={`heat ${kind}`} style={{ '--p': `${percent}%` } as CSSProperties} />
+      ))}
+    </span>
+  )
+}
 
 /** The totals under the staffing lines: planned need, available crew and the difference. With the section folded only the difference shows. */
 export const SumRows = memo(function SumRows({ cols, need, capacity, settings, deviationOnly, heat, maxShortage, maxSurplus }: SumRowsProps) {
@@ -314,11 +324,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
           label={
             <>
               <span className="lbl-cap strong">Avvik</span>
-              <span className="heat-legend" title="Rødt: underdekning (mørkere = større). Gult: stramt (under 2 FTE ledig). Grønt: ledig kapasitet.">
-                {HEAT_LEGEND.map(([kind, percent]) => (
-                  <i key={`${kind}${percent}`} className={`heat ${kind}`} style={{ '--p': `${percent}%` } as CSSProperties} />
-                ))}
-              </span>
+              <HeatLegend title={`Rødt: underdekning (mørkere = større). Grønt: ok, opptil ${formatFte(OK_UP_TO)} FTE ledig. Oker: over (sterkere = mer).`} />
             </>
           }
           cols={cols}
@@ -330,7 +336,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
             const dev = available - n
             const tile = heatTile(dev, maxShortage, maxSurplus)
             return (
-              <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} title={`${HEAT_LABELS[tile.kind]} ${formatFte(dev)} FTE`}>
+              <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} title={`${HEAT_LABELS[tile.kind]} ${signed(formatFte(dev)) || '0'} FTE`}>
                 <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
                 <span className="heat-value">{heatFigure(dev, cols.colW)}</span>
               </div>
@@ -345,7 +351,11 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
           cells={(date) => {
             const dev = capacityForDate(date, capacity, settings).available - (need.get(date) ?? 0)
             const n = need.get(date) ?? 0
-            return readCell(cols, date, n || dev ? dev : undefined, `sum-cell dev ${dev < -FTE_NOISE ? 'neg' : dev > FTE_NOISE && n ? 'pos' : ''}`)
+            return (
+              <div key={date} className={`${dayClass(cols, date)} cell sum-cell dev ${dev < -FTE_NOISE ? 'neg' : dev > FTE_NOISE && n ? 'pos' : ''}`}>
+                {n || dev ? signed(formatFte(dev)) : ''}
+              </div>
+            )
           }}
         />
       )}

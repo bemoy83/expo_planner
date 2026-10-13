@@ -28,6 +28,7 @@ import { daysWide, fitSpan, LEFT_W, OVERSCAN_ROWS, overscanCols, parseCellInput,
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
 import type { AllocLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
+import { cleanCrewPart, InnleidHead, InnleidHeading, InnleidRows, InnleidScope, InnleidToolbar, InnleidTop, type CrewPart } from '../innleid/InnleidParts'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
@@ -53,9 +54,9 @@ const NO_EDIT: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, g
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
  * `heat` is the setting «Varmekart for avvik»: the Avvik line as coloured tiles.
  * `blockNames`, `selectionStyle` and `overtimeLimit` are the settings of Bemanning: what a block says, how what is picked is shown, and the overtime per week that is flagged.
- * `onOpenPersonell` opens the tab where the people are entered, from Bemanning when there are none.
+ * `onOpenPersonell` opens the tab where the people are entered, from Bemanning when there are none, and `onOpenSuppliers` the tab of the suppliers, from Innleid.
  */
-export function Kalender({ hints = true, heat = true, blockNames = 'full', overtimeLimit = 10, onOpenPersonell }: { hints?: boolean; heat?: boolean; blockNames?: BlockNames; overtimeLimit?: number; onOpenPersonell: () => void }) {
+export function Kalender({ hints = true, heat = true, blockNames = 'full', overtimeLimit = 10, onOpenPersonell, onOpenSuppliers }: { hints?: boolean; heat?: boolean; blockNames?: BlockNames; overtimeLimit?: number; onOpenPersonell: () => void; onOpenSuppliers: () => void }) {
   const { workspace, demandIndex, locatedDemand, setAllocationFte, setSuggestedFte, setAllocationNote, removeAllocation } = useWorkspace()
   const ws = workspace!
   const settings = useMemo(() => planningSettings(ws), [ws.settings, ws.persons]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,6 +125,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // Bemanning the plan zooms in first and the rows change at the end, on the way out they change first.
   const [planMode, setPlanMode] = usePref<PlanMode>('planMode', 'plan', cleanPlanMode)
   const [shown, setShown] = useState<PlanMode>(planMode)
+  // Bemanning has two parts on the same days: the permanent staff, and the people hired for what they leave.
+  const [crewPart, setCrewPart] = usePref<CrewPart>('crewPart', 'faste', cleanCrewPart)
   // Bemanning has no steps of zoom: its days are as wide as the span it shows asks for.
   // A page that opens in Bemanning opens on the days last seen there.
   const [openSpan] = useState(() => {
@@ -719,6 +722,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), bemanningW)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const bemanning = shown === 'bemanning'
+  const innleid = bemanning && crewPart === 'innleid'
   // The projects as Bemanning lists them: their days in the hall calendar, from the first phase to the last.
   const projectSpans = useMemo<ProjectSpan[]>(() => {
     if (!bemanning) return []
@@ -812,9 +816,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const todayLine = today >= range.start && today <= range.end ? <i className="today-line" style={{ left: daysWide(daysBetween(range.start, today), LEFT_W) }} /> : null
   const places = <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
   return (
-    <div className={`kalender ${bemanning ? 'bemanning-mode' : pull ? 'pulling' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode}>
-      <BemanningScope active={bemanning} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
-      {bemanning ? <BemanningHead places={places} /> : <KalenderHead
+    <div className={`kalender ${bemanning ? 'bemanning-mode' : pull ? 'pulling' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode} data-part={planMode === 'bemanning' ? crewPart : undefined}>
+      <BemanningScope active={bemanning} innleid={innleid} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
+      <InnleidScope active={innleid}>
+      {innleid ? <InnleidHead places={places} /> : bemanning ? <BemanningHead places={places} /> : <KalenderHead
         places={places}
         projects={shownGroups.length}
         rows={shownRowCount}
@@ -843,7 +848,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
             }}
           >
             {todayLine}
-            {bemanning ? <BemanningTop /> : <>
+            {innleid ? <InnleidTop /> : bemanning ? <BemanningTop /> : <>
             <HallSection todayLine={todayLine} open={hallsOpen} onOpen={setHallsOpen} compact={hallsCompact} onCompact={setHallsCompact} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
             <StaffingSection
               open={staffingOpen}
@@ -863,11 +868,14 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
 
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and follow the top block when part of it gives way. */}
           <div className="grid-tools" ref={toolsRef} style={{ top: pinnedHeight - barHeight }}>
-            {bemanning ? (
+            {innleid ? (
+              <InnleidToolbar width={viewport.width} mode={planMode} onMode={switchMode} onPart={setCrewPart} onToday={() => scrollToDate(today, 1)} />
+            ) : bemanning ? (
               <BemanningToolbar
                 width={viewport.width}
                 mode={planMode}
                 onMode={switchMode}
+                onPart={setCrewPart}
                 projects={projects}
                 project={filter.project}
                 onProject={(key) => {
@@ -911,11 +919,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               onZoom={setZoom}
             />
             )}
-            {bemanning ? <PeopleHeading /> : <PlanningHeading />}
+            {innleid ? <InnleidHeading /> : bemanning ? <PeopleHeading /> : <PlanningHeading />}
           </div>
 
           {todayLine}
-          {bemanning && <PeopleRows onOpenPersonell={onOpenPersonell} />}
+          {innleid && <InnleidRows onOpenSuppliers={onOpenSuppliers} />}
+          {bemanning && !innleid && <PeopleRows onOpenPersonell={onOpenPersonell} />}
           {!bemanning && <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
             <div style={{ height: rowTops[r0] }} />
             {items.slice(r0, r1).map((item) => {
@@ -954,7 +963,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           )}
         </div>
       </div>
-      {bemanning && <PersonPanel />}
+      {bemanning && !innleid && <PersonPanel />}
       {inspectorOpen && !bemanning && <RowInspector details={details} need={need} capacity={capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
       </div>
 
@@ -981,7 +990,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         />
       )}
 
-      {bemanning && <BemanningOverlays />}
+      {bemanning && !innleid && <BemanningOverlays />}
       {!bemanning && <StatusBar focus={focusInfo} selectionSum={selectionSum} notice={notice} progress={progress} onSaveNote={setAllocationNote} />}
 
       {dialog && (
@@ -1006,6 +1015,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           }}
         />
       )}
+      </InnleidScope>
       </BemanningScope>
     </div>
   )

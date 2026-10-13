@@ -38,6 +38,8 @@ const cleanDensity = (stored: unknown): Density => (stored === 'compact' ? 'comp
 interface Props {
   /** Bemanning is what the rows of the Kalender show. Nothing is worked out otherwise. */
   active: boolean
+  /** Innleid is shown in place of the people: the keys and the tools of the people are at rest. */
+  innleid: boolean
   /** Every day of the period. */
   dates: ISODate[]
   cols: Columns
@@ -119,7 +121,7 @@ const daysAcross = (el: HTMLElement, x: number, colW: number): number => (x - el
 const remainingIn = (balance: Balance, days: ISODate[]): Map<string, number> =>
   new Map(balance.competences.map((competence) => [competence, days.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0)]))
 
-function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
+function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
   const { workspace, updateStaffing, undo } = useWorkspace()
   const ws = workspace!
   const wd = ws.settings.workday
@@ -699,7 +701,7 @@ function useBemanningState({ active, dates, cols, viewport, scrollRef, focusDate
   }
   const keys = useStableActions({
     down: (e: KeyboardEvent) => {
-      if (!active) return
+      if (!active || innleid) return
       if (e.key === 'Shift') holdShift(true)
       if (isTyping(e.target)) return
       const key = e.key.toLowerCase()

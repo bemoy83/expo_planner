@@ -19,18 +19,18 @@ export function ModeSwitch({ mode, onChange }: { mode: PlanMode; onChange: (mode
       onChange={onChange}
       options={[
         { value: 'plan', label: <><CalendarDays size={14} aria-hidden /> Plan</>, title: 'Plan: fordel behovet på dagene' },
-        { value: 'bemanning', label: <><Users size={14} aria-hidden /> Bemanning</>, title: 'Bemanning: sett de faste på arbeidet som er planlagt' },
+        { value: 'bemanning', label: <><Users size={14} aria-hidden /> Bemanning</>, title: 'Bemanning: sett de faste på arbeidet som er planlagt, og lei inn til resten' },
       ]}
     />
   )
 }
 
 /** The mode the Kalender is in, named after its title in the page header. The band it sits on has the mode's colour. */
-export function ModeTag({ mode }: { mode: PlanMode }) {
+export function ModeTag({ mode, part }: { mode: PlanMode; /** In Bemanning: the part shown, where it is not the permanent staff. */ part?: 'innleid' }) {
   return (
     <span className="mode-tag">
       {mode === 'bemanning' ? <Users size={13} aria-hidden /> : <CalendarDays size={13} aria-hidden />}
-      {mode === 'bemanning' ? 'Bemanning' : 'Plan'}
+      {mode === 'bemanning' ? (part ? 'Bemanning · Innleid' : 'Bemanning') : 'Plan'}
     </span>
   )
 }
