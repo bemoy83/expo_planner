@@ -82,13 +82,15 @@ interface StaffingSectionProps {
   capacity: CapacityLine[]
   /** The lines that come from Bemanning, in FTE per day; none until people are entered on Personell. */
   fromBemanning: { label: string; title: string; values: DayValues }[]
+  /** The people ordered in Innleid who are not confirmed, as FTE per day: told of on «Tilgjengelig», counted nowhere. */
+  waitingHired: DayValues
   settings: Settings
   heat: boolean
   heatMax: { maxShortage: number; maxSurplus: number }
 }
 
 /** Bemanning has a heading as the hall calendar has; it always has the Avvik line under it. */
-export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols, need, capacity, fromBemanning, settings, heat, heatMax }: StaffingSectionProps) {
+export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols, need, capacity, fromBemanning, waitingHired, settings, heat, heatMax }: StaffingSectionProps) {
   return (
     <div className="top-section staffing open">
       <SectionLine>
@@ -110,7 +112,7 @@ export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols
           ))}
         </>
       )}
-      <SumRows cols={cols} need={need} capacity={capacity} settings={settings} deviationOnly={!open} heat={heat} maxShortage={heatMax.maxShortage} maxSurplus={heatMax.maxSurplus} />
+      <SumRows cols={cols} need={need} capacity={capacity} waitingHired={waitingHired} settings={settings} deviationOnly={!open} heat={heat} maxShortage={heatMax.maxShortage} maxSurplus={heatMax.maxSurplus} />
     </div>
   )
 }

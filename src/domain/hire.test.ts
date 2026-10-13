@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hireHours, mergeOrders, orderGroups, orderText, planOrders, rangeSummary, setWaiting, shiftOf, shiftTimes, waitingHours } from './hire'
-import { DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, planOrders, rangeSummary, setWaiting, shiftOf, shiftTimes, waitingHours } from './hire'
+import { capacityForDate } from './calc'
+import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
 const wd = DEFAULT_WORKDAY
 const DAG = { start: 420, end: 900 }
@@ -250,5 +251,24 @@ describe('the chips of a day and the sum of a range', () => {
     const covers = [coverage(60, orders, wd), coverage(22, [], wd)]
     expect(rangeSummary(covers, orders, wd)).toEqual({ rest: 82, planned: 52.5, short: 29.5, over: 0, people: 7, peopleShort: 4 })
     expect(rangeSummary([coverage(45, orders, wd)], orders, wd)).toMatchObject({ short: 0, over: 7.5, peopleShort: 0 })
+  })
+})
+
+describe('the orders in the plan', () => {
+  const ws = {
+    settings: DEFAULT_SETTINGS,
+    hireOrders: [order('a', 'k1', 'vegger', '2026-10-08', 4, 4), order('b', 'k3', 'rigg', '2026-10-08', 2, 2, { start: 420, end: 720 }), order('c', 'k1', 'tepper', '2026-10-08', 3, null), order('d', 'k3', 'rigg', '2026-10-09', 1, 1, { start: 1380, end: 420 })],
+  }
+
+  it('counts the confirmed orders as FTE per day, over the competences, and gives those that wait apart', () => {
+    // 4 people a whole day and 2 for five hours: 4 + 10 / 7,5.
+    expect(hiredFte(ws)).toEqual({ confirmed: { '2026-10-08': 5.33, '2026-10-09': 1 }, waiting: { '2026-10-08': 3 } })
+  })
+
+  it('is a staffing line that is added to «Tilgjengelig»', () => {
+    const line = hiredLine(ws)
+    expect(line).toMatchObject({ group: 'added', values: { '2026-10-08': 5.33, '2026-10-09': 1 } })
+    expect(capacityForDate('2026-10-08', [line], DEFAULT_SETTINGS)).toMatchObject({ base: 21, added: 5.33, available: 26.33 })
+    expect(hiredLine({ settings: DEFAULT_SETTINGS }).values).toEqual({})
   })
 })

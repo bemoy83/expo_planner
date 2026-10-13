@@ -74,7 +74,8 @@ Gaps
 
 - **Fravær is in.** The absence entered in Bemanning shows in the Kalender's Bemanning section as the line «Fravær faste (FTE)», worked out per day (`absenceFte` in `domain/staffing.ts`: a whole day away is 1, a part of the day its share of the normal day, active people on workdays only), and is subtracted from «Tilgjengelig». It is read-only in the Kalender.
 - **Overtime is in.** The overtime drawn in Bemanning shows as «Overtid faste (FTE)» (`overtimeByDay` and `overtimeLine` in `domain/staffing.ts`: hours outside the normal day, and every paid hour on a weekend or holiday, divided by the hours of an FTE-day) and is added to «Tilgjengelig». Read-only in the Kalender.
-- **Deferred by the user (2026-10-07): the lines typed in by hand** (Innleid, trade crews, Admin, margin). The workbook was their only source; with its import gone, their storage and editing in the Kalender are removed too. Do not build them again. The user will design another system for hired crew, like Bemanning but for innleid: in his words it is basically every competence demand that is not met after the permanent staff are assigned. Wait for his design. The Kalender shows «Faste», «Fravær faste» and «Overtid faste».
+- **Innleid is in (2026-10-13).** The confirmed orders of Bemanning · Innleid show as «Innleid (FTE)» and are added to «Tilgjengelig»; see «Innleid: begun». Read-only in the Kalender.
+- **Deferred by the user (2026-10-07): the lines typed in by hand** (Innleid, trade crews, Admin, margin). The workbook was their only source; with its import gone, their storage and editing in the Kalender are removed too. Do not build them again. The user will design another system for hired crew, like Bemanning but for innleid: in his words it is basically every competence demand that is not met after the permanent staff are assigned. His design is `design_docs/innleid/`, being built. Trade crews, Admin and margin are still not built.
 
 ## Innleid: begun
 
@@ -88,7 +89,8 @@ Built from `design_docs/innleid/` in the six slices of the Claude Doc «Innleid:
 - **Slice 3 is in: ordering and answers.** Days are picked on a competence by a click, a drag or Shift+click, and its label becomes the editor: «+ Leverandør» with the count filled in, supplier, shift or own times, people, answer, remove and «Fyll». Chips per supplier in the days. The answer popover has «Venter» and «Bekreftet» with «Stiller n av N». Checked in the browser with the invented data: adding, the count by keys, confirming and fewer, a press outside a popover that only closes it, a drag and a Shift+click with the real mouse, «Fyll», a shift, own times, Esc and undo.
   - Chosen here: own times are two time fields on the half hour, without the package's track to drag; the people of a line are those of its first day, with the spread beside it where the days differ; a click on a date in the header does not pick the day in the editor; columns narrower than 84 px show the people of a chip without the supplier's name.
   - Undo and redo are the app's own keys and work in Innleid.
-- Next: slice 4, the line «Innleid (FTE)» into «Tilgjengelig». Then the line «Innleid (FTE)» into «Tilgjengelig», the brush with the supplier rows, and the supplier panel.
+- **Slice 4 is in: the orders in the plan.** The confirmed orders are the staffing line «Innleid (FTE)» of the Kalender (`hiredLine` in `domain/hire.ts`: people × paid hours ÷ the hours of an FTE-day, over the competences), added to «Tilgjengelig», so the plan's Avvik moves with them. Orders that wait count nowhere; the tooltip of «Tilgjengelig» says how many FTE wait on the day. The line shows once there is a supplier or an order.
+- Next: slice 5, the brush and the supplier rows. Then the line «Innleid (FTE)» into «Tilgjengelig», the brush with the supplier rows, and the supplier panel.
 - Where the package and the app disagree, the defaults are in the Claude Doc. Not asked for by the package, chosen here: an order moved to another supplier or another time waits for an answer again; two orders that become the same add up what was asked of each.
 
 ## What the workbook has and the app does not
@@ -156,7 +158,6 @@ General
 - The style sheets in `src/styles/` name every colour and every text size in `tokens.css`. Still plain values: the 15 px figures of the header and of Bemanning's demand strip, corner radii, and the dark shadow of the row details. The three figures side by side and the thin bar under them are one set of rules in `base.css` (`.stats`, `.bar`), used by the row details and by Bemanning.
 - Numbers typed with a decimal comma are read by one parser (`domain/numbers.ts`), but what an empty field means still differs by place: 0 in the tables and for the crew, nothing in a demand line, invalid for the hours of a day and for hours to move.
 - `design_docs/` is stale and uses the misspelling "Venyoo". `docs/kalender-workbook.md` describes the workbook, which the app does not read.
-- `capacityForDate` in `domain/calc.ts` still sums a group of added crew («innleid/fag» in the tooltip of Tilgjengelig). Nothing fills it since the typed staffing lines were removed; it waits for the hired-crew system.
 
 ## Spans in the plan: their ends are pulled, to be tested by the user
 

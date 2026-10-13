@@ -28,6 +28,7 @@ import { daysWide, fitSpan, LEFT_W, OVERSCAN_ROWS, overscanCols, parseCellInput,
 import { AllocRow, GroupRow, HeadRows } from './GridRows'
 import type { AllocLane, CellEdit, Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
+import { hiredFte, hiredLine } from '../../domain/hire'
 import { InnleidHead, InnleidHeading, InnleidRows, InnleidToolbar, InnleidTop } from '../innleid/InnleidParts'
 import { cleanCrewPart, InnleidScope, type CrewPart } from '../innleid/InnleidScope'
 import { rowTitle } from './labels'
@@ -64,15 +65,22 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // The staffing lines come from Bemanning: absence and overtime, which are worked out.
   const absence = useMemo(() => absenceLine(ws), [ws.persons, ws.unavailability, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
   const overtime = useMemo(() => overtimeLine(ws), [ws.persons, ws.unavailability, ws.assignments, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
-  const capacity = useMemo(() => [absence, overtime], [absence, overtime])
+  // The people hired in Innleid: the confirmed orders are added to «Tilgjengelig», those that wait are only told of.
+  const hired = useMemo(() => hiredFte(ws), [ws.hireOrders, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  const hiredCapacity = useMemo(() => hiredLine(ws), [ws.hireOrders, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  const capacity = useMemo(() => [absence, overtime, hiredCapacity], [absence, overtime, hiredCapacity])
   const fromBemanning = useMemo(() => {
-    if (!ws.persons?.length) return []
     const overtimeFte = Object.fromEntries(Object.entries(overtime.values).map(([date, people]) => [date, Math.round(((people * (overtime.hours?.[date] ?? 0)) / settings.hoursPerDay) * 100) / 100]))
     return [
-      { label: 'Fravær faste (FTE)', title: 'Fravær blant de faste, hentet fra Bemanning. Trekkes fra Tilgjengelig.', values: absence.values },
-      { label: 'Overtid faste (FTE)', title: 'Overtid tegnet i Bemanning, regnet om til FTE. Legges til Tilgjengelig.', values: overtimeFte },
+      ...(ws.persons?.length
+        ? [
+            { label: 'Fravær faste (FTE)', title: 'Fravær blant de faste, hentet fra Bemanning. Trekkes fra Tilgjengelig.', values: absence.values },
+            { label: 'Overtid faste (FTE)', title: 'Overtid tegnet i Bemanning, regnet om til FTE. Legges til Tilgjengelig.', values: overtimeFte },
+          ]
+        : []),
+      ...(ws.suppliers?.length || ws.hireOrders?.length ? [{ label: 'Innleid (FTE)', title: 'Bekreftede bestillinger fra Bemanning · Innleid, regnet om til FTE. Legges til Tilgjengelig. Bestillinger som venter på svar teller ikke.', values: hired.confirmed }] : []),
     ]
-  }, [ws.persons, absence, overtime, settings.hoursPerDay])
+  }, [ws.persons, ws.suppliers, ws.hireOrders, absence, overtime, hired, settings.hoursPerDay])
 
   const [zoom, setZoom] = usePref<Zoom>('zoom', 'normal')
   const [filter, setFilter] = usePref<RowFilter>('filter', EMPTY_FILTER)
@@ -860,6 +868,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               need={need}
               capacity={capacity}
               fromBemanning={fromBemanning}
+              waitingHired={hired.waiting}
               settings={settings}
               heat={heat}
               heatMax={heatMax}

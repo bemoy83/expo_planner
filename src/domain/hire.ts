@@ -1,5 +1,5 @@
 import { dayOfMonth, monthShort, weekdayIndex, WEEKDAYS_NB, type ISODate } from './dates'
-import type { CompetenceKey, HireOrder, Interval, Minute, ShiftId, Supplier, WorkdaySettings } from './types'
+import type { CapacityLine, CompetenceKey, DayValues, HireOrder, Interval, Minute, ShiftId, Supplier, WorkdaySettings, Workspace } from './types'
 
 /**
  * The rules of Innleid: orders of people from suppliers against the hours of a competence that remain on a day
@@ -341,3 +341,23 @@ export const rangeSummary = (covers: Coverage[], orders: HireOrder[], wd: Workda
     peopleShort: Math.max(0, Math.ceil(short / hireHours(shiftTimes('dag', wd), wd) - 1e-6)),
   }
 }
+
+/**
+ * The people ordered as FTE per day, for the Kalender's «Tilgjengelig»: the paid hours of the orders over the hours of an
+ * FTE-day, summed over the competences. Confirmed orders count; those that wait are given apart, and count nowhere.
+ * An order through the night counts on the day it starts.
+ */
+export const hiredFte = ({ hireOrders, settings }: Pick<Workspace, 'hireOrders' | 'settings'>): { confirmed: DayValues; waiting: DayValues } => {
+  const confirmed: DayValues = {}
+  const waiting: DayValues = {}
+  for (const order of hireOrders ?? []) {
+    const days = isWaiting(order) ? waiting : confirmed
+    days[order.date] = (days[order.date] ?? 0) + (order.fte * hireHours(order, settings.workday)) / settings.hoursPerDay
+  }
+  for (const days of [confirmed, waiting]) for (const date in days) days[date] = Math.round(days[date] * 100) / 100
+  return { confirmed, waiting }
+}
+
+/** The confirmed orders as a staffing line of the Kalender, added to «Tilgjengelig». It is worked out, never stored, and cannot be typed in. */
+export const HIRED_LINE_ID = 'hired:innleid'
+export const hiredLine = (ws: Pick<Workspace, 'hireOrders' | 'settings'>): CapacityLine => ({ id: HIRED_LINE_ID, label: 'Innleid', group: 'added', values: hiredFte(ws).confirmed })

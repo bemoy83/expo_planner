@@ -272,6 +272,8 @@ interface SumRowsProps {
   cols: Columns
   need: Map<ISODate, number>
   capacity: CapacityLine[]
+  /** The people ordered in Innleid who are not confirmed, as FTE per day. */
+  waitingHired: DayValues
   settings: Settings
   deviationOnly: boolean
   /** Whether Avvik is drawn as a heat map, see `heatTile`. */
@@ -300,7 +302,7 @@ export function HeatLegend({ title }: { title: string }) {
 }
 
 /** The totals under the staffing lines: planned need, available crew and the difference. With the section folded only the difference shows. */
-export const SumRows = memo(function SumRows({ cols, need, capacity, settings, deviationOnly, heat, maxShortage, maxSurplus }: SumRowsProps) {
+export const SumRows = memo(function SumRows({ cols, need, capacity, waitingHired, settings, deviationOnly, heat, maxShortage, maxSurplus }: SumRowsProps) {
   return (
     <>
       {!deviationOnly && (
@@ -312,7 +314,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, settings, d
             cols={cols}
             cells={(date) => {
               const cap = capacityForDate(date, capacity, settings)
-              return readCell(cols, date, cap.available || undefined, 'sum-cell', `Faste ${formatFte(cap.base)} + innleid/fag ${formatFte(cap.added)} + overtid ${formatFte(cap.overtime)} − utilgjengelig ${formatFte(cap.unavailable)}`)
+              return readCell(cols, date, cap.available || undefined, 'sum-cell', `Faste ${formatFte(cap.base)} + innleid ${formatFte(cap.added)} + overtid ${formatFte(cap.overtime)} − utilgjengelig ${formatFte(cap.unavailable)}${waitingHired[date] ? `\n${formatFte(waitingHired[date])} FTE innleid venter på svar og teller ikke` : ''}`)
             }}
           />
         </>
