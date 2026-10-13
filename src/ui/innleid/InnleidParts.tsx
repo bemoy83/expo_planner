@@ -1,9 +1,9 @@
 import { memo, type CSSProperties, type ReactNode } from 'react'
-import { Check, ChevronsUpDown, Clock, Eraser, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
+import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { coverFigure, dayChips, HOURS_NOISE, isWaiting, shiftOf, SHIFT_LABELS, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
-import { Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
+import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor } from '../dom'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { DEMAND_H } from '../bemanning/layout'
@@ -44,7 +44,7 @@ const days = (n: number) => (n === 1 ? '1 dag' : `${n} dager`)
 /** The page header in Innleid: how much of what the permanent staff leave is still missing. */
 export function InnleidHead({ places }: { places: ReactNode }) {
   const { ws } = useBemanning()
-  const { board, rows } = useInnleid()
+  const { board, rows, panel, setPanel, brush } = useInnleid()
   const suppliers = ws.suppliers?.length ?? 0
   const meta = [suppliers === 1 ? '1 leverandør' : `${suppliers} leverandører`, `${rows.length} ${rows.length === 1 ? 'kompetanse' : 'kompetanser'} med restbehov`, board.underDays.length ? `${days(board.underDays.length)} udekket` : 'Alt dekket']
   return (
@@ -53,6 +53,7 @@ export function InnleidHead({ places }: { places: ReactNode }) {
       <ModeTag mode="bemanning" part="innleid" />
       <span className="page-meta" title="Gjelder hele perioden">{meta.join(' · ')}</span>
       {places}
+      <PanelToggle open={!!panel} what="leverandører" hint="bestillingen til en leverandør, og hva hver av dem tilbyr" onToggle={() => setPanel(panel ? null : brush ? { kind: 'supplier', id: brush.id } : { kind: 'matrix' })} />
     </div>
   )
 }
@@ -110,7 +111,7 @@ export function InnleidTop() {
 
 /** The planning bar in Innleid: the mode and the part, undo, the tools with the supplier they work with, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
-  const { board, waiting, openFirstUnder, tool, pickTool, brush, pickBrush, suppliers } = useInnleid()
+  const { board, waiting, openFirstUnder, openFirstWaiting, tool, pickTool, brush, pickBrush, suppliers, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   const tools: ToolChoice<HireTool>[] = [
     { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager på en kompetanse: klikk en dag, dra over flere, eller Shift+klikk for å utvide (V).' },
@@ -146,9 +147,9 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
       <div className="bar-view">
         <div className="bar-zone bar-zone-end">
           {waiting > HOURS_NOISE && (
-            <span className="il-waiting" title="Timer som er bestilt, men ikke bekreftet av leverandøren">
+            <button className="il-waiting" title="Timer som er bestilt, men ikke bekreftet. Klikk for leverandøren til den første som venter." onClick={openFirstWaiting}>
               <Clock size={14} aria-hidden /> {hoursText(waiting)} t venter på svar
-            </span>
+            </button>
           )}
           {under > 0 && (
             <button className="il-under" title="Dager der det mangler timer. Klikk for å åpne den første." onClick={openFirstUnder}>
@@ -158,6 +159,9 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
           {under === 0 && waiting <= HOURS_NOISE && <span className="bm-hints">Alt dekket og bekreftet</span>}
           <button className="ghost" onClick={onToday}>
             I dag
+          </button>
+          <button className={`ghost icon-button ${panel?.kind === 'help' ? 'active' : ''}`} aria-label="Hjelp" title="Hjelp (?)" onClick={() => setPanel(panel?.kind === 'help' ? null : { kind: 'help' })}>
+            <CircleHelp size={16} aria-hidden />
           </button>
         </div>
       </div>

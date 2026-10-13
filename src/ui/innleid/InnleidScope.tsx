@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ISODate } from '../../domain/dates'
 import { changeCount, changeOrders, confirmFewer, confirmOrders, eraseOrders, fillGroup, hireBoard, mergeOrders, orderGroups, planOrders, rangeSummary, removeOrders, setWaiting, waitingHours, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
-import type { CompetenceKey, CompetenceStyle, HireOrder, Interval, Supplier } from '../../domain/types'
+import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
+import type { CompetenceKey, CompetenceStyle, HireOrder, Interval, ShiftId, Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { isTyping } from '../dom'
 import { heatScale } from '../kalender/heat'
@@ -28,6 +29,9 @@ export interface OrderPop {
   group: string | null
   at: DOMRect
 }
+
+/** What the side panel of Innleid shows: a supplier's order, what every supplier offers, or the help. */
+export type InnleidPanel = { kind: 'supplier'; id: string } | { kind: 'matrix' } | { kind: 'help' }
 
 /** The tools of Innleid: pick days, order a supplier across days, or remove orders across days. */
 export type HireTool = 'select' | 'paint' | 'erase'
@@ -74,6 +78,9 @@ function useInnleidState(active: boolean) {
 
   const [stored, setOpen] = useState<OpenDays | null>(null)
   const [pop, setPop] = useState<OrderPop | null>(null)
+  const [storedPanel, setPanel] = useState<InnleidPanel | null>(null)
+  // A supplier that is removed has no panel.
+  const panel = !active || (storedPanel?.kind === 'supplier' && !suppliers.some((supplier) => supplier.id === storedPanel.id)) ? null : storedPanel
   // The days a drag across a competence's line has reached, until the mouse is let go.
   const [drag, setDrag] = useState<DayDrag | null>(null)
   // The tool, and the supplier it works with: the one the brush orders, or the one whose orders «Tøm» removes (none: every supplier's).
@@ -216,7 +223,24 @@ function useInnleidState(active: boolean) {
       setOrders((list) => removeOrders(list, idsOf(group)))
       if (open?.group === group.key) pick(null)
     },
+    /** Every order of a supplier that waits is confirmed, in one step. */
+    confirmAll: (supplierId: string) => setOrders((list) => confirmOrders(list, list.filter((order) => order.supplierId === supplierId && order.conf === null).map((order) => order.id))),
+    /** An order's answer the other way: confirmed if it waits, waiting if it is confirmed. */
+    toggleAnswer: (order: HireOrder) => setOrders((list) => (order.conf === null ? confirmOrders(list, [order.id]) : setWaiting(list, [order.id]))),
+    offers: (supplierId: string, competence: CompetenceKey) => updateStaffing((w) => ({ ...w, suppliers: toggleSupplierCompetence(w.suppliers ?? [], supplierId, competence) })),
+    shift: (supplierId: string, shift: ShiftId) => updateStaffing((w) => ({ ...w, suppliers: toggleSupplierShift(w.suppliers ?? [], supplierId, shift) })),
     fill: (group: OrderGroup) => open && setOrders((list) => mergeOrders([...list, ...fillGroup(group, open.competence, openDates)])),
+  }
+
+  /** A supplier's panel, with the supplier as the brush. */
+  const openSupplier = (id: string) => {
+    setPanel({ kind: 'supplier', id })
+    pickBrush(id)
+  }
+  /** The panel of the supplier of the first order that waits. */
+  const openFirstWaiting = () => {
+    const first = [...orders].sort((a, b) => a.date.localeCompare(b.date)).find((order) => order.conf === null)
+    if (first) setPanel({ kind: 'supplier', id: first.supplierId })
   }
 
   /** Opens the first day that is short, on its first competence that is. */
@@ -250,8 +274,10 @@ function useInnleidState(active: boolean) {
           if (number) return pickBrush(number.id), setTool('paint')
           return pickTool(letter === 'v' ? 'select' : letter === 't' ? 'erase' : tool === 'paint' ? 'select' : 'paint')
         }
-        // Escape puts the tool away first, then folds the editor.
+        if (key === '?') return e.preventDefault(), setPanel(panel?.kind === 'help' ? null : { kind: 'help' })
+        // Escape puts the tool away first, then closes the panel, then folds the editor.
         if (key === 'Escape' && tool !== 'select') return e.preventDefault(), pickTool('select')
+        if (key === 'Escape' && panel) return e.preventDefault(), setPanel(null)
       }
       // Undo and redo are the app's own keys. A popover has the keys while it is open.
       if (e.metaKey || e.ctrlKey || e.altKey || pop || !open) return
@@ -285,6 +311,7 @@ function useInnleidState(active: boolean) {
   return {
     board, rows, scale, waiting, suppliers, orders, ordersOn, wd,
     tool, pickTool, brush, pickBrush, preview,
+    panel, setPanel, openSupplier, openFirstWaiting,
     open, openDates, openOrders, groups, picked, summary, pick, openOn, fold, stepDays, stepCompetence, openFirstUnder,
     pop, setPop, edits, actions,
     /** The days a drag has reached on a competence. */

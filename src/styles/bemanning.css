@@ -308,7 +308,9 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-suppliers{margin-top:14px}
 .il-supplier .cell{border-bottom:1px solid var(--grid-row)}
 .il-supplier .grid-label{gap:8px}
-.il-supplier.on .lbl-desc{font-weight:600}
+.il-supplier-name{justify-content:flex-start;padding:3px 6px;margin-left:-6px;background:transparent;font:inherit;text-align:left}
+.il-supplier-name:hover{background:var(--sunken)}
+.il-supplier.on .il-supplier-name{font-weight:600}
 .il-supplier.faint .grid-label>:not(.il-brush){opacity:.45}
 .il-brush{flex:none;width:22px;height:22px;padding:0;border-radius:6px;background:transparent;color:var(--faint)}
 .il-brush:hover{background:var(--sunken);color:var(--text)}
@@ -383,6 +385,41 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* An order waits for an answer: a clock in ink, never a colour. */
 .il-waits{position:absolute;top:5px;left:5px;z-index:1}
 .heat-cell.under.strong .il-waits{color:var(--on-neg)}
-.il-waiting{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;background:var(--surface);font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
+.bar-controls .il-waiting{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;background:var(--surface);font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
 .bar-controls .il-under{height:30px;padding:0 10px;background:var(--alert-block);color:var(--alert-on);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
 .bar-controls .il-under:hover{filter:brightness(1.06)}
+/* The side panel of Innleid: a supplier's order, what every supplier offers, and the help. */
+.il-brush-on{display:flex;align-items:center;gap:8px;padding-top:10px;padding-bottom:10px;background:var(--surface);font-size:var(--fs-sm)}
+.il-brush-on span{flex:1}
+.il-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.il-stats dt{font-size:var(--fs-xs);color:var(--muted)}
+.il-stats dd{margin:2px 0 0;font:600 var(--fs-title-sm) var(--font-num)}
+.il-answers{display:flex;align-items:center;gap:6px;margin:14px 0 0;font-size:var(--fs-md)}
+.il-answers .il-glyph:not(:first-child){margin-left:10px}
+.il-panel-actions{display:flex;gap:8px;margin-top:12px}
+.il-panel-actions button{flex:1;white-space:nowrap}
+.il-order-day{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+.il-panel-order{display:flex;align-items:center;gap:6px;font-size:var(--fs-md)}
+.il-panel-order b{font:600 var(--fs-md) var(--font-num)}
+.il-panel-order em{font:400 var(--fs-xs) var(--font-num);font-style:normal;color:var(--faint)}
+.il-panel-what{flex:1;min-width:0;justify-content:flex-start;gap:8px;margin-left:-6px;padding:5px 6px;background:transparent;text-align:left}
+.il-panel-what:hover{background:var(--wash)}
+.il-panel-what span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.il-panel-order .il-status{gap:5px;min-width:92px;height:24px;padding:0 7px;border-radius:6px;font-size:var(--fs-xs);font-weight:500}
+.il-panel-order .il-status.waits{background:transparent;color:var(--muted)}
+.il-offer summary{margin:0;cursor:pointer}
+.il-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.il-tags button{gap:6px;padding:4px 9px;border-radius:6px;background:transparent;box-shadow:inset 0 0 0 1px var(--line);font-size:var(--fs-sm);color:var(--muted)}
+.il-tags button[aria-pressed='true']{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--text);font-weight:600}
+.il-tags button:not([aria-pressed='true']) .swatch{opacity:.35}
+.il-matrix{width:100%;margin-top:12px;border-collapse:collapse;font-size:var(--fs-sm)}
+.il-matrix th{padding:4px 4px 4px 0;font-weight:500;text-align:left;white-space:nowrap}
+.il-matrix thead th{vertical-align:bottom;text-align:center;white-space:normal;font-size:var(--fs-xs)}
+.il-matrix td{padding:4px 0;text-align:center}
+.il-matrix tbody tr:hover{background:var(--wash)}
+.il-to-suppliers{margin-top:14px;font-size:var(--fs-sm)}
+.il-help dl{display:grid;grid-template-columns:92px minmax(0,1fr);gap:7px 12px;margin:0;font-size:var(--fs-md)}
+.il-help dt{font:600 var(--fs-sm) var(--font-num)}
+.il-help dd{margin:0;color:var(--muted)}
+.il-help ol{margin:0;padding-left:18px;font-size:var(--fs-md);line-height:1.45;color:var(--muted)}
+.il-help li+li{margin-top:6px}

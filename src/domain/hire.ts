@@ -361,3 +361,22 @@ export const hiredFte = ({ hireOrders, settings }: Pick<Workspace, 'hireOrders' 
 /** The confirmed orders as a staffing line of the Kalender, added to «Tilgjengelig». It is worked out, never stored, and cannot be typed in. */
 export const HIRED_LINE_ID = 'hired:innleid'
 export const hiredLine = (ws: Pick<Workspace, 'hireOrders' | 'settings'>): CapacityLine => ({ id: HIRED_LINE_ID, label: 'Innleid', group: 'added', values: hiredFte(ws).confirmed })
+
+/** What a supplier is ordered for, together: for the head of its order. */
+export interface SupplierTotals {
+  /** People, a person counted once per day. */
+  people: number
+  hours: number
+  /** The hours at the supplier's rate, in kroner; `null` where it has no rate. */
+  cost: number | null
+  /** Orders confirmed, and orders that wait. */
+  confirmed: number
+  waiting: number
+}
+
+export const supplierTotals = (supplier: Supplier, orders: HireOrder[], wd: WorkdaySettings): SupplierTotals => {
+  const own = orders.filter((order) => order.supplierId === supplier.id)
+  const hours = own.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
+  const waiting = own.filter(isWaiting).length
+  return { people: own.reduce((sum, order) => sum + order.fte, 0), hours, cost: supplier.rate ? hours * supplier.rate : null, confirmed: own.length - waiting, waiting }
+}

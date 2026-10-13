@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, planOrders, rangeSummary, setWaiting, shiftOf, shiftTimes, waitingHours } from './hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, planOrders, rangeSummary, setWaiting, shiftOf, shiftTimes, supplierTotals, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -200,6 +200,11 @@ describe('the order to send and what waits (I9, I10)', () => {
     expect(orderText(manpower, orders, competences)).toBe(
       ['Bestilling – Manpower', 'tor 8. okt', '  Vegger: 4 pers. 07:00–15:00', 'fre 9. okt', '  Vegger: 3 pers. 07:00–15:00', '  Vegger: 1 pers. 15:00–23:00', '  Tepper: 2 pers. 07:00–15:00'].join('\n'),
     )
+  })
+
+  it('sums what a supplier is ordered for, with the cost at its rate', () => {
+    expect(supplierTotals({ ...manpower, rate: 500 }, orders, wd)).toEqual({ people: 10, hours: 75, cost: 37500, confirmed: 3, waiting: 1 })
+    expect(supplierTotals(nordic, orders, wd)).toMatchObject({ people: 9, cost: null, confirmed: 0, waiting: 1 })
   })
 
   it('sums the hours of the orders that wait', () => {

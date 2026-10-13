@@ -33,10 +33,12 @@ interface LineProps {
   /** The supplier does not offer the competence whose days are picked. */
   faint: boolean
   onBrush: (id: string | null) => void
+  /** Opens the supplier's panel. */
+  onOpen: (id: string) => void
 }
 
 /** One supplier: its name with what it offers and its people-days in view, and the people it is ordered for per day. */
-const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, waits, competences, brushed, faint, onBrush }: LineProps) {
+const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, waits, competences, brushed, faint, onBrush, onOpen }: LineProps) {
   return (
     <Line
       className={`il-supplier ${brushed ? 'on' : ''} ${faint ? 'faint' : ''}`}
@@ -46,7 +48,9 @@ const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, w
           <button className="il-brush" aria-pressed={brushed} aria-label={brushed ? `Legg bort penselen` : `Bestill fra ${supplier.name} med penselen`} title={brushed ? 'Legg bort penselen (Esc)' : `Velg ${supplier.name} som pensel`} onClick={() => onBrush(brushed ? null : supplier.id)}>
             <Paintbrush size={13} aria-hidden />
           </button>
-          <span className="lbl-desc">{supplier.name}</span>
+          <button className="il-supplier-name lbl-desc" title={`Åpne bestillingen til ${supplier.name}`} onClick={() => onOpen(supplier.id)}>
+            {supplier.name}
+          </button>
           {waits && <AnswerGlyph waits size={12} />}
           <span className="il-offers" title={`Tilbyr: ${competences.filter((style) => supplier.competences.includes(style.key)).map((style) => style.label).join(', ') || 'ingen av kompetansene med restbehov'}`}>
             {competences.map((style) => (
@@ -76,11 +80,11 @@ const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, w
 
 /**
  * The suppliers under the competences: the people each is ordered for per day. A click on the brush of one picks it as
- * the brush. With days picked on a competence, the suppliers listed are those that offer it, until all are asked for.
+ * the brush, and a click on its name opens its panel. With days picked on a competence, the suppliers listed are those that offer it, until all are asked for.
  */
 export function SupplierRows() {
   const { cols, dates, viewFrom, viewTo, styles } = useBemanning()
-  const { suppliers, orders, rows, open, brush, tool, pickBrush, pickTool } = useInnleid()
+  const { suppliers, orders, rows, open, brush, tool, pickBrush, pickTool, openSupplier } = useInnleid()
   const [all, setAll] = useState(false)
   const perDay = useMemo(() => {
     const map = new Map<string, Map<ISODate, DayPeople>>()
@@ -125,6 +129,7 @@ export function SupplierRows() {
             brushed={tool === 'paint' && brush?.id === supplier.id}
             faint={!!focus && !supplier.competences.includes(focus.key)}
             onBrush={onBrush}
+            onOpen={openSupplier}
           />
         )
       })}

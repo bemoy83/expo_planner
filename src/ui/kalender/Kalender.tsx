@@ -31,6 +31,7 @@ import { heatScale } from './heat'
 import { hiredFte, hiredLine } from '../../domain/hire'
 import { InnleidHead, InnleidHeading, InnleidRows, InnleidToolbar, InnleidTop } from '../innleid/InnleidParts'
 import { cleanCrewPart, InnleidScope, type CrewPart } from '../innleid/InnleidScope'
+import { InnleidSidePanel } from '../innleid/SupplierPanel'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
@@ -974,6 +975,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         </div>
       </div>
       {bemanning && !innleid && <PersonPanel />}
+      {innleid && <InnleidSidePanel onOpenSuppliers={onOpenSuppliers} />}
       {inspectorOpen && !bemanning && <RowInspector details={details} need={need} capacity={capacity} settings={settings} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
       </div>
 
