@@ -83,13 +83,13 @@ describe('Visma lines', () => {
     expect(assigned.assemblyHours).toBe(2)
   })
 
-  it('applies Effekt and the in-plan toggle without changing the source', () => {
+  it('applies Effekt and leaving a line out without changing the source', () => {
     const key = vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')
     const source = { projectNo: '26970', eventName: 'VVS 2026', fileName: 'x.xlsx', importedAt: '', rows }
-    const line = vismaDemandLines(source, kpi, { [key]: { effekt: 0.9, inPlan: true, comment: 'egen opptelling' } }).find((l) => l.id === `visma|${key}`)!
+    const line = vismaDemandLines(source, kpi, { [key]: { effekt: 0.9, comment: 'egen opptelling' } }).find((l) => l.id === `visma|${key}`)!
     expect(line.assemblyHours).toBeCloseTo((10 / 7) * 0.1)
     expect(line).toMatchObject({ basis: 'Planlagt', origin: 'visma', source: 'visma per reg. dato', comment: 'egen opptelling' })
-    expect(vismaDemandLines(source, kpi, {}).every((l) => l.basis === 'visma per reg. dato')).toBe(true)
+    expect(vismaDemandLines(source, kpi, { [key]: { excluded: true } }).find((l) => l.id === `visma|${key}`)!.basis).toBe('visma per reg. dato')
   })
 })
 
@@ -101,7 +101,7 @@ describe('decisions on lines that left the export', () => {
   it('lists them with the line as it read when the decision was made', () => {
     const found = orphanedDecisions('26970', lines, {
       [gone]: { effekt: 1, comment: 'egen opptelling', ref: { avdeling: '65', workType: 'FOGA-vegger', hall: 'Hall E' } },
-      [present]: { inPlan: true },
+      [present]: { excluded: true },
     })
     expect(found).toEqual([expect.objectContaining({ key: gone, workType: 'FOGA-vegger', hall: 'Hall E', avdeling: '65' })])
   })
@@ -109,8 +109,8 @@ describe('decisions on lines that left the export', () => {
   it('ignores other projects and decisions that have been reset', () => {
     expect(
       orphanedDecisions('26970', lines, {
-        [vismaLineKey('26100', '65', 'Print', 'Hall A')]: { inPlan: true },
-        [gone]: { effekt: 0, inPlan: false, comment: '' },
+        [vismaLineKey('26100', '65', 'Print', 'Hall A')]: { excluded: true },
+        [gone]: { effekt: 0, excluded: false, comment: '' },
       }),
     ).toEqual([])
   })

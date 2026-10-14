@@ -9,7 +9,7 @@ The app starts from an empty workspace and the source files. It does not read th
 1. Venyou export → halls, the Kalender's period, and one project per event.
 2. Prosjekter → a project for each event without one: the suggested number, or the number it has in Visma. `Prosjekt.xlsx` (optional) can be read in there once with «Importer fra fil».
 3. Visma export → demand lines; its product types appear on KPI to be given unit, competence and rates. `Kpier.xlsx` (optional) fills them in; the unit in use is chosen by hand for a product type with several.
-4. "I plan" on Behov → rows in the Kalender per phase, hall, competence and Avd., grouped as the planner chooses.
+4. Behov → a Visma line that gives hours and has a hall counts by itself, unless it is left out; the demand becomes rows in the Kalender per phase, hall, competence and Avd., grouped as the planner chooses.
 
 ## Bemanning: a mode of the Kalender, to be tested by the user
 
@@ -76,6 +76,12 @@ Gaps
 - **Overtime is in.** The overtime drawn in Bemanning shows as «Overtid faste (FTE)» (`overtimeByDay` and `overtimeLine` in `domain/staffing.ts`: hours outside the normal day, and every paid hour on a weekend or holiday, divided by the hours of an FTE-day) and is added to «Tilgjengelig». Read-only in the Kalender.
 - **Innleid is in (2026-10-13).** The confirmed orders of Bemanning · Innleid show as «Innleid (FTE)» and are added to «Tilgjengelig»; see «Innleid: begun». Read-only in the Kalender.
 - **Deferred by the user (2026-10-07): the lines typed in by hand** (Innleid, trade crews, Admin, margin). The workbook was their only source; with its import gone, their storage and editing in the Kalender are removed too. Do not build them again. The user will design another system for hired crew, like Bemanning but for innleid: in his words it is basically every competence demand that is not met after the permanent staff are assigned. His design is `design_docs/innleid/`, being built. Trade crews, Admin and margin are still not built.
+
+## Behov redesign: being built
+
+From `design_docs/design_handoff_behov/`, in the five slices of the Claude Doc «Behov: build plan» (2026-10-14). The user's answers: lines count by themselves and «I plan» goes; Effekt and Kommentar stay as columns; the «Lyng» band; the rail of projects; pickers on PickField; the ordinary checkbox; the summary «Timer per kompetanse og grunnlag» moves into a panel that slides in from the right (slice 4); Utkast, Erstatt, the hour shorthand, «Fordel på …», rules from Avklar, work type by article text, «Fra i fjor» and «Ikke i år» all yes; the work shorthand not now.
+
+- **Slice 1 is in: the shell and lines that count by themselves.** A Visma line is in «Planlagt» when it gives hours and is not left out (`vismaDemandLines`), and is taken out again where it is placed while it has no hall (`locateDemand`), so a Visma line never lands under «Mangler hall» in the Kalender. A line left out stays left out whatever it lacks (chosen here; the mockup lets «Trenger avklaring» win). The page: the band, the switch between the views (kept per browser, `behovView`), the rail with a count per project and a bar of what counts, the filter «Trenger avklaring · Med · Utelatt · Alle», a search, slim rows with a dot for what lacks something and a minus to leave a line out, the ordinary checkbox and a bar for the lines selected. Egen registrering is the old list of own lines and the summary until slice 3. Checked in the browser with the real files on a clean start: the counts, leaving out by the minus and by the bar, undo, the Kalender's rows.
 
 ## Innleid: built, to be tested by the user
 

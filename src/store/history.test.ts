@@ -99,7 +99,7 @@ describe('undo history', () => {
     const own = demandLine('own', 'Planlagt')
     const before: Workspace = { ...base, demand: [demandLine('old', 'visma per reg. dato'), own], overrides: {}, visma: [] }
     const imported: VismaImport = { projectNo: '26970', eventName: 'VVS 2026', fileName: 'x.xlsx', importedAt: '', rows: [] }
-    const after: Workspace = { ...before, demand: [own, demandLine('new', 'Planlagt')], overrides: { k: { inPlan: true } }, visma: [imported] }
+    const after: Workspace = { ...before, demand: [own, demandLine('new', 'Planlagt')], overrides: { k: { excluded: true } }, visma: [imported] }
     const step = emptyChange()
     recordLedger(step, before, after)
 

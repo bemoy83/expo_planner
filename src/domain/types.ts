@@ -202,8 +202,8 @@ export interface KpiConfig {
 export interface LineOverride {
   effekt?: number
   comment?: string
-  /** Counts in the demand the planner plans with («Planlagt»). */
-  inPlan?: boolean
+  /** Left out of the demand the planner plans with («Planlagt»), which a line that gives hours and has a hall is in by itself. */
+  excluded?: boolean
   /** Work type chosen by hand for a line Visma has no product type for. */
   workType?: string
   /** The line as it read when the decision was made, for showing it after it has left the export. */

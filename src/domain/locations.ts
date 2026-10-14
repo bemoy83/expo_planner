@@ -1,5 +1,5 @@
 import { diffBy, type TableDiff } from './tableDiff'
-import type { AllocationRow, DemandLine, HallRules } from './types'
+import { PLANNED_BASIS, VISMA_BASIS, type AllocationRow, type DemandLine, type HallRules } from './types'
 
 /**
  * The Hall/Sted of a demand line is free text: «Hall C» from a stand number, or whatever was typed in Visma.
@@ -285,7 +285,10 @@ export const withPlaceRenamed = (halls: string[], rules: HallRules, from: string
   }
 }
 
-/** The demand with each line placed in a hall from the ledger, or in the unresolved location. The lines themselves keep their text. */
+/**
+ * The demand with each line placed in a hall from the ledger, or in the unresolved location. The lines themselves keep their text.
+ * A Visma line counts once it is placed: until then it is not in the demand that is planned with, where the planner's own lines are.
+ */
 export const locateDemand = (demand: DemandLine[], halls: string[], rules?: HallRules): DemandLine[] => {
   const found = new Map<string, string>()
   return demand.map((line) => {
@@ -295,6 +298,7 @@ export const locateDemand = (demand: DemandLine[], halls: string[], rules?: Hall
       hall = placeOf(line.hall, halls, rules, line.projectNo).hall
       found.set(key, hall)
     }
+    if (hall === UNRESOLVED_HALL && line.origin === 'visma' && line.basis === PLANNED_BASIS) return { ...line, hall, basis: VISMA_BASIS }
     return hall === line.hall ? line : { ...line, hall }
   })
 }

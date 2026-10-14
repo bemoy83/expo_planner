@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { withChoice } from './locations'
-import type { KpiConfig, VismaImport, VismaRow } from './types'
-import { vismaLineKey } from './visma'
-import { countOf, matchesFilter, reviewVisma } from './vismaReview'
+import { locateDemand, withChoice } from './locations'
+import { PLANNED_BASIS, VISMA_BASIS, type KpiConfig, type VismaImport, type VismaRow } from './types'
+import { vismaDemandLines, vismaLineKey } from './visma'
+import { countOf, missingText, reviewVisma } from './vismaReview'
 
 const kpi: KpiConfig = {
   workTypes: [
     { productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' },
     { productType: 'Print', unit: 'ordre', competence: 'Print' },
+    { productType: 'Gulv', unit: 'm2', competence: 'Tepper' },
   ],
   rates: [
     { name: 'FOGA-vegger', unit: 'lm', assembly: 7, dismantle: 14 },
@@ -18,28 +19,61 @@ const row = (overrides: Partial<VismaRow>): VismaRow => ({ projectNo: '26970', e
 const imported = (projectNo: string, rows: VismaRow[]): VismaImport => ({ projectNo, eventName: '', fileName: 'utskrift.xlsx', importedAt: '', rows: rows.map((r) => ({ ...r, projectNo })) })
 
 const visma = [
-  imported('26970', [row({ quantity: 10 }), row({ quantity: 21, stand: 'D01-01' }), row({ productType: 'Print', quantity: 3 }), row({ productType: '', stand: '', transInfo: 'Møterom hall E1', avdeling: '32' })]),
+  imported('26970', [
+    row({ quantity: 14 }),
+    row({ quantity: 21, stand: 'D01-01' }),
+    row({ productType: 'Print', quantity: 3 }),
+    row({ productType: '', stand: '', transInfo: 'Møterom hall E1', avdeling: '32' }),
+    row({ productType: 'Gulv', quantity: 40 }),
+  ]),
   imported('26100', [row({ quantity: 5 })]),
 ]
 const halls = ['C', 'D']
-const inPlan = { [vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')]: { inPlan: true } }
+const leftOut = { [vismaLineKey('26970', '65', 'FOGA-vegger', 'Hall C')]: { excluded: true } }
 
 describe('reviewVisma', () => {
-  it('counts per project what is not in the plan, what has no hall and what gives no hours', () => {
-    const review = reviewVisma(visma, kpi, inPlan, halls)
-    expect(review.get('26970')).toMatchObject({ open: 3, ready: 2, unresolved: 1, issues: 1 })
-    expect(review.get('26970')!.lines.map((line) => line.competence)).toEqual(['FOGA', 'FOGA', 'Print', 'Ukjent'])
-    expect(review.get('26100')).toMatchObject({ open: 1, ready: 1, unresolved: 0, issues: 0 })
+  it('counts per project the lines that need the planner, that count, and that are left out', () => {
+    const review = reviewVisma(visma, kpi, leftOut, halls)
+    expect(review.get('26970')).toMatchObject({ need: 2, counted: 2, excluded: 1 })
+    expect(review.get('26970')!.lines.map((line) => line.competence)).toEqual(['FOGA', 'FOGA', 'Print', 'Tepper', 'Ukjent'])
+    expect(review.get('26100')).toMatchObject({ need: 0, counted: 1, excluded: 0, countedHours: 5 / 7 + 5 / 14 })
   })
 
-  it('counts a line as placed once the planner has chosen a hall for its text', () => {
-    const review = reviewVisma(visma, kpi, {}, halls, withChoice(undefined, 'Møterom hall E1', 'D'))
-    expect(review.get('26970')!.unresolved).toBe(0)
+  it('says what a line lacks: a work type, a rate, a hall', () => {
+    const lines = reviewVisma(visma, kpi, {}, halls).get('26970')!.lines
+    expect(lines.find((line) => line.workType === 'Gulv')!.missing).toEqual(['rate'])
+    const without = lines.find((line) => line.competence === 'Ukjent')!
+    expect(without.missing).toEqual(['type', 'hall'])
+    expect(missingText(without.missing)).toBe('Mangler arbeidstype og hall')
   })
 
-  it('filters the lines the way it counts them', () => {
-    const project = reviewVisma(visma, kpi, inPlan, halls).get('26970')!
-    for (const filter of ['all', 'open', 'unresolved', 'issue'] as const) expect(project.lines.filter((line) => matchesFilter(line, filter, halls))).toHaveLength(countOf(project, filter))
-    expect(countOf(project, 'all')).toBe(4)
+  it('counts a line once the planner has chosen a hall for its text and a work type for it', () => {
+    const key = vismaLineKey('26970', '32', '01_ingen produkttype', 'Møterom hall E1')
+    const review = reviewVisma(visma, kpi, { [key]: { workType: 'Print' } }, halls, withChoice(undefined, 'Møterom hall E1', 'D'))
+    expect(review.get('26970')!.lines.find((line) => line.key === key)!.status).toBe('counted')
+  })
+
+  it('keeps a line left out as left out, whatever it lacks', () => {
+    const key = vismaLineKey('26970', '32', '01_ingen produkttype', 'Møterom hall E1')
+    const review = reviewVisma(visma, kpi, { [key]: { excluded: true } }, halls)
+    expect(review.get('26970')!.lines.find((line) => line.key === key)!.status).toBe('excluded')
+  })
+
+  it('counts the filters the way it lists the lines', () => {
+    const project = reviewVisma(visma, kpi, leftOut, halls).get('26970')!
+    for (const filter of ['need', 'counted', 'excluded'] as const) expect(project.lines.filter((line) => line.status === filter)).toHaveLength(countOf(project, filter))
+    expect(countOf(project, 'all')).toBe(5)
+  })
+})
+
+describe('the demand of Visma lines', () => {
+  it('is planned with once a line gives hours and has a hall, unless it is left out', () => {
+    const demand = locateDemand(vismaDemandLines(visma[0], kpi, leftOut), halls)
+    const basis = (workType: string, hall: string) => demand.find((line) => line.workType === workType && line.hall === hall)?.basis
+    expect(basis('FOGA-vegger', 'C')).toBe(VISMA_BASIS)
+    expect(basis('FOGA-vegger', 'D')).toBe(PLANNED_BASIS)
+    expect(basis('Print', 'C')).toBe(PLANNED_BASIS)
+    expect(basis('Gulv', 'C')).toBe(VISMA_BASIS)
+    expect(basis('01_ingen produkttype', 'Mangler hall')).toBe(VISMA_BASIS)
   })
 })

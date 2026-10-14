@@ -1,0 +1,75 @@
+/* Behov: the Visma lines to go through and the planner's own lines, a view each behind the switch in the page header (ui/behov/).
+   The band is the page header alone; the rail, the tables and the bar of what is selected stay neutral. */
+
+.behov-page>.page-head{border-bottom:1px solid var(--mode-line)}
+.segmented .count{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
+.mode-band .segmented .count{color:var(--mode-mute)}
+/* a count of what needs the planner: a solid chip with its own ink, as an alert on the band */
+.count-chip{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:4px;padding:0 5px;border-radius:4px;font:600 var(--fs-xs)/1 var(--font-num);vertical-align:1px}
+.count-chip.alert,.alert-chip{background:var(--alert-warn);color:var(--alert-on)}
+
+/* the page: the projects down the left, and the view beside them */
+.behov-split{flex:1;min-height:0;display:flex}
+.behov-main{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;container-type:inline-size}
+.behov-intro{display:flex;align-items:baseline;gap:6px 16px;flex-wrap:wrap;padding:18px 24px 8px}
+.behov-intro h2{margin:0;font-size:var(--fs-title);font-weight:700;letter-spacing:-.02em}
+.behov-intro p{margin:0;font-size:var(--fs-md)}
+.project-no{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
+.behov-empty{padding:0 24px}
+.behov-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 24px 10px}
+.behov-tools .search{width:220px}
+.tools-sum{font:500 var(--fs-sm) var(--font-num);color:var(--muted);white-space:nowrap}
+.behov-table{flex:1;min-height:0;overflow:auto;padding:0 24px 96px}
+.behov-table section{margin-top:24px}
+.behov-table h3{font-size:var(--fs-base);font-weight:600;margin:0}
+.behov-main>.orphans{margin:0 24px 8px}
+.all-clear{display:flex;align-items:center;gap:8px;margin:8px 0;padding:16px 18px;border-radius:10px;background:var(--sunken);color:var(--muted)}
+.all-clear svg{color:var(--pos)}
+
+/* the rail of projects: a raised row for the one that is open, a thin bar of how much counts */
+.rail{width:264px;flex:none;overflow:auto;padding:12px 10px 24px;border-right:1px solid var(--line)}
+@media (max-width:1180px){.rail{width:208px}}
+.rail-heading{margin:14px 10px 6px;font:500 var(--fs-xs) var(--font-num);letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.rail-item{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 8px;padding:9px 10px;border-radius:8px;background:none;text-align:left;font-weight:400}
+.rail-item:hover{background:color-mix(in srgb,var(--surface) 60%,transparent)}
+.rail-item.active{background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+.rail-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.rail-item.active .rail-name{font-weight:600}
+.rail-item>.count{font:500 var(--fs-sm) var(--font-num);color:var(--muted)}
+.rail-done{color:var(--muted)}
+.rail-sub{grid-column:1/-1;font-size:var(--fs-sm);color:var(--muted)}
+.rail-bar{grid-column:1/-1;height:3px;margin-top:4px;border-radius:2px;background:var(--sunken);overflow:hidden}
+.rail-bar i{display:block;height:100%;background:var(--pos)}
+
+/* the Visma lines: slim rows on one line each, a rule under each, and only the exceptions marked */
+table.ledger.visma-lines{background:none;font-size:var(--fs-md)}
+table.ledger.visma-lines :is(th,td){border:none;border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent);padding:0 6px;height:36px}
+table.ledger.visma-lines th{height:32px;border-bottom-color:var(--line);font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
+table.ledger.visma-lines tbody tr:hover td{background:color-mix(in srgb,var(--surface) 60%,transparent)}
+table.ledger.visma-lines tr.selected td{background:var(--accent-soft)}
+table.ledger.visma-lines tr.excluded td:not(.pick,.status){opacity:.45}
+table.ledger.visma-lines :is(th,td):is(.pick,.status){width:24px;padding:0 2px;text-align:center}
+table.ledger.visma-lines td.pick input{opacity:0}
+table.ledger.visma-lines :is(tr:hover td.pick input,td.pick input:checked,th.pick input){opacity:1}
+table.ledger.visma-lines select{max-width:180px}
+.visma-lines .cell-line{display:flex;align-items:center;gap:8px;min-width:0}
+.visma-lines .ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.visma-lines .faint{color:var(--faint);font-size:var(--fs-sm)}
+.visma-lines .unit{color:var(--faint)}
+.visma-lines .competence{display:inline-flex;align-items:center;gap:6px}
+.competence-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.need-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--alert-warn)}
+/* leaving a line out: a recessed minus that shows under the pointer, and stays on a line that is left out */
+button.exclude{width:20px;height:20px;padding:0;border-radius:5px;background:none;color:var(--muted);opacity:0}
+tr:hover button.exclude,button.exclude:focus-visible,button.exclude.on{opacity:1;background:var(--sunken)}
+button.exclude.on{color:var(--text)}
+.alert-chip{height:22px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
+.alert-chip:hover{filter:brightness(.95)}
+
+/* what is selected, and what can be done to it: a bar that floats over the foot of the view */
+.bulk-bar{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--surface);box-shadow:0 12px 32px rgb(0 0 0/.2),0 1px 3px rgb(0 0 0/.1);white-space:nowrap;font-size:var(--fs-md)}
+.bulk-sep{width:1px;height:20px;margin:0 4px;background:var(--line)}
+
+@container (max-width:900px){
+  table.ledger.visma-lines :is(th,td):is(:nth-last-child(5),:nth-last-child(6)){display:none}
+}

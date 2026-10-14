@@ -53,7 +53,8 @@ export interface VismaLine {
   rateAssembly: number | null
   rateDismantle: number | null
   effekt: number
-  inPlan: boolean
+  /** Left out by the planner: it does not count, whatever it has. */
+  excluded: boolean
   comment: string
   assemblyHours: number
   dismantleHours: number
@@ -123,7 +124,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
       rateAssembly: rate?.assembly ?? null,
       rateDismantle: rate?.dismantle ?? null,
       effekt,
-      inPlan: override.inPlan ?? false,
+      excluded: override.excluded ?? false,
       comment: override.comment ?? '',
       assemblyHours: hoursFor(quantity, rate?.assembly ?? null, effekt),
       dismantleHours: hoursFor(quantity, rate?.dismantle ?? null, effekt),
@@ -133,7 +134,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
   })
 }
 
-const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.inPlan || !!override.workType
+const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.excluded || !!override.workType
 
 export interface OrphanedDecision {
   key: string
@@ -157,7 +158,10 @@ export const orphanedDecisions = (projectNo: string, lines: VismaLine[], overrid
 
 export const VISMA_LINE_PREFIX = 'visma|'
 
-/** Visma lines as ledger rows. Lines taken into the plan count under «Planlagt», the rest stay under the Visma basis. */
+/**
+ * Visma lines as ledger rows. A line that gives hours counts under «Planlagt» by itself unless the planner has left it out;
+ * the rest stay under the Visma basis. One without a hall is taken out again where the lines are placed (`locateDemand`).
+ */
 export const vismaDemandLines = (source: VismaImport, kpi: KpiConfig, overrides: Record<string, LineOverride>): DemandLine[] =>
   buildVismaLines(source.rows, kpi, overrides).map((line) => ({
     id: `${VISMA_LINE_PREFIX}${line.key}`,
@@ -170,7 +174,7 @@ export const vismaDemandLines = (source: VismaImport, kpi: KpiConfig, overrides:
     stand: '',
     hall: line.hall,
     competence: line.competence,
-    basis: line.inPlan ? PLANNED_BASIS : VISMA_BASIS,
+    basis: !line.excluded && !line.issue ? PLANNED_BASIS : VISMA_BASIS,
     assemblyHours: line.assemblyHours,
     dismantleHours: line.dismantleHours,
     comment: line.comment,
