@@ -1,5 +1,5 @@
 import { useState, type ReactNode, type Ref } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { PickField } from '../fields'
 
 interface Props {
@@ -7,11 +7,11 @@ interface Props {
   value?: string
   /** The value was picked by the planner, not read: a dot says so. */
   chosen?: boolean
-  /** The value offered where there is none: one click takes it. */
+  /** The value offered where there is none: it is first in the list, and marked, so that Enter takes it. */
   offer?: string
   /** Why it is offered. */
   offerTitle?: string
-  /** What the alert chip says where there is neither: «Velg hall». */
+  /** What the button says where there is neither: «Velg hall». */
   missing: string
   options: string[]
   note?: (option: string) => ReactNode
@@ -23,13 +23,15 @@ interface Props {
   className?: string
   /** The button that opens the list, for the form to put the focus on. */
   buttonRef?: Ref<HTMLButtonElement>
+  /** A list to pick from where nothing is missing, as «Annen» on a card of «Avklar»: no mark of attention. */
+  plain?: boolean
 }
 
 /**
- * A value that is resolved in its cell: quiet text once it is there, the offer with a tick and the list beside it («✓ D1 ▾»),
- * or a solid alert chip that opens the list. The list is a `PickField`, which is typed in to find a value.
+ * A value that is resolved in its cell: quiet text once it is there, else the button of what needs the planner (`NeedButton`)
+ * with the offer and a «?», or what is missing. A click always opens the list, a `PickField` to type in, with the offer first.
  */
-export function SplitPick({ value, chosen, offer, offerTitle, missing, options, note, title, label, onPick, className = '', buttonRef }: Props) {
+export function SplitPick({ value, chosen, offer, offerTitle, missing, options, note, title, label, onPick, className = '', buttonRef, plain }: Props) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const show = () => (setText(''), setOpen(true))
@@ -40,8 +42,9 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options, 
           autoFocus
           value={text}
           onChange={setText}
-          options={options}
-          note={note}
+          options={offer ? [offer, ...options.filter((option) => option !== offer)] : options}
+          marked={offer}
+          note={(option) => (option === offer ? 'forslag' : note?.(option))}
           current={value}
           aria-label={label}
           placeholder="Søk …"
@@ -59,22 +62,47 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options, 
         <ChevronDown size={12} aria-hidden />
       </button>
     )
-  if (offer)
+  if (plain)
     return (
-      <span className="split">
-        <button title={offerTitle} onClick={() => onPick(offer)}>
-          <Check size={12} aria-hidden />
-          <span className="ellipsis">{offer}</span>
-        </button>
-        <button className="split-more" title={title ?? 'Velg en annen'} aria-label={`${label}: velg en annen`} onClick={show}>
-          <ChevronDown size={12} aria-hidden />
-        </button>
-      </span>
+      <button ref={buttonRef} className={`plain-chip ${className}`} title={title} aria-label={label} onClick={show}>
+        {missing}
+        <ChevronDown size={12} aria-hidden />
+      </button>
     )
   return (
-    <button ref={buttonRef} className={`alert-chip ${className}`} title={title} aria-label={label} onClick={show}>
-      {missing}
-      <ChevronDown size={12} aria-hidden />
+    <NeedButton
+      buttonRef={buttonRef}
+      className={className}
+      offer={offer}
+      missing={missing}
+      label={label}
+      title={offer ? `Forslag: ${offerTitle ?? offer}. Klikk og Enter for å bruke det.` : title}
+      onClick={show}
+    />
+  )
+}
+
+interface NeedProps {
+  /** The value offered: the button shows it with a «?». */
+  offer?: string
+  /** What it says without an offer: «Velg hall», «uten sats». */
+  missing: string
+  label?: string
+  title?: string
+  onClick: () => void
+  className?: string
+  buttonRef?: Ref<HTMLButtonElement>
+  /** It opens a list: a caret says so. Without, it goes somewhere else to resolve it, as «uten sats» to KPI. */
+  list?: boolean
+}
+
+/** The one button of what needs the planner on Behov: raised, with a dot of attention, the offer with a «?» or what is missing. */
+export function NeedButton({ offer, missing, label, title, onClick, className = '', buttonRef, list = true }: NeedProps) {
+  return (
+    <button ref={buttonRef} className={`need-button ${className}`} title={title} aria-label={label && `${label}: ${offer ? `forslag ${offer}` : missing}`} onClick={onClick}>
+      <span className="ellipsis">{offer ?? missing}</span>
+      {offer && <span className="need-mark">?</span>}
+      {list && <ChevronDown size={12} aria-hidden />}
     </button>
   )
 }

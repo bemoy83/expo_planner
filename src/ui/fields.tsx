@@ -38,13 +38,15 @@ interface PickFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'va
   onCancel?: () => void
   /** The field itself, for the page to put the focus in. */
   ref?: Ref<HTMLInputElement>
+  /** A value that is marked when the list opens before anything is typed, so that Enter takes it: an offer. */
+  marked?: string
 }
 
 /**
  * A text field with values to pick from, listed under it while it has the focus: all of them until
  * something is typed, then those that hold the text. Arrow keys and Enter pick, as a click does.
  */
-export function PickField({ value, onChange, options, onPick = onChange, current = value, note, onCancel, onBlur, onKeyDown, ...rest }: PickFieldProps) {
+export function PickField({ value, onChange, options, onPick = onChange, current = value, note, onCancel, onBlur, onKeyDown, marked, ...rest }: PickFieldProps) {
   const [open, setOpen] = useState(false)
   // The text the field holds when it is entered is not a search.
   const [typed, setTyped] = useState(false)
@@ -52,7 +54,10 @@ export function PickField({ value, onChange, options, onPick = onChange, current
   const listId = useId()
   const text = value.trim().toLowerCase()
   const listed = !open ? [] : typed && text ? options.filter((option) => option.toLowerCase().includes(text)) : options
-  const show = () => setOpen(true)
+  const show = () => {
+    if (!open && marked !== undefined) setActive(options.indexOf(marked))
+    setOpen(true)
+  }
   const close = () => {
     setOpen(false)
     setTyped(false)

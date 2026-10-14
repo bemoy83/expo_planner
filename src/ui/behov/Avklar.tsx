@@ -202,7 +202,7 @@ function HallCard({ card, active, onFocus, projects }: CardProps) {
             ))}
           </span>
         )}
-        <SplitPick label="Annen plassering" missing="Annen" className="cause-more" options={places} onPick={(hall) => apply(hall, projectNo)} />
+        <SplitPick label="Annen plassering" missing="Annen" className="cause-more" plain options={places} onPick={(hall) => apply(hall, projectNo)} />
       </div>
     )
   }
@@ -278,6 +278,7 @@ function TypeCard({ card, active, onFocus, projects }: CardProps) {
           label="Arbeidstype"
           missing="Velg arbeidstype"
           className="cause-more"
+          plain
           options={kpi.workTypes.map((t) => t.productType)}
           note={(type) => {
             const t = kpi.workTypes.find((w) => w.productType === type)

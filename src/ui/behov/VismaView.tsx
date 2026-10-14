@@ -15,7 +15,7 @@ import { count, isTyping } from '../dom'
 import { NumberField, TextField } from '../fields'
 import { Avklar } from './Avklar'
 import { ProjectRail } from './ProjectRail'
-import { SplitPick } from './SplitPick'
+import { NeedButton, SplitPick } from './SplitPick'
 import { usePlacing } from './usePlacing'
 
 const hours = (value: number) => formatFte(value, 1)
@@ -216,19 +216,14 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             <span className="ellipsis">{line.workType}</span>
           )}
           {line.issue === 'no-rate' && (
-            <button
-              className="alert-chip"
+            <NeedButton
+              list={false}
+              missing={line.unit ? 'uten sats' : 'velg enhet'}
               title={line.unit ? 'Produkttypen mangler sats for denne enheten. Åpne KPI.' : 'Produkttypen har flere enheter, og ingen er valgt i bruk. Åpne KPI.'}
               onClick={onOpenSetup}
-            >
-              {line.unit ? 'uten sats' : 'velg enhet'}
-            </button>
+            />
           )}
-          {line.issue === 'unknown-work-type' && (
-            <button className="alert-chip" title="Produkttypen finnes ikke i KPI-oppsettet. Åpne KPI." onClick={onOpenSetup}>
-              ikke på KPI
-            </button>
-          )}
+          {line.issue === 'unknown-work-type' && <NeedButton list={false} missing="ikke på KPI" title="Produkttypen finnes ikke i KPI-oppsettet. Åpne KPI." onClick={onOpenSetup} />}
           {line.missingRate && <span className="faint">{line.missingRate === 'assembly' ? 'ingen sats for montering' : 'ingen sats for demontering'}</span>}
           {line.sourceWorkType === NO_PRODUCT_TYPE && line.texts.length > 0 && (
             <span className="faint ellipsis" title={`Artikkeltekst i Visma: ${line.texts.join(' · ')}`}>

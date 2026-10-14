@@ -6,7 +6,7 @@
 .mode-band .segmented .count{color:var(--mode-mute)}
 /* a count of what needs the planner: a solid chip with its own ink, as an alert on the band */
 .count-chip{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:4px;padding:0 5px;border-radius:4px;font:600 var(--fs-xs)/1 var(--font-num);vertical-align:1px}
-.count-chip.alert,.alert-chip{background:var(--alert-warn);color:var(--alert-on)}
+.count-chip.alert{background:var(--alert-warn);color:var(--alert-on)}
 
 /* the page: the projects down the left, and the view beside them */
 .behov-split{flex:1;min-height:0;display:flex}
@@ -65,25 +65,31 @@ table.ledger.visma-lines select{max-width:180px}
 button.exclude{width:20px;height:20px;padding:0;border-radius:5px;background:none;color:var(--muted);opacity:0}
 tr:hover button.exclude,button.exclude:focus-visible,button.exclude.on{opacity:1;background:var(--sunken)}
 button.exclude.on{color:var(--text)}
-.alert-chip:hover{filter:brightness(.95)}
 
-/* a value resolved in its cell (SplitPick.tsx): quiet text with a caret under the pointer, the offer as a raised segment on a
-   recessed track with the list beside it, or a solid alert chip. No outlines: a state is a fill. */
-.quiet-chip,.split button,.alert-chip{display:inline-flex;align-items:center;gap:4px;min-width:0;max-width:180px;height:24px;padding:0 6px;border-radius:5px;font-size:var(--fs-md);font-weight:500;white-space:nowrap}
-.quiet-chip{margin-left:-6px;background:none;color:var(--text);font-weight:400}
-.quiet-chip svg{opacity:0;color:var(--faint);flex:none}
+/* a value resolved in its cell (SplitPick.tsx): quiet text with a caret under the pointer once it is there; else the one button of
+   what needs the planner (NeedButton): raised on the surface with a dot of attention, the offer with a «?» or what is missing.
+   No outlines: a state is a fill or a shadow. */
+.quiet-chip,.need-button,.plain-chip{display:inline-flex;align-items:center;gap:4px;min-width:0;max-width:180px;height:24px;padding:0 8px;border-radius:6px;font-size:var(--fs-md);font-weight:500;white-space:nowrap}
+:is(.quiet-chip,.need-button,.plain-chip) svg{flex:none}
+.quiet-chip{margin-left:-8px;background:none;color:var(--text);font-weight:400}
+.quiet-chip svg{opacity:0;color:var(--faint)}
 .quiet-chip:hover{background:var(--sunken)}
 .quiet-chip:hover svg{opacity:1}
 .chosen-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex:none}
+.need-button{background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12);color:var(--text);font-weight:600}
+.need-button::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 2px color-mix(in oklab,var(--alert-warn) 28%,transparent)}
+.need-button svg{color:var(--faint)}
+.need-button:hover{background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.16),0 0 0 1px rgb(0 0 0/.02)}
+.need-button:hover svg{color:var(--text)}
+.need-mark{margin-left:-3px;font-weight:500;color:var(--faint)}
+.plain-chip{background:var(--sunken);color:var(--text)}
+/* a recessed track of choices, each a raised segment: the halls on a card of «Avklar» */
 .split{display:inline-flex;gap:2px;padding:2px;border-radius:7px;background:var(--sunken);min-width:0}
-.split button{height:20px;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12);color:var(--text)}
+.split button{height:20px;padding:0 6px;border-radius:5px;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12);color:var(--text);font-size:var(--fs-md);font-weight:500}
 .split button:hover{background:var(--panel)}
 .split button svg{flex:none;color:var(--pos)}
-.split .split-more{padding:0 3px;background:none;box-shadow:none}
-.split .split-more svg{color:var(--muted)}
 .split-field{display:inline-flex;width:180px}
 .split-field input{width:100%;height:26px}
-.alert-chip svg{flex:none}
 
 /* what is selected, and what can be done to it: a bar that floats over the foot of the view */
 .bulk-bar{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--surface);box-shadow:0 12px 32px rgb(0 0 0/.2),0 1px 3px rgb(0 0 0/.1);white-space:nowrap;font-size:var(--fs-md)}
@@ -237,8 +243,6 @@ tr:hover .edit-placeholder{visibility:visible}
 /* the lines of the card in focus are lit in the table, the rest dimmed */
 table.ledger.visma-lines tr.lit td{background:var(--accent-soft)}
 table.ledger.visma-lines tr.dim td{opacity:.4}
-/* «Annen» and «Velg arbeidstype» in a card open a list: a choice, not an alert */
-.alert-chip.cause-more{background:var(--sunken);color:var(--text)}
 .hours-summary .insp-sec{overflow-x:auto}
 
 /* «Fra i fjor»: a recessed card, folded until it is opened */
