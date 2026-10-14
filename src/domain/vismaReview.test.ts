@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { locateDemand, withChoice } from './locations'
 import { PLANNED_BASIS, VISMA_BASIS, type KpiConfig, type VismaImport, type VismaRow } from './types'
 import { vismaDemandLines, vismaLineKey } from './visma'
-import { countOf, missingText, reviewVisma, suggestWorkType } from './vismaReview'
+import { causeGroups, countOf, missingText, reviewVisma, suggestWorkType } from './vismaReview'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -45,6 +45,13 @@ describe('reviewVisma', () => {
     const without = lines.find((line) => line.competence === 'Ukjent')!
     expect(without.missing).toEqual(['type', 'hall'])
     expect(missingText(without.missing)).toBe('Mangler arbeidstype og hall')
+  })
+
+  it('asks for the unit in use where a product type on KPI has none, not for a rate', () => {
+    const unitless: KpiConfig = { ...kpi, workTypes: [...kpi.workTypes, { productType: 'Møbler', unit: '', competence: 'Møbler' }] }
+    const line = reviewVisma([imported('26970', [row({ productType: 'Møbler' })])], unitless, {}, halls).get('26970')!.lines[0]
+    expect(line.missing).toEqual(['unit'])
+    expect(causeGroups([line]).rate).toEqual([])
   })
 
   it('counts a line once the planner has chosen a hall for its text and a work type for it', () => {
@@ -98,5 +105,27 @@ describe('suggestWorkType', () => {
   it('takes the longest word where the texts hold several', () => {
     const many: KpiConfig = { ...kpi, workTypes: [...kpi.workTypes, { productType: 'Printduk', unit: 'm2', competence: 'Print' }] }
     expect(suggestWorkType(['Printduk på vegg'], many)).toBe('Printduk')
+  })
+})
+
+describe('causeGroups', () => {
+  it('groups the lines that need the planner by what they lack', () => {
+    const rows = [
+      row({ productType: '', stand: '', transInfo: 'Foaje øst', description: 'Fritekst', avdeling: '32' }),
+      row({ productType: '', stand: '', transInfo: 'Foaje øst', description: 'Fritekst', avdeling: '64' }),
+      row({ productType: 'Gulv', quantity: 40 }),
+      row({ productType: 'Gulv', quantity: 10, avdeling: '64' }),
+    ]
+    const { hall, type, rate } = causeGroups(reviewVisma([imported('26970', rows)], kpi, {}, halls).get('26970')!.lines)
+    expect(hall).toEqual([expect.objectContaining({ text: 'Foaje øst', blank: false, projects: ['26970'] })])
+    expect(hall[0].lines).toHaveLength(2)
+    expect(type).toEqual([expect.objectContaining({ text: 'Fritekst' })])
+    expect(rate).toEqual([expect.objectContaining({ workType: 'Gulv', unit: 'm2', quantity: 50 })])
+  })
+
+  it('leaves out lines that are left out or count', () => {
+    const rows = [row({ productType: 'Gulv', quantity: 40 })]
+    const key = vismaLineKey('26970', '65', 'Gulv', 'Hall C')
+    expect(causeGroups(reviewVisma([imported('26970', rows)], kpi, { [key]: { excluded: true } }, halls).get('26970')!.lines).rate).toEqual([])
   })
 })

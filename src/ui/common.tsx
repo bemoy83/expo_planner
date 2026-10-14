@@ -226,12 +226,14 @@ interface SidePanelProps {
   onKeyDown?: KeyboardEventHandler<HTMLElement>
   /** The body (`insp-body`) and, where the panel has one, the foot. */
   children?: ReactNode
+  /** A class of its own beside `inspector`, for its width. */
+  className?: string
 }
 
 /** The frame of a panel that slides in over the right edge of a page, which keeps its width: a head with a button that closes it, and what it holds. Opened with a `PanelToggle`. */
-export function SidePanel({ label, head, actions, closeTitle = `Lukk ${label.toLowerCase()}`, onClose, onKeyDown, children }: SidePanelProps) {
+export function SidePanel({ label, head, actions, closeTitle = `Lukk ${label.toLowerCase()}`, onClose, onKeyDown, children, className }: SidePanelProps) {
   return (
-    <aside className="inspector" aria-label={label} onKeyDown={onKeyDown}>
+    <aside className={className ? `inspector ${className}` : 'inspector'} aria-label={label} onKeyDown={onKeyDown}>
       <header className="insp-head">
         <div className="insp-head-text">{head}</div>
         <div className="insp-actions">

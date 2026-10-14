@@ -252,6 +252,18 @@ export const withChoice = (rules: HallRules = NO_HALL_RULES, text: string, hall:
   return { ...rules, choices }
 }
 
+/**
+ * The rules with a rule for words added last: a text that holds them counts under the place. A rule for the same words is
+ * given the new place where it stands in the order. No words, no rule.
+ */
+export const withPhrase = (rules: HallRules = NO_HALL_RULES, text: string, hall: string): HallRules => {
+  const words = text.trim()
+  if (!words) return rules
+  const at = rules.phrases.findIndex((phrase) => lower(phrase.text) === lower(words))
+  const phrases = at >= 0 ? rules.phrases.map((phrase, index) => (index === at ? { ...phrase, hall } : phrase)) : [...rules.phrases, { text: words, hall }]
+  return { ...rules, phrases }
+}
+
 /** One of the planner's choices for a text, as the Hallregler tab lists it: for every project, or for one. */
 export interface HallChoice {
   key: string

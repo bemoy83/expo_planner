@@ -198,3 +198,45 @@ tr:hover .edit-placeholder{visibility:visible}
 .own-empty{padding:12px 0}
 .bulk-bar .menu-pop{top:auto;bottom:100%;margin:0 0 6px}
 .bulk-bar .menu-pop small{margin-left:8px}
+
+/* ---- the panels that slide in over the right edge: «Avklar», and the hours per competence ---- */
+.behov-stage{position:relative;flex:1;min-height:0;display:flex}
+.inspector.avklar{width:380px}
+.inspector.hours-summary{width:420px}
+.hours-summary table.ledger.summary{width:100%;background:none}
+@container (min-width:1100px){.behov-main.with-panel :is(.behov-table,.behov-tools){padding-right:404px}}
+.avklar-progress{display:block;margin-top:10px}
+.avklar-tabs{padding:12px 16px 4px}
+.avklar-list{display:flex;flex-direction:column;gap:6px;padding:8px 12px 16px}
+.avklar-foot{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+.avklar-foot kbd{margin-right:2px}
+.avklar-done{display:flex;flex-direction:column;align-items:center;gap:8px;padding:40px 24px;text-align:center}
+.avklar-ok{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--pos-bg);color:var(--pos)}
+/* a card per cause: flat until it is in focus, then raised and open */
+.cause{padding:10px 12px;border-radius:10px;cursor:pointer}
+.cause:hover{background:var(--wash)}
+.cause.active{background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.12);cursor:default}
+.cause-head{display:flex;align-items:baseline;gap:8px}
+.cause-head b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.cause-figures{font:500 var(--fs-sm) var(--font-num);color:var(--muted);white-space:nowrap}
+.cause-sub{margin-top:2px;font-size:var(--fs-sm);color:var(--muted)}
+.cause-body{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-top:12px}
+.cause-accept{gap:6px}
+.cause-accept small{opacity:.7}
+.cause-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cause-chips .split{flex-wrap:wrap}
+.cause-rule{display:flex;flex-direction:column;gap:4px;width:100%;font-size:var(--fs-sm)}
+.cause-rule input{width:100%}
+.cause-project{display:flex;flex-direction:column;gap:4px;width:100%}
+.cause-hint{font-size:var(--fs-sm)}
+.cause-rates{display:flex;align-items:flex-end;gap:10px}
+.cause-rates label{display:flex;flex-direction:column;gap:3px;width:100px;font-size:var(--fs-sm)}
+.cause-rates label>span{display:flex;align-items:center}
+.cause-calc{display:flex;flex-direction:column;padding-bottom:2px}
+.cause-calc b{font:600 var(--fs-base) var(--font-num)}
+/* the lines of the card in focus are lit in the table, the rest dimmed */
+table.ledger.visma-lines tr.lit td{background:var(--accent-soft)}
+table.ledger.visma-lines tr.dim td{opacity:.4}
+/* «Annen» and «Velg arbeidstype» in a card open a list: a choice, not an alert */
+.alert-chip.cause-more{background:var(--sunken);color:var(--text)}
+.hours-summary .insp-sec{overflow-x:auto}

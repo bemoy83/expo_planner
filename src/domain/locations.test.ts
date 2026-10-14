@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collectedIn, exampleChoices, examplePlaces, exampleRules, hallChoices, locateDemand, locateRows, NO_HALL_RULES, placeNames, placeOf, PROJECT_HALLS, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withChoice, withPlaceRenamed } from './locations'
+import { collectedIn, exampleChoices, examplePlaces, exampleRules, hallChoices, locateDemand, locateRows, NO_HALL_RULES, placeNames, placeOf, PROJECT_HALLS, readHall, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL, withChoice, withPhrase, withPlaceRenamed } from './locations'
 import type { AllocationRow, DemandLine, HallRules } from './types'
 import { buildWindows, windowFor } from './windows'
 
@@ -228,5 +228,19 @@ describe('placing demand in the halls of the hall ledger', () => {
     const windows = buildWindows([booking('B1', '2026-04-01', '2026-04-02'), booking('B3', '2026-04-02', '2026-04-03'), booking('C', '2026-04-06', '2026-04-06')], () => 'hage', sharedPlaces(halls, own))
     expect([...windowFor(windows, 'hage', 'B', 'Montering')!]).toEqual(['2026-04-01', '2026-04-02', '2026-04-03'])
     expect([...windowFor(windows, 'hage', 'B1', 'Montering')!]).toEqual(['2026-04-01', '2026-04-02'])
+  })
+})
+
+describe('withPhrase', () => {
+  it('adds a rule for words last, which then places a text that holds them', () => {
+    const rules = withPhrase(NO_HALL_RULES, 'foaje', 'C')
+    expect(rules.phrases).toEqual([{ text: 'foaje', hall: 'C' }])
+    expect(placeOf('Foaje øst', ['C', 'D'], rules, '26970')).toMatchObject({ hall: 'C', by: 'phrase' })
+  })
+
+  it('gives a rule for the same words the new place, and makes none of no words', () => {
+    const rules = withPhrase(withPhrase(NO_HALL_RULES, 'foaje', 'C'), 'Foaje', 'D')
+    expect(rules.phrases).toEqual([{ text: 'foaje', hall: 'D' }])
+    expect(withPhrase(rules, '  ', 'C')).toBe(rules)
   })
 })

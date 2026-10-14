@@ -5,9 +5,10 @@ import { reviewVisma, type ReviewedLine } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
-import { MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
+import { MessageBanner, PanelToggle, Segmented, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
 import { EgenView, type ReplaceSeed } from './EgenView'
+import { HoursSummary } from './HoursSummary'
 import { usePlacing } from './usePlacing'
 import { VismaView } from './VismaView'
 
@@ -29,6 +30,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const [view, setView] = usePref<View>('behovView', 'visma', (stored) => (stored === 'egen' ? 'egen' : 'visma'))
   const [message, setMessage] = useState<Message | null>(null)
   const [seed, setSeed] = useState<ReplaceSeed | null>(null)
+  // The panel that slides in from the right: «Avklar» in the Visma view, or the hours per competence and basis.
+  const [panel, setPanel] = useState<'avklar' | 'summary' | null>(null)
   const vismaInput = useRef<HTMLInputElement>(null)
   const { halls, rules } = usePlacing()
 
@@ -83,7 +86,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
         <Segmented
           label="Kilde"
           value={view}
-          onChange={setView}
+          onChange={(next) => (setView(next), setPanel(panel === 'avklar' ? null : panel))}
           options={[
             {
               value: 'visma',
@@ -95,6 +98,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
         />
         <span className="toolbar-gap" />
         <UndoRedoButtons />
+        <PanelToggle open={panel === 'summary'} what="timer per kompetanse" hint="timene til prosjektet per kompetanse og grunnlag, som radene i Kalender henter behov fra" disabled={!projectNo} onToggle={() => setPanel(panel === 'summary' ? null : 'summary')} />
         <button className="ghost" onClick={onOpenRules} title="Reglene som plasserer Hall/sted i en hall: steder som står for flere haller, ord som betyr en hall, og valgene du har gjort for enkelte tekster.">
           Hallregler
         </button>
@@ -106,11 +110,14 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
         <input ref={vismaInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFiles(e, onVismaFiles)} />
       </div>
       <MessageBanner message={message} onClose={() => setMessage(null)} />
+      <div className="behov-stage">
       {view === 'visma' ? (
-        <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} onReplace={replace} />
+        <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} onReplace={replace} avklar={panel === 'avklar'} onAvklar={(open) => setPanel(open ? 'avklar' : null)} />
       ) : (
         <EgenView projectNo={projectNo} onProjectChange={onProjectChange} seed={seed} onSeedUsed={() => setSeed(null)} onMessage={setMessage} />
       )}
+      {panel === 'summary' && projectNo && <HoursSummary projectNo={projectNo} projectName={names.get(projectNo) ?? projectNo} onClose={() => setPanel(null)} />}
+      </div>
     </div>
   )
 }

@@ -117,5 +117,5 @@ export function usePlacing() {
     }
     return [...found.values()]
   }
-  return { halls, rules, placeOfLine, ruleOf, locationCell, offersFor }
+  return { halls, rules, booked, places, placeOfLine, ruleOf, locationCell, offersFor }
 }

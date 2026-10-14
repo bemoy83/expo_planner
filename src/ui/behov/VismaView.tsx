@@ -13,6 +13,7 @@ import { useTable, type Column } from '../useTable'
 import { Segmented, TriCheckbox, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { NumberField, TextField } from '../fields'
+import { Avklar } from './Avklar'
 import { ProjectRail } from './ProjectRail'
 import { SplitPick } from './SplitPick'
 import { usePlacing } from './usePlacing'
@@ -37,13 +38,16 @@ interface Props {
   onMessage: (message: Message) => void
   /** Leaves the line out and opens Egen registrering with an own line in its place. */
   onReplace: (line: ReviewedLine) => void
+  /** Whether «Avklar» is open, and the switch for it. */
+  avklar: boolean
+  onAvklar: (open: boolean) => void
 }
 
 /**
  * Going through the Visma lines: a line that gives hours and has a hall counts by itself. What is marked is the exception:
  * the lines that lack something, and those the planner has left out.
  */
-export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, names, onMessage, onReplace }: Props) {
+export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, names, onMessage, onReplace, avklar, onAvklar }: Props) {
   const { workspace, setLineOverride, setLineOverrides, removeLineOverride, setHallChoice } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
@@ -61,6 +65,8 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
   }
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // The lines of the card in focus in «Avklar»: lit in the table, the rest dimmed.
+  const [lit, setLit] = useState<Set<string> | null>(null)
   const styles = useMemo(() => new Map(competenceStyles(ws).map((style) => [style.key, style])), [ws])
   const typeNames = useMemo(() => kpi.workTypes.map((type) => type.productType), [kpi])
   const typeNotes = useMemo(() => new Map(kpi.workTypes.map((type) => [type.productType, [type.unit, type.competence].filter(Boolean).join(' · ')])), [kpi])
@@ -210,8 +216,12 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             <span className="ellipsis">{line.workType}</span>
           )}
           {line.issue === 'no-rate' && (
-            <button className="alert-chip" title="Produkttypen mangler sats for denne enheten. Åpne KPI." onClick={onOpenSetup}>
-              uten sats
+            <button
+              className="alert-chip"
+              title={line.unit ? 'Produkttypen mangler sats for denne enheten. Åpne KPI.' : 'Produkttypen har flere enheter, og ingen er valgt i bruk. Åpne KPI.'}
+              onClick={onOpenSetup}
+            >
+              {line.unit ? 'uten sats' : 'velg enhet'}
             </button>
           )}
           {line.issue === 'unknown-work-type' && (
@@ -335,7 +345,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
           }
         }) }]}
       />
-      <div className="behov-main">
+      <div className={`behov-main ${avklar ? 'with-panel' : ''}`}>
         <div className="behov-intro">
           <h2>
             {projectNo ? (names.get(projectNo) ?? projectNo) : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
@@ -378,6 +388,9 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
                   <Check size={14} aria-hidden /> Bruk {count(offerCount, 'forslag', 'forslag')}
                 </button>
               )}
+              <button className="primary" disabled={avklar} title="Avklar linjene samlet, etter hva de mangler" onClick={() => onAvklar(true)}>
+                Avklar {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>} ›
+              </button>
               <span className="tools-sum" title="Timene til linjene som er med, montering og demontering">
                 {hours(scopeHours)} t med
               </span>
@@ -416,7 +429,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
                   className="visma-lines"
                   limit={LIST_LIMIT}
                   rowKey={(line) => line.key}
-                  rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : ''].filter(Boolean).join(' ') || undefined })}
+                  rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : '', lit ? (lit.has(line.key) ? 'lit' : 'dim') : ''].filter(Boolean).join(' ') || undefined })}
                   empty={q ? 'Ingen linjer passer søket.' : 'Ingen linjer passer filteret.'}
                 />
               )}
@@ -441,6 +454,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             )}
           </>
         )}
+        {avklar && <Avklar lines={scope} names={names} onFocusLines={setLit} offerCount={offerCount} onTakeOffers={takeOffers} onClose={() => onAvklar(false)} />}
       </div>
     </div>
   )
