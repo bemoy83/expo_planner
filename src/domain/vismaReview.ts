@@ -42,12 +42,35 @@ export const missingText = (missing: Missing[]): string => {
   return words.length ? `Mangler ${words.length > 1 ? `${words.slice(0, -1).join(', ')} og ${words[words.length - 1]}` : words[0]}` : ''
 }
 
+/** The word of a product type a text is looked for by: its first, «FOGA» of «FOGA-vegger». Shorter than three letters says too little. */
+const typeWord = (productType: string): string => {
+  const word = productType.trim().toLowerCase().split(/[-\s/]/)[0]
+  return word.length >= 3 ? word : ''
+}
+
+/**
+ * The product type a line without one is offered: the one whose word most of its article texts hold («Fritekst Foga» is FOGA-vegger),
+ * the longest such word where several are. A line of many texts that name a type here and there («ikke frontbord») is offered nothing.
+ */
+export const suggestWorkType = (texts: string[], kpi: KpiConfig): string | undefined => {
+  const said = texts.map((text) => text.toLowerCase())
+  let best: { productType: string; word: string } | undefined
+  for (const { productType } of kpi.workTypes) {
+    const word = typeWord(productType)
+    if (!word || (best && word.length <= best.word.length)) continue
+    if (said.filter((text) => text.includes(word)).length * 2 > said.length) best = { productType, word }
+  }
+  return best?.productType
+}
+
 /** A Visma line with where it stands. A line left out is settled, whatever it lacks; else it needs the planner while it lacks anything. */
 export interface ReviewedLine extends VismaLine {
   /** The hall or place the line counts under in the Kalender, or «Mangler hall». */
   place: string
   status: LineStatus
   missing: Missing[]
+  /** For a line that lacks a work type: the one its texts point to. */
+  suggestedType?: string
 }
 
 export interface ProjectReview {
@@ -68,7 +91,13 @@ export const reviewVisma = (visma: VismaImport[], kpi: KpiConfig, overrides: Rec
       .sort((a, b) => a.competence.localeCompare(b.competence, 'nb') || a.workType.localeCompare(b.workType, 'nb') || a.hall.localeCompare(b.hall, 'nb'))
       .map((line): ReviewedLine => {
         const missing = missingOf(line, halls, rules)
-        return { ...line, place: placeOf(line.hall, halls, rules, line.projectNo).hall, missing, status: line.excluded ? 'excluded' : missing.length ? 'need' : 'counted' }
+        return {
+          ...line,
+          place: placeOf(line.hall, halls, rules, line.projectNo).hall,
+          missing,
+          status: line.excluded ? 'excluded' : missing.length ? 'need' : 'counted',
+          suggestedType: missing.includes('type') ? suggestWorkType(line.texts, kpi) : undefined,
+        }
       })
     const counted = lines.filter((line) => line.status === 'counted')
     review.set(projectNo, {

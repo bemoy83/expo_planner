@@ -14,12 +14,16 @@ import { Segmented, TriCheckbox, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { NumberField, TextField } from '../fields'
 import { ProjectRail } from './ProjectRail'
+import { SplitPick } from './SplitPick'
 import { usePlacing } from './usePlacing'
 
 const hours = (value: number) => formatFte(value, 1)
 
 /** The most lines listed at once. */
 const LIST_LIMIT = 400
+
+/** The last choice in the list of a work type picked by the planner: the line has none again. */
+const CLEAR_TYPE = 'Fjern valget'
 
 const STATUS_TEXT: Record<LineStatus, string> = { need: 'Trenger avklaring', counted: 'Med', excluded: 'Utelatt' }
 
@@ -38,10 +42,10 @@ interface Props {
  * the lines that lack something, and those the planner has left out.
  */
 export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, names, onMessage }: Props) {
-  const { workspace, setLineOverride, setLineOverrides, removeLineOverride } = useWorkspace()
+  const { workspace, setLineOverride, setLineOverrides, removeLineOverride, setHallChoice } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
-  const { locationCell } = usePlacing()
+  const { locationCell, offersFor } = usePlacing()
   const totals = useMemo(() => {
     const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
     return { all: sum('all'), need: sum('need'), counted: sum('counted'), excluded: sum('excluded') }
@@ -56,6 +60,9 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const styles = useMemo(() => new Map(competenceStyles(ws).map((style) => [style.key, style])), [ws])
+  const typeNames = useMemo(() => kpi.workTypes.map((type) => type.productType), [kpi])
+  const typeNotes = useMemo(() => new Map(kpi.workTypes.map((type) => [type.productType, [type.unit, type.competence].filter(Boolean).join(' · ')])), [kpi])
+  const typeNote = (option: string) => typeNotes.get(option) ?? ''
 
   const projects = useMemo(() => [...review.keys()].sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b, 'nb')), [review, names])
   const project = projectNo ? review.get(projectNo) : undefined
@@ -63,16 +70,33 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
   const scope = useMemo(() => (projectNo ? (review.get(projectNo)?.lines ?? []) : projects.flatMap((no) => review.get(no)!.lines)), [projectNo, review, projects])
   const scopeCount = (status: LineFilter) => (project ? countOf(project, status) : totals[status])
   const scopeHours = project ? project.countedHours : [...review.values()].reduce((sum, p) => sum + p.countedHours, 0)
+  // Lines resolved while «Trenger avklaring» is shown stay in it, marked as resolved, until the filter or the project changes: the list does not jump.
+  const [held, setHeld] = useState(() => ({ filter, projectNo, keys: new Set(scope.filter((line) => line.status === 'need').map((line) => line.key)) }))
+  if (held.filter !== filter || held.projectNo !== projectNo) setHeld({ filter, projectNo, keys: new Set(scope.filter((line) => line.status === 'need').map((line) => line.key)) })
+  const resolvedNow = (line: ReviewedLine) => filter === 'need' && line.status !== 'need' && held.keys.has(line.key)
   const q = search.trim().toLowerCase()
   const matched = useMemo(
     () =>
       scope.filter(
         (line) =>
-          (filter === 'all' || line.status === filter) &&
-          (!q || [names.get(line.projectNo) ?? line.eventName, line.competence, line.workType, line.hall, line.place, line.avdeling, line.unit, line.comment].some((text) => text.toLowerCase().includes(q))),
+          (filter === 'all' || line.status === filter || (filter === 'need' && held.keys.has(line.key))) &&
+          (!q || [names.get(line.projectNo) ?? line.eventName, line.competence, line.workType, line.hall, line.place, line.avdeling, line.unit, line.comment, ...line.texts].some((text) => text.toLowerCase().includes(q))),
       ),
-    [scope, filter, q, names],
+    [scope, filter, q, names, held],
   )
+
+  // What is offered for the lines that need the planner: a work type their texts name, a hall their text or project points to.
+  const needing = scope.filter((line) => line.status === 'need')
+  const typeOffers = needing.filter((line) => line.missing.includes('type') && line.suggestedType)
+  const hallOffers = offersFor(needing.filter((line) => line.missing.includes('hall')))
+  const offerCount = typeOffers.length + hallOffers.length
+  /** Takes every offer in one undo step. */
+  const takeOffers = () => {
+    if (typeOffers.length)
+      setLineOverrides([...new Set(typeOffers.map((line) => line.projectNo))], typeOffers.map((line) => ({ key: line.key, patch: withRef(line, { workType: line.suggestedType }) })))
+    for (const { text, hall, projectNo } of hallOffers) setHallChoice(text, hall, projectNo)
+    onMessage({ kind: 'ok', text: `Brukte ${count(offerCount, 'forslag', 'forslag')}: ${[typeOffers.length ? count(typeOffers.length, 'arbeidstype', 'arbeidstyper') : '', hallOffers.length ? count(hallOffers.length, 'Hall/sted-tekst', 'Hall/sted-tekster') : ''].filter(Boolean).join(' og ')}. Kan angres med Ctrl/Cmd+Z.` })
+  }
 
   const withRef = (line: ReviewedLine, patch: Parameters<typeof setLineOverride>[2]) => ({ ...patch, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
   const override = (line: ReviewedLine, patch: Parameters<typeof setLineOverride>[2]) => setLineOverride(line.projectNo, line.key, withRef(line, patch))
@@ -168,14 +192,18 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       cell: (line) => (
         <span className="cell-line">
           {line.sourceWorkType === NO_PRODUCT_TYPE ? (
-            <select className={line.issue ? 'unresolved' : ''} value={line.workType === NO_PRODUCT_TYPE ? '' : line.workType} onChange={(e) => override(line, { workType: e.target.value || undefined })}>
-              <option value="">Velg type …</option>
-              {kpi.workTypes.map((t) => (
-                <option key={t.productType} value={t.productType}>
-                  {t.productType} ({t.unit})
-                </option>
-              ))}
-            </select>
+            <SplitPick
+              label="Arbeidstype"
+              value={line.workType === NO_PRODUCT_TYPE ? undefined : line.workType}
+              chosen
+              offer={line.suggestedType}
+              offerTitle={line.suggestedType && `Teksten nevner ${line.suggestedType}. Bruk den for linjen.`}
+              missing="Velg type"
+              title="Visma har ingen produkttype for linjen: velg arbeidstypen den regnes som"
+              options={line.workType === NO_PRODUCT_TYPE ? typeNames : [...typeNames, CLEAR_TYPE]}
+              note={typeNote}
+              onPick={(workType) => override(line, { workType: workType === CLEAR_TYPE ? undefined : workType })}
+            />
           ) : (
             <span className="ellipsis">{line.workType}</span>
           )}
@@ -190,6 +218,11 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             </button>
           )}
           {line.missingRate && <span className="faint">{line.missingRate === 'assembly' ? 'ingen sats for montering' : 'ingen sats for demontering'}</span>}
+          {line.sourceWorkType === NO_PRODUCT_TYPE && line.texts.length > 0 && (
+            <span className="faint ellipsis" title={`Artikkeltekst i Visma: ${line.texts.join(' · ')}`}>
+              «{line.texts.join(' · ')}»
+            </span>
+          )}
         </span>
       ),
     },
@@ -329,6 +362,11 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
                 </button>
               )}
               <span className="toolbar-gap" />
+              {offerCount > 0 && (
+                <button className="ghost" title={[...typeOffers.map((line) => `${line.texts.join(' · ') || line.hall}: ${line.suggestedType}`), ...hallOffers.map(({ text, hall }) => `${text.trim() || '(tom)'}: ${hall}`)].join('\n')} onClick={takeOffers}>
+                  <Check size={14} aria-hidden /> Bruk {count(offerCount, 'forslag', 'forslag')}
+                </button>
+              )}
               <span className="tools-sum" title="Timene til linjene som er med, montering og demontering">
                 {hours(scopeHours)} t med
               </span>
@@ -367,7 +405,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
                   className="visma-lines"
                   limit={LIST_LIMIT}
                   rowKey={(line) => line.key}
-                  rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', selected.has(line.key) ? 'selected' : ''].filter(Boolean).join(' ') || undefined })}
+                  rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : ''].filter(Boolean).join(' ') || undefined })}
                   empty={q ? 'Ingen linjer passer søket.' : 'Ingen linjer passer filteret.'}
                 />
               )}

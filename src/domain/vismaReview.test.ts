@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { locateDemand, withChoice } from './locations'
 import { PLANNED_BASIS, VISMA_BASIS, type KpiConfig, type VismaImport, type VismaRow } from './types'
 import { vismaDemandLines, vismaLineKey } from './visma'
-import { countOf, missingText, reviewVisma } from './vismaReview'
+import { countOf, missingText, reviewVisma, suggestWorkType } from './vismaReview'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -75,5 +75,28 @@ describe('the demand of Visma lines', () => {
     expect(basis('Print', 'C')).toBe(PLANNED_BASIS)
     expect(basis('Gulv', 'C')).toBe(VISMA_BASIS)
     expect(basis('01_ingen produkttype', 'Mangler hall')).toBe(VISMA_BASIS)
+  })
+})
+
+describe('suggestWorkType', () => {
+  it('offers the product type whose first word the article texts hold', () => {
+    expect(suggestWorkType(['Fritekst Foga'], kpi)).toBe('FOGA-vegger')
+    expect(suggestWorkType(['Diverse arbeid'], kpi)).toBeUndefined()
+  })
+
+  it('offers it on a line that lacks a work type', () => {
+    const rows = [row({ productType: '', description: 'Fritekst foga, 4 m', quantity: 4 })]
+    const line = reviewVisma([imported('26970', rows)], kpi, {}, halls).get('26970')!.lines[0]
+    expect(line).toMatchObject({ missing: ['type'], suggestedType: 'FOGA-vegger', texts: ['Fritekst foga, 4 m'] })
+  })
+
+  it('offers nothing where only a few of many texts name a type', () => {
+    expect(suggestWorkType(['Bås, fargede vegger', 'IKKE FRONTBORD', 'Tilpass 25 m²'], { ...kpi, workTypes: [...kpi.workTypes, { productType: 'Frontbord', unit: 'stk', competence: 'Møbler' }] })).toBeUndefined()
+    expect(suggestWorkType(['Gangtepper', 'Legging av gangtepper'], { ...kpi, workTypes: [{ productType: 'Gangtepper', unit: 'm2', competence: 'Tepper' }] })).toBe('Gangtepper')
+  })
+
+  it('takes the longest word where the texts hold several', () => {
+    const many: KpiConfig = { ...kpi, workTypes: [...kpi.workTypes, { productType: 'Printduk', unit: 'm2', competence: 'Print' }] }
+    expect(suggestWorkType(['Printduk på vegg'], many)).toBe('Printduk')
   })
 })

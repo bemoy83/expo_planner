@@ -1,10 +1,14 @@
 import { useMemo } from 'react'
-import { placeNames, placeOf, type HallOffer, PROJECT_HALLS, resolveHall, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
+import { placeNames, placeOf, type HallOffer, PROJECT_HALLS, sharedPlaces, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import { hallsOfProjects } from '../../domain/projects'
 import { hallNames } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
+import { SplitPick } from './SplitPick'
 
 type Placed = { hall: string; projectNo: string }
+
+/** The last choice in the list of a line placed by the planner: it is then placed by the rules again. */
+const CLEAR_CHOICE = 'Fjern valget, bruk reglene'
 
 /** Where the demand lines of Behov count in the Kalender, why, and the cell to change it in: the same for Visma lines and the planner's own. */
 export function usePlacing() {
@@ -35,16 +39,35 @@ export function usePlacing() {
     if (place.by === 'text') return 'Lest fra teksten'
     return 'Ingen regel'
   }
+  /** The places offered in the list of a project's line: the halls it has booked first, then the rest. */
+  const optionsFor = (projectNo: string): string[] => {
+    const own = new Set((booked.get(projectNo) ?? []).map((hall) => hall.toLowerCase()))
+    const isOwn = (place: string) => own.has(place.toLowerCase()) || (shared.get(place) ?? []).some((hall) => own.has(hall.toLowerCase()))
+    return [...places.filter(isOwn), ...places.filter((place) => !isOwn(place))]
+  }
+  const noteFor = (projectNo: string) => {
+    const own = new Set((booked.get(projectNo) ?? []).map((hall) => hall.toLowerCase()))
+    return (option: string) =>
+      option === CLEAR_CHOICE
+        ? ''
+        : option === PROJECT_HALLS
+          ? 'flere haller under ett'
+          : shared.has(option)
+            ? shared.get(option)!.join(', ')
+            : own.has(option.toLowerCase())
+              ? 'booket'
+              : ''
+  }
   /**
-   * The hall a line counts under in the Kalender. The planner's choice is for the Hall/Sted text in every project,
-   * unless the text has a choice for this project alone: then that is the one the list changes.
+   * The hall a line counts under in the Kalender: quiet text once it is placed, the offer one click away where there is one,
+   * else a chip to pick from the list. The planner's choice is for the Hall/Sted text in every project, unless the text has a
+   * choice for this project alone, or no text: then it is for this project.
    */
   const locationCell = (line: Placed) => {
     const text = line.hall
     const place = placeOfLine(line)
     // A line placed by the choice for its text without «Hall» has no choice of its own to show or to remove.
     const pinned = place.chosen && !place.choiceFor
-    const auto = place.choiceFor ? place.hall : (resolveHall(text, halls, rules) ?? UNRESOLVED_HALL)
     const offered = offerFor(line)
     // A line without a Hall/Sted can only be placed for its project: an empty text says nothing that holds for others.
     const blank = !text.trim()
@@ -56,40 +79,43 @@ export function usePlacing() {
         : blank
           ? 'Linjen har ingen Hall/sted. Et valg her gjelder linjene uten Hall/sted i dette prosjektet.'
           : `Valget gjelder alle linjer med «${shown}», i alle prosjekter.`
+    const offerTitle =
+      offered &&
+      (offered.own
+        ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${shown}» i dette prosjektet i ${offered.hall}.`
+        : offered.hall === PROJECT_HALLS
+          ? `«${text.trim()}» nevner flere haller. ${PROJECT_HALLS} er behov som ikke er fordelt på hall: det teller som ett sted i Kalender, med dagene til alle hallene prosjektet har.`
+          : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`)
+    const placed = place.hall !== UNRESOLVED_HALL
     return (
-      <>
-        <select
-          className={`location ${place.hall === UNRESOLVED_HALL ? 'unresolved' : ''} ${pinned ? 'chosen' : ''}`}
-          value={pinned ? place.hall : ''}
-          aria-label={`Plassering for ${shown}`}
-          title={`${ruleOf(line)}. ${place.by === 'none' ? `Hall/sted finnes ikke blant hallene på VenYou-fanen. Behovet teller med under «${UNRESOLVED_HALL}» til du velger en hall. ` : ''}${scope}`}
-          onChange={(e) => setHallChoice(text, e.target.value || undefined, place.own || blank ? line.projectNo : undefined)}
-        >
-          <option value="">{auto} (auto)</option>
-          {places.map((hall) => (
-            <option key={hall} value={hall}>
-              {hall === PROJECT_HALLS ? `${hall} (flere haller under ett)` : hall}
-            </option>
-          ))}
-          <option value={UNRESOLVED_HALL}>{UNRESOLVED_HALL}</option>
-        </select>
-        {offered && (
-          <button
-            className="link"
-            title={
-              offered.own
-                ? `Prosjektet har booket ${offered.hall}. Plasserer linjene med «${shown}» i dette prosjektet i ${offered.hall}.`
-                : offered.hall === PROJECT_HALLS
-                  ? `«${text.trim()}» nevner flere haller. ${PROJECT_HALLS} er behov som ikke er fordelt på hall: det teller som ett sted i Kalender, med dagene til alle hallene prosjektet har.`
-                  : `«${text.trim()}» nevner ${offered.hall}. Plasserer alle linjer med denne teksten i ${offered.hall}.`
-            }
-            onClick={() => setHallChoice(text, offered.hall, offered.own ? line.projectNo : undefined)}
-          >
-            Bruk {offered.hall}
-          </button>
-        )}
-      </>
+      <SplitPick
+        label={`Plassering for ${shown}`}
+        value={placed ? place.hall : undefined}
+        chosen={pinned}
+        offer={offered?.hall}
+        offerTitle={offerTitle || undefined}
+        missing="Velg hall"
+        title={`${ruleOf(line)}. ${placed ? '' : `Behovet teller ikke før linjen har en hall. `}${scope}`}
+        options={pinned ? [...optionsFor(line.projectNo), CLEAR_CHOICE] : optionsFor(line.projectNo)}
+        note={noteFor(line.projectNo)}
+        onPick={(hall) =>
+          offered && hall === offered.hall
+            ? setHallChoice(text, hall, offered.own ? line.projectNo : undefined)
+            : setHallChoice(text, hall === CLEAR_CHOICE ? undefined : hall, place.own || blank ? line.projectNo : undefined)
+        }
+      />
     )
   }
-  return { halls, booked, rules, placeOfLine, ruleOf, locationCell }
+  /** The offers for the lines that lack a hall, each text once: what «Bruk forslagene» takes. */
+  const offersFor = (lines: Placed[]): { text: string; hall: string; projectNo?: string }[] => {
+    const found = new Map<string, { text: string; hall: string; projectNo?: string }>()
+    for (const line of lines) {
+      const offered = offerFor(line)
+      if (!offered) continue
+      const projectNo = offered.own ? line.projectNo : undefined
+      found.set(`${line.hall.trim().toLowerCase()}|${projectNo ?? ''}`, { text: line.hall, hall: offered.hall, projectNo })
+    }
+    return [...found.values()]
+  }
+  return { halls, rules, placeOfLine, ruleOf, locationCell, offersFor }
 }

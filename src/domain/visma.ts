@@ -50,6 +50,8 @@ export interface VismaLine {
   quantity: number
   /** Number of booking lines behind this line. */
   rowCount: number
+  /** The article texts of the booking lines behind it, each once: what a line without a product type says it is. */
+  texts: string[]
   rateAssembly: number | null
   rateDismantle: number | null
   effekt: number
@@ -72,6 +74,7 @@ interface Group {
   hall: string
   sum: number
   locations: Set<string>
+  texts: Set<string>
   rowCount: number
 }
 
@@ -83,11 +86,12 @@ const groupRows = (rows: VismaRow[]): Group[] => {
     const key = vismaLineKey(row.projectNo, row.avdeling, workType, hall)
     let group = groups.get(key)
     if (!group) {
-      group = { projectNo: row.projectNo, eventName: row.eventName, avdeling: row.avdeling, workType, hall, sum: 0, locations: new Set(), rowCount: 0 }
+      group = { projectNo: row.projectNo, eventName: row.eventName, avdeling: row.avdeling, workType, hall, sum: 0, locations: new Set(), texts: new Set(), rowCount: 0 }
       groups.set(key, group)
     }
     group.sum += row.quantity
     group.locations.add(row.transInfo || row.stand)
+    if (row.description.trim()) group.texts.add(row.description.trim())
     group.rowCount += 1
   }
   return [...groups.values()]
@@ -121,6 +125,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
       competence: rule?.competence ?? 'Ukjent',
       quantity,
       rowCount: group.rowCount,
+      texts: [...group.texts],
       rateAssembly: rate?.assembly ?? null,
       rateDismantle: rate?.dismantle ?? null,
       effekt,
