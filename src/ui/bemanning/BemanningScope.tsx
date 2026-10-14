@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, freeCapacity, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type FreeCapacity, type PaintSpan, type PersonWeek, type WeekTotals } from '../../domain/staffing'
+import { buildBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type WeekTotals } from '../../domain/staffing'
 import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -204,7 +204,6 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const weekStart = active && dates.length ? weekDates(focusInView ? focusDate : firstWorkday)[0] : ''
   const week = useMemo(() => (weekStart ? weekDates(weekStart) : []), [weekStart])
 
-  const capacity = useMemo(() => new Map<ISODate, FreeCapacity>(active ? cols.dates.map((date) => [date, freeCapacity(ws, date, activeBrush ?? undefined)]) : []), [active, ws, cols.dates, activeBrush])
   const uncoverable = useMemo(() => {
     if (!active) return NO_HOURS
     const hours = new Map<string, number>()
@@ -762,7 +761,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     ws, dates, cols, room, viewFrom, viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
-    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, capacity, uncoverable,
+    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, uncoverable,
     lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, paintReach, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,

@@ -3,7 +3,7 @@ import { Check } from 'lucide-react'
 import { defaultShortLabel } from '../../domain/competences'
 import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import type { Balance, FreeCapacity } from '../../domain/staffing'
+import type { Balance } from '../../domain/staffing'
 import { Twisty } from '../common'
 import { competenceColor } from '../dom'
 import { Line, SectionLine } from '../kalender/GridRows'
@@ -102,30 +102,6 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
   )
 })
 
-/** The free normal time of the people, or of those who have the competence in focus (R11). */
-const CapacityLine = memo(function CapacityLine({ cols, capacity, label }: { cols: Columns; capacity: Map<ISODate, FreeCapacity>; label: string }) {
-  return (
-    <Line
-      className="bm-capacity"
-      label={<span className="bm-label-text">{label}</span>}
-      cols={cols}
-      cells={(date) => {
-        const free = capacity.get(date)
-        return (
-          <div key={date} className={`${dayClass(cols, date)} cell bm-free`}>
-            {free && dayType(date) === 'arbeidsdag' && (
-              <>
-                <b>{hoursText(free.hours)}</b>
-                <em>t · {free.people} pers</em>
-              </>
-            )}
-          </div>
-        )
-      }}
-    />
-  )
-})
-
 /**
  * The demand per competence, summed over the projects (R10): what remains of each day's hours against
  * what is assigned. A competence in focus is also the brush. Folded, only the competence in focus shows.
@@ -134,7 +110,7 @@ const CapacityLine = memo(function CapacityLine({ cols, capacity, label }: { col
  */
 export function DemandRows() {
   const bm = useBemanning()
-  const { demandRows, remainingOf, shownBalance, shownRemaining, uncoverable, cols, brush, demandOpen: open, demandDensity, idleOpen, capacity, onFocusDate, pickFromDemand, setDemandPop } = bm
+  const { demandRows, remainingOf, shownBalance, shownRemaining, uncoverable, cols, brush, demandOpen: open, demandDensity, idleOpen, onFocusDate, pickFromDemand, setDemandPop } = bm
   const compact = demandDensity === 'compact'
   // A competence with neither demand nor assigned hours in the period is set aside under one line. The one in focus stays.
   const isIdle = (key: string) => key !== brush && !remainingOf.has(key)
@@ -169,7 +145,6 @@ export function DemandRows() {
         </SectionLine>
       )}
       {open && idleOpen && idle.map(line)}
-      {open && !compact && <CapacityLine cols={cols} capacity={capacity} label={brush ? `Ledig med ${bm.labelOf(brush)}` : 'Ledig kapasitet, faste'} />}
     </div>
   )
 }

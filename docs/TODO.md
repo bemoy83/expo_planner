@@ -21,7 +21,7 @@ Where v2's package disagreed with the app or with itself, and what was done
 
 - The label column is the Kalender's 460 px in both modes; the package says 400.
 - A click on a person's name opens the Person panel. The arrow before the name, a double-click on a day and E open the hours; the package says both of the name.
-- «Ledig kapasitet» is kept as the last line of the detailed demand, and left out of the compact one. The package's header does not have it.
+- There is no «Ledig kapasitet» line (removed 2026-10-14, the user's choice): what can't be covered shows on the competence's day, and a day's free hours with its competence in the day's popover. The package's header does not have it either.
 - The right-click menu keeps «Mal hel dag med …», which the package's list leaves out.
 - «N uløste · Fjern» is in the planning bar only, not in the page header as well.
 - A person's hours in the label are those of the week of the day in focus while it is in view, else of the week of the first workday in view.

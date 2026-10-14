@@ -38,7 +38,7 @@
 .bm-week-left{display:inline-flex;align-items:center;margin-left:auto;font:600 var(--fs-sm) var(--font-num);white-space:nowrap}
 /* a day is a container, so what its value line holds follows the width of the day without being drawn again; the track of its meter is a tint of the competence */
 .bm-need{flex-direction:column;align-items:stretch;justify-content:center;gap:4px;min-width:0;padding:0 6px;border-radius:0;background-color:transparent;color:var(--text);container-type:inline-size;--bar-track:color-mix(in oklab,var(--cc) 22%,var(--bg))}
-.bm-need.helg,.bm-need.helligdag,.bm-free.helg,.bm-free.helligdag{background-color:var(--weekend)}
+.bm-need.helg,.bm-need.helligdag{background-color:var(--weekend)}
 button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;overflow:hidden;white-space:nowrap}
 .bm-need-value em{font:400 var(--fs-xs) var(--font-num);font-style:normal;color:var(--faint)}
@@ -74,10 +74,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-need-line>i{position:absolute;top:0;left:0;bottom:0;border-radius:3px;background:var(--cc);transition:width 280ms var(--ease)}
 .bm-need-line.over{background-image:repeating-linear-gradient(135deg,var(--neg) 0 2.5px,transparent 2.5px 8px)}
 .bm-idle-head{color:var(--faint)}
-.bm-capacity .grid-label{padding-left:36px}
-.bm-free{justify-content:flex-end;gap:4px;padding:0 10px}
-.bm-free b{font-size:var(--fs-sm);font-weight:500}
-.bm-free em{font-size:var(--fs-2xs);font-style:normal;color:var(--faint)}
 
 /* ---- the planning bar ---- */
 .bm-hints{font-size:var(--fs-sm);color:var(--mode-mute)}

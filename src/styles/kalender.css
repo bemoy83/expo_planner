@@ -61,8 +61,8 @@
 .group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--mode-ink)}
 /* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the halls, the staffing lines and the planning rows,
    and in Bemanning down the project lines, the demand and the people */
-:is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag,:is(.bm-need,.bm-free,.bm-cell).helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
-.dark :is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag,.dark :is(.bm-need,.bm-free,.bm-cell).helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 12%,transparent),color-mix(in srgb,var(--neg) 12%,transparent))}
+:is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag,:is(.bm-need,.bm-cell).helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
+.dark :is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag,.dark :is(.bm-need,.bm-cell).helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 12%,transparent),color-mix(in srgb,var(--neg) 12%,transparent))}
 /* A day planned above the available crew, when the heat map is off: a red wash over the whole column, on top of whatever the cell shows. */
 .grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(var(--neg-wash),var(--neg-wash))!important;--over-booked:linear-gradient(var(--neg-wash),var(--neg-wash))}
 .grid-canvas .day.overbooked.day-head{color:var(--neg);font-weight:600}
