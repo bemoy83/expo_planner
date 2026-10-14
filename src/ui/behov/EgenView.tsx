@@ -4,11 +4,9 @@ import { formatFte } from '../../domain/calc'
 import { competenceStyles } from '../../domain/competences'
 import { todayIso } from '../../domain/dates'
 import { EMPTY_KPI, productTypeKey } from '../../domain/kpi'
-import { placeNames } from '../../domain/locations'
-import { fromLastYear, projectHallSpans, projectTiming, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
-import { competenceKey, DRAFT_BASIS, PLANNED_BASIS, type DemandLine } from '../../domain/types'
+import { fromLastYear, projectTiming, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
+import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { isVismaLine } from '../../domain/visma'
-import { hallNames } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, type Message } from '../common'
 import { count, isTyping } from '../dom'
@@ -17,8 +15,9 @@ import { EMPTY_DRAFT, SPLIT_HALLS, type OwnContext, type OwnDraft } from './ownD
 import { FromLastYear } from './FromLastYear'
 import { OwnLines } from './OwnLines'
 import { ProjectRail, type RailSection } from './ProjectRail'
+import type { Placing } from './usePlacing'
+import { hours } from './format'
 
-const hours = (value: number) => formatFte(value, 1)
 /** How long a line just added stays lit. */
 const FLASH_MS = 1600
 
@@ -37,6 +36,7 @@ export interface ReplaceSeed {
 }
 
 interface Props {
+  placing: Placing
   projectNo: string
   onProjectChange: (projectNo: string) => void
   seed: ReplaceSeed | null
@@ -48,21 +48,15 @@ interface Props {
  * Egen registrering: the planner's own demand lines, for work that is not sold through Visma but follows the build-up
  * and tear-down of an event. A form on top where project › hall › avd. stays set, and the lines under it by project and hall.
  */
-export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessage }: Props) {
+export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed, onMessage }: Props) {
   const { workspace, saveDemandLine, removeDemandLine } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
   const hoursPerDay = ws.settings.hoursPerDay
   const today = todayIso()
   const own = useMemo(() => ws.demand.filter((line) => !isVismaLine(line)), [ws.demand])
-  const spans = useMemo(() => projectHallSpans(ws.venue, ws.projects), [ws.venue, ws.projects])
-  const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
-  const places = useMemo(() => placeNames(halls, ws.hallRules), [halls, ws.hallRules])
+  const { spans, places, placeOfLine } = placing
   const styles = useMemo(() => competenceStyles(ws), [ws])
-  const color = (competence: string) => {
-    const style = styles.find((s) => s.key === competenceKey(competence))
-    return style && `var(--${style.color})`
-  }
 
   /** Every project a line can be made for: those of the project table, of Visma and of the own lines, by name. */
   const names = useMemo(() => {
@@ -133,6 +127,9 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
   const [draft, setDraft] = useState<OwnDraft>(EMPTY_DRAFT)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [flash, setFlash] = useState<Set<string>>(new Set())
+  // The timer that puts out the lines just added; it is stopped if the page closes first.
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(flashTimer.current), [])
   const refs = { work: useRef<HTMLInputElement>(null), assembly: useRef<HTMLInputElement>(null) }
   const focus = (ref: { current: HTMLInputElement | null }) => requestAnimationFrame(() => ref.current?.focus())
 
@@ -178,7 +175,8 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
     setDraft({ ...EMPTY_DRAFT, planned: draft.planned })
     if (projectNo && projectNo !== lines[0].projectNo) onProjectChange(lines[0].projectNo)
     setFlash(new Set(lines.map((line) => line.id)))
-    setTimeout(() => setFlash(new Set()), FLASH_MS)
+    clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(new Set()), FLASH_MS)
     focus(refs.work)
   }
   const update = (line: DemandLine, patch: Partial<DemandLine>) => saveDemandLine({ ...line, ...patch })
@@ -210,7 +208,9 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
 
   // N or / goes to Arbeid; Esc lets go of the selection; Delete removes what is selected.
   const keys = useRef({ picked, remove })
-  keys.current = { picked, remove }
+  useEffect(() => {
+    keys.current = { picked, remove }
+  })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
@@ -275,7 +275,6 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
             onDraft={setDraft}
             projects={ordered}
             projectGroups={sections.map((section) => ({ label: section.heading, items: section.items.map((item) => ({ value: item.projectNo, label: item.name, note: projectNote(item.projectNo) })) }))}
-            competenceColor={color}
             booked={spans.get(ctx.projectNo) ?? new Map<string, HallSpans>()}
             places={places}
             avdelinger={avdelinger}
@@ -283,6 +282,7 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
             competences={styles.map((style) => style.label)}
             kpi={kpi}
             hoursPerDay={hoursPerDay}
+            placeIn={(hall, no) => placeOfLine({ hall, projectNo: no }).hall}
             workRef={refs.work}
             assemblyRef={refs.assembly}
             onAdd={add}
@@ -296,7 +296,6 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
               missing={lastYear.missing}
               present={lastYear.present}
               booked={bookedNow}
-              competenceColor={color}
               onFetch={fetchLastYear}
               onAdjust={(line) => fromLine({ ...line, hall: !line.hall || bookedNow.has(line.hall) ? line.hall : ctx.hall }, { from: `Fra i fjor: ${names.get(line.projectNo) ?? line.projectNo}` }, projectNo)}
               onDismiss={(line) => update(line, { notIn: [...(line.notIn ?? []), projectNo] })}
@@ -314,7 +313,6 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
             flash={flash}
             kpi={kpi}
             hoursPerDay={hoursPerDay}
-            competenceColor={color}
             onUpdate={update}
             onRemove={remove}
             onAddHere={(no, hall) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName } from './kpi'
+import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
@@ -189,5 +189,13 @@ describe('the name of a product type', () => {
     expect(setUp).toEqual({ workTypes: [{ productType: '5999 Diverse', unit: 'stk', competence: '' }], rates: [{ name: '5999 Diverse', unit: 'stk', assembly: 4, dismantle: 0 }] })
     expect(kpiRows(setUp, visma).map((r) => `${r.name}/${r.unit}/${r.lacking}`)).toEqual(['6999 Diverse//new', '5999 Diverse/stk/competence'])
     expect(addKpiRow(setUp, { name: '5999 diverse', unit: 'lm', competence: '', assembly: 1, dismantle: 1 }).workTypes).toEqual(setUp.workTypes)
+  })
+})
+
+describe('typeAndRate', () => {
+  it('finds the type a work type names and its rate in the unit in use, whatever the case', () => {
+    const kpi = { workTypes: [{ productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' }], rates: [{ name: 'FOGA-vegger', unit: 'm2', assembly: 1, dismantle: 1 }, { name: 'foga-vegger', unit: 'LM', assembly: 7, dismantle: 14 }] }
+    expect(typeAndRate(kpi, 'foga-VEGGER')).toEqual({ type: kpi.workTypes[0], rate: kpi.rates[1] })
+    expect(typeAndRate(kpi, 'Rigg')).toEqual({ type: undefined, rate: undefined })
   })
 })

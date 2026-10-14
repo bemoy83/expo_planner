@@ -1,15 +1,14 @@
 import { useState } from 'react'
-import { formatFte } from '../../domain/calc'
 import type { UnplacedText } from '../../domain/hallReview'
 import { PROJECT_HALLS } from '../../domain/locations'
 import { Segmented } from '../common'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
+import { hours } from './format'
 
 /** Whom a place picked in the list is for: every project, or the projects the text stands in. */
 type Scope = 'all' | 'own'
 
-const hours = (value: number) => formatFte(value, 1)
 
 interface Props {
   unplaced: UnplacedText[]

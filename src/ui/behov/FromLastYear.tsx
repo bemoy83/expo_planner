@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Copy, History, Plus, X } from 'lucide-react'
-import { formatFte } from '../../domain/calc'
 import type { DemandLine } from '../../domain/types'
 import { count } from '../dom'
+import { hoursOrDash, useCompetenceColor } from './format'
 
-const hours = (value: number) => (value ? formatFte(value, 1) : '–')
 
 interface Props {
   /** The name of the project the year before. */
@@ -14,7 +13,6 @@ interface Props {
   present: number
   /** The halls the project has booked this year: a line for another hall is marked. */
   booked: Set<string>
-  competenceColor: (competence: string) => string | undefined
   onFetch: (lines: DemandLine[]) => void
   /** «Juster først»: the line fills the form. */
   onAdjust: (line: DemandLine) => void
@@ -23,8 +21,9 @@ interface Props {
 }
 
 /** «Fra i fjor»: the planner's own lines of the year before that are not registered this year, folded until it is opened. */
-export function FromLastYear({ previousName, missing, present, booked, competenceColor, onFetch, onAdjust, onDismiss }: Props) {
+export function FromLastYear({ previousName, missing, present, booked, onFetch, onAdjust, onDismiss }: Props) {
   const [open, setOpen] = useState(false)
+  const competenceColor = useCompetenceColor()
   if (!missing.length) return null
   const sum = (field: 'assemblyHours' | 'dismantleHours') => missing.reduce((total, line) => total + line[field], 0)
   return (
@@ -33,7 +32,7 @@ export function FromLastYear({ previousName, missing, present, booked, competenc
         <History size={15} aria-hidden />
         <b>Fra i fjor · {previousName}</b>
         <span className="muted">
-          {count(missing.length, 'linje er', 'linjer er')} ikke registrert i år · {hours(sum('assemblyHours'))} t mont · {hours(sum('dismantleHours'))} t dem
+          {count(missing.length, 'linje er', 'linjer er')} ikke registrert i år · {hoursOrDash(sum('assemblyHours'))} t mont · {hoursOrDash(sum('dismantleHours'))} t dem
           {present > 0 && ` · ${present} finnes allerede`}
         </span>
         <span className="toolbar-gap" />
@@ -58,8 +57,8 @@ export function FromLastYear({ previousName, missing, present, booked, competenc
                   {line.hall || 'Uten hall'}
                   {!hallOk && ' – ikke booket i år'}
                 </span>
-                <span className="num">{hours(line.assemblyHours)}</span>
-                <span className="num">{hours(line.dismantleHours)}</span>
+                <span className="num">{hoursOrDash(line.assemblyHours)}</span>
+                <span className="num">{hoursOrDash(line.dismantleHours)}</span>
                 <span className="last-year-actions">
                   <button className="row-action" title="Ikke i år: arbeidet skal ikke gjøres i år, og foreslås ikke igjen" aria-label="Ikke i år" onClick={() => onDismiss(line)}>
                     <X size={13} aria-hidden />

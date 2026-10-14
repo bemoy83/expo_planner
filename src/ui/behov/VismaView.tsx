@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Check, Minus, X } from 'lucide-react'
 import { formatFte } from '../../domain/calc'
-import { competenceStyles } from '../../domain/competences'
 import { EMPTY_KPI } from '../../domain/kpi'
 import { decimalText } from '../../domain/numbers'
-import { competenceKey } from '../../domain/types'
-import { NO_PRODUCT_TYPE, orphanedDecisions } from '../../domain/visma'
+import { lineRef, NO_PRODUCT_TYPE, orphanedDecisions } from '../../domain/visma'
 import { countOf, missingText, type LineFilter, type LineStatus, type ProjectReview, type ReviewedLine } from '../../domain/vismaReview'
 import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
@@ -17,9 +15,9 @@ import { Avklar } from './Avklar'
 import { ProjectRail } from './ProjectRail'
 import { NeedButton, SplitPick } from './SplitPick'
 import { CLEAR, OFFER } from './picks'
-import { usePlacing } from './usePlacing'
+import type { Placing } from './usePlacing'
+import { hours, kpiTypeItem, useCompetenceColor } from './format'
 
-const hours = (value: number) => formatFte(value, 1)
 
 /** The most lines listed at once. */
 const LIST_LIMIT = 400
@@ -36,6 +34,7 @@ interface Props {
   onMessage: (message: Message) => void
   /** Leaves the line out and opens Egen registrering with an own line in its place. */
   onReplace: (line: ReviewedLine) => void
+  placing: Placing
   /** Whether «Avklar» is open, and the switch for it. */
   avklar: boolean
   onAvklar: (open: boolean) => void
@@ -45,11 +44,11 @@ interface Props {
  * Going through the Visma lines: a line that gives hours and has a hall counts by itself. What is marked is the exception:
  * the lines that lack something, and those the planner has left out.
  */
-export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, names, onMessage, onReplace, avklar, onAvklar }: Props) {
+export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, names, onMessage, onReplace, placing, avklar, onAvklar }: Props) {
   const { workspace, setLineOverride, setLineOverrides, removeLineOverride, setHallChoice } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
-  const { locationCell, offersFor } = usePlacing()
+  const { locationCell, offersFor } = placing
   const totals = useMemo(() => {
     const sum = (filter: LineFilter) => [...review.values()].reduce((n, project) => n + countOf(project, filter), 0)
     return { all: sum('all'), need: sum('need'), counted: sum('counted'), excluded: sum('excluded') }
@@ -65,12 +64,10 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // The lines of the card in focus in «Avklar»: lit in the table, the rest dimmed.
   const [lit, setLit] = useState<Set<string> | null>(null)
-  const styles = useMemo(() => new Map(competenceStyles(ws).map((style) => [style.key, style])), [ws])
-  /** A KPI type in a list: its unit and competence after it, and the competence's colour before it. */
-  const typeItem = (productType: string): PickItem => {
+  const color = useCompetenceColor()
+  const offerItem = (productType: string): PickItem => {
     const type = kpi.workTypes.find((t) => t.productType === productType)
-    const style = type && styles.get(competenceKey(type.competence))
-    return { value: productType, note: type ? [type.unit, type.competence].filter(Boolean).join(' · ') : '', dot: style && `var(--${style.color})` }
+    return type ? kpiTypeItem(type, color, `${OFFER}${productType}`) : { value: `${OFFER}${productType}`, label: productType }
   }
 
   const projects = useMemo(() => [...review.keys()].sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b, 'nb')), [review, names])
@@ -107,7 +104,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
     onMessage({ kind: 'ok', text: `Brukte ${count(offerCount, 'forslag', 'forslag')}: ${[typeOffers.length ? count(typeOffers.length, 'arbeidstype', 'arbeidstyper') : '', hallOffers.length ? count(hallOffers.length, 'Hall/sted-tekst', 'Hall/sted-tekster') : ''].filter(Boolean).join(' og ')}. Kan angres med Ctrl/Cmd+Z.` })
   }
 
-  const withRef = (line: ReviewedLine, patch: Parameters<typeof setLineOverride>[2]) => ({ ...patch, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
+  const withRef = (line: ReviewedLine, patch: Parameters<typeof setLineOverride>[2]) => ({ ...patch, ref: lineRef(line) })
   const override = (line: ReviewedLine, patch: Parameters<typeof setLineOverride>[2]) => setLineOverride(line.projectNo, line.key, withRef(line, patch))
   /** Leaves the lines out, or takes them with again, in one go, so each project is recalculated once. */
   const setExcluded = (lines: ReviewedLine[], excluded: boolean) => {
@@ -183,12 +180,12 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       head: 'Kompetanse',
       text: (line) => line.competence,
       cell: (line) => {
-        const style = styles.get(competenceKey(line.competence))
+        const dot = color(line.competence)
         return line.issue ? (
           <span className="muted">–</span>
         ) : (
           <span className="competence">
-            {style && <i className="competence-dot" style={{ background: `var(--${style.color})` }} aria-hidden />}
+            {dot && <i className="competence-dot" style={{ background: dot }} aria-hidden />}
             {line.competence}
           </span>
         )
@@ -211,8 +208,8 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
               title={line.typeByText ? 'Arbeidstypen er gitt av regelen for artikkelteksten på KPI. Velger du en annen, gjelder den bare linjen.' : 'Visma har ingen produkttype for linjen: velg arbeidstypen den regnes som'}
               head={`«${line.texts.join(' · ') || 'uten tekst'}» · ${formatFte(line.quantity, 1)} ${line.unit}`.trim()}
               groups={[
-                ...(line.suggestedType ? [{ label: 'Forslag', hint: 'teksten nevner den', items: [{ ...typeItem(line.suggestedType), value: `${OFFER}${line.suggestedType}` }] }] : []),
-                { label: 'Arbeidstyper fra KPI', hint: 'timer regnes fra antall', items: kpi.workTypes.map((type) => typeItem(type.productType)) },
+                ...(line.suggestedType ? [{ label: 'Forslag', hint: 'teksten nevner den', items: [offerItem(line.suggestedType)] }] : []),
+                { label: 'Arbeidstyper fra KPI', hint: 'timer regnes fra antall', items: kpi.workTypes.map((type) => kpiTypeItem(type, color)) },
                 ...(line.workType === NO_PRODUCT_TYPE || line.typeByText ? [] : [{ items: [{ value: CLEAR, label: 'Fjern valget' }] }]),
               ]}
               onPick={(value) => override(line, { workType: value === CLEAR ? undefined : value.startsWith(OFFER) ? value.slice(OFFER.length) : value })}
@@ -454,7 +451,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             )}
           </>
         )}
-        {avklar && <Avklar lines={scope} names={names} onFocusLines={setLit} offerCount={offerCount} onTakeOffers={takeOffers} onClose={() => onAvklar(false)} />}
+        {avklar && <Avklar placing={placing} lines={scope} names={names} onFocusLines={setLit} offerCount={offerCount} onTakeOffers={takeOffers} onClose={() => onAvklar(false)} />}
       </div>
     </div>
   )

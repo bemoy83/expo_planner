@@ -144,6 +144,9 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
   })
 }
 
+/** The line as it reads now, kept with a decision so it can be shown after the line has left the export. */
+export const lineRef = (line: VismaLine): NonNullable<LineOverride['ref']> => ({ avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall })
+
 const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.excluded || !!override.workType
 
 export interface OrphanedDecision {

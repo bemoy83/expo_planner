@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from 'react'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { formatFte } from '../../domain/calc'
-import { productTypeKey } from '../../domain/kpi'
+import { typeAndRate } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
 import { parseHours, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
 import { TriCheckbox } from '../common'
 import { count } from '../dom'
+import { hoursOrDash, useCompetenceColor } from './format'
 
-const hours = (value: number) => (value ? formatFte(value, 1) : '–')
 const shortDate = (date: string) => `${Number(date.slice(8, 10))}.${Number(date.slice(5, 7))}`
 
 /** A value of a line shown as text, edited in place on a click: saved on Enter or when the field is left, put back on Esc. */
@@ -56,7 +56,6 @@ interface Props {
   flash: Set<string>
   kpi: KpiConfig
   hoursPerDay: number
-  competenceColor: (competence: string) => string | undefined
   onUpdate: (line: DemandLine, patch: Partial<DemandLine>) => void
   onRemove: (lines: DemandLine[]) => void
   /** «+ Linje i D1»: the context is set to the project and the hall, and the focus goes to Arbeid. */
@@ -65,7 +64,8 @@ interface Props {
 }
 
 /** The planner's own lines, grouped by project and hall, edited in place. Totals count the lines that are planned with. */
-export function OwnLines({ lines, projects, spans, single, selected, onSelect, flash, kpi, hoursPerDay, competenceColor, onUpdate, onRemove, onAddHere, onTemplate }: Props) {
+export function OwnLines({ lines, projects, spans, single, selected, onSelect, flash, kpi, hoursPerDay, onUpdate, onRemove, onAddHere, onTemplate }: Props) {
+  const competenceColor = useCompetenceColor()
   const planned = (ls: DemandLine[], field: 'assemblyHours' | 'dismantleHours') => ls.filter((l) => l.basis === PLANNED_BASIS).reduce((sum, l) => sum + l[field], 0)
   const toggle = (ls: DemandLine[], on: boolean) => {
     const next = new Set(selected)
@@ -75,14 +75,15 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
   }
   /** A new amount gives new hours where the work type is on KPI with a rate. */
   const withQuantity = (line: DemandLine, quantity: number | null): Partial<DemandLine> => {
-    const type = kpi.workTypes.find((t) => productTypeKey(t.productType) === productTypeKey(line.workType))
-    const rate = type && kpi.rates.find((r) => productTypeKey(r.name) === productTypeKey(type.productType) && r.unit.toLowerCase() === type.unit.toLowerCase())
+    const { rate } = typeAndRate(kpi, line.workType)
     if (!rate || !quantity) return { quantity }
     return { quantity, assemblyHours: rate.assembly ? quantity / rate.assembly : 0, dismantleHours: rate.dismantle ? quantity / rate.dismantle : 0 }
   }
-  const hoursOf = (text: string) => {
+  /** Hours typed in a cell, short or not; a text that cannot be read changes nothing, and an empty one is none. */
+  const withHours = (line: DemandLine, field: 'assemblyHours' | 'dismantleHours', text: string) => {
     const typed = parseHours(text, hoursPerDay)
-    return typed && !Number.isNaN(typed.hours) ? typed.hours : typed ? undefined : 0
+    if (!typed) onUpdate(line, { [field]: 0 })
+    else if (!Number.isNaN(typed.hours)) onUpdate(line, { [field]: typed.hours })
   }
 
   const shown = projects.filter(([no]) => lines.some((l) => l.projectNo === no) || single)
@@ -116,8 +117,8 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                 {name} <span className="project-no">{no}</span> <span className="muted small">{count(mine.length, 'linje', 'linjer')}</span>
               </td>
               <td />
-              <td className="num">{hours(planned(mine, 'assemblyHours'))}</td>
-              <td className="num">{hours(planned(mine, 'dismantleHours'))}</td>
+              <td className="num">{hoursOrDash(planned(mine, 'assemblyHours'))}</td>
+              <td className="num">{hoursOrDash(planned(mine, 'dismantleHours'))}</td>
               <td colSpan={2} />
             </tr>
             {halls.map((hall) => {
@@ -147,8 +148,8 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                       hall && <span className="warn-text small">ikke booket av prosjektet</span>
                     )}
                   </td>
-                  <td className="num">{here.length > 0 && hours(planned(here, 'assemblyHours'))}</td>
-                  <td className="num">{here.length > 0 && hours(planned(here, 'dismantleHours'))}</td>
+                  <td className="num">{here.length > 0 && hoursOrDash(planned(here, 'assemblyHours'))}</td>
+                  <td className="num">{here.length > 0 && hoursOrDash(planned(here, 'dismantleHours'))}</td>
                   <td colSpan={2} className="hall-add">
                     <button className="link" onClick={() => onAddHere(no, hall)}>
                       <Plus size={13} aria-hidden /> Linje i {hall || 'prosjektet'}
@@ -186,10 +187,10 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                         />
                       </td>
                       <td className="num">
-                        <EditCell value={formatFte(line.assemblyHours, 2)} shown={hours(line.assemblyHours)} onCommit={(text) => hoursOf(text) !== undefined && onUpdate(line, { assemblyHours: hoursOf(text)! })} />
+                        <EditCell value={formatFte(line.assemblyHours, 2)} shown={hoursOrDash(line.assemblyHours)} onCommit={(text) => withHours(line, 'assemblyHours', text)} />
                       </td>
                       <td className="num">
-                        <EditCell value={formatFte(line.dismantleHours, 2)} shown={hours(line.dismantleHours)} onCommit={(text) => hoursOf(text) !== undefined && onUpdate(line, { dismantleHours: hoursOf(text)! })} />
+                        <EditCell value={formatFte(line.dismantleHours, 2)} shown={hoursOrDash(line.dismantleHours)} onCommit={(text) => withHours(line, 'dismantleHours', text)} />
                       </td>
                       <td>
                         <button

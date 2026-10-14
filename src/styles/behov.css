@@ -31,8 +31,8 @@
 @media (max-width:1180px){.rail{width:208px}}
 .rail-heading{margin:14px 10px 6px;font:500 var(--fs-xs) var(--font-num);letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
 .rail-item{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 8px;padding:9px 10px;border-radius:8px;background:none;text-align:left;font-weight:400}
-.rail-item:hover{background:color-mix(in srgb,var(--surface) 60%,transparent)}
-.rail-item.active{background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+.rail-item:hover{background:var(--lift)}
+.rail-item.active{background:var(--surface);box-shadow:var(--raise)}
 .rail-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .rail-item.active .rail-name{font-weight:600}
 .rail-item>.count{font:500 var(--fs-sm) var(--font-num);color:var(--muted)}
@@ -42,23 +42,27 @@
 .rail-bar i{display:block;height:100%;background:var(--pos)}
 
 /* the Visma lines: slim rows on one line each, a rule under each, and only the exceptions marked */
-table.ledger.visma-lines{background:none;font-size:var(--fs-md)}
-table.ledger.visma-lines :is(th,td){border:none;border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent);padding:0 6px;height:36px}
-table.ledger.visma-lines th{height:32px;border-bottom-color:var(--line);font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
-table.ledger.visma-lines tbody tr:hover td{background:color-mix(in srgb,var(--surface) 60%,transparent)}
+/* the two tables of Behov: slim rows edited in place, a rule under each line, a checkbox that shows under the pointer */
+table.ledger:is(.visma-lines,.own-lines){background:none;font-size:var(--fs-md)}
+table.ledger:is(.visma-lines,.own-lines) :is(th,td){border:none;padding:0 6px}
+table.ledger:is(.visma-lines,.own-lines) th{border-bottom:1px solid var(--line);font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
+table.ledger:is(.visma-lines,.own-lines) tr.selected td{background:var(--accent-soft)}
+table.ledger:is(.visma-lines,.own-lines) td.pick input{opacity:0}
+table.ledger:is(.visma-lines,.own-lines) :is(tr:hover td.pick input,td.pick input:checked,th.pick input,tr.project-row td.pick input){opacity:1}
+.competence{display:inline-flex;align-items:center;gap:6px}
+
+/* the Visma lines: only the exceptions marked */
+table.ledger.visma-lines td{height:36px;border-bottom:1px solid var(--grid-row)}
+table.ledger.visma-lines th{height:32px}
+table.ledger.visma-lines tbody tr:hover td{background:var(--lift)}
 table.ledger.visma-lines tr.resolved td{background:color-mix(in oklab,var(--pos-bg) 60%,transparent)}
-table.ledger.visma-lines tr.selected td{background:var(--accent-soft)}
 table.ledger.visma-lines tr.excluded td:not(.pick,.status){opacity:.45}
 table.ledger.visma-lines :is(th,td):is(.pick,.status){width:24px;padding:0 2px;text-align:center}
-table.ledger.visma-lines td.pick input{opacity:0}
-table.ledger.visma-lines :is(tr:hover td.pick input,td.pick input:checked,th.pick input){opacity:1}
-table.ledger.visma-lines select{max-width:180px}
 .visma-lines .cell-line{display:flex;align-items:center;gap:8px;min-width:0}
-.visma-lines .ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.behov-page .ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .visma-lines .cell-line>.faint{max-width:200px}
 .visma-lines .faint{color:var(--faint);font-size:var(--fs-sm)}
 .visma-lines .unit{color:var(--faint)}
-.visma-lines .competence{display:inline-flex;align-items:center;gap:6px}
 .competence-dot{width:8px;height:8px;border-radius:50%;flex:none}
 .need-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--alert-warn)}
 /* leaving a line out: a recessed minus that shows under the pointer, and stays on a line that is left out */
@@ -76,23 +80,23 @@ button.exclude.on{color:var(--text)}
 .quiet-chip:hover{background:var(--sunken)}
 .quiet-chip:hover svg{opacity:1}
 .chosen-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex:none}
-.need-button{background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12);color:var(--text);font-weight:600}
+.need-button{background:var(--surface);box-shadow:var(--raise);color:var(--text);font-weight:600}
 .need-button::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 2px color-mix(in oklab,var(--alert-warn) 28%,transparent)}
 .need-button svg{color:var(--faint)}
-.need-button:hover{background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.16),0 0 0 1px rgb(0 0 0/.02)}
+.need-button:hover{background:var(--surface);box-shadow:var(--raise-hover)}
 .need-button:hover svg{color:var(--text)}
 .need-mark{margin-left:-3px;font-weight:500;color:var(--faint)}
 .plain-chip{background:var(--sunken);color:var(--text)}
 /* a recessed track of choices, each a raised segment: the halls on a card of «Avklar» */
 .split{display:inline-flex;gap:2px;padding:2px;border-radius:7px;background:var(--sunken);min-width:0}
-.split button{height:20px;padding:0 6px;border-radius:5px;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12);color:var(--text);font-size:var(--fs-md);font-weight:500}
+.split button{height:20px;padding:0 6px;border-radius:5px;background:var(--surface);box-shadow:var(--raise);color:var(--text);font-size:var(--fs-md);font-weight:500}
 .split button:hover{background:var(--panel)}
 .split button svg{flex:none;color:var(--pos)}
 .split-field{display:inline-flex;width:180px}
 .split-field input{width:100%;height:26px}
 
 /* what is selected, and what can be done to it: a bar that floats over the foot of the view */
-.bulk-bar{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--surface);box-shadow:0 12px 32px rgb(0 0 0/.2),0 1px 3px rgb(0 0 0/.1);white-space:nowrap;font-size:var(--fs-md)}
+.bulk-bar{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--surface);box-shadow:var(--pop);white-space:nowrap;font-size:var(--fs-md)}
 .bulk-sep{width:1px;height:20px;margin:0 4px;background:var(--line)}
 
 @container (max-width:900px){
@@ -115,12 +119,12 @@ button.exclude.on{color:var(--text)}
 .own-main>.behov-table{padding-top:4px}
 
 /* the form: a raised card without an outline; the context on a recessed strip at its top */
-.own-form{display:flex;flex-direction:column;gap:12px;padding:0 16px 12px;border-radius:12px;background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.08),0 6px 18px -10px rgb(0 0 0/.18);overflow:visible}
+.own-form{display:flex;flex-direction:column;gap:12px;padding:0 16px 12px;border-radius:12px;background:var(--surface);box-shadow:var(--card);overflow:visible}
 .own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 -16px;padding:6px 12px;border-radius:12px 12px 0 0;background:color-mix(in oklab,var(--sunken) 45%,var(--surface))}
 .crumbs{display:flex;align-items:center;gap:4px}
 .crumbs .crumb{max-width:260px;height:30px;margin:0;padding:0 8px;font-size:var(--fs-base);font-weight:600}
 .crumbs .quiet-chip.crumb svg{opacity:1}
-.crumbs .quiet-chip.crumb:hover{background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+.crumbs .quiet-chip.crumb:hover{background:var(--surface);box-shadow:var(--raise)}
 .crumbs .split-field.crumb{width:240px}
 span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
 .crumb-sep{color:var(--faint)}
@@ -135,7 +139,7 @@ span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
 .own-field.hours{width:112px}
 .own-field.competence{width:150px}
 .own-pair{display:flex;align-items:center;gap:4px;height:36px;padding:0 8px 0 0;border-radius:8px;background:var(--sunken)}
-.own-pair:focus-within{background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.14)}
+.own-pair:focus-within{background:var(--surface);box-shadow:var(--field-focus)}
 .own-pair input,.own-pair input:focus{flex:1;min-width:0;border:0;background:none;box-shadow:none;outline:none;font-family:var(--font-num)}
 .own-pair input.unit{flex:none;width:44px;padding:0;text-align:right;font-size:var(--fs-sm);color:var(--muted)}
 .own-pair em{font:500 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint);white-space:nowrap}
@@ -146,7 +150,7 @@ span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
 .own-add.off{background:var(--sunken);color:var(--muted)}
 .own-foot{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
 .own-comment{width:260px;height:30px;border:0;border-radius:7px;background:color-mix(in oklab,var(--sunken) 60%,transparent);font-size:var(--fs-md)}
-.own-comment:focus{background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.14)}
+.own-comment:focus{background:var(--surface);box-shadow:var(--field-focus)}
 .own-preview{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;font-size:var(--fs-sm)}
 .own-preview code{padding:1px 5px;border-radius:4px;background:var(--sunken);font:500 var(--fs-xs) var(--font-num)}
 .own-preview-item{display:inline-flex;align-items:center;gap:7px}
@@ -156,9 +160,8 @@ span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
 .own-from .icon-button{width:20px;height:20px;padding:0}
 
 /* the own lines: a project with its totals, a hall on a recessed tint with its days, and the lines, edited in place */
-table.ledger.own-lines{background:none;font-size:var(--fs-md)}
-table.ledger.own-lines :is(th,td){border:none;padding:0 6px;height:38px}
-table.ledger.own-lines th{height:30px;border-bottom:1px solid var(--line);font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
+table.ledger.own-lines td{height:38px}
+table.ledger.own-lines th{height:30px}
 table.ledger.own-lines :is(th,td).pick{width:28px;padding:0 2px;text-align:center}
 table.ledger.own-lines th:nth-child(3){width:124px}
 table.ledger.own-lines th:nth-child(4){width:44px}
@@ -179,19 +182,15 @@ table.ledger.own-lines tr.hall-row td:last-child{border-radius:0 6px 6px 0}
 .hall-add .link{visibility:hidden;display:inline-flex;align-items:center;gap:4px}
 tr.hall-row:hover .hall-add .link,.hall-add .link:focus-visible{visibility:visible}
 table.ledger.own-lines tr:not(.project-row,.hall-row) td{border-bottom:1px solid var(--grid-row)}
-table.ledger.own-lines tr:not(.project-row,.hall-row):hover td{background:color-mix(in srgb,var(--surface) 55%,transparent)}
-table.ledger.own-lines tr.selected td{background:var(--accent-soft)}
+table.ledger.own-lines tr:not(.project-row,.hall-row):hover td{background:var(--lift)}
 table.ledger.own-lines tr.flash td{animation:own-flash 1.6s var(--ease)}
 @keyframes own-flash{from{background:color-mix(in oklab,var(--accent) 22%,transparent)}to{background:transparent}}
 table.ledger.own-lines tr.draft :is(.own-work-name,.num){color:var(--muted)}
-table.ledger.own-lines td.pick input{opacity:0}
-table.ledger.own-lines :is(tr:hover td.pick input,td.pick input:checked,tr.project-row td.pick input){opacity:1}
 table.ledger.own-lines td.actions .row-action{visibility:hidden}
 table.ledger.own-lines tr:hover td.actions .row-action{visibility:visible}
 .own-work-cell{display:flex;align-items:center;gap:10px;min-width:0;height:38px}
 .own-work-name{font-weight:500;white-space:nowrap}
 .replaces-tag{padding:1px 6px;border-radius:5px;background:var(--sunken);font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
-.own-lines .competence{display:inline-flex;align-items:center;gap:6px}
 .edit-cell{min-width:24px;margin:0 -6px;padding:3px 6px;border-radius:5px;background:none;font:inherit;text-align:inherit;cursor:text}
 .edit-cell:hover{background:var(--sunken)}
 .edit-cell.own-comment-cell{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--muted)}
@@ -221,7 +220,7 @@ tr:hover .edit-placeholder{visibility:visible}
 /* a card per cause: flat until it is in focus, then raised and open */
 .cause{padding:10px 12px;border-radius:10px;cursor:pointer}
 .cause:hover{background:var(--wash)}
-.cause.active{background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.12);cursor:default}
+.cause.active{background:var(--surface);box-shadow:var(--raise);cursor:default}
 .cause-head{display:flex;align-items:baseline;gap:8px}
 .cause-head b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .cause-figures{font:500 var(--fs-sm) var(--font-num);color:var(--muted);white-space:nowrap}

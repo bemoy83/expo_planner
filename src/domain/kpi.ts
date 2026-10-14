@@ -40,6 +40,12 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 const sameType = (a: string, b: string) => productTypeKey(a) === productTypeKey(b)
 const rateKey = (name: string, unit: string) => `${productTypeKey(name)}|${unit.trim().toLowerCase()}`
 
+/** The product type on KPI a work type names, whatever its case, and its rate in the unit in use; either may be missing. */
+export const typeAndRate = (kpi: KpiConfig, workType: string): { type?: WorkTypeRule; rate?: KpiRate } => {
+  const type = kpi.workTypes.find((rule) => sameType(rule.productType, workType))
+  return { type, rate: type && kpi.rates.find((rate) => rateKey(rate.name, rate.unit) === rateKey(type.productType, type.unit)) }
+}
+
 export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => {
   const seen = new Map<string, { name: string; lines: number }>()
   for (const source of visma) {

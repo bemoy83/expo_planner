@@ -2,18 +2,16 @@ import { useRef, type RefObject } from 'react'
 import { ChevronRight, CornerDownLeft, History, X } from 'lucide-react'
 import { formatFte } from '../../domain/calc'
 import { competenceKey, DRAFT_BASIS, OWN_SOURCE, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
-import { productTypeKey } from '../../domain/kpi'
+import { productTypeKey, typeAndRate } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
 import { parseHours, spanText, workdays, type HallSpans } from '../../domain/ownDemand'
-import { placeOf } from '../../domain/locations'
-import { hallNames } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Segmented } from '../common'
 import { PickField, type PickGroup } from '../fields'
 import { SplitPick } from './SplitPick'
 import { EMPTY_DRAFT, NO_HALL, SPLIT_HALLS, type OwnContext, type OwnDraft } from './ownDraft'
+import { hours, kpiTypeItem, useCompetenceColor } from './format'
 
-const hours = (value: number) => formatFte(value, 1)
 
 interface Props {
   ctx: OwnContext
@@ -24,7 +22,6 @@ interface Props {
   projects: [string, string][]
   /** The same in groups by their build-up, for the list. */
   projectGroups: PickGroup[]
-  competenceColor: (competence: string) => string | undefined
   /** The halls the project of the context has booked, with their days. */
   booked: Map<string, HallSpans>
   /** Every place a line can be put under, from the hall ledger and the rules. */
@@ -36,6 +33,8 @@ interface Props {
   competences: string[]
   kpi: KpiConfig
   hoursPerDay: number
+  /** The hall or place a Hall/Sted text counts under in a project, as the rules place it. */
+  placeIn: (hall: string, projectNo: string) => string
   /** The fields the page puts the focus in: Arbeid, and Montering. */
   workRef: RefObject<HTMLInputElement | null>
   assemblyRef: RefObject<HTMLInputElement | null>
@@ -48,9 +47,9 @@ interface Props {
  * The form of Egen registrering: the context strip (project › hall › avd.), which stays between lines, the work with
  * its amount and hours, and what the line does to the Kalender. Enter adds the line from any field, Esc empties it.
  */
-export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectGroups, competenceColor, booked, places, avdelinger, usedBefore, competences, kpi, hoursPerDay, workRef, assemblyRef, onAdd, onProject }: Props) {
-  const { workspace, locatedDemand } = useWorkspace()
-  const ws = workspace!
+export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectGroups, booked, places, avdelinger, usedBefore, competences, kpi, hoursPerDay, placeIn, workRef, assemblyRef, onAdd, onProject }: Props) {
+  const { locatedDemand } = useWorkspace()
+  const competenceColor = useCompetenceColor()
   const projectName = projects.find(([no]) => no === ctx.projectNo)?.[1] ?? ''
   const bookedHalls = [...booked.keys()]
   const split = ctx.hall === SPLIT_HALLS
@@ -59,8 +58,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
   const qtyRef = useRef<HTMLInputElement>(null)
   const compRef = useRef<HTMLInputElement>(null)
 
-  const type = kpi.workTypes.find((t) => productTypeKey(t.productType) === productTypeKey(draft.work))
-  const rate = type && kpi.rates.find((r) => productTypeKey(r.name) === productTypeKey(type.productType) && r.unit.toLowerCase() === type.unit.toLowerCase())
+  const { type, rate } = typeAndRate(kpi, draft.work)
   const quantity = parseDecimal(draft.quantity) ?? null
   const auto = (perHour: number | undefined) => (quantity && perHour ? quantity / perHour : null)
   const autoAssembly = auto(rate?.assembly)
@@ -110,7 +108,6 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
   // What the line does to the Kalender: the row of its phase, hall, competence and avd., before and after, and its FTE a day over the hall's days.
   const preview = (() => {
     if (!ctx.projectNo || !draft.competence.trim() || !draft.planned) return []
-    const halls = hallNames(ws.venue)
     return targetHalls.flatMap((hall) =>
       (
         [
@@ -120,7 +117,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
       )
         .filter(([, added]) => added > 0)
         .map(([phase, added, field, span]) => {
-          const place = placeOf(hall, halls, ws.hallRules, ctx.projectNo).hall
+          const place = placeIn(hall, ctx.projectNo)
           const before = locatedDemand
             .filter((l) => l.projectNo === ctx.projectNo && l.basis === PLANNED_BASIS && l.hall === place && competenceKey(l.competence) === competenceKey(draft.competence) && (l.avdeling ?? '') === ctx.avdeling)
             .reduce((sum, l) => sum + l[field], 0)
@@ -256,7 +253,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
             onChange={(work) => set({ work })}
             onPick={pickWork}
             groups={[
-              { label: 'Arbeidstyper fra KPI', hint: 'timer regnes fra mengde', items: kpi.workTypes.map((t) => ({ value: t.productType, note: [t.unit, t.competence].filter(Boolean).join(' · '), dot: competenceColor(t.competence) })) },
+              { label: 'Arbeidstyper fra KPI', hint: 'timer regnes fra mengde', items: kpi.workTypes.map((t) => kpiTypeItem(t, competenceColor)) },
               {
                 label: 'Brukt før',
                 items: [...usedBefore].filter(([work]) => !kpi.workTypes.some((t) => productTypeKey(t.productType) === productTypeKey(work))).map(([work, competence]) => ({ value: work, note: competence, dot: competenceColor(competence) })),

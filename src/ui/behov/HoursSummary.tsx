@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
-import { formatFte } from '../../domain/calc'
 import { PLANNED_BASIS } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { SidePanel } from '../common'
+import { hours } from './format'
 
-const hours = (value: number) => formatFte(value, 1)
 
 /** The hours of a project per competence and basis, Visma and own lines together: what the Kalender rows pick from. */
 export function HoursSummary({ projectNo, projectName, onClose }: { projectNo: string; projectName: string; onClose: () => void }) {

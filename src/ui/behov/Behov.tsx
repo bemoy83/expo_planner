@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { EMPTY_KPI } from '../../domain/kpi'
-import { isVismaLine } from '../../domain/visma'
+import { isVismaLine, lineRef } from '../../domain/visma'
 import { reviewVisma, type ReviewedLine } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { usePref } from '../../store/prefs'
@@ -33,7 +33,8 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   // The panel that slides in from the right: «Avklar» in the Visma view, or the hours per competence and basis.
   const [panel, setPanel] = useState<'avklar' | 'summary' | null>(null)
   const vismaInput = useRef<HTMLInputElement>(null)
-  const { halls, rules } = usePlacing()
+  const placing = usePlacing()
+  const { halls, rules } = placing
 
   /** The projects that have demand or planning rows, by name. */
   const projects = useMemo(() => {
@@ -56,7 +57,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
 
   /** Erstatt: the Visma line is left out, and Egen registrering opens with a line filled in from it. */
   const replace = (line: ReviewedLine) => {
-    setLineOverride(line.projectNo, line.key, { excluded: true, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
+    setLineOverride(line.projectNo, line.key, { excluded: true, ref: lineRef(line) })
     setSeed({ key: line.key, projectNo: line.projectNo, hall: line.place, avdeling: line.avdeling, workType: line.workType, quantity: line.quantity, unit: line.unit, competence: line.competence, assemblyHours: line.assemblyHours, dismantleHours: line.dismantleHours })
     setView('egen')
     setMessage({ kind: 'ok', text: `${line.workType} i ${line.place} er utelatt. Fyll ut linjen som erstatter den. Kan angres med Ctrl/Cmd+Z.` })
@@ -112,9 +113,9 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
       <MessageBanner message={message} onClose={() => setMessage(null)} />
       <div className="behov-stage">
       {view === 'visma' ? (
-        <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} onReplace={replace} avklar={panel === 'avklar'} onAvklar={(open) => setPanel(open ? 'avklar' : null)} />
+        <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} onReplace={replace} placing={placing} avklar={panel === 'avklar'} onAvklar={(open) => setPanel(open ? 'avklar' : null)} />
       ) : (
-        <EgenView projectNo={projectNo} onProjectChange={onProjectChange} seed={seed} onSeedUsed={() => setSeed(null)} onMessage={setMessage} />
+        <EgenView placing={placing} projectNo={projectNo} onProjectChange={onProjectChange} seed={seed} onSeedUsed={() => setSeed(null)} onMessage={setMessage} />
       )}
       {panel === 'summary' && projectNo && <HoursSummary projectNo={projectNo} projectName={names.get(projectNo) ?? projectNo} onClose={() => setPanel(null)} />}
       </div>

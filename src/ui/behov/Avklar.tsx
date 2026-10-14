@@ -4,20 +4,21 @@ import { formatFte } from '../../domain/calc'
 import { EMPTY_KPI, setRate, withTextType } from '../../domain/kpi'
 import { PROJECT_HALLS, withPhrase } from '../../domain/locations'
 import { parseDecimal } from '../../domain/numbers'
+import { lineRef } from '../../domain/visma'
 import { causeGroups, type CauseGroup, type ReviewedLine } from '../../domain/vismaReview'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Segmented, SidePanel } from '../common'
 import { count, isTyping } from '../dom'
-import { competenceStyles } from '../../domain/competences'
-import { competenceKey } from '../../domain/types'
 import type { PickGroup } from '../fields'
+import { kpiTypeItem, useCompetenceColor } from './format'
 import { SplitPick } from './SplitPick'
-import { usePlacing } from './usePlacing'
+import type { Placing } from './usePlacing'
 
 type Tab = 'hall' | 'type' | 'rate'
 type Scope = 'text' | 'project' | 'rule'
 
 interface Props {
+  placing: Placing
   /** The Visma lines in scope: the project's, or every project's. */
   lines: ReviewedLine[]
   names: Map<string, string>
@@ -34,7 +35,7 @@ interface Props {
  * text without a product type and per product type without a rate; the card in focus lights its lines in the table.
  * ↑ and ↓ (or j and k) move between the cards, Enter takes what the card offers, Esc closes.
  */
-export function Avklar({ lines, names, onFocusLines, offerCount, onTakeOffers, onClose }: Props) {
+export function Avklar({ placing, lines, names, onFocusLines, offerCount, onTakeOffers, onClose }: Props) {
   const groups = causeGroups(lines)
   const tabs = (
     [
@@ -119,7 +120,7 @@ export function Avklar({ lines, names, onFocusLines, offerCount, onTakeOffers, o
           </div>
           <div className="insp-body avklar-list">
             {cards.map((card) => {
-              const props = { card, active: card.key === activeKey, onFocus: () => setActive(card.key), projects: projectNames(card) }
+              const props = { card, placing, active: card.key === activeKey, onFocus: () => setActive(card.key), projects: projectNames(card) }
               return shown![0] === 'hall' ? <HallCard key={card.key} {...props} /> : shown![0] === 'type' ? <TypeCard key={card.key} {...props} /> : <RateCard key={card.key} {...props} />
             })}
           </div>
@@ -152,6 +153,7 @@ export function Avklar({ lines, names, onFocusLines, offerCount, onTakeOffers, o
 
 interface CardProps {
   card: CauseGroup
+  placing: Placing
   active: boolean
   onFocus: () => void
   /** The names of its projects. */
@@ -177,9 +179,9 @@ function Card({ active, onFocus, title, figures, sub, children }: { active: bool
 }
 
 /** One Hall/Sted text: a hall for the text, for each project apart, or a rule for words that places the next export too. */
-function HallCard({ card, active, onFocus, projects }: CardProps) {
+function HallCard({ card, placing, active, onFocus, projects }: CardProps) {
   const { workspace, setHallChoice, setHallRules } = useWorkspace()
-  const { booked, placesFor, placeNote, offersFor } = usePlacing()
+  const { booked, placesFor, placeNote, offersFor } = placing
   const [scope, setScope] = useState<Scope>('text')
   const [phrase, setPhrase] = useState(card.text.toLowerCase())
   const offers = offersFor(card.lines)
@@ -267,7 +269,7 @@ function HallCard({ card, active, onFocus, projects }: CardProps) {
 function TypeCard({ card, active, onFocus, projects }: CardProps) {
   const { workspace, setLineOverrides, setKpi } = useWorkspace()
   const kpi = workspace!.kpi ?? EMPTY_KPI
-  const styles = competenceStyles(workspace!)
+  const color = useCompetenceColor()
   // A type can be remembered for a text where the lines have one text: then the next export is read with it.
   const texts = [...new Set(card.lines.flatMap((line) => line.texts))]
   const [remember, setRemember] = useState(true)
@@ -278,7 +280,7 @@ function TypeCard({ card, active, onFocus, projects }: CardProps) {
       ? setKpi(withTextType(kpi, texts[0], workType))
       : setLineOverrides(
           card.projects,
-          card.lines.map((line) => ({ key: line.key, patch: { workType, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } } })),
+          card.lines.map((line) => ({ key: line.key, patch: { workType, ref: lineRef(line) } })),
         )
   return (
     <Card active={active} onFocus={onFocus} title={card.text ? `«${card.text}»` : 'Uten tekst'} figures={count(card.lines.length, 'linje', 'linjer')} sub={`${projects} · uten produkttype i Visma`}>
@@ -298,10 +300,7 @@ function TypeCard({ card, active, onFocus, projects }: CardProps) {
             {
               label: 'Arbeidstyper fra KPI',
               hint: 'timer regnes fra antall',
-              items: kpi.workTypes.map((t) => {
-                const style = styles.find((st) => st.key === competenceKey(t.competence))
-                return { value: t.productType, note: [t.unit, t.competence].filter(Boolean).join(' · '), dot: style && `var(--${style.color})` }
-              }),
+              items: kpi.workTypes.map((t) => kpiTypeItem(t, color)),
             },
           ]}
           onPick={apply}

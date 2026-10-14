@@ -11,7 +11,10 @@ import { SplitPick } from './SplitPick'
 type Placed = { hall: string; projectNo: string }
 
 
-/** Where the demand lines of Behov count in the Kalender, why, and the cell to change it in: the same for Visma lines and the planner's own. */
+/**
+ * Where the demand lines of Behov count in the Kalender, why, and the cell to change it in: the same for Visma lines and the planner's own.
+ * Behov holds one and hands it to its views (`Placing`), so the halls, places and days are worked out once.
+ */
 export function usePlacing() {
   const { workspace, setHallChoice } = useWorkspace()
   const ws = workspace!
@@ -41,7 +44,12 @@ export function usePlacing() {
     if (place.by === 'text') return 'Lest fra teksten'
     return 'Ingen regel'
   }
-  const projectName = (no: string) => ws.projects.find((p) => p.projectNo === no)?.name ?? no
+  const projectNames = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const p of ws.projects) if (!names.has(p.projectNo)) names.set(p.projectNo, p.name)
+    return names
+  }, [ws.projects])
+  const projectName = (no: string) => projectNames.get(no) ?? no
   /** The places of the hall ledger in the order the list gives them: those the project has booked first, then places of several halls, then the other halls. */
   const placesFor = (projectNo: string) => {
     const own = new Set((booked.get(projectNo) ?? []).map((hall) => hall.toLowerCase()))
@@ -127,3 +135,6 @@ export function usePlacing() {
   }
   return { halls, rules, booked, places, spans, placesFor, placeNote, placeOfLine, ruleOf, locationCell, offersFor }
 }
+
+/** What `usePlacing` gives: Behov holds one and hands it on. */
+export type Placing = ReturnType<typeof usePlacing>
