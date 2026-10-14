@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode, type Ref } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { PickField } from '../fields'
 
@@ -19,19 +19,23 @@ interface Props {
   title?: string
   label: string
   onPick: (option: string) => void
+  /** A class for what is shown, as `crumb` in the form of Egen registrering. */
+  className?: string
+  /** The button that opens the list, for the form to put the focus on. */
+  buttonRef?: Ref<HTMLButtonElement>
 }
 
 /**
  * A value that is resolved in its cell: quiet text once it is there, the offer with a tick and the list beside it («✓ D1 ▾»),
  * or a solid alert chip that opens the list. The list is a `PickField`, which is typed in to find a value.
  */
-export function SplitPick({ value, chosen, offer, offerTitle, missing, options, note, title, label, onPick }: Props) {
+export function SplitPick({ value, chosen, offer, offerTitle, missing, options, note, title, label, onPick, className = '', buttonRef }: Props) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const show = () => (setText(''), setOpen(true))
   if (open)
     return (
-      <span className="split-field">
+      <span className={`split-field ${className}`}>
         <PickField
           autoFocus
           value={text}
@@ -49,7 +53,7 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options, 
     )
   if (value)
     return (
-      <button className="quiet-chip" title={title} aria-label={`${label}: ${value}`} onClick={show}>
+      <button ref={buttonRef} className={`quiet-chip ${className}`} title={title} aria-label={`${label}: ${value}`} onClick={show}>
         <span className="ellipsis">{value}</span>
         {chosen && <i className="chosen-dot" title="Valgt av deg" />}
         <ChevronDown size={12} aria-hidden />
@@ -68,7 +72,7 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options, 
       </span>
     )
   return (
-    <button className="alert-chip" title={title} aria-label={label} onClick={show}>
+    <button ref={buttonRef} className={`alert-chip ${className}`} title={title} aria-label={label} onClick={show}>
       {missing}
       <ChevronDown size={12} aria-hidden />
     </button>

@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { EMPTY_KPI } from '../../domain/kpi'
 import { isVismaLine } from '../../domain/visma'
-import { reviewVisma } from '../../domain/vismaReview'
+import { reviewVisma, type ReviewedLine } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
 import { errorText, takeFiles } from '../files'
-import { EgenView } from './EgenView'
+import { EgenView, type ReplaceSeed } from './EgenView'
 import { usePlacing } from './usePlacing'
 import { VismaView } from './VismaView'
 
@@ -24,10 +24,11 @@ interface Props {
 
 /** The demand: the Visma lines to go through, and the planner's own lines, behind one switch in the page header. */
 export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: Props) {
-  const { workspace, importVisma } = useWorkspace()
+  const { workspace, importVisma, setLineOverride } = useWorkspace()
   const ws = workspace!
   const [view, setView] = usePref<View>('behovView', 'visma', (stored) => (stored === 'egen' ? 'egen' : 'visma'))
   const [message, setMessage] = useState<Message | null>(null)
+  const [seed, setSeed] = useState<ReplaceSeed | null>(null)
   const vismaInput = useRef<HTMLInputElement>(null)
   const { halls, rules } = usePlacing()
 
@@ -49,6 +50,14 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const review = useMemo(() => reviewVisma(ws.visma ?? [], ws.kpi ?? EMPTY_KPI, ws.overrides ?? {}, halls, rules), [ws.visma, ws.kpi, ws.overrides, halls, rules])
   const need = useMemo(() => [...review.values()].reduce((n, project) => n + project.need, 0), [review])
   const ownCount = useMemo(() => ws.demand.filter((line) => !isVismaLine(line)).length, [ws.demand])
+
+  /** Erstatt: the Visma line is left out, and Egen registrering opens with a line filled in from it. */
+  const replace = (line: ReviewedLine) => {
+    setLineOverride(line.projectNo, line.key, { excluded: true, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } })
+    setSeed({ key: line.key, projectNo: line.projectNo, hall: line.place, avdeling: line.avdeling, workType: line.workType, quantity: line.quantity, unit: line.unit, competence: line.competence, assemblyHours: line.assemblyHours, dismantleHours: line.dismantleHours })
+    setView('egen')
+    setMessage({ kind: 'ok', text: `${line.workType} i ${line.place} er utelatt. Fyll ut linjen som erstatter den. Kan angres med Ctrl/Cmd+Z.` })
+  }
 
   const onVismaFiles = async (files: File[]) => {
     if (!files.length) return
@@ -98,9 +107,9 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
       </div>
       <MessageBanner message={message} onClose={() => setMessage(null)} />
       {view === 'visma' ? (
-        <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} />
+        <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} onReplace={replace} />
       ) : (
-        <EgenView projectNo={projectNo} onProjectChange={onProjectChange} projects={projects} />
+        <EgenView projectNo={projectNo} onProjectChange={onProjectChange} seed={seed} onSeedUsed={() => setSeed(null)} onMessage={setMessage} />
       )}
     </div>
   )

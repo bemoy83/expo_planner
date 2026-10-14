@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Minus, X } from 'lucide-react'
+import { ArrowRight, Check, Minus, X } from 'lucide-react'
 import { formatFte } from '../../domain/calc'
 import { competenceStyles } from '../../domain/competences'
 import { EMPTY_KPI } from '../../domain/kpi'
@@ -35,13 +35,15 @@ interface Props {
   /** The name of each project, by number. */
   names: Map<string, string>
   onMessage: (message: Message) => void
+  /** Leaves the line out and opens Egen registrering with an own line in its place. */
+  onReplace: (line: ReviewedLine) => void
 }
 
 /**
  * Going through the Visma lines: a line that gives hours and has a hall counts by itself. What is marked is the exception:
  * the lines that lack something, and those the planner has left out.
  */
-export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, names, onMessage }: Props) {
+export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, names, onMessage, onReplace }: Props) {
   const { workspace, setLineOverride, setLineOverrides, removeLineOverride, setHallChoice } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
@@ -284,6 +286,16 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       cell: (line) => <NumberField value={line.effekt} onCommit={(effekt) => override(line, { effekt })} />,
     },
     { key: 'comment', head: 'Kommentar', text: (line) => line.comment, cell: (line) => <TextField value={line.comment} onCommit={(comment) => override(line, { comment })} /> },
+    {
+      key: 'replace',
+      className: 'actions',
+      cell: (line) =>
+        line.status === 'counted' && (
+          <button className="row-action replace" title="Erstatt med egen registrering: linjen utelates, og en egen linje fylles ut fra den" onClick={() => onReplace(line)}>
+            <ArrowRight size={13} aria-hidden />
+          </button>
+        ),
+    },
   ]
   const table = useTable(matched, columns)
   const picked = scope.filter((line) => selected.has(line.key))
@@ -310,10 +322,9 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
     <div className="behov-split">
       <ProjectRail
         all={{ label: 'Alle prosjekter', aside: railAside(totals) }}
-        heading="Visma-utskrifter"
         projectNo={projectNo}
         onPick={(no) => (setSelected(new Set()), onProjectChange(no))}
-        items={projects.map((no) => {
+        sections={[{ heading: 'Visma-utskrifter', items: projects.map((no) => {
           const p = review.get(no)!
           return {
             projectNo: no,
@@ -322,7 +333,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             sub: [`${p.counted} med`, p.excluded ? `${p.excluded} utelatt` : ''].filter(Boolean).join(' · '),
             done: p.lines.length ? p.counted / p.lines.length : 0,
           }
-        })}
+        }) }]}
       />
       <div className="behov-main">
         <div className="behov-intro">

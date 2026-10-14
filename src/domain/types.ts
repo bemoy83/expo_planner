@@ -113,6 +113,8 @@ export interface DemandLine {
   effekt?: number
   /** Where the line comes from: a Visma export, or the planner. */
   origin: 'visma' | 'manual'
+  /** For the planner's own line made in place of a Visma line: the key of that line, which is left out. */
+  replaces?: string
 }
 
 /** One planning row in the Kalender: required hours for a scope, and FTE typed per day. */
@@ -331,6 +333,10 @@ export interface HallRules {
 }
 
 export const PLANNED_BASIS = 'Planlagt'
+/** The basis of an own line that is saved but not yet counted. */
+export const DRAFT_BASIS = 'Utkast'
+/** The source of the planner's own lines. */
+export const OWN_SOURCE = 'Egen registrering'
 export const VISMA_BASIS = 'visma per reg. dato'
 export const VISMA_SOURCE = 'visma per reg. dato'
 

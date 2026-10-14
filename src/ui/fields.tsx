@@ -1,4 +1,4 @@
-import { useId, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
+import { useId, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import { decimalText, parseDecimal } from '../domain/numbers'
 
 /** A number that is edited in place and saved when the field is left or Enter is pressed. Empty means 0. */
@@ -36,6 +36,8 @@ interface PickFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'va
   note?: (option: string) => ReactNode
   /** Escape closed the list. */
   onCancel?: () => void
+  /** The field itself, for the page to put the focus in. */
+  ref?: Ref<HTMLInputElement>
 }
 
 /**
