@@ -195,8 +195,18 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       key: 'workType',
       head: 'Arbeidstype',
       text: (line) => (line.issue === 'no-product-type' ? 'Mangler arbeidstype' : line.workType),
+      // What needs the planner leads the cell, as in Plassering, so the buttons stand in one column.
       cell: (line) => (
         <span className="cell-line">
+          {line.issue === 'no-rate' && (
+            <NeedButton
+              list={false}
+              missing={line.unit ? 'uten sats' : 'velg enhet'}
+              title={line.unit ? 'Produkttypen mangler sats for denne enheten. Åpne KPI.' : 'Produkttypen har flere enheter, og ingen er valgt i bruk. Åpne KPI.'}
+              onClick={onOpenSetup}
+            />
+          )}
+          {line.issue === 'unknown-work-type' && <NeedButton list={false} missing="ikke på KPI" title="Produkttypen finnes ikke i KPI-oppsettet. Åpne KPI." onClick={onOpenSetup} />}
           {line.sourceWorkType === NO_PRODUCT_TYPE ? (
             <SplitPick
               label="Arbeidstype"
@@ -217,15 +227,6 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
           ) : (
             <span className="ellipsis">{line.workType}</span>
           )}
-          {line.issue === 'no-rate' && (
-            <NeedButton
-              list={false}
-              missing={line.unit ? 'uten sats' : 'velg enhet'}
-              title={line.unit ? 'Produkttypen mangler sats for denne enheten. Åpne KPI.' : 'Produkttypen har flere enheter, og ingen er valgt i bruk. Åpne KPI.'}
-              onClick={onOpenSetup}
-            />
-          )}
-          {line.issue === 'unknown-work-type' && <NeedButton list={false} missing="ikke på KPI" title="Produkttypen finnes ikke i KPI-oppsettet. Åpne KPI." onClick={onOpenSetup} />}
           {line.missingRate && <span className="faint">{line.missingRate === 'assembly' ? 'ingen sats for montering' : 'ingen sats for demontering'}</span>}
           {line.sourceWorkType === NO_PRODUCT_TYPE && line.texts.length > 0 && (
             <span className="faint ellipsis" title={`Artikkeltekst i Visma: ${line.texts.join(' · ')}`}>
