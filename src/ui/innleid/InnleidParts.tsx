@@ -1,11 +1,11 @@
 import { memo, type CSSProperties, type ReactNode } from 'react'
 import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
-import { coverFigure, coverShares, dayChips, dayKey, HOURS_NOISE, isWaiting, shiftText, type Coverage, type HireBoard, type OrderChip } from '../../domain/hire'
+import { coverFigure, coverShares, dayBlock, dayChips, dayKey, HOURS_NOISE, isWaiting, shiftText, type Coverage, type DayBlock, type HireBoard, type OrderChip } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
-import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
+import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor, count } from '../dom'
-import { useBemanning } from '../bemanning/BemanningScope'
+import { useBemanning, type Density } from '../bemanning/BemanningScope'
 import { DEMAND_H } from '../bemanning/layout'
 import { ProjectLines } from '../bemanning/ProjectLines'
 import { hoursText } from '../bemanning/week'
@@ -95,7 +95,7 @@ export function InnleidTop() {
 
 /** The planning bar in Innleid: the mode and the part, undo, the tools with the supplier they work with, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
-  const { board, waiting, openNextUnder, openFirstWaiting, tool, pickTool, brush, pickBrush, suppliers, panel, setPanel } = useInnleid()
+  const { board, waiting, openNextUnder, openFirstWaiting, tool, pickTool, brush, pickBrush, suppliers, panel, setPanel, density, setDensity } = useInnleid()
   const under = board.underDays.length
   const tools: ToolChoice<HireTool>[] = [
     { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager på en kompetanse: klikk en dag, dra over flere, eller Shift+klikk for å utvide (V).' },
@@ -141,6 +141,15 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             </button>
           )}
           {under === 0 && waiting <= HOURS_NOISE && <span className="bm-hints">Alt dekket og bekreftet</span>}
+          <Segmented<Density>
+            label="Visning"
+            value={density}
+            onChange={setDensity}
+            options={[
+              { value: 'compact', label: 'Kompakt', title: 'Kompakt: hver kompetanse på én linje, med én blokk per dag' },
+              { value: 'detail', label: 'Detaljert', title: 'Detaljert: en brikke per leverandør under dagens linje' },
+            ]}
+          />
           <button className="ghost" onClick={onToday}>
             I dag
           </button>
@@ -181,6 +190,32 @@ const coverTitle = (label: string, date: ISODate, cover: Coverage): string => {
 const chipTitle = (name: string, chip: OrderChip, wd: WorkdaySettings): string =>
   `${name}\n${chip.orders.map((order) => `${order.fte} pers. ${shiftText(order, wd)} · ${isWaiting(order) ? 'venter på svar' : order.asked ? `bekreftet, ${order.fte} av ${order.asked}` : 'bekreftet'}`).join('\n')}`
 
+/** What a stack says when it is pointed at: the people of each supplier, and which of them wait for an answer. */
+const stackTitle = (chips: OrderChip[], nameOf: (id: string) => string): string => chips.map((chip) => `${chip.fte} · ${nameOf(chip.supplierId)}${chip.waits ? ' (venter)' : ''}`).join('\n')
+
+/** A folded day in the compact line: the chip of its one supplier, or one chip for several with cards behind it. */
+function BlockChip({ block, nameOf, wd, gone }: { block: DayBlock; nameOf: (id: string) => string; wd: WorkdaySettings; gone: boolean }) {
+  if (block.kind === 'one') {
+    const { chip } = block
+    return (
+      <span className={`il-chip ${chip.waits ? 'waits' : ''} ${gone ? 'gone' : ''}`} title={chipTitle(nameOf(chip.supplierId), chip, wd)}>
+        {chip.waits && <AnswerGlyph waits size={12} />}
+        <b>{chip.fte}</b>
+        <span>{nameOf(chip.supplierId)}</span>
+      </span>
+    )
+  }
+  return (
+    <span className={`il-stk ${block.chips.length > 2 ? 'three' : ''} ${block.waits ? 'waits' : ''} ${gone ? 'gone' : ''}`} title={stackTitle(block.chips, nameOf)}>
+      <span className={`il-chip ${block.waits ? 'waits' : ''} ${gone ? 'gone' : ''}`}>
+        {block.waits && <AnswerGlyph waits size={12} />}
+        <b>{block.fte}</b>
+        <span>{block.chips.length} lev.</span>
+      </span>
+    </span>
+  )
+}
+
 /** A day shows at most this many chips; where there are more, one fewer and the count of the rest. */
 const CHIPS_MAX = 3
 
@@ -210,6 +245,8 @@ interface RowProps {
   strokeSupplier: string | undefined
   /** How the pointer shows what a press would do here: the brush, a brush whose supplier does not offer the competence, or the eraser. */
   cursor: '' | 'brush' | 'nobrush' | 'erase'
+  /** Compact: a folded competence is one line high, with one block per day. */
+  compact: boolean
   actions: InnleidActions
 }
 
@@ -217,11 +254,12 @@ interface RowProps {
  * One competence: its name with what is missing in the days in view, and per day a line of how far it is covered,
  * the hours missing or over, and a chip per supplier ordered. With days picked, its label is the editor of their orders.
  */
-const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, strokeFrom, strokeTo, strokePeople, strokeSupplier, cursor, actions }: RowProps) {
+const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, strokeFrom, strokeTo, strokePeople, strokeSupplier, cursor, compact, actions }: RowProps) {
   const open = pickedFrom !== null && pickedTo !== null
+  const oneLine = compact && !open
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
   return (
-    <div className={`grid-row il-row ${open ? 'open' : ''} ${cursor}`} style={{ ...competenceColor(style), minHeight: DEMAND_H }}>
+    <div className={`grid-row il-row ${open ? 'open' : ''} ${oneLine ? 'compact' : ''} ${cursor}`} style={{ ...competenceColor(style), ...(oneLine ? { height: DEMAND_H } : { minHeight: DEMAND_H }) }}>
       <div className="grid-label" style={{ width: LEFT_W }} onClick={open ? undefined : () => actions.openFirst(style.key)} title={open ? undefined : `Bestill ${style.label}`}>
         {open ? (
           <OrderEditor style={style} />
@@ -247,6 +285,10 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         const { confirmed, waiting } = coverShares(cover)
         const chips = dayChips(ordersOn.get(dayKey(style.key, date)) ?? [], suppliers, open)
         const shown = chips.length > CHIPS_MAX && !open ? chips.slice(0, CHIPS_MAX - 1) : chips
+        // Compact: what the eraser would leave is the block; where it would leave nothing, the block is drawn as gone.
+        const left = erasing ? chips.filter((chip) => strokeSupplier !== undefined && chip.supplierId !== strokeSupplier) : chips
+        const gone = left.length === 0
+        const block = oneLine ? dayBlock(gone ? chips : left) : null
         return (
           <div
             key={date}
@@ -260,17 +302,35 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
             onMouseEnter={() => actions.dayEnter(style.key, date)}
           >
             <span className="il-cover">
+              {/* Compact: one block for the day's orders, the people of a supplier the eraser would leave, or what would go. */}
+              {oneLine && block && <BlockChip block={block} nameOf={nameOf} wd={wd} gone={gone} />}
               {/* What the brush would order here. On a folded competence it is on the day's own line, so the line keeps its height under the pointer. */}
               {ghost !== undefined && !open && <i className="il-ghost">{ghost}</i>}
-              {cover.rest > 0 && (
-                <span className="il-bar">
-                  <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
-                  {waiting > 0 && <i className="waiting" style={{ left: `${confirmed * 100}%`, width: `${waiting * 100}%` }} />}
+              {/* How far the day is covered; compact, the figure alone. A press on it folds an open competence. */}
+              {cover.rest > 0 && !oneLine && (
+                <span
+                  className="il-bar-hit"
+                  title={open ? 'Fold sammen' : undefined}
+                  onMouseDown={
+                    open
+                      ? (e) => {
+                          if (e.button !== 0) return
+                          e.preventDefault()
+                          e.stopPropagation()
+                          actions.fold()
+                        }
+                      : undefined
+                  }
+                >
+                  <span className="il-bar">
+                    <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
+                    {waiting > 0 && <i className="waiting" style={{ left: `${confirmed * 100}%`, width: `${waiting * 100}%` }} />}
+                  </span>
                 </span>
               )}
               {figure !== null && <b className={figure < 0 ? 'short' : 'over'}>{signedHours(figure)}</b>}
             </span>
-            {(chips.length > 0 || (ghost !== undefined && open)) && (
+            {!oneLine && (chips.length > 0 || (ghost !== undefined && open)) && (
               <span className="il-chips">
                 {shown.map((chip) => (
                   <span
@@ -304,7 +364,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
 export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, dates, viewFrom, viewTo, styles } = useBemanning()
   const il = useInnleid()
-  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions, tool, brush, preview } = il
+  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions, tool, brush, preview, density } = il
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
   const popGroup = pop?.group ? groups.find((group) => group.key === pop.group) : undefined
@@ -337,6 +397,7 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
             strokePeople={stroked?.mode === 'paint' ? stroked.people : null}
             strokeSupplier={stroked?.supplierId}
             cursor={tool === 'erase' ? 'erase' : tool === 'paint' ? (brush?.competences.includes(style.key) ? 'brush' : 'nobrush') : ''}
+            compact={density === 'compact'}
             actions={actions}
           />
         )

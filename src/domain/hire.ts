@@ -349,6 +349,18 @@ export const dayChips = (orders: HireOrder[], suppliers: Supplier[], perTime = f
     return chips
   }, [])
 
+/**
+ * What a folded day shows in the compact line, on one line whatever it has of orders: nothing, the chip of its one
+ * supplier, or one stacked chip for several, with their people together. It waits if any of them does.
+ */
+export type DayBlock = { kind: 'one'; chip: OrderChip } | { kind: 'stack'; fte: number; waits: boolean; chips: OrderChip[] }
+
+export const dayBlock = (chips: OrderChip[]): DayBlock | null => {
+  if (!chips.length) return null
+  if (chips.length === 1) return { kind: 'one', chip: chips[0] }
+  return { kind: 'stack', fte: chips.reduce((sum, chip) => sum + chip.fte, 0), waits: chips.some((chip) => chip.waits), chips }
+}
+
 /** The days picked on a competence, together: what remains, what is ordered, and what is still missing or over. */
 export interface RangeSummary {
   rest: number

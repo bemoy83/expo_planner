@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, coverShares, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planOrders, rangeSummary, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierTotals, timesText, waitingHours } from './hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, coverShares, dayBlock, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planOrders, rangeSummary, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -272,6 +272,14 @@ describe('the chips of a day and the sum of a range', () => {
       ['k1', 2, true],
       ['k3', 1, false],
     ])
+  })
+
+  it('shows a folded day in the compact line as nothing, the chip of one supplier, or a stack of several', () => {
+    expect(dayBlock([])).toBeNull()
+    const chips = dayChips(orders, [manpower, nordic])
+    expect(dayBlock(chips.slice(1))).toEqual({ kind: 'one', chip: chips[1] })
+    expect(dayBlock(chips)).toEqual({ kind: 'stack', fte: 7, waits: true, chips })
+    expect(dayBlock(chips.slice(1).concat(chips.slice(1)))).toMatchObject({ kind: 'stack', fte: 2, waits: false })
   })
 
   it('sums the days picked: what is missing, and the people on a day shift that would cover it', () => {

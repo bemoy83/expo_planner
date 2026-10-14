@@ -268,19 +268,25 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-row:not(.open) .grid-label:hover{background:var(--wash-bg)}
 .il-unfold{flex:none;margin:0 3px;color:var(--faint)}
 .il-row .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
-/* A day of a competence: how far it is covered and the hours missing or over on one line, and under it a chip per supplier ordered. */
+/* A day of a competence: how far it is covered and the hours missing or over on one line, and under it a chip per supplier ordered.
+   Compact, a folded competence is that one line alone, 32 px high whatever it has of orders: one block per day on the left, and the figure. */
 .il-day{flex-direction:column;align-items:stretch;justify-content:flex-start;min-width:0;cursor:pointer;user-select:none}
 .il-day:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-day.picked{background-color:var(--surface)}
 .il-day.dragged{background-image:linear-gradient(var(--pick-soft),var(--pick-soft))}
 .il-cover{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:none;height:31px;min-width:0;padding:0 8px}
-/* How far the day is covered: solid for what is confirmed, hatched for what waits for an answer. The line gives way to the figure. */
+.il-row.compact .il-cover{padding-left:4px}
+/* How far the day is covered: solid for what is confirmed, hatched for what waits for an answer. The line gives way to the figure.
+   It is pressed on through a strip as high as the line, which folds a competence that is open. */
+.il-bar-hit{display:flex;flex:1;align-items:center;align-self:stretch;min-width:0}
+.il-row.open .il-bar-hit{cursor:pointer}
 .il-bar{position:relative;flex:1;min-width:0;height:3px;border-radius:2px;overflow:hidden;background:var(--sunken)}
 .il-bar>i{position:absolute;top:0;bottom:0;left:0}
 .il-bar>.confirmed{background:var(--cc)}
 .il-bar>.waiting{background:repeating-linear-gradient(135deg,var(--cc) 0 2px,transparent 2px 4px)}
 .il-cover b{flex:none;font-size:var(--fs-sm);font-weight:600}
-.il-cover b.over{font-weight:500;color:var(--muted)}
+.il-cover b.short{color:var(--neg)}
+.il-cover b.over{color:var(--over)}
 /* An order on a day: the people on a badge and the supplier's name, in the colour of the competence. One that waits is pale, with the clock. */
 .il-chips{display:flex;flex-direction:column;gap:3px;min-width:0;padding:0 4px 6px}
 .il-chip{display:flex;align-items:center;gap:5px;height:22px;min-width:0;padding:0 6px 0 3px;border-radius:5px;background:var(--cc);color:var(--on-line);font:600 var(--fs-xs) var(--font-ui)}
@@ -289,6 +295,15 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-chip.waits{gap:3px;background:color-mix(in oklab,var(--cc) 38%,var(--bg));color:var(--text)}
 .il-chip.waits b{background:transparent;box-shadow:none}
 .il-chip.on{box-shadow:inset 0 0 0 1.5px color-mix(in oklab,var(--cc) 60%,var(--text))}
+.il-cover>.il-chip{flex:0 1 auto;margin-right:auto}
+/* Several suppliers on a folded day in the compact line: one chip with their people together, and a card behind it for the second and the third. */
+.il-stk{position:relative;isolation:isolate;display:flex;flex:0 1 auto;min-width:0;max-width:calc(100% - 6px);margin:5px auto 0 0}
+.il-stk::before,.il-stk::after{content:'';position:absolute;inset:0;border-radius:5px;box-shadow:0 0 0 1.5px var(--bg)}
+.il-stk::before{z-index:-1;background:oklch(from var(--cc) calc(l - .1) c h);transform:translate(3px,-3px)}
+.il-stk::after{z-index:-2;display:none;background:oklch(from var(--cc) calc(l - .18) c h);transform:translate(6px,-6px)}
+.il-stk.three::after{display:block}
+.il-stk.waits::before,.il-stk.waits::after{background:color-mix(in oklab,var(--cc) 55%,var(--bg))}
+.il-stk>.il-chip{flex:1;height:20px;box-shadow:0 0 0 1.5px var(--bg)}
 .il-glyph{flex:none}
 .il-more{height:20px;padding:0 6px;border-radius:5px;background:var(--sunken);font:600 var(--fs-2xs)/20px var(--font-ui);color:var(--muted)}
 /* What a stroke would do. The brush: the people a day would get, as a badge in outline on the day's own line where the competence is folded, so the line keeps its height, and as the chip the order would be where it is unfolded. The eraser: the days tinted, and the chips that would go without their fill. */
@@ -298,6 +313,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-day.erasing{background-image:linear-gradient(color-mix(in oklab,var(--alert-block) 12%,transparent),color-mix(in oklab,var(--alert-block) 12%,transparent))}
 .il-chip.gone{background:var(--bg);color:var(--faint);box-shadow:none}
 .il-chip.gone b{background:transparent;color:var(--faint);box-shadow:none}
+.il-stk.gone::before,.il-stk.gone::after{background:var(--bg);box-shadow:0 0 0 1px var(--line)}
 .il-row.brush .il-day{cursor:crosshair}
 .il-row.nobrush .il-day{cursor:not-allowed}
 .il-row.erase .il-day{cursor:cell}

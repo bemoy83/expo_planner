@@ -3,7 +3,8 @@ import type { ISODate } from '../../domain/dates'
 import { changeCount, changeOrders, confirmFewer, confirmOrders, dayKey, eraseOrders, fillGroup, groupKey, hireBoard, isWaiting, mergeOrders, orderGroups, ordersByDay, planOrders, rangeSummary, removeOrders, setWaiting, waitingHours, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
 import type { CompetenceKey, CompetenceStyle, HireOrder, Interval, ShiftId, Supplier } from '../../domain/types'
-import { useBemanning } from '../bemanning/BemanningScope'
+import { useBemanning, type Density } from '../bemanning/BemanningScope'
+import { usePref } from '../../store/prefs'
 import { isTyping } from '../dom'
 import { heatScale } from '../kalender/heat'
 import { useStableActions } from '../kalender/useStableActions'
@@ -51,6 +52,9 @@ interface StrokePreview {
   supplierId: string | undefined
 }
 
+/** Innleid opens on the compact lines, where a folded competence is one line high whatever it has of orders. */
+const cleanDensity = (stored: unknown): Density => (stored === 'detail' ? 'detail' : 'compact')
+
 const NO_ORDERS: HireOrder[] = []
 const NO_SUPPLIERS: Supplier[] = []
 
@@ -67,6 +71,7 @@ function useInnleidState(active: boolean) {
   /** The orders per competence and day. */
   const ordersOn = useMemo(() => ordersByDay(orders), [orders])
 
+  const [density, setDensity] = usePref<Density>('innleidDensity', 'compact', cleanDensity)
   const [stored, setOpen] = useState<OpenDays | null>(null)
   const [pop, setPop] = useState<OrderPop | null>(null)
   const [storedPanel, setPanel] = useState<InnleidPanel | null>(null)
@@ -178,6 +183,8 @@ function useInnleidState(active: boolean) {
       if (!now && tool === 'paint') setHover({ competence, date })
     },
     rowsLeave: () => setHover(null),
+    /** A press on the line of how far a day is covered, on a competence that is open, folds it. */
+    fold,
     /** The mouse is let go: the days the stroke reached are picked, ordered or emptied. */
     dayUp: () => {
       const now = dragNow.current
@@ -322,7 +329,7 @@ function useInnleidState(active: boolean) {
   const dragDays = drag?.mode === 'select' ? span(drag.anchor, drag.focus) : null
   return {
     board, rows, scale, waiting, suppliers, orders, ordersOn, wd,
-    tool, pickTool, brush, pickBrush, preview,
+    tool, pickTool, brush, pickBrush, preview, density, setDensity,
     panel, setPanel, openSupplier, openFirstWaiting,
     open, openDates, groups, picked, summary, pick, openOn, fold, stepDays, stepShort, shortBefore: shortDay(-1), shortAfter: shortDay(1), stepCompetence, openNextUnder,
     pop, setPop, edits, actions,
