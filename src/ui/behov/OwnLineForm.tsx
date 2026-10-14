@@ -9,9 +9,9 @@ import { placeOf } from '../../domain/locations'
 import { hallNames } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Segmented } from '../common'
-import { PickField } from '../fields'
+import { PickField, type PickGroup } from '../fields'
 import { SplitPick } from './SplitPick'
-import { EMPTY_DRAFT, SPLIT_HALLS, type OwnContext, type OwnDraft } from './ownDraft'
+import { EMPTY_DRAFT, NO_HALL, SPLIT_HALLS, type OwnContext, type OwnDraft } from './ownDraft'
 
 const hours = (value: number) => formatFte(value, 1)
 
@@ -20,9 +20,11 @@ interface Props {
   onContext: (ctx: OwnContext) => void
   draft: OwnDraft
   onDraft: (draft: OwnDraft) => void
-  /** The projects to pick from, as [number, name], and a note for each. */
+  /** The projects to pick from, as [number, name]. */
   projects: [string, string][]
-  projectNote: (projectNo: string) => string
+  /** The same in groups by their build-up, for the list. */
+  projectGroups: PickGroup[]
+  competenceColor: (competence: string) => string | undefined
   /** The halls the project of the context has booked, with their days. */
   booked: Map<string, HallSpans>
   /** Every place a line can be put under, from the hall ledger and the rules. */
@@ -46,7 +48,7 @@ interface Props {
  * The form of Egen registrering: the context strip (project › hall › avd.), which stays between lines, the work with
  * its amount and hours, and what the line does to the Kalender. Enter adds the line from any field, Esc empties it.
  */
-export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectNote, booked, places, avdelinger, usedBefore, competences, kpi, hoursPerDay, workRef, assemblyRef, onAdd, onProject }: Props) {
+export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectGroups, competenceColor, booked, places, avdelinger, usedBefore, competences, kpi, hoursPerDay, workRef, assemblyRef, onAdd, onProject }: Props) {
   const { workspace, locatedDemand } = useWorkspace()
   const ws = workspace!
   const projectName = projects.find(([no]) => no === ctx.projectNo)?.[1] ?? ''
@@ -130,13 +132,8 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectN
     )
   })()
 
-  const hallOptions = [...bookedHalls, ...(bookedHalls.length > 1 ? [`Fordel på ${bookedHalls.join(', ')}`] : []), ...places.filter((place) => !booked.has(place)), 'Uten hall']
   const hallShown = split ? `Fordelt på ${bookedHalls.length}` : ctx.hall === '' ? 'Uten hall' : ctx.hall
   const spans = !split && booked.get(ctx.hall)
-  const workNotes = new Map([
-    ...kpi.workTypes.map((t) => [t.productType, [t.unit, t.competence].filter(Boolean).join(' · ')] as const),
-    ...[...usedBefore].map(([work, competence]) => [work, `${competence} · brukt før`] as const),
-  ])
   const pickWork = (work: string) => {
     const picked = kpi.workTypes.find((t) => t.productType === work)
     if (picked) {
@@ -171,11 +168,10 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectN
             label="Prosjekt"
             value={projectName || undefined}
             missing="Velg prosjekt"
-            options={projects.map(([, name]) => name)}
-            note={(name) => projectNote(projects.find(([, n]) => n === name)?.[0] ?? '')}
-            onPick={(name) => {
-              const no = projects.find(([, n]) => n === name)?.[0]
-              if (no) onProject(no)
+            head="Prosjekt · etter oppbygging"
+            groups={projectGroups}
+            onPick={(no) => {
+              onProject(no)
               requestAnimationFrame(() => workRef.current?.focus())
             }}
           />
@@ -186,14 +182,21 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectN
               label="Hall"
               value={hallShown}
               missing="Hall"
-              options={hallOptions}
-              note={(option) => {
-                const days = booked.get(option)
-                if (days) return [days.assembly && `Opp ${spanText(days.assembly)}`, days.dismantle && `Ned ${spanText(days.dismantle)}`].filter(Boolean).join(' · ')
-                return option.startsWith('Fordel på') ? 'deler timene likt' : option === 'Uten hall' ? 'teller ikke før den har en hall' : 'ikke booket'
-              }}
-              onPick={(option) => {
-                onContext({ ...ctx, hall: option.startsWith('Fordel på') ? SPLIT_HALLS : option === 'Uten hall' ? '' : option })
+              head={`Hall · ${projectName}`}
+              groups={[
+                {
+                  label: bookedHalls.length ? `Booket av ${projectName}` : `${projectName} har ingen booking`,
+                  items: bookedHalls.map((hall) => {
+                    const days = booked.get(hall)!
+                    return { value: hall, note: [days.assembly && `Opp ${spanText(days.assembly)}`, days.dismantle && `Ned ${spanText(days.dismantle)}`].filter(Boolean).join(' · ') }
+                  }),
+                },
+                ...(bookedHalls.length > 1 ? [{ items: [{ value: SPLIT_HALLS, label: `Fordel på ${bookedHalls.join(', ')}`, note: 'deler timene likt' }] }] : []),
+                { label: 'Andre steder', hint: 'ikke booket', items: places.filter((place) => !booked.has(place)).map((place) => ({ value: place })) },
+                { items: [{ value: NO_HALL, label: 'Uten hall', note: 'teller ikke før den har en hall' }] },
+              ]}
+              onPick={(value) => {
+                onContext({ ...ctx, hall: value === NO_HALL ? '' : value })
                 requestAnimationFrame(() => workRef.current?.focus())
               }}
             />
@@ -207,8 +210,11 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectN
               label="Avdeling"
               value={`avd. ${ctx.avdeling || '–'}`}
               missing="avd."
-              options={avdelinger.map((a) => a.value)}
-              note={(value) => avdelinger.find((a) => a.value === value)?.note ?? ''}
+              head="Avdeling"
+              groups={[
+                { label: 'Brukt i prosjektets Visma-linjer', items: avdelinger.filter((a) => a.note).map((a) => ({ value: a.value, note: a.note })) },
+                { label: 'Andre', items: avdelinger.filter((a) => !a.note).map((a) => ({ value: a.value })) },
+              ]}
               onPick={(avdeling) => {
                 onContext({ ...ctx, avdeling })
                 requestAnimationFrame(() => workRef.current?.focus())
@@ -249,8 +255,13 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectN
             value={draft.work}
             onChange={(work) => set({ work })}
             onPick={pickWork}
-            options={[...kpi.workTypes.map((t) => t.productType), ...[...usedBefore.keys()].filter((work) => !kpi.workTypes.some((t) => productTypeKey(t.productType) === productTypeKey(work)))]}
-            note={(work) => workNotes.get(work) ?? ''}
+            groups={[
+              { label: 'Arbeidstyper fra KPI', hint: 'timer regnes fra mengde', items: kpi.workTypes.map((t) => ({ value: t.productType, note: [t.unit, t.competence].filter(Boolean).join(' · '), dot: competenceColor(t.competence) })) },
+              {
+                label: 'Brukt før',
+                items: [...usedBefore].filter(([work]) => !kpi.workTypes.some((t) => productTypeKey(t.productType) === productTypeKey(work))).map(([work, competence]) => ({ value: work, note: competence, dot: competenceColor(competence) })),
+              },
+            ]}
             placeholder="Hva skal gjøres?"
           />
         </label>

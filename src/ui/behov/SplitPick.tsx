@@ -1,6 +1,7 @@
 import { useState, type ReactNode, type Ref } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { PickField } from '../fields'
+import { PickField, type PickGroup } from '../fields'
+import { OFFER } from './picks'
 
 interface Props {
   /** What the cell holds once it is resolved, as quiet text that opens the list on a click. */
@@ -13,8 +14,12 @@ interface Props {
   offerTitle?: string
   /** What the button says where there is neither: «Velg hall». */
   missing: string
-  options: string[]
+  options?: string[]
   note?: (option: string) => ReactNode
+  /** The values in groups, in place of `options`; the offer is then one of them, marked when the list opens. */
+  groups?: PickGroup[]
+  /** A line above the list: what is being picked for. */
+  head?: ReactNode
   /** What a pick does, and for whom: the title of what opens the list. */
   title?: string
   label: string
@@ -31,7 +36,7 @@ interface Props {
  * A value that is resolved in its cell: quiet text once it is there, else the button of what needs the planner (`NeedButton`)
  * with the offer and a «?», or what is missing. A click always opens the list, a `PickField` to type in, with the offer first.
  */
-export function SplitPick({ value, chosen, offer, offerTitle, missing, options, note, title, label, onPick, className = '', buttonRef, plain }: Props) {
+export function SplitPick({ value, chosen, offer, offerTitle, missing, options = [], note, groups, head, title, label, onPick, className = '', buttonRef, plain }: Props) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const show = () => (setText(''), setOpen(true))
@@ -43,7 +48,9 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options, 
           value={text}
           onChange={setText}
           options={offer ? [offer, ...options.filter((option) => option !== offer)] : options}
-          marked={offer}
+          groups={groups}
+          head={head}
+          marked={groups ? groups.flatMap((group) => group.items).find((item) => item.value.startsWith(OFFER))?.value : offer}
           note={(option) => (option === offer ? 'forslag' : note?.(option))}
           current={value}
           aria-label={label}

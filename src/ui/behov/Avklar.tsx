@@ -8,6 +8,9 @@ import { causeGroups, type CauseGroup, type ReviewedLine } from '../../domain/vi
 import { useWorkspace } from '../../store/workspaceStore'
 import { Segmented, SidePanel } from '../common'
 import { count, isTyping } from '../dom'
+import { competenceStyles } from '../../domain/competences'
+import { competenceKey } from '../../domain/types'
+import type { PickGroup } from '../fields'
 import { SplitPick } from './SplitPick'
 import { usePlacing } from './usePlacing'
 
@@ -176,7 +179,7 @@ function Card({ active, onFocus, title, figures, sub, children }: { active: bool
 /** One Hall/Sted text: a hall for the text, for each project apart, or a rule for words that places the next export too. */
 function HallCard({ card, active, onFocus, projects }: CardProps) {
   const { workspace, setHallChoice, setHallRules } = useWorkspace()
-  const { booked, places, offersFor } = usePlacing()
+  const { booked, placesFor, placeNote, offersFor } = usePlacing()
   const [scope, setScope] = useState<Scope>('text')
   const [phrase, setPhrase] = useState(card.text.toLowerCase())
   const offers = offersFor(card.lines)
@@ -187,6 +190,16 @@ function HallCard({ card, active, onFocus, projects }: CardProps) {
     if (card.blank) for (const no of projectNo ? [projectNo] : card.projects) setHallChoice('', hall, no)
     else if (scope === 'rule') setHallRules(withPhrase(workspace!.hallRules, phrase, hall))
     else setHallChoice(card.text, hall, scope === 'project' ? projectNo : undefined)
+  }
+  /** The places to pick from, in the order of the list of a line: booked first. */
+  const otherGroups = (projectNo: string): PickGroup[] => {
+    const { booked: own, shared, other } = placesFor(projectNo)
+    const item = (hall: string) => ({ value: hall, note: placeNote(projectNo, hall) })
+    return [
+      { label: 'Booket', items: own.map(item) },
+      { label: 'Steder', items: shared.map(item) },
+      { label: 'Andre haller', hint: 'ikke booket', items: other.map(item) },
+    ]
   }
   const chips = (projectNo?: string) => {
     const own = halls(projectNo ? [projectNo] : card.projects)
@@ -202,7 +215,7 @@ function HallCard({ card, active, onFocus, projects }: CardProps) {
             ))}
           </span>
         )}
-        <SplitPick label="Annen plassering" missing="Annen" className="cause-more" plain options={places} onPick={(hall) => apply(hall, projectNo)} />
+        <SplitPick label="Annen plassering" missing="Annen" className="cause-more" plain head={`«${card.text || 'uten Hall/sted'}»`} groups={otherGroups(projectNo ?? card.projects[0])} onPick={(hall) => apply(hall, projectNo)} />
       </div>
     )
   }
@@ -254,6 +267,7 @@ function HallCard({ card, active, onFocus, projects }: CardProps) {
 function TypeCard({ card, active, onFocus, projects }: CardProps) {
   const { workspace, setLineOverrides, setKpi } = useWorkspace()
   const kpi = workspace!.kpi ?? EMPTY_KPI
+  const styles = competenceStyles(workspace!)
   // A type can be remembered for a text where the lines have one text: then the next export is read with it.
   const texts = [...new Set(card.lines.flatMap((line) => line.texts))]
   const [remember, setRemember] = useState(true)
@@ -279,11 +293,17 @@ function TypeCard({ card, active, onFocus, projects }: CardProps) {
           missing="Velg arbeidstype"
           className="cause-more"
           plain
-          options={kpi.workTypes.map((t) => t.productType)}
-          note={(type) => {
-            const t = kpi.workTypes.find((w) => w.productType === type)
-            return t ? [t.unit, t.competence].filter(Boolean).join(' · ') : ''
-          }}
+          head={`«${card.text || 'uten tekst'}»`}
+          groups={[
+            {
+              label: 'Arbeidstyper fra KPI',
+              hint: 'timer regnes fra antall',
+              items: kpi.workTypes.map((t) => {
+                const style = styles.find((st) => st.key === competenceKey(t.competence))
+                return { value: t.productType, note: [t.unit, t.competence].filter(Boolean).join(' · '), dot: style && `var(--${style.color})` }
+              }),
+            },
+          ]}
           onPick={apply}
         />
       </div>

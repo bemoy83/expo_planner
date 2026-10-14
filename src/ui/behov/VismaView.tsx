@@ -12,19 +12,17 @@ import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { Segmented, TriCheckbox, type Message } from '../common'
 import { count, isTyping } from '../dom'
-import { NumberField, TextField } from '../fields'
+import { NumberField, TextField, type PickItem } from '../fields'
 import { Avklar } from './Avklar'
 import { ProjectRail } from './ProjectRail'
 import { NeedButton, SplitPick } from './SplitPick'
+import { CLEAR, OFFER } from './picks'
 import { usePlacing } from './usePlacing'
 
 const hours = (value: number) => formatFte(value, 1)
 
 /** The most lines listed at once. */
 const LIST_LIMIT = 400
-
-/** The last choice in the list of a work type picked by the planner: the line has none again. */
-const CLEAR_TYPE = 'Fjern valget'
 
 const STATUS_TEXT: Record<LineStatus, string> = { need: 'Trenger avklaring', counted: 'Med', excluded: 'Utelatt' }
 
@@ -68,9 +66,12 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
   // The lines of the card in focus in «Avklar»: lit in the table, the rest dimmed.
   const [lit, setLit] = useState<Set<string> | null>(null)
   const styles = useMemo(() => new Map(competenceStyles(ws).map((style) => [style.key, style])), [ws])
-  const typeNames = useMemo(() => kpi.workTypes.map((type) => type.productType), [kpi])
-  const typeNotes = useMemo(() => new Map(kpi.workTypes.map((type) => [type.productType, [type.unit, type.competence].filter(Boolean).join(' · ')])), [kpi])
-  const typeNote = (option: string) => typeNotes.get(option) ?? ''
+  /** A KPI type in a list: its unit and competence after it, and the competence's colour before it. */
+  const typeItem = (productType: string): PickItem => {
+    const type = kpi.workTypes.find((t) => t.productType === productType)
+    const style = type && styles.get(competenceKey(type.competence))
+    return { value: productType, note: type ? [type.unit, type.competence].filter(Boolean).join(' · ') : '', dot: style && `var(--${style.color})` }
+  }
 
   const projects = useMemo(() => [...review.keys()].sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b, 'nb')), [review, names])
   const project = projectNo ? review.get(projectNo) : undefined
@@ -208,9 +209,13 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
               offerTitle={line.suggestedType && `Teksten nevner ${line.suggestedType}. Bruk den for linjen.`}
               missing="Velg type"
               title={line.typeByText ? 'Arbeidstypen er gitt av regelen for artikkelteksten på KPI. Velger du en annen, gjelder den bare linjen.' : 'Visma har ingen produkttype for linjen: velg arbeidstypen den regnes som'}
-              options={line.workType === NO_PRODUCT_TYPE || line.typeByText ? typeNames : [...typeNames, CLEAR_TYPE]}
-              note={typeNote}
-              onPick={(workType) => override(line, { workType: workType === CLEAR_TYPE ? undefined : workType })}
+              head={`«${line.texts.join(' · ') || 'uten tekst'}» · ${formatFte(line.quantity, 1)} ${line.unit}`.trim()}
+              groups={[
+                ...(line.suggestedType ? [{ label: 'Forslag', hint: 'teksten nevner den', items: [{ ...typeItem(line.suggestedType), value: `${OFFER}${line.suggestedType}` }] }] : []),
+                { label: 'Arbeidstyper fra KPI', hint: 'timer regnes fra antall', items: kpi.workTypes.map((type) => typeItem(type.productType)) },
+                ...(line.workType === NO_PRODUCT_TYPE || line.typeByText ? [] : [{ items: [{ value: CLEAR, label: 'Fjern valget' }] }]),
+              ]}
+              onPick={(value) => override(line, { workType: value === CLEAR ? undefined : value.startsWith(OFFER) ? value.slice(OFFER.length) : value })}
             />
           ) : (
             <span className="ellipsis">{line.workType}</span>

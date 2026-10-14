@@ -22,12 +22,33 @@ export function NumberField({ value, onCommit }: { value: number; onCommit: (val
   )
 }
 
+/** A value of a `PickField` in a group: what is picked, how it is shown, and a few words after it. */
+export interface PickItem {
+  value: string
+  /** What the list shows, where it is not the value itself. */
+  label?: string
+  note?: ReactNode
+  /** A colour before it, as a competence's. */
+  dot?: string
+}
+
+/** Values of a `PickField` under a heading, with a few words beside the heading: «Forslag · teksten nevner D1». */
+export interface PickGroup {
+  label?: string
+  hint?: string
+  items: PickItem[]
+}
+
 interface PickFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'list'> {
   value: string
   /** What is typed in the field. */
   onChange: (text: string) => void
   /** The values to pick from. Other text can still be typed. */
-  options: string[]
+  options?: string[]
+  /** The values in groups under headings, in place of `options`. */
+  groups?: PickGroup[]
+  /** A line above the list: what is being picked for. */
+  head?: ReactNode
   /** A value that is picked from the list; without it, it is taken as typed. */
   onPick?: (option: string) => void
   /** The value in bold in the list, where it is not the text of the field. */
@@ -45,17 +66,21 @@ interface PickFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'va
 /**
  * A text field with values to pick from, listed under it while it has the focus: all of them until
  * something is typed, then those that hold the text. Arrow keys and Enter pick, as a click does.
+ * The values can stand in groups under headings, with a line above them all.
  */
-export function PickField({ value, onChange, options, onPick = onChange, current = value, note, onCancel, onBlur, onKeyDown, marked, ...rest }: PickFieldProps) {
+export function PickField({ value, onChange, options = [], groups, head, onPick = onChange, current = value, note, onCancel, onBlur, onKeyDown, marked, ...rest }: PickFieldProps) {
   const [open, setOpen] = useState(false)
   // The text the field holds when it is entered is not a search.
   const [typed, setTyped] = useState(false)
   const [active, setActive] = useState(-1)
   const listId = useId()
   const text = value.trim().toLowerCase()
-  const listed = !open ? [] : typed && text ? options.filter((option) => option.toLowerCase().includes(text)) : options
+  const all: PickGroup[] = groups ?? [{ items: options.map((option) => ({ value: option, note: note?.(option) })) }]
+  const shown = (item: PickItem) => `${item.label ?? item.value}`.toLowerCase().includes(text)
+  const sections = !open ? [] : (typed && text ? all.map((group) => ({ ...group, items: group.items.filter(shown) })) : all).filter((group) => group.items.length > 0)
+  const listed = sections.flatMap((group) => group.items)
   const show = () => {
-    if (!open && marked !== undefined) setActive(options.indexOf(marked))
+    if (!open && marked !== undefined) setActive(all.flatMap((group) => group.items).findIndex((item) => item.value === marked))
     setOpen(true)
   }
   const close = () => {
@@ -67,6 +92,7 @@ export function PickField({ value, onChange, options, onPick = onChange, current
     onPick(option)
     close()
   }
+  let at = -1
   return (
     <span className="field">
       <input
@@ -92,7 +118,7 @@ export function PickField({ value, onChange, options, onPick = onChange, current
           if (e.key === 'Enter' && listed[active] !== undefined) {
             // Not the Enter that sends a form.
             e.preventDefault()
-            pick(listed[active])
+            pick(listed[active].value)
             return
           }
           if (e.key === 'Escape' && open) {
@@ -107,25 +133,41 @@ export function PickField({ value, onChange, options, onPick = onChange, current
         }}
       />
       {listed.length > 0 && (
-        <span className="field-list" id={listId} role="listbox">
-          {listed.map((option, index) => (
-            <button
-              key={option}
-              type="button"
-              role="option"
-              tabIndex={-1}
-              className={option === current ? 'current' : undefined}
-              aria-selected={index === active}
-              ref={index === active ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
-              // The field keeps the focus, so what was typed to find the value is not saved when it is left.
-              onMouseDown={(e) => {
-                e.preventDefault()
-                pick(option)
-              }}
-            >
-              {option}
-              {note && <small>{note(option)}</small>}
-            </button>
+        <span className={`field-list ${groups ? 'grouped' : ''}`} id={listId} role="listbox">
+          {head && <span className="field-head">{head}</span>}
+          {sections.map((group, g) => (
+            <span key={g} className="field-group" role="group" aria-label={group.label}>
+              {group.label && (
+                <span className="field-group-head">
+                  {group.label}
+                  {group.hint && <small>{group.hint}</small>}
+                </span>
+              )}
+              {group.items.map((item) => {
+                const index = ++at
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    role="option"
+                    tabIndex={-1}
+                    className={item.value === current ? 'current' : undefined}
+                    aria-selected={index === active}
+                    ref={index === active ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
+                    onMouseEnter={groups ? () => setActive(index) : undefined}
+                    // The field keeps the focus, so what was typed to find the value is not saved when it is left.
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      pick(item.value)
+                    }}
+                  >
+                    {item.dot && <i className="field-dot" style={{ background: item.dot }} aria-hidden />}
+                    {item.label ?? item.value}
+                    {item.note && <small>{item.note}</small>}
+                  </button>
+                )
+              })}
+            </span>
           ))}
         </span>
       )}

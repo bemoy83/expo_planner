@@ -274,7 +274,8 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
             draft={draft}
             onDraft={setDraft}
             projects={ordered}
-            projectNote={projectNote}
+            projectGroups={sections.map((section) => ({ label: section.heading, items: section.items.map((item) => ({ value: item.projectNo, label: item.name, note: projectNote(item.projectNo) })) }))}
+            competenceColor={color}
             booked={spans.get(ctx.projectNo) ?? new Map<string, HallSpans>()}
             places={places}
             avdelinger={avdelinger}

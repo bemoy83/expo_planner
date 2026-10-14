@@ -2,6 +2,8 @@
 
 /** The hall of the context that shares the hours evenly over every hall the project has booked, a line each. */
 export const SPLIT_HALLS = '*fordel'
+/** The value of «Uten hall» in the list of the context: a line without a hall. */
+export const NO_HALL = '*uten'
 
 /** Where new lines go: project › hall › avd. It stays set from one line to the next. `hall` is '' for a line without a hall. */
 export interface OwnContext {

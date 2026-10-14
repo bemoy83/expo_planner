@@ -149,3 +149,10 @@ table.ledger.rules td.actions{white-space:nowrap}
 .menu-button.hall-picker:hover,.menu-button.hall-picker[aria-expanded='true']{background:var(--sunken)}
 .menu-button.hall-picker.empty{color:var(--muted)}
 .text-rules{margin-top:24px}
+/* a list in groups: a line above it of what is picked for, and a heading per group with a few words beside it */
+.field-list.grouped{min-width:280px;max-height:340px;padding:0 4px 4px}
+.field-head{position:sticky;top:0;z-index:1;display:block;margin:0 -4px 2px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface);font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.field-group{display:flex;flex-direction:column}
+.field-group-head{display:flex;align-items:baseline;gap:8px;padding:8px 8px 3px;font:500 var(--fs-2xs) var(--font-num);letter-spacing:.05em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+.field-group-head small{font:400 var(--fs-xs) var(--font-ui);letter-spacing:0;text-transform:none;overflow:hidden;text-overflow:ellipsis}
+.field-dot{width:8px;height:8px;margin-right:8px;border-radius:50%;flex:none}
