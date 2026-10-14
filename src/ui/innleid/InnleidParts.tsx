@@ -193,25 +193,27 @@ const chipTitle = (name: string, chip: OrderChip, wd: WorkdaySettings): string =
 /** What a stack says when it is pointed at: the people of each supplier, and which of them wait for an answer. */
 const stackTitle = (chips: OrderChip[], nameOf: (id: string) => string): string => chips.map((chip) => `${chip.fte} · ${nameOf(chip.supplierId)}${chip.waits ? ' (venter)' : ''}`).join('\n')
 
+/** An order chip: the people on a badge and what it is for, pale with the clock while it waits. `state` is how a stroke or the editor marks it. */
+function Chip({ people, label, waits = false, state = '', title }: { people: number; label: string; waits?: boolean; state?: '' | 'on' | 'gone' | 'ghost'; title?: string }) {
+  return (
+    <span className={`il-chip ${waits ? 'waits' : ''} ${state}`} title={title}>
+      {waits && <AnswerGlyph waits size={12} />}
+      <b>{people}</b>
+      <span>{label}</span>
+    </span>
+  )
+}
+
 /** A folded day in the compact line: the chip of its one supplier, or one chip for several with cards behind it. */
 function BlockChip({ block, nameOf, wd, gone }: { block: DayBlock; nameOf: (id: string) => string; wd: WorkdaySettings; gone: boolean }) {
+  const state = gone ? 'gone' : ''
   if (block.kind === 'one') {
     const { chip } = block
-    return (
-      <span className={`il-chip ${chip.waits ? 'waits' : ''} ${gone ? 'gone' : ''}`} title={chipTitle(nameOf(chip.supplierId), chip, wd)}>
-        {chip.waits && <AnswerGlyph waits size={12} />}
-        <b>{chip.fte}</b>
-        <span>{nameOf(chip.supplierId)}</span>
-      </span>
-    )
+    return <Chip people={chip.fte} label={nameOf(chip.supplierId)} waits={chip.waits} state={state} title={chipTitle(nameOf(chip.supplierId), chip, wd)} />
   }
   return (
-    <span className={`il-stk ${block.chips.length > 2 ? 'three' : ''} ${block.waits ? 'waits' : ''} ${gone ? 'gone' : ''}`} title={stackTitle(block.chips, nameOf)}>
-      <span className={`il-chip ${block.waits ? 'waits' : ''} ${gone ? 'gone' : ''}`}>
-        {block.waits && <AnswerGlyph waits size={12} />}
-        <b>{block.fte}</b>
-        <span>{block.chips.length} lev.</span>
-      </span>
+    <span className={`il-stk ${block.chips.length > 2 ? 'three' : ''} ${block.waits ? 'waits' : ''} ${state}`} title={stackTitle(block.chips, nameOf)}>
+      <Chip people={block.fte} label={`${block.chips.length} lev.`} waits={block.waits} state={state} />
     </span>
   )
 }
@@ -285,9 +287,10 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         const { confirmed, waiting } = coverShares(cover)
         const chips = dayChips(ordersOn.get(dayKey(style.key, date)) ?? [], suppliers, open)
         const shown = chips.length > CHIPS_MAX && !open ? chips.slice(0, CHIPS_MAX - 1) : chips
-        // Compact: what the eraser would leave is the block; where it would leave nothing, the block is drawn as gone.
-        const left = erasing ? chips.filter((chip) => strokeSupplier !== undefined && chip.supplierId !== strokeSupplier) : chips
-        const gone = left.length === 0
+        const erased = (chip: OrderChip) => erasing && (strokeSupplier === undefined || chip.supplierId === strokeSupplier)
+        // Compact: the block is what the eraser would leave, or drawn as gone where it would leave nothing.
+        const left = oneLine ? chips.filter((chip) => !erased(chip)) : []
+        const gone = oneLine && chips.length > 0 && left.length === 0
         const block = oneLine ? dayBlock(gone ? chips : left) : null
         return (
           <div
@@ -311,16 +314,12 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
                 <span
                   className="il-bar-hit"
                   title={open ? 'Fold sammen' : undefined}
-                  onMouseDown={
-                    open
-                      ? (e) => {
-                          if (e.button !== 0) return
-                          e.preventDefault()
-                          e.stopPropagation()
-                          actions.fold()
-                        }
-                      : undefined
-                  }
+                  onMouseDown={(e) => {
+                    if (!open || e.button !== 0) return
+                    e.preventDefault()
+                    e.stopPropagation()
+                    actions.fold()
+                  }}
                 >
                   <span className="il-bar">
                     <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
@@ -333,24 +332,18 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
             {!oneLine && (chips.length > 0 || (ghost !== undefined && open)) && (
               <span className="il-chips">
                 {shown.map((chip) => (
-                  <span
+                  <Chip
                     key={chip.key}
-                    className={`il-chip ${chip.waits ? 'waits' : ''} ${picked && pickedGroup !== null && chip.key === pickedGroup ? 'on' : ''} ${erasing && (strokeSupplier === undefined || chip.supplierId === strokeSupplier) ? 'gone' : ''}`}
+                    people={chip.fte}
+                    label={nameOf(chip.supplierId)}
+                    waits={chip.waits}
+                    state={erased(chip) ? 'gone' : picked && chip.key === pickedGroup ? 'on' : ''}
                     title={chipTitle(nameOf(chip.supplierId), chip, wd)}
-                  >
-                    {chip.waits && <AnswerGlyph waits size={12} />}
-                    <b>{chip.fte}</b>
-                    <span>{nameOf(chip.supplierId)}</span>
-                  </span>
+                  />
                 ))}
                 {shown.length < chips.length && <span className="il-more">+{chips.length - shown.length} til</span>}
                 {/* Unfolded, the line has the room of its editor: the preview is the chip the order would be, with the supplier's name. */}
-                {ghost !== undefined && open && strokeSupplier && (
-                  <span className="il-chip ghost">
-                    <b>{ghost}</b>
-                    <span>{nameOf(strokeSupplier)}</span>
-                  </span>
-                )}
+                {ghost !== undefined && open && strokeSupplier && <Chip people={ghost} label={nameOf(strokeSupplier)} state="ghost" />}
               </span>
             )}
           </div>
