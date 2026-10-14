@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
 import { vismaHall } from '../import/vismaExport'
+import { withTextType } from './kpi'
 import { buildVismaLines, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
 
 const kpi: KpiConfig = {
@@ -90,6 +91,17 @@ describe('Visma lines', () => {
     expect(line.assemblyHours).toBeCloseTo((10 / 7) * 0.1)
     expect(line).toMatchObject({ basis: 'Planlagt', origin: 'visma', source: 'visma per reg. dato', comment: 'egen opptelling' })
     expect(vismaDemandLines(source, kpi, { [key]: { excluded: true } }).find((l) => l.id === `visma|${key}`)!.basis).toBe('visma per reg. dato')
+  })
+})
+
+describe('a work type by article text', () => {
+  it('reads a line without a product type as the type the setup gives its text, unless one is chosen for the line', () => {
+    const untyped = [row({ productType: '', description: 'Fritekst Foga', quantity: 14 })]
+    const withRule = withTextType(kpi, 'fritekst foga', 'FOGA-vegger')
+    const line = buildVismaLines(untyped, withRule, {})[0]
+    expect(line).toMatchObject({ workType: 'FOGA-vegger', typeByText: true, issue: null, assemblyHours: 2 })
+    expect(buildVismaLines(untyped, withRule, { [line.key]: { workType: 'Print' } })[0]).toMatchObject({ workType: 'Print', typeByText: false })
+    expect(withTextType(withRule, 'Fritekst foga', undefined).byText).toEqual([])
   })
 })
 

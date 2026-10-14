@@ -42,8 +42,10 @@ export interface VismaLine {
   avdeling: string
   /** Work type as Visma gives it. */
   sourceWorkType: string
-  /** Work type used for the calculation: the planner's choice when Visma has none. */
+  /** Work type used for the calculation: the planner's choice when Visma has none, else the one the setup gives its article text. */
   workType: string
+  /** The work type was given by the rule for its article text on KPI, not chosen for the line. */
+  typeByText: boolean
   hall: string
   unit: string
   competence: string
@@ -102,10 +104,12 @@ const hoursFor = (quantity: number, rate: number | null, effekt: number): number
 export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Record<string, LineOverride>): VismaLine[] => {
   const rules = new Map(kpi.workTypes.map((rule) => [productTypeKey(rule.productType), rule]))
   const rates = new Map(kpi.rates.map((rate) => [`${productTypeKey(rate.name)}|${rate.unit.toLowerCase()}`, rate]))
+  const byText = new Map((kpi.byText ?? []).map((rule) => [rule.text.trim().toLowerCase(), rule.productType]))
   return groupRows(rows).map((group) => {
     const key = vismaLineKey(group.projectNo, group.avdeling, group.workType, group.hall)
     const override = overrides[key] ?? {}
-    const workType = group.workType === NO_PRODUCT_TYPE && override.workType ? override.workType : group.workType
+    const fromText = group.workType === NO_PRODUCT_TYPE ? [...group.texts].map((text) => byText.get(text.toLowerCase())).find(Boolean) : undefined
+    const workType = group.workType === NO_PRODUCT_TYPE ? (override.workType ?? fromText ?? group.workType) : group.workType
     const rule = workType === NO_PRODUCT_TYPE ? undefined : rules.get(productTypeKey(workType))
     const unit = rule?.unit ?? ''
     const rate = rule ? rates.get(`${productTypeKey(workType)}|${unit.toLowerCase()}`) : undefined
@@ -120,6 +124,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
       avdeling: group.avdeling,
       sourceWorkType: group.workType,
       workType,
+      typeByText: !override.workType && !!fromText,
       hall: group.hall,
       unit,
       competence: rule?.competence ?? 'Ukjent',

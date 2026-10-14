@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, productTypeKey, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, withTextType, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, productTypeKey, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import { readKpiWorkbook, writeKpiWorkbook } from '../../import/kpiFile'
 import { todayIso } from '../../domain/dates'
@@ -162,6 +162,22 @@ export function Kpi() {
     },
   ]
   const table = useTable(found, columns)
+  // The product types the planner gave article texts of lines without one, on Behov.
+  type TextRule = NonNullable<typeof kpi.byText>[number]
+  const textColumns: Column<TextRule>[] = [
+    { key: 'text', head: 'Artikkeltekst i Visma', text: (rule) => rule.text, cell: (rule) => `«${rule.text}»` },
+    { key: 'type', head: 'Regnes som', text: (rule) => rule.productType, cell: (rule) => rule.productType },
+    {
+      key: 'actions',
+      className: 'actions',
+      cell: (rule) => (
+        <button className="row-action" title="Glem regelen: linjene med teksten mangler arbeidstype igjen" onClick={() => setKpi(withTextType(kpi, rule.text, undefined))}>
+          <X size={13} aria-hidden />
+        </button>
+      ),
+    },
+  ]
+  const textTable = useTable(kpi.byText ?? [], textColumns)
 
   return (
     <div className="behov">
@@ -216,7 +232,15 @@ export function Kpi() {
           </p>
         )}
 
-        {untyped > 0 && <p className="hint">{untyped} ordrelinjer i utskriftene har ingen produkttype i Visma. De får arbeidstype én og én på Behov-fanen.</p>}
+        {untyped > 0 && <p className="hint">{untyped} ordrelinjer i utskriftene har ingen produkttype i Visma. De får arbeidstype på Behov-fanen, én og én eller samlet under «Avklar».</p>}
+
+        {(kpi.byText ?? []).length > 0 && (
+          <section className="text-rules">
+            <h3>Arbeidstype etter artikkeltekst</h3>
+            <p className="hint">Linjer uten produkttype i Visma med en av disse tekstene regnes som typen, også i neste utskrift. Reglene lages under «Avklar» på Behov.</p>
+            <DataTable table={textTable} className="summary" rowKey={(rule) => rule.text} />
+          </section>
+        )}
       </div>
 
       {pending && diff && (

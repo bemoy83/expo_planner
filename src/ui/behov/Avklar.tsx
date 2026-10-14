@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Check, CornerDownLeft } from 'lucide-react'
 import { formatFte } from '../../domain/calc'
-import { EMPTY_KPI, setRate } from '../../domain/kpi'
+import { EMPTY_KPI, setRate, withTextType } from '../../domain/kpi'
 import { PROJECT_HALLS, withPhrase } from '../../domain/locations'
 import { parseDecimal } from '../../domain/numbers'
 import { causeGroups, type CauseGroup, type ReviewedLine } from '../../domain/vismaReview'
@@ -252,15 +252,20 @@ function HallCard({ card, active, onFocus, projects }: CardProps) {
 
 /** One article text without a product type: the KPI type its lines are counted as. */
 function TypeCard({ card, active, onFocus, projects }: CardProps) {
-  const { workspace, setLineOverrides } = useWorkspace()
+  const { workspace, setLineOverrides, setKpi } = useWorkspace()
   const kpi = workspace!.kpi ?? EMPTY_KPI
+  // A type can be remembered for a text where the lines have one text: then the next export is read with it.
+  const texts = [...new Set(card.lines.flatMap((line) => line.texts))]
+  const [remember, setRemember] = useState(true)
   const offered = card.lines.every((line) => line.suggestedType && line.suggestedType === card.lines[0].suggestedType) ? card.lines[0].suggestedType : undefined
   const competence = (type: string) => kpi.workTypes.find((t) => t.productType === type)?.competence ?? ''
   const apply = (workType: string) =>
-    setLineOverrides(
-      card.projects,
-      card.lines.map((line) => ({ key: line.key, patch: { workType, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } } })),
-    )
+    texts.length === 1 && remember
+      ? setKpi(withTextType(kpi, texts[0], workType))
+      : setLineOverrides(
+          card.projects,
+          card.lines.map((line) => ({ key: line.key, patch: { workType, ref: { avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall } } })),
+        )
   return (
     <Card active={active} onFocus={onFocus} title={card.text ? `«${card.text}»` : 'Uten tekst'} figures={count(card.lines.length, 'linje', 'linjer')} sub={`${projects} · uten produkttype i Visma`}>
       {offered && (
@@ -281,7 +286,12 @@ function TypeCard({ card, active, onFocus, projects }: CardProps) {
           onPick={apply}
         />
       </div>
-      <div className="cause-hint muted">Timene regnes fra antall og KPI-sats når typen er valgt.</div>
+      {texts.length === 1 && (
+        <label className="check cause-remember">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Husk for «{texts[0]}» i neste utskrift
+        </label>
+      )}
+      <div className="cause-hint muted">{texts.length === 1 && remember ? 'Blir en regel under KPI: linjer med teksten regnes som typen, også i neste utskrift.' : 'Timene regnes fra antall og KPI-sats når typen er valgt.'}</div>
     </Card>
   )
 }

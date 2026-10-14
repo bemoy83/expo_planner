@@ -5,7 +5,7 @@ import { competenceStyles } from '../../domain/competences'
 import { todayIso } from '../../domain/dates'
 import { EMPTY_KPI, productTypeKey } from '../../domain/kpi'
 import { placeNames } from '../../domain/locations'
-import { projectHallSpans, projectTiming, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
+import { fromLastYear, projectHallSpans, projectTiming, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
 import { competenceKey, DRAFT_BASIS, PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { isVismaLine } from '../../domain/visma'
 import { hallNames } from '../../domain/venue'
@@ -14,6 +14,7 @@ import { Menu, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { OwnLineForm } from './OwnLineForm'
 import { EMPTY_DRAFT, SPLIT_HALLS, type OwnContext, type OwnDraft } from './ownDraft'
+import { FromLastYear } from './FromLastYear'
 import { OwnLines } from './OwnLines'
 import { ProjectRail, type RailSection } from './ProjectRail'
 
@@ -136,9 +137,13 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
   const focus = (ref: { current: HTMLInputElement | null }) => requestAnimationFrame(() => ref.current?.focus())
 
   /** A line in the form from one that exists: its work, amount, hours and competence, in its project, hall and avd. */
-  const fromLine = (line: Pick<DemandLine, 'projectNo' | 'hall' | 'avdeling' | 'workType' | 'quantity' | 'unit' | 'competence' | 'assemblyHours' | 'dismantleHours' | 'comment'>, patch: Partial<OwnDraft>) => {
-    onProjectChange(line.projectNo)
-    setContext({ projectNo: line.projectNo, hall: line.hall, avdeling: line.avdeling ?? '' })
+  const fromLine = (
+    line: Pick<DemandLine, 'projectNo' | 'hall' | 'avdeling' | 'workType' | 'quantity' | 'unit' | 'competence' | 'assemblyHours' | 'dismantleHours' | 'comment'>,
+    patch: Partial<OwnDraft>,
+    into = line.projectNo,
+  ) => {
+    onProjectChange(into)
+    setContext({ projectNo: into, hall: line.hall, avdeling: line.avdeling ?? '' })
     const onKpi = kpi.workTypes.some((t) => productTypeKey(t.productType) === productTypeKey(line.workType))
     const typed = (h: number) => (onKpi && line.quantity ? '' : h ? formatFte(h, 2) : '')
     setDraft({
@@ -221,6 +226,14 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // «Fra i fjor»: last year's own lines of the open project that are not registered this year.
+  const lastYear = useMemo(() => (projectNo ? fromLastYear(own, projectNo) : null), [own, projectNo])
+  const bookedNow = new Set(spans.get(projectNo)?.keys() ?? [])
+  const fetchLastYear = (lines: DemandLine[]) => {
+    add(lines.map((line) => ({ ...line, id: `manual-${crypto.randomUUID()}`, projectNo, projectName: names.get(projectNo) ?? projectNo, hall: !line.hall || bookedNow.has(line.hall) ? line.hall : '', replaces: undefined, notIn: undefined })))
+    onMessage({ kind: 'ok', text: `Hentet ${count(lines.length, 'linje', 'linjer')} fra i fjor. Kan angres med Ctrl/Cmd+Z.` })
+  }
+
   const avdelinger = useMemo(() => {
     const counts = new Map<string, number>()
     for (const v of ws.visma ?? []) if (v.projectNo === ctx.projectNo) for (const row of v.rows) if (row.avdeling.trim()) counts.set(row.avdeling.trim(), (counts.get(row.avdeling.trim()) ?? 0) + 1)
@@ -275,6 +288,20 @@ export function EgenView({ projectNo, onProjectChange, seed, onSeedUsed, onMessa
             onProject={pickProject}
           />
         </div>
+        {lastYear && lastYear.missing.length > 0 && (
+          <div className="own-top">
+            <FromLastYear
+              previousName={names.get(lastYear.previous) ?? lastYear.previous}
+              missing={lastYear.missing}
+              present={lastYear.present}
+              booked={bookedNow}
+              competenceColor={color}
+              onFetch={fetchLastYear}
+              onAdjust={(line) => fromLine({ ...line, hall: !line.hall || bookedNow.has(line.hall) ? line.hall : ctx.hall }, { from: `Fra i fjor: ${names.get(line.projectNo) ?? line.projectNo}` }, projectNo)}
+              onDismiss={(line) => update(line, { notIn: [...(line.notIn ?? []), projectNo] })}
+            />
+          </div>
+        )}
         <div className="behov-table">
           <OwnLines
             lines={scoped}

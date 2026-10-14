@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { parseHours, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
-import type { VenueBooking } from './types'
+import { fromLastYear, parseHours, previousProjectNo, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
+import type { DemandLine, VenueBooking } from './types'
 
 describe('parseHours', () => {
   it('reads plain hours with a comma or a point', () => {
@@ -69,5 +69,24 @@ describe('usualAvdeling', () => {
   it('is the department most rows have', () => {
     expect(usualAvdeling([{ avdeling: '65' }, { avdeling: '64' }, { avdeling: '65' }, { avdeling: '' }])).toBe('65')
     expect(usualAvdeling([])).toBe('')
+  })
+})
+
+describe('fromLastYear', () => {
+  const line = (id: string, projectNo: string, workType: string, hall: string, notIn?: string[]): DemandLine => ({
+    id, projectNo, projectName: '', source: 'Egen registrering', workType, quantity: null, unit: '', stand: '', hall, competence: 'Rigg', basis: 'Planlagt', assemblyHours: 8, dismantleHours: 4, comment: '', origin: 'manual', notIn,
+  })
+
+  it('finds the year before by the series of the number', () => {
+    expect(previousProjectNo('26231')).toBe('25231')
+    expect(previousProjectNo('26VAM')).toBe('')
+  })
+
+  it('offers last year\'s lines that are not registered this year, by work and hall', () => {
+    const own = [line('a', '25231', 'Rigg', 'D1'), line('b', '25231', 'Scene', 'C'), line('c', '25231', 'Lys', 'C', ['26231']), line('d', '26231', 'rigg', 'D1')]
+    const found = fromLastYear(own, '26231')
+    expect(found.previous).toBe('25231')
+    expect(found.missing.map((l) => l.id)).toEqual(['b'])
+    expect(found.present).toBe(1)
   })
 })

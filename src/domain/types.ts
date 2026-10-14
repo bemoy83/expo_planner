@@ -115,6 +115,8 @@ export interface DemandLine {
   origin: 'visma' | 'manual'
   /** For the planner's own line made in place of a Visma line: the key of that line, which is left out. */
   replaces?: string
+  /** The projects of a later year this own line is not offered to again («Ikke i år»). */
+  notIn?: string[]
 }
 
 /** One planning row in the Kalender: required hours for a scope, and FTE typed per day. */
@@ -198,6 +200,8 @@ export interface KpiRate {
 export interface KpiConfig {
   workTypes: WorkTypeRule[]
   rates: KpiRate[]
+  /** The product type the planner gave an article text of lines that have none in the orders: the next export is read with it. */
+  byText?: { text: string; productType: string }[]
 }
 
 /** The planner's own decisions about one Visma line; they survive a new export. */

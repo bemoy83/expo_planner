@@ -169,13 +169,24 @@ export const mergeKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): KpiCo
   for (const rate of incoming.rates ?? []) rates.set(rateKey(rate.name, rate.unit), rate)
   const types = new Map(existing.workTypes.map((rule) => [productTypeKey(rule.productType), rule]))
   for (const rule of keepChosenUnits(existing, incoming, [...rates.values()])) types.set(productTypeKey(rule.productType), rule)
-  return { workTypes: [...types.values()], rates: [...rates.values()] }
+  return { ...existing, workTypes: [...types.values()], rates: [...rates.values()] }
 }
 
 /** The parts the file contains replace those parts in the app; a part the file lacks is left as it is. */
 export const replaceKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): KpiConfig => {
   const rates = incoming.rates ?? existing.rates
-  return { workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming, rates) : existing.workTypes, rates }
+  return { ...existing, workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming, rates) : existing.workTypes, rates }
+}
+
+/**
+ * The setup with the product type for an article text set, or taken away: lines without a product type whose text it is
+ * are read as that type, in this export and the next. The text is matched whatever its case.
+ */
+export const withTextType = (kpi: KpiConfig, text: string, productType: string | undefined): KpiConfig => {
+  const said = text.trim()
+  if (!said) return kpi
+  const others = (kpi.byText ?? []).filter((rule) => rule.text.toLowerCase() !== said.toLowerCase())
+  return { ...kpi, byText: productType ? [...others, { text: said, productType: productTypeName(productType) }] : others }
 }
 
 const NO_DIFF: TableDiff = { added: 0, changed: 0, unchanged: 0, onlyInApp: 0 }

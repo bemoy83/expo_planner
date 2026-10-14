@@ -2,7 +2,7 @@ import { daysBetween, dateRange, type ISODate } from './dates'
 import { dayType } from './holidays'
 import { decimalText } from './numbers'
 import { eventKey, venueEvents } from './projects'
-import type { DateSpan, ProjectRef, VenueBooking, VismaRow } from './types'
+import type { DateSpan, DemandLine, ProjectRef, VenueBooking, VismaRow } from './types'
 import { anchorDate } from './venueImport'
 
 /**
@@ -118,4 +118,27 @@ export const usualAvdeling = (rows: Pick<VismaRow, 'avdeling'>[]): string => {
   const counts = new Map<string, number>()
   for (const row of rows) if (row.avdeling.trim()) counts.set(row.avdeling.trim(), (counts.get(row.avdeling.trim()) ?? 0) + 1)
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? ''
+}
+
+/** The number of the same event the year before, by the series of the number: «25231» for «26231». Empty for a number without a year and a series. */
+export const previousProjectNo = (projectNo: string): string => {
+  const no = projectNo.trim()
+  if (!/^\d{5}$/.test(no) || no.startsWith('00')) return ''
+  return `${String(Number(no.slice(0, 2)) - 1).padStart(2, '0')}${no.slice(2)}`
+}
+
+const sameWork = (a: Pick<DemandLine, 'workType' | 'hall'>, b: Pick<DemandLine, 'workType' | 'hall'>) =>
+  a.workType.trim().toLowerCase() === b.workType.trim().toLowerCase() && a.hall.trim().toLowerCase() === b.hall.trim().toLowerCase()
+
+/**
+ * «Fra i fjor»: the own lines of the project the year before that are not registered this year, by work and hall, and
+ * that the planner has not said no to for this year; and how many are there already.
+ */
+export const fromLastYear = (own: DemandLine[], projectNo: string): { previous: string; missing: DemandLine[]; present: number } => {
+  const previous = previousProjectNo(projectNo)
+  if (!previous) return { previous, missing: [], present: 0 }
+  const now = own.filter((line) => line.projectNo === projectNo)
+  const then = own.filter((line) => line.projectNo === previous)
+  const missing = then.filter((line) => !now.some((other) => sameWork(line, other)))
+  return { previous, missing: missing.filter((line) => !line.notIn?.includes(projectNo)), present: then.length - missing.length }
 }

@@ -240,3 +240,13 @@ table.ledger.visma-lines tr.dim td{opacity:.4}
 /* «Annen» and «Velg arbeidstype» in a card open a list: a choice, not an alert */
 .alert-chip.cause-more{background:var(--sunken);color:var(--text)}
 .hours-summary .insp-sec{overflow-x:auto}
+
+/* «Fra i fjor»: a recessed card, folded until it is opened */
+.last-year{border-radius:10px;background:color-mix(in oklab,var(--sunken) 55%,transparent)}
+.last-year-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px 10px 14px;font-size:var(--fs-md)}
+.last-year-list{margin:0;padding:0 12px 10px 14px;list-style:none}
+.last-year-list li{display:grid;grid-template-columns:12px minmax(0,1fr) 160px 56px 56px auto;align-items:center;gap:10px;min-height:34px;border-top:1px solid var(--grid-row);font-size:var(--fs-md)}
+.last-year-list .num{font:500 var(--fs-sm) var(--font-num);text-align:right}
+.last-year-work{display:flex;align-items:baseline;gap:8px;min-width:0}
+.last-year-work small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.last-year-actions{display:flex;align-items:center;justify-content:flex-end;gap:2px}

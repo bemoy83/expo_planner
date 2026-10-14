@@ -203,12 +203,12 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             <SplitPick
               label="Arbeidstype"
               value={line.workType === NO_PRODUCT_TYPE ? undefined : line.workType}
-              chosen
+              chosen={!line.typeByText}
               offer={line.suggestedType}
               offerTitle={line.suggestedType && `Teksten nevner ${line.suggestedType}. Bruk den for linjen.`}
               missing="Velg type"
-              title="Visma har ingen produkttype for linjen: velg arbeidstypen den regnes som"
-              options={line.workType === NO_PRODUCT_TYPE ? typeNames : [...typeNames, CLEAR_TYPE]}
+              title={line.typeByText ? 'Arbeidstypen er gitt av regelen for artikkelteksten på KPI. Velger du en annen, gjelder den bare linjen.' : 'Visma har ingen produkttype for linjen: velg arbeidstypen den regnes som'}
+              options={line.workType === NO_PRODUCT_TYPE || line.typeByText ? typeNames : [...typeNames, CLEAR_TYPE]}
               note={typeNote}
               onPick={(workType) => override(line, { workType: workType === CLEAR_TYPE ? undefined : workType })}
             />
