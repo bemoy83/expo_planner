@@ -1,0 +1,21 @@
+/* Oppsett: how the orders are read, a page each for the product types, the rules for article texts and the article numbers
+   left out (ui/kpi/). The band is the page header alone. A page fills the window: its bar stays, and only its table scrolls. */
+
+.oppsett-page{display:flex;flex-direction:column;flex:1;min-height:0}
+.op{flex:1;min-height:0;display:flex;flex-direction:column;padding:16px 24px 0;container-type:inline-size}
+.op-bar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.op-bar .search{width:300px}
+.op-lead{margin:0;max-width:720px;font-size:var(--fs-md);text-wrap:pretty}
+.op>.hint{flex:none;margin:0 0 12px}
+/* the table scrolls under its heading, with room under the last row for a toast */
+.op-scroll{flex:1;min-height:0;overflow:auto;padding:12px 0 96px}
+.op-sum{margin:0;padding:12px 8px;font-size:var(--fs-md)}
+
+/* Tekstregler */
+.op-quote{font-weight:500}
+.op-rules .op-arrow{width:20px;color:var(--faint)}
+
+/* Utelatte artikler: the bar that adds one, a card over the page */
+.op-add{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;padding:10px;border-radius:12px;background:var(--surface);box-shadow:var(--card)}
+.op-add-no{width:160px;font-family:var(--font-num)}
+.op-add-note{flex:0 1 320px;min-width:180px}

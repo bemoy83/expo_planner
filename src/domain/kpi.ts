@@ -83,6 +83,9 @@ export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => 
   return chosen.sort((a, b) => Number(a.configured) - Number(b.configured) || a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
 }
 
+/** Product types that lack something the planner has to act on: rates read in for a type no export names lack nothing yet. */
+export const unfinishedTypes = (rows: KpiRow[]): number => new Set(rows.filter((row) => row.lacking && (row.configured || row.lines > 0)).map((row) => row.name)).size
+
 const ruleFor = (productType: string, unit: string, competence: string): WorkTypeRule => ({ productType: productTypeName(productType), unit: unit.trim(), competence: competence.trim() })
 
 /** Sets the rates for a work type and unit, adding the row if it is new. */

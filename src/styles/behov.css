@@ -1,7 +1,7 @@
 /* Behov: the Visma lines to go through and the planner's own lines, a view each behind the switch in the page header (ui/behov/).
    The band is the page header alone; the rail, the tables and the bar of what is selected stay neutral. */
 
-.behov-page>.page-head{border-bottom:1px solid var(--mode-line)}
+:is(.behov-page,.oppsett-page)>.page-head{border-bottom:1px solid var(--mode-line)}
 .segmented .count{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
 .mode-band .segmented .count{color:var(--mode-mute)}
 /* a count of what needs the planner: a solid chip with its own ink, as an alert on the band */
