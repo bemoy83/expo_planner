@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { Ban, X } from 'lucide-react'
 import { articleKey, articlesSeen, EMPTY_KPI, excludedLines, withExcludedArticle, withoutExcludedArticle } from '../../domain/kpi'
 import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
@@ -36,7 +36,7 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
     setNote('')
   }
   const columns: Column<ExcludedArticle>[] = [
-    { key: 'articleNo', head: 'Art.nr', className: 'num-id', text: (article) => article.articleNo, cell: (article) => <strong>{article.articleNo}</strong> },
+    { key: 'articleNo', head: 'Art.nr', className: 'num-id', text: (article) => article.articleNo, cell: (article) => <strong className="op-number">{article.articleNo}</strong> },
     {
       key: 'note',
       head: 'Merknad',
@@ -98,9 +98,9 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
         />
         <input className="op-add-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={seen.get(articleKey(number))?.texts[0] ? `Merknad (blir «${seen.get(articleKey(number))!.texts[0]}»)` : 'Merknad (valgfri)'} aria-label="Merknad" />
         <button type="submit" className="primary" disabled={!number.trim() || known}>
-          Utelat
+          <Ban size={14} aria-hidden /> Utelat
         </button>
-        {known ? <span className="issue">Artikkelen er allerede utelatt.</span> : seen.get(articleKey(number)) && <span className="muted small">{count(seen.get(articleKey(number))!.lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor</span>}
+        {known ? <span className="op-warn">Artikkelen er allerede utelatt.</span> : seen.get(articleKey(number)) && <span className="muted small">{count(seen.get(articleKey(number))!.lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor</span>}
       </form>
       <div className="op-scroll">
         {listed.length ? (
@@ -109,7 +109,7 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
             <p className="op-sum muted">Nå holdes {count(dropped, 'ordrelinje', 'ordrelinjer')} utenfor.</p>
           </>
         ) : (
-          <p className="notice">Ingen artikler er utelatt. Alle ordrelinjer regnes med.</p>
+          <p className="op-empty">Ingen artikler er utelatt. Alle ordrelinjer regnes med.</p>
         )}
       </div>
     </div>

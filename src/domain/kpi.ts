@@ -235,6 +235,19 @@ export const withTextType = (kpi: KpiConfig, text: string, productType: string |
   return { ...kpi, byText: productType ? [...others, { text: said, productType: productTypeName(productType) }] : others }
 }
 
+/** The booking lines without a product type that each rule for an article text gives a type, by the text as it is matched. */
+export const linesByText = (visma: VismaImport[], kpi: KpiConfig): Map<string, number> => {
+  const counted = isCounted(kpi)
+  const rules = new Set((kpi.byText ?? []).map((rule) => rule.text.trim().toLowerCase()))
+  const lines = new Map<string, number>()
+  for (const { rows } of visma)
+    for (const row of rows) {
+      const text = row.description.trim().toLowerCase()
+      if (!row.productType && rules.has(text) && counted(row)) lines.set(text, (lines.get(text) ?? 0) + 1)
+    }
+  return lines
+}
+
 const NO_DIFF: TableDiff = { added: 0, changed: 0, unchanged: 0, onlyInApp: 0 }
 /** A part the file lacks changes nothing. */
 const diffPart = <T,>(existing: T[], incoming: T[] | undefined, key: (item: T) => string, equal: (a: T, b: T) => boolean): TableDiff => (incoming ? diffBy(existing, incoming, key, equal) : NO_DIFF)

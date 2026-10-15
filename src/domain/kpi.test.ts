@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, kpiTypes, unfinishedTypes, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
+import { addKpiRow, kpiTypes, linesByText, withTextType, unfinishedTypes, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
@@ -182,6 +182,16 @@ describe('product types with their units', () => {
     expect(types[0].inUse).toBeUndefined()
     // Skilt lacks a rate; Teppe is new in the export.
     expect(unfinishedTypes(kpiRows(kpi, visma))).toBe(2)
+  })
+})
+
+describe('rules for article texts', () => {
+  it('counts the lines without a product type each rule gives a type, whatever the case of the text', () => {
+    const line = (description: string, productType = '') => ({ productType, description, articleNo: '7' }) as VismaRow
+    const visma: VismaImport[] = [{ projectNo: '26231', eventName: 'VVS', fileName: 'v.xlsx', importedAt: '', rows: [line('Ekstra vegg'), line('ekstra vegg '), line('Ekstra vegg', 'FOGA-dragere'), line('Teppe')] }]
+    const ruled = withTextType(kpi, 'Ekstra vegg', 'FOGA-dragere')
+    expect(linesByText(visma, ruled)).toEqual(new Map([['ekstra vegg', 2]]))
+    expect(linesByText(visma, withExcludedArticle(ruled, '7')).size).toBe(0)
   })
 })
 

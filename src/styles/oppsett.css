@@ -9,7 +9,7 @@
 .op>.hint{flex:none;margin:0 0 12px}
 /* the table scrolls under its heading, with room under the last row for a toast */
 .op-scroll{flex:1;min-height:0;overflow:auto;padding:12px 0 96px}
-.op-sum{margin:0;padding:12px 8px;font-size:var(--fs-md)}
+.op-sum{margin:0;padding:12px 8px;font-size:var(--fs-sm)}
 
 /* Produkttyper: how a line becomes hours, in one strip */
 .op-flow{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin:0 0 12px;padding:8px 12px;border-radius:8px;background:var(--sunken);font-size:var(--fs-sm);color:var(--muted)}
@@ -72,8 +72,12 @@
 /* Tekstregler */
 .op-quote{font-weight:500}
 .op-rules .op-arrow{width:20px;color:var(--faint)}
+.op-scroll table.ledger{width:100%;max-width:1100px}
 
 /* Utelatte artikler: the bar that adds one, a card over the page */
 .op-add{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;padding:10px;border-radius:12px;background:var(--surface);box-shadow:var(--card)}
 .op-add-no{width:160px;font-family:var(--font-num)}
 .op-add-note{flex:0 1 320px;min-width:180px}
+.op-add .primary{display:inline-flex;align-items:center;gap:6px}
+.op-warn{font-size:var(--fs-sm);color:var(--over)}
+.op-number{font-family:var(--font-num);font-size:var(--fs-sm);font-weight:600}
