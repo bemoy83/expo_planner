@@ -28,7 +28,7 @@ button.col-sort:hover{background:transparent;color:var(--accent)}
 table.ledger th:has(.menu-pop){z-index:3}
 .menu-button.col-filter{margin-left:4px;padding:2px;border-radius:4px;background:transparent;color:var(--faint);vertical-align:middle}
 .menu-button.col-filter:hover,.menu-button.col-filter[aria-expanded='true']{background:var(--sunken);color:var(--text)}
-th.filtered .menu-button.col-filter{background:var(--accent);color:var(--surface)}
+th.filtered .menu-button.col-filter,.op-head .filtered .menu-button.col-filter{background:var(--accent);color:var(--surface)}
 .col-filter-pop{display:flex;flex-direction:column;gap:6px;padding:4px;font-weight:400;text-align:left}
 /* the two directions to sort in, above the values: the one in use is marked as a pressed button of a menu */
 .col-filter-sort{display:flex;flex-direction:column;padding-bottom:6px;border-bottom:1px solid var(--line)}

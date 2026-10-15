@@ -17,6 +17,8 @@ import { TextField, type PickGroup } from '../fields'
 import type { TablePage } from '../RegisterHead'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
+import { ColumnHead } from '../ColumnHead'
+import { useTable, type Column } from '../useTable'
 import { hours } from './format'
 import { PlacingPanel, type TriedText } from './PlacingPanel'
 import { SplitPick } from './SplitPick'
@@ -39,6 +41,14 @@ const LEAD: Record<Part, string> = {
 const texts = (n: number) => count(n, 'tekst', 'tekster')
 const lines = (n: number) => count(n, 'linje', 'linjer')
 const quoted = (text: string) => (text ? `«${text}»` : '(tom)')
+
+/** What the texts that no rule places are filtered and sorted by, a column each. Their cells are drawn by the page. */
+const UNPLACED_COLUMNS = (projectName: (projectNo: string) => string): Column<UnplacedText>[] => [
+  { key: 'text', text: (found) => found.text || '(tom)', cell: () => null },
+  { key: 'projects', text: (found) => found.projectNos.map(projectName), cell: () => null },
+  { key: 'lines', text: (found) => String(found.lines), sort: (found) => found.lines, cell: () => null },
+  { key: 'hours', text: (found) => hours(found.hours), sort: (found) => found.hours, cell: () => null },
+]
 
 /** A name that no other of the list has: «Nytt sted», else «Nytt sted 2» and on. */
 const freeName = (base: string, taken: (name: string) => boolean) => {
@@ -159,7 +169,11 @@ export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () 
   const onlyInApp = diff ? diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp + diff.areas.onlyInApp : 0
 
   const unplaced = review.unplaced
-  const allSelected = unplaced.length > 0 && unplaced.every((found) => selected.has(found.key))
+  // The texts as the column filters and the sorting let them through; what is selected and placed at once is among these.
+  const listed = useTable(unplaced, UNPLACED_COLUMNS(projectName))
+  const shownTexts = listed.rows
+  const picked = shownTexts.filter((found) => selected.has(found.key))
+  const allSelected = shownTexts.length > 0 && shownTexts.every((found) => selected.has(found.key))
   const toggle = (key: string) =>
     setSelected((before) => {
       const next = new Set(before)
@@ -244,20 +258,27 @@ export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () 
               <div className="op-table hl-unplaced">
                 <div className="op-row op-head">
                   <span className="mk-center">
-                    <input type="checkbox" checked={allSelected} aria-label="Velg alle" onChange={() => setSelected(allSelected ? new Set() : new Set(unplaced.map((found) => found.key)))} />
+                    <input type="checkbox" checked={allSelected} aria-label="Velg alle" onChange={() => setSelected(allSelected ? new Set() : new Set(shownTexts.map((found) => found.key)))} />
                   </span>
-                  <span>Hall/sted i behovet</span>
-                  <span>Prosjekter</span>
-                  <span className="num">Linjer</span>
-                  <span className="num" title="Timene til linjene, montering og demontering">
-                    Timer
-                  </span>
+                  {(['text', 'projects', 'lines', 'hours'] as const).map((key) => (
+                    <ColumnHead
+                      key={key}
+                      as="span"
+                      className={key === 'lines' || key === 'hours' ? 'num' : undefined}
+                      title={key === 'hours' ? 'Timene til linjene, montering og demontering' : undefined}
+                      filter={listed.filter(key)}
+                      sorted={listed.sort?.key === key ? listed.sort.direction : undefined}
+                      onSort={(direction) => listed.sortBy(key, direction)}
+                    >
+                      {{ text: 'Hall/sted i behovet', projects: 'Prosjekter', lines: 'Linjer', hours: 'Timer' }[key]}
+                    </ColumnHead>
+                  ))}
                   <span>Gjelder</span>
                   <span>Plasser i</span>
                   <span />
                 </div>
                 <div className="op-body">
-                  {unplaced.map((found) => {
+                  {shownTexts.map((found) => {
                     const scope = scopes[found.key] ?? 'all'
                     const offer = found.offers.length === 1 && (scope === 'all') === !found.offers[0].projectNo ? found.offers[0].hall : undefined
                     return (
@@ -308,9 +329,17 @@ export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () 
                     )
                   })}
                 </div>
-                {selected.size > 0 && (
+                {!shownTexts.length && (
+                  <p className="op-empty">
+                    Ingen tekster passer filtrene.{' '}
+                    <button className="link" onClick={listed.clearFilters}>
+                      Nullstill filtrene
+                    </button>
+                  </p>
+                )}
+                {picked.length > 0 && (
                   <div className="hl-bulk" role="toolbar" aria-label="Det som er valgt">
-                    <strong>{texts(selected.size)}</strong>
+                    <strong>{texts(picked.length)}</strong>
                     <span className="hl-bulk-gap" />
                     <Segmented
                       label="Hvem valgene gjelder"
@@ -321,7 +350,7 @@ export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () 
                         { value: 'own', label: 'Hvert prosjekt' },
                       ]}
                     />
-                    {placePick('', 'Plasser de valgte', (hall) => placeTexts(unplaced.filter((found) => selected.has(found.key)), hall, bulkScope), 'Plasser i …')}
+                    {placePick('', 'Plasser de valgte', (hall) => placeTexts(picked, hall, bulkScope), 'Plasser i …')}
                     <button className="link small" onClick={() => setSelected(new Set())}>
                       Avbryt
                     </button>

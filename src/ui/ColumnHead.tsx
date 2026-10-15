@@ -14,15 +14,17 @@ interface Props {
   onSort?: (direction?: ColumnSort['direction']) => void
   className?: string
   title?: string
+  /** A heading of a table drawn as a grid of its own, as on Hallregler, is a span. */
+  as?: 'th' | 'span'
 }
 
 /**
  * A column heading of `DataTable`. A click on it sorts by the column, and its filter is a menu as Excel's:
  * the two directions to sort in, and a list of the column's values to tick, with a field to search in them.
  */
-export function ColumnHead({ children, filter, sorted, onSort, className, title }: Props) {
+export function ColumnHead({ children, filter, sorted, onSort, className, title, as: Cell = 'th' }: Props) {
   return (
-    <th className={`${className ?? ''} ${filter?.kept ? 'filtered' : ''}`} title={title} aria-sort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined}>
+    <Cell className={`${className ?? ''} ${filter?.kept ? 'filtered' : ''}`} title={title} aria-sort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined}>
       {onSort ? (
         <button className="col-sort" onClick={() => onSort()}>
           {children}
@@ -32,7 +34,7 @@ export function ColumnHead({ children, filter, sorted, onSort, className, title 
         children
       )}
       {filter && <FilterMenu filter={filter} sorted={sorted} onSort={onSort} align={className?.split(' ').includes('num') ? 'right' : 'left'} />}
-    </th>
+    </Cell>
   )
 }
 

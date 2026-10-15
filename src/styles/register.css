@@ -29,6 +29,7 @@
 .op-row .num{display:flex;justify-content:flex-end;font-family:var(--font-num);font-size:var(--fs-sm)}
 .op-head{flex:none;min-height:30px;font-size:var(--fs-xs);font-weight:500;color:var(--faint);border-bottom-color:var(--line)}
 .op-head>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.op-head>span:has(.menu){display:flex;align-items:center;overflow:visible}   /* a heading with a filter: its menu hangs below it */
 .op-head .num{font:inherit}
 /* a group: what lacks setup first, then a competence each. The strong line is the start of a group, and nothing else. */
 .op-group+.op-group .op-group-head{border-top:1px solid var(--line-strong)}
@@ -225,7 +226,8 @@
 .hl-bulk .segmented{padding:2px;border-radius:7px}
 .hl-bulk .segmented button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
 @container (max-width:860px){
-  .hl-unplaced{--cols:28px minmax(140px,1fr) 52px 214px 150px}
-  .hl-unplaced .op-row>:is(:nth-child(3),:nth-child(5),:nth-child(8)){display:none}
+  .hl-unplaced{--cols:28px minmax(100px,1fr) minmax(80px,.7fr) 190px 124px}
+  .hl-unplaced .op-row>:is(:nth-child(4),:nth-child(5),:nth-child(8)){display:none}
+  .hl-unplaced .segmented button{padding:0 6px}
 }
 @media (max-width:1100px){.hl-rules{grid-template-columns:minmax(0,1fr) 260px}}
