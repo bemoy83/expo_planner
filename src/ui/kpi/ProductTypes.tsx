@@ -10,6 +10,9 @@ import { Segmented } from '../common'
 import { NumberField, PickField, TextField, type PickItem } from '../fields'
 import { NeedButton, SplitPick } from '../behov/SplitPick'
 import { useCompetenceColor } from '../behov/format'
+import { CompetenceStrip } from '../personell/CompetenceStrip'
+import { competenceStyles } from '../../domain/competences'
+import { competenceKey, type CompetenceKey } from '../../domain/types'
 import type { Notify } from '../Toasts'
 
 const LACKING_TEXT: Record<Lacking, string> = {
@@ -58,6 +61,8 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
   const [search, setSearch] = useState('')
   const [filter, setFilter] = usePref<Filter>('oppsettFilter', 'alle', (stored) => (stored === 'mangler' || stored === 'ferdig' ? stored : 'alle'))
   const [unfolded, setUnfolded] = useState<Set<string>>(new Set())
+  const [picked, setPicked] = useState<CompetenceKey | null>(null)
+  const styles = useMemo(() => competenceStyles(workspace!), [workspace])
   const [adding, setAdding] = useState<Partial<NewKpiRow> | null>(null)
 
   const types = useMemo(() => kpiTypes(rows), [rows])
@@ -71,9 +76,13 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
     return types.filter(
       (type) =>
         (!q || `${type.name} ${type.units.map((row) => row.unit).join(' ')} ${type.competence}`.toLowerCase().includes(q)) &&
-        (filter === 'alle' || (filter === 'mangler') === type.unfinished),
+        (filter === 'alle' || (filter === 'mangler') === type.unfinished) &&
+        (!picked || competenceKey(type.competence) === picked),
     )
-  }, [types, search, filter])
+  }, [types, search, filter, picked])
+  const byCompetence = (key: CompetenceKey) => types.filter((type) => competenceKey(type.competence) === key).length
+  // The competences the product types name, in the planner's order.
+  const named = styles.filter((style) => byCompetence(style.key) > 0)
   // What lacks something first, the most lines first; then a group per competence.
   const lacking = shown.filter((type) => type.unfinished).sort((a, b) => b.lines - a.lines || a.name.localeCompare(b.name, 'nb'))
   const groups = [...new Set(shown.filter((type) => !type.unfinished).map((type) => type.competence))]
@@ -137,6 +146,16 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
           <Plus size={14} aria-hidden /> Ny produkttype
         </button>
       </div>
+      {named.length > 0 && (
+        <CompetenceStrip
+          label="Produkttyper per kompetanse"
+          styles={named}
+          count={byCompetence}
+          picked={picked}
+          onPick={setPicked}
+          title={(style) => `Vis produkttypene under ${style.label}`}
+        />
+      )}
       <p className="op-flow" title="Endringer her regner om Visma-linjene med én gang">
         <span>Ordrelinje</span>
         <ArrowRight size={12} aria-hidden />

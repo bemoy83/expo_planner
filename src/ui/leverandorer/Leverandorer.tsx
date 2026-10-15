@@ -15,6 +15,7 @@ import { count } from '../dom'
 import { NumberField, TextField } from '../fields'
 import { AddDialog } from '../personell/AddDialog'
 import { CompetenceChips } from '../personell/CompetenceChips'
+import { CompetenceStrip } from '../personell/CompetenceStrip'
 import type { TablePage } from '../RegisterHead'
 
 const suppliersText = (n: number) => count(n, 'leverandør', 'leverandører')
@@ -24,6 +25,7 @@ export function Leverandorer({ head, notify, show }: TablePage) {
   const { workspace, updateStaffing } = useWorkspace()
   const ws = workspace!
   const [search, setSearch] = useState('')
+  const [competence, setCompetence] = useState<CompetenceKey | null>(null)
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<{ supplier: Supplier; orders: number } | null>(null)
 
@@ -32,8 +34,8 @@ export function Leverandorer({ head, notify, show }: TablePage) {
   const label = (key: CompetenceKey) => styles.find((style) => style.key === key)?.label ?? key
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return q ? suppliers.filter((s) => `${s.name} ${s.contact ?? ''} ${s.note ?? ''}`.toLowerCase().includes(q)) : suppliers
-  }, [suppliers, search])
+    return suppliers.filter((s) => (!q || `${s.name} ${s.contact ?? ''} ${s.note ?? ''}`.toLowerCase().includes(q)) && (!competence || s.competences.includes(competence)))
+  }, [suppliers, search, competence])
 
   const setSuppliers = (change: (suppliers: Supplier[]) => Supplier[], text: string) => {
     updateStaffing((w) => ({ ...w, suppliers: change(w.suppliers ?? []) }))
@@ -94,6 +96,18 @@ export function Leverandorer({ head, notify, show }: TablePage) {
             <Plus size={14} aria-hidden /> Ny leverandør
           </button>
         </div>
+
+        {styles.length > 0 && suppliers.length > 0 && (
+          <CompetenceStrip
+            label="Leverandører med kompetansen"
+            styles={styles}
+            count={(key) => suppliers.filter((s) => s.competences.includes(key)).length}
+            picked={competence}
+            onPick={setCompetence}
+            alertZero
+            title={(style, n) => (n ? `Vis de som stiller med ${style.label}` : `Ingen leverandør stiller med ${style.label}`)}
+          />
+        )}
 
         {suppliers.length ? (
           <div className="op-table mk-suppliers">
@@ -159,7 +173,7 @@ export function Leverandorer({ head, notify, show }: TablePage) {
                   </span>
                 </div>
               ))}
-              {!shown.length && <p className="op-empty">Ingen leverandører passer søket.</p>}
+              {!shown.length && <p className="op-empty">{competence && !search.trim() ? `Ingen leverandør stiller med ${label(competence)}. Gi en leverandør kompetansen med + i raden.` : 'Ingen leverandører passer søket eller filteret.'}</p>}
             </div>
           </div>
         ) : (

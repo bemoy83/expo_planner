@@ -6,13 +6,14 @@ import type { CompetenceKey, Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
 import { ConfirmDialog, MergeReplaceDialog, Segmented, Switch } from '../common'
-import { count, competenceColor } from '../dom'
+import { count } from '../dom'
 import { download, XLSX_TYPE } from '../files'
 import { TextField } from '../fields'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { AddDialog } from './AddDialog'
 import { CompetenceChips } from './CompetenceChips'
+import { CompetenceStrip } from './CompetenceStrip'
 import type { TablePage } from '../RegisterHead'
 
 type Filter = 'alle' | 'aktive' | 'inaktive'
@@ -144,30 +145,15 @@ export function Personell({ head, notify, show, onOpenSuppliers }: TablePage & {
         </div>
 
         {styles.length > 0 && persons.length > 0 && (
-          <div className="mk-cover" role="group" aria-label="Aktive med kompetansen">
-            <span className="mk-cover-label">Aktive med kompetansen</span>
-            {styles.map((style) => {
-              const n = holders(style.key)
-              return (
-                <button
-                  key={style.key}
-                  className={`mk-cover-item ${competence === style.key ? 'on' : ''}`}
-                  aria-pressed={competence === style.key}
-                  title={n ? `Vis de som har ${style.label}` : `Ingen aktive faste har ${style.label}`}
-                  onClick={() => setCompetence(competence === style.key ? null : style.key)}
-                >
-                  <i className="swatch" style={competenceColor(style)} />
-                  {style.label}
-                  {n ? <b>{n}</b> : <span className="count-chip alert">0</span>}
-                </button>
-              )
-            })}
-            {competence && (
-              <button className="link small" onClick={() => setCompetence(null)}>
-                Vis alle
-              </button>
-            )}
-          </div>
+          <CompetenceStrip
+            label="Aktive med kompetansen"
+            styles={styles}
+            count={holders}
+            picked={competence}
+            onPick={setCompetence}
+            alertZero
+            title={(style, n) => (n ? `Vis de som har ${style.label}` : `Ingen aktive faste har ${style.label}`)}
+          />
         )}
 
         {persons.length ? (
