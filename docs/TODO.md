@@ -105,6 +105,17 @@ The handoff in `design_docs/design_handoff_oppsett/`, built in five slices on th
 - Checked in the browser with the real files on a clean start: the pages and counts, a unit chosen and folded out, the hours and totals, the competence list, a rule made in «Avklar» and changed on Tekstregler, an article left out and taken back by «Angre», the import toast.
 - Not built: the import dialog as a table of Nye · Endret · Like · Bare i appen (the shared `MergeReplaceDialog` is kept as the other tables have it), and «venter på Behov» opening «Avklar» itself.
 
+## Haller and Mannskap redesign: built, to be tested by the user
+
+The handoff in `design_docs/design_handoff_mannskap_haller/`, built in six slices on the defaults offered to the user (2026-10-15): the column filters and sorting of these pages go for a search and a filter switch, as on Oppsett; deleting does not ask, with «Angre» in the toast, except a person with assignments or a supplier with orders; the tester of Hallregler is fixed at the right; the band is the sand of Oppsett.
+
+- **The frame.** Haller, Mannskap and Oppsett share one page header (`ui/RegisterHead.tsx`, in `.register-page`): the pages with their counts, an alert chip where rows need the planner, undo and «Fil». Each page fills the window and only its table scrolls, and every change says what it did in a toast with «Angre» (`useUndoToasts`). The style sheet of the three is `register.css`.
+- **Faste and Innleid.** Competences as chips (`CompetenceChips`), the + opening a list to search in; a strip of how many active people have each competence, to filter by; Aktiv as a switch, and those not active in a group of their own; a new person or supplier is given competences in the dialog. Skift is one switch of Dag, Kveld and Natt.
+- **Kompetanser.** Order by grip or arrows, a colour grid, the block as Bemanning draws it, Faste and Innleid counted, and an amber mark where the demand names a competence no active person has (`unstaffedCompetences`, also the alert chip of the page).
+- **VenYou and Prosjekter.** Events by the month they start, their halls as buttons; Alle · Mangler prosjekt · Skjult i Kalender. Prosjekter has the events without a project first with their offer as a button and «Annet» for another number, names as chips, and «Ikke i tabellen» last.
+- **Hallregler.** Uplassert, Valg for tekster, Steder, Ordregler and apart Områder, the part kept per browser (`rulesPart`); texts picked for several at once with a bar at the bottom; halls as buttons on places and areas; the tester (`PlacingPanel`) fixed at the right. `Unplaced.tsx` is gone.
+- Checked in the browser on the workspace of the pane: people and a supplier added, a competence given, a person set not active, the colour grid, the suggested numbers for all, two texts placed at once, a word rule. Not built: lines per place on Steder, and the number of the rule that shadows another («Skygget av reglene over» in its place).
+
 ## Innleid: built, to be tested by the user
 
 Built from `design_docs/innleid/` in the six slices of the Claude Doc «Innleid: build plan» (2026-10-13). The user's answers: only confirmed orders count in «Tilgjengelig»; the Kalender's Avvik changes to the three states (under, ok, over) with slice 2; the suppliers are a tab made from Personell.

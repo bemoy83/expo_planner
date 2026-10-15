@@ -173,8 +173,9 @@
 .hl-check:hover{background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--muted)}
 .hl-check:is(.on,.part),.hl-check:is(.on,.part):hover{background:var(--text);box-shadow:none}
 .hl-halls{display:flex;flex-wrap:wrap;gap:3px;padding:4px 0}
-.hl-halls button{height:22px;min-width:28px;padding:0 6px;border-radius:5px;background:none;font:500 var(--fs-xs) var(--font-num);color:var(--faint);text-decoration:line-through}
-.hl-halls button.on{background:var(--surface);box-shadow:var(--raise);color:var(--text);text-decoration:none}
+.hl-halls button{height:22px;min-width:28px;padding:0 6px;border-radius:5px;background:none;font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
+.hl-halls button.on{background:var(--surface);box-shadow:var(--raise);color:var(--text)}
+.hl-venyou .hl-halls button:not(.on){text-decoration:line-through}
 .hl-days{font-size:var(--fs-sm);white-space:nowrap}
 .op-head .hl-days{display:flex;align-items:center;gap:5px}
 .hl-days.event{font-weight:600}
@@ -195,3 +196,35 @@
 .hl-number input{font-weight:600}
 .hl-add{display:flex;justify-content:flex-end;gap:4px}
 .hl-add button{height:26px;padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
+
+/* Hallregler (ui/behov/HallRules.tsx): the rules on the left, a part at a time, and the tester fixed at the right */
+.hl-rules{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px}
+.hl-rules>.op{position:relative}
+.hl-side{min-height:0;overflow-y:auto;border-left:1px solid var(--line);background:var(--panel)}
+.hl-lead{flex:none;margin:0 0 12px;color:var(--muted)}
+.hl-text{font-weight:500;text-align:left}
+.hl-unplaced{--cols:28px minmax(140px,1fr) minmax(110px,.8fr) 52px 60px 214px 150px 72px}
+.hl-unplaced .segmented{padding:2px;border-radius:7px}
+.hl-unplaced .segmented button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
+.hl-selected{background:color-mix(in oklab,var(--accent) 8%,transparent)}
+.hl-choices{--cols:minmax(160px,1fr) minmax(150px,1fr) minmax(130px,1fr) 64px 40px}
+.hl-places{--cols:minmax(130px,.6fr) minmax(0,2fr) 150px 40px}
+.hl-phrases{--cols:52px 32px minmax(180px,1.4fr) minmax(130px,1fr) 56px minmax(120px,.8fr) 40px}
+.hl-areas{--cols:minmax(140px,.6fr) minmax(0,2fr) 40px}
+.hl-halls button.shadowed{outline:1px dashed var(--muted);outline-offset:-1px;box-shadow:none}
+.hl-collects{display:inline-flex;align-items:center;gap:8px}
+.hl-fixed{background:color-mix(in oklab,var(--sunken) 60%,transparent)}
+.hl-words.want input{background:var(--surface);box-shadow:var(--raise)}
+.hl-done{display:flex;align-items:center;gap:12px;margin:8px 0;padding:14px 16px;border-radius:10px;background:var(--pos-bg);color:var(--pos)}
+.hl-done div{display:flex;flex-direction:column;gap:2px}
+.hl-done strong{color:var(--text)}
+/* what is selected of the texts, as a bar that floats over the bottom of the rules */
+.hl-bulk{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border-radius:12px;background:var(--panel);box-shadow:var(--pop);font-size:var(--fs-sm);white-space:nowrap}
+.hl-bulk-gap{width:1px;height:18px;background:var(--line-strong)}
+.hl-bulk .segmented{padding:2px;border-radius:7px}
+.hl-bulk .segmented button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
+@container (max-width:860px){
+  .hl-unplaced{--cols:28px minmax(140px,1fr) 52px 214px 150px}
+  .hl-unplaced .op-row>:is(:nth-child(3),:nth-child(5),:nth-child(8)){display:none}
+}
+@media (max-width:1100px){.hl-rules{grid-template-columns:minmax(0,1fr) 260px}}

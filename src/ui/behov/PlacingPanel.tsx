@@ -2,7 +2,6 @@ import type { HallReview } from '../../domain/hallReview'
 import { PLACE_STEPS } from '../../domain/hallReview'
 import { placeOf, type Place, type PlacedBy, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import type { HallRules } from '../../domain/types'
-import { SidePanel } from '../common'
 
 /** A text to try against the rules, as it would stand on a line of a project, or of none. */
 export interface TriedText {
@@ -30,15 +29,19 @@ interface Props {
   onTry: (tried: TriedText) => void
   /** A click on a step: the page shows the rules of that step. */
   onStep: (step: PlacedBy) => void
-  onClose: () => void
+  /** The part of the page that is open: its steps are in bold. */
+  part?: 'unplaced' | 'choices' | 'places' | 'phrases'
 }
+
+/** The steps whose rules each part of the page holds. */
+const PART_STEPS: Record<NonNullable<Props['part']>, PlacedBy[]> = { unplaced: ['none'], choices: ['own', 'choice'], places: ['text'], phrases: ['phrase'] }
 
 /**
  * A text to try against the rules, with where it lands and why, and the order the rules are tried in, with the lines
  * of the demand each step places. The step that placed the text tried is lit, and those tried before it are dimmed.
- * The panel slides in over the right edge of the page, as row details do in the Kalender.
+ * It stands at the right of Hallregler, beside the rules, and scrolls by itself.
  */
-export function PlacingPanel({ halls, rules, booked, review, projects, tried, onTry, onStep, onClose }: Props) {
+export function PlacingPanel({ halls, rules, booked, review, projects, tried, onTry, onStep, part }: Props) {
   const text = tried.text.trim()
   const place = text ? placeOf(text, halls, rules, tried.projectNo || undefined) : null
   const offered = place?.by === 'none' ? suggestHall(text, halls, booked.get(tried.projectNo), rules) : null
@@ -52,19 +55,10 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
   }
   const at = place ? PLACE_STEPS.indexOf(place.by) : -1
   return (
-    <SidePanel
-      label="Prøv en tekst"
-      onClose={onClose}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      head={
-        <>
-          <div className="insp-title">Prøv en tekst</div>
-          <div className="insp-sub">Hvor en Hall/sted-tekst havner, og hvorfor</div>
-        </>
-      }
-    >
+    <aside className="hl-side" aria-label="Prøv en tekst">
       <div className="insp-body">
         <section className="insp-sec rules-try">
+          <h3 className="insp-h">Prøv en tekst</h3>
           <input placeholder="Hall/sted, f.eks. Scene øst" aria-label="Hall/sted-tekst å prøve" value={tried.text} onChange={(e) => onTry({ ...tried, text: e.target.value })} />
           <select aria-label="Prosjektet teksten står i" title="Et valg kan gjelde ett prosjekt alene: velg prosjektet teksten står i" value={tried.projectNo} onChange={(e) => onTry({ ...tried, projectNo: e.target.value })}>
             <option value="">Uten prosjekt</option>
@@ -89,7 +83,7 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
           <ol className="rules-chain">
             {PLACE_STEPS.map((step, index) => (
               <li key={step}>
-                <button className={index === at ? 'hit' : index < at ? 'past' : ''} aria-current={index === at ? 'step' : undefined} title={`Vis ${step === 'none' ? 'tekstene som mangler hall' : 'reglene for dette steget'}`} onClick={() => onStep(step)}>
+                <button className={`${index === at ? 'hit' : index < at ? 'past' : ''} ${part && PART_STEPS[part].includes(step) ? 'current' : ''}`} aria-current={index === at ? 'step' : undefined} title={`Vis ${step === 'none' ? 'tekstene som mangler hall' : 'reglene for dette steget'}`} onClick={() => onStep(step)}>
                   <span className="nr">{index + 1}</span>
                   <span className="label">{STEP_TEXT[step].label}</span>
                   <span className={`count ${step === 'none' && review.steps.none ? 'issue' : 'muted'}`}>
@@ -106,6 +100,6 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
           <p className="insp-note">Alt her er ditt eget: det som kom inn med de første hallene er eksempler du kan endre og slette.</p>
         </section>
       </div>
-    </SidePanel>
+    </aside>
   )
 }
