@@ -256,3 +256,30 @@ export function TriCheckbox({ checked, partial, label, onChange }: { checked: bo
   }, [partial])
   return <input ref={ref} type="checkbox" checked={checked} aria-label={label} onChange={(e) => onChange(e.target.checked)} />
 }
+
+/** A switch for a value that is on or off, as whether a person is active. Green when on. */
+export function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: (on: boolean) => void }) {
+  return (
+    <button role="switch" aria-checked={on} aria-label={label} title={label} className={`switch ${on ? 'on' : ''}`} onClick={() => onChange(!on)}>
+      <i />
+    </button>
+  )
+}
+
+/** Asks before a change that cannot be got back by undoing it alone, and offers the safer way where there is one. */
+export function ConfirmDialog({ title, children, onCancel, actions }: { title: string; children: ReactNode; onCancel: () => void; actions: ReactNode }) {
+  return (
+    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onCancel()} onKeyDown={(e) => e.key === 'Escape' && onCancel()}>
+      <div className="dialog" role="alertdialog" aria-label={title}>
+        <h2>{title}</h2>
+        <p className="dialog-text">{children}</p>
+        <div className="dialog-actions">
+          <button autoFocus onClick={onCancel}>
+            Avbryt
+          </button>
+          {actions}
+        </div>
+      </div>
+    </div>
+  )
+}

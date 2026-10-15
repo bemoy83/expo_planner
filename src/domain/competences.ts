@@ -123,6 +123,7 @@ export interface CompetenceUse {
   demandLines: number
   rows: number
   people: number
+  suppliers: number
   blocks: number
 }
 
@@ -131,6 +132,7 @@ export const competenceUse = (ws: Workspace, key: CompetenceKey): CompetenceUse 
   demandLines: ws.demand.filter((line) => competenceKey(line.competence) === key).length,
   rows: ws.allocations.filter((row) => competenceKey(row.competence) === key).length,
   people: (ws.persons ?? []).filter((person) => person.competences.includes(key)).length,
+  suppliers: (ws.suppliers ?? []).filter((supplier) => supplier.competences.includes(key)).length,
   blocks: (ws.assignments ?? []).filter((a) => a.competence === key).length,
 })
 
@@ -139,10 +141,10 @@ export const isUnusedCompetence = (ws: Workspace, key: CompetenceKey): boolean =
 
 export const removeCompetence = (ws: Workspace, key: CompetenceKey): Record<CompetenceKey, CompetenceStyle> => asRecord(competenceStyles(ws).filter((style) => style.key !== key))
 
-/** A new person at the end of the list, active and without competences. */
-export const addPerson = (persons: Person[], name: string, id: string = `person-${crypto.randomUUID()}`): Person[] => [
+/** A new person at the end of the list, active, with the competences given. */
+export const addPerson = (persons: Person[], name: string, id: string = `person-${crypto.randomUUID()}`, competences: CompetenceKey[] = []): Person[] => [
   ...persons,
-  { id, name: name.trim(), order: Math.max(-1, ...persons.map((p) => p.order)) + 1, active: true, competences: [] },
+  { id, name: name.trim(), order: Math.max(-1, ...persons.map((p) => p.order)) + 1, active: true, competences },
 ]
 
 export const updatePerson = (persons: Person[], id: string, patch: Partial<Omit<Person, 'id'>>): Person[] => persons.map((p) => (p.id === id ? { ...p, ...patch } : p))
@@ -163,6 +165,13 @@ export const removePerson = (ws: Workspace, id: string): Workspace => ({
 export const staffedCompetences = (ws: Workspace): CompetenceStyle[] => {
   const held = new Set((ws.persons ?? []).filter((p) => p.active).flatMap((p) => p.competences))
   return competenceStyles(ws).filter((style) => held.has(style.key))
+}
+
+/** The competences the demand names that no active person has: they can only be hired in. In the planner's order. */
+export const unstaffedCompetences = (ws: Workspace): CompetenceStyle[] => {
+  const held = new Set((ws.persons ?? []).filter((p) => p.active).flatMap((p) => p.competences))
+  const needed = new Set(ws.demand.map((line) => competenceKey(line.competence)))
+  return competenceStyles(ws).filter((style) => needed.has(style.key) && !held.has(style.key))
 }
 
 /**

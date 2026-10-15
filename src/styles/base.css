@@ -150,3 +150,14 @@ input[type='checkbox']{accent-color:var(--accent)}
 .toast{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);box-shadow:0 16px 40px -16px var(--shadow);font-size:var(--fs-md)}
 .toast span{flex:1}
 .toast button.link{font-weight:600}
+
+/* a switch, as whether a person is active: green when on */
+.switch{position:relative;width:32px;height:18px;min-width:32px;padding:0;border-radius:9px;background:var(--line-strong);transition:background .15s}
+.switch:hover{background:var(--line-strong)}
+.switch i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.2);transition:transform .15s}
+.switch.on,.switch.on:hover{background:var(--pos)}
+.switch.on i{transform:translateX(14px)}
+.dialog-text{margin:0;line-height:1.5;text-wrap:pretty}
+.dialog-field{display:flex;flex-direction:column;gap:6px;font-weight:500}
+.dialog-field small{font-weight:400;color:var(--faint)}
+.dialog-actions .issue{margin-right:auto;align-self:center}

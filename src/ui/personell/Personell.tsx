@@ -1,156 +1,226 @@
 import { useMemo, useState } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
 import { addPerson, competenceStyles, diffPersons, isNameTaken, mergePersons, removePerson, replacePersons, togglePersonCompetence, updatePerson, type FilePerson } from '../../domain/competences'
 import { todayIso } from '../../domain/dates'
-import type { Person } from '../../domain/types'
+import type { CompetenceKey, Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
-import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { ConfirmDialog, MergeReplaceDialog, Segmented, Switch } from '../common'
+import { count, competenceColor } from '../dom'
 import { download, XLSX_TYPE } from '../files'
+import { TextField } from '../fields'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
-import { DataTable } from '../DataTable'
-import { TextField } from '../fields'
-import { useTable, type Column } from '../useTable'
 import { AddDialog } from './AddDialog'
-import { CompetenceToggles } from './CompetenceToggles'
-import { X } from 'lucide-react'
+import { CompetenceChips } from './CompetenceChips'
+import type { TablePage } from '../RegisterHead'
 
-/** The permanent staff and what each of them can do. How the competences are shown is on Kompetanser. */
-export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void }) {
+type Filter = 'alle' | 'aktive' | 'inaktive'
+
+const people = (n: number) => count(n, 'person', 'personer')
+
+/**
+ * The permanent staff and what each of them can do: the active first, then those who are not, who are hidden in
+ * Bemanning but keep their history. Over the table, how many active people have each competence, to filter by.
+ */
+export function Personell({ head, notify, show, onOpenSuppliers }: TablePage & { onOpenSuppliers: () => void }) {
   const { workspace, updateStaffing } = useWorkspace()
   const ws = workspace!
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<Filter>('alle')
+  const [competence, setCompetence] = useState<CompetenceKey | null>(null)
   const [adding, setAdding] = useState(false)
-  const [message, setMessage] = useState<Message | null>(null)
+  const [removing, setRemoving] = useState<{ person: Person; blocks: number } | null>(null)
 
   const persons = useMemo(() => ws.persons ?? [], [ws.persons])
   const styles = useMemo(() => competenceStyles(ws), [ws])
-  const found = useMemo(() => {
+  const label = (key: CompetenceKey) => styles.find((style) => style.key === key)?.label ?? key
+  const active = persons.filter((p) => p.active)
+  const holders = (key: CompetenceKey) => active.filter((p) => p.competences.includes(key)).length
+  const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return q ? persons.filter((p) => `${p.name} ${p.note ?? ''}`.toLowerCase().includes(q)) : persons
-  }, [persons, search])
-  const active = persons.filter((p) => p.active).length
+    return persons.filter(
+      (p) =>
+        (!q || `${p.name} ${p.note ?? ''}`.toLowerCase().includes(q)) &&
+        (!competence || p.competences.includes(competence)) &&
+        (filter === 'alle' || (filter === 'aktive') === p.active),
+    )
+  }, [persons, search, competence, filter])
 
-  const setPersons = (change: (persons: Person[]) => Person[]) => updateStaffing((w) => ({ ...w, persons: change(w.persons ?? []) }))
+  const setPersons = (change: (persons: Person[]) => Person[], text: string) => {
+    updateStaffing((w) => ({ ...w, persons: change(w.persons ?? []) }))
+    notify(text)
+  }
 
   /** People are told apart by their names in a file, so no two have the same. */
   const rename = (person: Person, name: string) => {
-    if (isNameTaken(persons, name, person.id)) return setMessage({ kind: 'error', text: `${name} finnes allerede. To personer kan ikke ha samme navn.` })
-    setPersons((list) => updatePerson(list, person.id, { name }))
+    if (!name || name === person.name) return
+    if (isNameTaken(persons, name, person.id)) return show(`${name} finnes allerede. To personer kan ikke ha samme navn.`)
+    setPersons((list) => updatePerson(list, person.id, { name }), `${person.name} heter nå ${name}`)
+  }
+  const setActive = (person: Person, on: boolean) =>
+    setPersons((list) => updatePerson(list, person.id, { active: on }), on ? `${person.name} er aktiv igjen` : `${person.name} skjules i Bemanning, historikken beholdes`)
+
+  const remove = (person: Person) => {
+    const blocks = (ws.assignments ?? []).filter((a) => a.personId === person.id).length
+    if (blocks) return setRemoving({ person, blocks })
+    updateStaffing((w) => removePerson(w, person.id))
+    notify(`Slettet ${person.name}`)
   }
 
   const { pending, onFile, done } = useTableFile<FilePerson[]>({
     read: readPersonellWorkbook,
     empty: !persons.length,
-    takeIn: (people, file) => {
-      updateStaffing((w) => mergePersons(w, people))
-      setMessage({ kind: 'ok', text: `${file} lest inn: ${people.length === 1 ? '1 person' : `${people.length} personer`}.` })
+    takeIn: (incoming, file) => {
+      updateStaffing((w) => mergePersons(w, incoming))
+      notify(`${file} lest inn: ${people(incoming.length)}`)
     },
-    onError: (text) => setMessage({ kind: 'error', text }),
+    onError: show,
   })
-
   const apply = (mode: 'merge' | 'replace') => {
     if (!pending) return
     updateStaffing((w) => (mode === 'merge' ? mergePersons(w, pending.incoming) : replacePersons(w, pending.incoming)))
-    setMessage({ kind: 'ok', text: `${pending.file} ${mode === 'merge' ? 'slått sammen med personene' : 'har erstattet personene'}. Kan angres med Ctrl/Cmd+Z.` })
+    notify(`${pending.file} ${mode === 'merge' ? 'slått sammen med de faste' : 'har erstattet de faste'}`)
     done()
   }
-
   const diff = pending ? diffPersons(ws, pending.incoming) : null
 
-  const remove = (person: Person) => {
-    const blocks = (ws.assignments ?? []).filter((a) => a.personId === person.id).length
-    const question = blocks ? `Slette ${person.name}? ${blocks === 1 ? '1 tildeling' : `${blocks} tildelinger`} i Bemanning slettes også. Sett heller personen som ikke aktiv for å beholde historikken.` : `Slette ${person.name}?`
-    if (confirm(question)) updateStaffing((w) => removePerson(w, person.id))
-  }
-
-  const columns: Column<Person>[] = [
-    {
-      key: 'name',
-      head: 'Navn',
-      text: (person) => person.name,
-      cell: (person) => <TextField value={person.name} ariaLabel="Navn" onCommit={(name) => name && rename(person, name)} />,
-    },
-    {
-      key: 'competences',
-      head: 'Kompetanser',
-      text: (person) => styles.filter((style) => person.competences.includes(style.key)).map((style) => style.label),
-      cell: (person) => <CompetenceToggles styles={styles} held={person.competences} owner={person.name} onToggle={(key) => setPersons((list) => togglePersonCompetence(list, person.id, key))} />,
-    },
-    {
-      key: 'active',
-      head: 'Aktiv',
-      className: 'center',
-      text: (person) => (person.active ? 'Ja' : 'Nei'),
-      cell: (person) => <input type="checkbox" checked={person.active} aria-label={`${person.name} er aktiv`} onChange={(e) => setPersons((list) => updatePerson(list, person.id, { active: e.target.checked }))} />,
-    },
-    {
-      key: 'note',
-      head: 'Notat',
-      text: (person) => person.note ?? '',
-      cell: (person) => <TextField value={person.note ?? ''} ariaLabel="Notat" onCommit={(note) => setPersons((list) => updatePerson(list, person.id, { note: note || undefined }))} />,
-    },
-    {
-      key: 'actions',
-      className: 'actions',
-      cell: (person) => (
-        <button className="row-action" title={`Slett ${person.name}`} onClick={() => remove(person)}>
-          <X size={13} aria-hidden />
+  const row = (person: Person) => (
+    <div key={person.id} className={`op-row ${person.active ? '' : 'mk-off'}`}>
+      <span className="mk-name">
+        <TextField value={person.name} ariaLabel="Navn" onCommit={(name) => rename(person, name)} />
+      </span>
+      <CompetenceChips
+        styles={styles}
+        held={person.competences}
+        owner={person.name}
+        onToggle={(key, on) => setPersons((list) => togglePersonCompetence(list, person.id, key), `${person.name} ${on ? 'har nå' : 'har ikke lenger'} ${label(key)}`)}
+      />
+      <span className="mk-center">
+        <Switch on={person.active} label={`${person.name} er aktiv`} onChange={(on) => setActive(person, on)} />
+      </span>
+      <span className="mk-note">
+        <TextField value={person.note ?? ''} ariaLabel={`Notat for ${person.name}`} placeholder="Notat" onCommit={(note) => setPersons((list) => updatePerson(list, person.id, { note: note || undefined }), `Notat for ${person.name}`)} />
+      </span>
+      <span className="op-actions">
+        <button className="icon-button" title={`Slett ${person.name}`} onClick={() => remove(person)}>
+          <Trash2 size={13} aria-hidden />
         </button>
-      ),
-    },
-  ]
-  const table = useTable(found, columns)
+      </span>
+    </div>
+  )
+
+  const on = shown.filter((p) => p.active)
+  const off = shown.filter((p) => !p.active)
 
   return (
-    <div className="behov">
-      <div className="toolbar">
-        <input className="search" type="search" placeholder="Søk navn" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <span className="muted small">
-          {persons.length} faste{active < persons.length ? ` · ${active} aktive` : ''}
-        </span>
-        <span className="toolbar-gap" />
-        <UndoRedoButtons />
+    <>
+      {head(
         <TableFileMenu
           exportTitle="Last ned de faste som en Excel-fil: en rad per person og en kolonne per kompetanse, med x der personen har den."
           importTitle="Les inn en fil med de faste: en som er eksportert herfra, eller en med kolonnen Navn og en kolonne per kompetanse."
           canExport={persons.length > 0}
           onExport={() => download(`expo-planner-personell-${todayIso()}.xlsx`, writePersonellWorkbook(ws), XLSX_TYPE)}
           onFile={onFile}
-        />
-        <button className="primary" onClick={() => setAdding(true)}>
-          + Ny person
-        </button>
-      </div>
-
-      <MessageBanner message={message} onClose={() => setMessage(null)} />
-
-      <div className="behov-body">
-        <p className="hint">
-          De faste ansatte som kan tildeles arbeid i Bemanning. <strong>Kompetanser</strong> bestemmer hvilket arbeid en person kan få: legg til med +, og klikk en kompetanse for å ta den bort. Navn,
-          farge og rekkefølge på kompetansene settes på{' '}
-          <button className="link" onClick={onOpenCompetences}>
-            Kompetanser
+        />,
+      )}
+      <div className="op">
+        <div className="op-bar">
+          <input className="search" type="search" placeholder="Søk navn eller notat" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Segmented
+            label="Vis"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'alle', label: <>Alle <span className="count">{persons.length}</span></> },
+              { value: 'aktive', label: <>Aktive <span className="count">{active.length}</span></> },
+              { value: 'inaktive', label: <>Ikke aktive <span className="count">{persons.length - active.length}</span></>, title: 'Skjult i Bemanning, beholder historikken' },
+            ]}
+          />
+          <span className="toolbar-gap" />
+          <button className="primary" onClick={() => setAdding(true)}>
+            <Plus size={14} aria-hidden /> Ny person
           </button>
-          . En person som ikke er <strong>aktiv</strong>, skjules i Bemanning, men beholder historikken sin.
-        </p>
+        </div>
+
+        {styles.length > 0 && persons.length > 0 && (
+          <div className="mk-cover" role="group" aria-label="Aktive med kompetansen">
+            <span className="mk-cover-label">Aktive med kompetansen</span>
+            {styles.map((style) => {
+              const n = holders(style.key)
+              return (
+                <button
+                  key={style.key}
+                  className={`mk-cover-item ${competence === style.key ? 'on' : ''}`}
+                  aria-pressed={competence === style.key}
+                  title={n ? `Vis de som har ${style.label}` : `Ingen aktive faste har ${style.label}`}
+                  onClick={() => setCompetence(competence === style.key ? null : style.key)}
+                >
+                  <i className="swatch" style={competenceColor(style)} />
+                  {style.label}
+                  {n ? <b>{n}</b> : <span className="count-chip alert">0</span>}
+                </button>
+              )
+            })}
+            {competence && (
+              <button className="link small" onClick={() => setCompetence(null)}>
+                Vis alle
+              </button>
+            )}
+          </div>
+        )}
+
         {persons.length ? (
-          <DataTable table={table} className="personell" rowKey={(person) => person.id} rowProps={(person) => ({ className: person.active ? undefined : 'inactive-row' })} empty="Ingen personer passer søket eller filteret." />
+          <div className="op-table mk-people">
+            <div className="op-row op-head">
+              <span>Navn</span>
+              <span>Kompetanser</span>
+              <span className="mk-center" title="En som ikke er aktiv, skjules i Bemanning, men beholder historikken">
+                Aktiv
+              </span>
+              <span>Notat</span>
+              <span />
+            </div>
+            <div className="op-body">
+              {on.map(row)}
+              {off.length > 0 && (
+                <section className="op-group">
+                  <div className="op-group-head">
+                    Ikke aktive <span className="op-group-count">{off.length}</span>
+                    <span className="op-group-note">Skjult i Bemanning, beholder historikken</span>
+                  </div>
+                  {off.map(row)}
+                </section>
+              )}
+              {!shown.length && (
+                <p className="op-empty">
+                  {competence && !search.trim() ? (
+                    <>
+                      Ingen faste har {label(competence)}. Gi noen kompetansen med + i raden, eller lei inn på{' '}
+                      <button className="link" onClick={onOpenSuppliers}>
+                        Innleid
+                      </button>
+                      .
+                    </>
+                  ) : (
+                    'Ingen personer passer søket eller filteret.'
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
         ) : (
-          <p className="notice">Ingen faste registrert ennå. Legg inn de ansatte med «+ Ny person», og gi hver av dem kompetansene sine.</p>
+          <p className="op-empty">Ingen faste registrert ennå. Legg inn de ansatte med «Ny person», og gi hver av dem kompetansene sine.</p>
         )}
       </div>
 
       {pending && diff && (
         <MergeReplaceDialog
-          title="Importer personell"
+          title="Importer de faste"
           source={pending.file}
-          results={[
-            describeDiff('Personer', diff),
-            ...(diff.newCompetences.length ? [`Nye kompetanser: ${diff.newCompetences.join(', ')}`] : []),
-          ]}
+          results={[describeDiff('Personer', diff), ...(diff.newCompetences.length ? [`Nye kompetanser: ${diff.newCompetences.join(', ')}`] : [])]}
           replaceText={`personene i appen byttes ut med dem i filen, i filens rekkefølge${
-            diff.onlyInApp ? `; ${diff.onlyInApp === 1 ? '1 person' : `${diff.onlyInApp} personer`} som bare finnes i appen slettes${diff.lostBlocks ? `, med ${diff.lostBlocks} tildelinger og fravær i Bemanning` : ''}` : ''
+            diff.onlyInApp ? `; ${people(diff.onlyInApp)} som bare finnes i appen slettes${diff.lostBlocks ? `, med ${diff.lostBlocks} tildelinger og fravær i Bemanning` : ''}` : ''
           }`}
           onCancel={done}
           onApply={apply}
@@ -161,14 +231,49 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
         <AddDialog
           title="Ny person"
           label="Navn"
+          styles={styles}
           taken={(name) => isNameTaken(persons, name)}
           onClose={() => setAdding(false)}
-          onAdd={(name) => {
-            setPersons((list) => addPerson(list, name))
+          onAdd={(name, competences) => {
+            setPersons((list) => addPerson(list, name, undefined, competences), `La til ${name}`)
             setAdding(false)
           }}
         />
       )}
-    </div>
+
+      {removing && (
+        <ConfirmDialog
+          title={`Slette ${removing.person.name}?`}
+          onCancel={() => setRemoving(null)}
+          actions={
+            <>
+              <button
+                className="danger"
+                onClick={() => {
+                  updateStaffing((w) => removePerson(w, removing.person.id))
+                  notify(`Slettet ${removing.person.name} og ${count(removing.blocks, 'tildeling', 'tildelinger')} i Bemanning`)
+                  setRemoving(null)
+                }}
+              >
+                Slett likevel
+              </button>
+              {removing.person.active && (
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setActive(removing.person, false)
+                    setRemoving(null)
+                  }}
+                >
+                  Sett ikke aktiv
+                </button>
+              )}
+            </>
+          }
+        >
+          {count(removing.blocks, 'tildeling', 'tildelinger')} i Bemanning slettes også. Sett heller personen som <strong>ikke aktiv</strong> for å beholde historikken.
+        </ConfirmDialog>
+      )}
+    </>
   )
 }

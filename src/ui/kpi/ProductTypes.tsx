@@ -10,7 +10,7 @@ import { Segmented } from '../common'
 import { NumberField, PickField, TextField, type PickItem } from '../fields'
 import { NeedButton, SplitPick } from '../behov/SplitPick'
 import { useCompetenceColor } from '../behov/format'
-import type { Notify } from './Oppsett'
+import type { Notify } from '../Toasts'
 
 const LACKING_TEXT: Record<Lacking, string> = {
   new: 'Ny fra Visma',

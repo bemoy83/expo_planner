@@ -1,18 +1,18 @@
 import { useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 import { todayIso } from '../../domain/dates'
 import { diffProjectList, mergeProjectList, normalizeName, projectRows, replaceProjectList, suggestProjectNo, withoutProject, withoutProjectName, withNumberTakingOver, withProjectName, withProjectNo, withProjectYear, type ProjectLacking, type ProjectRow } from '../../domain/projects'
 import type { ProjectRef } from '../../domain/types'
 import { readProsjekterWorkbook, writeProsjekterWorkbook } from '../../import/prosjekterFile'
 import { useWorkspace } from '../../store/workspaceStore'
-import { DataTable } from '../DataTable'
-import { useTable, type Column } from '../useTable'
-import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
+import { MergeReplaceDialog } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { PickField, TextField } from '../fields'
 import { count } from '../dom'
+import { SplitPick } from '../behov/SplitPick'
+import type { TablePage } from '../RegisterHead'
 
 const LACKING_TEXT: Record<ProjectLacking, string> = {
   number: 'Mangler prosjekt',
@@ -31,13 +31,12 @@ const usedIn = (row: ProjectRow): string[] => [row.orders ? 'Ordre' : '', row.li
  * planning rows point at, and an event in Venyou gets the number of the project that carries its name in its year.
  * Events without a project are listed first, each with a number it can be given.
  */
-export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) => void }) {
+export function Prosjekter({ head, notify, show, onOpenBehov }: TablePage & { onOpenBehov: (projectNo: string) => void }) {
   const { workspace, setProjects } = useWorkspace()
   const ws = workspace!
   const projects = ws.projects
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
-  const [message, setMessage] = useState<Message | null>(null)
 
   const rows = useMemo(() => projectRows(ws), [ws.venue, ws.projects, ws.visma, ws.demand, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
   const found = useMemo(() => {
@@ -46,9 +45,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
   }, [rows, search])
   const inTable = useMemo(() => rows.filter((row) => row.projectNo && row.lacking !== 'new'), [rows])
   const numbers = useMemo(() => rows.filter((row) => row.projectNo).map((row) => row.projectNo), [rows])
-  const withoutProjectCount = rows.filter((row) => row.lacking === 'number' || row.lacking === 'ambiguous').length
   const openCount = rows.filter((row) => row.lacking === 'number').length
-  const outside = rows.filter((row) => row.lacking === 'new').length
   /** The names of the events that have no project: what a project is most often given as a name. */
   const openNames = useMemo(() => rows.filter((row) => !row.projectNo).map((row) => row.names[0]), [rows])
 
@@ -56,7 +53,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
   const save = (next: ProjectRef[], text?: string, renumbered?: { from: string; to: string }) => {
     const { rows: followed, lines } = setProjects(next, renumbered)
     const parts = [followed ? `${count(followed, 'planlagt rad', 'planlagte rader')} i Kalender` : '', lines ? `${count(lines, 'behovslinje', 'behovslinjer')}` : ''].filter(Boolean)
-    if (text || parts.length) setMessage({ kind: 'ok', text: `${text ?? ''}${parts.length ? ` ${parts.join(' og ')} fulgte med til nummeret.` : ''} Kan angres med Ctrl/Cmd+Z.`.trim() })
+    if (text || parts.length) notify(`${text ?? ''}${parts.length ? ` ${parts.join(' og ')} fulgte med til nummeret.` : ''}`.trim())
   }
 
   /** The event gets a project: a new one under the number, or the one that has it already. */
@@ -69,7 +66,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
 
   /** Every event listed without a project gets what it is offered: the project it is like, else a number of its own. */
   const suggestAll = () => {
-    const open = table.rows.filter((row) => row.lacking === 'number')
+    const open = found.filter((row) => row.lacking === 'number')
     const matched = open.filter((row) => row.match).length
     save(
       open.reduce((list, row) => withProjectName(list, row.match?.projectNo ?? row.series?.projectNo ?? row.suggestion, row.names[0], row.year), projects),
@@ -91,8 +88,8 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
   }
 
   const removeName = (row: ProjectRow, name: string) => {
-    if (row.names.length === 1 && !confirm(`${name} er det eneste navnet på ${row.projectNo}. Slette prosjektet fra tabellen?`)) return
-    save(withoutProjectName(projects, row.projectNo, name))
+    // The last name goes with the project; «Angre» brings both back.
+    save(withoutProjectName(projects, row.projectNo, name), row.names.length === 1 ? `Slettet ${row.projectNo}` : `${name} er ikke lenger navn på ${row.projectNo}`)
   }
 
   const { pending, onFile, done } = useTableFile<ProjectRef[]>({
@@ -102,7 +99,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
       const next = replaceProjectList(incoming)
       save(next, `${file} lest inn: ${new Set(next.map((ref) => ref.projectNo.toLowerCase())).size} prosjekter med ${next.length} navn.`)
     },
-    onError: (text) => setMessage({ kind: 'error', text }),
+    onError: show,
   })
 
   const apply = (mode: 'merge' | 'replace') => {
@@ -113,183 +110,217 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
 
   const diff = pending ? diffProjectList(projects, pending.incoming) : null
 
-  const columns: Column<ProjectRow>[] = [
-    {
-      key: 'projectNo',
-      head: 'Prosjektnr.',
-      title: 'Nummeret behov, ordre og planlagte rader peker på. Et prosjekt uten nummer fra Visma får et eget: året og tre bokstaver. Bytter du nummer, følger radene i Kalender og dine egne behovslinjer med.',
-      className: 'project-no',
-      text: (row) => row.projectNo,
-      cell: (row) =>
-        row.lacking === 'new' ? (
-          <span className="inline-text">{row.projectNo}</span>
-        ) : row.projectNo ? (
-          <TextField className="project-no-input" ariaLabel={`Prosjektnummer for ${row.names[0]}`} value={row.projectNo} onCommit={(value) => renumber(row, value)} />
-        ) : (
-          // What it is offered: the project it is like or one that carries its name, or a number of its own. Another number can be typed, also that of a project in the table.
-          <TextField className="project-no-input missing" placeholder={row.match?.projectNo ?? row.series?.projectNo ?? row.suggestion} options={[...row.candidates, ...(row.match ? [row.match.projectNo] : []), ...(row.series ? [row.series.projectNo] : []), row.suggestion]} ariaLabel={`Prosjektnummer for ${row.names[0]}`} value="" onCommit={(value) => link(row, value)} />
-        ),
-    },
-    {
-      key: 'year',
-      head: 'År',
-      title: 'Året prosjektets navn gjelder for. Det følger av nummeret; skriv et annet der arrangementet går et annet år enn nummeret sier.',
-      className: 'num',
-      text: (row) => row.year,
-      cell: (row) =>
-        row.projectNo && row.lacking !== 'new' ? <TextField className="num" ariaLabel={`År for ${row.projectNo}`} value={row.year} onCommit={(value) => isYear(value) && save(withProjectYear(projects, row.projectNo, value))} /> : <span className="inline-text">{row.year}</span>,
-    },
-    {
-      key: 'names',
-      head: 'Navn',
-      title: 'Alle navnene prosjektet har i kildene. Et arrangement i Venyou får nummeret til prosjektet som har navnet dets i samme år.',
-      text: (row) => row.names,
-      cell: (row) =>
-        row.projectNo && row.lacking !== 'new' ? (
-          <span className="name-chips">
-            {row.names.map((name) => (
-              <button key={name} className="name-chip" title={`Fjern navnet ${name} fra ${row.projectNo}`} onClick={() => removeName(row, name)}>
-                {name} <X size={12} aria-hidden />
-              </button>
-            ))}
-            <TextField className="name-add" placeholder="+ navn" options={openNames} ariaLabel={`Nytt navn på ${row.projectNo}`} value="" onCommit={(value) => value && save(withProjectName(projects, row.projectNo, value, row.year))} />
-          </span>
-        ) : (
-          <span className="name-chips">
-            <span className="name-chip">{row.names[0]}</span>
-            {/* What the row is offered, and why. */}
-            {(row.match ?? row.replaces) && <span className="muted small"> ligner {(row.match ?? row.replaces)!.name} ({(row.match ?? row.replaces)!.projectNo})</span>}
-            {row.series && <span className="muted small"> ligner {row.series.name} ({row.series.after})</span>}
-          </span>
-        ),
-    },
-    {
-      key: 'venyou',
-      head: 'I Venyou',
-      title: 'Arrangementene i Venyou som har fått prosjektets nummer, med første dag.',
-      className: 'date',
-      text: (row) => (row.events.length ? 'Ja' : 'Nei'),
-      sort: (row) => row.events[0]?.start ?? '',
-      cell: (row) => row.events.map((event) => day(event.start)).join(', '),
-      cellProps: (row) => (row.events.length ? { title: row.events.map((event) => `${event.name}: ${event.halls.join(', ')}`).join('\n') } : {}),
-    },
-    {
-      key: 'used',
-      head: 'I bruk',
-      title: 'Det som peker på nummeret: ordre som er lest inn, behovslinjer og planlagte rader i Kalender.',
-      text: (row) => (usedIn(row).length ? usedIn(row).map((part) => part.replace(/^\d+ /, '')) : ''),
-      sort: (row) => row.lines + row.rows + Number(row.orders),
-      cell: (row) =>
-        row.orders || row.lines ? (
-          <button className="link" title={`Åpne ${row.projectNo} på Behov`} onClick={() => onOpenBehov(row.projectNo)}>
-            {usedIn(row).join(' · ')}
-          </button>
-        ) : (
-          usedIn(row).join(' · ')
-        ),
-    },
-    {
-      key: 'lacking',
-      head: 'Mangler',
-      title: 'Det som gjenstår før behov og plan kan knyttes til prosjektet.',
-      className: 'actions',
-      text: (row) => (row.lacking ? LACKING_TEXT[row.lacking] : ''),
-      cell: (row) => (
-        <>
-          {row.lacking && <span className="issue">{LACKING_TEXT[row.lacking]} </span>}
-          {row.match && (
-            <button className="link" title={`Navnet ligner «${row.match.name}», som er prosjekt ${row.match.projectNo} i samme år, og det har ikke noe arrangement andre dager. Legger ${row.names[0]} til som navn på ${row.match.projectNo}.`} onClick={() => link(row, row.match!.projectNo)}>
-              Bruk {row.match.projectNo}
-            </button>
-          )}
-          {row.series && (
-            <button className="link" title={`Navnet ligner «${row.series.name}», som er prosjekt ${row.series.after} et annet år. ${row.series.projectNo} er samme nummer i arrangementets år, og er ledig. Oppretter prosjektet ${row.series.projectNo}.`} onClick={() => link(row, row.series!.projectNo)}>
-              Bruk {row.series.projectNo}
-            </button>
-          )}
-          {row.lacking === 'number' && (
-            <button className="link" title={`Opprett prosjektet ${row.suggestion} for ${row.names[0]}`} onClick={() => link(row, row.suggestion)}>
-              {row.match || row.series ? 'Nytt:' : 'Bruk'} {row.suggestion}
-            </button>
-          )}
-          {row.replaces && (
-            <button className="link" title={`Navnet ligner «${row.replaces.name}», som nå er prosjekt ${row.replaces.projectNo}. Lar ${row.projectNo} ta over: navnet flyttes hit, og er ${row.replaces.projectNo} et nummer du har laget selv, følger rader og behov med.`} onClick={() => takeOver(row)}>
-              Bruk i stedet for {row.replaces.projectNo}
-            </button>
-          )}
-          {row.lacking === 'new' && (
-            <button className="link" title={`Ta ${row.projectNo} inn i tabellen${row.names[0] ? ` med navnet ${row.names[0]}` : ''}`} disabled={!row.names[0]} onClick={() => save(withProjectName(projects, row.projectNo, row.names[0]))}>
-              Legg til
-            </button>
-          )}
-          {row.projectNo && !row.lacking && (
-            <button className="row-action" title="Slett prosjektet fra tabellen" onClick={() => confirm(`Slette ${row.projectNo} med ${count(row.names.length, 'navn', 'navn')} fra tabellen?`) && save(withoutProject(projects, row.projectNo))}>
-              <X size={13} aria-hidden />
-            </button>
-          )}
-        </>
-      ),
-    },
+  const openShown = found.filter((row) => row.lacking === 'number').length
+  const open = found.filter((row) => row.lacking === 'number' || row.lacking === 'ambiguous')
+  const listed = found.filter((row) => row.projectNo && !row.lacking)
+  const outsideRows = found.filter((row) => row.lacking === 'new')
+  const offerOf = (row: ProjectRow) => row.match?.projectNo ?? row.series?.projectNo
+  const numberItems = (row: ProjectRow) => [
+    ...(offerOf(row) ? [{ value: row.suggestion, note: 'eget nummer' }] : []),
+    ...row.candidates.map((no) => ({ value: no, note: 'har navnet' })),
+    ...inTable.filter((other) => !row.candidates.includes(other.projectNo)).map((other) => ({ value: other.projectNo, note: other.names[0] })),
   ]
-  const table = useTable(found, columns)
-  const openShown = table.rows.filter((row) => row.lacking === 'number').length
 
   return (
-    <div className="behov">
-      <div className="toolbar">
-        <input className="search" type="search" placeholder="Søk nummer eller navn" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <span className="muted small">
-          {count(inTable.length, 'prosjekt', 'prosjekter')} · {projects.length} navn
-        </span>
-        {table.filtered > 0 && (
-          <button className="ghost" onClick={table.clearFilters} title="Fjerner filtrene i kolonnene">
-            Nullstill filtre
-          </button>
-        )}
-        <span className="toolbar-gap" />
-        <UndoRedoButtons />
+    <>
+      {head(
         <TableFileMenu
           exportTitle="Last ned tabellen som en Excel-fil: en rad per navn, med prosjektnummer og år."
           importTitle="Les inn en prosjektfil: en som er eksportert herfra, eller en med kolonnene Prosjektnr. og Navn."
           canExport={projects.length > 0}
           onExport={() => download(`expo-planner-prosjekter-${todayIso()}.xlsx`, writeProsjekterWorkbook(projects), XLSX_TYPE)}
           onFile={onFile}
-        />
-        <button className="primary" onClick={() => setAdding(true)}>
-          + Nytt prosjekt
-        </button>
-      </div>
-
-      <MessageBanner message={message} onClose={() => setMessage(null)} />
-
-      <div className="behov-body">
-        <p className="hint">
-          Et prosjekt er <strong>nummeret</strong>: det er det behov, ordre og planlagte rader peker på. Kildene kaller det samme prosjektet forskjellige ting, så hvert prosjekt har alle{' '}
-          <strong>navnene</strong> det går under. Et arrangement i Venyou får nummeret til prosjektet som har navnet dets i samme år. Arrangementer uten prosjekt står øverst med et forslag: prosjektet
-          de ligner på i navn og dager, ellers samme nummer som arrangementet hadde et annet år, ellers et eget nummer av året og tre bokstaver. Bruk forslaget, eller skriv nummeret til prosjektet det hører til.
+        />,
+      )}
+      <div className="op">
+        <div className="op-bar">
+          <input className="search" type="search" placeholder="Søk nummer eller navn" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <span className="muted small">
+            {count(inTable.length, 'prosjekt', 'prosjekter')} · {projects.length} navn
+          </span>
+          <span className="toolbar-gap" />
+          <button className="primary" onClick={() => setAdding(true)}>
+            <Plus size={14} aria-hidden /> Nytt prosjekt
+          </button>
+        </div>
+        <p className="op-flow">
+          <span>
+            Et prosjekt er <strong>nummeret</strong> behov, ordre og planlagte rader peker på.
+          </span>
+          <span>
+            Kildene kaller det ulike ting, så det har alle <strong>navnene</strong> det går under.
+          </span>
+          <span className="op-flow-aside">Et arrangement i Venyou får nummeret til prosjektet med samme navn i samme år.</span>
         </p>
 
-        {withoutProjectCount > 0 && (
-          <div className="orphans" role="alert">
-            <strong>{count(withoutProjectCount, 'arrangement har', 'arrangementer har')} ikke prosjekt.</strong> Uten nummer kan ikke behov og plan knyttes til dem.{' '}
-            {openShown > 0 && (
-              <button onClick={suggestAll} title="Gir hvert arrangement i listen som mangler prosjekt det som er foreslått: prosjektet det ligner på, ellers et eget nummer. Kan angres.">
-                Bruk forslaget for {openShown === openCount ? `alle ${openCount}` : `de ${openShown} i listen`}
-              </button>
-            )}
-          </div>
-        )}
-
         {rows.length ? (
-          <DataTable table={table} className="prosjekter" rowKey={(row) => row.key} rowProps={(row) => ({ className: row.lacking && row.lacking !== 'new' ? 'has-issue' : '' })} empty="Ingen prosjekter passer søket eller filteret." />
+          <div className="op-table hl-projects">
+            <div className="op-row op-head">
+              <span title="Nummeret behov, ordre og planlagte rader peker på. Bytter du nummer, følger radene i Kalender og dine egne behovslinjer med.">Prosjektnr.</span>
+              <span className="num" title="Året prosjektets navn gjelder for. Det følger av nummeret; skriv et annet der arrangementet går et annet år enn nummeret sier.">
+                År
+              </span>
+              <span title="Alle navnene prosjektet har i kildene">Navn</span>
+              <span title="Arrangementene i Venyou med prosjektets nummer, med første dag">I Venyou</span>
+              <span title="Det som peker på nummeret: ordre som er lest inn, behovslinjer og planlagte rader i Kalender">I bruk</span>
+              <span />
+            </div>
+            <div className="op-body">
+              {open.length > 0 && (
+                <section className="op-group lacking">
+                  <div className="op-group-head">
+                    <i className="op-attention" aria-hidden />
+                    Uten prosjekt <span className="op-group-count">{open.length}</span>
+                    <span className="op-group-note">Behov og plan kan ikke knyttes til dem</span>
+                    {open.some((row) => row.lacking === 'number') && (
+                      <button className="hl-all" onClick={suggestAll} title="Gir hvert arrangement i listen forslaget: prosjektet det ligner på, ellers et eget nummer. Kan angres.">
+                        Bruk forslagene for {openShown === openCount ? `alle ${openCount}` : `de ${openShown} i listen`}
+                      </button>
+                    )}
+                  </div>
+                  {open.map((row) => {
+                    const offer = offerOf(row)
+                    const like = row.match ?? row.series
+                    return (
+                      <div key={row.key} className="op-row">
+                        <span className="hl-offer">
+                          {offer ? (
+                            <button
+                              className="primary small"
+                              title={row.match ? `Navnet ligner «${row.match.name}», prosjekt ${row.match.projectNo} i samme år. Legger navnet til der.` : `Navnet ligner «${row.series!.name}» (${row.series!.after}). ${row.series!.projectNo} er samme nummer i år, og ledig.`}
+                              onClick={() => link(row, offer)}
+                            >
+                              Bruk {offer}
+                            </button>
+                          ) : (
+                            row.lacking === 'number' && (
+                              <button className="primary small" title="Året og tre bokstaver fra navnet" onClick={() => link(row, row.suggestion)}>
+                                Bruk {row.suggestion}
+                              </button>
+                            )
+                          )}
+                          <SplitPick
+                            plain
+                            missing={row.lacking === 'ambiguous' ? 'Velg' : offer ? 'Annet' : ''}
+                            label={`Nummer for ${row.names[0]}`}
+                            head={`Nummer for ${row.names[0]}`}
+                            title="Velg et annet nummer, eller skriv et nytt"
+                            groups={[{ items: numberItems(row) }]}
+                            free="Nytt prosjekt"
+                            onPick={(no) => link(row, no)}
+                          />
+                        </span>
+                        <span className="num muted">{row.year}</span>
+                        <span className="op-name">
+                          <span>{row.names[0]}</span>
+                          {row.lacking === 'ambiguous' && <span className="op-lacking">{LACKING_TEXT.ambiguous}</span>}
+                          {like && (
+                            <span className="op-tag">
+                              ligner {like.name} ({row.match ? row.match.projectNo : row.series!.after})
+                            </span>
+                          )}
+                        </span>
+                        <span className="num muted">{row.events.map((event) => day(event.start)).join(', ')}</span>
+                        <span />
+                        <span />
+                      </div>
+                    )
+                  })}
+                </section>
+              )}
+              <section className="op-group">
+                <div className="op-group-head">
+                  Prosjekter <span className="op-group-count">{listed.length}</span>
+                </div>
+                {listed.map((row) => (
+                  <div key={row.key} className="op-row">
+                    <span className="hl-number">
+                      <TextField className="project-no-input" ariaLabel={`Prosjektnummer for ${row.names[0]}`} value={row.projectNo} onCommit={(value) => value !== row.projectNo && renumber(row, value)} />
+                    </span>
+                    <span className="num">
+                      <TextField className="num" ariaLabel={`År for ${row.projectNo}`} value={row.year} onCommit={(value) => value !== row.year && isYear(value) && save(withProjectYear(projects, row.projectNo, value), value ? `${row.projectNo} gjelder ${value}` : `${row.projectNo} følger året i nummeret`)} />
+                    </span>
+                    <span className="mk-chips">
+                      {row.names.map((name) => (
+                        <button key={name} className="mk-chip" title={`Fjern navnet ${name} fra ${row.projectNo}`} onClick={() => removeName(row, name)}>
+                          {name}
+                          <X size={11} aria-hidden />
+                        </button>
+                      ))}
+                      <NameAdd projectNo={row.projectNo} names={openNames} onAdd={(name) => save(withProjectName(projects, row.projectNo, name, row.year), `${name} er nå et navn på ${row.projectNo}`)} />
+                    </span>
+                    <span className="num muted" title={row.events.map((event) => `${event.name}: ${event.halls.join(', ')}`).join('\n')}>
+                      {row.events.map((event) => day(event.start)).join(', ')}
+                    </span>
+                    <span className="small ellipsis" title={usedIn(row).join(' · ')}>
+                      {row.orders || row.lines ? (
+                        <button className="link" title={`Åpne ${row.projectNo} på Behov`} onClick={() => onOpenBehov(row.projectNo)}>
+                          {usedIn(row).join(' · ')}
+                        </button>
+                      ) : (
+                        <span className="muted">{usedIn(row).join(' · ')}</span>
+                      )}
+                    </span>
+                    <span className="op-actions">
+                      {!usedIn(row).length && (
+                        <button className="icon-button" title="Slett prosjektet fra tabellen" onClick={() => save(withoutProject(projects, row.projectNo), `Slettet ${row.projectNo}`)}>
+                          <Trash2 size={13} aria-hidden />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                ))}
+                {!found.length && <p className="op-empty">Ingen prosjekter passer søket.</p>}
+              </section>
+              {outsideRows.length > 0 && (
+                <section className="op-group">
+                  <div className="op-group-head">
+                    Ikke i tabellen <span className="op-group-count">{outsideRows.length}</span>
+                    <span className="op-group-note">I bruk i ordre eller behov uten å stå i tabellen</span>
+                  </div>
+                  {outsideRows.map((row) => (
+                    <div key={row.key} className="op-row">
+                      <span className="num">
+                        <strong>{row.projectNo}</strong>
+                      </span>
+                      <span />
+                      <span className="op-name">
+                        {row.names[0] && <span>{row.names[0]}</span>}
+                        {row.replaces && <span className="op-tag">ligner {row.replaces.name} ({row.replaces.projectNo})</span>}
+                      </span>
+                      <span />
+                      <span className="small muted ellipsis">{usedIn(row).join(' · ')}</span>
+                      <span className="hl-add">
+                        {row.replaces && (
+                          <button
+                            className="small"
+                            title={`Navnet ligner «${row.replaces.name}», som nå er prosjekt ${row.replaces.projectNo}. Lar ${row.projectNo} ta over: navnet flyttes hit, og er ${row.replaces.projectNo} et nummer du har laget selv, følger rader og behov med.`}
+                            onClick={() => takeOver(row)}
+                          >
+                            I stedet for {row.replaces.projectNo}
+                          </button>
+                        )}
+                        <button
+                          className="small"
+                          title={`Ta ${row.projectNo} inn i tabellen${row.names[0] ? ` med navnet ${row.names[0]}` : ''}`}
+                          disabled={!row.names[0]}
+                          onClick={() => save(withProjectName(projects, row.projectNo, row.names[0]), `${row.projectNo} er lagt inn i tabellen`)}
+                        >
+                          Legg til
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </section>
+              )}
+            </div>
+          </div>
         ) : (
-          <p className="notice">
+          <p className="op-empty">
             Tabellen er tom. Den fyller seg selv: les inn Venyou-filen, så kommer arrangementene opp her med et forslag til nummer, og prosjektene i Visma-utskriftene kommer opp med nummeret
-            sitt. Du kan også legge inn prosjekter med «Nytt prosjekt», eller lese inn en fil med kolonnene Prosjektnr. og Navn med «Importer fra fil».
+            sitt. Du kan også legge inn prosjekter med «Nytt prosjekt», eller lese inn en fil under «Fil».
           </p>
         )}
-
-        {outside > 0 && <p className="hint">{count(outside, 'nummer', 'numre')} er i bruk i ordre, behov eller plan uten å stå i tabellen. De står nederst blant prosjektene; «Legg til» tar dem inn.</p>}
       </div>
 
       {pending && diff && (
@@ -310,12 +341,48 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
           suggest={(name, year) => suggestProjectNo(name, year, numbers)}
           onClose={() => setAdding(false)}
           onAdd={(projectNo, name, year) => {
-            save(withProjectName(projects, projectNo, name, year))
+            save(withProjectName(projects, projectNo, name, year), `${name} er nå prosjekt ${projectNo}`)
             setAdding(false)
           }}
         />
       )}
-    </div>
+    </>
+  )
+}
+
+/** A name for a project: picked from the events without one, or typed. */
+function NameAdd({ projectNo, names, onAdd }: { projectNo: string; names: string[]; onAdd: (name: string) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [text, setText] = useState('')
+  const done = () => (setAdding(false), setText(''))
+  if (!adding)
+    return (
+      <button className="mk-add" title="Legg til et navn" aria-label={`Nytt navn på ${projectNo}`} onClick={() => setAdding(true)}>
+        <Plus size={13} aria-hidden />
+      </button>
+    )
+  return (
+    <span className="mk-pick">
+      <PickField
+        autoFocus
+        floating
+        value={text}
+        onChange={setText}
+        head={`Nytt navn på ${projectNo}`}
+        groups={[{ label: 'Uten prosjekt', items: names.map((name) => ({ value: name })) }]}
+        aria-label={`Nytt navn på ${projectNo}`}
+        placeholder="Skriv et navn"
+        onPick={(name) => (done(), onAdd(name))}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || !text.trim()) return
+          e.preventDefault()
+          onAdd(text.trim())
+          done()
+        }}
+        onCancel={done}
+        onBlur={done}
+      />
+    </span>
   )
 }
 

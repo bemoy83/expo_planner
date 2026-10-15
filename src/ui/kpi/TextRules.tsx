@@ -7,7 +7,7 @@ import { useTable, type Column } from '../useTable'
 import { count } from '../dom'
 import { SplitPick } from '../behov/SplitPick'
 import { kpiTypeItem, useCompetenceColor } from '../behov/format'
-import type { Notify } from './Oppsett'
+import type { Notify } from '../Toasts'
 
 type TextRule = { text: string; productType: string }
 

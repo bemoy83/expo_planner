@@ -10,7 +10,8 @@ import { hallNames } from '../../domain/venue'
 import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Menu, MergeReplaceDialog, MessageBanner, PanelToggle, Segmented, UndoRedoButtons, type Message } from '../common'
+import { Menu, MergeReplaceDialog, PanelToggle, Segmented } from '../common'
+import type { TablePage } from '../RegisterHead'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
@@ -60,7 +61,7 @@ type Part = 'unplaced' | 'places' | 'phrases' | 'choices' | 'areas'
  * nothing. The panel that tries a text and shows the order the rules are tried in slides in over the right edge, from
  * the button in the bar or a click on a text. A page of its own, reached from Behov, where the rules are used.
  */
-export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
+export function HallRules({ head, notify, show, onOpenBehov }: TablePage & { onOpenBehov: () => void }) {
   const { workspace, setHallRules } = useWorkspace()
   const ws = workspace!
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
@@ -94,14 +95,13 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const [area, setArea] = useState<{ name: string; halls: string[] }>({ name: '', halls: [] })
   const areaTaken = areas.some((other) => other.name.toLowerCase() === area.name.trim().toLowerCase())
   const setAreas = (next: NonNullable<Rules['areas']>) => setHallRules({ ...rules, areas: next })
-  const [message, setMessage] = useState<Message | null>(null)
   const empty = !rules.places.length && !rules.phrases.length && !choices.length && !areas.length
   const apply = (file: string, next: Rules, how: string) => {
     setHallRules(next)
-    setMessage({ kind: 'ok', text: `${file} ${how}. Kan angres med Ctrl/Cmd+Z.` })
+    notify(`${file} ${how}`)
     done()
   }
-  const { pending, onFile, done } = useTableFile<Rules>({ read: readHallreglerWorkbook, empty, takeIn: (incoming, file) => apply(file, incoming, 'lest inn'), onError: (text) => setMessage({ kind: 'error', text }) })
+  const { pending, onFile, done } = useTableFile<Rules>({ read: readHallreglerWorkbook, empty, takeIn: (incoming, file) => apply(file, incoming, 'lest inn'), onError: show })
   const diff = pending ? diffHallRules(rules, pending.incoming) : null
   const onlyInApp = diff ? diff.places.onlyInApp + diff.phrases.onlyInApp + diff.choices.onlyInApp + diff.areas.onlyInApp : 0
   const taken = (name: string) => [...halls, ...places, UNRESOLVED_HALL].some((other) => other.toLowerCase() === name.trim().toLowerCase())
@@ -124,12 +124,12 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   const placeText = (found: UnplacedText, hall: string, own: boolean) => {
     const perProject = own || !found.text
     setHallRules(perProject ? found.projectNos.reduce((next, projectNo) => withChoice(next, found.text, hall, projectNo), rules) : withChoice(rules, found.text, hall))
-    setMessage({ kind: 'ok', text: `«${found.text || '(tom)'}» teller under ${hall}${perProject ? (found.projectNos.length === 1 ? ` i ${projectName(found.projectNos[0])}` : ` i ${found.projectNos.length} prosjekter`) : ' i alle prosjekter'}: ${lineCount(found.lines)}. Kan angres med Ctrl/Cmd+Z.` })
+    notify(`«${found.text || '(tom)'}» teller under ${hall}${perProject ? (found.projectNos.length === 1 ? ` i ${projectName(found.projectNos[0])}` : ` i ${found.projectNos.length} prosjekter`) : ' i alle prosjekter'}: ${lineCount(found.lines)}`)
   }
   /** What the texts are offered, taken in one step to undo. */
   const takeOffers = (taken: UnplacedText[]) => {
     setHallRules(taken.reduce((next, found) => found.offers.reduce((with_, offer) => withChoice(with_, found.text, offer.hall, offer.projectNo), next), rules))
-    setMessage({ kind: 'ok', text: `${textCount(taken.length)} er plassert etter forslaget. Kan angres med Ctrl/Cmd+Z.` })
+    notify(`${textCount(taken.length)} er plassert etter forslaget`)
   }
   /** The text as the words of a new rule, ready for its place to be picked. */
   const startWordRule = (text: string) => {
@@ -149,7 +149,17 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
   )
 
   return (
-    <div className="behov">
+    <>
+      {head(
+        <TableFileMenu
+          exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord, et for valg og et for områder."
+          importTitle="Les inn en fil med hallregler: en som er eksportert herfra, eller en med de samme arkene og kolonnene."
+          canExport={!empty}
+          onExport={() => download(`expo-planner-hallregler-${todayIso()}.xlsx`, writeHallreglerWorkbook(rules), XLSX_TYPE)}
+          onFile={onFile}
+        />,
+      )}
+      <div className="behov">
       <div className="toolbar">
         <button className="ghost" onClick={onOpenBehov} title="Tilbake til Behov, der reglene plasserer linjene">
           ← Behov
@@ -185,18 +195,8 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         />
         {review.steps.none > 0 && <span className="issue small">{lineCount(review.steps.none)} mangler hall</span>}
         <span className="toolbar-gap" />
-        <UndoRedoButtons />
         <PanelToggle open={panelOpen} what="panelet for å prøve en tekst" hint="hvor en Hall/sted-tekst havner og hvorfor, og rekkefølgen reglene prøves i" onToggle={() => setPanelOpen(!panelOpen)} />
-        <TableFileMenu
-          exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord, et for valg og et for områder."
-          importTitle="Les inn en fil med hallregler: en som er eksportert herfra, eller en med de samme arkene og kolonnene."
-          canExport={!empty}
-          onExport={() => download(`expo-planner-hallregler-${todayIso()}.xlsx`, writeHallreglerWorkbook(rules), XLSX_TYPE)}
-          onFile={onFile}
-        />
       </div>
-
-      <MessageBanner message={message} onClose={() => setMessage(null)} />
 
       <div className="rules-stage">
         <div className="behov-body rules">
@@ -443,5 +443,6 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         />
       )}
     </div>
+    </>
   )
 }

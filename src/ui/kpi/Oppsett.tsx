@@ -1,26 +1,24 @@
-import { useCallback, useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import { diffKpi, EMPTY_KPI, kpiRows, mergeKpi, replaceKpi, unfinishedTypes, type KpiFile } from '../../domain/kpi'
 import { readKpiWorkbook, writeKpiWorkbook } from '../../import/kpiFile'
 import { todayIso } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
 import { count } from '../dom'
-import { MergeReplaceDialog, Segmented, UndoRedoButtons } from '../common'
+import { MergeReplaceDialog } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
-import { Toasts, useToasts } from '../Toasts'
+import { Toasts, useUndoToasts } from '../Toasts'
+import { RegisterHead, type PageCount, type RegisterPage } from '../RegisterHead'
 import { ProductTypes } from './ProductTypes'
 import { TextRules } from './TextRules'
 import { ExcludedArticles } from './ExcludedArticles'
 
 export type OppsettPage = 'kpi' | 'tekstregler' | 'utelatte'
 
-/** Says what a change did, with «Angre» to take it back. */
-export type Notify = (text: string) => void
-
 interface Props {
   page: OppsettPage
-  pages: { view: OppsettPage; label: string; title?: string }[]
+  pages: RegisterPage<OppsettPage>[]
   onPage: (page: OppsettPage) => void
   onOpenBehov: () => void
 }
@@ -31,11 +29,10 @@ interface Props {
  * the setup holds all of it, so it is read and written from the header.
  */
 export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
-  const { workspace, setKpi, undo } = useWorkspace()
+  const { workspace, setKpi } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
-  const { toasts, show, dismiss } = useToasts()
-  const notify = useCallback<Notify>((text) => show(text, { label: 'Angre', run: undo }), [show, undo])
+  const { toasts, show, dismiss, notify } = useUndoToasts()
 
   const rows = useMemo(() => kpiRows(kpi, ws.visma ?? []), [kpi, ws.visma])
   const unfinished = useMemo(() => unfinishedTypes(rows), [rows])
@@ -61,38 +58,15 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
   }
   const diff = pending ? diffKpi(kpi, pending.incoming) : null
 
-  const counted: Record<OppsettPage, ReactNode> = {
-    kpi: unfinished ? (
-      <span className="count-chip alert" title={`${count(unfinished, 'produkttype', 'produkttyper')} er ikke ferdig satt opp`}>
-        {unfinished}
-      </span>
-    ) : (
-      <span className="count">{types}</span>
-    ),
-    tekstregler: <span className="count">{kpi.byText?.length ?? 0}</span>,
-    utelatte: <span className="count">{kpi.excludedArticles?.length ?? 0}</span>,
+  const counts: Record<OppsettPage, PageCount> = {
+    kpi: { rows: types, issues: unfinished, issueText: (n) => `${count(n, 'produkttype', 'produkttyper')} er ikke ferdig satt opp` },
+    tekstregler: { rows: kpi.byText?.length ?? 0 },
+    utelatte: { rows: kpi.excludedArticles?.length ?? 0 },
   }
 
   return (
-    <div className="oppsett-page">
-      <div className="page-head mode-band">
-        <h2>Oppsett</h2>
-        <Segmented
-          label="Del av Oppsett"
-          value={page}
-          onChange={onPage}
-          options={pages.map(({ view, label, title }) => ({
-            value: view,
-            title,
-            label: (
-              <>
-                {label} {counted[view]}
-              </>
-            ),
-          }))}
-        />
-        <span className="toolbar-gap" />
-        <UndoRedoButtons />
+    <div className="register-page">
+      <RegisterHead title="Oppsett" pages={pages} page={page} counts={counts} onPage={onPage}>
         <TableFileMenu
           exportTitle="Last ned oppsettet som en Excel-fil: produkttypene med enheter, enhet i bruk, kompetanse og satser, og de utelatte artiklene."
           importTitle="Les inn en KPI-fil: en som er eksportert herfra, eller en med kolonnene Produkttype, Enhet, Montering og Demontering."
@@ -100,7 +74,7 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
           onExport={() => download(`expo-planner-kpi-${todayIso()}.xlsx`, writeKpiWorkbook(kpi, ws.visma ?? []), XLSX_TYPE)}
           onFile={onFile}
         />
-      </div>
+      </RegisterHead>
 
       {page === 'kpi' && <ProductTypes rows={rows} notify={notify} />}
       {page === 'tekstregler' && <TextRules notify={notify} onOpenBehov={onOpenBehov} />}

@@ -7,7 +7,7 @@ import { useTable, type Column } from '../useTable'
 import { count } from '../dom'
 import { PickField, TextField } from '../fields'
 import type { ExcludedArticle } from '../../domain/types'
-import type { Notify } from './Oppsett'
+import type { Notify } from '../Toasts'
 
 /**
  * The article numbers whose booking lines are not read: they give no lines, no quantity and no hours, in any project.

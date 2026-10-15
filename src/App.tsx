@@ -6,13 +6,10 @@ import { parseBackup, toBackup } from './store/backup'
 import { usePref } from './store/prefs'
 import { useSaveState, useWorkspace, WorkspaceProvider } from './store/workspaceStore'
 import { Behov } from './ui/behov/Behov'
-import { Haller } from './ui/haller/Haller'
+import { HallerTab, type HallerPage } from './ui/haller/HallerTab'
 import { Oppsett, type OppsettPage } from './ui/kpi/Oppsett'
-import { Kompetanser } from './ui/personell/Kompetanser'
-import { Personell } from './ui/personell/Personell'
-import { Leverandorer } from './ui/leverandorer/Leverandorer'
-import { Prosjekter } from './ui/prosjekter/Prosjekter'
-import { HallRules } from './ui/behov/HallRules'
+import { Mannskap, type MannskapPage } from './ui/personell/Mannskap'
+import type { RegisterPage } from './ui/RegisterHead'
 import { Kalender } from './ui/kalender/Kalender'
 import { cleanBlockNames, type BlockNames } from './ui/bemanning/dayCell'
 import { Menu, Segmented } from './ui/common'
@@ -20,7 +17,7 @@ import { isTyping } from './ui/dom'
 import { download, errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
-import { RefreshCw, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 
 export default function App() {
   return (
@@ -34,12 +31,10 @@ type View = 'kalender' | 'behov' | 'haller' | 'prosjekter' | 'hallregler' | 'kpi
 
 interface Tab {
   label: string
-  /** The pages of the tab. A tab of the planner's tables shows them in a switch in its page header. */
-  pages: { view: View; label: string; title?: string }[]
+  /** The pages of the tab. A tab of the planner's tables shows them in a switch in its page header, which it draws itself. */
+  pages: RegisterPage<View>[]
   /** One of the planner's tables, set apart after the tabs the planning is done in. */
   register?: boolean
-  /** The tab draws its page header itself, with the switch of its pages in it. */
-  ownHead?: boolean
 }
 
 const TABS: Tab[] = [
@@ -66,7 +61,6 @@ const TABS: Tab[] = [
   {
     label: 'Oppsett',
     register: true,
-    ownHead: true,
     pages: [
       { view: 'kpi', label: 'Produkttyper', title: 'Hvordan hver produkttype leses: enhet, kompetanse og satser' },
       { view: 'tekstregler', label: 'Tekstregler', title: 'Produkttypen linjer uten en får etter artikkelteksten' },
@@ -358,33 +352,20 @@ function Shell() {
           </div>
         </div>
       )}
-      {status === 'ready' && workspace && tab.register && !tab.ownHead && (
-        <div className="page-head">
-          <h2>{tab.label}</h2>
-          <Segmented label={`Del av ${tab.label}`} value={view} onChange={setView} options={tab.pages.map((page) => ({ value: page.view, label: page.label, title: page.title }))} />
-          {view === 'haller' && (
-            <>
-              <span className="page-meta">
-                {workspace.venueImport && `Sist lest ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })} · ${workspace.venueImport.fileName}`}
-              </span>
-              <button className="primary" onClick={() => venyouInput.current?.click()} title={venyouTitle(workspace)}>
-                <RefreshCw size={14} aria-hidden /> {workspace.venueImport ? 'Oppdater fra VenYou' : 'Les inn VenYou'}
-              </button>
-            </>
-          )}
-        </div>
-      )}
       {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} onOpenSuppliers={() => setView('leverandorer')} />}
-      {status === 'ready' && workspace && view === 'haller' && <Haller onOpenProjects={() => setView('prosjekter')} />}
-      {status === 'ready' && workspace && view === 'prosjekter' && <Prosjekter onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))} />}
-      {status === 'ready' && workspace && tab.label === 'Oppsett' && (
-        <Oppsett page={view as OppsettPage} pages={tab.pages as { view: OppsettPage; label: string; title?: string }[]} onPage={setView} onOpenBehov={() => setView('behov')} />
+      {status === 'ready' && workspace && tab.label === 'Haller' && (
+        <HallerTab
+          page={view as HallerPage}
+          pages={tab.pages as RegisterPage<HallerPage>[]}
+          onPage={setView}
+          onReadVenyou={() => venyouInput.current?.click()}
+          venyouTitle={venyouTitle(workspace)}
+          onOpenBehov={(projectNo) => (setBehovProject(projectNo ?? ''), setView('behov'))}
+        />
       )}
-      {status === 'ready' && workspace && view === 'personell' && <Personell onOpenCompetences={() => setView('kompetanser')} />}
-      {status === 'ready' && workspace && view === 'leverandorer' && <Leverandorer onOpenCompetences={() => setView('kompetanser')} />}
-      {status === 'ready' && workspace && view === 'kompetanser' && <Kompetanser onOpenPersonell={() => setView('personell')} />}
+      {status === 'ready' && workspace && tab.label === 'Mannskap' && <Mannskap page={view as MannskapPage} pages={tab.pages as RegisterPage<MannskapPage>[]} onPage={setView} />}
+      {status === 'ready' && workspace && tab.label === 'Oppsett' && <Oppsett page={view as OppsettPage} pages={tab.pages as RegisterPage<OppsettPage>[]} onPage={setView} onOpenBehov={() => setView('behov')} />}
       {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={() => setView('kpi')} onOpenRules={() => setView('hallregler')} />}
-      {status === 'ready' && workspace && view === 'hallregler' && <HallRules onOpenBehov={() => setView('behov')} />}
       {settingsOpen && workspace && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )

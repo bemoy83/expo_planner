@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { type FilePerson, diffCompetenceStyles, diffPersons, isNameTaken, mergeCompetenceStyles, mergePersons, renameCompetence, replacePersons, competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, updatePerson } from './competences'
-import { DEFAULT_SETTINGS, LINE_COLORS, type AllocationRow, type Workspace } from './types'
+import { type FilePerson, diffCompetenceStyles, diffPersons, isNameTaken, mergeCompetenceStyles, mergePersons, renameCompetence, replacePersons, competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, unstaffedCompetences, updatePerson } from './competences'
+import { DEFAULT_SETTINGS, LINE_COLORS, type AllocationRow, type DemandLine, type Workspace } from './types'
 
 const row = (competence: string): AllocationRow => ({ id: `row-${competence}`, order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering', basis: 'Planlagt', fte: {}, notes: {} })
 
@@ -142,12 +142,20 @@ describe('a competence that is replaced', () => {
 describe('competenceUse', () => {
   it('counts what names a competence, and finds nothing for one added by hand', () => {
     const ws: Workspace = { ...base, assignments: [{ id: 'a', personId: 'p1', date: '2026-10-12', competence: 'banner', start: 420, end: 900, source: 'manual' }] }
-    expect(competenceUse(ws, 'foga')).toEqual({ productTypes: 0, demandLines: 0, rows: 2, people: 0, blocks: 0 })
+    expect(competenceUse(ws, 'foga')).toEqual({ productTypes: 0, demandLines: 0, rows: 2, people: 0, suppliers: 0, blocks: 0 })
     expect(competenceUse(ws, 'skilting')).toMatchObject({ productTypes: 1, rows: 0 })
     expect(competenceUse(ws, 'banner')).toMatchObject({ people: 1, blocks: 1 })
     const use = competenceUse(ws, 'ny')
     expect(Object.values(use).every((n) => n === 0)).toBe(true)
     expect(isUnusedCompetence({ ...ws, competenceStyles: addCompetence(ws, 'Ny')! }, 'ny')).toBe(true)
+  })
+})
+
+describe('unstaffedCompetences', () => {
+  const line = (competence: string): DemandLine => ({ id: competence, projectNo: '26970', projectName: 'VVS 2026', source: 'test', workType: 'Vegg', quantity: 1, unit: 'stk', stand: '', hall: 'D1', competence, basis: 'Planlagt', assemblyHours: 2, dismantleHours: 1, comment: '', origin: 'manual' })
+  it('lists the competences of the demand that no active person has', () => {
+    const ws: Workspace = { ...base, demand: [line('Banner'), line('FOGA'), line(' foga')], persons: [...base.persons!, { id: 'p2', name: 'Per', order: 1, active: false, competences: ['foga'] }] }
+    expect(unstaffedCompetences(ws).map((style) => style.key)).toEqual(['foga'])
   })
 })
 

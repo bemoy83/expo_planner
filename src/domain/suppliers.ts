@@ -9,10 +9,10 @@ import { SHIFT_IDS, type CompetenceKey, type ShiftId, type Supplier, type Worksp
 
 export const isSupplierNameTaken = (suppliers: Supplier[], name: string, exceptId?: string): boolean => suppliers.some((s) => s.id !== exceptId && nameKey(s.name) === nameKey(name))
 
-/** A new supplier at the end of the list, with every shift and no competence. */
-export const addSupplier = (suppliers: Supplier[], name: string, id: string = `supplier-${crypto.randomUUID()}`): Supplier[] => [
+/** A new supplier at the end of the list, with every shift and the competences given. */
+export const addSupplier = (suppliers: Supplier[], name: string, id: string = `supplier-${crypto.randomUUID()}`, competences: CompetenceKey[] = []): Supplier[] => [
   ...suppliers,
-  { id, name: name.trim(), order: Math.max(-1, ...suppliers.map((s) => s.order)) + 1, competences: [], shifts: [...SHIFT_IDS] },
+  { id, name: name.trim(), order: Math.max(-1, ...suppliers.map((s) => s.order)) + 1, competences, shifts: [...SHIFT_IDS] },
 ]
 
 export const updateSupplier = (suppliers: Supplier[], id: string, patch: Partial<Omit<Supplier, 'id'>>): Supplier[] => suppliers.map((s) => (s.id === id ? { ...s, ...patch } : s))

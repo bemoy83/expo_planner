@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import { useWorkspace } from '../store/workspaceStore'
 
 export interface Toast {
   id: number
@@ -31,6 +32,18 @@ export function useToasts() {
     [dismiss],
   )
   return { toasts, show, dismiss }
+}
+
+/** Says what a change did, with «Angre» to take it back. */
+export type Notify = (text: string) => void
+
+/** Toasts for the planner's tables, where every change says what it did and can be undone from the toast. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useUndoToasts() {
+  const { undo } = useWorkspace()
+  const { toasts, show, dismiss } = useToasts()
+  const notify = useCallback<Notify>((text) => show(text, { label: 'Angre', run: undo }), [show, undo])
+  return { toasts, show, dismiss, notify }
 }
 
 export function Toasts({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
