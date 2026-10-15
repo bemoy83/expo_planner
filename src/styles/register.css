@@ -62,6 +62,9 @@
 .op-phase{width:8px;height:8px;border-radius:2px;flex:none}
 .op-phase.assembly{background:var(--ph-assembly)}
 .op-phase.dismantle{background:var(--ph-dismantle)}
+/* the work phases as the plan of the Kalender colours them, on VenYou */
+.op-phase.mon{background:var(--mon)}
+.op-phase.dem{background:var(--dem)}
 .op-unknown{font-size:var(--fs-sm);color:var(--faint)}
 /* the units of a type, folded out under it */
 .op-row.unfolded{border-bottom-color:transparent}

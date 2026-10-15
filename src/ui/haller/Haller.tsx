@@ -247,7 +247,7 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
               <span title="Klikk en hall for å vise eller skjule den i Kalender">Haller</span>
               {VENUE_PHASES.map((phase) => (
                 <span key={phase} className={`hl-days ${phase}`}>
-                  {(phase === 'assembly' || phase === 'dismantle') && <i className={`op-phase ${phase}`} aria-hidden />}
+                  {(phase === 'assembly' || phase === 'dismantle') && <i className={`op-phase ${phase === 'assembly' ? 'mon' : 'dem'}`} aria-hidden />}
                   {PHASE_HEADERS[phase]}
                 </span>
               ))}
