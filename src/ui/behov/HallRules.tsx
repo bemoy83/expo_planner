@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from 'lucide-react'
+import { Check, Plus, Trash2, X } from 'lucide-react'
 import { withAreaRenamed } from '../../domain/areas'
 import { todayIso } from '../../domain/dates'
 import { reviewPlacing, type UnplacedText } from '../../domain/hallReview'
@@ -19,6 +19,7 @@ import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { ColumnHead } from '../ColumnHead'
 import { useTable, type Column } from '../useTable'
+import { OrderHandle, useRowOrder } from '../RowOrder'
 import { hours } from './format'
 import { PlacingPanel, type TriedText } from './PlacingPanel'
 import { SplitPick } from './SplitPick'
@@ -85,7 +86,7 @@ function HallToggles({ halls, picked, shadowOf, onChange }: { halls: string[]; p
  * tried. Apart from them the areas, which place nothing and decide what the Kalender shows. One part is shown at a
  * time; on the right, a text is tried against the rules, with the order they are tried in.
  */
-export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () => void }) {
+export function HallRules({ head, notify, show }: TablePage) {
   const { workspace, setHallRules } = useWorkspace()
   const ws = workspace!
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
@@ -102,8 +103,6 @@ export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [scopes, setScopes] = useState<Record<string, Scope>>({})
   const [bulkScope, setBulkScope] = useState<Scope>('all')
-  const [dragged, setDragged] = useState<number | null>(null)
-  const [over, setOver] = useState<number | null>(null)
   /** Switching parts lets go of what was selected. */
   const setPart = (next: Part) => {
     setPartPref(next)
@@ -148,6 +147,7 @@ export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () 
     next.splice(to, 0, ...next.splice(from, 1))
     setPhrases(next, `${quoted(rules.phrases[from].text)} prøves nå som nr. ${to + 1}`)
   }
+  const phraseOrder = useRowOrder(movePhrase)
 
   /** The places to count under, in groups: the planner's places, the halls, and the place of demand not shared out on halls. */
   const placeGroups: PickGroup[] = [
@@ -486,33 +486,16 @@ export function HallRules({ head, notify, show }: TablePage & { onOpenBehov: () 
                   {rules.phrases.map((phrase, index) => {
                     const use = review.phrases[index] ?? { lines: 0, texts: [], matches: 0 }
                     return (
-                      <div
-                        key={index}
-                        className={`op-row ${dragged === index ? 'mk-dragged' : ''} ${over === index && dragged !== null && dragged !== index ? 'mk-over' : ''}`}
-                        onDragOver={(e) => {
-                          if (dragged === null) return
-                          e.preventDefault()
-                          setOver(index)
-                        }}
-                        onDrop={() => {
-                          if (dragged !== null) movePhrase(dragged, index)
-                          setDragged(null)
-                          setOver(null)
-                        }}
-                      >
-                        <span className="mk-order">
-                          <span className="mk-grip" draggable title="Dra for å endre rekkefølgen" onDragStart={() => setDragged(index)} onDragEnd={() => (setDragged(null), setOver(null))}>
-                            <GripVertical size={14} aria-hidden />
-                          </span>
-                          <span className="mk-arrows">
-                            <button className="icon-button" title="Flytt opp: prøves før" disabled={index === 0} onClick={() => movePhrase(index, index - 1)}>
-                              <ChevronUp size={12} aria-hidden />
-                            </button>
-                            <button className="icon-button" title="Flytt ned: prøves etter" disabled={index === rules.phrases.length - 1} onClick={() => movePhrase(index, index + 1)}>
-                              <ChevronDown size={12} aria-hidden />
-                            </button>
-                          </span>
-                        </span>
+                      <div key={index} {...phraseOrder.row(index)}>
+                        <OrderHandle
+                          index={index}
+                          count={rules.phrases.length}
+                          grip={phraseOrder.grip(index)}
+                          onMove={movePhrase}
+                          gripTitle="Dra for å endre rekkefølgen"
+                          upTitle="Flytt opp: prøves før"
+                          downTitle="Flytt ned: prøves etter"
+                        />
                         <span className="num muted">{index + 1}</span>
                         <span className="op-name">
                           <span className={`hl-words ${phrase.text ? '' : 'want'}`}>

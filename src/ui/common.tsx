@@ -283,3 +283,46 @@ export function ConfirmDialog({ title, children, onCancel, actions }: { title: s
     </div>
   )
 }
+
+interface FormDialogProps {
+  title: string
+  /** A line under the title. */
+  lead?: ReactNode
+  wide?: boolean
+  /** What stands in the way of adding, beside the buttons. */
+  issue?: string | false
+  valid: boolean
+  submitLabel?: string
+  onSubmit: () => void
+  onClose: () => void
+  children: ReactNode
+}
+
+/** A dialog that asks for something new: its fields, «Avbryt» and the button that adds it. Escape closes an open list first, then the dialog. */
+export function FormDialog({ title, lead, wide, issue, valid, submitLabel = 'Legg til', onSubmit, onClose, children }: FormDialogProps) {
+  return (
+    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form
+        className={wide ? 'dialog wide' : 'dialog'}
+        onKeyDown={(e) => e.key === 'Escape' && (e.target as HTMLElement).getAttribute('aria-expanded') !== 'true' && onClose()}
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (valid) onSubmit()
+        }}
+      >
+        <h2>{title}</h2>
+        {lead && <p className="hint">{lead}</p>}
+        {children}
+        <div className="dialog-actions">
+          {issue && <span className="issue">{issue}</span>}
+          <button type="button" onClick={onClose}>
+            Avbryt
+          </button>
+          <button type="submit" className="primary" disabled={!valid}>
+            {submitLabel}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}

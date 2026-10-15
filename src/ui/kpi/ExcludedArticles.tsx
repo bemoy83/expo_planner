@@ -26,17 +26,20 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
   const offered = [...seen.values()].filter((article) => !out.has(articleKey(article.articleNo)))
   const dropped = useMemo(() => excludedLines(visma ?? [], kpi), [visma, kpi])
   const known = out.has(articleKey(number))
+  /** The article typed, as the exports have it. */
+  const typed = seen.get(articleKey(number))
   const add = () => {
     if (!number.trim() || known) return
     // The text of its lines is the note when none is written.
-    setKpi(withExcludedArticle(kpi, number, note.trim() || seen.get(articleKey(number))?.texts[0] || ''))
-    const lines = seen.get(articleKey(number))?.lines
+    setKpi(withExcludedArticle(kpi, number, note.trim() || typed?.texts[0] || ''))
+    const lines = typed?.lines
     notify(`Utelot art.nr ${number.trim()}${lines ? `: ${count(lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor` : ''}.`)
     setNumber('')
     setNote('')
   }
+  const seenOf = (article: ExcludedArticle) => seen.get(articleKey(article.articleNo))
   const columns: Column<ExcludedArticle>[] = [
-    { key: 'articleNo', head: 'Art.nr', className: 'num-id', text: (article) => article.articleNo, cell: (article) => <strong className="op-number">{article.articleNo}</strong> },
+    { key: 'articleNo', head: 'Art.nr', text: (article) => article.articleNo, cell: (article) => <strong className="op-number">{article.articleNo}</strong> },
     {
       key: 'note',
       head: 'Merknad',
@@ -46,17 +49,17 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
     {
       key: 'texts',
       head: 'Tekst i ordrene',
-      text: (article) => seen.get(articleKey(article.articleNo))?.texts.join(' · ') ?? '',
-      cell: (article) => <span className="muted">{seen.get(articleKey(article.articleNo))?.texts.join(' · ')}</span>,
+      text: (article) => seenOf(article)?.texts.join(' · ') ?? '',
+      cell: (article) => <span className="muted">{seenOf(article)?.texts.join(' · ')}</span>,
     },
     {
       key: 'lines',
       head: 'Linjer',
       title: 'Ordrelinjer med artikkelen i Visma-utskriftene som er lest inn',
       className: 'num',
-      text: (article) => String(seen.get(articleKey(article.articleNo))?.lines ?? ''),
-      sort: (article) => seen.get(articleKey(article.articleNo))?.lines ?? 0,
-      cell: (article) => seen.get(articleKey(article.articleNo))?.lines || '',
+      text: (article) => String(seenOf(article)?.lines ?? ''),
+      sort: (article) => seenOf(article)?.lines ?? 0,
+      cell: (article) => seenOf(article)?.lines || '',
     },
     {
       key: 'actions',
@@ -96,11 +99,11 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
           aria-label="Artikkelnummer som skal utelates"
           className="op-add-no"
         />
-        <input className="op-add-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={seen.get(articleKey(number))?.texts[0] ? `Merknad (blir «${seen.get(articleKey(number))!.texts[0]}»)` : 'Merknad (valgfri)'} aria-label="Merknad" />
+        <input className="op-add-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={typed?.texts[0] ? `Merknad (blir «${typed.texts[0]}»)` : 'Merknad (valgfri)'} aria-label="Merknad" />
         <button type="submit" className="primary" disabled={!number.trim() || known}>
           <Ban size={14} aria-hidden /> Utelat
         </button>
-        {known ? <span className="op-warn">Artikkelen er allerede utelatt.</span> : seen.get(articleKey(number)) && <span className="muted small">{count(seen.get(articleKey(number))!.lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor</span>}
+        {known ? <span className="op-warn">Artikkelen er allerede utelatt.</span> : typed && <span className="muted small">{count(typed.lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor</span>}
       </form>
       <div className="op-scroll">
         {listed.length ? (

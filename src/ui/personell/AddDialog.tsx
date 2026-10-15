@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CompetenceKey, CompetenceStyle } from '../../domain/types'
+import { FormDialog } from '../common'
 import { CompetencePicker } from './CompetenceChips'
 
 interface AddProps {
@@ -20,41 +21,20 @@ export function AddDialog({ title, label, lead, taken, styles, onAdd, onClose }:
   const [name, setName] = useState('')
   const [held, setHeld] = useState<CompetenceKey[]>([])
   const duplicate = name.trim() !== '' && taken(name)
-  const valid = name.trim() !== '' && !duplicate
   return (
-    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form
-        className={`dialog ${styles ? 'wide' : ''}`}
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (valid) onAdd(name.trim(), held)
-        }}
-        onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      >
-        <h2>{title}</h2>
-        {lead && <p className="hint">{lead}</p>}
-        <label>
-          {label}
-          <input value={name} autoFocus onChange={(e) => setName(e.target.value)} />
-        </label>
-        {styles && styles.length > 0 && (
-          <div className="dialog-field">
-            <span>
-              Kompetanser <small>· kan settes senere</small>
-            </span>
-            <CompetencePicker styles={styles} held={held} onChange={setHeld} />
-          </div>
-        )}
-        <div className="dialog-actions">
-          {duplicate && <span className="issue">Finnes allerede i listen.</span>}
-          <button type="button" onClick={onClose}>
-            Avbryt
-          </button>
-          <button type="submit" className="primary" disabled={!valid}>
-            Legg til
-          </button>
+    <FormDialog title={title} lead={lead} wide={!!styles} issue={duplicate && 'Finnes allerede i listen.'} valid={name.trim() !== '' && !duplicate} onSubmit={() => onAdd(name.trim(), held)} onClose={onClose}>
+      <label>
+        {label}
+        <input value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+      </label>
+      {styles && styles.length > 0 && (
+        <div className="dialog-field">
+          <span>
+            Kompetanser <small>· kan settes senere</small>
+          </span>
+          <CompetencePicker styles={styles} held={held} onChange={setHeld} />
         </div>
-      </form>
-    </div>
+      )}
+    </FormDialog>
   )
 }

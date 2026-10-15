@@ -6,7 +6,7 @@ import { countsStands, yieldByType, type TypeYield } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
 import { usePref } from '../../store/prefs'
 import { count } from '../dom'
-import { Segmented } from '../common'
+import { FormDialog, Segmented } from '../common'
 import { NumberField, PickField, TextField, type PickItem } from '../fields'
 import { NeedButton, SplitPick } from '../behov/SplitPick'
 import { useCompetenceColor } from '../behov/format'
@@ -207,18 +207,21 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
                 ))}
               </section>
             )}
-            {groups.map(({ competence, types }) => (
-              <section key={competence} className="op-group">
-                <div className="op-group-head">
-                  <i className="field-dot" style={{ background: color(competence) ?? 'var(--faint)' }} aria-hidden />
-                  {competence || 'Uten kompetanse'} <span className="op-group-count">{types.length}</span>
-                  {total(types) > 0 && <span className="op-group-note">{wholeHours(total(types))} t</span>}
-                </div>
-                {types.map((type) => (
-                  <TypeRows key={type.name} type={type} edits={edits} />
-                ))}
-              </section>
-            ))}
+            {groups.map(({ competence, types }) => {
+              const hours = total(types)
+              return (
+                <section key={competence} className="op-group">
+                  <div className="op-group-head">
+                    <i className="field-dot" style={{ background: color(competence) ?? 'var(--faint)' }} aria-hidden />
+                    {competence || 'Uten kompetanse'} <span className="op-group-count">{types.length}</span>
+                    {hours > 0 && <span className="op-group-note">{wholeHours(hours)} t</span>}
+                  </div>
+                  {types.map((type) => (
+                    <TypeRows key={type.name} type={type} edits={edits} />
+                  ))}
+                </section>
+              )
+            })}
             {!shown.length && <p className="op-empty">Ingen produkttyper passer søket eller filteret.</p>}
           </div>
         </div>
@@ -304,7 +307,7 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
   const needsUnit = type.lacking === 'new' || type.lacking === 'unit'
   return (
     <>
-      <div className={`op-row ${type.unfinished ? 'unfinished' : ''} ${open ? 'unfolded' : ''}`}>
+      <div className={open ? 'op-row unfolded' : 'op-row'}>
         <span className="op-fold">
           {several && (
             <button className="icon-button small" aria-expanded={open} title={open ? 'Skjul enhetene' : 'Vis satsene for alle enhetene'} onClick={() => edits.toggle(type.name)}>
@@ -368,7 +371,7 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
         units.map((row) => {
           const given = edits.given(type, row.unit)
           return (
-          <div key={row.unit} className={`op-row op-sub ${row.active ? 'in-use' : ''}`}>
+          <div key={row.unit} className="op-row op-sub">
             <span />
             <span>
               {row.active ? (
@@ -435,52 +438,39 @@ function AddDialog({ initial, typeNames, units, competences, setUp, exists, onAd
 
   const per = `${unit.trim() || 'enheter'} per time`
   return (
-    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form
-        className="dialog wide"
-        // Escape closes an open list first, then the dialog.
-        onKeyDown={(e) => e.key === 'Escape' && (e.target as HTMLElement).getAttribute('aria-expanded') !== 'true' && onClose()}
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (valid) onAdd({ name, unit, competence, assembly: toNumber(assembly), dismantle: toNumber(dismantle) })
-        }}
-      >
-        <h2>{initial.name ? `Ny enhet for ${initial.name}` : 'Ny produkttype'}</h2>
-        <p className="hint">{initial.name ? 'Satsene gjelder bare denne enheten. Enheten i bruk endres ikke.' : 'Navnet må være som i Visma: det er det som kobler ordrelinjene til satsen.'}</p>
-        <div className="op-form">
-          <label className="wide">
-            Produkttype
-            <PickField options={typeNames} value={name} autoFocus={!initial.name} disabled={!!initial.name} onChange={setName} placeholder="Som i Visma, f.eks. FOGA-vegger" />
-          </label>
-          <label>
-            Enhet
-            <PickField options={units} value={unit} autoFocus={!!initial.name} onChange={setUnit} placeholder="stk, m, m², ordre" />
-          </label>
-          <label className="full">
-            <span>
-              Kompetanse (nøkkelområde){fixed !== undefined && <small> · følger produkttypen</small>}
-            </span>
-            <PickField options={competences} value={fixed ?? competence} disabled={fixed !== undefined} onChange={setCompetence} />
-          </label>
-          <label className="half">
-            Montering, {per}
-            <input inputMode="decimal" value={assembly} onChange={(e) => setAssembly(e.target.value)} />
-          </label>
-          <label className="half">
-            Demontering, {per}
-            <input inputMode="decimal" value={dismantle} placeholder="tomt = ingen" onChange={(e) => setDismantle(e.target.value)} />
-          </label>
-        </div>
-        <div className="dialog-actions">
-          {duplicate && <span className="op-warn">Produkttypen har allerede denne enheten.</span>}
-          <button type="button" onClick={onClose}>
-            Avbryt
-          </button>
-          <button type="submit" className="primary" disabled={!valid}>
-            Legg til
-          </button>
-        </div>
-      </form>
-    </div>
+    <FormDialog
+      title={initial.name ? `Ny enhet for ${initial.name}` : 'Ny produkttype'}
+      lead={initial.name ? 'Satsene gjelder bare denne enheten. Enheten i bruk endres ikke.' : 'Navnet må være som i Visma: det er det som kobler ordrelinjene til satsen.'}
+      wide
+      issue={duplicate && 'Produkttypen har allerede denne enheten.'}
+      valid={valid}
+      onSubmit={() => onAdd({ name, unit, competence, assembly: toNumber(assembly), dismantle: toNumber(dismantle) })}
+      onClose={onClose}
+    >
+      <div className="op-form">
+        <label className="wide">
+          Produkttype
+          <PickField options={typeNames} value={name} autoFocus={!initial.name} disabled={!!initial.name} onChange={setName} placeholder="Som i Visma, f.eks. FOGA-vegger" />
+        </label>
+        <label>
+          Enhet
+          <PickField options={units} value={unit} autoFocus={!!initial.name} onChange={setUnit} placeholder="stk, m, m², ordre" />
+        </label>
+        <label className="full">
+          <span>
+            Kompetanse (nøkkelområde){fixed !== undefined && <small> · følger produkttypen</small>}
+          </span>
+          <PickField options={competences} value={fixed ?? competence} disabled={fixed !== undefined} onChange={setCompetence} />
+        </label>
+        <label className="half">
+          Montering, {per}
+          <input inputMode="decimal" value={assembly} onChange={(e) => setAssembly(e.target.value)} />
+        </label>
+        <label className="half">
+          Demontering, {per}
+          <input inputMode="decimal" value={dismantle} placeholder="tomt = ingen" onChange={(e) => setDismantle(e.target.value)} />
+        </label>
+      </div>
+    </FormDialog>
   )
 }

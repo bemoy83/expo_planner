@@ -22,7 +22,7 @@ interface Props {
   /** Opens the file dialog for a Venyou export. */
   onReadVenyou: () => void
   venyouTitle: string
-  onOpenBehov: (projectNo?: string) => void
+  onOpenBehov: (projectNo: string) => void
 }
 
 /** The halls: the bookings from Venyou, the projects they belong to, and the rules that place the demand in a hall. A page each. */
@@ -64,7 +64,7 @@ export function HallerTab({ page, pages, onPage, onReadVenyou, venyouTitle, onOp
     <div className="register-page">
       {page === 'haller' && <Haller {...props} onOpenProjects={() => onPage('prosjekter')} onReadVenyou={onReadVenyou} venyouTitle={venyouTitle} />}
       {page === 'prosjekter' && <Prosjekter {...props} onOpenBehov={onOpenBehov} />}
-      {page === 'hallregler' && <HallRules {...props} onOpenBehov={() => onOpenBehov()} />}
+      {page === 'hallregler' && <HallRules {...props} />}
       <Toasts toasts={toasts} onDismiss={dismiss} />
     </div>
   )

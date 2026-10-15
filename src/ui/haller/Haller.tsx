@@ -126,7 +126,7 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
     const ongoing = group.anchor <= today && group.end >= today
     return (
       <Fragment key={group.key}>
-        <div className={`op-row hl-event ${group.shown ? '' : 'hl-hidden'} ${unfolded ? 'unfolded' : ''}`}>
+        <div className={`op-row ${group.shown ? '' : 'hl-hidden'} ${unfolded ? 'unfolded' : ''}`}>
           <span className="mk-center">
             <TriCheck state={stateOf(group.shown, group.keys.length)} label={`Vis ${group.name} i Kalender`} onChange={(on) => hide(group.keys, !on, on ? `${group.name} vises i Kalender` : `${group.name} er skjult i Kalender`)} />
           </span>

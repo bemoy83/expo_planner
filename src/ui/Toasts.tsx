@@ -16,18 +16,23 @@ const SHOWN_FOR_MS = 6000
 export function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const nextId = useRef(1)
-  const timers = useRef(new Set<number>())
+  /** The timer of each toast that shows, cleared when it goes. */
+  const timers = useRef(new Map<number, number>())
   useEffect(() => {
     const running = timers.current
     return () => running.forEach((timer) => clearTimeout(timer))
   }, [])
-  const dismiss = useCallback((id: number) => setToasts((list) => list.filter((toast) => toast.id !== id)), [])
+  const dismiss = useCallback((id: number) => {
+    clearTimeout(timers.current.get(id))
+    timers.current.delete(id)
+    setToasts((list) => list.filter((toast) => toast.id !== id))
+  }, [])
   const show = useCallback(
     (text: string, action?: Toast['action']) => {
       const id = nextId.current++
       // The same message again replaces the one that is showing.
       setToasts((list) => [...list.filter((toast) => toast.text !== text), { id, text, action }])
-      timers.current.add(window.setTimeout(() => dismiss(id), SHOWN_FOR_MS))
+      timers.current.set(id, window.setTimeout(() => dismiss(id), SHOWN_FOR_MS))
     },
     [dismiss],
   )

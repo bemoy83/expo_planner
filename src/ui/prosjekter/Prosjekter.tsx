@@ -5,7 +5,7 @@ import { diffProjectList, mergeProjectList, normalizeName, projectRows, replaceP
 import type { ProjectRef } from '../../domain/types'
 import { readProsjekterWorkbook, writeProsjekterWorkbook } from '../../import/prosjekterFile'
 import { useWorkspace } from '../../store/workspaceStore'
-import { MergeReplaceDialog } from '../common'
+import { ConfirmDialog, FormDialog, MergeReplaceDialog } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
@@ -37,6 +37,7 @@ export function Prosjekter({ head, notify, show, onOpenBehov }: TablePage & { on
   const projects = ws.projects
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  const [merging, setMerging] = useState<{ row: ProjectRow; to: string; other: ProjectRow } | null>(null)
 
   const rows = useMemo(() => projectRows(ws), [ws.venue, ws.projects, ws.visma, ws.demand, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
   const found = useMemo(() => {
@@ -80,11 +81,12 @@ export function Prosjekter({ head, notify, show, onOpenBehov }: TablePage & { on
     save(next, renumbered ? `${renumbered.from} er nå ${row.projectNo}.` : `${row.replaces!.name} er flyttet fra ${row.replaces!.projectNo} til ${row.projectNo}.`, renumbered)
   }
 
+  /** A number another project has merges the two, so that is asked first. */
   const renumber = (row: ProjectRow, to: string) => {
     if (!to) return
     const other = rows.find((r) => r !== row && r.projectNo.toLowerCase() === to.toLowerCase())
-    if (other && !confirm(`${to} er allerede ${other.names[0] ?? 'et prosjekt'}. Slå ${row.projectNo} sammen med det?`)) return
-    save(withProjectNo(projects, row.projectNo, to), `${row.projectNo} er nå ${to}.`, { from: row.projectNo, to: other?.projectNo ?? to })
+    if (other) setMerging({ row, to, other })
+    else save(withProjectNo(projects, row.projectNo, to), `${row.projectNo} er nå ${to}.`, { from: row.projectNo, to })
   }
 
   const removeName = (row: ProjectRow, name: string) => {
@@ -334,6 +336,26 @@ export function Prosjekter({ head, notify, show, onOpenBehov }: TablePage & { on
         />
       )}
 
+      {merging && (
+        <ConfirmDialog
+          title={`Slå ${merging.row.projectNo} sammen med ${merging.other.projectNo}?`}
+          onCancel={() => setMerging(null)}
+          actions={
+            <button
+              className="primary"
+              onClick={() => {
+                save(withProjectNo(projects, merging.row.projectNo, merging.to), `${merging.row.projectNo} er nå ${merging.to}.`, { from: merging.row.projectNo, to: merging.other.projectNo })
+                setMerging(null)
+              }}
+            >
+              Slå sammen
+            </button>
+          }
+        >
+          {merging.to} er allerede {merging.other.names[0] ?? 'et prosjekt'}. Navnene til {merging.row.projectNo} flyttes dit, og radene i Kalender og dine egne behovslinjer følger med. Det kan angres.
+        </ConfirmDialog>
+      )}
+
       {adding && (
         <AddDialog
           names={openNames}
@@ -406,39 +428,22 @@ function AddDialog({ names, yearOf, suggest, onAdd, onClose }: AddProps) {
   const projectNo = typedNo.trim() || suggestion
   const valid = name.trim() !== '' && projectNo !== '' && isYear(year)
   return (
-    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form
-        className="dialog"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (valid) onAdd(projectNo, name, year)
-        }}
-      >
-        <h2>Nytt prosjekt</h2>
-        <label>
-          Navn
-          <PickField options={names} value={name} autoFocus onChange={setName} placeholder="Som i Venyou eller Visma" />
+    <FormDialog title="Nytt prosjekt" valid={valid} onSubmit={() => onAdd(projectNo, name, year)} onClose={onClose}>
+      <label>
+        Navn
+        <PickField options={names} value={name} autoFocus onChange={setName} placeholder="Som i Venyou eller Visma" />
+      </label>
+      <div className="field-row">
+        <label className="narrow">
+          År
+          <input inputMode="numeric" value={year} onChange={(e) => setTypedYear(e.target.value.trim())} />
         </label>
-        <div className="field-row">
-          <label className="narrow">
-            År
-            <input inputMode="numeric" value={year} onChange={(e) => setTypedYear(e.target.value.trim())} />
-          </label>
-          <label>
-            Prosjektnr.
-            <input value={typedNo} placeholder={suggestion} onChange={(e) => setTypedNo(e.target.value)} />
-          </label>
-        </div>
-        <p className="hint">Har prosjektet et nummer i Visma, skriver du det. Ellers brukes forslaget: året og tre bokstaver fra navnet.</p>
-        <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
-            Avbryt
-          </button>
-          <button type="submit" className="primary" disabled={!valid}>
-            Legg til
-          </button>
-        </div>
-      </form>
-    </div>
+        <label>
+          Prosjektnr.
+          <input value={typedNo} placeholder={suggestion} onChange={(e) => setTypedNo(e.target.value)} />
+        </label>
+      </div>
+      <p className="hint">Har prosjektet et nummer i Visma, skriver du det. Ellers brukes forslaget: året og tre bokstaver fra navnet.</p>
+    </FormDialog>
   )
 }

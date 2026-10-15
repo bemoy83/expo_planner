@@ -22,7 +22,7 @@
 .op-table{flex:1;min-height:0;display:flex;flex-direction:column;font-size:var(--fs-base)}
 .op-types{--cols:24px minmax(180px,1.4fr) 168px minmax(130px,1fr) 92px 104px 52px 116px 56px}
 .op-body{flex:1;min-height:0;overflow-y:auto;padding-bottom:96px}
-.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 10px;border-bottom:1px solid color-mix(in oklab,var(--line) 45%,transparent)}
+.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 10px;border-bottom:1px solid var(--line-soft)}
 .op-row>*{min-width:0}
 .op-row input.inline:not(.num){min-width:0}
 .op-row:not(.op-head):hover{background:var(--surface)}
@@ -33,7 +33,7 @@
 .op-head .num{font:inherit}
 /* a group: what lacks setup first, then a competence each. The strong line is the start of a group, and nothing else. */
 .op-group+.op-group .op-group-head{border-top:1px solid var(--line-strong)}
-.op-group-head{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px 10px 0;font-weight:600;border-bottom:1px solid color-mix(in oklab,var(--line) 45%,transparent)}
+.op-group-head{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px 10px 0;font-weight:600;border-bottom:1px solid var(--line-soft)}
 .op-group-head .field-dot{margin:0}
 .op-group-count{font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 .op-group-note{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--muted)}
@@ -47,8 +47,10 @@
 .op-lacking{flex:none;font-size:var(--fs-xs);font-weight:500;color:var(--over);white-space:nowrap}
 .op-tag{flex:none;font-size:var(--fs-xs);color:var(--faint);white-space:nowrap}
 .op-unit{display:flex;align-items:center}
-.op-units .segmented{padding:2px;border-radius:7px}
-.op-units .segmented button{height:24px;padding:0 9px;border-radius:5px;font:500 var(--fs-sm) var(--font-num)}
+/* a switch in a row or in the bar of what is selected: smaller than the switches of the bars */
+:is(.op-units,.hl-unplaced,.hl-bulk) .segmented{padding:2px;border-radius:7px}
+:is(.op-units,.hl-unplaced,.hl-bulk) .segmented button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
+.op-units .segmented button{font:500 var(--fs-sm) var(--font-num)}
 .op-units .segmented button.active{box-shadow:var(--raise)}
 .op-units.want .segmented{box-shadow:0 0 0 1.5px var(--alert-warn)}
 .op-competence .quiet-chip{max-width:100%}
@@ -97,9 +99,8 @@
 .op-form>label.half{grid-column:span 3}
 .op-form small{font-weight:400;color:var(--faint)}
 .op-form input{width:100%}
-.dialog-actions .op-warn{margin-right:auto}
 
-/* Mannskap (ui/personell/, ui/leverandorer/): the competences someone has as chips, the switch of being active, and the shifts */
+/* Mannskap (ui/personell/, ui/leverandorer/): the competences someone has as chips, and the shifts */
 .mk-people{--cols:minmax(150px,1fr) minmax(260px,2.4fr) minmax(140px,1fr) 40px}
 .mk-suppliers{--cols:minmax(150px,1fr) minmax(220px,1.8fr) 156px 92px minmax(140px,1fr) minmax(120px,1fr) 40px}
 .mk-competences{--cols:52px 40px minmax(120px,1fr) 64px 52px 176px 52px 56px minmax(160px,1.4fr) 36px}
@@ -120,7 +121,7 @@
 .mk-pick{display:inline-flex;width:180px}
 .mk-pick input{height:24px;width:100%;padding:0 8px;font-size:var(--fs-sm)}
 .mk-pickall{padding:0}
-/* how many active people have each competence, to filter by */
+/* how many rows have each competence, to filter by */
 .mk-cover{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin:0 0 12px;padding:6px 8px;border-radius:8px;background:var(--sunken)}
 .mk-cover-label{margin:0 6px 0 4px;font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
 .mk-cover-item{gap:6px;height:26px;padding:0 8px;border-radius:6px;background:none;font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
@@ -193,11 +194,10 @@
 /* Prosjekter: the events without a project first, with what each is offered */
 .hl-projects{--cols:minmax(170px,auto) 48px minmax(220px,2fr) 96px minmax(150px,1fr) 64px}
 .hl-offer{display:flex;align-items:center;gap:4px;padding:4px 0}
-.hl-offer button.small{height:26px;padding:0 10px;font-size:var(--fs-sm)}
-.hl-all{margin-left:12px;height:26px;padding:0 10px;font-size:var(--fs-sm);font-weight:500}
+:is(.hl-offer button.small,.hl-all,.hl-add button){height:26px;padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
+.hl-all{margin-left:12px;font-weight:500}
 .hl-number input{font-weight:600}
 .hl-add{display:flex;justify-content:flex-end;gap:4px}
-.hl-add button{height:26px;padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
 
 /* Hallregler (ui/behov/HallRules.tsx): the rules on the left, a part at a time, and the tester fixed at the right */
 .hl-rules{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px}
@@ -206,8 +206,6 @@
 .hl-lead{flex:none;margin:0 0 12px;color:var(--muted)}
 .hl-text{font-weight:500;text-align:left}
 .hl-unplaced{--cols:28px minmax(140px,1fr) minmax(110px,.8fr) 52px 60px 214px 150px 72px}
-.hl-unplaced .segmented{padding:2px;border-radius:7px}
-.hl-unplaced .segmented button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
 .hl-selected{background:color-mix(in oklab,var(--accent) 8%,transparent)}
 .hl-choices{--cols:minmax(160px,1fr) minmax(150px,1fr) minmax(130px,1fr) 64px 40px}
 .hl-places{--cols:minmax(130px,.6fr) minmax(0,2fr) 150px 40px}
@@ -223,8 +221,6 @@
 /* what is selected of the texts, as a bar that floats over the bottom of the rules */
 .hl-bulk{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border-radius:12px;background:var(--panel);box-shadow:var(--pop);font-size:var(--fs-sm);white-space:nowrap}
 .hl-bulk-gap{width:1px;height:18px;background:var(--line-strong)}
-.hl-bulk .segmented{padding:2px;border-radius:7px}
-.hl-bulk .segmented button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
 @container (max-width:860px){
   .hl-unplaced{--cols:28px minmax(100px,1fr) minmax(80px,.7fr) 190px 124px}
   .hl-unplaced .op-row>:is(:nth-child(4),:nth-child(5),:nth-child(8)){display:none}

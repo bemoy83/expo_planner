@@ -2,7 +2,7 @@ import type { CompetenceKey, CompetenceStyle } from '../../domain/types'
 import { competenceColor } from '../dom'
 
 interface Props {
-  /** What the counts are of: «Aktive med kompetansen». */
+  /** What the counts are of: «Faste med kompetansen». */
   label: string
   styles: CompetenceStyle[]
   /** How many of the rows have the competence. */

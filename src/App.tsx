@@ -360,7 +360,7 @@ function Shell() {
           onPage={setView}
           onReadVenyou={() => venyouInput.current?.click()}
           venyouTitle={venyouTitle(workspace)}
-          onOpenBehov={(projectNo) => (setBehovProject(projectNo ?? ''), setView('behov'))}
+          onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))}
         />
       )}
       {status === 'ready' && workspace && tab.label === 'Mannskap' && <Mannskap page={view as MannskapPage} pages={tab.pages as RegisterPage<MannskapPage>[]} onPage={setView} />}

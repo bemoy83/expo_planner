@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, GripVertical, Plus, X } from 'lucide-react'
+import { ChevronDown, Plus, X } from 'lucide-react'
 import { competenceUse, type CompetenceUse, addCompetence, competenceStyles, diffCompetenceStyles, mergeCompetenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, setCompetenceStyle, unstaffedCompetences, type FileCompetence } from '../../domain/competences'
 import { todayIso } from '../../domain/dates'
 import { LINE_COLORS, type CompetenceStyle, type LineColor } from '../../domain/types'
@@ -9,7 +9,8 @@ import { Menu, MergeReplaceDialog } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
-import { competenceColor } from '../dom'
+import { competenceColor, count } from '../dom'
+import { OrderHandle, useRowOrder } from '../RowOrder'
 import { TextField } from '../fields'
 import { AddDialog } from './AddDialog'
 import type { TablePage } from '../RegisterHead'
@@ -18,17 +19,15 @@ import type { TablePage } from '../RegisterHead'
 const LAST_KEY = 9
 
 /** What names a competence, in words: the reason it cannot be removed. Empty when nothing does. */
-const usedBy = (use: CompetenceUse): string[] => {
-  const part = (n: number, one: string, many: string) => (n ? `${n} ${n === 1 ? one : many}` : '')
-  return [
-    part(use.productTypes, 'produkttype', 'produkttyper'),
-    part(use.demandLines, 'behovslinje', 'behovslinjer'),
-    part(use.rows, 'rad i Kalender', 'rader i Kalender'),
-    part(use.people, 'person', 'personer'),
-    part(use.suppliers, 'leverandør', 'leverandører'),
-    part(use.blocks, 'blokk i Bemanning', 'blokker i Bemanning'),
-  ].filter(Boolean)
-}
+const usedBy = (use: CompetenceUse): string[] =>
+  [
+    use.productTypes && count(use.productTypes, 'produkttype', 'produkttyper'),
+    use.demandLines && count(use.demandLines, 'behovslinje', 'behovslinjer'),
+    use.rows && count(use.rows, 'rad i Kalender', 'rader i Kalender'),
+    use.people && count(use.people, 'person', 'personer'),
+    use.suppliers && count(use.suppliers, 'leverandør', 'leverandører'),
+    use.blocks && count(use.blocks, 'blokk i Bemanning', 'blokker i Bemanning'),
+  ].filter((part): part is string => !!part)
 
 /** The colour of a competence, picked from the colours of the lines in a grid under its swatch. */
 function ColorPick({ style, onPick }: { style: CompetenceStyle; onPick: (color: LineColor) => void }) {
@@ -71,8 +70,6 @@ export function Kompetanser({ head, notify, show }: TablePage) {
   const ws = workspace!
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
-  const [dragged, setDragged] = useState<string | null>(null)
-  const [over, setOver] = useState<number | null>(null)
 
   const styles = useMemo(() => competenceStyles(ws), [ws])
   const shown = useMemo(() => {
@@ -91,11 +88,13 @@ export function Kompetanser({ head, notify, show }: TablePage) {
     updateStaffing((w) => ({ ...w, competenceStyles: setCompetenceStyle(w, style.key, patch) }))
     notify(text)
   }
-  const move = (style: CompetenceStyle, toIndex: number) => {
-    if (toIndex < 0 || toIndex >= styles.length || styles[toIndex] === style) return
-    updateStaffing((w) => ({ ...w, competenceStyles: moveCompetence(w, style.key, toIndex) }))
-    notify(`${style.label} flyttet til plass ${toIndex + 1}`)
+  const move = (from: number, to: number) => {
+    const style = styles[from]
+    if (!style || from === to || to < 0 || to >= styles.length) return
+    updateStaffing((w) => ({ ...w, competenceStyles: moveCompetence(w, style.key, to) }))
+    notify(`${style.label} flyttet til plass ${to + 1}`)
   }
+  const order = useRowOrder(move, movable)
   const rename = (style: CompetenceStyle, label: string) => {
     if (!label || label === style.label) return
     if (!renameCompetence(style.key, label)) return show(`${label} finnes allerede. To kompetanser kan ikke ha samme navn.`)
@@ -171,45 +170,20 @@ export function Kompetanser({ head, notify, show }: TablePage) {
                 const used = usedBy(competenceUse(ws, style.key))
                 const needed = unstaffed.has(style.key)
                 return (
-                  <div
-                    key={style.key}
-                    className={`op-row ${dragged === style.key ? 'mk-dragged' : ''} ${over === index && dragged && dragged !== style.key ? 'mk-over' : ''}`}
-                    onDragOver={(e) => {
-                      if (!dragged || !movable) return
-                      e.preventDefault()
-                      setOver(index)
-                    }}
-                    onDrop={() => {
-                      const from = styles.find((other) => other.key === dragged)
-                      if (from && movable) move(from, index)
-                      setDragged(null)
-                      setOver(null)
-                    }}
-                  >
-                    <span className="mk-order">
-                      <span
-                        className={`mk-grip ${movable ? '' : 'off'}`}
-                        draggable={movable}
-                        title={movable ? 'Dra for å flytte' : 'Rekkefølgen endres når søket er tomt'}
-                        onDragStart={() => setDragged(style.key)}
-                        onDragEnd={() => (setDragged(null), setOver(null))}
-                      >
-                        <GripVertical size={14} aria-hidden />
-                      </span>
-                      <span className="mk-arrows">
-                        <button className="icon-button" title="Flytt opp" disabled={!movable || index === 0} onClick={() => move(style, index - 1)}>
-                          <ChevronUp size={12} aria-hidden />
-                        </button>
-                        <button className="icon-button" title="Flytt ned" disabled={!movable || index === shown.length - 1} onClick={() => move(style, index + 1)}>
-                          <ChevronDown size={12} aria-hidden />
-                        </button>
-                      </span>
-                    </span>
+                  <div key={style.key} {...order.row(index)}>
+                    <OrderHandle
+                      index={index}
+                      count={shown.length}
+                      grip={order.grip(index)}
+                      movable={movable}
+                      onMove={move}
+                      gripTitle={movable ? 'Dra for å flytte' : 'Rekkefølgen endres når søket er tomt'}
+                    />
                     <span className="mk-center">{keys.has(style.key) && <kbd>{keys.get(style.key)}</kbd>}</span>
                     <span className="mk-name">
                       <TextField value={style.label} ariaLabel="Navn" onCommit={(label) => rename(style, label)} />
                     </span>
-                    <span className="mk-short">
+                    <span>
                       <TextField
                         className="short-label"
                         value={style.shortLabel}
