@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { todayIso } from './domain/dates'
 import { DEFAULT_SETTINGS, type Workspace } from './domain/types'
 import { readVenyouExport } from './import/venyouExport'
@@ -30,18 +30,46 @@ export default function App() {
   )
 }
 
-const TABS = [
-  ['kalender', 'Kalender'],
-  ['behov', 'Behov'],
-  ['haller', 'VenYou'],
-  ['prosjekter', 'Prosjekter'],
-  ['hallregler', 'Hallregler'],
-  ['kpi', 'KPI'],
-  ['personell', 'Personell'],
-  ['leverandorer', 'Leverandører'],
-  ['kompetanser', 'Kompetanser'],
-] as const
-type View = (typeof TABS)[number][0]
+type View = 'kalender' | 'behov' | 'haller' | 'prosjekter' | 'hallregler' | 'kpi' | 'personell' | 'leverandorer' | 'kompetanser'
+
+interface Tab {
+  label: string
+  /** The pages of the tab. A tab of the planner's tables shows them in a switch in its page header. */
+  pages: { view: View; label: string; title?: string }[]
+  /** One of the planner's tables, set apart after the tabs the planning is done in. */
+  register?: boolean
+}
+
+const TABS: Tab[] = [
+  { label: 'Kalender', pages: [{ view: 'kalender', label: 'Kalender' }] },
+  { label: 'Behov', pages: [{ view: 'behov', label: 'Behov' }] },
+  {
+    label: 'Haller',
+    register: true,
+    pages: [
+      { view: 'haller', label: 'VenYou', title: 'Hallbookingene fra Venyou, og om de vises i Kalender' },
+      { view: 'prosjekter', label: 'Prosjekter', title: 'Prosjektnumrene, og navnene hvert prosjekt har i kildene' },
+      { view: 'hallregler', label: 'Hallregler', title: 'Reglene som plasserer Hall/sted i en hall, og områdene' },
+    ],
+  },
+  {
+    label: 'Mannskap',
+    register: true,
+    pages: [
+      { view: 'personell', label: 'Faste', title: 'De faste ansatte og kompetansene deres' },
+      { view: 'leverandorer', label: 'Innleid', title: 'Leverandørene det leies inn fra' },
+      { view: 'kompetanser', label: 'Kompetanser', title: 'Navn, farge og rekkefølge på kompetansene' },
+    ],
+  },
+  { label: 'Oppsett', register: true, pages: [{ view: 'kpi', label: 'KPI', title: 'Hvordan hver produkttype leses: enhet, kompetanse og satser' }] },
+]
+
+const venyouTitle = (workspace: Workspace) =>
+  workspace.venueImport
+    ? `Oppdater hallkalenderen fra Venyou (location_format). Sist: ${workspace.venueImport.fileName}, ${new Date(workspace.venueImport.importedAt).toLocaleString('nb-NO')}`
+    : 'Les inn location_format fra Venyou'
+
+const tabOf = (view: View) => TABS.find((tab) => tab.pages.some((page) => page.view === view))!
 
 /** Its own component, so that saving an edit does not render the tabs again. */
 function SaveIndicator() {
@@ -84,6 +112,12 @@ function Shell() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
   const [view, setView] = useState<View>('kalender')
+  // The page last open in each tab, which the tab opens on again.
+  const lastPage = useRef<Record<string, View>>({})
+  const tab = tabOf(view)
+  useEffect(() => {
+    lastPage.current[tab.label] = view
+  }, [tab, view])
   const [behovProject, setBehovProject] = useState('')
   const backupInput = useRef<HTMLInputElement>(null)
   const venyouInput = useRef<HTMLInputElement>(null)
@@ -139,29 +173,19 @@ function Shell() {
         <h1>Expo Planner</h1>
         {status === 'ready' && (
           <nav className="tabs">
-            {TABS.map(([tab, label]) => (
-              <button key={tab} className={view === tab ? 'active' : ''} onClick={() => setView(tab)}>
-                {label}
-              </button>
+            {TABS.map((each, i) => (
+              <Fragment key={each.label}>
+                {each.register && !TABS[i - 1].register && <span className="tabs-apart" aria-hidden />}
+                <button className={each === tab ? 'active' : ''} onClick={() => setView(lastPage.current[each.label] ?? each.pages[0].view)}>
+                  {each.label}
+                </button>
+              </Fragment>
             ))}
           </nav>
         )}
         <span className="toolbar-gap" />
         {busy && <span className="busy">{busy}</span>}
         {status === 'ready' && <SaveIndicator />}
-        {workspace && (
-          <button
-            className="ghost"
-            onClick={() => venyouInput.current?.click()}
-            title={
-              workspace.venueImport
-                ? `Oppdater hallkalenderen fra Venyou (location_format). Sist: ${workspace.venueImport.fileName}, ${new Date(workspace.venueImport.importedAt).toLocaleString('nb-NO')}`
-                : 'Les inn location_format fra Venyou'
-            }
-          >
-            <RefreshCw size={14} aria-hidden /> {workspace.venueImport ? `VenYou · ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}` : 'Les inn VenYou'}
-          </button>
-        )}
         <Menu
           label={<Settings size={16} aria-hidden />}
           ariaLabel="Innstillinger"
@@ -221,6 +245,18 @@ function Shell() {
                 </span>
               </label>
               <span className="menu-group">Data</span>
+              {workspace && (
+                <button
+                  role="menuitem"
+                  title={venyouTitle(workspace)}
+                  onClick={() => {
+                    close()
+                    venyouInput.current?.click()
+                  }}
+                >
+                  {workspace.venueImport ? 'Oppdater fra VenYou …' : 'Les inn VenYou …'}
+                </button>
+              )}
               {workspace && (
                 <button
                   role="menuitem"
@@ -309,6 +345,22 @@ function Shell() {
               Gjenopprett sikkerhetskopi …
             </button>
           </div>
+        </div>
+      )}
+      {status === 'ready' && workspace && tab.register && (
+        <div className="page-head">
+          <h2>{tab.label}</h2>
+          <Segmented label={`Del av ${tab.label}`} value={view} onChange={setView} options={tab.pages.map((page) => ({ value: page.view, label: page.label, title: page.title }))} />
+          {view === 'haller' && (
+            <>
+              <span className="page-meta">
+                {workspace.venueImport && `Sist lest ${new Date(workspace.venueImport.importedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })} · ${workspace.venueImport.fileName}`}
+              </span>
+              <button className="primary" onClick={() => venyouInput.current?.click()} title={venyouTitle(workspace)}>
+                <RefreshCw size={14} aria-hidden /> {workspace.venueImport ? 'Oppdater fra VenYou' : 'Les inn VenYou'}
+              </button>
+            </>
+          )}
         </div>
       )}
       {status === 'ready' && workspace && view === 'kalender' && <Kalender hints={tooltips} heat={heat} blockNames={blockNames} overtimeLimit={Number.isFinite(overtimeLimit) ? overtimeLimit : 10} onOpenPersonell={() => setView('personell')} onOpenSuppliers={() => setView('leverandorer')} />}

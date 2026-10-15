@@ -40,13 +40,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <h2>Bemanning og normaltid</h2>
         {people ? (
           <p className="hint">
-            Faste ansatte per arbeidsdag: <b>{active}</b>, de aktive på Personell.
+            Faste ansatte per arbeidsdag: <b>{active}</b>, de aktive på Mannskap › Faste.
           </p>
         ) : (
           <label>
             Faste ansatte per arbeidsdag (FTE)
             <input inputMode="decimal" value={baseCrew} onChange={(e) => setBaseCrew(e.target.value)} />
-            <span className="hint">Gjelder til de faste er lagt inn på Personell; da telles de aktive der.</span>
+            <span className="hint">Gjelder til de faste er lagt inn på Mannskap › Faste; da telles de aktive der.</span>
           </label>
         )}
         <label>

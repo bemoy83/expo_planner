@@ -251,7 +251,7 @@ export function PersonPanel() {
                 <span className={`bm-competence-hours ${worked.has(style.key) ? '' : 'nil'}`}>{(worked.get(style.key) ?? 0) > EPSILON ? `${hoursText(worked.get(style.key)!)} t` : '–'}</span>
               </button>
             ))}
-            {own.length === 0 && <p className="insp-note">Ingen kompetanser. De legges inn på Personell.</p>}
+            {own.length === 0 && <p className="insp-note">Ingen kompetanser. De legges inn på Mannskap › Faste.</p>}
           </div>
         </section>
       </div>

@@ -12,7 +12,7 @@ import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, MergeReplaceDialog, MessageBanner, PanelToggle, Segmented, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
-import { TableFileButtons } from '../TableFile'
+import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { TextField } from '../fields'
 import { PlacingPanel, type TriedText } from './PlacingPanel'
@@ -187,7 +187,7 @@ export function HallRules({ onOpenBehov }: { onOpenBehov: () => void }) {
         <span className="toolbar-gap" />
         <UndoRedoButtons />
         <PanelToggle open={panelOpen} what="panelet for å prøve en tekst" hint="hvor en Hall/sted-tekst havner og hvorfor, og rekkefølgen reglene prøves i" onToggle={() => setPanelOpen(!panelOpen)} />
-        <TableFileButtons
+        <TableFileMenu
           exportTitle="Last ned hallreglene som en Excel-fil, med et ark for steder, et for ord, et for valg og et for områder."
           importTitle="Les inn en fil med hallregler: en som er eksportert herfra, eller en med de samme arkene og kolonnene."
           canExport={!empty}

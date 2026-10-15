@@ -180,7 +180,7 @@ function Matrix({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
           <p className="insp-empty">Ingen leverandører er registrert ennå.</p>
         )}
         <button className="link il-to-suppliers" onClick={onOpenSuppliers}>
-          Navn, kontakt og pris settes på Leverandører
+          Navn, kontakt og pris settes på Mannskap › Innleid
         </button>
       </section>
     </div>

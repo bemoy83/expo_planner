@@ -9,7 +9,7 @@ import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
-import { TableFileButtons } from '../TableFile'
+import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { PickField, TextField } from '../fields'
 import { count } from '../dom'
@@ -248,7 +248,7 @@ export function Prosjekter({ onOpenBehov }: { onOpenBehov: (projectNo: string) =
         )}
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <TableFileButtons
+        <TableFileMenu
           exportTitle="Last ned tabellen som en Excel-fil: en rad per navn, med prosjektnummer og år."
           importTitle="Les inn en prosjektfil: en som er eksportert herfra, eller en med kolonnene Prosjektnr. og Navn."
           canExport={projects.length > 0}

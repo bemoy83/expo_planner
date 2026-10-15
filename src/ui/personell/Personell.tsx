@@ -6,7 +6,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
-import { TableFileButtons } from '../TableFile'
+import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { DataTable } from '../DataTable'
 import { TextField } from '../fields'
@@ -111,7 +111,7 @@ export function Personell({ onOpenCompetences }: { onOpenCompetences: () => void
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <TableFileButtons
+        <TableFileMenu
           exportTitle="Last ned de faste som en Excel-fil: en rad per person og en kolonne per kompetanse, med x der personen har den."
           importTitle="Les inn en fil med de faste: en som er eksportert herfra, eller en med kolonnen Navn og en kolonne per kompetanse."
           canExport={persons.length > 0}

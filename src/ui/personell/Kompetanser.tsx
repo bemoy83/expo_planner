@@ -6,7 +6,7 @@ import { COLOR_NAMES, readKompetanserWorkbook, writeKompetanserWorkbook } from '
 import { useWorkspace } from '../../store/workspaceStore'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
-import { TableFileButtons } from '../TableFile'
+import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { DataTable } from '../DataTable'
 import { competenceColor } from '../dom'
@@ -171,7 +171,7 @@ export function Kompetanser({ onOpenPersonell }: { onOpenPersonell: () => void }
         <span className="muted small">{styles.length} kompetanser</span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <TableFileButtons
+        <TableFileMenu
           exportTitle="Last ned kompetansene som en Excel-fil: navn, kortnavn og farge, i rekkefølgen her."
           importTitle="Les inn en fil med kompetanser: en som er eksportert herfra, eller en med kolonnen Kompetanse, og gjerne Kort og Farge."
           canExport={styles.length > 0}

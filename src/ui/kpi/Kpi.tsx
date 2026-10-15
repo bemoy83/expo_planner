@@ -8,7 +8,7 @@ import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
-import { TableFileButtons } from '../TableFile'
+import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { NumberField, PickField, TextField } from '../fields'
 import { X } from 'lucide-react'
@@ -188,7 +188,7 @@ export function Kpi() {
         </span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <TableFileButtons
+        <TableFileMenu
           exportTitle="Last ned oppsettet som en Excel-fil: produkttypene med enheter, enhet i bruk, kompetanse og satser."
           importTitle="Les inn en KPI-fil: en som er eksportert herfra, eller en med kolonnene Produkttype, Enhet, Montering og Demontering."
           canExport={kpi.workTypes.length + kpi.rates.length > 0}

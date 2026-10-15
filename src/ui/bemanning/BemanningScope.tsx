@@ -586,7 +586,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     if (next === 'paint' && !activeBrush) {
       // R14: the competence with the most left to cover on the first workday in view.
       const competence = defaultBrush(ws, firstWorkday, balance)
-      if (!competence) return toast('Ingen av de faste har en kompetanse ennå. Legg dem inn på Personell.')
+      if (!competence) return toast('Ingen av de faste har en kompetanse ennå. Legg dem inn på Mannskap › Faste.')
       setBrush(competence)
     }
     setTool(next)

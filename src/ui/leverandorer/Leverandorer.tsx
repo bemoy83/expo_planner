@@ -8,7 +8,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { readLeverandorerWorkbook, writeLeverandorerWorkbook } from '../../import/leverandorerFile'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
-import { TableFileButtons } from '../TableFile'
+import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { DataTable } from '../DataTable'
 import { count } from '../dom'
@@ -130,7 +130,7 @@ export function Leverandorer({ onOpenCompetences }: { onOpenCompetences: () => v
         <span className="muted small">{suppliersText(suppliers.length)}</span>
         <span className="toolbar-gap" />
         <UndoRedoButtons />
-        <TableFileButtons
+        <TableFileMenu
           exportTitle="Last ned leverandørene som en Excel-fil: en rad per leverandør, en kolonne per skift og en per kompetanse, med x der leverandøren har den."
           importTitle="Les inn en fil med leverandører: en som er eksportert herfra, eller en med kolonnen Navn og en kolonne per kompetanse."
           canExport={suppliers.length > 0}

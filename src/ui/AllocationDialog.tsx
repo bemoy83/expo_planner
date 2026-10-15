@@ -95,7 +95,7 @@ export function AllocationDialog({ row, projectName, projectNo: knownProjectNo, 
         <label>
           Prosjekt
           <PickField options={projectNames} value={project} autoFocus={!row && !projectName} onChange={setProject} placeholder="Skriv for å søke" />
-          <span className="hint">{projectNo ? `Prosjektnummer ${projectNo}` : project ? 'Uten prosjektnummer. Sett nummeret på VenYou-fanen for å hente behov fra Visma og tidligere år.' : ''}</span>
+          <span className="hint">{projectNo ? `Prosjektnummer ${projectNo}` : project ? 'Uten prosjektnummer. Sett nummeret på Haller › Prosjekter for å hente behov fra Visma og tidligere år.' : ''}</span>
         </label>
 
         <label>

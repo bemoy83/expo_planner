@@ -414,7 +414,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
             <span
               className={`lbl-project ${project.venue ? 'locatable' : ''}`}
               onClick={project.venue ? () => actions.showProject(project.key) : undefined}
-              title={`${project.venue ? 'Klikk for å vise prosjektets haller og dager i hallkalenderen. ' : ''}${project.projectName}${project.projectNo ? '' : ' – uten prosjektnummer, settes på VenYou-fanen'}${project.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Sett prosjektnummeret på arrangementet på VenYou-fanen.'}`}
+              title={`${project.venue ? 'Klikk for å vise prosjektets haller og dager i hallkalenderen. ' : ''}${project.projectName}${project.projectNo ? '' : ' – uten prosjektnummer, settes på Haller › Prosjekter'}${project.venue ? '' : ' – ikke koblet til et arrangement i hallkalenderen. Prosjektnummeret settes på Haller › Prosjekter.'}`}
             >
               {project.projectName} <span className="muted">{project.projectNo || 'uten nr.'}</span>
               {!project.venue && <span className="unlinked"> ikke i hallkalenderen</span>}

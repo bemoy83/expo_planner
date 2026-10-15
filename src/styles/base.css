@@ -47,6 +47,8 @@ input[type='checkbox']{accent-color:var(--accent)}
 .tabs button{color:var(--muted);font-size:var(--fs-base)}
 .tabs button:not(:hover){background:none}
 .tabs button.active{background:var(--surface);color:var(--text);font-weight:600}
+/* the tabs of the planner's tables come after a gap, apart from those the planning is done in */
+.tabs-apart{width:1px;margin:6px 8px;background:var(--line)}
 .save-state{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-md);color:var(--muted);white-space:nowrap}
 .save-state i{width:7px;height:7px;border-radius:999px;background:var(--pos)}
 .save-state.saving i{background:var(--faint)}
