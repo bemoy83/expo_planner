@@ -12,7 +12,8 @@ import { productTypeKey } from './kpi'
 
 /**
  * Turns Visma booking lines into demand lines the way the planner's «Nøkkeltall Visma» workbook does:
- * one line per project × Avdeling × work type × hall, quantity ÷ KPI rate = hours.
+ * one line per project × Avdeling × work type × hall, quantity ÷ KPI rate = hours. Booking lines without a product type
+ * are also kept apart by their article text, so that unlike articles are neither summed nor given one work type together.
  */
 
 /** The work type of booking lines that have no product type, as the planner's workbook called it. */
@@ -30,8 +31,9 @@ export const withProjectNames = (rows: VismaRow[]): VismaRow[] => {
   return rows.map((row) => (row.eventName.trim() ? row : { ...row, eventName: names.get(row.projectNo)! }))
 }
 
-export const vismaLineKey = (projectNo: string, avdeling: string, workType: string, hall: string): string =>
-  [projectNo, avdeling, workType, hall].map((part) => part.trim().toLowerCase()).join('|')
+/** The key of a line; `text` is the article text of lines without a product type, which keeps them apart. */
+export const vismaLineKey = (projectNo: string, avdeling: string, workType: string, hall: string, text = ''): string =>
+  [projectNo, avdeling, workType, hall, ...(text.trim() ? [text.replaceAll('|', '/')] : [])].map((part) => part.trim().toLowerCase()).join('|')
 
 const COUNTED_UNITS = new Set(['ordre', 'stands'])
 
@@ -74,6 +76,8 @@ interface Group {
   avdeling: string
   workType: string
   hall: string
+  /** The article text that keeps it apart, for booking lines without a product type. */
+  text: string
   sum: number
   locations: Set<string>
   texts: Set<string>
@@ -85,15 +89,18 @@ const groupRows = (rows: VismaRow[]): Group[] => {
   for (const row of rows) {
     const workType = row.productType || NO_PRODUCT_TYPE
     const hall = row.hall
-    const key = vismaLineKey(row.projectNo, row.avdeling, workType, hall)
+    const text = row.productType ? '' : row.description.trim()
+    const key = vismaLineKey(row.projectNo, row.avdeling, workType, hall, text)
     let group = groups.get(key)
     if (!group) {
-      group = { projectNo: row.projectNo, eventName: row.eventName, avdeling: row.avdeling, workType, hall, sum: 0, locations: new Set(), texts: new Set(), rowCount: 0 }
+      group = { projectNo: row.projectNo, eventName: row.eventName, avdeling: row.avdeling, workType, hall, text, sum: 0, locations: new Set(), texts: new Set(), rowCount: 0 }
       groups.set(key, group)
     }
     group.sum += row.quantity
     group.locations.add(row.transInfo || row.stand)
-    if (row.description.trim()) group.texts.add(row.description.trim())
+    const said = row.description.trim()
+    // Each text once, however it is written.
+    if (said && ![...group.texts].some((known) => known.toLowerCase() === said.toLowerCase())) group.texts.add(said)
     group.rowCount += 1
   }
   return [...groups.values()]
@@ -106,7 +113,7 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
   const rates = new Map(kpi.rates.map((rate) => [`${productTypeKey(rate.name)}|${rate.unit.toLowerCase()}`, rate]))
   const byText = new Map((kpi.byText ?? []).map((rule) => [rule.text.trim().toLowerCase(), rule.productType]))
   return groupRows(rows).map((group) => {
-    const key = vismaLineKey(group.projectNo, group.avdeling, group.workType, group.hall)
+    const key = vismaLineKey(group.projectNo, group.avdeling, group.workType, group.hall, group.text)
     const override = overrides[key] ?? {}
     const fromText = group.workType === NO_PRODUCT_TYPE ? [...group.texts].map((text) => byText.get(text.toLowerCase())).find(Boolean) : undefined
     const workType = group.workType === NO_PRODUCT_TYPE ? (override.workType ?? fromText ?? group.workType) : group.workType
@@ -145,7 +152,11 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
 }
 
 /** The line as it reads now, kept with a decision so it can be shown after the line has left the export. */
-export const lineRef = (line: VismaLine): NonNullable<LineOverride['ref']> => ({ avdeling: line.avdeling, workType: line.sourceWorkType, hall: line.hall })
+export const lineRef = (line: VismaLine): NonNullable<LineOverride['ref']> => ({
+  avdeling: line.avdeling,
+  workType: line.sourceWorkType === NO_PRODUCT_TYPE && line.texts.length ? `${line.sourceWorkType} «${line.texts[0]}»` : line.sourceWorkType,
+  hall: line.hall,
+})
 
 const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.excluded || !!override.workType
 

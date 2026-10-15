@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
 import { vismaHall } from '../import/vismaExport'
 import { withTextType } from './kpi'
-import { buildVismaLines, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
+import { buildVismaLines, lineRef, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -102,6 +102,21 @@ describe('a work type by article text', () => {
     expect(line).toMatchObject({ workType: 'FOGA-vegger', typeByText: true, issue: null, assemblyHours: 2 })
     expect(buildVismaLines(untyped, withRule, { [line.key]: { workType: 'Print' } })[0]).toMatchObject({ workType: 'Print', typeByText: false })
     expect(withTextType(withRule, 'Fritekst foga', undefined).byText).toEqual([])
+  })
+
+  it('keeps lines without a product type apart by their text, so unlike articles are not summed', () => {
+    const untyped = [
+      row({ productType: '', description: 'Gangtepper', quantity: 40 }),
+      row({ productType: '', description: 'Gardiner på bakvegg', quantity: 6 }),
+      row({ productType: '', description: 'gangtepper', quantity: 10 }),
+    ]
+    const lines = buildVismaLines(untyped, kpi, {})
+    expect(lines.map((line) => [line.texts, line.quantity])).toEqual([
+      [['Gangtepper'], 50],
+      [['Gardiner på bakvegg'], 6],
+    ])
+    expect(lines[0].key).toBe(vismaLineKey('26970', '65', '01_ingen produkttype', 'Hall C', 'Gangtepper'))
+    expect(lineRef(lines[1]).workType).toBe('01_ingen produkttype «Gardiner på bakvegg»')
   })
 })
 
