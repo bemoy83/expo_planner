@@ -1,5 +1,6 @@
 import { placeOf, UNRESOLVED_HALL } from './locations'
-import type { HallRules, KpiConfig, LineOverride, VismaImport } from './types'
+import { articleKey } from './kpi'
+import type { HallRules, KpiConfig, LineOverride, VismaImport, VismaRow } from './types'
 import { buildVismaLines, type VismaLine } from './visma'
 
 /**
@@ -157,4 +158,25 @@ export const causeGroups = (lines: ReviewedLine[]): { hall: CauseGroup[]; type: 
   }
   const largest = (groups: Map<string, CauseGroup>) => [...groups.values()].sort((a, b) => b.lines.length - a.lines.length || a.key.localeCompare(b.key, 'nb'))
   return { hall: largest(hall), type: largest(type), rate: largest(rate) }
+}
+
+/** An article number among the booking lines of some Visma lines: how many it has, and the first, to show as it reads in the orders. */
+export interface ArticleSample {
+  articleNo: string
+  bookings: number
+  sample: VismaRow
+}
+
+/** The article numbers of the booking lines behind the lines, each once, the most frequent first; booking lines without one are left out. */
+export const articleSamples = (lines: Pick<VismaLine, 'bookings'>[]): ArticleSample[] => {
+  const found = new Map<string, ArticleSample>()
+  for (const row of lines.flatMap((line) => line.bookings)) {
+    const number = row.articleNo.trim()
+    if (!number) continue
+    const key = articleKey(number)
+    const entry = found.get(key) ?? { articleNo: number, bookings: 0, sample: row }
+    entry.bookings += 1
+    found.set(key, entry)
+  }
+  return [...found.values()].sort((a, b) => b.bookings - a.bookings || a.articleNo.localeCompare(b.articleNo, 'nb', { numeric: true }))
 }

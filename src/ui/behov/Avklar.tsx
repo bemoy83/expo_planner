@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { Check, CornerDownLeft } from 'lucide-react'
+import { Check, CornerDownLeft, EyeOff } from 'lucide-react'
 import { formatFte } from '../../domain/calc'
-import { EMPTY_KPI, setRate, withTextType } from '../../domain/kpi'
+import { EMPTY_KPI, setRate, withExcludedArticle, withTextType } from '../../domain/kpi'
 import { PROJECT_HALLS, withPhrase } from '../../domain/locations'
 import { parseDecimal } from '../../domain/numbers'
 import { lineRef } from '../../domain/visma'
-import { causeGroups, type CauseGroup, type ReviewedLine } from '../../domain/vismaReview'
+import { articleSamples, causeGroups, type CauseGroup, type ReviewedLine } from '../../domain/vismaReview'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Segmented, SidePanel } from '../common'
 import { count, isTyping } from '../dom'
@@ -160,8 +160,8 @@ interface CardProps {
   projects: string
 }
 
-/** The frame of a card: its title and figures, what it is, and when it is in focus, how to resolve it. */
-function Card({ active, onFocus, title, figures, sub, children }: { active: boolean; onFocus: () => void; title: string; figures: string; sub: string; children: ReactNode }) {
+/** The frame of a card: its title and figures, what it is, and when it is in focus, how to resolve it and the booking lines behind it. */
+function Card({ card, active, onFocus, title, figures, sub, children }: { card: CauseGroup; active: boolean; onFocus: () => void; title: string; figures: string; sub: string; children: ReactNode }) {
   return (
     <div className={`cause ${active ? 'active' : ''}`} onClick={onFocus} onFocus={onFocus}>
       <div className="cause-head">
@@ -172,6 +172,7 @@ function Card({ active, onFocus, title, figures, sub, children }: { active: bool
       {active && (
         <div className="cause-body" onClick={(e) => e.stopPropagation()}>
           {children}
+          <Bookings lines={card.lines} />
         </div>
       )}
     </div>
@@ -223,7 +224,7 @@ function HallCard({ card, placing, active, onFocus, projects }: CardProps) {
   }
   const reason = offer ? (offer.projectNo ? `prosjektet har bare ${offer.hall}` : offer.hall === PROJECT_HALLS ? 'teksten nevner flere haller' : `teksten nevner ${offer.hall}`) : 'ingen regel passer'
   return (
-    <Card active={active} onFocus={onFocus} title={card.blank ? 'Uten Hall/sted' : `«${card.text}»`} figures={count(card.lines.length, 'linje', 'linjer')} sub={`${projects} · ${offer ? `forslag: ${reason}` : reason}`}>
+    <Card card={card} active={active} onFocus={onFocus} title={card.blank ? 'Uten Hall/sted' : `«${card.text}»`} figures={count(card.lines.length, 'linje', 'linjer')} sub={`${projects} · ${offer ? `forslag: ${reason}` : reason}`}>
       {offer && (
         <button className="primary cause-accept" onClick={() => setHallChoice(offer.text, offer.hall, offer.projectNo)}>
           <Check size={13} aria-hidden /> Bruk {offer.hall} <CornerDownLeft size={12} aria-hidden />
@@ -266,6 +267,42 @@ function HallCard({ card, placing, active, onFocus, projects }: CardProps) {
 }
 
 /** One article text without a product type: the KPI type its lines are counted as. */
+/** How many article numbers of a card are shown with a booking line each. */
+const SAMPLES = 4
+
+/**
+ * The booking lines behind a card as they read in the orders, one per article number: what an article is, so that one
+ * which is no work for the crew can be left out here, in every project and the next export too.
+ */
+function Bookings({ lines }: { lines: ReviewedLine[] }) {
+  const { workspace, setKpi } = useWorkspace()
+  const kpi = workspace!.kpi ?? EMPTY_KPI
+  const samples = articleSamples(lines)
+  if (!samples.length) return null
+  return (
+    <div className="cause-bookings">
+      <span className="cause-bookings-head">I ordrene</span>
+      {samples.slice(0, SAMPLES).map(({ articleNo, bookings, sample }) => (
+        <div key={articleNo} className="cause-booking">
+          <code className="art-no" title="Art.nr">
+            {articleNo}
+          </code>
+          <span className="cause-booking-text" title={sample.description}>
+            {sample.description ? `«${sample.description}»` : <span className="muted">uten tekst</span>}
+            <small>
+              {[`antall ${sample.quantity}`, sample.stand || sample.transInfo, sample.orderNo && `ordre ${sample.orderNo}`, bookings > 1 && `${bookings} linjer`].filter(Boolean).join(' · ')}
+            </small>
+          </span>
+          <button className="ghost" title={`Utelat art.nr ${articleNo}: ordrelinjene med det leses ikke, i noe prosjekt. Listen er under KPI.`} onClick={() => setKpi(withExcludedArticle(kpi, articleNo, sample.description))}>
+            <EyeOff size={13} aria-hidden /> Utelat
+          </button>
+        </div>
+      ))}
+      {samples.length > SAMPLES && <span className="muted small">og {count(samples.length - SAMPLES, 'artikkel til', 'artikler til')}</span>}
+    </div>
+  )
+}
+
 function TypeCard({ card, active, onFocus, projects }: CardProps) {
   const { workspace, setLineOverrides, setKpi } = useWorkspace()
   const kpi = workspace!.kpi ?? EMPTY_KPI
@@ -283,7 +320,7 @@ function TypeCard({ card, active, onFocus, projects }: CardProps) {
           card.lines.map((line) => ({ key: line.key, patch: { workType, ref: lineRef(line) } })),
         )
   return (
-    <Card active={active} onFocus={onFocus} title={card.text ? `«${card.text}»` : 'Uten tekst'} figures={count(card.lines.length, 'linje', 'linjer')} sub={`${projects} · uten produkttype i Visma`}>
+    <Card card={card} active={active} onFocus={onFocus} title={card.text ? `«${card.text}»` : 'Uten tekst'} figures={count(card.lines.length, 'linje', 'linjer')} sub={`${projects} · uten produkttype i Visma`}>
       {offered && (
         <button className="primary cause-accept" onClick={() => apply(offered)}>
           <Check size={13} aria-hidden /> Bruk {offered} <small>{competence(offered)}</small> <CornerDownLeft size={12} aria-hidden />
@@ -328,7 +365,7 @@ function RateCard({ card, active, onFocus, projects }: CardProps) {
   const save = () => ok && setKpi(setRate(workspace!.kpi ?? EMPTY_KPI, card.workType, card.unit, { assembly: a, dismantle: d }))
   const onEnter = (e: KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && save()
   return (
-    <Card active={active} onFocus={onFocus} title={`${card.workType} · ${card.unit}`} figures={`${count(card.lines.length, 'linje', 'linjer')} · ${formatFte(card.quantity, 1)} ${card.unit}`} sub={`${projects} · KPI mangler sats for enheten`}>
+    <Card card={card} active={active} onFocus={onFocus} title={`${card.workType} · ${card.unit}`} figures={`${count(card.lines.length, 'linje', 'linjer')} · ${formatFte(card.quantity, 1)} ${card.unit}`} sub={`${projects} · KPI mangler sats for enheten`}>
       <div className="cause-rates">
         <label>
           <span>

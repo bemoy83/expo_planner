@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { locateDemand, withChoice } from './locations'
 import { PLANNED_BASIS, VISMA_BASIS, type KpiConfig, type VismaImport, type VismaRow } from './types'
-import { vismaDemandLines, vismaLineKey } from './visma'
-import { causeGroups, countOf, missingText, reviewVisma, suggestWorkType } from './vismaReview'
+import { buildVismaLines, vismaDemandLines, vismaLineKey } from './visma'
+import { articleSamples, causeGroups, countOf, missingText, reviewVisma, suggestWorkType } from './vismaReview'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -127,5 +127,19 @@ describe('causeGroups', () => {
     const rows = [row({ productType: 'Gulv', quantity: 40 })]
     const key = vismaLineKey('26970', '65', 'Gulv', 'Hall C')
     expect(causeGroups(reviewVisma([imported('26970', rows)], kpi, { [key]: { excluded: true } }, halls).get('26970')!.lines).rate).toEqual([])
+  })
+})
+
+describe('articleSamples', () => {
+  it('lists the article numbers behind the lines, the most frequent first, with the first booking line of each', () => {
+    const lines = buildVismaLines(
+      [row({ productType: '', description: 'Merk', articleNo: 'T' }), row({ productType: '', description: 'Merk', articleNo: 't', quantity: 2 }), row({ productType: '', description: 'Merk', articleNo: 'F' }), row({ productType: '', description: 'Merk' })],
+      kpi,
+      {},
+    )
+    expect(articleSamples(lines).map(({ articleNo, bookings, sample }) => [articleNo, bookings, sample.quantity])).toEqual([
+      ['T', 2, 1],
+      ['F', 1, 1],
+    ])
   })
 })

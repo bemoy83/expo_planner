@@ -56,6 +56,8 @@ export interface VismaLine {
   rowCount: number
   /** The article texts of the booking lines behind it, each once: what a line without a product type says it is. */
   texts: string[]
+  /** The booking lines behind it, as they were read. */
+  bookings: VismaRow[]
   rateAssembly: number | null
   rateDismantle: number | null
   effekt: number
@@ -81,7 +83,7 @@ interface Group {
   sum: number
   locations: Set<string>
   texts: Set<string>
-  rowCount: number
+  rows: VismaRow[]
 }
 
 const groupRows = (rows: VismaRow[]): Group[] => {
@@ -93,7 +95,7 @@ const groupRows = (rows: VismaRow[]): Group[] => {
     const key = vismaLineKey(row.projectNo, row.avdeling, workType, hall, text)
     let group = groups.get(key)
     if (!group) {
-      group = { projectNo: row.projectNo, eventName: row.eventName, avdeling: row.avdeling, workType, hall, text, sum: 0, locations: new Set(), texts: new Set(), rowCount: 0 }
+      group = { projectNo: row.projectNo, eventName: row.eventName, avdeling: row.avdeling, workType, hall, text, sum: 0, locations: new Set(), texts: new Set(), rows: [] }
       groups.set(key, group)
     }
     group.sum += row.quantity
@@ -101,7 +103,7 @@ const groupRows = (rows: VismaRow[]): Group[] => {
     const said = row.description.trim()
     // Each text once, however it is written.
     if (said && ![...group.texts].some((known) => known.toLowerCase() === said.toLowerCase())) group.texts.add(said)
-    group.rowCount += 1
+    group.rows.push(row)
   }
   return [...groups.values()]
 }
@@ -137,8 +139,9 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
       unit,
       competence: rule?.competence ?? 'Ukjent',
       quantity,
-      rowCount: group.rowCount,
+      rowCount: group.rows.length,
       texts: [...group.texts],
+      bookings: group.rows,
       rateAssembly: rate?.assembly ?? null,
       rateDismantle: rate?.dismantle ?? null,
       effekt,

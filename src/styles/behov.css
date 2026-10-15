@@ -234,6 +234,13 @@ tr:hover .edit-placeholder{visibility:visible}
 .cause-rule input{width:100%}
 .cause-project{display:flex;flex-direction:column;gap:4px;width:100%}
 .cause-hint{font-size:var(--fs-sm)}
+.cause-bookings{display:flex;flex-direction:column;gap:4px;width:100%;padding-top:8px;border-top:1px solid var(--line)}
+.cause-bookings-head{font:500 var(--fs-2xs) var(--font-num);letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.cause-booking{display:flex;align-items:center;gap:8px;min-width:0}
+.art-no{flex:none;min-width:28px;padding:1px 6px;border-radius:4px;background:var(--wash);font:600 var(--fs-sm) var(--font-num);text-align:center}
+.cause-booking-text{flex:1;min-width:0;display:flex;flex-direction:column;font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cause-booking-text small{color:var(--muted);font-size:var(--fs-xs)}
+.cause-booking button{flex:none;gap:4px}
 .cause-rates{display:flex;align-items:flex-end;gap:10px}
 .cause-rates label{display:flex;flex-direction:column;gap:3px;width:100px;font-size:var(--fs-sm)}
 .cause-rates label>span{display:flex;align-items:center}
