@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
+import { addKpiRow, kpiTypes, unfinishedTypes, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
@@ -169,6 +169,19 @@ describe('product types in the KPI table', () => {
     // The unit of a rate with no unit in use is renamed without choosing it.
     const ratesOnly = { workTypes: [], rates: kpi.rates }
     expect(renameUnit(ratesOnly, 'Print', 'ordre', 'stands')).toEqual({ workTypes: [], rates: [...kpi.rates.slice(0, 2), { ...kpi.rates[2], unit: 'stands' }] })
+  })
+})
+
+describe('product types with their units', () => {
+  it('gathers the units of a type under it, the one in use first, and counts the types that need the planner', () => {
+    const visma: VismaImport[] = [{ projectNo: '26231', eventName: 'VVS', fileName: 'v.xlsx', importedAt: '', rows: [{ productType: 'Teppe', articleNo: '1', description: 'Teppe' } as VismaRow] }]
+    const types = kpiTypes(kpiRows(setActiveUnit(kpi, 'FOGA-dragere', 'stk'), visma))
+    expect(types.map((type) => `${type.name}:${type.units.map((unit) => unit.unit).join('+')}`)).toEqual(['Teppe:', 'FOGA-dragere:stk+lm', 'Print:ordre', 'Skilt:stk'])
+    expect(types[1].inUse?.unit).toBe('stk')
+    expect(types[0]).toMatchObject({ lacking: 'new', unfinished: true, lines: 1 })
+    expect(types[0].inUse).toBeUndefined()
+    // Skilt lacks a rate; Teppe is new in the export.
+    expect(unfinishedTypes(kpiRows(kpi, visma))).toBe(2)
   })
 })
 

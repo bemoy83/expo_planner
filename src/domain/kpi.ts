@@ -83,8 +83,37 @@ export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => 
   return chosen.sort((a, b) => Number(a.configured) - Number(b.configured) || a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
 }
 
-/** Product types that lack something the planner has to act on: rates read in for a type no export names lack nothing yet. */
-export const unfinishedTypes = (rows: KpiRow[]): number => new Set(rows.filter((row) => row.lacking && (row.configured || row.lines > 0)).map((row) => row.name)).size
+/** A product type with its units: a line of the Produkttyper page. */
+export interface KpiType {
+  name: string
+  competence: string
+  /** Its units with their rates, the unit in use first; none where it has none yet. */
+  units: KpiRow[]
+  /** The unit its lines are counted in, where one is chosen. */
+  inUse?: KpiRow
+  lines: number
+  configured: boolean
+  lacking: Lacking | null
+  /** It lacks something the planner has to act on. Rates read in for a type no export names lack nothing yet. */
+  unfinished: boolean
+}
+
+/** The rows of the KPI table by product type, in their order. */
+export const kpiTypes = (rows: KpiRow[]): KpiType[] => {
+  const types = new Map<string, KpiType>()
+  for (const row of rows) {
+    const key = productTypeKey(row.name)
+    const type = types.get(key) ?? { name: row.name, competence: row.competence, units: [], lines: row.lines, configured: row.configured, lacking: row.lacking, unfinished: !!row.lacking && (row.configured || row.lines > 0) }
+    if (row.unit) type.units.push(row)
+    if (row.active) type.inUse = row
+    types.set(key, type)
+  }
+  for (const type of types.values()) type.units.sort((a, b) => Number(b.active) - Number(a.active))
+  return [...types.values()]
+}
+
+/** How many product types lack something the planner has to act on. */
+export const unfinishedTypes = (rows: KpiRow[]): number => kpiTypes(rows).filter((type) => type.unfinished).length
 
 const ruleFor = (productType: string, unit: string, competence: string): WorkTypeRule => ({ productType: productTypeName(productType), unit: unit.trim(), competence: competence.trim() })
 

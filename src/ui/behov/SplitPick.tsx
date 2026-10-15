@@ -30,15 +30,22 @@ interface Props {
   buttonRef?: Ref<HTMLButtonElement>
   /** A list to pick from where nothing is missing, as «Annen» on a card of «Avklar»: no mark of attention. */
   plain?: boolean
+  /** A colour before the value, as a competence's. */
+  dot?: string
+  /** Text that is none of the values can be picked as a new one, under this heading: «Ny kompetanse». */
+  free?: string
 }
 
 /**
  * A value that is resolved in its cell: quiet text once it is there, else the button of what needs the planner (`NeedButton`)
  * with the offer and a «?», or what is missing. A click always opens the list, a `PickField` to type in, with the offer first.
  */
-export function SplitPick({ value, chosen, offer, offerTitle, missing, options = [], note, groups, head, title, label, onPick, className = '', buttonRef, plain }: Props) {
+export function SplitPick({ value, chosen, offer, offerTitle, missing, options = [], note, groups, head, title, label, onPick, className = '', buttonRef, plain, dot, free }: Props) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  const typed = text.trim()
+  const listed = groups ?? [{ items: options.map((option) => ({ value: option, note: note?.(option) })) }]
+  const isNew = !!free && !!typed && !listed.some((group) => group.items.some((item) => item.value.toLowerCase() === typed.toLowerCase()))
   const show = () => (setText(''), setOpen(true))
   if (open)
     return (
@@ -49,7 +56,7 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options =
           value={text}
           onChange={setText}
           options={offer ? [offer, ...options.filter((option) => option !== offer)] : options}
-          groups={groups}
+          groups={isNew ? [...listed, { label: free, items: [{ value: typed, label: `«${typed}»` }] }] : groups}
           head={head}
           marked={groups ? groups.flatMap((group) => group.items).find((item) => item.value.startsWith(OFFER))?.value : offer}
           note={(option) => (option === offer ? 'forslag' : note?.(option))}
@@ -65,6 +72,7 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options =
   if (value)
     return (
       <button ref={buttonRef} className={`quiet-chip ${className}`} title={title} aria-label={`${label}: ${value}`} onClick={show}>
+        {dot && <i className="field-dot" style={{ background: dot }} aria-hidden />}
         <span className="ellipsis">{value}</span>
         {chosen && <i className="chosen-dot" title="Valgt av deg" />}
         <ChevronDown size={12} aria-hidden />

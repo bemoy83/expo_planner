@@ -1,16 +1,15 @@
-import { useMemo, useState } from 'react'
-import { addKpiRow, EMPTY_KPI, productTypeKey, removeKpiRow, renameUnit, setActiveUnit, setCompetence, setRate, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
-import { decimalText, parseDecimal } from '../../domain/numbers'
+import { useMemo, useState, type ReactNode } from 'react'
+import { ArrowRight, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { addKpiRow, EMPTY_KPI, kpiTypes, productTypeKey, removeKpiRow, renameUnit, setActiveUnit, setCompetence, setRate, type KpiRow, type KpiType, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { parseDecimal } from '../../domain/numbers'
 import { useWorkspace } from '../../store/workspaceStore'
-import { DataTable } from '../DataTable'
-import { useTable, type Column } from '../useTable'
-import { NumberField, PickField, TextField } from '../fields'
-import { X } from 'lucide-react'
+import { usePref } from '../../store/prefs'
+import { count } from '../dom'
+import { Segmented } from '../common'
+import { NumberField, PickField, TextField, type PickItem } from '../fields'
+import { NeedButton, SplitPick } from '../behov/SplitPick'
+import { useCompetenceColor } from '../behov/format'
 import type { Notify } from './Oppsett'
-
-
-/** Whether the row is the first of its product type among the rows shown: its name is in bold, and a line is drawn above it. */
-const firstOfType = (row: KpiRow, index: number, rows: KpiRow[]) => index === 0 || rows[index - 1].name !== row.name
 
 const LACKING_TEXT: Record<Lacking, string> = {
   new: 'Ny fra Visma',
@@ -20,152 +19,184 @@ const LACKING_TEXT: Record<Lacking, string> = {
   rate: 'Mangler sats',
 }
 
+type Filter = 'alle' | 'mangler' | 'ferdig'
+
+/** What the page does to the setup, each with what the toast says. */
+interface Edits {
+  units: string[]
+  competences: PickItem[]
+  color: (competence: string) => string | undefined
+  open: (name: string) => boolean
+  toggle: (name: string) => void
+  useUnit: (type: KpiType, unit: string) => void
+  renameUnit: (type: KpiType, from: string, to: string) => void
+  setCompetence: (type: KpiType, competence: string) => void
+  setRate: (type: KpiType, row: KpiRow, phase: 'assembly' | 'dismantle', value: number) => void
+  remove: (type: KpiType, row: KpiRow) => void
+  addUnit: (type: KpiType) => void
+}
+
 /**
  * How each Visma product type is read, and its rates: the unit it is counted in, the competence it belongs to,
- * and how many units one person does per hour. The table fills itself with the product types found in the
+ * and how many units one person does per hour. A line per product type, under what it lacks first and then under
+ * its competence; its other units fold out under it. The table fills itself with the product types found in the
  * Visma exports, so nothing has to be imported to get started.
  */
 export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify }) {
   const { workspace, setKpi } = useWorkspace()
   const kpi = workspace!.kpi ?? EMPTY_KPI
+  const color = useCompetenceColor()
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = usePref<Filter>('oppsettFilter', 'alle', (stored) => (stored === 'mangler' || stored === 'ferdig' ? stored : 'alle'))
+  const [unfolded, setUnfolded] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState<Partial<NewKpiRow> | null>(null)
 
-  const found = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return q ? rows.filter((row) => `${row.name} ${row.unit} ${row.competence}`.toLowerCase().includes(q)) : rows
-  }, [rows, search])
-  const typeNames = useMemo(() => [...new Set(rows.map((row) => row.name))], [rows])
-  const competences = useMemo(() => [...new Set(kpi.workTypes.map((rule) => rule.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
+  const types = useMemo(() => kpiTypes(rows), [rows])
+  const typeNames = useMemo(() => types.map((type) => type.name), [types])
+  const competenceNames = useMemo(() => [...new Set(kpi.workTypes.map((rule) => rule.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
   const units = useMemo(() => [...new Set([...kpi.workTypes.map((rule) => rule.unit), ...kpi.rates.map((rate) => rate.unit)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi])
+  const unfinished = types.filter((type) => type.unfinished).length
+
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return types.filter(
+      (type) =>
+        (!q || `${type.name} ${type.units.map((row) => row.unit).join(' ')} ${type.competence}`.toLowerCase().includes(q)) &&
+        (filter === 'alle' || (filter === 'mangler') === type.unfinished),
+    )
+  }, [types, search, filter])
+  // What lacks something first, the most lines first; then a group per competence.
+  const lacking = shown.filter((type) => type.unfinished).sort((a, b) => b.lines - a.lines || a.name.localeCompare(b.name, 'nb'))
+  const groups = [...new Set(shown.filter((type) => !type.unfinished).map((type) => type.competence))]
+    .sort((a, b) => Number(!a) - Number(!b) || a.localeCompare(b, 'nb'))
+    .map((competence) => ({ competence, types: shown.filter((type) => !type.unfinished && type.competence === competence).sort((a, b) => a.name.localeCompare(b.name, 'nb')) }))
 
   /** Says so when rows already planned in the Kalender followed the product type to its new competence. */
-  const changeCompetence = ({ name, unit }: KpiRow, competence: string) => {
-    const { rows, replaced } = setKpi(setCompetence(kpi, name, unit, competence))
-    const followed = rows ? ` ${rows === 1 ? '1 planlagt rad' : `${rows} planlagte rader`} i Kalender fulgte med til ${competence}, med FTE.` : ''
+  const changeCompetence = ({ name, units }: KpiType, competence: string) => {
+    const { rows, replaced } = setKpi(setCompetence(kpi, name, units[0]?.unit ?? '', competence))
+    const followed = rows ? ` ${count(rows, 'planlagt rad', 'planlagte rader')} i Kalender fulgte med, med FTE.` : ''
     const people = replaced.length ? ` ${replaced.join(', ')} finnes ikke lenger: de som hadde den har nå ${competence}, og blokkene deres i Bemanning fulgte med.` : ''
     notify(`${name} er nå ${competence}.${followed}${people}`)
   }
 
-  const columns: Column<KpiRow>[] = [
-    {
-      key: 'name',
-      head: 'Produkttype',
-      title: 'Navnet på produkttypen. Det er navnet som kobler en ordrelinje til satsen her.',
-      text: (row) => row.name,
-      cell: (row, index, shown) => (firstOfType(row, index, shown) ? <strong>{row.name}</strong> : row.name),
+  const edits: Edits = {
+    units,
+    competences: competenceNames.map((competence) => ({ value: competence, dot: color(competence), note: count(types.filter((type) => type.competence === competence).length, 'type', 'typer') })),
+    color,
+    open: (name) => unfolded.has(name),
+    toggle: (name) => setUnfolded((open) => (open.has(name) ? new Set([...open].filter((n) => n !== name)) : new Set([...open, name]))),
+    useUnit: ({ name }, unit) => (setKpi(setActiveUnit(kpi, name, unit)), notify(`${name} regnes nå i ${unit}.`)),
+    renameUnit: (type, from, to) => {
+      if (!to) return
+      const there = type.units.some((row) => row.unit.toLowerCase() === to.toLowerCase())
+      setKpi(renameUnit(kpi, type.name, from, to))
+      notify(!from ? `${type.name} regnes i ${to}.` : there ? `${type.name}: ${to} finnes allerede, den er nå i bruk.` : `${type.name}: ${from} heter nå ${to}.`)
     },
-    {
-      key: 'unit',
-      head: 'Enhet',
-      title: '«ordre» og «stands» teller antall stands; andre enheter summerer antall',
-      text: (row) => row.unit,
-      // An emptied field is left as it was: a rate cannot be without a unit.
-      cell: (row) => <TextField value={row.unit} options={units} ariaLabel={`Enhet for ${row.name}`} onCommit={(value) => value && setKpi(renameUnit(kpi, row.name, row.unit, value))} />,
+    setCompetence: changeCompetence,
+    setRate: ({ name }, row, phase, value) => {
+      setKpi(setRate(kpi, name, row.unit, { [phase]: value }))
+      notify(`${name}: ${phase === 'assembly' ? 'montering' : 'demontering'} ${value ? `${String(value).replace('.', ',')} ${row.unit} per time` : 'ingen'}.`)
     },
-    {
-      key: 'active',
-      head: 'I bruk',
-      title: 'Enheten Visma-linjer av denne produkttypen regnes med',
-      className: 'center',
-      text: (row) => (row.active ? 'Ja' : 'Nei'),
-      cell: (row) =>
-        row.unit ? <input type="radio" checked={row.active} aria-label={`Regn ${row.name} i ${row.unit}`} onChange={() => setKpi(setActiveUnit(kpi, row.name, row.unit))} /> : '',
-    },
-    {
-      key: 'competence',
-      head: 'Kompetanse (nøkkelområde)',
-      text: (row) => row.competence,
-      // The competence is that of the product type: changed on one row, it changes on all its units.
-      cell: (row) => <TextField value={row.competence} options={competences} ariaLabel={`Kompetanse for ${row.name}`} onCommit={(value) => changeCompetence(row, value)} />,
-    },
-    {
-      key: 'assembly',
-      head: 'Montering',
-      title: 'Enheter per persontime',
-      className: 'num',
-      text: (row) => (row.assembly ? decimalText(row.assembly) : ''),
-      sort: (row) => row.assembly,
-      cell: (row) => (row.unit ? <NumberField value={row.assembly} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { assembly: value }))} /> : ''),
-    },
-    {
-      key: 'dismantle',
-      head: 'Demontering',
-      title: 'Enheter per persontime. Tomt betyr ingen demontering.',
-      className: 'num',
-      text: (row) => (row.dismantle ? decimalText(row.dismantle) : ''),
-      sort: (row) => row.dismantle,
-      cell: (row) => (row.unit ? <NumberField value={row.dismantle} onCommit={(value) => setKpi(setRate(kpi, row.name, row.unit, { dismantle: value }))} /> : ''),
-    },
-    {
-      key: 'lines',
-      head: 'Linjer',
-      title: 'Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn',
-      className: 'num',
-      text: (row) => (row.lines ? String(row.lines) : ''),
-      sort: (row) => row.lines,
-      cell: (row) => row.lines || '',
-    },
-    {
-      key: 'lacking',
-      head: 'Mangler',
-      title: 'Det som gjenstår før linjene av produkttypen gir timer. Til da er timene ukjente, ikke 0.',
-      className: 'actions',
-      text: (row) => (row.lacking ? LACKING_TEXT[row.lacking] : ''),
-      cell: (row) => (
-        <>
-          {row.lacking && <span className="issue">{LACKING_TEXT[row.lacking]} </span>}
-          <button className="row-action" title={`Legg til en annen enhet for ${row.name}`} onClick={() => setAdding({ name: row.name })}>
-            +
-          </button>
-          {row.lacking !== 'new' && (
-            <button className="row-action" title="Slett" onClick={() => (setKpi(removeKpiRow(kpi, row.name, row.unit)), notify(`Slettet ${row.name}${row.unit ? ` (${row.unit})` : ''}.`))}>
-              <X size={13} aria-hidden />
-            </button>
-          )}
-        </>
-      ),
-    },
-  ]
-  const table = useTable(found, columns)
+    remove: ({ name }, row) => (setKpi(removeKpiRow(kpi, name, row.unit)), notify(`Slettet ${name} (${row.unit}).`)),
+    addUnit: ({ name }) => setAdding({ name }),
+  }
+
   return (
     <div className="op">
       <div className="op-bar">
         <input className="search" type="search" placeholder="Søk produkttype, enhet eller kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Segmented
+          label="Vis"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: 'alle', label: <>Alle <span className="count">{types.length}</span></> },
+            { value: 'mangler', label: <>Mangler {unfinished ? <span className="count-chip alert">{unfinished}</span> : <span className="count">0</span>}</>, title: 'Produkttyper som ikke er ferdig satt opp' },
+            { value: 'ferdig', label: <>Satt opp <span className="count">{types.length - unfinished}</span></> },
+          ]}
+        />
         <span className="toolbar-gap" />
         <button className="primary" onClick={() => setAdding({})}>
-          + Ny produkttype
+          <Plus size={14} aria-hidden /> Ny produkttype
         </button>
       </div>
-      <p className="hint">
-        Slik leses Visma-utskriften: ordrelinjene grupperes per prosjekt, avdeling, produkttype og hall, og timer = antall ÷ sats. <strong>Enhet</strong> bestemmer hvordan antallet regnes: «ordre»
-        og «stands» teller antall stands, alle andre enheter summerer «Totalt antall». En produkttype kan ha satser for flere enheter; den som er merket <strong>i bruk</strong> regnes det med.{' '}
-        <strong>Kompetanse</strong> er nøkkelområdet timene havner under. Satsen er hvor mange enheter én person gjør på en time. Endringer her regner om Visma-linjene med én gang.
+      <p className="op-flow" title="Endringer her regner om Visma-linjene med én gang">
+        <span>Ordrelinje</span>
+        <ArrowRight size={12} aria-hidden />
+        <strong>Produkttype</strong>
+        <ArrowRight size={12} aria-hidden />
+        <span>
+          <strong>enhet i bruk</strong> gir antall
+        </span>
+        <span className="op-flow-aside">(ordre og stands teller stands, andre summerer «Totalt antall»)</span>
+        <ArrowRight size={12} aria-hidden />
+        <span>
+          antall ÷ <strong>sats</strong> = timer
+        </span>
+        <ArrowRight size={12} aria-hidden />
+        <span>
+          under <strong>kompetanse</strong>
+        </span>
       </p>
-      <div className="op-scroll">
-        {rows.length ? (
-          <DataTable
-            table={table}
-            className="kpi"
-            rowKey={(row) => `${row.name}|${row.unit}`}
-            rowProps={(row, index, shown) => ({ className: `${firstOfType(row, index, shown) ? 'first-of-type' : ''} ${row.active || !row.configured ? '' : 'alt-unit'} ${row.lacking && (row.configured || row.lines > 0) ? 'has-issue' : ''}` })}
-            empty="Ingen produkttyper passer søket eller filteret."
-          />
-        ) : (
-          <p className="notice">
-            Tabellen er tom. Den fyller seg selv: les inn en Visma-utskrift på Behov-fanen, så kommer produkttypene i utskriften opp her, klare til å få enhet, kompetanse og sats. Du kan også
-            legge dem inn med «Ny produkttype», eller lese inn en KPI-fil med «Importer fra fil»: en du har eksportert herfra, eller en med kolonnene Produkttype, Enhet, Montering og
-            Demontering. Har en produkttype flere enheter i filen og ingen er merket «I bruk», velger du selv hvilken som er i bruk.
-          </p>
-        )}
-      </div>
+
+      {types.length ? (
+        <div className="op-table op-types">
+          <div className="op-row op-head">
+            <span />
+            <span title="Navnet på produkttypen. Det er navnet som kobler en ordrelinje til satsen her.">Produkttype</span>
+            <span title="«ordre» og «stands» teller antall stands; andre enheter summerer antall">Enhet i bruk</span>
+            <span>Kompetanse</span>
+            <span className="num" title="Enheter per persontime">
+              Montering
+            </span>
+            <span className="num" title="Enheter per persontime. Tomt betyr ingen demontering.">
+              Demontering
+            </span>
+            <span className="num" title="Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn">
+              Linjer
+            </span>
+            <span />
+          </div>
+          <div className="op-body">
+            {lacking.length > 0 && (
+              <section className="op-group lacking">
+                <div className="op-group-head">
+                  <i className="op-attention" aria-hidden />
+                  Mangler oppsett <span className="op-group-count">{lacking.length}</span>
+                  <span className="op-group-note">Timene for disse linjene er ukjente, ikke 0</span>
+                </div>
+                {lacking.map((type) => (
+                  <TypeRows key={type.name} type={type} edits={edits} />
+                ))}
+              </section>
+            )}
+            {groups.map(({ competence, types }) => (
+              <section key={competence} className="op-group">
+                <div className="op-group-head">
+                  <i className="field-dot" style={{ background: color(competence) ?? 'var(--faint)' }} aria-hidden />
+                  {competence || 'Uten kompetanse'} <span className="op-group-count">{types.length}</span>
+                </div>
+                {types.map((type) => (
+                  <TypeRows key={type.name} type={type} edits={edits} />
+                ))}
+              </section>
+            ))}
+            {!shown.length && <p className="op-empty">Ingen produkttyper passer søket eller filteret.</p>}
+          </div>
+        </div>
+      ) : (
+        <p className="op-empty">
+          Tabellen er tom. Den fyller seg selv: les inn en Visma-utskrift på Behov, så kommer produkttypene i utskriften opp her, klare til å få enhet, kompetanse og sats. Du kan også legge dem inn
+          med «Ny produkttype», eller lese inn en KPI-fil under «Fil».
+        </p>
+      )}
 
       {adding && (
         <AddDialog
           initial={adding}
           typeNames={typeNames}
           units={units}
-          competences={competences}
+          competences={competenceNames}
           setUp={(name) => kpi.workTypes.find((rule) => productTypeKey(rule.productType) === productTypeKey(name))?.competence}
           exists={(name, unit) => rows.some((row) => row.unit !== '' && productTypeKey(row.name) === productTypeKey(name) && row.unit.toLowerCase() === unit.trim().toLowerCase())}
           onClose={() => setAdding(null)}
@@ -173,12 +204,142 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
             // A type the exports name is set up with its text from Visma.
             const name = rows.find((known) => productTypeKey(known.name) === productTypeKey(row.name))?.name ?? row.name
             setKpi(addKpiRow(kpi, { ...row, name }))
-            notify(kpi.workTypes.some((rule) => productTypeKey(rule.productType) === productTypeKey(name)) ?`${name} har nå også ${row.unit}.` : `La til ${name}.`)
+            notify(kpi.workTypes.some((rule) => productTypeKey(rule.productType) === productTypeKey(name)) ? `${name} har nå også ${row.unit}.` : `La til ${name}.`)
             setAdding(null)
           }}
         />
       )}
     </div>
+  )
+}
+
+/** A button that says what is missing, raised, until it is clicked: then the field that fills it in. */
+function Want({ missing, label, children }: { missing: string; label: string; children: ReactNode }) {
+  const [editing, setEditing] = useState(false)
+  if (editing) return <span onBlur={() => setEditing(false)}>{children}</span>
+  return <NeedButton missing={missing} label={label} list={false} onClick={() => setEditing(true)} />
+}
+
+/** A rate of a unit, edited in place, with the unit per hour after it. */
+function Rate({ type, row, phase, want, edits }: { type: KpiType; row: KpiRow; phase: 'assembly' | 'dismantle'; want?: boolean; edits: Edits }) {
+  const value = row[phase]
+  const what = phase === 'assembly' ? 'Montering' : 'Demontering'
+  const field = (autoFocus?: boolean) => (
+    <NumberField value={value} autoFocus={autoFocus} placeholder={phase === 'dismantle' ? 'ingen' : '–'} ariaLabel={`${what} for ${type.name}, ${row.unit} per time`} onCommit={(n) => edits.setRate(type, row, phase, n)} />
+  )
+  if (want && !value)
+    return (
+      <Want missing="sats" label={`${what} for ${type.name}`}>
+        {field(true)}
+      </Want>
+    )
+  return (
+    <span className="op-rate">
+      {field()}
+      {value > 0 && <i className="op-per">{row.unit}/t</i>}
+    </span>
+  )
+}
+
+/** The line of a product type, and the lines of its units under it when it is folded out. */
+function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
+  const { inUse, units } = type
+  const several = units.length > 1
+  const open = several && edits.open(type.name)
+  const needsUnit = type.lacking === 'new' || type.lacking === 'unit'
+  return (
+    <>
+      <div className={`op-row ${type.unfinished ? 'unfinished' : ''} ${open ? 'unfolded' : ''}`}>
+        <span className="op-fold">
+          {several && (
+            <button className="icon-button small" aria-expanded={open} title={open ? 'Skjul enhetene' : 'Vis satsene for alle enhetene'} onClick={() => edits.toggle(type.name)}>
+              {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+            </button>
+          )}
+        </span>
+        <span className="op-name">
+          <strong>{type.name}</strong>
+          {type.unfinished && type.lacking && <span className="op-lacking">{LACKING_TEXT[type.lacking]}</span>}
+          {!type.unfinished && !type.lines && <span className="op-tag">ikke i utskriftene</span>}
+        </span>
+        <span className="op-unit">
+          {!units.length ? (
+            needsUnit ? (
+              <Want missing="Sett enhet" label={`Enhet for ${type.name}`}>
+                <TextField value="" autoFocus floating options={edits.units} ariaLabel={`Enhet for ${type.name}`} placeholder="stk, m, ordre" onCommit={(unit) => edits.renameUnit(type, '', unit)} />
+              </Want>
+            ) : null
+          ) : several || !inUse ? (
+            <span className={`op-units ${inUse ? '' : 'want'}`}>
+              <Segmented
+                label={`Enheten ${type.name} regnes i`}
+                value={inUse?.unit ?? ''}
+                onChange={(unit) => unit !== inUse?.unit && edits.useUnit(type, unit)}
+                options={units.map((row) => ({ value: row.unit, label: row.unit, title: row.active ? 'Enheten som er i bruk' : `Regn ${type.name} i ${row.unit}` }))}
+              />
+            </span>
+          ) : (
+            <TextField value={inUse.unit} floating options={edits.units} ariaLabel={`Enhet for ${type.name}`} onCommit={(unit) => edits.renameUnit(type, inUse.unit, unit)} />
+          )}
+        </span>
+        <span className="op-competence">
+          <SplitPick
+            value={type.competence}
+            dot={type.competence ? edits.color(type.competence) : undefined}
+            missing="Velg"
+            label={`Kompetanse for ${type.name}`}
+            head={`Kompetanse for ${type.name}`}
+            groups={[{ items: edits.competences }]}
+            free="Ny kompetanse"
+            onPick={(competence) => competence !== type.competence && edits.setCompetence(type, competence)}
+          />
+        </span>
+        <span className="num">{inUse && <Rate type={type} row={inUse} phase="assembly" want={type.lacking === 'rate'} edits={edits} />}</span>
+        <span className="num">{inUse && <Rate type={type} row={inUse} phase="dismantle" edits={edits} />}</span>
+        <span className="num muted">{type.lines || ''}</span>
+        <span className="op-actions">
+          <button className="icon-button small" title={`Legg til en annen enhet for ${type.name}`} aria-label={`Ny enhet for ${type.name}`} onClick={() => edits.addUnit(type)}>
+            <Plus size={14} aria-hidden />
+          </button>
+          {units.length === 1 && (
+            <button className="icon-button small" title={`Slett ${type.name} (${units[0].unit})`} aria-label={`Slett ${type.name}`} onClick={() => edits.remove(type, units[0])}>
+              <Trash2 size={13} aria-hidden />
+            </button>
+          )}
+        </span>
+      </div>
+      {open &&
+        units.map((row) => (
+          <div key={row.unit} className={`op-row op-sub ${row.active ? 'in-use' : ''}`}>
+            <span />
+            <span>
+              {row.active ? (
+                <span className="op-in-use">I bruk</span>
+              ) : (
+                <button className="link" onClick={() => edits.useUnit(type, row.unit)}>
+                  Bruk denne
+                </button>
+              )}
+            </span>
+            <span>
+              <TextField value={row.unit} floating options={edits.units} ariaLabel={`Enhet for ${type.name}`} onCommit={(unit) => edits.renameUnit(type, row.unit, unit)} />
+            </span>
+            <span />
+            <span className="num">
+              <Rate type={type} row={row} phase="assembly" edits={edits} />
+            </span>
+            <span className="num">
+              <Rate type={type} row={row} phase="dismantle" edits={edits} />
+            </span>
+            <span />
+            <span className="op-actions">
+              <button className="icon-button small" title={`Slett ${row.unit}`} aria-label={`Slett ${type.name} (${row.unit})`} onClick={() => edits.remove(type, row)}>
+                <Trash2 size={13} aria-hidden />
+              </button>
+            </span>
+          </div>
+        ))}
+    </>
   )
 }
 
