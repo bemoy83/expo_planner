@@ -524,12 +524,10 @@ describe('sickness', () => {
     expect(buildBalance(state, [FRI]).get('banner', FRI).assigned).toBe(4.5)
   })
 
-  it('marks the blocks of a person who lost the competence, or was made inactive, unresolved', () => {
+  it('marks the blocks of a person who lost the competence unresolved', () => {
     const tep = ws.assignments!.find((a) => a.personId === ANDERS && a.date === MON)!
     const without: Workspace = { ...ws, persons: ws.persons!.map((p) => (p.id === ANDERS ? { ...p, competences: ['foga'] } : p)) }
-    const inactive: Workspace = { ...ws, persons: ws.persons!.map((p) => (p.id === ANDERS ? { ...p, active: false } : p)) }
     expect(assignmentStatus(tep, without)).toBe('unresolved')
-    expect(assignmentStatus(tep, inactive)).toBe('unresolved')
   })
 })
 
@@ -743,9 +741,9 @@ describe('carry', () => {
 })
 
 describe('absence in the Kalender', () => {
-  const person = (id: string, active = true) => ({ id, name: id, order: 0, active, competences: [] })
+  const person = (id: string) => ({ id, name: id, order: 0, competences: [] })
   const away = (personId: string, date: string, part?: [string, string]): Unavailability => ({ id: `${personId}-${date}-${part?.[0] ?? 'day'}`, personId, date, kind: 'ferie', ...(part ? iv(part[0], part[1]) : {}) })
-  const crew: Workspace = { ...empty, persons: [person('a'), person('b'), person('gone', false)] }
+  const crew: Workspace = { ...empty, persons: [person('a'), person('b')] }
 
   it('counts a whole day away as 1 and a part of the day as its share of the normal day', () => {
     // b is away 07:00–11:00, 4 of the 7,5 paid hours.
@@ -753,7 +751,7 @@ describe('absence in the Kalender', () => {
     expect(absenceFte(ws)).toEqual({ [MON]: 1.53, [TUE]: 1 })
   })
 
-  it('leaves out weekends, people who are not active, and a day entered twice', () => {
+  it('leaves out weekends, people who are not on Faste, and a day entered twice', () => {
     const ws: Workspace = { ...crew, unavailability: [away('a', SAT), away('gone', MON), away('a', TUE), { ...away('a', TUE), id: 'again' }, away('a', TUE, ['07:00', '09:00'])] }
     expect(absenceFte(ws)).toEqual({ [TUE]: 1 })
     expect(absenceFte(empty)).toEqual({})
@@ -768,7 +766,7 @@ describe('absence in the Kalender', () => {
 })
 
 describe('overtime in the Kalender', () => {
-  const person = (id: string) => ({ id, name: id, order: 0, active: true, competences: ['foga'] })
+  const person = (id: string) => ({ id, name: id, order: 0, competences: ['foga'] })
   const block = (personId: string, date: string, from: string, to: string): Assignment => ({ id: `${personId}-${date}-${from}`, personId, date, competence: 'foga', ...iv(from, to), source: 'manual' })
   const crew: Workspace = {
     ...empty,

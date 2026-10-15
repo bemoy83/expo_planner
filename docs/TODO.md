@@ -51,7 +51,7 @@ Choices made where the handoff was open or disagreed with itself
 - «N uløste · Fjern» counts and removes the open unresolved blocks of the whole period. The faint traces are removed by hand.
 - Moved hours can be taken back from the popover of the day they were moved to.
 - Hours moved from a Friday land on the Saturday; the user has confirmed this.
-- The Kalender's «Faste» is the number of active people on Personell (`planningSettings` in `domain/calc.ts`). The number under Innstillinger stands in only until the first person is entered. A person's absence does not lower «Faste»; it shows on its own line, «Fravær faste».
+- The Kalender's «Faste» is the number of people on Mannskap › Faste (`planningSettings` in `domain/calc.ts`). The number under Innstillinger stands in only until the first person is entered. A person's absence does not lower «Faste»; it shows on its own line, «Fravær faste».
 - The competence colours include an orange and an amber, and the primary buttons are orange; the user keeps them for now.
 
 Gaps
@@ -72,7 +72,7 @@ Gaps
 
 ## Staffing lines: begun
 
-- **Fravær is in.** The absence entered in Bemanning shows in the Kalender's Bemanning section as the line «Fravær faste (FTE)», worked out per day (`absenceFte` in `domain/staffing.ts`: a whole day away is 1, a part of the day its share of the normal day, active people on workdays only), and is subtracted from «Tilgjengelig». It is read-only in the Kalender.
+- **Fravær is in.** The absence entered in Bemanning shows in the Kalender's Bemanning section as the line «Fravær faste (FTE)», worked out per day (`absenceFte` in `domain/staffing.ts`: a whole day away is 1, a part of the day its share of the normal day, on workdays only), and is subtracted from «Tilgjengelig». It is read-only in the Kalender.
 - **Overtime is in.** The overtime drawn in Bemanning shows as «Overtid faste (FTE)» (`overtimeByDay` and `overtimeLine` in `domain/staffing.ts`: hours outside the normal day, and every paid hour on a weekend or holiday, divided by the hours of an FTE-day) and is added to «Tilgjengelig». Read-only in the Kalender.
 - **Innleid is in (2026-10-13).** The confirmed orders of Bemanning · Innleid show as «Innleid (FTE)» and are added to «Tilgjengelig»; see «Innleid: begun». Read-only in the Kalender.
 - **Deferred by the user (2026-10-07): the lines typed in by hand** (Innleid, trade crews, Admin, margin). The workbook was their only source; with its import gone, their storage and editing in the Kalender are removed too. Do not build them again. The user will design another system for hired crew, like Bemanning but for innleid: in his words it is basically every competence demand that is not met after the permanent staff are assigned. His design is `design_docs/innleid/`, being built. Trade crews, Admin and margin are still not built.
@@ -110,9 +110,10 @@ The handoff in `design_docs/design_handoff_oppsett/`, built in five slices on th
 The handoff in `design_docs/design_handoff_mannskap_haller/`, built in six slices on the defaults offered to the user (2026-10-15): the column filters and sorting of these pages go for a search and a filter switch, as on Oppsett; deleting does not ask, with «Angre» in the toast, except a person with assignments or a supplier with orders; the tester of Hallregler is fixed at the right; the band is the sand of Oppsett.
 
 - **The frame.** Haller, Mannskap and Oppsett share one page header (`ui/RegisterHead.tsx`, in `.register-page`): the pages with their counts, an alert chip where rows need the planner, undo and «Fil». Each page fills the window and only its table scrolls, and every change says what it did in a toast with «Angre» (`useUndoToasts`). The style sheet of the three is `register.css`.
-- **Faste and Innleid.** Competences as chips (`CompetenceChips`), the + opening a list to search in; a strip of how many active people have each competence, to filter by; Aktiv as a switch, and those not active in a group of their own; a new person or supplier is given competences in the dialog. Skift is one switch of Dag, Kveld and Natt.
+- **Faste and Innleid.** Competences as chips (`CompetenceChips`), the + opening a list to search in; a strip of how many people or suppliers have each competence, to filter by, on Faste, Innleid and Produkttyper (`CompetenceStrip`); a new person or supplier is given competences in the dialog. Skift is one switch of Dag, Kveld and Natt.
 - **Kompetanser.** Order by grip or arrows, a colour grid, the block as Bemanning draws it, Faste and Innleid counted, and an amber mark where the demand names a competence no active person has (`unstaffedCompetences`, also the alert chip of the page).
 - **VenYou and Prosjekter.** Events by the month they start, their halls as buttons; Alle · Mangler prosjekt · Skjult i Kalender. Prosjekter has the events without a project first with their offer as a button and «Annet» for another number, names as chips, and «Ikke i tabellen» last.
+- **No «Aktiv» on Faste (the user, 2026-10-15).** A person is on Faste or deleted: the flag that hid someone in Bemanning and kept their blocks without counting them is gone from the data, the rules (R7, R15), the file and the page. Long leave is absence in the Person panel. Deleting someone with blocks asks first, with «Angre» after.
 - **Hallregler.** Uplassert, Valg for tekster, Steder, Ordregler and apart Områder, the part kept per browser (`rulesPart`); texts picked for several at once with a bar at the bottom; halls as buttons on places and areas; the tester (`PlacingPanel`) fixed at the right. `Unplaced.tsx` is gone.
 - Checked in the browser on the workspace of the pane: people and a supplier added, a competence given, a person set not active, the colour grid, the suggested numbers for all, two texts placed at once, a word rule. Not built: lines per place on Steder, and the number of the rule that shadows another («Skygget av reglene over» in its place).
 

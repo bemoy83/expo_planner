@@ -29,7 +29,7 @@ export function Mannskap({ page, pages, onPage }: Props) {
     kompetanser: {
       rows: competences,
       issues: unstaffed,
-      issueText: (n) => `${count(n, 'kompetanse', 'kompetanser')} i behovet har ingen aktive faste`,
+      issueText: (n) => `${count(n, 'kompetanse', 'kompetanser')} i behovet har ingen faste`,
     },
   }
   const head = (actions: ReactNode) => (

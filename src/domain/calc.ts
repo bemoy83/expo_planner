@@ -139,11 +139,11 @@ export interface DayCapacity {
 }
 
 /**
- * The settings the Kalender plans with. «Faste» is the number of active people on Personell;
+ * The settings the Kalender plans with. «Faste» is the number of people on Mannskap › Faste;
  * the number under Innstillinger stands in only until the first person is entered.
  */
 export const planningSettings = ({ settings, persons }: Pick<Workspace, 'settings' | 'persons'>): Settings =>
-  persons?.length ? { ...settings, baseCrew: persons.filter((person) => person.active).length } : settings
+  persons?.length ? { ...settings, baseCrew: persons.length } : settings
 
 export const capacityForDate = (date: ISODate, lines: CapacityLine[], settings: Settings): DayCapacity => {
   const base = dayType(date) === 'arbeidsdag' ? settings.baseCrew : 0

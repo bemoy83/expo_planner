@@ -145,14 +145,13 @@ describe('capacity', () => {
     expect(capacityForDate('2026-01-03', lines, DEFAULT_SETTINGS).available).toBe(2)
   })
 
-  it('counts the active people on Personell as the base crew, once any are entered', () => {
-    const person = (id: string, active: boolean) => ({ id, name: id, order: 0, active, competences: [] })
+  it('counts the people on Faste as the base crew, once any are entered', () => {
+    const person = (id: string) => ({ id, name: id, order: 0, competences: [] })
     expect(planningSettings({ settings: DEFAULT_SETTINGS })).toBe(DEFAULT_SETTINGS)
     expect(planningSettings({ settings: DEFAULT_SETTINGS, persons: [] }).baseCrew).toBe(21)
-    const crew = planningSettings({ settings: DEFAULT_SETTINGS, persons: [person('a', true), person('b', true), person('c', false)] })
+    const crew = planningSettings({ settings: DEFAULT_SETTINGS, persons: [person('a'), person('b')] })
     expect(crew).toEqual({ ...DEFAULT_SETTINGS, baseCrew: 2 })
     expect(capacityForDate('2026-01-05', [], crew).available).toBe(2)
-    expect(planningSettings({ settings: DEFAULT_SETTINGS, persons: [person('c', false)] }).baseCrew).toBe(0)
   })
 
   it('sums daily need across rows', () => {

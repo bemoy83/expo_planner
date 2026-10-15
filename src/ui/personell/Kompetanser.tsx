@@ -84,7 +84,7 @@ export function Kompetanser({ head, notify, show }: TablePage) {
   // The keys follow the competences people have, as in Bemanning.
   const keys = useMemo(() => new Map(staffedCompetences(ws).slice(0, LAST_KEY).map((style, index) => [style.key, index + 1])), [ws])
   const unstaffed = useMemo(() => new Set(unstaffedCompetences(ws).map((style) => style.key)), [ws])
-  const holders = (key: string) => (ws.persons ?? []).filter((p) => p.active && p.competences.includes(key)).length
+  const holders = (key: string) => (ws.persons ?? []).filter((p) => p.competences.includes(key)).length
   const hired = (key: string) => (ws.suppliers ?? []).filter((s) => s.competences.includes(key)).length
 
   const setStyle = (style: CompetenceStyle, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color'>>, text: string) => {
@@ -155,7 +155,7 @@ export function Kompetanser({ head, notify, show }: TablePage) {
               <span title="Opptil fire tegn, brukes der blokkene er smale">Kort</span>
               <span>Farge</span>
               <span>I Bemanning</span>
-              <span className="num" title="Aktive faste som har kompetansen">
+              <span className="num" title="Faste som har kompetansen">
                 Faste
               </span>
               <span className="num" title="Leverandører som stiller med den">
@@ -231,7 +231,7 @@ export function Kompetanser({ head, notify, show }: TablePage) {
                         {style.shortLabel}
                       </i>
                     </span>
-                    <span className={`num ${needed ? 'mk-unstaffed' : 'muted'}`} title={needed ? `Behovet nevner ${style.label}, men ingen aktive faste har den` : undefined}>
+                    <span className={`num ${needed ? 'mk-unstaffed' : 'muted'}`} title={needed ? `Behovet nevner ${style.label}, men ingen faste har den` : undefined}>
                       {needed && <i className="op-attention" aria-hidden />}
                       {n || (needed ? '0' : '')}
                     </span>

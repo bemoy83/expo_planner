@@ -168,7 +168,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   }, [panel])
 
   // ---- the people and the competences -------------------------------------------------------------
-  const persons = useMemo(() => (active ? (ws.persons ?? []).filter((p) => p.active) : []), [active, ws.persons])
+  const persons = useMemo(() => (active ? (ws.persons ?? []) : []), [active, ws.persons])
   const staffed = useMemo(() => (active ? staffedCompetences(ws) : []), [active, ws])
   const styles = useMemo(() => new Map((active ? competenceStyles(ws) : []).map((style) => [style.key, style])), [active, ws])
   // A brush whose competence nobody has any more is no brush.

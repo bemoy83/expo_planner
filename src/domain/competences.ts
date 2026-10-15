@@ -141,10 +141,10 @@ export const isUnusedCompetence = (ws: Workspace, key: CompetenceKey): boolean =
 
 export const removeCompetence = (ws: Workspace, key: CompetenceKey): Record<CompetenceKey, CompetenceStyle> => asRecord(competenceStyles(ws).filter((style) => style.key !== key))
 
-/** A new person at the end of the list, active, with the competences given. */
+/** A new person at the end of the list, with the competences given. */
 export const addPerson = (persons: Person[], name: string, id: string = `person-${crypto.randomUUID()}`, competences: CompetenceKey[] = []): Person[] => [
   ...persons,
-  { id, name: name.trim(), order: Math.max(-1, ...persons.map((p) => p.order)) + 1, active: true, competences },
+  { id, name: name.trim(), order: Math.max(-1, ...persons.map((p) => p.order)) + 1, competences },
 ]
 
 export const updatePerson = (persons: Person[], id: string, patch: Partial<Omit<Person, 'id'>>): Person[] => persons.map((p) => (p.id === id ? { ...p, ...patch } : p))
@@ -161,15 +161,15 @@ export const removePerson = (ws: Workspace, id: string): Workspace => ({
   assignments: (ws.assignments ?? []).filter((a) => a.personId !== id),
 })
 
-/** The competences Bemanning works with: those an active person has, in the planner's order. The first nine are picked with the keys 1–9. */
+/** The competences Bemanning works with: those a person has, in the planner's order. The first nine are picked with the keys 1–9. */
 export const staffedCompetences = (ws: Workspace): CompetenceStyle[] => {
-  const held = new Set((ws.persons ?? []).filter((p) => p.active).flatMap((p) => p.competences))
+  const held = new Set((ws.persons ?? []).flatMap((p) => p.competences))
   return competenceStyles(ws).filter((style) => held.has(style.key))
 }
 
-/** The competences the demand names that no active person has: they can only be hired in. In the planner's order. */
+/** The competences the demand names that no person has: they can only be hired in. In the planner's order. */
 export const unstaffedCompetences = (ws: Workspace): CompetenceStyle[] => {
-  const held = new Set((ws.persons ?? []).filter((p) => p.active).flatMap((p) => p.competences))
+  const held = new Set((ws.persons ?? []).flatMap((p) => p.competences))
   const needed = new Set(ws.demand.map((line) => competenceKey(line.competence)))
   return competenceStyles(ws).filter((style) => needed.has(style.key) && !held.has(style.key))
 }
@@ -216,7 +216,6 @@ export const isNameTaken = (persons: Person[], name: string, exceptId?: string):
 /** One person as a file has them. A part the file does not say is left as it is in the app. */
 export interface FilePerson {
   name: string
-  active?: boolean
   note?: string
   /** For each competence the file has a column for, by its name, whether the person has it. */
   competences: Record<string, boolean>
@@ -236,12 +235,12 @@ export const competencesFromFile = (held: CompetenceKey[], file: Record<string, 
 
 /** The person as the file has them: what it says wins, what it does not say is kept. */
 const fromFile = (person: Person, file: FilePerson): Person => {
-  const next: Person = { ...person, active: file.active ?? person.active, competences: competencesFromFile(person.competences, file.competences) }
+  const next: Person = { ...person, competences: competencesFromFile(person.competences, file.competences) }
   if (file.note !== undefined) {
     if (file.note) next.note = file.note
     else delete next.note
   }
-  return next.active === person.active && next.competences === person.competences && (next.note ?? '') === (person.note ?? '') ? person : next
+  return next.competences === person.competences && (next.note ?? '') === (person.note ?? '') ? person : next
 }
 
 /** The rows of a file, one per name: the first row of a name counts. */

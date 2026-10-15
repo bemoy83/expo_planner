@@ -12,26 +12,26 @@ const ws: Workspace = {
   allocations: [],
   kpi: { workTypes: [{ productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' }, { productType: 'Print', unit: 'ordre', competence: 'Print' }], rates: [] },
   persons: [
-    { id: 'p1', name: 'Anna', order: 0, active: true, competences: ['foga', 'print'], note: 'Leder' },
-    { id: 'p2', name: 'Bjarne', order: 1, active: false, competences: ['print'] },
+    { id: 'p1', name: 'Anna', order: 0, competences: ['foga', 'print'], note: 'Leder' },
+    { id: 'p2', name: 'Bjarne', order: 1, competences: ['print'] },
   ],
 }
 
 describe('the Personell file', () => {
   it('has a row per person and a column per competence', () => {
     const sheet = readXlsx(writePersonellWorkbook(ws)).get('Personell')!
-    expect(dataRows(sheet, 0).map((row) => [0, 1, 2, 3, 4].map((col) => cellAt(sheet, row, col)))).toEqual([
-      ['Navn', 'Aktiv', 'Notat', 'FOGA', 'Print'],
-      ['Anna', 'Ja', 'Leder', 'x', 'x'],
-      ['Bjarne', 'Nei', null, null, 'x'],
+    expect(dataRows(sheet, 0).map((row) => [0, 1, 2, 3].map((col) => cellAt(sheet, row, col)))).toEqual([
+      ['Navn', 'Notat', 'FOGA', 'Print'],
+      ['Anna', 'Leder', 'x', 'x'],
+      ['Bjarne', null, null, 'x'],
     ])
   })
 
   it('is read back as the people it was written from', () => {
     const read = readPersonellWorkbook(writePersonellWorkbook(ws))
     expect(read).toEqual([
-      { name: 'Anna', active: true, note: 'Leder', competences: { FOGA: true, Print: true } },
-      { name: 'Bjarne', active: false, note: '', competences: { FOGA: false, Print: true } },
+      { name: 'Anna', note: 'Leder', competences: { FOGA: true, Print: true } },
+      { name: 'Bjarne', note: '', competences: { FOGA: false, Print: true } },
     ])
     expect(diffPersons(ws, read)).toMatchObject({ added: 0, changed: 0, unchanged: 2, onlyInApp: 0, newCompetences: [] })
     expect(mergePersons(ws, read).persons).toEqual(ws.persons)
@@ -46,14 +46,13 @@ describe('the Personell file', () => {
       { name: 'Cecilie', competences: { FOGA: true, Rigging: false } },
     ])
     const merged = mergePersons(ws, read)
-    // Anna keeps being active, her note and the competence the file has no column for.
-    expect(merged.persons![0]).toEqual({ id: 'p1', name: 'Anna', order: 0, active: true, competences: ['print', 'rigging'], note: 'Leder' })
-    expect(merged.persons![2]).toMatchObject({ name: 'Cecilie', active: true, competences: ['foga'] })
+    // Anna keeps her note and the competence the file has no column for.
+    expect(merged.persons![0]).toEqual({ id: 'p1', name: 'Anna', order: 0, competences: ['print', 'rigging'], note: 'Leder' })
+    expect(merged.persons![2]).toMatchObject({ name: 'Cecilie', competences: ['foga'] })
     expect(competenceStyles(merged).map((s) => s.label)).toEqual(['FOGA', 'Print', 'Rigging'])
   })
 
-  it('takes an empty «Aktiv» as active, and refuses a file without names', () => {
-    expect(file(['Navn', 'Aktiv'], ['Anna', null], ['Bjarne', 'nei']).map((p) => p.active)).toEqual([true, false])
+  it('refuses a file without names', () => {
     expect(() => file(['Fornavn', 'FOGA'], ['Anna', 'x'])).toThrow(PersonellFormatError)
     expect(() => file(['Navn', 'FOGA'])).toThrow(PersonellFormatError)
   })

@@ -122,7 +122,7 @@ describe('undo history', () => {
     expect(changeWrites(step, 'redo').kpi).toBe(kpi)
   })
 
-  const person = (id: string, order: number, competences: string[] = ['foga']): Person => ({ id, name: id, order, active: true, competences })
+  const person = (id: string, order: number, competences: string[] = ['foga']): Person => ({ id, name: id, order, competences })
   const block = (id: string, personId: string, start = 420, end = 900): Assignment => ({ id, personId, date: '2026-10-12', competence: 'foga', start, end, source: 'manual' })
 
   it('undoes a staffing change across people, assignments, absence and moved hours as one step', () => {

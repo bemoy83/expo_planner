@@ -248,8 +248,6 @@ export interface Person {
   id: string
   name: string
   order: number
-  /** Inactive people are hidden in Bemanning but keep their history. */
-  active: boolean
   competences: CompetenceKey[]
   note?: string
 }

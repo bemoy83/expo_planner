@@ -96,13 +96,12 @@
 .dialog-actions .op-warn{margin-right:auto}
 
 /* Mannskap (ui/personell/, ui/leverandorer/): the competences someone has as chips, the switch of being active, and the shifts */
-.mk-people{--cols:minmax(150px,1fr) minmax(260px,2.4fr) 64px minmax(140px,1fr) 40px}
+.mk-people{--cols:minmax(150px,1fr) minmax(260px,2.4fr) minmax(140px,1fr) 40px}
 .mk-suppliers{--cols:minmax(150px,1fr) minmax(220px,1.8fr) 156px 92px minmax(140px,1fr) minmax(120px,1fr) 40px}
 .mk-competences{--cols:52px 40px minmax(120px,1fr) 64px 52px 176px 52px 56px minmax(160px,1.4fr) 36px}
 .mk-center{display:flex;justify-content:center;text-align:center}
 .mk-name input{font-weight:600}
 .mk-note input{color:var(--muted)}
-.mk-off>:not(.op-actions):not(.mk-center){opacity:.55}
 .mk-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:5px 0}
 .mk-chip{gap:6px;height:24px;padding:0 8px;border-radius:6px;font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
 .mk-chip svg{width:0;margin-left:-6px;color:var(--muted);transition:width .12s,margin .12s}

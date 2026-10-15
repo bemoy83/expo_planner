@@ -257,7 +257,7 @@ export function TriCheckbox({ checked, partial, label, onChange }: { checked: bo
   return <input ref={ref} type="checkbox" checked={checked} aria-label={label} onChange={(e) => onChange(e.target.checked)} />
 }
 
-/** A switch for a value that is on or off, as whether a person is active. Green when on. */
+/** A switch for a value that is on or off, as whether a place collects its halls. Green when on. */
 export function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: (on: boolean) => void }) {
   return (
     <button role="switch" aria-checked={on} aria-label={label} title={label} className={`switch ${on ? 'on' : ''}`} onClick={() => onChange(!on)}>

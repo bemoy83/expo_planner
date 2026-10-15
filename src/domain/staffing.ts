@@ -73,18 +73,18 @@ const dayWindows = (personId: string, date: ISODate, unavailability: Unavailabil
 }
 
 /**
- * The normal time the active people are away, as FTE per day, for the Kalender's «Tilgjengelig»: a whole
+ * The normal time the permanent staff are away, as FTE per day, for the Kalender's «Tilgjengelig»: a whole
  * day away is 1, a part of the day is its share of the normal day. Workdays only; days without absence are left out.
  */
 export const absenceFte = ({ persons, unavailability, settings }: Pick<Workspace, 'persons' | 'unavailability' | 'settings'>): DayValues => {
   const wd = settings.workday
   const full = paidHours(normalDay(wd), wd)
-  const active = new Set((persons ?? []).filter((person) => person.active).map((person) => person.id))
+  const staff = new Set((persons ?? []).map((person) => person.id))
   const days: DayValues = {}
   const seen = new Set<string>()
   for (const u of unavailability ?? []) {
     const key = `${u.personId}|${u.date}`
-    if (!active.has(u.personId) || seen.has(key) || dayType(u.date) !== 'arbeidsdag' || !(full > 0)) continue
+    if (!staff.has(u.personId) || seen.has(key) || dayType(u.date) !== 'arbeidsdag' || !(full > 0)) continue
     seen.add(key)
     const left = paidTotal(normalWindows(u.personId, u.date, unavailability ?? [], wd), wd)
     const away = Math.round(((full - left) / full) * 100) / 100
@@ -151,8 +151,8 @@ const newId = () => `asg-${crypto.randomUUID()}`
 const blocksOf = (assignments: Assignment[], personId: string, date: ISODate): Assignment[] =>
   assignments.filter((a) => a.personId === personId && a.date === date).sort((a, b) => a.start - b.start)
 
-/** R15: only an active person who has the competence can be given work of it. */
-export const isEligible = (person: Person | undefined, competence: CompetenceKey): boolean => !!person?.active && person.competences.includes(competence)
+/** R15: only a person who has the competence can be given work of it. */
+export const isEligible = (person: Person | undefined, competence: CompetenceKey): boolean => !!person && person.competences.includes(competence)
 
 export interface DayCell {
   personId: string
@@ -227,7 +227,7 @@ export const clearDays = (assignments: Assignment[], cells: DayCell[]): Assignme
 
 export type AssignmentStatus = 'ok' | 'unresolved'
 
-/** R7: an assignment is unresolved when its person is away then, no longer has the competence, or is inactive. */
+/** R7: an assignment is unresolved when its person is away then, or no longer has the competence. */
 export const assignmentStatus = (a: Assignment, ws: Workspace): AssignmentStatus =>
   workedParts(a, ws.persons?.find((p) => p.id === a.personId), absenceOf(ws.unavailability ?? [], a.personId, a.date)).length ? 'ok' : 'unresolved'
 
@@ -640,7 +640,7 @@ export interface FreeCapacity {
 }
 
 /**
- * R11: the free normal time of the active people, or of those who have the competence.
+ * R11: the free normal time of the permanent staff, or of those who have the competence.
  * Free time is shared between a person's competences, so the figures of two competences must not be added up.
  */
 export const freeCapacity = (ws: Workspace, date: ISODate, competence?: CompetenceKey): FreeCapacity => {
@@ -648,7 +648,7 @@ export const freeCapacity = (ws: Workspace, date: ISODate, competence?: Competen
   let hours = 0
   let people = 0
   for (const person of ws.persons ?? []) {
-    if (!person.active || (competence !== undefined && !person.competences.includes(competence))) continue
+    if (competence !== undefined && !person.competences.includes(competence)) continue
     const free = freeHours(normalWindows(person.id, date, ws.unavailability ?? [], wd), blocksOf(ws.assignments ?? [], person.id, date), wd)
     hours += free
     if (free > 0) people += 1
@@ -871,7 +871,6 @@ export const overtimeByWeek = (ws: Workspace, personId: string): Map<ISODate, nu
 /** R36: the people with a week above the limit, each with those weeks. The limit flags; it never stops an edit. */
 export const overtimeBreaches = (ws: Workspace, limit: number): { personId: string; weeks: { monday: ISODate; hours: number }[] }[] =>
   (ws.persons ?? [])
-    .filter((p) => p.active)
     .map((p) => ({ personId: p.id, weeks: [...overtimeByWeek(ws, p.id)].filter(([, hours]) => hours > limit).map(([monday, hours]) => ({ monday, hours })) }))
     .filter((person) => person.weeks.length > 0)
 

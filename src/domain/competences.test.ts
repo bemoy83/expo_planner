@@ -11,7 +11,7 @@ const base: Workspace = {
   demand: [],
   allocations: [row('Teppefliser'), row('FOGA'), row(' foga'), row('')],
   kpi: { workTypes: [{ productType: 'Skilt', unit: 'stk', competence: 'Skilting' }], rates: [] },
-  persons: [{ id: 'p1', name: 'Anna', order: 0, active: true, competences: ['banner'] }],
+  persons: [{ id: 'p1', name: 'Anna', order: 0, competences: ['banner'] }],
 }
 
 describe('competence styles', () => {
@@ -61,14 +61,14 @@ describe('competence styles', () => {
 })
 
 describe('people', () => {
-  it('adds a person at the end, active and without competences', () => {
+  it('adds a person at the end, without competences', () => {
     const persons = addPerson(base.persons!, ' Ola ', 'p2')
-    expect(persons[1]).toEqual({ id: 'p2', name: 'Ola', order: 1, active: true, competences: [] })
+    expect(persons[1]).toEqual({ id: 'p2', name: 'Ola', order: 1, competences: [] })
   })
 
   it('edits a person and toggles a competence', () => {
-    const persons = updatePerson(base.persons!, 'p1', { active: false, note: 'Deltid' })
-    expect(persons[0]).toMatchObject({ name: 'Anna', active: false, note: 'Deltid' })
+    const persons = updatePerson(base.persons!, 'p1', { note: 'Deltid' })
+    expect(persons[0]).toMatchObject({ name: 'Anna', note: 'Deltid' })
     expect(togglePersonCompetence(persons, 'p1', 'foga')[0].competences).toEqual(['banner', 'foga'])
     expect(togglePersonCompetence(persons, 'p1', 'banner')[0].competences).toEqual([])
   })
@@ -97,9 +97,9 @@ describe('a competence that is replaced', () => {
     ...base,
     allocations: [row('Teppefliser')],
     persons: [
-      { id: 'p1', name: 'Anna', order: 0, active: true, competences: ['skilting', 'teppefliser'] },
-      { id: 'p2', name: 'Bo', order: 1, active: true, competences: ['skilting', 'print'] },
-      { id: 'p3', name: 'Cato', order: 2, active: true, competences: ['teppefliser'] },
+      { id: 'p1', name: 'Anna', order: 0, competences: ['skilting', 'teppefliser'] },
+      { id: 'p2', name: 'Bo', order: 1, competences: ['skilting', 'print'] },
+      { id: 'p3', name: 'Cato', order: 2, competences: ['teppefliser'] },
     ],
     assignments: [
       { id: 'a1', personId: 'p1', date: '2026-10-12', competence: 'skilting', start: 420, end: 900, source: 'manual' },
@@ -153,9 +153,9 @@ describe('competenceUse', () => {
 
 describe('unstaffedCompetences', () => {
   const line = (competence: string): DemandLine => ({ id: competence, projectNo: '26970', projectName: 'VVS 2026', source: 'test', workType: 'Vegg', quantity: 1, unit: 'stk', stand: '', hall: 'D1', competence, basis: 'Planlagt', assemblyHours: 2, dismantleHours: 1, comment: '', origin: 'manual' })
-  it('lists the competences of the demand that no active person has', () => {
-    const ws: Workspace = { ...base, demand: [line('Banner'), line('FOGA'), line(' foga')], persons: [...base.persons!, { id: 'p2', name: 'Per', order: 1, active: false, competences: ['foga'] }] }
-    expect(unstaffedCompetences(ws).map((style) => style.key)).toEqual(['foga'])
+  it('lists the competences of the demand that no person has', () => {
+    const ws: Workspace = { ...base, demand: [line('Banner'), line('FOGA'), line(' foga'), line('Print')] }
+    expect(unstaffedCompetences(ws).map((style) => style.key)).toEqual(['foga', 'print'])
   })
 })
 
@@ -164,7 +164,7 @@ describe('the one name of a competence', () => {
     ...base,
     demand: [{ id: 'd1', projectNo: '26970', projectName: 'VVS 2026', source: '', workType: 'Skilt', quantity: 1, unit: 'stk', stand: '', hall: '', competence: 'Skilting', basis: 'Planlagt', assemblyHours: 1, dismantleHours: 0, comment: '', origin: 'manual' }],
     allocations: [row('Teppefliser'), row('Skilting')],
-    persons: [{ id: 'p1', name: 'Anna', order: 0, active: true, competences: ['banner', 'skilting'] }],
+    persons: [{ id: 'p1', name: 'Anna', order: 0, competences: ['banner', 'skilting'] }],
     assignments: [{ id: 's1', personId: 'p1', date: '2026-10-12', competence: 'skilting', start: 420, end: 900, source: 'manual' }],
     demandAdjustments: [{ id: 'a1', competence: 'skilting', date: '2026-10-13', hours: 2, reason: 'carry', createdAt: '' }],
   }
@@ -202,14 +202,14 @@ describe('people from a file', () => {
   const staffed: Workspace = {
     ...base,
     persons: [
-      { id: 'p1', name: 'Anna', order: 0, active: true, competences: ['banner', 'foga'], note: 'Leder' },
-      { id: 'p2', name: 'Bjarne', order: 1, active: true, competences: ['foga'] },
+      { id: 'p1', name: 'Anna', order: 0, competences: ['banner', 'foga'], note: 'Leder' },
+      { id: 'p2', name: 'Bjarne', order: 1, competences: ['foga'] },
     ],
     assignments: [{ id: 's1', personId: 'p2', date: '2026-10-12', competence: 'foga', start: 420, end: 900, source: 'manual' }],
     unavailability: [{ id: 'u1', personId: 'p2', date: '2026-10-13', kind: 'ferie' }],
   }
   const file: FilePerson[] = [
-    { name: 'anna ', active: false, competences: { FOGA: false, Skilting: true } },
+    { name: 'anna ', competences: { FOGA: false, Skilting: true } },
     { name: 'Cecilie', note: 'Ny', competences: { FOGA: true, Rigging: true } },
     { name: 'Cecilie', competences: { FOGA: false } },
   ]
@@ -223,9 +223,9 @@ describe('people from a file', () => {
     const merged = mergePersons(staffed, file)
     expect(merged.persons).toEqual([
       // A competence the file has no column for is kept, and so is a note the file has no column for.
-      { id: 'p1', name: 'Anna', order: 0, active: false, competences: ['banner', 'skilting'], note: 'Leder' },
+      { id: 'p1', name: 'Anna', order: 0, competences: ['banner', 'skilting'], note: 'Leder' },
       staffed.persons![1],
-      { id: expect.stringMatching(/^person-/), name: 'Cecilie', order: 2, active: true, competences: ['foga', 'rigging'], note: 'Ny' },
+      { id: expect.stringMatching(/^person-/), name: 'Cecilie', order: 2, competences: ['foga', 'rigging'], note: 'Ny' },
     ])
     expect(merged.persons![1]).toBe(staffed.persons![1])
     // A competence the app did not know keeps the spelling of the file.
@@ -241,7 +241,7 @@ describe('people from a file', () => {
   })
 
   it('empties a note the file has left empty, and tells names apart without regard to case', () => {
-    expect(mergePersons(staffed, [{ name: 'Anna', note: '', competences: {} }]).persons![0]).toEqual({ id: 'p1', name: 'Anna', order: 0, active: true, competences: ['banner', 'foga'] })
+    expect(mergePersons(staffed, [{ name: 'Anna', note: '', competences: {} }]).persons![0]).toEqual({ id: 'p1', name: 'Anna', order: 0, competences: ['banner', 'foga'] })
     expect(isNameTaken(staffed.persons!, ' ANNA')).toBe(true)
     expect(isNameTaken(staffed.persons!, 'Anna', 'p1')).toBe(false)
     expect(isNameTaken(staffed.persons!, 'Dina')).toBe(false)
