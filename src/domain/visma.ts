@@ -8,7 +8,7 @@ import {
   type VismaImport,
   type VismaRow,
 } from './types'
-import { productTypeKey } from './kpi'
+import { isCounted, productTypeKey } from './kpi'
 
 /**
  * Turns Visma booking lines into demand lines the way the planner's «Nøkkeltall Visma» workbook does:
@@ -112,7 +112,8 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
   const rules = new Map(kpi.workTypes.map((rule) => [productTypeKey(rule.productType), rule]))
   const rates = new Map(kpi.rates.map((rate) => [`${productTypeKey(rate.name)}|${rate.unit.toLowerCase()}`, rate]))
   const byText = new Map((kpi.byText ?? []).map((rule) => [rule.text.trim().toLowerCase(), rule.productType]))
-  return groupRows(rows).map((group) => {
+  // A booking line of an article number the planner has left out is not read at all.
+  return groupRows(rows.filter(isCounted(kpi))).map((group) => {
     const key = vismaLineKey(group.projectNo, group.avdeling, group.workType, group.hall, group.text)
     const override = overrides[key] ?? {}
     const fromText = group.workType === NO_PRODUCT_TYPE ? [...group.texts].map((text) => byText.get(text.toLowerCase())).find(Boolean) : undefined

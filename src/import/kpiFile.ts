@@ -1,7 +1,7 @@
 import { kpiRows, productTypeKey, productTypeName, type KpiFile } from '../domain/kpi'
-import type { KpiConfig, KpiRate, VismaImport, WorkTypeRule } from '../domain/types'
+import type { ExcludedArticle, KpiConfig, KpiRate, VismaImport, WorkTypeRule } from '../domain/types'
 import { vismaProductType } from './vismaExport'
-import { dataRows, findHeader, isMarked, num, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
+import { dataRows, findHeader, isMarked, num, readXlsx, text, writeXlsx, type CellValue, type Sheet } from './xlsx'
 
 /**
  * The KPI table as a file: what «Eksporter» on KPI writes and «Importer fra fil» reads. A row per product type and
@@ -11,6 +11,9 @@ import { dataRows, findHeader, isMarked, num, readXlsx, text, writeXlsx, type Ce
 export class KpiFormatError extends Error {}
 
 const HEAD = ['Produkttype', 'Enhet', 'I bruk', 'Kompetanse', 'Montering', 'Demontering']
+/** The sheet of the article numbers left out. It is always written, so that a file read back says the list is empty. */
+const ARTICLES = 'Utelatte artikler'
+const ARTICLE_HEAD = ['Art.nr', 'Merknad']
 const IN_USE = 'Ja'
 
 /** The headings a file may have for a column; the first found is read. `Kpier.xlsx` has the two from Visma. */
@@ -26,7 +29,11 @@ export const writeKpiWorkbook = (kpi: KpiConfig, visma: VismaImport[] = []): Uin
     .filter((row) => row.lacking !== 'new')
     .sort((a, b) => a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
     .map((row): CellValue[] => [row.name, row.unit, row.active ? IN_USE : '', row.competence, row.assembly || null, row.dismantle || null])
-  return writeXlsx([{ name: 'KPI', head: HEAD, rows }])
+  const articles = (kpi.excludedArticles ?? []).map((article): CellValue[] => [article.articleNo, article.note])
+  return writeXlsx([
+    { name: 'KPI', head: HEAD, rows },
+    { name: ARTICLES, head: ARTICLE_HEAD, rows: articles },
+  ])
 }
 
 /**
@@ -35,7 +42,27 @@ export const writeKpiWorkbook = (kpi: KpiConfig, visma: VismaImport[] = []): Uin
  * is left without a unit in use, for the planner to choose.
  */
 export const readKpiWorkbook = (bytes: Uint8Array): KpiFile => {
-  for (const sheet of readXlsx(bytes).values()) {
+  const sheets = [...readXlsx(bytes).values()]
+  const table = readKpiTable(sheets)
+  const excludedArticles = readArticles(sheets)
+  return excludedArticles ? { ...table, excludedArticles } : table
+}
+
+/** The article numbers left out, from the sheet the app writes them in; undefined where the file has none. */
+const readArticles = (sheets: Sheet[]): ExcludedArticle[] | undefined => {
+  for (const sheet of sheets) {
+    const header = findHeader(sheet, ARTICLE_HEAD.map((name) => name.toLowerCase()))
+    if (!header) continue
+    const get = (row: number, name: string) => text(sheet.rows.get(row)?.get(header.columns.get(name)!) ?? null)
+    return dataRows(sheet, header.row)
+      .map((row) => ({ articleNo: get(row, 'art.nr'), note: get(row, 'merknad') }))
+      .filter((article) => article.articleNo)
+  }
+  return undefined
+}
+
+const readKpiTable = (sheets: Sheet[]): KpiFile => {
+  for (const sheet of sheets) {
     const header = NAMES.productType.map((name) => findHeader(sheet, [name, 'enhet', 'montering', 'demontering'])).find(Boolean)
     if (!header) continue
     const column = (names: string[]) => names.map((name) => header.columns.get(name)).find((col) => col !== undefined)

@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
-import { addKpiRow, withTextType, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, productTypeKey, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, articleKey, articlesSeen, excludedLines, withExcludedArticle, withoutExcludedArticle, withTextType, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, productTypeKey, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, type KpiFile, type KpiRow, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { decimalText, parseDecimal } from '../../domain/numbers'
 import { readKpiWorkbook, writeKpiWorkbook } from '../../import/kpiFile'
 import { todayIso } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
+import { count } from '../dom'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { NumberField, PickField, TextField } from '../fields'
 import { X } from 'lucide-react'
+import type { ExcludedArticle, KpiConfig, VismaImport } from '../../domain/types'
 
 
 /** Whether the row is the first of its product type among the rows shown: its name is in bold, and a line is drawn above it. */
@@ -48,7 +50,7 @@ export function Kpi() {
   const units = useMemo(() => [...new Set([...kpi.workTypes.map((rule) => rule.unit), ...kpi.rates.map((rate) => rate.unit)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi])
   // Rates read in for a product type that no export names yet lack nothing the planner has to act on.
   const unfinished = useMemo(() => new Set(rows.filter((row) => row.lacking && (row.configured || row.lines > 0)).map((row) => row.name)).size, [rows])
-  const untyped = useMemo(() => linesWithoutProductType(ws.visma ?? []), [ws.visma])
+  const untyped = useMemo(() => linesWithoutProductType(ws.visma ?? [], kpi), [ws.visma, kpi])
 
   const { pending, onFile, done } = useTableFile<KpiFile>({
     read: readKpiWorkbook,
@@ -56,7 +58,7 @@ export function Kpi() {
     takeIn: (incoming, file) => {
       setKpi(replaceKpi(kpi, incoming))
       const toChoose = incoming.workTypes.filter((rule) => !rule.unit).length
-      setMessage({ kind: 'ok', text: `${file} lest inn: ${incoming.workTypes.length} produkttyper og ${incoming.rates.length} satser.${toChoose ? ` ${toChoose} produkttyper har flere enheter; velg hvilken som er i bruk.` : ''}` })
+      setMessage({ kind: 'ok', text: `${file} lest inn: ${incoming.workTypes.length} produkttyper og ${incoming.rates.length} satser${incoming.excludedArticles?.length ? `, ${count(incoming.excludedArticles.length, 'utelatt artikkel', 'utelatte artikler')}` : ''}.${toChoose ? ` ${toChoose} produkttyper har flere enheter; velg hvilken som er i bruk.` : ''}` })
     },
     onError: (text) => setMessage({ kind: 'error', text }),
   })
@@ -241,13 +243,15 @@ export function Kpi() {
             <DataTable table={textTable} className="summary" rowKey={(rule) => rule.text} />
           </section>
         )}
+
+        <ExcludedArticles kpi={kpi} visma={ws.visma ?? []} setKpi={setKpi} />
       </div>
 
       {pending && diff && (
         <MergeReplaceDialog
           title="Importer KPI"
           source={pending.file}
-          results={[describeDiff('Produkttyper', diff.workTypes), describeDiff('Satser', diff.rates)]}
+          results={[describeDiff('Produkttyper', diff.workTypes), describeDiff('Satser', diff.rates), ...(pending.incoming.excludedArticles ? [describeDiff('Utelatte artikler', diff.excludedArticles)] : [])]}
           replaceText={`produkttypene og satsene i appen byttes helt ut med filen; ${pending.incoming.unitsInUse ? 'enheten i bruk er den filen merker, og ellers den du har valgt' : 'enheten du har valgt for en produkttype beholdes så lenge den har sats'}${
             diff.workTypes.onlyInApp + diff.rates.onlyInApp > 0 ? `; ${diff.workTypes.onlyInApp + diff.rates.onlyInApp} rader som bare finnes i appen forsvinner` : ''
           }`}
@@ -273,6 +277,102 @@ export function Kpi() {
         />
       )}
     </div>
+  )
+}
+
+interface ExcludedProps {
+  kpi: KpiConfig
+  visma: VismaImport[]
+  setKpi: (kpi: KpiConfig) => unknown
+}
+
+/**
+ * The article numbers whose booking lines are not read: they give no lines, no quantity and no hours, in any project.
+ * For what is ordered but is no work for the crew, as freight or a fee.
+ */
+function ExcludedArticles({ kpi, visma, setKpi }: ExcludedProps) {
+  const [number, setNumber] = useState('')
+  const [note, setNote] = useState('')
+  const seen = useMemo(() => new Map(articlesSeen(visma).map((article) => [articleKey(article.articleNo), article])), [visma])
+  const listed = kpi.excludedArticles ?? []
+  const out = new Set(listed.map((article) => articleKey(article.articleNo)))
+  const offered = [...seen.values()].filter((article) => !out.has(articleKey(article.articleNo)))
+  const dropped = useMemo(() => excludedLines(visma, kpi), [visma, kpi])
+  const known = out.has(articleKey(number))
+  const add = () => {
+    if (!number.trim() || known) return
+    // The text of its lines is the note when none is written.
+    setKpi(withExcludedArticle(kpi, number, note.trim() || seen.get(articleKey(number))?.texts[0] || ''))
+    setNumber('')
+    setNote('')
+  }
+  const columns: Column<ExcludedArticle>[] = [
+    { key: 'articleNo', head: 'Art.nr', text: (article) => article.articleNo, cell: (article) => <strong>{article.articleNo}</strong> },
+    {
+      key: 'note',
+      head: 'Merknad',
+      text: (article) => article.note,
+      cell: (article) => <TextField value={article.note} ariaLabel={`Merknad for ${article.articleNo}`} placeholder="Hva artikkelen er" onCommit={(value) => setKpi(withExcludedArticle(kpi, article.articleNo, value))} />,
+    },
+    {
+      key: 'texts',
+      head: 'Tekst i ordrene',
+      text: (article) => seen.get(articleKey(article.articleNo))?.texts.join(' · ') ?? '',
+      cell: (article) => <span className="muted">{seen.get(articleKey(article.articleNo))?.texts.join(' · ')}</span>,
+    },
+    {
+      key: 'lines',
+      head: 'Linjer',
+      title: 'Ordrelinjer med artikkelen i Visma-utskriftene som er lest inn',
+      className: 'num',
+      text: (article) => String(seen.get(articleKey(article.articleNo))?.lines ?? ''),
+      sort: (article) => seen.get(articleKey(article.articleNo))?.lines ?? 0,
+      cell: (article) => seen.get(articleKey(article.articleNo))?.lines || '',
+    },
+    {
+      key: 'actions',
+      className: 'actions',
+      cell: (article) => (
+        <button className="row-action" title="Regn med artikkelen igjen" onClick={() => setKpi(withoutExcludedArticle(kpi, article.articleNo))}>
+          <X size={13} aria-hidden />
+        </button>
+      ),
+    },
+  ]
+  const table = useTable(listed, columns)
+  return (
+    <section className="text-rules">
+      <h3>Utelatte artikler</h3>
+      <p className="hint">
+        Ordrelinjer med et av disse artikkelnumrene leses ikke: de gir ingen linjer og ingen timer, i noe prosjekt. For det som er bestilt, men ikke er arbeid for mannskapet.
+        {dropped > 0 && ` Nå holdes ${count(dropped, 'ordrelinje', 'ordrelinjer')} utenfor.`}
+      </p>
+      <form
+        className="field-row"
+        onSubmit={(e) => {
+          e.preventDefault()
+          add()
+        }}
+      >
+        <PickField
+          value={number}
+          onChange={setNumber}
+          options={offered.map((article) => article.articleNo)}
+          note={(option) => {
+            const article = seen.get(articleKey(option))
+            return article ? `${article.texts.slice(0, 2).join(' · ')} · ${count(article.lines, 'linje', 'linjer')}` : undefined
+          }}
+          placeholder="Art.nr"
+          aria-label="Artikkelnummer som skal utelates"
+        />
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Merknad (valgfri)" aria-label="Merknad" />
+        <button type="submit" disabled={!number.trim() || known}>
+          Utelat
+        </button>
+        {known && <span className="issue">Artikkelen er allerede utelatt.</span>}
+      </form>
+      {listed.length > 0 && <DataTable table={table} className="summary" rowKey={(article) => articleKey(article.articleNo)} />}
+    </section>
   )
 }
 

@@ -1,5 +1,5 @@
 import { diffBy, type TableDiff } from './tableDiff'
-import type { KpiConfig, KpiRate, VismaImport, WorkTypeRule } from './types'
+import type { ExcludedArticle, KpiConfig, KpiRate, VismaImport, VismaRow, WorkTypeRule } from './types'
 
 /**
  * The KPI setup as one editable table: a row per product type and unit, with the rates for that unit.
@@ -48,9 +48,10 @@ export const typeAndRate = (kpi: KpiConfig, workType: string): { type?: WorkType
 
 export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => {
   const seen = new Map<string, { name: string; lines: number }>()
+  const counted = isCounted(kpi)
   for (const source of visma) {
     for (const row of source.rows) {
-      if (!row.productType) continue
+      if (!row.productType || !counted(row)) continue
       const key = productTypeKey(row.productType)
       const entry = seen.get(key) ?? { name: row.productType, lines: 0 }
       entry.lines += 1
@@ -175,13 +176,20 @@ export const mergeKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): KpiCo
   for (const rate of incoming.rates ?? []) rates.set(rateKey(rate.name, rate.unit), rate)
   const types = new Map(existing.workTypes.map((rule) => [productTypeKey(rule.productType), rule]))
   for (const rule of keepChosenUnits(existing, incoming, [...rates.values()])) types.set(productTypeKey(rule.productType), rule)
-  return { ...existing, workTypes: [...types.values()], rates: [...rates.values()] }
+  const articles = new Map((existing.excludedArticles ?? []).map((article) => [articleKey(article.articleNo), article]))
+  for (const article of incoming.excludedArticles ?? []) articles.set(articleKey(article.articleNo), article)
+  return { ...existing, workTypes: [...types.values()], rates: [...rates.values()], ...(articles.size ? { excludedArticles: [...articles.values()] } : {}) }
 }
 
 /** The parts the file contains replace those parts in the app; a part the file lacks is left as it is. */
 export const replaceKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): KpiConfig => {
   const rates = incoming.rates ?? existing.rates
-  return { ...existing, workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming, rates) : existing.workTypes, rates }
+  return {
+    ...existing,
+    workTypes: incoming.workTypes ? keepChosenUnits(existing, incoming, rates) : existing.workTypes,
+    rates,
+    ...(incoming.excludedArticles ? { excludedArticles: incoming.excludedArticles } : {}),
+  }
 }
 
 /**
@@ -199,13 +207,71 @@ const NO_DIFF: TableDiff = { added: 0, changed: 0, unchanged: 0, onlyInApp: 0 }
 /** A part the file lacks changes nothing. */
 const diffPart = <T,>(existing: T[], incoming: T[] | undefined, key: (item: T) => string, equal: (a: T, b: T) => boolean): TableDiff => (incoming ? diffBy(existing, incoming, key, equal) : NO_DIFF)
 
-/** What a KPI file would change, for the work types and for the rates. */
-export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): { workTypes: TableDiff; rates: TableDiff } => ({
+/** What a KPI file would change, for the work types, the rates and the article numbers left out. */
+export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): { workTypes: TableDiff; rates: TableDiff; excludedArticles: TableDiff } => ({
   // Counted as they would be taken in: a unit the planner has chosen is no change.
   workTypes: diffPart(existing.workTypes, incoming.workTypes && keepChosenUnits(existing, incoming, [...existing.rates, ...(incoming.rates ?? [])]), (rule) => productTypeKey(rule.productType), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
   rates: diffPart(existing.rates, incoming.rates, (rate) => rateKey(rate.name, rate.unit), (a, b) => a.assembly === b.assembly && a.dismantle === b.dismantle),
+  excludedArticles: diffPart(existing.excludedArticles ?? [], incoming.excludedArticles, (article) => articleKey(article.articleNo), (a, b) => a.note === b.note),
 })
 
 /** Booking lines in the held exports that Visma has no product type for. */
-export const linesWithoutProductType = (visma: VismaImport[]): number =>
-  visma.reduce((n, source) => n + source.rows.filter((row) => !row.productType).length, 0)
+export const linesWithoutProductType = (visma: VismaImport[], kpi: KpiConfig = EMPTY_KPI): number => {
+  const counted = isCounted(kpi)
+  return visma.reduce((n, source) => n + source.rows.filter((row) => !row.productType && counted(row)).length, 0)
+}
+
+/** An article number as it is compared: «  4711 » and «4711» are one article. */
+export const articleKey = (articleNo: string): string => articleNo.trim().toLowerCase()
+
+/** Whether a booking line counts in the demand: its article number is not one the planner has left out. */
+export const isCounted = (kpi: KpiConfig): ((row: Pick<VismaRow, 'articleNo'>) => boolean) => {
+  const out = new Set((kpi.excludedArticles ?? []).map((article) => articleKey(article.articleNo)))
+  return (row) => !out.size || !out.has(articleKey(row.articleNo))
+}
+
+/** The setup with an article number left out, or its note changed where it is already. An empty number changes nothing. */
+export const withExcludedArticle = (kpi: KpiConfig, articleNo: string, note = ''): KpiConfig => {
+  const number = articleNo.trim()
+  if (!number) return kpi
+  const list = kpi.excludedArticles ?? []
+  const known = list.some((article) => articleKey(article.articleNo) === articleKey(number))
+  const article: ExcludedArticle = { articleNo: number, note: note.trim() }
+  return { ...kpi, excludedArticles: known ? list.map((old) => (articleKey(old.articleNo) === articleKey(number) ? { ...article, articleNo: old.articleNo } : old)) : [...list, article] }
+}
+
+/** The setup with an article number counted again. */
+export const withoutExcludedArticle = (kpi: KpiConfig, articleNo: string): KpiConfig => ({
+  ...kpi,
+  excludedArticles: (kpi.excludedArticles ?? []).filter((article) => articleKey(article.articleNo) !== articleKey(articleNo)),
+})
+
+/** An article number found in the held exports: the texts its lines have, and how many lines it has. */
+export interface ArticleSeen {
+  articleNo: string
+  texts: string[]
+  lines: number
+}
+
+/** The article numbers of the booking lines in the held exports, each once, by their number. */
+export const articlesSeen = (visma: VismaImport[]): ArticleSeen[] => {
+  const seen = new Map<string, ArticleSeen>()
+  for (const { rows } of visma) {
+    for (const row of rows) {
+      const number = row.articleNo.trim()
+      if (!number) continue
+      const entry = seen.get(articleKey(number)) ?? { articleNo: number, texts: [], lines: 0 }
+      entry.lines += 1
+      const said = row.description.trim()
+      if (said && !entry.texts.some((text) => text.toLowerCase() === said.toLowerCase())) entry.texts.push(said)
+      seen.set(articleKey(number), entry)
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.articleNo.localeCompare(b.articleNo, 'nb', { numeric: true }))
+}
+
+/** Booking lines in the held exports that are left out by their article number. */
+export const excludedLines = (visma: VismaImport[], kpi: KpiConfig): number => {
+  const counted = isCounted(kpi)
+  return visma.reduce((n, source) => n + source.rows.filter((row) => !counted(row)).length, 0)
+}

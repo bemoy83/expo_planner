@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, diffKpi, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
+import { addKpiRow, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
@@ -61,6 +61,7 @@ describe('KPI import', () => {
     expect(diffKpi(kpi, file)).toEqual({
       workTypes: { added: 0, changed: 0, onlyInApp: 0, unchanged: 0 },
       rates: { added: 1, changed: 1, onlyInApp: 1, unchanged: 1 },
+      excludedArticles: { added: 0, changed: 0, onlyInApp: 0, unchanged: 0 },
     })
   })
 
@@ -197,5 +198,33 @@ describe('typeAndRate', () => {
     const kpi = { workTypes: [{ productType: 'FOGA-vegger', unit: 'lm', competence: 'FOGA' }], rates: [{ name: 'FOGA-vegger', unit: 'm2', assembly: 1, dismantle: 1 }, { name: 'foga-vegger', unit: 'LM', assembly: 7, dismantle: 14 }] }
     expect(typeAndRate(kpi, 'foga-VEGGER')).toEqual({ type: kpi.workTypes[0], rate: kpi.rates[1] })
     expect(typeAndRate(kpi, 'Rigg')).toEqual({ type: undefined, rate: undefined })
+  })
+})
+
+describe('article numbers left out', () => {
+  const line = (articleNo: string, productType = 'Print', description = ''): VismaRow => ({ projectNo: '1', eventName: 'VVS 2026', stand: '', transInfo: '', hall: '', customer: '', avdeling: '', orderNo: '', articleNo, description, quantity: 1, productGroup: '', productType })
+  const visma: VismaImport[] = [{ projectNo: '1', eventName: 'VVS 2026', fileName: 'x', importedAt: '', rows: [line('4711', 'Print', 'Frakt'), line('4711', '', 'frakt'), line('12'), line('')] }]
+
+  it('are one list, matched whatever the spacing or case, with a note that can be changed', () => {
+    const out = withExcludedArticle(withExcludedArticle(EMPTY_KPI, ' AB-1 ', 'Gebyr'), 'ab-1', 'Gebyr, ikke arbeid')
+    expect(out.excludedArticles).toEqual([{ articleNo: 'AB-1', note: 'Gebyr, ikke arbeid' }])
+    expect(isCounted(out)({ articleNo: 'Ab-1' })).toBe(false)
+    expect(isCounted(out)({ articleNo: '' })).toBe(true)
+    expect(withExcludedArticle(out, '  ')).toBe(out)
+    expect(withoutExcludedArticle(out, 'AB-1 ').excludedArticles).toEqual([])
+  })
+
+  it('take their lines out of the counts of the KPI table', () => {
+    const out = withExcludedArticle(kpi, '4711')
+    expect(excludedLines(visma, out)).toBe(2)
+    expect([linesWithoutProductType(visma), linesWithoutProductType(visma, out)]).toEqual([1, 0])
+    expect([kpi, out].map((setup) => kpiRows(setup, visma).find((row) => row.name === 'Print')?.lines)).toEqual([3, 2])
+  })
+
+  it('are offered from the exports, each number once with its texts', () => {
+    expect(articlesSeen(visma)).toEqual([
+      { articleNo: '12', texts: [], lines: 1 },
+      { articleNo: '4711', texts: ['Frakt'], lines: 2 },
+    ])
   })
 })

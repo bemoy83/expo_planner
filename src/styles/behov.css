@@ -22,7 +22,7 @@
 .behov-table{flex:1;min-height:0;overflow:auto;padding:0 24px 96px}
 .behov-table section{margin-top:24px}
 .behov-table h3{font-size:var(--fs-base);font-weight:600;margin:0}
-.behov-main>.orphans{margin:0 24px 8px}
+.behov-main>:is(.orphans,.hint){margin:0 24px 8px}
 .all-clear{display:flex;align-items:center;gap:8px;margin:8px 0;padding:16px 18px;border-radius:10px;background:var(--sunken);color:var(--muted)}
 .all-clear svg{color:var(--pos)}
 

@@ -40,10 +40,20 @@ describe('the KPI file', () => {
     const read = readKpiWorkbook(writeKpiWorkbook(kpi))
     expect(read.unitsInUse).toBe(true)
     expect(kpiRows(read)).toEqual(kpiRows(kpi))
-    expect(diffKpi(kpi, read)).toEqual({ workTypes: { added: 0, changed: 0, onlyInApp: 0, unchanged: 4 }, rates: { added: 1, changed: 0, onlyInApp: 0, unchanged: 4 } })
+    expect(diffKpi(kpi, read)).toEqual({ workTypes: { added: 0, changed: 0, onlyInApp: 0, unchanged: 4 }, rates: { added: 1, changed: 0, onlyInApp: 0, unchanged: 4 }, excludedArticles: { added: 0, changed: 0, onlyInApp: 0, unchanged: 0 } })
     // The one rate that is new is the empty one of a type that had none; the table is the same.
     expect(kpiRows(replaceKpi(kpi, read))).toEqual(kpiRows(kpi))
     expect(kpiRows(mergeKpi(kpi, read))).toEqual(kpiRows(kpi))
+  })
+
+  it('carries the article numbers left out on a sheet of their own, also when there are none', () => {
+    const withArticles: KpiConfig = { ...kpi, excludedArticles: [{ articleNo: '4711', note: 'Frakt' }, { articleNo: '90001', note: '' }] }
+    expect(readKpiWorkbook(writeKpiWorkbook(withArticles)).excludedArticles).toEqual(withArticles.excludedArticles)
+    // An empty list read back empties the list on replace, and leaves it on merge.
+    const empty = readKpiWorkbook(writeKpiWorkbook(kpi))
+    expect(empty.excludedArticles).toEqual([])
+    expect(replaceKpi(withArticles, empty).excludedArticles).toEqual([])
+    expect(mergeKpi(withArticles, empty).excludedArticles).toEqual(withArticles.excludedArticles)
   })
 
   it('leaves out a type that is only in the orders and not set up', () => {

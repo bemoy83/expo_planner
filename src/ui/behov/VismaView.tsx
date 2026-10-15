@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Check, Minus, X } from 'lucide-react'
 import { formatFte } from '../../domain/calc'
-import { EMPTY_KPI } from '../../domain/kpi'
+import { EMPTY_KPI, excludedLines } from '../../domain/kpi'
 import { decimalText } from '../../domain/numbers'
 import { lineRef, NO_PRODUCT_TYPE, orphanedDecisions } from '../../domain/visma'
 import { countOf, missingText, type LineFilter, type LineStatus, type ProjectReview, type ReviewedLine } from '../../domain/vismaReview'
@@ -316,6 +316,8 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
     return () => window.removeEventListener('keydown', onKey)
   }, [anyPicked])
   const orphans = projectNo && project ? orphanedDecisions(projectNo, project.lines, ws.overrides ?? {}) : []
+  // Booking lines of article numbers left out on KPI are not read, so they are in no line here.
+  const dropped = useMemo(() => excludedLines((ws.visma ?? []).filter((source) => !projectNo || source.projectNo === projectNo), kpi), [ws.visma, projectNo, kpi])
 
   const railAside = (p: { need: number }) =>
     p.need ? (
@@ -415,6 +417,14 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
                   ))}
                 </ul>
               </div>
+            )}
+            {dropped > 0 && (
+              <p className="hint">
+                {count(dropped, 'ordrelinje', 'ordrelinjer')} {projectNo ? 'i prosjektet ' : ''}er holdt utenfor etter artikkelnummer.{' '}
+                <button className="link" onClick={onOpenSetup}>
+                  Utelatte artikler på KPI
+                </button>
+              </p>
             )}
             <div className="behov-table">
               {filter === 'need' && matched.length === 0 && !q ? (

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
 import { vismaHall } from '../import/vismaExport'
-import { withTextType } from './kpi'
+import { withExcludedArticle, withTextType } from './kpi'
 import { buildVismaLines, lineRef, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
 
 const kpi: KpiConfig = {
@@ -159,5 +159,14 @@ describe('product type names', () => {
     const config: KpiConfig = { workTypes: [{ productType: '5999 Diverse', unit: 'stk', competence: 'Diverse' }], rates: [{ name: '5999 diverse', unit: 'stk', assembly: 2, dismantle: 4 }] }
     const [line] = buildVismaLines([row({ productType: '5999 DIVERSE', quantity: 8 })], config, {})
     expect(line).toMatchObject({ workType: '5999 DIVERSE', competence: 'Diverse', assemblyHours: 4, dismantleHours: 2, issue: null })
+  })
+})
+
+describe('article numbers left out', () => {
+  it('are not read: their booking lines give no line, no quantity and no hours', () => {
+    const booked = [row({ quantity: 10, articleNo: '100' }), row({ quantity: 4, articleNo: ' 4711 ' }), row({ productType: '', description: 'Frakt', articleNo: '4711' })]
+    const lines = buildVismaLines(booked, withExcludedArticle(kpi, '4711', 'Frakt'), {})
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatchObject({ quantity: 10, rowCount: 1 })
   })
 })

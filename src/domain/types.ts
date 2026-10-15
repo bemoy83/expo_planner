@@ -202,6 +202,14 @@ export interface KpiConfig {
   rates: KpiRate[]
   /** The product type the planner gave an article text of lines that have none in the orders: the next export is read with it. */
   byText?: { text: string; productType: string }[]
+  /** Article numbers whose booking lines are left out of the demand altogether, in every project and every export. */
+  excludedArticles?: ExcludedArticle[]
+}
+
+/** An article number the planner does not count, with what it is, for the planner's own reading. */
+export interface ExcludedArticle {
+  articleNo: string
+  note: string
 }
 
 /** The planner's own decisions about one Visma line; they survive a new export. */
