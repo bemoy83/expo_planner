@@ -19,7 +19,7 @@
 
 /* The table of product types: rows on a grid of their own, as it is grouped and folds out. Its heading stays, and its body scrolls. */
 .op-table{flex:1;min-height:0;display:flex;flex-direction:column;font-size:var(--fs-base)}
-.op-types{--cols:24px minmax(180px,1.4fr) 168px minmax(130px,1fr) 92px 104px 52px 56px}
+.op-types{--cols:24px minmax(180px,1.4fr) 168px minmax(130px,1fr) 92px 104px 52px 116px 56px}
 .op-body{flex:1;min-height:0;overflow-y:auto;padding-bottom:96px}
 .op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 10px;border-bottom:1px solid color-mix(in oklab,var(--line) 45%,transparent)}
 .op-row>*{min-width:0}
@@ -54,13 +54,20 @@
 .op-per{margin-left:2px;font-style:normal;font-size:var(--fs-xs);color:var(--faint)}
 .op-actions{display:flex;justify-content:flex-end;gap:2px;opacity:0}
 .op-row:hover .op-actions,.op-actions:focus-within{opacity:1}
+/* the hours a type gives, by the squares of the phases */
+.op-hours{display:flex;gap:12px;font:500 var(--fs-sm) var(--font-num)}
+.op-hours>span{display:inline-flex;align-items:center;gap:5px;min-width:44px}
+.op-phase{width:8px;height:8px;border-radius:2px;flex:none}
+.op-phase.assembly{background:var(--ph-assembly)}
+.op-phase.dismantle{background:var(--ph-dismantle)}
+.op-unknown{font-size:var(--fs-sm);color:var(--faint)}
 /* the units of a type, folded out under it */
 .op-row.unfolded{border-bottom-color:transparent}
 .op-sub{min-height:34px;font-size:var(--fs-sm);background:color-mix(in oklab,var(--sunken) 50%,transparent)}
 .op-in-use{font-size:var(--fs-xs);font-weight:600;padding:2px 7px;border-radius:4px;background:var(--pos-bg);color:var(--pos)}
 .op-empty{margin:0;padding:16px 10px;color:var(--muted)}
-@container (max-width:1080px){.op-types{--cols:24px minmax(150px,1.3fr) 150px minmax(110px,1fr) 84px 96px 44px 56px}.op-flow-aside{display:none}}
-@container (max-width:820px){.op-types{--cols:20px minmax(130px,1fr) 128px 104px 80px 88px 48px}.op-types .op-row>:nth-child(7){display:none}.op-tag{display:none}}
+@container (max-width:1080px){.op-types{--cols:24px minmax(150px,1.3fr) 150px minmax(110px,1fr) 84px 96px 44px 56px}.op-types .op-row>:nth-child(8){display:none}.op-flow-aside{display:none}}
+@container (max-width:820px){.op-types{--cols:20px minmax(130px,1fr) 128px 104px 80px 88px 48px}.op-types .op-row>:is(:nth-child(7),:nth-child(8)){display:none}.op-tag{display:none}}
 
 /* Tekstregler */
 .op-quote{font-weight:500}

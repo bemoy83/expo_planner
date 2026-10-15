@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowRight, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { addKpiRow, EMPTY_KPI, kpiTypes, productTypeKey, removeKpiRow, renameUnit, setActiveUnit, setCompetence, setRate, type KpiRow, type KpiType, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
+import { countsStands, yieldByType, type TypeYield } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
 import { usePref } from '../../store/prefs'
 import { count } from '../dom'
@@ -34,7 +35,12 @@ interface Edits {
   setRate: (type: KpiType, row: KpiRow, phase: 'assembly' | 'dismantle', value: number) => void
   remove: (type: KpiType, row: KpiRow) => void
   addUnit: (type: KpiType) => void
+  /** What the type's lines give in a unit: the one in use, unless another is named. */
+  given: (type: KpiType, unit?: string) => TypeYield | undefined
 }
+
+/** Hours as the table shows them: whole. */
+const wholeHours = (hours: number) => Math.round(hours).toLocaleString('nb-NO')
 
 /**
  * How each Visma product type is read, and its rates: the unit it is counted in, the competence it belongs to,
@@ -45,6 +51,9 @@ interface Edits {
 export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify }) {
   const { workspace, setKpi } = useWorkspace()
   const kpi = workspace!.kpi ?? EMPTY_KPI
+  const visma = workspace!.visma
+  const bookings = useMemo(() => (visma ?? []).flatMap((source) => source.rows), [visma])
+  const yields = useMemo(() => yieldByType(bookings, kpi), [bookings, kpi])
   const color = useCompetenceColor()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = usePref<Filter>('oppsettFilter', 'alle', (stored) => (stored === 'mangler' || stored === 'ferdig' ? stored : 'alle'))
@@ -99,7 +108,15 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
     },
     remove: ({ name }, row) => (setKpi(removeKpiRow(kpi, name, row.unit)), notify(`Slettet ${name} (${row.unit}).`)),
     addUnit: ({ name }) => setAdding({ name }),
+    given: ({ name, inUse }, unit = inUse?.unit) =>
+      unit === inUse?.unit ? yields.get(productTypeKey(name)) : unit ? yieldByType(bookings, setActiveUnit(kpi, name, unit)).get(productTypeKey(name)) : undefined,
   }
+  /** The hours the lines of the types give, where each is set up. */
+  const total = (types: KpiType[]) =>
+    types.reduce((sum, type) => {
+      const given = !type.lacking && edits.given(type)
+      return given ? sum + given.assembly + given.dismantle : sum
+    }, 0)
 
   return (
     <div className="op">
@@ -155,6 +172,7 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
             <span className="num" title="Ordrelinjer med denne produkttypen i Visma-utskriftene som er lest inn">
               Linjer
             </span>
+            <span title="Timene linjene gir med oppsettet i dag, før effekt: montering og demontering">Gir timer</span>
             <span />
           </div>
           <div className="op-body">
@@ -175,6 +193,7 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
                 <div className="op-group-head">
                   <i className="field-dot" style={{ background: color(competence) ?? 'var(--faint)' }} aria-hidden />
                   {competence || 'Uten kompetanse'} <span className="op-group-count">{types.length}</span>
+                  {total(types) > 0 && <span className="op-group-note">{wholeHours(total(types))} t</span>}
                 </div>
                 {types.map((type) => (
                   <TypeRows key={type.name} type={type} edits={edits} />
@@ -210,6 +229,23 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
         />
       )}
     </div>
+  )
+}
+
+/** The hours a type's lines give, montering and demontering, each by the square of its phase. */
+function Hours({ given }: { given?: TypeYield }) {
+  if (!given || given.assembly + given.dismantle === 0) return null
+  return (
+    <span className="op-hours">
+      <span title="Montering">
+        <i className="op-phase assembly" aria-hidden />
+        {wholeHours(given.assembly)}
+      </span>
+      <span title="Demontering">
+        <i className="op-phase dismantle" aria-hidden />
+        {given.dismantle ? wholeHours(given.dismantle) : '–'}
+      </span>
+    </span>
   )
 }
 
@@ -297,6 +333,7 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
         <span className="num">{inUse && <Rate type={type} row={inUse} phase="assembly" want={type.lacking === 'rate'} edits={edits} />}</span>
         <span className="num">{inUse && <Rate type={type} row={inUse} phase="dismantle" edits={edits} />}</span>
         <span className="num muted">{type.lines || ''}</span>
+        <span>{!type.lacking ? <Hours given={edits.given(type)} /> : type.lines > 0 && <span className="op-unknown">ukjent</span>}</span>
         <span className="op-actions">
           <button className="icon-button small" title={`Legg til en annen enhet for ${type.name}`} aria-label={`Ny enhet for ${type.name}`} onClick={() => edits.addUnit(type)}>
             <Plus size={14} aria-hidden />
@@ -309,7 +346,9 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
         </span>
       </div>
       {open &&
-        units.map((row) => (
+        units.map((row) => {
+          const given = edits.given(type, row.unit)
+          return (
           <div key={row.unit} className={`op-row op-sub ${row.active ? 'in-use' : ''}`}>
             <span />
             <span>
@@ -324,7 +363,7 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
             <span>
               <TextField value={row.unit} floating options={edits.units} ariaLabel={`Enhet for ${type.name}`} onCommit={(unit) => edits.renameUnit(type, row.unit, unit)} />
             </span>
-            <span />
+            <span className="muted">{given && (countsStands(row.unit) ? `teller ${count(given.quantity, 'stand', 'stands')}` : `summerer ${wholeHours(given.quantity)} ${row.unit}`)}</span>
             <span className="num">
               <Rate type={type} row={row} phase="assembly" edits={edits} />
             </span>
@@ -332,13 +371,17 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
               <Rate type={type} row={row} phase="dismantle" edits={edits} />
             </span>
             <span />
+            <span className={row.active ? undefined : 'muted'}>
+              <Hours given={given} />
+            </span>
             <span className="op-actions">
               <button className="icon-button small" title={`Slett ${row.unit}`} aria-label={`Slett ${type.name} (${row.unit})`} onClick={() => edits.remove(type, row)}>
                 <Trash2 size={13} aria-hidden />
               </button>
             </span>
           </div>
-        ))}
+          )
+        })}
     </>
   )
 }

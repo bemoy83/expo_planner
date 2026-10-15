@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
 import { vismaHall } from '../import/vismaExport'
-import { withExcludedArticle, withTextType } from './kpi'
-import { buildVismaLines, lineRef, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
+import { setActiveUnit, setRate, withExcludedArticle, withTextType } from './kpi'
+import { buildVismaLines, lineRef, yieldByType, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -91,6 +91,18 @@ describe('Visma lines', () => {
     expect(line.assemblyHours).toBeCloseTo((10 / 7) * 0.1)
     expect(line).toMatchObject({ basis: 'Planlagt', origin: 'visma', source: 'visma per reg. dato', comment: 'egen opptelling' })
     expect(vismaDemandLines(source, kpi, { [key]: { excluded: true } }).find((l) => l.id === `visma|${key}`)!.basis).toBe('visma per reg. dato')
+  })
+})
+
+describe('what a product type gives', () => {
+  it('sums the quantity and hours of its lines in the unit in use, or in another unit', () => {
+    const given = yieldByType(rows, kpi)
+    // FOGA-vegger: 10 + 0 + 21 lm at 7 and 14 per hour; Print: two stands at one per hour.
+    expect(given.get('foga-vegger')).toEqual({ quantity: 31, assembly: 31 / 7, dismantle: 31 / 14 })
+    expect(given.get('print')).toEqual({ quantity: 2, assembly: 2, dismantle: 0 })
+    expect(given.has('01_ingen produkttype')).toBe(false)
+    const inStands = setActiveUnit(setRate(kpi, 'FOGA-vegger', 'stands', { assembly: 0.5 }), 'FOGA-vegger', 'stands')
+    expect(yieldByType(rows, inStands).get('foga-vegger')).toEqual({ quantity: 3, assembly: 6, dismantle: 0 })
   })
 })
 

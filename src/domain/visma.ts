@@ -37,6 +37,9 @@ export const vismaLineKey = (projectNo: string, avdeling: string, workType: stri
 
 const COUNTED_UNITS = new Set(['ordre', 'stands'])
 
+/** A unit that counts the stands of the lines, not their quantity. */
+export const countsStands = (unit: string): boolean => COUNTED_UNITS.has(unit.trim().toLowerCase())
+
 export interface VismaLine {
   key: string
   projectNo: string
@@ -153,6 +156,31 @@ export const buildVismaLines = (rows: VismaRow[], kpi: KpiConfig, overrides: Rec
       missingRate,
     }
   })
+}
+
+/** What the lines of a product type give: their quantity in its unit in use, and the hours of each phase before any Effekt. */
+export interface TypeYield {
+  quantity: number
+  assembly: number
+  dismantle: number
+}
+
+/**
+ * The lines of the held exports by product type, as the setup reads them: what each type's unit in use gives, and the hours
+ * that gives before the planner's Effekt or a line left out. Lines given a type by their article text count under it.
+ */
+export const yieldByType = (rows: VismaRow[], kpi: KpiConfig): Map<string, TypeYield> => {
+  const byType = new Map<string, TypeYield>()
+  for (const line of buildVismaLines(rows, kpi, {})) {
+    if (line.workType === NO_PRODUCT_TYPE) continue
+    const key = productTypeKey(line.workType)
+    const sum = byType.get(key) ?? { quantity: 0, assembly: 0, dismantle: 0 }
+    sum.quantity += line.quantity
+    sum.assembly += line.assemblyHours
+    sum.dismantle += line.dismantleHours
+    byType.set(key, sum)
+  }
+  return byType
 }
 
 /** The line as it reads now, kept with a decision so it can be shown after the line has left the export. */
