@@ -9,7 +9,7 @@ import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { Toasts, useToasts } from '../Toasts'
-import { ProductTypes } from './Kpi'
+import { ProductTypes } from './ProductTypes'
 import { TextRules } from './TextRules'
 import { ExcludedArticles } from './ExcludedArticles'
 

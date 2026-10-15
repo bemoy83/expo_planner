@@ -81,3 +81,13 @@
 .op-add .primary{display:inline-flex;align-items:center;gap:6px}
 .op-warn{font-size:var(--fs-sm);color:var(--over)}
 .op-number{font-family:var(--font-num);font-size:var(--fs-sm);font-weight:600}
+
+/* the dialog of a new product type or unit: six columns, the type over four and its unit over two */
+.op-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.op-form>label{grid-column:span 2}
+.op-form>label.wide{grid-column:span 4}
+.op-form>label.full{grid-column:span 6}
+.op-form>label.half{grid-column:span 3}
+.op-form small{font-weight:400;color:var(--faint)}
+.op-form input{width:100%}
+.dialog-actions .op-warn{margin-right:auto}

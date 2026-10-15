@@ -414,42 +414,46 @@ function AddDialog({ initial, typeNames, units, competences, setUp, exists, onAd
   const duplicate = name.trim() !== '' && unit.trim() !== '' && exists(name, unit)
   const valid = name.trim() !== '' && unit.trim() !== '' && !duplicate && Number.isFinite(toNumber(assembly)) && Number.isFinite(toNumber(dismantle))
 
+  const per = `${unit.trim() || 'enheter'} per time`
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <form
-        className="dialog"
+        className="dialog wide"
+        // Escape closes an open list first, then the dialog.
+        onKeyDown={(e) => e.key === 'Escape' && (e.target as HTMLElement).getAttribute('aria-expanded') !== 'true' && onClose()}
         onSubmit={(e) => {
           e.preventDefault()
           if (valid) onAdd({ name, unit, competence, assembly: toNumber(assembly), dismantle: toNumber(dismantle) })
         }}
       >
         <h2>{initial.name ? `Ny enhet for ${initial.name}` : 'Ny produkttype'}</h2>
-        <div className="field-row">
-          <label>
+        <p className="hint">{initial.name ? 'Satsene gjelder bare denne enheten. Enheten i bruk endres ikke.' : 'Navnet må være som i Visma: det er det som kobler ordrelinjene til satsen.'}</p>
+        <div className="op-form">
+          <label className="wide">
             Produkttype
-            <PickField options={typeNames} value={name} autoFocus={!initial.name} onChange={setName} placeholder="Som i Visma, f.eks. FOGA-vegger" />
+            <PickField options={typeNames} value={name} autoFocus={!initial.name} disabled={!!initial.name} onChange={setName} placeholder="Som i Visma, f.eks. FOGA-vegger" />
           </label>
-          <label className="narrow">
-            Enhet
-            <PickField options={units} value={unit} autoFocus={!!initial.name} onChange={setUnit} placeholder="stk, lm, m², ordre" />
-          </label>
-        </div>
-        <label>
-          Kompetanse (nøkkelområde)
-          <PickField options={competences} value={fixed ?? competence} disabled={fixed !== undefined} onChange={setCompetence} />
-        </label>
-        <div className="field-row">
           <label>
-            Montering, enheter per time
+            Enhet
+            <PickField options={units} value={unit} autoFocus={!!initial.name} onChange={setUnit} placeholder="stk, m, m², ordre" />
+          </label>
+          <label className="full">
+            <span>
+              Kompetanse (nøkkelområde){fixed !== undefined && <small> · følger produkttypen</small>}
+            </span>
+            <PickField options={competences} value={fixed ?? competence} disabled={fixed !== undefined} onChange={setCompetence} />
+          </label>
+          <label className="half">
+            Montering, {per}
             <input inputMode="decimal" value={assembly} onChange={(e) => setAssembly(e.target.value)} />
           </label>
-          <label>
-            Demontering, enheter per time
-            <input inputMode="decimal" value={dismantle} onChange={(e) => setDismantle(e.target.value)} />
+          <label className="half">
+            Demontering, {per}
+            <input inputMode="decimal" value={dismantle} placeholder="tomt = ingen" onChange={(e) => setDismantle(e.target.value)} />
           </label>
         </div>
-        {duplicate && <span className="issue">Produkttypen har allerede denne enheten.</span>}
         <div className="dialog-actions">
+          {duplicate && <span className="op-warn">Produkttypen har allerede denne enheten.</span>}
           <button type="button" onClick={onClose}>
             Avbryt
           </button>
