@@ -152,8 +152,7 @@
 .mk-color-grid button:hover{background:var(--sunken)}
 .mk-color-grid button.on{background:var(--surface);box-shadow:var(--raise);color:var(--text)}
 .mk-preview{display:flex;align-items:center;gap:6px;min-width:0}
-.mk-block{display:inline-flex;align-items:center;gap:6px;height:22px;max-width:110px;padding:0 8px;overflow:hidden;border-radius:5px;background:var(--cc);color:var(--on-line);font-size:var(--fs-xs);font-style:normal;font-weight:600;white-space:nowrap}
-.mk-block small{font:500 var(--fs-xs) var(--font-num)}
+.mk-block{display:inline-flex;align-items:center;height:22px;max-width:110px;padding:0 8px;overflow:hidden;border-radius:5px;background:var(--cc);color:var(--on-line);font-size:var(--fs-xs);font-style:normal;font-weight:600;white-space:nowrap}
 .mk-block.short{padding:0 5px;font-family:var(--font-num);letter-spacing:.02em}
 .mk-unstaffed{gap:6px;align-items:center;color:var(--over);font-weight:600}
 @container (max-width:1000px){

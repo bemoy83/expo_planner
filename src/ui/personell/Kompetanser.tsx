@@ -226,7 +226,6 @@ export function Kompetanser({ head, notify, show }: TablePage) {
                     <span className="mk-preview" aria-hidden>
                       <i className="mk-block" style={competenceColor(style)}>
                         {style.label}
-                        <small>7,5</small>
                       </i>
                       <i className="mk-block short" style={competenceColor(style)}>
                         {style.shortLabel}
