@@ -1,4 +1,5 @@
-import { useId, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type Ref } from 'react'
+import { useCallback, useId, useLayoutEffect, useState, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type Ref } from 'react'
+import { createPortal } from 'react-dom'
 import { decimalText, parseDecimal } from '../domain/numbers'
 
 /** A number that is edited in place and saved when the field is left or Enter is pressed. Empty means 0. */
@@ -61,6 +62,48 @@ interface PickFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'va
   ref?: Ref<HTMLInputElement>
   /** A value that is marked when the list opens before anything is typed, so that Enter takes it: an offer. */
   marked?: string
+  /**
+   * The list floats over the page, under the field or above it where there is no room, in place of hanging from the field:
+   * for a field in a panel or a table that scrolls, which would clip the list and grow by it.
+   */
+  floating?: boolean
+}
+
+/** Where a floating list stands: under its field, or above it where there is more room there, and inside the window. */
+function useFloat(field: HTMLInputElement | null, list: HTMLElement | null, on: boolean): CSSProperties | undefined {
+  const [style, setStyle] = useState<CSSProperties>()
+  useLayoutEffect(() => {
+    if (!on || !field || !list) return
+    const place = () => {
+      const at = field.getBoundingClientRect()
+      const gap = 8
+      const below = window.innerHeight - at.bottom - gap
+      const above = at.top - gap
+      const up = below < 200 && above > below
+      const width = Math.max(at.width, list.offsetWidth)
+      const left = Math.max(gap, Math.min(at.left, window.innerWidth - width - gap))
+      setStyle({
+        position: 'fixed',
+        left,
+        minWidth: at.width,
+        maxHeight: Math.max(120, Math.min(340, up ? above : below)),
+        ...(up ? { bottom: window.innerHeight - at.top, top: 'auto', marginBottom: 2 } : { top: at.bottom }),
+      })
+    }
+    place()
+    // The field moves with what scrolls around it, and the list with it.
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    // Kept inside the window as the list narrows or widens with what is typed.
+    const sized = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(place)
+    sized?.observe(list)
+    return () => {
+      sized?.disconnect()
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [on, field, list])
+  return on ? style : undefined
 }
 
 /**
@@ -68,12 +111,22 @@ interface PickFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'va
  * something is typed, then those that hold the text. Arrow keys and Enter pick, as a click does.
  * The values can stand in groups under headings, with a line above them all.
  */
-export function PickField({ value, onChange, options = [], groups, head, onPick = onChange, current = value, note, onCancel, onBlur, onKeyDown, marked, ...rest }: PickFieldProps) {
+export function PickField({ value, onChange, options = [], groups, head, onPick = onChange, current = value, note, onCancel, onBlur, onKeyDown, marked, floating, ref, ...rest }: PickFieldProps) {
   const [open, setOpen] = useState(false)
   // The text the field holds when it is entered is not a search.
   const [typed, setTyped] = useState(false)
   const [active, setActive] = useState(-1)
   const listId = useId()
+  const [field, setField] = useState<HTMLInputElement | null>(null)
+  const [list, setList] = useState<HTMLElement | null>(null)
+  const fieldRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      setField(el)
+      if (typeof ref === 'function') ref(el)
+      else if (ref) ref.current = el
+    },
+    [ref],
+  )
   const text = value.trim().toLowerCase()
   const all: PickGroup[] = groups ?? [{ items: options.map((option) => ({ value: option, note: note?.(option) })) }]
   const shown = (item: PickItem) => `${item.label ?? item.value}`.toLowerCase().includes(text)
@@ -92,11 +145,62 @@ export function PickField({ value, onChange, options = [], groups, head, onPick 
     onPick(option)
     close()
   }
+  const float = useFloat(field, list, !!floating && open)
+  useLayoutEffect(() => {
+    const item = list?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (list && item) intoList(item, list)
+  }, [list, active, float])
   let at = -1
+  const shownList = listed.length > 0 && (
+    <span
+      ref={setList}
+      className={`field-list ${groups ? 'grouped' : ''} ${floating ? 'floating' : ''}`}
+      // Hidden until it is placed, so it does not show where it hangs first.
+      style={floating ? (float ?? { visibility: 'hidden' }) : undefined}
+      id={listId}
+      role="listbox"
+    >
+      {head && <span className="field-head">{head}</span>}
+      {sections.map((group, g) => (
+        <span key={g} className="field-group" role="group" aria-label={group.label}>
+          {group.label && (
+            <span className="field-group-head">
+              {group.label}
+              {group.hint && <small>{group.hint}</small>}
+            </span>
+          )}
+          {group.items.map((item) => {
+            const index = ++at
+            return (
+              <button
+                key={item.value}
+                type="button"
+                role="option"
+                tabIndex={-1}
+                className={item.value === current ? 'current' : undefined}
+                aria-selected={index === active}
+                onMouseEnter={groups ? () => setActive(index) : undefined}
+                // The field keeps the focus, so what was typed to find the value is not saved when it is left.
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  pick(item.value)
+                }}
+              >
+                {item.dot && <i className="field-dot" style={{ background: item.dot }} aria-hidden />}
+                {item.label ?? item.value}
+                {item.note && <small>{item.note}</small>}
+              </button>
+            )
+          })}
+        </span>
+      ))}
+    </span>
+  )
   return (
     <span className="field">
       <input
         {...rest}
+        ref={fieldRef}
         role="combobox"
         aria-expanded={listed.length > 0}
         aria-controls={listed.length ? listId : undefined}
@@ -132,47 +236,18 @@ export function PickField({ value, onChange, options = [], groups, head, onPick 
           onKeyDown?.(e)
         }}
       />
-      {listed.length > 0 && (
-        <span className={`field-list ${groups ? 'grouped' : ''}`} id={listId} role="listbox">
-          {head && <span className="field-head">{head}</span>}
-          {sections.map((group, g) => (
-            <span key={g} className="field-group" role="group" aria-label={group.label}>
-              {group.label && (
-                <span className="field-group-head">
-                  {group.label}
-                  {group.hint && <small>{group.hint}</small>}
-                </span>
-              )}
-              {group.items.map((item) => {
-                const index = ++at
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    role="option"
-                    tabIndex={-1}
-                    className={item.value === current ? 'current' : undefined}
-                    aria-selected={index === active}
-                    ref={index === active ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
-                    onMouseEnter={groups ? () => setActive(index) : undefined}
-                    // The field keeps the focus, so what was typed to find the value is not saved when it is left.
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      pick(item.value)
-                    }}
-                  >
-                    {item.dot && <i className="field-dot" style={{ background: item.dot }} aria-hidden />}
-                    {item.label ?? item.value}
-                    {item.note && <small>{item.note}</small>}
-                  </button>
-                )
-              })}
-            </span>
-          ))}
-        </span>
-      )}
+      {floating && shownList ? createPortal(shownList, document.body) : shownList}
     </span>
   )
+}
+
+/** Scrolls the list, and nothing around it, so that a value in it is in view: the page under a list is left where it is. */
+function intoList(item: HTMLElement, list: HTMLElement) {
+  const head = list.querySelector<HTMLElement>('.field-head')?.offsetHeight ?? 0
+  const top = item.offsetTop - head
+  const bottom = item.offsetTop + item.offsetHeight
+  if (top < list.scrollTop) list.scrollTop = top
+  else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight
 }
 
 interface TextFieldProps {

@@ -45,6 +45,7 @@ export function SplitPick({ value, chosen, offer, offerTitle, missing, options =
       <span className={`split-field ${className}`}>
         <PickField
           autoFocus
+          floating
           value={text}
           onChange={setText}
           options={offer ? [offer, ...options.filter((option) => option !== offer)] : options}
