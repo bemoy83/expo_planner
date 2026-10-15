@@ -20,7 +20,7 @@ const lastDate = (booking: VenueBooking): ISODate => VENUE_PHASES.flatMap((phase
 const firstDate = (booking: VenueBooking): ISODate => VENUE_PHASES.flatMap((phase) => booking.phases[phase]?.start ?? []).sort()[0] ?? ''
 const sameDays = (bookings: VenueBooking[]) => bookings.every((b) => VENUE_PHASES.every((phase) => span(b.phases[phase]) === span(bookings[0].phases[phase])))
 
-type Filter = 'alle' | 'mangler' | 'skjult'
+type Filter = 'alle' | 'kalender' | 'mangler' | 'skjult'
 
 interface EventGroup {
   /** The event among those listed: its name and the month it takes place. */
@@ -94,12 +94,13 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
 
   const missing = groups.filter((g) => g.event && !g.event.projectNo).length
   const someHidden = groups.filter((g) => g.shown < g.keys.length).length
+  const inKalender = groups.filter((g) => g.shown > 0).length
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
     return groups.filter(
       (g) =>
         (!q || `${g.name} ${g.bookings.map((b) => b.hall).join(' ')}`.toLowerCase().includes(q)) &&
-        (filter === 'alle' || (filter === 'mangler' ? !!g.event && !g.event.projectNo : g.shown < g.keys.length)),
+        (filter === 'alle' || (filter === 'kalender' ? g.shown > 0 : filter === 'mangler' ? !!g.event && !g.event.projectNo : g.shown < g.keys.length)),
     )
   }, [groups, search, filter])
   const months = [...new Set(shown.map((g) => g.anchor.slice(0, 7)))]
@@ -218,6 +219,7 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
             onChange={setFilter}
             options={[
               { value: 'alle', label: <>Alle <span className="count">{groups.length}</span></> },
+              { value: 'kalender', label: <>I Kalender <span className="count">{inKalender}</span></>, title: 'Arrangementene med minst én hall som vises i Kalender' },
               { value: 'mangler', label: <>Mangler prosjekt {missing ? <span className="count-chip alert">{missing}</span> : <span className="count">0</span>}</> },
               { value: 'skjult', label: <>Skjult i Kalender <span className="count">{someHidden}</span></> },
             ]}
