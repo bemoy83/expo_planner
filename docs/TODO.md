@@ -105,7 +105,7 @@ The handoff in `design_docs/design_handoff_oppsett/`, built in five slices on th
 - Checked in the browser with the real files on a clean start: the pages and counts, a unit chosen and folded out, the hours and totals, the competence list, a rule made in «Avklar» and changed on Tekstregler, an article left out and taken back by «Angre», the import toast.
 - Not built: the import dialog as a table of Nye · Endret · Like · Bare i appen (the shared `MergeReplaceDialog` is kept as the other tables have it), and «venter på Behov» opening «Avklar» itself.
 
-## Haller and Mannskap redesign: built, to be tested by the user
+## Haller and Mannskap redesign: merged
 
 The handoff in `design_docs/design_handoff_mannskap_haller/`, built in six slices on the defaults offered to the user (2026-10-15): the column filters and sorting of these pages go for a search and a filter switch, as on Oppsett; deleting does not ask, with «Angre» in the toast, except a person with assignments or a supplier with orders; the tester of Hallregler is fixed at the right; the band is the sand of Oppsett.
 
@@ -116,6 +116,7 @@ The handoff in `design_docs/design_handoff_mannskap_haller/`, built in six slice
 - **No «Aktiv» on Faste (the user, 2026-10-15).** A person is on Faste or deleted: the flag that hid someone in Bemanning and kept their blocks without counting them is gone from the data, the rules (R7, R15), the file and the page. Long leave is absence in the Person panel. Deleting someone with blocks asks first, with «Angre» after.
 - **Hallregler.** Uplassert, Valg for tekster, Steder, Ordregler and apart Områder, the part kept per browser (`rulesPart`); texts picked for several at once with a bar at the bottom; halls as buttons on places and areas; the tester (`PlacingPanel`) fixed at the right. `Unplaced.tsx` is gone.
 - Checked in the browser on the workspace of the pane: people and a supplier added, a competence given, a person set not active, the colour grid, the suggested numbers for all, two texts placed at once, a word rule. Not built: lines per place on Steder, and the number of the rule that shadows another («Skygget av reglene over» in its place).
+- Merged to main on 2026-10-15, with the user's tweaks: no hours on the preview block, the competence strip on Innleid and Produkttyper, no «Aktiv», the plan's phase colours and «I Kalender» on VenYou, and column filters on Uplassert.
 
 ## Innleid: built, to be tested by the user
 
