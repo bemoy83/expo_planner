@@ -316,8 +316,8 @@
 .strip-dem::before{background:var(--dem)}
 /* A level that takes FTE itself instead of only summing its rows: typed in, so its days are a row's days for as long as it is:
    on the canvas with a row's weekends, ruled off between the days, the figures in a row's ink. A top level keeps its band in
-   the label column alone, and its strong line. */
-.group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--accent)}
+   the label column alone, and its strong line. Its label has a bar of ink at the left, as a hall's has at the right when its project is lit. */
+.group-row.entry-level .grid-label{box-shadow:inset 3px 0 0 var(--text)}
 
 /* Rows are typed in, so they are ruled: a rule between the days, and one above each row's cells, which is the rule under the row
    before it. The rule sits on the cells and not on the line, so it has their fill behind it, and the label column has none. The
