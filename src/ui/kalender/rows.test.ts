@@ -212,8 +212,8 @@ describe('rows as a hierarchy', () => {
     expect(shownLevels(tree(grouping, new Set([phases[1]])))).toBeNull()
   })
 
-  it('folds a level that takes FTE itself, and leaves a level without rows alone', () => {
-    const items = buildItems(fine, [], demand, DEFAULT_SETTINGS, EMPTY_FILTER, new Set(), undefined, ['phase', 'hall'], new Set(['phase:montering/hall:hall c', 'phase:demontering']))
+  it('lets a folded level take FTE itself, as the deepest line of its branch, and an open one not', () => {
+    const items = buildItems(fine, [], demand, DEFAULT_SETTINGS, EMPTY_FILTER, new Set(['phase:montering/hall:hall c', 'phase:demontering']), undefined, ['phase', 'hall'])
     expect(outline(items)).toEqual(['Montering', '  Hall C', '  #d64 Hall D', '  #hage Alle haller', 'Demontering'])
     expect(items.flatMap((i) => (i.kind === 'group' && i.entry ? [i.node.label] : []))).toEqual(['Hall C', 'Demontering'])
   })

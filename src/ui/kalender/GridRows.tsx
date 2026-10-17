@@ -367,21 +367,21 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, waitingHire
 
 interface GroupRowProps extends CellEdit {
   item: GroupItem
-  /** The level's place among the lines that take FTE, when it is in entry mode. */
+  /** The level's place among the lines that take FTE, when it is folded. */
   lane: number
   /** The hall phase of each day of the project, for the strip on a project's line. */
   phases: Map<ISODate, VenuePhase> | undefined
-  /** In entry mode: the days the rows under the level can be worked on, see `AllocRow`. */
+  /** Folded: the days the rows under the level can be worked on, see `AllocRow`. */
   window?: Set<ISODate>
   cols: Columns
   actions: GridActions
 }
 
 /**
- * A level of the hierarchy. Open, it shows no figures per day: the rows below carry them. Folded, it shows
- * its sums on a strip in the colour of the work phase. In entry mode it is a row: its sums are its FTE, typed, drawn
- * as spans and pulled by their ends as a row's are, and what a day gets is shared out over the rows under it.
- * A project's line carries the hall-phase strip unless it is in entry.
+ * A level of the hierarchy. Open, it shows no figures per day: the rows below carry them, and a project's line the
+ * hall-phase strip. Folded, it is the deepest line of its branch and a row: its sums are its FTE, typed, drawn as spans
+ * and pulled by their ends as a row's are, and what a day gets is shared out over the rows under it. A folded project's
+ * line keeps the hall phases as a thin line under its spans.
  */
 export const GroupRow = memo(function GroupRow({ item, lane, phases, window, cols, actions, ...edit }: GroupRowProps) {
   const { node } = item
@@ -409,7 +409,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
       cols={cols}
       label={
         <>
-          <Twisty open={!item.collapsed} show="Vis rader" hide="Skjul rader" style={{ marginLeft: node.depth * INDENT }} onToggle={() => (item.entry ? actions.toggleEntry(node.key) : actions.toggleGroup(node.key))} />
+          <Twisty open={!item.collapsed} show="Vis rader" hide="Skjul rader" style={{ marginLeft: node.depth * INDENT }} onToggle={() => actions.toggleGroup(node.key)} />
           {project ? (
             <span
               className={`lbl-project ${project.venue ? 'locatable' : ''}`}
@@ -440,20 +440,6 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
           <span className="row-slot">
             {node.rows.length > 0 && (
               <button
-                className={`row-action level-mode ${item.entry ? 'entry' : ''}`}
-                aria-pressed={item.entry}
-                title={
-                  item.entry
-                    ? 'Du skriver FTE på dette nivået; tallet fordeles på radene under etter behov. Klikk for å gå tilbake til sum.'
-                    : 'Nivået viser summen av radene under. Klikk for å skrive FTE her og få det fordelt på radene under etter behov.'
-                }
-                onClick={() => actions.toggleEntry(node.key)}
-              >
-                {item.entry ? '✎' : 'Σ'}
-              </button>
-            )}
-            {node.rows.length > 0 && (
-              <button
                 className="row-action"
                 title="Foreslå plan: fordel behovet til radene under på monterings- og demonteringsdagene i hallene. Rader som allerede har FTE røres ikke."
                 onClick={() => actions.proposePlan(node.rows, false)}
@@ -470,7 +456,10 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
         </>
       }
       cells={(date, col) => {
-        if (item.entry) return valueCell(cell, date, col, valueAt(date), undefined, spanClass(valueAt, edit.ghost, window, phaseOn(date), date))
+        if (item.entry) {
+          const hallPhase = phases?.get(date)
+          return valueCell(cell, date, col, valueAt(date), undefined, `${spanClass(valueAt, edit.ghost, window, phaseOn(date), date)} ${hallPhase ? `hall hall-${hallPhase}` : ''}`)
+        }
         const phase = stripOn(date)
         // The strip is rounded where a phase starts and ends.
         const strip = phase ? `strip strip-${phase} ${stripOn(addDays(date, -1)) === phase ? '' : 'strip-start'} ${stripOn(addDays(date, 1)) === phase ? '' : 'strip-end'}` : ''

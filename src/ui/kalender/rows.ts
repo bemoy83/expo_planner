@@ -43,7 +43,7 @@ export interface GroupNode {
 }
 
 export type GridItem =
-  | { kind: 'group'; node: GroupNode; collapsed: boolean; /** FTE is typed on this level and shared out to the rows below, which are folded away. */ entry: boolean }
+  | { kind: 'group'; node: GroupNode; collapsed: boolean; /** Folded and with rows under it: the deepest line of its branch, so FTE is typed on it and shared out to the rows below. */ entry: boolean }
   | { kind: 'row'; row: AllocationRow; totals: RowTotals; project: ProjectGroup; depth: number; /** The value of the lowest level, where the row is alone under it and stands in for that level. */ lead?: string }
 
 export type GroupItem = Extract<GridItem, { kind: 'group' }>
@@ -215,9 +215,9 @@ export const filterGroups = (rows: AllocationRow[], events: VenueEvent[], index:
  * The rows of the given projects as a hierarchy, like the row fields of a pivot table: one level per
  * property in `grouping`, in that order. FTE is typed on the rows; every level above sums what is below it.
  * Where a row is alone on the lowest level, the row itself takes that level's place.
- * A level in `entry` is folded and takes FTE itself, see `spread`.
+ * A folded level is the deepest line of its branch and takes FTE itself, see `spread`.
  */
-export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings: Settings, collapsed: Set<string>, grouping: Dimension[] = ['project'], entry: Set<string> = new Set()): GridItem[] => {
+export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings: Settings, collapsed: Set<string>, grouping: Dimension[] = ['project']): GridItem[] => {
   interface Entry {
     row: AllocationRow
     totals: RowTotals
@@ -264,9 +264,8 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
         node.totals.plannedFte += totals.plannedFte
         for (const [date, fte] of Object.entries(row.fte)) node.daily.set(date, (node.daily.get(date) ?? 0) + fte)
       }
-      const isEntry = entry.has(key) && bucket.entries.length > 0
-      const isCollapsed = isEntry || collapsed.has(key)
-      items.push({ kind: 'group', node, collapsed: isCollapsed, entry: isEntry })
+      const isCollapsed = collapsed.has(key)
+      items.push({ kind: 'group', node, collapsed: isCollapsed, entry: isCollapsed && bucket.entries.length > 0 })
       if (!isCollapsed) walk(bucket.entries, depth + 1, `${key}/`, [])
     }
   }
@@ -315,20 +314,18 @@ export const buildItems = (
   collapsed: Set<string>,
   window?: { from: ISODate; to: ISODate },
   grouping: Dimension[] = ['project'],
-  entry: Set<string> = new Set(),
 ): GridItem[] => {
   const groups = filterGroups(rows, events, index, settings, filter, grouping)
   // Like hiding rows in the workbook: keep projects that take place or have planned days inside the visible dates.
-  return groupItems(window ? groups.filter((group) => inWindow(group, window)) : groups, index, settings, collapsed, grouping, entry)
+  return groupItems(window ? groups.filter((group) => inWindow(group, window)) : groups, index, settings, collapsed, grouping)
 }
 
 /**
  * How many levels the lines show when they are folded level by level: n where every level at depth n − 1 is
  * folded and those above it are open, 'all' where no level is folded, null where branches are folded by hand.
- * A level in entry is always folded and is left out of it.
  */
 export const shownLevels = (items: GridItem[]): number | 'all' | null => {
-  const levels = items.filter((item): item is GroupItem => item.kind === 'group' && !item.entry)
+  const levels = items.filter((item): item is GroupItem => item.kind === 'group')
   const folded = levels.filter((item) => item.collapsed)
   if (!folded.length) return 'all'
   const depth = Math.min(...folded.map((item) => item.node.depth))

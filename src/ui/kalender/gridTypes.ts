@@ -61,7 +61,6 @@ export interface GridActions {
   /** A click on a project's bar in the hall calendar: the rows scroll to the project. */
   findProject: (key: string) => void
   toggleGroup: (key: string) => void
-  toggleEntry: (key: string) => void
   proposePlan: (rows: AllocationRow[], replace: boolean) => void
   addRow: (projectName: string, projectNo: string) => void
   editRow: (row: AllocationRow) => void

@@ -87,7 +87,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [filter, setFilter] = usePref<RowFilter>('filter', EMPTY_FILTER)
   const [grouping, setGrouping] = usePref<Dimension[]>('grouping', DEFAULT_GROUPING, cleanGrouping)
   const [collapsed, setCollapsed] = usePrefSet('collapsedLevels')
-  const [entry, setEntry] = usePrefSet('entryLevels')
   const [hallsOpen, setHallsOpen] = usePref('hallsOpen', true)
   const [hallsCompact, setHallsCompact] = usePref('hallsCompact', false)
   const [hallFilter, setHallFilter] = usePref<HallFilter>('hallFilter', ALL_HALLS, cleanHallFilter)
@@ -205,7 +204,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     const keys = inViewKeys === null ? null : new Set(JSON.parse(inViewKeys) as string[])
     return keys ? filtered.filter((group) => keys.has(group.key)) : filtered
   }, [filtered, inViewKeys])
-  const items = useMemo(() => groupItems(shownGroups, demandIndex, settings, collapsed, grouping, entry), [shownGroups, demandIndex, settings, collapsed, grouping, entry])
+  const items = useMemo(() => groupItems(shownGroups, demandIndex, settings, collapsed, grouping), [shownGroups, demandIndex, settings, collapsed, grouping])
   const allocLanes = useMemo<AllocLane[]>(() => items.flatMap((item, index): AllocLane[] => (item.kind === 'row' ? [{ row: item.row, index }] : item.entry ? [{ node: item.node, index }] : [])), [items])
   const laneOfRow = useMemo(() => new Map(allocLanes.map((lane, i) => [lane.row?.id ?? `level:${lane.node!.key}`, i])), [allocLanes])
   // The selection stays on its lines when they move in the list, see `followLanes`.
@@ -545,10 +544,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     setSelection(null)
     setCollapsed((prev) => toggled(prev, key))
   }
-  const toggleEntry = (key: string) => {
-    setSelection(null)
-    setEntry((prev) => toggled(prev, key))
-  }
 
   // ---- what the rows are given ---------------------------------------------------------------
   const actions = useStableActions<GridActions>({
@@ -649,7 +644,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       scrollRef.current?.scrollTo({ top: topHeight + rowTops[index] - pinnedHeight - headOver(index), behavior: 'smooth' })
     },
     toggleGroup,
-    toggleEntry,
     proposePlan,
     addRow: (projectName, projectNo) => setDialog({ projectName, projectNo }),
     editRow: (row) => setDialog({ row }),
@@ -824,9 +818,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const pillBelow = pillFrom !== undefined && rowTops[pillFrom] - (viewport.top - tucked) - headOver(pillFrom) < PILL_ROOM
 
   const groupRow = (item: GroupItem) => {
-    // A level takes numbers only in entry mode; otherwise it has no place among the lanes.
+    // A level takes numbers only where it is folded; open, it has no place among the lanes.
     const lane = item.entry ? laneOfRow.get(`level:${item.node.key}`)! : -1
-    return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project && !item.entry ? phasesOfProject.get(item.node.project.key) : undefined} window={levelWindows.get(item.node.key)} cols={cols} actions={actions} {...(item.entry ? editOf(lane) : NO_EDIT)} />
+    return <GroupRow key={`g:${item.node.key}`} item={item} lane={lane} phases={item.node.project ? phasesOfProject.get(item.node.project.key) : undefined} window={levelWindows.get(item.node.key)} cols={cols} actions={actions} {...(item.entry ? editOf(lane) : NO_EDIT)} />
   }
 
   // ---- render ---------------------------------------------------------------------------------
