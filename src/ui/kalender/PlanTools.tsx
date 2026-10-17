@@ -10,15 +10,15 @@ const TOOLS: ToolChoice<Tool>[] = [
     value: 'pencil',
     icon: <Pencil size={14} aria-hidden />,
     name: 'Fordel behov',
-    shortcut: 'F',
-    title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag (F, eller hold Shift og dra).',
+    shortcut: 'B',
+    title: 'Tegn over dager på en rad: det som gjenstår av radens behov fordeles på arbeidsdagene du tegner over, i hele FTE med desimalene på siste dag (B, eller hold Shift og dra).',
   },
   {
     value: 'eraser',
     icon: <Eraser size={14} aria-hidden />,
     name: 'Tøm',
     shortcut: 'T',
-    title: 'Tegn over celler på planleggingsradene for å tømme dem. På et nivå i ✎-modus tømmes dagene for radene under (T, eller hold Alt og dra).',
+    title: 'Tegn over celler på planleggingsradene for å tømme dem. På et sammenfoldet nivå tømmes dagene for radene under (T, eller hold Alt og dra).',
   },
 ]
 

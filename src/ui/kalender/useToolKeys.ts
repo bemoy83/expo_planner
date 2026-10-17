@@ -10,7 +10,7 @@ interface Options {
 }
 
 /**
- * V, F and T pick a tool and Escape steps back, anywhere on the page but in a field.
+ * V, B and T pick a tool, as in Bemanning, and Escape steps back, anywhere on the page but in a field.
  * Returns the tool Shift or Alt would give for one stroke, while one of them is held.
  */
 export function useToolKeys(options: Options): Exclude<Tool, 'select'> | null {
