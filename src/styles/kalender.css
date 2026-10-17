@@ -58,6 +58,11 @@
    that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the top block and the
    hall calendar. The dates have none: there today is the badge on its date. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
 .today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--mode-ink);pointer-events:none}
+/* The day under the pointer, while it is over the date header or the top block: a wash down that day, under the today line, to trace a bar to its date.
+   It is in the accent, which marks where the planner is, since a grey wash would be taken for a weekend. It is shown and moved by the
+   canvas's data-hover-day and --hover-day, so the lines are not drawn again for it. */
+.day-hover{position:absolute;top:0;bottom:0;z-index:1;display:none;width:var(--col-w);background:color-mix(in srgb,var(--accent) 10%,transparent);pointer-events:none}
+.grid-canvas[data-hover-day] .day-hover{display:block}
 .group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--mode-ink)}
 /* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the halls, the staffing lines and the planning rows,
    and in Bemanning down the project lines, the demand and the people */
