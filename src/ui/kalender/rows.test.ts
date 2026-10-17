@@ -237,7 +237,8 @@ describe('rows as a hierarchy', () => {
   })
 
   it('keeps only known properties from a stored grouping', () => {
-    expect(cleanGrouping(['hall', 'nope', 'hall', 'project'])).toEqual(['hall', 'project'])
+    expect(cleanGrouping(['hall', 'nope', 'hall', 'project'])).toEqual(['project', 'phase', 'hall'])
+    expect(cleanGrouping([])).toEqual(['project', 'phase'])
     expect(cleanGrouping('x')).toEqual(['project', 'phase', 'competence'])
   })
 })

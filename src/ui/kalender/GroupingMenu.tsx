@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useDismiss } from '../useDismiss'
-import { DIMENSION_LABELS, DIMENSIONS, type Dimension } from './rows'
-import { ChevronDown, ChevronUp, Layers, Plus, X } from 'lucide-react'
+import { DIMENSION_LABELS, DIMENSIONS, FIXED_LEVELS, type Dimension } from './rows'
+import { ChevronDown, ChevronUp, Layers, Lock, Plus, X } from 'lucide-react'
 
 interface Props {
   grouping: Dimension[]
@@ -10,7 +10,7 @@ interface Props {
 
 /**
  * Chooses the levels of the row hierarchy, like the row fields of a pivot table. The button shows the
- * levels in use as a trail from the top level down; the menu under it moves, removes and adds levels.
+ * levels in use as a trail from the top level down; the menu under it moves, removes and adds levels under the fixed ones.
  */
 export function GroupingMenu({ grouping, onChange }: Props) {
   const [open, setOpen] = useState(false)
@@ -35,20 +35,27 @@ export function GroupingMenu({ grouping, onChange }: Props) {
       {open && (
         <div className="menu-pop grouping-pop">
           <span className="menu-group first">Grupper etter</span>
-          {grouping.length === 0 && <span className="muted small grouping-flat">Ingen nivåer: radene vises som en flat liste.</span>}
           {grouping.map((dimension, i) => (
             <div key={dimension} className="level-row">
               <span className="level-no">{i + 1}</span>
               <span className="level-name">{DIMENSION_LABELS[dimension]}</span>
-              <button disabled={i === 0} aria-label={`Flytt ${DIMENSION_LABELS[dimension]} et nivå opp`} title="Et nivå opp" onClick={() => swap(i, i - 1)}>
-                <ChevronUp size={14} aria-hidden />
-              </button>
-              <button disabled={i === grouping.length - 1} aria-label={`Flytt ${DIMENSION_LABELS[dimension]} et nivå ned`} title="Et nivå ned" onClick={() => swap(i, i + 1)}>
-                <ChevronDown size={14} aria-hidden />
-              </button>
-              <button aria-label={`Fjern ${DIMENSION_LABELS[dimension]} som nivå`} title="Fjern nivå" onClick={() => onChange(grouping.filter((d) => d !== dimension))}>
-                <X size={14} aria-hidden />
-              </button>
+              {i < FIXED_LEVELS.length ? (
+                <span className="level-lock" title="Fast nivå: FTE fordeles innen prosjekt og arbeidsfase">
+                  <Lock size={13} aria-hidden />
+                </span>
+              ) : (
+                <>
+                  <button disabled={i === FIXED_LEVELS.length} aria-label={`Flytt ${DIMENSION_LABELS[dimension]} et nivå opp`} title="Et nivå opp" onClick={() => swap(i, i - 1)}>
+                    <ChevronUp size={14} aria-hidden />
+                  </button>
+                  <button disabled={i === grouping.length - 1} aria-label={`Flytt ${DIMENSION_LABELS[dimension]} et nivå ned`} title="Et nivå ned" onClick={() => swap(i, i + 1)}>
+                    <ChevronDown size={14} aria-hidden />
+                  </button>
+                  <button aria-label={`Fjern ${DIMENSION_LABELS[dimension]} som nivå`} title="Fjern nivå" onClick={() => onChange(grouping.filter((d) => d !== dimension))}>
+                    <X size={14} aria-hidden />
+                  </button>
+                </>
+              )}
             </div>
           ))}
           {unused.length > 0 && (

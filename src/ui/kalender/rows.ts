@@ -23,9 +23,12 @@ export const DIMENSIONS: Dimension[] = ['project', 'phase', 'hall', 'competence'
 export const DIMENSION_LABELS: Record<Dimension, string> = { project: 'Prosjekt', phase: 'Arbeidsfase', hall: 'Hall/Sted', competence: 'Kompetanse', avdeling: 'Avd.' }
 export const DEFAULT_GROUPING: Dimension[] = ['project', 'phase', 'competence']
 
-/** Keeps what is valid of a stored grouping: known properties, each at most once. */
+/** The first levels, always: FTE is shared out within a project and a work phase, so they are never folded away from the line it is typed on. */
+export const FIXED_LEVELS: Dimension[] = ['project', 'phase']
+
+/** Keeps what is valid of a grouping: the fixed levels first, then known properties, each at most once. */
 export const cleanGrouping = (value: unknown): Dimension[] =>
-  Array.isArray(value) ? [...new Set(value.filter((d): d is Dimension => DIMENSIONS.includes(d)))] : DEFAULT_GROUPING
+  Array.isArray(value) ? [...FIXED_LEVELS, ...new Set(value.filter((d): d is Dimension => DIMENSIONS.includes(d) && !FIXED_LEVELS.includes(d)))] : DEFAULT_GROUPING
 
 /** One level of the hierarchy: the rows that share a value, and their sums. */
 export interface GroupNode {
@@ -43,7 +46,7 @@ export interface GroupNode {
 }
 
 export type GridItem =
-  | { kind: 'group'; node: GroupNode; collapsed: boolean; /** Folded and with rows under it: the deepest line of its branch, so FTE is typed on it and shared out to the rows below. */ entry: boolean }
+  | { kind: 'group'; node: GroupNode; collapsed: boolean; /** Folded, with rows under it and below a project: the deepest line of its branch, so FTE is typed on it and shared out to the rows below. */ entry: boolean }
   | { kind: 'row'; row: AllocationRow; totals: RowTotals; project: ProjectGroup; depth: number; /** The value of the lowest level, where the row is alone under it and stands in for that level. */ lead?: string }
 
 export type GroupItem = Extract<GridItem, { kind: 'group' }>
@@ -215,7 +218,7 @@ export const filterGroups = (rows: AllocationRow[], events: VenueEvent[], index:
  * The rows of the given projects as a hierarchy, like the row fields of a pivot table: one level per
  * property in `grouping`, in that order. FTE is typed on the rows; every level above sums what is below it.
  * Where a row is alone on the lowest level, the row itself takes that level's place.
- * A folded level is the deepest line of its branch and takes FTE itself, see `spread`.
+ * A folded level below a project is the deepest line of its branch and takes FTE itself, see `spread`; a folded project only sums.
  */
 export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings: Settings, collapsed: Set<string>, grouping: Dimension[] = ['project']): GridItem[] => {
   interface Entry {
@@ -265,7 +268,7 @@ export const groupItems = (groups: ProjectGroup[], index: DemandIndex, settings:
         for (const [date, fte] of Object.entries(row.fte)) node.daily.set(date, (node.daily.get(date) ?? 0) + fte)
       }
       const isCollapsed = collapsed.has(key)
-      items.push({ kind: 'group', node, collapsed: isCollapsed, entry: isCollapsed && bucket.entries.length > 0 })
+      items.push({ kind: 'group', node, collapsed: isCollapsed, entry: isCollapsed && bucket.entries.length > 0 && dimension !== 'project' })
       if (!isCollapsed) walk(bucket.entries, depth + 1, `${key}/`, [])
     }
   }

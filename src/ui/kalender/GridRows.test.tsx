@@ -44,14 +44,6 @@ describe('a level in entry', () => {
     expect([...container.querySelectorAll('.lbl-num')].map((num) => num.textContent)).toEqual(['5', '3', '−2'])
   })
 
-  it('keeps the hall phases on a folded project line, under its spans', () => {
-    const project = { kind: 'group', node: { ...node, key: '26970', dimension: 'project', depth: 0, project: { key: '26970', projectName: 'VVS 2026', projectNo: '26970' } }, collapsed: true, entry: true } as GroupItem
-    const phases = new Map([['2026-10-05', 'movingIn'], ['2026-10-06', 'movingIn']] as const)
-    const { container } = render(<GroupRow item={project} lane={0} phases={phases} window={undefined} cols={cols} actions={noActions} {...idle} />)
-    const cells = [...container.querySelectorAll('.cell')]
-    expect(cells.map((cell) => cell.classList.contains('hall-movingIn'))).toEqual([true, true, false])
-    expect(cells[1].classList.contains('filled')).toBe(true)
-  })
 })
 
 describe('AllocRow', () => {

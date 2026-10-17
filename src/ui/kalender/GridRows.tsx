@@ -379,9 +379,9 @@ interface GroupRowProps extends CellEdit {
 
 /**
  * A level of the hierarchy. Open, it shows no figures per day: the rows below carry them, and a project's line the
- * hall-phase strip. Folded, it is the deepest line of its branch and a row: its sums are its FTE, typed, drawn as spans
- * and pulled by their ends as a row's are, and what a day gets is shared out over the rows under it. A folded project's
- * line keeps the hall phases as a thin line under its spans.
+ * hall-phase strip. Folded below a project, it is the deepest line of its branch and a row: its sums are its FTE, typed,
+ * drawn as spans and pulled by their ends as a row's are, and what a day gets is shared out over the rows under it. A folded
+ * project only sums, on its hall-phase strip: without its work phases there is nothing to share FTE out by.
  */
 export const GroupRow = memo(function GroupRow({ item, lane, phases, window, cols, actions, ...edit }: GroupRowProps) {
   const { node } = item
@@ -456,10 +456,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
         </>
       }
       cells={(date, col) => {
-        if (item.entry) {
-          const hallPhase = phases?.get(date)
-          return valueCell(cell, date, col, valueAt(date), undefined, `${spanClass(valueAt, edit.ghost, window, phaseOn(date), date)} ${hallPhase ? `hall hall-${hallPhase}` : ''}`)
-        }
+        if (item.entry) return valueCell(cell, date, col, valueAt(date), undefined, spanClass(valueAt, edit.ghost, window, phaseOn(date), date))
         const phase = stripOn(date)
         // The strip is rounded where a phase starts and ends.
         const strip = phase ? `strip strip-${phase} ${stripOn(addDays(date, -1)) === phase ? '' : 'strip-start'} ${stripOn(addDays(date, 1)) === phase ? '' : 'strip-end'}` : ''
