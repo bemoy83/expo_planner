@@ -11,7 +11,7 @@ interface Options {
 
 /**
  * V, B and T pick a tool, as in Bemanning, and Escape steps back, anywhere on the page but in a field.
- * Returns the tool Shift or Alt would give for one stroke, while one of them is held.
+ * Returns the eraser while Alt is held, which it is for one stroke.
  */
 export function useToolKeys(options: Options): Exclude<Tool, 'select'> | null {
   const latest = useRef(options)
@@ -27,8 +27,8 @@ export function useToolKeys(options: Options): Exclude<Tool, 'select'> | null {
       const picked = TOOL_KEYS[e.key.toLowerCase()]
       if (picked) onTool(picked)
     }
-    // While Shift or Alt is held the planning cells show what a drag would do.
-    const onModifier = (e: KeyboardEvent) => setModifier(e.altKey ? 'eraser' : e.shiftKey ? 'pencil' : null)
+    // While Alt is held the planning cells show what a drag would do.
+    const onModifier = (e: KeyboardEvent) => setModifier(e.altKey ? 'eraser' : null)
     const onBlur = () => setModifier(null)
     window.addEventListener('keydown', onKey)
     window.addEventListener('keydown', onModifier)

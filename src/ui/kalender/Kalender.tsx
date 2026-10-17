@@ -99,12 +99,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [tool, setTool] = useState<Tool>('select')
   const [notice, setNotice] = useState<string | null>(null)
   const dragging = useRef(false)
-  // The tool of the stroke being drawn. Shift or Alt held when the mouse goes down picks the pencil or the
-  // eraser for that one stroke, whatever tool is chosen.
+  // The tool of the stroke being drawn. Alt held when the mouse goes down picks the eraser for that one stroke,
+  // whatever tool is chosen.
   const [stroke, setStroke] = useState<Exclude<Tool, 'select'> | null>(null)
   const strokeRef = useRef<Exclude<Tool, 'select'> | null>(null)
-  // A Shift-click extends the selection, as in Excel. Dragged on to another cell, it becomes a pencil stroke from the cell it started on.
-  const spring = useRef<Cell | null>(null)
   const [cellMenu, setCellMenu] = useState<{ x: number; y: number; rowId: string; col: number } | null>(null)
   const [inspectorOpen, setInspectorOpen] = usePref('inspectorOpen', false)
   // The row the details panel shows: the last planning row that had the focus.
@@ -469,7 +467,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const written = useMemo(() => [...pencilCells(preview), ...(pullView?.cells ?? [])], [preview, pullView])
   const ghost = useMemo(() => ghostCells([...written, ...eraserCells(stroke === 'eraser' ? selection : null, dates)]), [written, stroke, selection, dates])
 
-  useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pullRef, before, setPull, setSelection, setStroke, drawDemand, eraseDrawn, startPull, commitPull, pressSelect, colW, dayCount: dates.length })
+  useGridDrag({ scrollRef, dragging, strokeRef, press, pullRef, before, setPull, setSelection, setStroke, drawDemand, eraseDrawn, startPull, commitPull, pressSelect, colW, dayCount: dates.length })
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (draft !== null || !selection) return
@@ -550,8 +548,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     cellDown: (lane, col, e) => {
       e.preventDefault()
       const drags = e.button === 0 && !(e.target instanceof HTMLInputElement)
-      // Alt clears and Shift shares out demand for this one stroke. With «Velg», Shift still extends the
-      // selection on a click; the stroke starts once the mouse is dragged on.
+      // Alt clears for this one stroke. With «Velg», Shift extends the selection, on a click as in Excel and on along a drag.
       const erases = drags && e.altKey
       const extends_ = e.shiftKey && !erases && (!drags || tool === 'select')
       before.current = selection
@@ -559,7 +556,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       // from the press or from later on, and Alt once it has started; let go without a drag, or dragged up or down,
       // a press with Shift is what it is on any cell. Alt at the press is the eraser, here as anywhere.
       const span = drags && !erases && allocLanes[lane] ? spanEndAt(allocLanes[lane], dates, col) : null
-      const started = extends_ ? null : erases ? 'eraser' : e.shiftKey ? 'pencil' : tool === 'select' ? null : tool
+      const started = extends_ ? null : erases ? 'eraser' : tool === 'select' ? null : tool
       // A plain press with «Velg» selects nothing yet either: let go, it is a click on the cell, and dragged on to another cell a range from it.
       const waits = !!span || (drags && tool === 'select' && !e.shiftKey && !erases)
       press.current = waits ? { lane, col, x: e.clientX, y: e.clientY, stroke: started, extend: extends_, span: span ? { ...span, end: col === span.from && span.from !== span.to ? 'start' : 'end' } : undefined } : null
@@ -575,7 +572,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         return
       }
       dragging.current = true
-      spring.current = extends_ ? { lane, col } : null
       strokeRef.current = started
       setStroke(started)
     },
@@ -585,12 +581,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         if (fromLane === lane && fromCol === col) return
         press.current = null
         setSelection({ anchor: { lane: fromLane, col: fromCol }, focus: { lane, col } })
-      } else if (dragging.current && spring.current) {
-        const anchor = spring.current
-        spring.current = null
-        strokeRef.current = 'pencil'
-        setStroke('pencil')
-        setSelection({ anchor, focus: { lane, col } })
       } else if (dragging.current) setSelection((sel) => sel && { ...sel, focus: { lane, col } })
     },
     cellMenu: (lane, col, e) => {
@@ -600,7 +590,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       // The press that asked for the menu is no drag.
       dragging.current = false
       strokeRef.current = null
-      spring.current = null
       press.current = null
       setStroke(null)
       select({ lane, col }, false)

@@ -16,7 +16,6 @@ interface Options {
   /** The tool of the stroke being drawn. */
   strokeRef: RefObject<Stroke | null>
   /** The cell a Shift-click started on, until the mouse is dragged on. */
-  spring: RefObject<Cell | null>
   /** The press that has selected nothing yet, and the pull of an end of a span in progress. */
   press: RefObject<Press | null>
   pullRef: RefObject<Pull | null>
@@ -42,7 +41,7 @@ interface Options {
  * and a stroke or a selection as from any cell once it moves up or down. The listeners are attached once
  * and read what they need from a ref, so a drag is not disturbed when the rows or the tool change under it.
  */
-export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pullRef, before, setPull, setSelection, setStroke, ...latest }: Options) {
+export function useGridDrag({ scrollRef, dragging, strokeRef, press, pullRef, before, setPull, setSelection, setStroke, ...latest }: Options) {
   const env = useRef(latest)
   useEffect(() => {
     env.current = latest
@@ -92,7 +91,6 @@ export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pul
           // Up or down, it is a drag as from any cell, and starts on the cell that was pressed.
           env.current.pressSelect(grip, grip.extend)
           dragging.current = true
-          if (grip.extend) spring.current = { lane: grip.lane, col: grip.col }
           strokeRef.current = grip.stroke
           setStroke(grip.stroke)
         }
@@ -127,7 +125,6 @@ export function useGridDrag({ scrollRef, dragging, strokeRef, spring, press, pul
       const drawn = strokeRef.current
       dragging.current = false
       strokeRef.current = null
-      spring.current = null
       setStroke(null)
       if (dragged && drawn === 'pencil') drawDemand()
       if (dragged && drawn === 'eraser') eraseDrawn()

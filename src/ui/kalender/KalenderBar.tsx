@@ -117,10 +117,10 @@ export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, 
         </div>
         <div className="bar-zone bar-zone-end">
           {hints && (
-            <span className="bar-hint" title="Hold Shift og dra for å fordele, Alt og dra for å tømme. Høyreklikk en celle for flere valg.">
+            <span className="bar-hint" title="Hold Alt og dra for å tømme. Shift og dra en ende av et spenn stopper der behovet er dekket. Høyreklikk en celle for flere valg.">
               <Info size={14} aria-hidden />
               <span className="bar-hint-text">
-                <b>Shift</b>/<b>Alt</b>-dra · <b>høyreklikk</b>
+                <b>Alt</b>-dra · <b>høyreklikk</b>
               </span>
             </span>
           )}
