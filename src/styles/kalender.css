@@ -57,7 +57,7 @@
    under the label column. The heading of a section is a heading and carries a legend, so it lies over the line, which breaks there. Each block
    that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the top block and the
    hall calendar. The dates have none: there today is the badge on its date. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
-.today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--mode-ink);pointer-events:none}
+.today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--today);pointer-events:none}
 /* The day under the pointer, while it is over the date header, the top block or the planning rows, down the date header and the top block, not the rows: a wash down that day, under the today line, to trace a bar to its date.
    It is ink, in no colour, so that it is not taken for a red day or the day in focus, and a step stronger than a weekend, so that it is not taken for one:
    the trace, which the planning row under the pointer has too. It is shown and moved by the canvas's data-hover-day and --hover-day, so the lines are not drawn again for it. */
