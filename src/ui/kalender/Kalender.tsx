@@ -35,7 +35,7 @@ import { InnleidSidePanel } from '../innleid/SupplierPanel'
 import { rowTitle } from './labels'
 import { KalenderBar, KalenderHead } from './KalenderBar'
 import { RowInspector, type RowDetails } from './RowInspector'
-import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, groupItems, inWindow, itemDepth, levelSections, pathKeys, projectIndex, projectKey, type Dimension, type GroupItem, type RowFilter } from './rows'
+import { buildGroups, cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, filterGroups, foldedTo, groupItems, inWindow, itemDepth, levelSections, pathKeys, projectIndex, projectKey, shownLevels, type Dimension, type GroupItem, type RowFilter } from './rows'
 import { StatusBar, type FocusInfo } from './StatusBar'
 import { PILL_ROOM, StrokeBox } from './StrokeBox'
 import { HallSection, PlanningHeading, StaffingSection } from './TopSections'
@@ -951,8 +951,12 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
                 setSelection(null)
                 setGrouping(next)
               }}
-              folded={collapsed.size > 0}
-              onFold={() => setCollapsed(collapsed.size ? new Set() : new Set(items.flatMap((i) => (i.kind === 'group' && i.node.depth === 0 ? [i.node.key] : []))))}
+              levels={shownLevels(items)}
+              onLevels={(levels) => {
+                // Every branch, also of the projects outside the days in view, and what was folded by hand is let go.
+                setSelection(null)
+                setCollapsed(foldedTo(groupItems(filtered, demandIndex, settings, new Set(), grouping), levels))
+              }}
               start={range.start}
               end={range.end}
               onToday={() => scrollToDate(today)}

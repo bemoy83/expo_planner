@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildGroups, buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, levelSections, pathKeys, projectIndex, workPhaseOn, type Dimension, type GridItem } from './rows'
+import { buildGroups, buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, levelSections, pathKeys, projectIndex, shownLevels, foldedTo, workPhaseOn, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -196,6 +196,20 @@ describe('rows as a hierarchy', () => {
   it('collapses one branch without touching the same value elsewhere', () => {
     const items = tree(['phase', 'hall'], new Set(['phase:montering/hall:hall c']))
     expect(outline(items)).toEqual(['Montering', '  Hall C', '  #d64 Hall D', '  #hage Alle haller', 'Demontering', '  #dem Hall D'])
+  })
+
+  it('folds every branch to a level, and says how many levels are shown', () => {
+    const grouping: Dimension[] = ['project', 'phase', 'hall']
+    const open = tree(grouping)
+    expect(shownLevels(open)).toBe('all')
+    const two = tree(grouping, foldedTo(open, 2))
+    expect(outline(two)).toEqual(['Hage 2026', '  Montering', 'VVS 2026', '  Montering', '  Demontering'])
+    expect(shownLevels(two)).toBe(2)
+    expect(shownLevels(tree(grouping, foldedTo(open, 1)))).toBe(1)
+    expect(foldedTo(open, 'all').size).toBe(0)
+    // One branch folded by hand is no level.
+    const phases = open.flatMap((i) => (i.kind === 'group' && i.node.depth === 1 ? [i.node.key] : []))
+    expect(shownLevels(tree(grouping, new Set([phases[1]])))).toBeNull()
   })
 
   it('folds a level that takes FTE itself, and leaves a level without rows alone', () => {

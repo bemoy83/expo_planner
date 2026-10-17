@@ -322,6 +322,23 @@ export const buildItems = (
   return groupItems(window ? groups.filter((group) => inWindow(group, window)) : groups, index, settings, collapsed, grouping, entry)
 }
 
+/**
+ * How many levels the lines show when they are folded level by level: n where every level at depth n − 1 is
+ * folded and those above it are open, 'all' where no level is folded, null where branches are folded by hand.
+ * A level in entry is always folded and is left out of it.
+ */
+export const shownLevels = (items: GridItem[]): number | 'all' | null => {
+  const levels = items.filter((item): item is GroupItem => item.kind === 'group' && !item.entry)
+  const folded = levels.filter((item) => item.collapsed)
+  if (!folded.length) return 'all'
+  const depth = Math.min(...folded.map((item) => item.node.depth))
+  return levels.every((item) => item.node.depth !== depth || item.collapsed) ? depth + 1 : null
+}
+
+/** The levels to fold so that the lines show `levels` levels, from the lines with nothing folded. */
+export const foldedTo = (open: GridItem[], levels: number | 'all'): Set<string> =>
+  new Set(levels === 'all' ? [] : open.flatMap((item) => (item.kind === 'group' && item.node.depth === levels - 1 ? [item.node.key] : [])))
+
 /** The keys of the levels above a row, for opening the way to it. */
 export const pathKeys = (row: AllocationRow, projectGroupKey: string, grouping: Dimension[]): string[] => {
   const keys: string[] = []

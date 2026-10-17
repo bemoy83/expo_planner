@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronsDownUp, ChevronsUpDown, Info, Plus, Users } from 'lucide-react'
+import { CalendarDays, Info, Plus, Users } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import type { ReactNode } from 'react'
 import { PanelToggle, Segmented, UndoRedoButtons } from '../common'
@@ -6,7 +6,7 @@ import { GroupingMenu } from './GroupingMenu'
 import type { Zoom } from './layout'
 import { PlanBar } from './PlanBar'
 import { FilterMenu, PlanToolSwitch } from './PlanTools'
-import { filterSummary, type Dimension, type RowFilter } from './rows'
+import { DIMENSION_LABELS, filterSummary, type Dimension, type RowFilter } from './rows'
 import type { Tool } from './selection'
 import type { CrewPart, PlanMode } from './zoom'
 import { count } from '../dom'
@@ -51,6 +51,24 @@ export function ModeTag({ mode, part }: { mode: PlanMode; /** In Bemanning: the 
   )
 }
 
+/**
+ * How much of the hierarchy is shown, the same for every branch: a level by its number in «Grupper etter», or all the rows.
+ * No button is pressed where branches are folded by hand.
+ */
+function LevelSwitch({ grouping, levels, onChange }: { grouping: Dimension[]; levels: number | 'all' | null; onChange: (levels: number | 'all') => void }) {
+  return (
+    <Segmented
+      label="Detaljnivå"
+      value={levels === null ? '' : String(levels)}
+      onChange={(value) => onChange(value === 'all' ? 'all' : Number(value))}
+      options={[
+        ...grouping.map((_, i) => ({ value: String(i + 1), label: String(i + 1), title: `Fold sammen til ${grouping.slice(0, i + 1).map((d) => DIMENSION_LABELS[d]).join(' › ')}` })),
+        { value: 'all', label: 'Alle', title: 'Vis alle nivåer og rader' },
+      ]}
+    />
+  )
+}
+
 interface Props {
   /** The width of the grid as it is seen. */
   width: number
@@ -68,10 +86,10 @@ interface Props {
   onOnlyInView: (only: boolean) => void
   grouping: Dimension[]
   onGrouping: (grouping: Dimension[]) => void
-  /** Some level is folded. */
-  folded: boolean
-  /** Folds to the top level, or opens every level when some are folded. */
-  onFold: () => void
+  /** How many levels are shown, see `shownLevels`: null where branches are folded by hand. */
+  levels: number | 'all' | null
+  /** Folds every branch to that many levels, or opens them all. */
+  onLevels: (levels: number | 'all') => void
   /** The period, for the date field. */
   start: ISODate
   end: ISODate
@@ -82,10 +100,10 @@ interface Props {
 }
 
 /** The planning bar right above the rows: undo, the tools, what is shown and how, and where in the period. */
-export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, grouping, onGrouping, folded, onFold, start, end, onToday, onDate, zoom, onZoom }: Props) {
+export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, grouping, onGrouping, levels, onLevels, start, end, onToday, onDate, zoom, onZoom }: Props) {
   const fit = filterSummary(filter, projects)
   return (
-    <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hints}|${tool}|${folded}`}>
+    <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hints}|${tool}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <UndoRedoButtons />
@@ -95,10 +113,7 @@ export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, 
         <div className="bar-zone">
           <FilterMenu filter={filter} onChange={onFilter} projects={projects} competences={competences} onlyInView={onlyInView} onOnlyInView={onOnlyInView} />
           <GroupingMenu grouping={grouping} onChange={onGrouping} />
-          <button className="ghost" title={folded ? 'Utvid alle: vis alle nivåer' : 'Fold sammen til øverste nivå'} onClick={onFold}>
-            {folded ? <ChevronsUpDown size={16} aria-hidden /> : <ChevronsDownUp size={16} aria-hidden />}
-            {folded ? 'Utvid alle' : 'Fold sammen'}
-          </button>
+          {grouping.length > 0 && <LevelSwitch grouping={grouping} levels={levels} onChange={onLevels} />}
         </div>
         <div className="bar-zone bar-zone-end">
           {hints && (
