@@ -177,6 +177,10 @@
   --accent-soft:color-mix(in oklab,var(--accent) 18%,transparent);
 
   --weekend:color-mix(in srgb,#f3f2ee 4%,#0f0f0e);
+  /* the rules between the days and under a typed-in line: drawn from the strong border here, since a step of light on near black
+     reads as less than the same step on paper, and the rules would else be no stronger than a weekend */
+  --grid-col:color-mix(in srgb,var(--line-strong) 50%,transparent);
+  --grid-row:color-mix(in srgb,var(--line-strong) 38%,transparent);
   --section:color-mix(in oklab,var(--bg) 82%,#000);
 
   /* work phases: dark fills with light numbers */
