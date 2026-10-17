@@ -832,7 +832,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // ---- render ---------------------------------------------------------------------------------
   // Today as one line down the grid. It is laid by the width of a day, so the zoom moves it without drawing it again.
   const todayLine = today >= range.start && today <= range.end ? <i className="today-line" style={{ left: daysWide(daysBetween(range.start, today), LEFT_W) }} /> : null
-  // The day under the pointer, tinted down the date header and the top block, to trace a bar in the hall calendar to its date.
+  // The day under the pointer, tinted down the date header and the top block, to trace a bar in the hall calendar to its date, and a
+  // planning row's day to its date and to what the halls hold on it. The rows themselves are not tinted: they are ruled, and carry the selection.
   // It is laid by a style variable on the canvas, set here and not in a state, so no line is drawn again as the pointer moves.
   const dayHover = <i className="day-hover" style={{ left: `calc(var(--col-w) * var(--hover-day, 0) + ${LEFT_W}px)` }} />
   const onDayHover = (e: React.MouseEvent<HTMLElement>) => {
@@ -966,7 +967,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           {todayLine}
           {innleid && <InnleidRows onOpenSuppliers={onOpenSuppliers} />}
           {bemanning && !innleid && <PeopleRows onOpenPersonell={onOpenPersonell} />}
-          {!bemanning && <div className="grid-alloc" style={{ height: rowTops[items.length] }}>
+          {!bemanning && <div className="grid-alloc" style={{ height: rowTops[items.length] }} {...hoverProps}>
             <div style={{ height: rowTops[r0] }} />
             {items.slice(r0, r1).map((item) => {
               if (item.kind === 'row') {

@@ -58,9 +58,10 @@
    that is pinned covers what scrolls under it, so each has a line of its own, at the same place: the top block and the
    hall calendar. The dates have none: there today is the badge on its date. The planning bar and the heading under it have none. A top level's line is pinned too, and draws the line in its cell. */
 .today-line{position:absolute;top:0;bottom:0;z-index:1;width:2px;background:var(--mode-ink);pointer-events:none}
-/* The day under the pointer, while it is over the date header or the top block: a wash down that day, under the today line, to trace a bar to its date.
-   It is ink, in no colour, so that it is not taken for a red day or the day in focus, and a step stronger than a weekend, so that it is not taken for one. It is shown and moved by the canvas's data-hover-day and --hover-day, so the lines are not drawn again for it. */
-.day-hover{position:absolute;top:0;bottom:0;z-index:1;display:none;width:var(--col-w);background:color-mix(in srgb,var(--text) 9%,transparent);pointer-events:none}
+/* The day under the pointer, while it is over the date header, the top block or the planning rows, down the date header and the top block, not the rows: a wash down that day, under the today line, to trace a bar to its date.
+   It is ink, in no colour, so that it is not taken for a red day or the day in focus, and a step stronger than a weekend, so that it is not taken for one:
+   the trace, which the planning row under the pointer has too. It is shown and moved by the canvas's data-hover-day and --hover-day, so the lines are not drawn again for it. */
+.day-hover{position:absolute;top:0;bottom:0;z-index:1;display:none;width:var(--col-w);background:var(--trace);pointer-events:none}
 .grid-canvas[data-hover-day] .day-hover{display:block}
 .group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--mode-ink)}
 /* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the halls, the staffing lines and the planning rows,
@@ -323,7 +324,10 @@
    before it. The rule sits on the cells and not on the line, so it has their fill behind it, and the label column has none. The
    last row has none under it, since the line of the next level is there. The line under the pointer is tinted. */
 .alloc-row .grid-label{cursor:pointer}
-.alloc-row:hover,.alloc-row:hover .grid-label{background:var(--wash-bg)}
+.alloc-row:hover .grid-label{background:var(--trace-bg)}
+/* The trace of the row lies over its cells, as the day's does over the top block, so a weekend, a span and a selection are traced alike; under the today line and the cell in focus. */
+.alloc-row{position:relative}
+.alloc-row:hover:not(:has(.cell-input))::after{content:'';position:absolute;inset:0;z-index:0;background:var(--trace);pointer-events:none}
 :is(.alloc-row,.entry-level) .cell:is(:not(.filled),.run-end){border-right:1px solid var(--grid-col)}
 .alloc-row .cell{border-top:1px solid var(--grid-row)}
 .cell.editable:not(.run-start,.run-end){cursor:cell}
