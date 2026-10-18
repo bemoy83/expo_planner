@@ -271,7 +271,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* A day of a competence: how far it is covered and the hours missing or over on one line, and under it a chip per supplier ordered.
    Compact, a folded competence is that one line alone, 32 px high whatever it has of orders: one block per day on the left, and the figure. */
 .il-day{flex-direction:column;align-items:stretch;justify-content:flex-start;min-width:0;cursor:pointer;user-select:none}
-.il-day:hover{background-image:linear-gradient(var(--wash),var(--wash))}
+/* With Velg a click on a day opens its orders, so the day under the pointer is tinted as a button is; the brush and the eraser show what they would do instead. */
+.il-row:not(.brush,.nobrush,.erase) .il-day:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-day.picked{background-color:var(--surface)}
 .il-day.dragged{background-image:linear-gradient(var(--pick-soft),var(--pick-soft))}
 .il-cover{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:none;height:31px;min-width:0;padding:0 8px}
