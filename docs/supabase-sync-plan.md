@@ -1,6 +1,6 @@
 # Supabase sync: a plan
 
-Status: agreed in outline with the user, 2026-10-18 (see «Decisions»). Nothing is built. Read with `src/store/` open.
+Status: agreed in outline with the user, 2026-10-18 (see «Decisions»), and revised the same day after a review against the code. Nothing is built. Read with `src/store/` open.
 
 ## End goal
 
@@ -15,7 +15,7 @@ The first step is a proof of concept on Supabase's free plan. This answers the i
 - **Undo.** `history.ts`: a `Change` holds per record a `before` and an `after`; `applyChange` and `changeWrites` turn it into the workspace and the writes in either direction. In memory only, 200 steps, gone on reload.
 - **Preferences.** `prefs.ts`: localStorage under `expo-planner:`, per browser (grouping, folds, zoom, hall filter, parts open). Not in the workspace or the backup.
 - **Backup.** `backup.ts`: the whole `Workspace` as JSON, `format: expo-planner-backup`, `version: 1`. A restore replaces everything and cannot be undone.
-- **Ids.** New records get `crypto.randomUUID()` with a prefix (`manual-`, `asg-`, `hire-`, `person-`). Visma lines and Venyou bookings get ids made from the source, so the same line read in twice has the same id. That is what makes record-level sync workable.
+- **Ids.** New records get `crypto.randomUUID()` with a prefix (`manual-`, `asg-`, `hire-`, `person-`). Visma lines get ids made from the source (`visma-` and the line's key), so the same line read in twice has the same id. Venyou bookings do not: `importVenue` names them `venyou-<importedAt>-<index>`, and `writeVenue` clears the table and writes it again, so every import replaces every booking under new ids. Phase 1 changes that (below).
 - **Hosting.** A static build on GitHub Pages. No server of our own, and none is needed: Supabase is reached from the browser with its public key, guarded by row-level security.
 
 ## The shape of the solution
@@ -34,49 +34,80 @@ UI ──commit──▶ memory ──▶ Dexie tables ──▶ outbox ──pu
 One generic table rather than a typed table per record kind:
 
 ```sql
+create table workspaces (
+  id   uuid primary key,
+  name text not null,
+  rev  bigint not null default 0       -- the last rev handed out in this workspace
+);
+create table workspace_members (workspace_id uuid references workspaces, user_id uuid references auth.users, role text not null default 'planner', primary key (workspace_id, user_id));
+
 create table records (
   workspace_id uuid not null references workspaces,
-  kind         text not null,          -- 'demand', 'allocations', 'meta', 'allocCell', …
-  id           text not null,          -- the record's own id, or the meta key
+  kind         text not null,          -- 'demand', 'allocations', 'allocCell', 'override', …
+  id           text not null,          -- the record's own id, or the key within its kind
   data         jsonb,                  -- the record as the domain has it; null when deleted
   deleted      boolean not null default false,
-  rev          bigint not null,        -- from a sequence: a global order of writes
+  rev          bigint not null,        -- from workspaces.rev: the order of writes in the workspace
+  batch_id     uuid not null,          -- the push it came in; one user action is one batch
   updated_at   timestamptz not null default now(),
-  updated_by   uuid not null references auth.users,
+  updated_by   uuid not null default auth.uid() references auth.users,
   primary key (workspace_id, kind, id)
 );
 create index on records (workspace_id, rev);
-
-create table workspaces (id uuid primary key, name text not null);
-create table workspace_members (workspace_id uuid references workspaces, user_id uuid references auth.users, role text not null default 'planner', primary key (workspace_id, user_id));
 ```
 
-Why generic: the domain records change shape often, and by convention there are no migrations (the planner starts clean). A jsonb column takes any shape, the sync code is one code path for every kind, and the domain stays the only place that knows the shapes. Typed columns could be added later for reports in SQL, if wanted. `rev` is set by a trigger from a sequence on every insert or update, so a client asks for «everything after rev N» and never misses a write, whatever the clocks of the computers say. Deletes are tombstones (`deleted = true`), so other clients learn of them.
+Why generic: the domain records change shape often, and by convention there are no migrations (the planner starts clean). A jsonb column takes any shape, the sync code is one code path for every kind, and the domain stays the only place that knows the shapes. Typed columns could be added later for reports in SQL, if wanted. Deletes are tombstones (`deleted = true`), so other clients learn of them.
 
-Row-level security: a user reads and writes `records` only of a workspace they are a member of. That is the whole of the access model for a first version.
+**Where `rev` comes from.** Not from a sequence: sequence numbers are handed out when a row is written but become visible when its transaction commits, which can be in another order. A client that has pulled up to 501 while 499 was still uncommitted would never fetch 499. Instead `push_records` takes the revs of a batch from the workspace's own counter (`update workspaces set rev = rev + n where id = … returning rev`). The row lock makes pushes to one workspace commit one after another, so the revs become visible in order. For a handful of planners that wait is nothing.
+
+**Access.** Row-level security lets a member of a workspace read its `records`, and nobody insert, update or delete them directly: every write goes through `push_records`, a `security definer` function that checks membership with `auth.uid()`, sets `rev`, `batch_id`, `updated_at` and `updated_by` itself, and never takes them from the client. Otherwise a client could write past the counter, or in another planner's name. That is the whole of the access model for a first version.
 
 ### What has to change in the local model first
 
-Sync works per record, so a conflict loses at most one record. Today some records are too big for that:
+Sync works per record, so a conflict loses at most one record. Today some records are too big for that, some ids are not stable, and some stored data is worked out from other data. The rule for all of it: **what is synced is what a planner or a source decided; what can be worked out again is worked out on each computer.**
 
-- **`allocations[].fte` and `.notes`.** A planning row holds FTE for every day. Two planners typing in different days of one row would overwrite each other's day. Store each day as a record of its own (`allocCell`, id `rowId|date`), or merge `fte` per day on the server. Per-day records are simpler and match how the grid edits.
-- **`meta` blobs.** `overrides` (every Visma line decision), `budgets` (every project) and `hiddenVenue` are maps edited one key at a time; store each key as a record (`override|key`, `budget|projectNo`, `hidden|key`). `kpi` and `hallRules` are edited as a whole by one planner at a time in practice; keep them whole for now, with a conflict notice, and split them if that bites.
-- **`projects`.** Give each row a stable id (its name and year), and write the rows that changed instead of replacing the table.
-- **One write path.** `changeWrites` already turns a step into puts and deletes per kind; make every mutation, not only undo, go through that one shape (`RecordWrite[]`). Then the outbox, Dexie and the server all take the same list. This is pure refactoring and can be tested without Supabase.
+**Granularity: one record per thing a planner edits.**
+
+- **`allocations[].fte` and `.notes`.** A planning row holds FTE for every day. Two planners typing in different days of one row would overwrite each other's day. Each day becomes a record of its own at the sync boundary (`allocCell`, id `rowId|date`, holding the FTE and the note); the row record keeps the rest. In memory and in the backup, `AllocationRow` keeps its `fte` and `notes` maps as now: the sync layer splits a row into its cells on the way out (by comparing the row before and after) and joins them on the way in. The domain, the grid and the backup format do not change.
+- **Maps in `meta`.** `overrides` (every Visma line decision), `budgets` (every project), `hiddenVenue` and `competenceStyles` are maps edited one key at a time; each key becomes a record (`override|key`, `budget|projectNo`, `hidden|key`, `competenceStyle|key`).
+- **Parts of `hallRules` and `kpi` that are edited from Behov.** `hallRules.choices` is written by `setHallChoice`, which Behov calls from the Visma review, «Avklar» and the placing panel, and `kpi.byText` by «Avklar». That is everyday review work, not setup done by one planner at a time, so each choice and each text rule becomes a record (`hallChoice|` and its `choiceKey`, `kpiText|text`), as does each of `kpi.excludedArticles` (`kpiExcluded|articleNo`). As with the cells, they are split at the sync boundary; `HallRules` and `KpiConfig` keep their shape in memory. The rest of `hallRules` (places, word rules, areas) and of `kpi` (the product types) stays one record each, with a conflict notice, until that bites.
+- **`settings`.** Stays one record. Two planners changing different settings at the same moment lose one of the two; settings change rarely enough that this is accepted, and the notice says so.
+
+**Stable ids.**
+
+- **Venyou bookings.** The id comes from the booking itself: `venyou-` and `venueKey` (hall, event name and anchor date), which the hidden bookings are already keyed by. The ids are used for nothing else today but React keys (`Haller.tsx`). An import then writes only what it changes, from `diffVenue`: the added and changed bookings, and tombstones for the removed. The same file read in twice, on one computer or two, writes nothing the second time. Where two bookings in one export have the same key, the second gets `|2`.
+- **`projects`.** Each row's id is `name|projectNo`: a row per name a project goes by, and the same name comes back every year under a new number, so the name alone, or the name and the optional `year`, is not unique. A renamed or renumbered row is a delete and a put. The rows that changed are written, not the whole table.
+
+**Derived data is not synced.**
+
+- **Visma demand lines** are worked out from the Visma exports, the KPI table and the overrides (`vismaDemandLines`). If they were synced, a planner changing the KPI while another sets an override would leave, by last write wins per line, that project's lines worked out from the old KPI: nothing lost, but wrong. So the `visma`, `kpi` and override records are synced, and each computer works out the Visma lines itself after a pull, as `withVismaLines` does after a local edit. They stay in Dexie as a cache, outside the outbox. Only the planner's own demand lines (`manual-`) are synced as records. This also keeps a KPI change from pushing hundreds of lines.
+- Where an edit changes other records as a consequence (a renamed competence reaches the rows, the people and their blocks; a renumbered project takes its rows along), those are real edits and are synced, in the same batch.
+
+**Rows that are deleted, and the order of rows.**
+
+- Deleting a planning row writes tombstones for its cells too. A cell whose row is not there (another planner typed in it while the row was deleted) is ignored on load and in the grid.
+- New rows, people and suppliers get `max(order) + 1`; two planners adding at once get the same number. Ties are broken by id wherever rows are sorted, so every computer shows the same order, and the next move by hand gives them their own.
+
+**Undo per record.** `Change` in `history.ts` holds `overrides`, `budgets`, `hiddenVenue`, `hallRules`, `projects`, `venue` and `competenceStyles` as whole values before and after. With other planners writing, undoing one override would put back the whole map as it was and wipe their keys in between. So `Change` gets the same granularity as the sync: a map of records per kind, with a `before` and an `after` each (`Map<string, Delta<…>>`, as `allocations` and `demand` already have). That is what lets undo leave a record alone that someone else has changed since.
+
+**One write path.** Every mutation, undo and redo included, produces one list of record writes (`RecordWrite[]`: kind, id, the record or a delete), and one function `applyWrites` writes it to the Dexie tables, and later to the outbox, in **one** Dexie transaction. Today they are split: `rowWrites` writes a planning row a tick later, and the undo path chains `writeVenue`, hall rules, projects and budgets as separate transactions. With an outbox, a closed tab between two of them would leave the tables and the outbox telling different stories. `writeQueue` stays, but gathers `RecordWrite`s rather than rows.
+
+All of this is refactoring with nothing visible to the planner, and can be tested without Supabase.
 
 ### Sync
 
-- **Push.** The outbox holds `{kind, id, data | deleted, baseRev}` per write, in order. The loop sends a batch through one Postgres function (`push_records`) that writes them in a transaction and returns their new `rev`s. On a network error it retries with backoff; the save indicator («Lagret», «Lagrer», «Feil») gains «Frakoblet».
-- **Pull.** On start and whenever told, the client asks for `records where rev > cursor`, applies them to Dexie and memory, and moves the cursor. A first load of a workspace pulls everything.
+- **Local sync state.** A Dexie table `sync` holds the workspace's cursor (the highest `rev` applied) and, per record, the `rev` it was last seen at. The outbox is a Dexie table too, written by `applyWrites` in the same transaction as the records it holds.
+- **Push.** The outbox holds `{batchId, kind, id, data | deleted, baseRev}` per write, in order; one user action is one batch. The loop sends whole batches through one Postgres function (`push_records`) that writes them in a transaction, takes their revs from the workspace's counter and returns them; the client then stores them as the records' last-seen revs and empties those entries. On a network error it retries with backoff; the save indicator («Lagret», «Lagrer», «Feil») gains «Frakoblet».
+- **Pull.** On start and whenever told, the client asks for `records where rev > cursor order by rev`, in pages. A page can end in the middle of a batch, so the client applies only whole batches: it holds back the records of the last batch of a page until the next page, or an empty one, shows the batch is complete. It applies them to Dexie and memory, works out the Visma lines of any project whose `visma`, `kpi` or overrides came in, and moves the cursor. A first load of a workspace pulls everything.
 - **Realtime.** Supabase Realtime on `records` for the workspace is only a nudge to pull; the pull is what is trusted, so a dropped message costs nothing but a few seconds.
-- **Applying a remote write** replaces the record in memory through the same path an undo uses (`applyChange` with a change made from the remote records), so the grid draws it as it draws an undo. A remote write to a record that has a write of our own still in the outbox is held until ours is answered.
+- **Applying a remote write** replaces the record in memory through the same path an undo uses (`applyChange` with a change made from the remote records), so the grid draws it as it draws an undo. A remote write to a record that has a write of our own still in the outbox is held until ours is answered. A remote write never goes on the undo stack and is never merged into the open step. While a stroke, a drag or a pull of a span's end is being drawn, remote writes wait until it is let go, so the preview is not drawn from data that changed under it.
 
 ### Conflicts with several planners
 
 - **Rule: last write wins per record**, ordered by the server (`rev`), not by the clocks. With per-day cells and per-key overrides, the cases left are two people changing the same cell, the same decision or the same person's day at once.
 - **Detected, not silent.** Each push carries the `rev` the client last saw for the record (`baseRev`). If the server's is newer, someone else changed it in between; the write still wins, but the other planner gets a toast: «Kari endret samme celle samtidig». A stricter rule, refusing the write, is possible per kind if the planner wants it for, say, hire orders.
-- **Imports.** A Venyou export replaces the bookings in its period and a Visma export the lines of its projects. Two planners importing the same file give the same ids and the same data, so it is harmless. Two planners importing different exports at once is the later one's result, as today on one computer.
-- **Derived data.** Some edits follow others in the same step (a renamed competence reaches the rows, the people and their blocks; a renumbered project takes its rows along). These are written as one batch and arrive at others as one batch, so no one sees half of it.
+- **Imports.** A Venyou export replaces the bookings in its period and a Visma export the exports of its projects. With the ids of phase 1, two planners importing the same file give the same ids and the same data, so the second writes nothing. Two planners importing different exports at once is the later one's result, as today on one computer.
+- **Derived data.** Some edits follow others in the same step (a renamed competence reaches the rows, the people and their blocks; a renumbered project takes its rows along). These are written as one batch and applied by others as one batch (see Pull), so no one sees half of it.
 - **Presence (optional, phase 4).** Realtime presence shows who else is in the workspace, and perhaps which project they are on, which avoids most conflicts before they happen.
 
 ### Undo
@@ -87,7 +118,15 @@ Undo stays local and per planner: it undoes my own steps, never another's. An un
 
 Supabase Auth with Microsoft sign-in (the Azure provider). The company uses Microsoft, but it is not settled that a company account may be used, so the proof of concept signs in with a **private Microsoft account**: an app registration in Azure (free with a personal account) that accepts personal Microsoft accounts, given to Supabase as the Azure provider. Moving to the company's own tenant later is a change of settings in Azure and Supabase, not of the app. A sign-in link by e-mail is kept as the fallback, since it needs no Azure at all, and the two can be on together.
 
+To check before it is built: Supabase needs an e-mail from the provider, and a personal Microsoft account gives one only when the app registration asks for it (the `email` claim, the `consumers` or `common` tenant). The sign-in returns to the page it came from, so the published address on GitHub Pages and `localhost` both go into Supabase's list of redirect URLs.
+
 Membership of the one workspace is added by hand in the Supabase dashboard; there is no invite screen in the proof of concept. The app without sign-in stays as it is today (local only), so nothing breaks for someone who never signs in.
+
+### The local copy and the shared one
+
+- **One Dexie database per workspace.** Local mode keeps `expo-planner` as now. A shared workspace gets its own database, `expo-planner-<workspaceId>`, holding its records, the outbox and the sync state. Signing in and out switches between them, so the local data and the shared copy are never mixed in one database, and the data of one cannot leak into the other's outbox.
+- **Signing out** keeps the shared copy in the browser, so the planner can sign in again and work offline, unless «Logg ut og fjern data fra denne nettleseren» is chosen, for a computer that is not one's own. Writes still in the outbox are pushed first, or the planner is told they will be lost.
+- **«Slett alt og start på nytt»** in a shared workspace clears this browser's copy and pulls the workspace again: it touches no one else. Emptying the shared workspace for everyone is an action of its own under Innstillinger, behind a warning that names it, written as one batch of tombstones. The planner's way of testing from a clean state then means: empty the shared workspace, then read the sources in.
 
 ### Preferences
 
@@ -111,8 +150,8 @@ Each phase is usable on its own and can stop there.
 
 Phases 1 and 2 come before the first version; 3 and 4 after it.
 
-1. **One write path (no Supabase).** Every mutation produces a list of record writes; split `fte`/`notes` into per-day records, `overrides`, `budgets` and `hiddenVenue` into per-key records; stable ids on projects. Tests on the domain and the store. Nothing visible changes.
-2. **Cloud copy for one planner (the proof of concept).** Supabase free project in an EU region, Microsoft sign-in with a private account, the schema, sign-in, RLS; the outbox, push and pull, without realtime. One planner on two computers has the same plan, and the data is off the browser. This alone settles «Data that lasts», once real data may go in.
+1. **One write path (no Supabase).** Everything under «What has to change in the local model first»: every mutation produces a list of record writes, applied with the outbox's place ready in one transaction; `Change` per record; the split into cells and keys at the sync boundary; ids from the source for Venyou bookings and `name|projectNo` for projects; Visma lines kept out of what is synced; tombstones for a deleted row's cells and ties in `order` broken by id. Tests on the domain and the store. Nothing visible changes.
+2. **Cloud copy for one planner (the proof of concept).** Supabase free project in an EU region, Microsoft sign-in with a private account, the schema with the workspace counter, sign-in, RLS with writes through `push_records` only; a database per workspace, the outbox, push and pull in whole batches, without realtime; signing out and «Slett alt» as above. One planner on two computers has the same plan, and the data is off the browser. This alone settles «Data that lasts», once real data may go in.
 3. **Live, several planners.** Realtime nudges, remote writes applied in the grid, `baseRev` conflict notices, undo of own steps only, «Frakoblet» in the save indicator.
 4. **Comfort.** Presence, who changed what and when (the `updated_by` and `updated_at` are already stored; Innleid asked for it on answers), an invite screen, preferences per user, a scheduled JSON export.
 
