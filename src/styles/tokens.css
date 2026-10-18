@@ -108,10 +108,10 @@
 }
 
 /* The mode band of the Kalender: its page header and its planning bar are filled with the colour of the mode, olive for Plan and
-   spruce green («Gran») for Bemanning, with fjord blue for its part Innleid. Behov has a band of its own, heather («Lyng»), in its page header, and the tabs of the planner's tables one of sand.
+   spruce green («Gran») for Bemanning, with fjord blue for its part Innleid. Behov has a band of its own, heather («Lyng»), in its page header, Resultat one of copper («Kobber»), and the tabs of the planner's tables one of sand.
    It is set here alone and is seen in the band alone; the grid, the sections, the tables and the panels stay neutral.
    The two lines that frame the band are darker than its fill in both palettes: they read as a shadow. */
-.kalender,.behov-page,.register-page{
+.kalender,.behov-page,.resultat-page,.register-page{
   --mode-h:115; --mode-c:.09;
   --mode-band:oklch(0.86 calc(var(--mode-c) * .6) var(--mode-h));
   --mode-line:oklch(0.7 calc(var(--mode-c) * .85) var(--mode-h));      /* the two lines that frame the band */
@@ -137,6 +137,8 @@
 }
 /* Behov: heather, from the formulas of the band. */
 .behov-page{--mode-h:300; --mode-c:.06}
+/* Resultat: copper, from the formulas of the band. */
+.resultat-page{--mode-h:50; --mode-c:.05}
 /* The tabs of the planner's tables (Haller, Mannskap, Oppsett): sand, from the formulas of the band. */
 .register-page{--mode-h:85; --mode-c:.025}
 /* Innleid, the other part of Bemanning: fjord blue, from the formulas of the band. */
@@ -148,7 +150,7 @@
   --mode-ink:oklch(0.3 calc(var(--mode-c) * .55) var(--mode-h));
   --mode-mute:oklch(0.42 calc(var(--mode-c) * .6) var(--mode-h));
 }
-.dark :is(.kalender,.behov-page,.register-page){
+.dark :is(.kalender,.behov-page,.resultat-page,.register-page){
   --mode-band:oklch(0.4 calc(var(--mode-c) * .5) var(--mode-h));
   --mode-line:oklch(0.25 calc(var(--mode-c) * .4) var(--mode-h));
   --mode-track:oklch(0.32 calc(var(--mode-c) * .45) var(--mode-h));

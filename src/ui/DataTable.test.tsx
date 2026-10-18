@@ -83,4 +83,23 @@ describe('DataTable', () => {
     render(<Rates limit={2} />)
     expect(names()).toEqual(['Vegger', 'Tepper (sist)'])
   })
+
+  it('sums the rows the filters let through in a line under them, where a column has a sum', () => {
+    render(<Sums />)
+    const foot = () => screen.getAllByRole('row').at(-1)!.textContent
+    expect(foot()).toBe('Sum121,5')
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrer kolonnen' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /m²/ }))
+    expect(foot()).toBe('Sum21,5')
+  })
 })
+
+function Sums() {
+  const columns: Column<Rate>[] = [
+    { key: 'name', head: 'Navn', cell: (row) => row.name, foot: () => 'Sum' },
+    { key: 'unit', head: 'Enhet', text: (row) => row.unit, cell: (row) => row.unit },
+    { key: 'rate', head: 'Sats', className: 'num', cell: (row) => row.rate, foot: (rows) => String(rows.reduce((sum, row) => sum + row.rate, 0)).replace('.', ',') },
+  ]
+  const table = useTable(RATES, columns)
+  return <DataTable table={table} rowKey={(row) => row.name} />
+}

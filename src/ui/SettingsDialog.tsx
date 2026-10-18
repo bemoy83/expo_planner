@@ -3,7 +3,7 @@ import { decimalText, parseDecimal } from '../domain/numbers'
 import { useWorkspace } from '../store/workspaceStore'
 import { clock, clockMinutes } from './bemanning/week'
 
-/** The base crew, the hours of a normal day and its lunch break. */
+/** The base crew, the hours of a normal day and its lunch break, and the overhead Resultat adds to the plan. */
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { workspace, updateSettings } = useWorkspace()
   const settings = workspace!.settings
@@ -14,6 +14,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const day = settings.workday
   const [lunchFrom, setLunchFrom] = useState(clock(day.breakStart))
   const [lunchTo, setLunchTo] = useState(clock(day.breakEnd))
+  const [overheadPct, setOverheadPct] = useState(decimalText(Math.round(settings.overhead * 1000) / 10))
 
   // An empty crew is none; text that is no number is NaN, which no comparison lets through.
   const crew = parseDecimal(baseCrew) === null ? 0 : (parseDecimal(baseCrew) ?? NaN)
@@ -22,7 +23,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const breakStart = clockMinutes(lunchFrom)
   const breakEnd = clockMinutes(lunchTo)
   const lunchValid = breakStart > day.dayStart && breakEnd > breakStart && breakEnd < day.dayEnd && breakStart % day.snap === 0 && breakEnd % day.snap === 0
-  const valid = crew >= 0 && hours > 0 && lunchValid
+  const overhead = (parseDecimal(overheadPct) === null ? 0 : (parseDecimal(overheadPct) ?? NaN)) / 100
+  const valid = crew >= 0 && hours > 0 && lunchValid && overhead >= 0 && overhead < 10
   const worked = (day.dayEnd - day.dayStart - (breakEnd - breakStart)) / 60
 
   return (
@@ -32,11 +34,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return
-          updateSettings({ ...settings, baseCrew: crew, hoursPerDay: hours, workday: { ...day, breakStart, breakEnd } })
+          updateSettings({ ...settings, baseCrew: crew, hoursPerDay: hours, workday: { ...day, breakStart, breakEnd }, overhead })
           onClose()
         }}
       >
-        <h2>Bemanning og normaltid</h2>
+        <h2>Bemanning, normaltid og overhead</h2>
         {people ? (
           <p className="hint">
             Faste ansatte per arbeidsdag: <b>{people}</b>, de på Mannskap › Faste.
@@ -65,6 +67,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               ? `Normaldagen er ${clock(day.dayStart)}–${clock(day.dayEnd)}, som med denne lunsjen gir ${decimalText(worked)} timer. Lunsjen er ubetalt.`
               : `Lunsjen må ligge innenfor normaldagen ${clock(day.dayStart)}–${clock(day.dayEnd)}, på hele kvarter.`}
           </span>
+        </label>
+        <label>
+          Overhead på planlagte timer (%)
+          <input inputMode="decimal" value={overheadPct} onChange={(e) => setOverheadPct(e.target.value)} />
+          <span className="hint">Budsjettet på Resultat har overhead i seg, planen bare det direkte arbeidet. Planlagte timer sammenlignes derfor med budsjettet med dette lagt til.</span>
         </label>
         <p className="hint">
           Kalenderens periode følger hallbookingene fra Venyou. Helger, helligdager og julaften regnes som fridager.

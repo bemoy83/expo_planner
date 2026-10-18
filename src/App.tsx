@@ -8,6 +8,7 @@ import { useSaveState, useWorkspace, WorkspaceProvider } from './store/workspace
 import { Behov } from './ui/behov/Behov'
 import { HallerTab, type HallerPage } from './ui/haller/HallerTab'
 import { Oppsett, type OppsettPage } from './ui/kpi/Oppsett'
+import { Resultat } from './ui/resultat/Resultat'
 import { Mannskap, type MannskapPage } from './ui/personell/Mannskap'
 import type { RegisterPage } from './ui/RegisterHead'
 import { Kalender } from './ui/kalender/Kalender'
@@ -27,7 +28,7 @@ export default function App() {
   )
 }
 
-type View = 'kalender' | 'behov' | 'haller' | 'prosjekter' | 'hallregler' | 'kpi' | 'tekstregler' | 'utelatte' | 'personell' | 'leverandorer' | 'kompetanser'
+type View = 'kalender' | 'behov' | 'resultat' | 'haller' | 'prosjekter' | 'hallregler' | 'kpi' | 'tekstregler' | 'utelatte' | 'personell' | 'leverandorer' | 'kompetanser'
 
 interface Tab {
   label: string
@@ -40,6 +41,7 @@ interface Tab {
 const TABS: Tab[] = [
   { label: 'Kalender', pages: [{ view: 'kalender', label: 'Kalender' }] },
   { label: 'Behov', pages: [{ view: 'behov', label: 'Behov' }] },
+  { label: 'Resultat', pages: [{ view: 'resultat', label: 'Resultat' }] },
   {
     label: 'Haller',
     register: true,
@@ -226,7 +228,7 @@ function Shell() {
                     setSettingsOpen(true)
                   }}
                 >
-                  Bemanning og normaltid …
+                  Bemanning, normaltid og overhead …
                 </button>
               )}
               <span className="menu-group">Bemanning</span>
@@ -366,6 +368,7 @@ function Shell() {
       {status === 'ready' && workspace && tab.label === 'Mannskap' && <Mannskap page={view as MannskapPage} pages={tab.pages as RegisterPage<MannskapPage>[]} onPage={setView} />}
       {status === 'ready' && workspace && tab.label === 'Oppsett' && <Oppsett page={view as OppsettPage} pages={tab.pages as RegisterPage<OppsettPage>[]} onPage={setView} onOpenBehov={() => setView('behov')} />}
       {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={() => setView('kpi')} onOpenRules={() => setView('hallregler')} />}
+      {status === 'ready' && workspace && view === 'resultat' && <Resultat onOpenSettings={() => setSettingsOpen(true)} onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))} onOpenProjects={() => setView('prosjekter')} />}
       {settingsOpen && workspace && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )

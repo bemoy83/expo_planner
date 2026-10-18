@@ -10,6 +10,8 @@ export interface Settings {
   hoursPerDay: number
   /** The hours of a normal day, used by Bemanning. */
   workday: WorkdaySettings
+  /** The share added to the planned hours on Resultat, 0.1 for 10 %: the budget holds overhead, the plan direct work only. */
+  overhead: number
 }
 
 /** Minutes after midnight, 0–1440. Values made by the UI are multiples of `snap`. */
@@ -48,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   baseCrew: 21,
   hoursPerDay: 7.5,
   workday: DEFAULT_WORKDAY,
+  overhead: 0.1,
 }
 
 /** Settings stored before a field existed get its default. */
@@ -350,6 +353,9 @@ export const OWN_SOURCE = 'Egen registrering'
 export const VISMA_BASIS = 'visma per reg. dato'
 export const VISMA_SOURCE = 'visma per reg. dato'
 
+/** The planner's budget of work hours per project number, overhead included: one total each. */
+export type Budgets = Record<string, number>
+
 export interface Workspace {
   settings: Settings
   venue: VenueBooking[]
@@ -374,4 +380,5 @@ export interface Workspace {
   suppliers?: Supplier[]
   hireOrders?: HireOrder[]
   competenceStyles?: Record<CompetenceKey, CompetenceStyle>
+  budgets?: Budgets
 }

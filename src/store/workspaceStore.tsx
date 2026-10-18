@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
-import { type AllocationRow, type DemandLine, type HallRules, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
+import { type AllocationRow, type Budgets, type DemandLine, type HallRules, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
@@ -9,11 +9,12 @@ import { exampleRules, locateDemand, withChoice } from '../domain/locations'
 import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCompetence, supersededCompetences } from '../domain/competences'
 import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
+import { budgetsRenumbered } from '../domain/result'
 import { isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putSettings, putHallRules, deleteHallRules, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { clearAll, db, deleteAllocation, loadWorkspace, putBudgets, putSettings, putHallRules, deleteHallRules, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
 import { clearPrefs } from './prefs'
 import { writeQueue } from './writeQueue'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordHallRules, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
+import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordBudgets, recordHallRules, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
 
 const HISTORY_LIMIT = 200
 
@@ -40,9 +41,11 @@ interface WorkspaceStore {
   importVenue: (bookings: VenueBooking[], fileName: string) => VenueDiff & { from: string; to: string }
   /**
    * Replaces the project table. Planning rows of an event follow it to the number it gets, and a project given
-   * another number (`renumbered`) takes its rows and the planner's own demand lines along. Returns how many followed.
+   * another number (`renumbered`) takes its rows, the planner's own demand lines and its budget along. Returns how many followed.
    */
   setProjects: (projects: ProjectRef[], renumbered?: { from: string; to: string }) => { rows: number; lines: number }
+  /** Replaces the budget of every project, on Resultat. */
+  setBudgets: (budgets: Budgets) => void
   /** Shows or hides hall bookings in the Kalender; keys come from `venueKey`. */
   setVenueHidden: (keys: string[], hidden: boolean) => void
   /**
@@ -205,7 +208,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           .then(async () => {
             if (writes.hallRules !== null) await (writes.hallRules ? putHallRules(writes.hallRules) : deleteHallRules())
           })
-          .then(() => (writes.projects ? writeProjects(writes.projects) : undefined)),
+          .then(() => (writes.projects ? writeProjects(writes.projects) : undefined))
+          .then(() => (writes.budgets ? putBudgets(writes.budgets) : undefined)),
       )
     },
     [closeStep, track],
@@ -363,22 +367,33 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const { allocations, demand } = projectFollowers(ws, projects, renumbered)
       const rows = new Map(allocations.map((row) => [row.id, row]))
       const lines = new Map(demand.map((line) => [line.id, line]))
+      const budgets = renumbered ? budgetsRenumbered(ws.budgets, renumbered.from, renumbered.to) : ws.budgets
       const next: Workspace = {
         ...ws,
         projects,
+        budgets,
         allocations: rows.size ? ws.allocations.map((row) => rows.get(row.id) ?? row) : ws.allocations,
         demand: lines.size ? ws.demand.map((line) => lines.get(line.id) ?? line) : ws.demand,
       }
       commit(
         next,
-        () => Promise.all([...allocations.map(rowWrites.put), demand.length ? writeDemand({ putLines: demand }) : undefined]).then(() => writeProjects(projects)),
+        () => Promise.all([...allocations.map(rowWrites.put), demand.length ? writeDemand({ putLines: demand }) : undefined, budgets !== ws.budgets ? putBudgets(budgets ?? {}) : undefined]).then(() => writeProjects(projects)),
         (step) => {
           recordProjects(step, ws.projects, projects)
+          if (budgets !== ws.budgets) recordBudgets(step, ws.budgets ?? {}, budgets ?? {})
           recordLedger(step, ws, next)
           for (const row of ws.allocations) if (rows.has(row.id)) recordAllocation(step, row.id, row, rows.get(row.id)!)
         },
       )
       return { rows: allocations.length, lines: demand.length }
+    },
+    [commit],
+  )
+
+  const setBudgets = useCallback(
+    (budgets: Budgets) => {
+      const ws = current.current
+      if (ws) commit({ ...ws, budgets }, () => putBudgets(budgets), (step) => recordBudgets(step, ws.budgets ?? {}, budgets))
     },
     [commit],
   )
@@ -585,6 +600,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       updateSettings,
       importVenue,
       setProjects,
+      setBudgets,
       setVenueHidden,
       setKpi,
       renameCompetence,
@@ -602,7 +618,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallChoice, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setBudgets, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallChoice, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>

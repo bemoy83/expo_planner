@@ -6,7 +6,7 @@ Status as of 2026-10-18. The app covers the Kalender with its two modes, Plan an
 
 Agreed with the user 2026-10-18. The app is feature complete for a first version when the planner can plan one real season from a clean start on the Venyou, Visma and KPI files alone, get the figures of the workbook's Resultatside without opening Excel, read in an updated Venyou export without losing work, and keep the data safe on the published app. What stands in the way, most of it listed again further down:
 
-- **Reports and budget.** Resultatside is not built. Its design was agreed with the user on 2026-10-18; see «Resultatside: agreed design».
+- **Reports and budget.** Resultatside is built (2026-10-18), to be tested by the user; see «Resultatside: agreed design».
 - **An event that Venyou renames or moves.** Hall ticks and project numbers are stored by the event's name and start, so the booking counts as new and the choices do not follow. Planned FTE is stored per date on the rows and stays on the old days; nothing says so (inferred from the storage, not tried).
 - **Data that lasts.** The published app keeps everything in the browser it is opened in: one computer, no automatic backup, and the undo history is lost on reload. A cleared browser loses the plan unless a backup was taken by hand.
 - **One season end to end.** Much that is built is marked «to be tested by the user» or checked by tests only: Bemanning, Behov, Oppsett, Innleid, the levels of detail of Plan, competences that follow a product type. A walk through a real season on the real files, in the order of a clean start, has not been done.
@@ -157,7 +157,7 @@ Built from `design_docs/innleid/` in the six slices of the Claude Doc «Innleid:
 
 ## Resultatside: agreed design
 
-Agreed with the user 2026-10-18. Not built. The workbook's version and the reasoning are in the project's notes (`plans/resultatside-concept.md`).
+Agreed with the user 2026-10-18, and built the same day as the tab Resultat, to be tested by the user. The workbook's version and the reasoning are in the project's notes (`plans/resultatside-concept.md`).
 
 - In the workbook, Resultatside is one row per event for the whole season. It compares a budget of work hours with the planned FTE × normaltid × 1.10. The budget is one total per project, typed by hand in a separate workbook («Budsjett arbeidstimer Production.xlsx») and split there by fixed ratios: 90/10 for overhead and 56/10/24 for montering, service and demontering.
 - **Budget.** It is a static number per project number: a total of hours, typed by the planner, that the total planned hours are compared against. It has no split by phase or competence. It is the planner's own table, so it has «Fil» with export and import, which can also read the budget workbook's «Prosjektnr.» and «Budsjett arbeidstimer totalt». It follows a project that is given another number.
@@ -178,10 +178,19 @@ Agreed with the user 2026-10-18. Not built. The workbook's version and the reaso
   - Planned hours per work type: the app's rows are per competence.
   - An X column per hall, and the week and month columns: the table sorts and filters by date.
 
+Choices made in the build, for the user to confirm
+
+- Avvik is the budget less the plan with overhead: positive is what is left of the budget, negative is over it and red. Nothing is green.
+- A row per project number that has a booking shown in the Kalender, FTE planned or a budget; every year read in, with a column «År» to filter by. Events without a number have no row, and the page counts them with a link to Prosjekter. Bookings hidden in the VenYou tab are left out; «Steder» in the Kalender is not followed.
+- Halldager are calendar days of the venue's phases A, E and D, each day counted once however many halls have it. Moving in and out are not shown.
+- A budget of nought, or an empty field, is no budget, as in the budget workbook. A file with a project on several rows gives it their sum.
+- The sums at the bottom are of the rows the filters let through. Avvik and Avvik % there are over the projects that have a budget alone.
+- Planning rows without a work phase count in Planlagt and not in montering or demontering; rows without a project number are not counted.
+
 ## What the workbook has and the app does not
 
 - **History for earlier years.** The workbook's ledger has «Historikk Antall» and «Historikk Timer», and its Resultatside has «Historikk arbeidstimer», which are the actual timesheet hours of an earlier year, typed in its budget file. In the app, earlier years exist only if older Visma exports are read in, and there is no dedicated flow. The user wants history for comparing a project year over year, but not in the first version (2026-10-18).
-- **Reports.** Resultatside (see «Resultatside: agreed design»), oppsummering (daily need against crew, with chart), status per week.
+- **Reports.** Oppsummering (daily need against crew, with chart), status per week.
 
 ## Gaps in what is built
 

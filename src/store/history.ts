@@ -1,4 +1,4 @@
-import type { AllocationRow, Assignment, CompetenceStyle, DemandAdjustment, DemandLine, HallRules, HireOrder, KpiConfig, LineOverride, Person, ProjectRef, Settings, Supplier, Unavailability, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
+import type { AllocationRow, Assignment, Budgets, CompetenceStyle, DemandAdjustment, DemandLine, HallRules, HireOrder, KpiConfig, LineOverride, Person, ProjectRef, Settings, Supplier, Unavailability, VenueBooking, VenueImportInfo, VismaImport, Workspace } from '../domain/types'
 
 interface Delta<T> {
   before: T
@@ -24,6 +24,8 @@ export interface Change {
   hallRules?: Delta<HallRules | undefined>
   /** The project table: the names each project goes by. */
   projects?: Delta<ProjectRef[]>
+  /** The budget of each project, on Resultat. */
+  budgets?: Delta<Budgets>
   /** The records of Bemanning, `null` where the record did not exist. */
   persons: Map<string, Delta<Person | null>>
   unavailability: Map<string, Delta<Unavailability | null>>
@@ -98,6 +100,10 @@ export const recordHiddenVenue = (change: Change, before: Record<string, true>, 
   change.hiddenVenue = { before: change.hiddenVenue ? change.hiddenVenue.before : before, after }
 }
 
+export const recordBudgets = (change: Change, before: Budgets, after: Budgets) => {
+  change.budgets = { before: change.budgets ? change.budgets.before : before, after }
+}
+
 export const recordProjects = (change: Change, before: ProjectRef[], after: ProjectRef[]) => {
   change.projects = { before: change.projects ? change.projects.before : before, after }
 }
@@ -135,6 +141,7 @@ export const isEmptyChange = (change: Change): boolean =>
   !change.hiddenVenue &&
   !change.hallRules &&
   !change.projects &&
+  !change.budgets &&
   !change.competenceStyles &&
   [change.persons, change.unavailability, change.assignments, change.demandAdjustments, change.suppliers, change.hireOrders].every((map) => [...map.values()].every((d) => d.before === d.after)) &&
   [...change.demand.values()].every((d) => d.before === d.after) &&
@@ -173,6 +180,7 @@ export const applyChange = (workspace: Workspace, change: Change, direction: Dir
   return { ...workspace, allocations, settings, demand, visma, overrides, kpi, venue: venue.bookings, venueImport: venue.info, hiddenVenue: change.hiddenVenue ? target(change.hiddenVenue, direction) : workspace.hiddenVenue,
     hallRules: change.hallRules ? target(change.hallRules, direction) : workspace.hallRules,
     projects: change.projects ? target(change.projects, direction) : workspace.projects,
+    budgets: change.budgets ? target(change.budgets, direction) : workspace.budgets,
     persons: change.persons.size ? applyList(workspace.persons, change.persons, direction)?.sort((a, b) => a.order - b.order) : workspace.persons,
     unavailability: applyList(workspace.unavailability, change.unavailability, direction),
     assignments: applyList(workspace.assignments, change.assignments, direction),
@@ -200,6 +208,7 @@ export const changeWrites = (change: Change, direction: Direction) => ({
   /** `null` means the rules are unchanged; `undefined` means there are none again, as before halls were read in. */
   hallRules: change.hallRules ? target(change.hallRules, direction) : null,
   projects: change.projects ? target(change.projects, direction) : null,
+  budgets: change.budgets ? target(change.budgets, direction) : null,
   staffing: {
     putPersons: puts(change.persons, direction),
     deletePersons: deletes(change.persons, direction),

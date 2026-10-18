@@ -17,6 +17,8 @@ export interface Column<T> {
   cell: (row: T, index: number, rows: T[]) => ReactNode
   /** More for the cell of one row: a tooltip, a class of its own. */
   cellProps?: (row: T) => TdHTMLAttributes<HTMLTableCellElement>
+  /** The column's cell in a line of sums under the rows, from the rows the filters let through. A table where no column has one has no such line. */
+  foot?: (rows: T[]) => ReactNode
 }
 
 /** What a column's heading needs to offer its filter. */
