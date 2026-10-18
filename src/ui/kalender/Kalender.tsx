@@ -816,7 +816,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // Today as one line down the grid. It is laid by the width of a day, so the zoom moves it without drawing it again.
   const todayLine = today >= range.start && today <= range.end ? <i className="today-line" style={{ left: daysWide(daysBetween(range.start, today), LEFT_W) }} /> : null
   // The day under the pointer, tinted down the date header and the top block, to trace a bar in the hall calendar to its date, and a
-  // planning row's day to its date and to what the halls hold on it. The rows themselves are not tinted: they are ruled, and carry the selection.
+  // planning row's day to its date and to what the halls hold on it. In Bemanning it runs down the project lines and the demand, and a
+  // person's day is traced to them. The rows themselves are not tinted: they are ruled, and carry the selection.
   // It is laid by a style variable on the canvas, set here and not in a state, so no line is drawn again as the pointer moves.
   const dayHover = <i className="day-hover" style={{ left: `calc(var(--col-w) * var(--hover-day, 0) + ${LEFT_W}px)` }} />
   const onDayHover = (e: React.MouseEvent<HTMLElement>) => {
@@ -834,7 +835,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const offDayHover = (e: React.MouseEvent<HTMLElement>) => {
     if (e.currentTarget.parentElement) delete e.currentTarget.parentElement.dataset.hoverDay
   }
-  const hoverProps = bemanning ? {} : { onMouseMove: onDayHover, onMouseLeave: offDayHover }
+  const hoverProps = { onMouseMove: onDayHover, onMouseLeave: offDayHover }
   const places = <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
   return (
     <div className={`kalender ${bemanning ? 'bemanning-mode' : pull ? 'pulling' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode} data-part={planMode === 'bemanning' ? crewPart : undefined}>
@@ -856,7 +857,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         <div className="grid-canvas" style={{ width: daysWide(dates.length, LEFT_W) }}>
           {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows. Where it leaves the rows no room it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef} {...hoverProps}>
-            {!bemanning && dayHover}
+            {dayHover}
             <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
@@ -870,7 +871,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               if (project) actions.findProject(project)
             }}
           >
-            {!bemanning && dayHover}
+            {dayHover}
             {todayLine}
             {innleid ? <InnleidTop /> : bemanning ? <BemanningTop /> : <>
             <HallSection dayHover={dayHover} todayLine={todayLine} open={hallsOpen} onOpen={setHallsOpen} compact={hallsCompact} onCompact={setHallsCompact} empty={ws.venue.length === 0} pinTop={headHeight} halls={halls} hallCount={hallCount} hallBars={hallBars} hallLabels={hallLabels} hallProjectLists={hallProjectLists} cols={cols} />
@@ -952,8 +953,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           </div>
 
           {todayLine}
-          {innleid && <InnleidRows onOpenSuppliers={onOpenSuppliers} />}
-          {bemanning && !innleid && <PeopleRows onOpenPersonell={onOpenPersonell} />}
+          {innleid && <div {...hoverProps}><InnleidRows onOpenSuppliers={onOpenSuppliers} /></div>}
+          {bemanning && !innleid && <div {...hoverProps}><PeopleRows onOpenPersonell={onOpenPersonell} /></div>}
           {!bemanning && <div className="grid-alloc" style={{ height: rowTops[items.length] }} {...hoverProps}>
             <div style={{ height: rowTops[r0] }} />
             {items.slice(r0, r1).map((item) => {
