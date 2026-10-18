@@ -4,7 +4,7 @@ Status as of 2026-10-18. The app covers the Kalender with its two modes, Plan an
 
 ## Toward a first version
 
-Proposed 2026-10-18, not yet agreed with the user. The app is feature complete for a first version when the planner can plan one real season from a clean start on the Venyou, Visma and KPI files alone, get the figures of the workbook's Resultatside without opening Excel, read in an updated Venyou export without losing work, and keep the data safe on the published app. What stands in the way, most of it listed again further down:
+Agreed with the user 2026-10-18. The app is feature complete for a first version when the planner can plan one real season from a clean start on the Venyou, Visma and KPI files alone, get the figures of the workbook's Resultatside without opening Excel, read in an updated Venyou export without losing work, and keep the data safe on the published app. What stands in the way, most of it listed again further down:
 
 - **Reports and budget.** Resultatside (budget against planned hours per project, with overhead) and the budget hours behind it (Timebudsjett, Tabell_budsjett_arbeidstimer) are not built. See «What the workbook has and the app does not».
 - **An event that Venyou renames or moves.** Hall ticks and project numbers are stored by the event's name and start, so the booking counts as new and the choices do not follow. Planned FTE is stored per date on the rows and stays on the old days; nothing says so (inferred from the storage, not tried).
