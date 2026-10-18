@@ -6,12 +6,12 @@ Status as of 2026-10-18. The app covers the Kalender with its two modes, Plan an
 
 Agreed with the user 2026-10-18. The app is feature complete for a first version when the planner can plan one real season from a clean start on the Venyou, Visma and KPI files alone, get the figures of the workbook's Resultatside without opening Excel, read in an updated Venyou export without losing work, and keep the data safe on the published app. What stands in the way, most of it listed again further down:
 
-- **Reports and budget.** Resultatside (budget against planned hours per project, with overhead) and the budget hours behind it (Timebudsjett, Tabell_budsjett_arbeidstimer) are not built. See «What the workbook has and the app does not».
+- **Reports and budget.** Resultatside is not built. Its design was agreed with the user on 2026-10-18; see «Resultatside: agreed design».
 - **An event that Venyou renames or moves.** Hall ticks and project numbers are stored by the event's name and start, so the booking counts as new and the choices do not follow. Planned FTE is stored per date on the rows and stays on the old days; nothing says so (inferred from the storage, not tried).
 - **Data that lasts.** The published app keeps everything in the browser it is opened in: one computer, no automatic backup, and the undo history is lost on reload. A cleared browser loses the plan unless a backup was taken by hand.
 - **One season end to end.** Much that is built is marked «to be tested by the user» or checked by tests only: Bemanning, Behov, Oppsett, Innleid, the levels of detail of Plan, competences that follow a product type. A walk through a real season on the real files, in the order of a clean start, has not been done.
 
-Not needed for a first version: oppsummering and status per week, history for earlier years, moving a whole span, a «Foreslå plan» that gathers into whole people or looks at the crew, sending orders to suppliers, trade crews and Admin (deferred by the user), a staff register import, notes on staffing lines.
+Not needed for a first version: oppsummering and status per week, history for earlier years (wanted later, for comparing a project year over year), moving a whole span, a «Foreslå plan» that gathers into whole people or looks at the crew, sending orders to suppliers, trade crews and Admin (deferred by the user), a staff register import, notes on staffing lines.
 
 ## Clean start: where it stands
 
@@ -155,11 +155,33 @@ Built from `design_docs/innleid/` in the six slices of the Claude Doc «Innleid:
 - All six slices, the clean-up and the changes after it were merged to main on 2026-10-13. Left undesigned by the package and not built: sending the order (e-mail, portal, PDF), who changed an answer and when, several planners at once, a supplier's capacity limit. Also not built: a click on a date in the header to pick the day in the editor, the track to drag for own times, and search among many suppliers.
 - Where the package and the app disagree, the defaults are in the Claude Doc. Not asked for by the package, chosen here: an order moved to another supplier or another time waits for an answer again; two orders that become the same add up what was asked of each.
 
+## Resultatside: agreed design
+
+Agreed with the user 2026-10-18. Not built. The workbook's version and the reasoning are in the project's notes (`plans/resultatside-concept.md`).
+
+- In the workbook, Resultatside is one row per event for the whole season. It compares a budget of work hours with the planned FTE × normaltid × 1.10. The budget is one total per project, typed by hand in a separate workbook («Budsjett arbeidstimer Production.xlsx») and split there by fixed ratios: 90/10 for overhead and 56/10/24 for montering, service and demontering.
+- **Budget.** It is a static number per project number: a total of hours, typed by the planner, that the total planned hours are compared against. It has no split by phase or competence. It is the planner's own table, so it has «Fil» with export and import, which can also read the budget workbook's «Prosjektnr.» and «Budsjett arbeidstimer totalt». It follows a project that is given another number.
+- **Overhead.** The budget holds overhead, while the plan counts direct work only. So the planned hours are compared with overhead added: planned × (1 + overhead). Overhead is one percentage under Innstillinger, 10 % by default, and it is named in the column heading.
+- **The page.** A tab «Resultat» after Behov, with one season table (a `DataTable`) and a row per project, ordered by build-up. The columns are:
+  - Project.
+  - Halldager per phase, from the hall ledger.
+  - The halls, as a short list.
+  - Budsjett, Planlagt and Planlagt inkl. overhead.
+  - Avvik and Avvik %.
+  - Planlagt montering and demontering.
+
+  The totals of the season go at the bottom. A click on a project slides in its details (`SidePanel`): planned hours per competence × phase, beside the project's demand.
+- **Planned hours** are the Plan's FTE × hoursPerDay. Bemanning's hours are not used: they are per competence and day, not per project.
+- **Left out, to start.** These are in the workbook but not on the page:
+  - Historikk (see «History for earlier years»).
+  - The Service split: the app has no service phase.
+  - Planned hours per work type: the app's rows are per competence.
+  - An X column per hall, and the week and month columns: the table sorts and filters by date.
+
 ## What the workbook has and the app does not
 
-- **History for earlier years.** The workbook's ledger has «Historikk Antall» and «Historikk Timer». In the app, earlier years exist only if older Visma exports are read in. No dedicated flow.
-- **Reports.** Resultatside (budget against planned hours per project, with overhead), oppsummering (daily need against crew, with chart), status per week.
-- **Budget hours.** Timebudsjett and Tabell_budsjett_arbeidstimer, which feed Resultatside.
+- **History for earlier years.** The workbook's ledger has «Historikk Antall» and «Historikk Timer», and its Resultatside has «Historikk arbeidstimer», which are the actual timesheet hours of an earlier year, typed in its budget file. In the app, earlier years exist only if older Visma exports are read in, and there is no dedicated flow. The user wants history for comparing a project year over year, but not in the first version (2026-10-18).
+- **Reports.** Resultatside (see «Resultatside: agreed design»), oppsummering (daily need against crew, with chart), status per week.
 
 ## Gaps in what is built
 
