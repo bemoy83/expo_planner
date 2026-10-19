@@ -264,7 +264,7 @@ An end of a span (the days in a row a planning row has FTE) is pulled along the 
 
 ## Test notes
 
-Testing is on the invented season (`src/demo/demoData.ts`); `npm run demo-data` writes its files to `demo_data/`, to read in one by one: the Venyou export, then the Visma export, KPI under Oppsett, Personell, Leverandører and the budgets under Resultat.
+Testing is on the invented season (`src/demo/demoData.ts`); `npm run demo-data` writes its files to `demo_data/`, to read in one by one: the Venyou export, KPI under Oppsett, then the Visma export, Kompetanser, Personell and Leverandører under Mannskap, and the budgets under Resultat.
 
 The tests against the real files are deleted (2026-10-19); the planner keeps those files outside the project.
 

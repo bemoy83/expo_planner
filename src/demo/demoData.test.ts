@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { buildVismaLines } from '../domain/visma'
 import { exportWindow } from '../domain/venueImport'
 import { readBudsjettWorkbook } from '../import/budsjettFile'
+import { readKompetanserWorkbook } from '../import/kompetanserFile'
 import { readKpiWorkbook } from '../import/kpiFile'
 import { readLeverandorerWorkbook } from '../import/leverandorerFile'
 import { readPersonellWorkbook } from '../import/personellFile'
 import { readVenyouExport } from '../import/venyouExport'
 import { readVismaExport } from '../import/vismaExport'
-import { DEMO_EVENTS, DEMO_FILES, DEMO_HALLS, DEMO_PEOPLE, DEMO_PRODUCT_TYPES, demoFiles, type DemoFile } from './demoData'
+import { DEMO_COMPETENCES, DEMO_EVENTS, DEMO_FILES, DEMO_HALLS, DEMO_PEOPLE, DEMO_PRODUCT_TYPES, DEMO_SUPPLIERS, demoFiles, type DemoFile } from './demoData'
 
 const files = new Map(demoFiles().map((file) => [file.kind, file.bytes]))
 const bytes = (kind: DemoFile) => files.get(kind)!
@@ -30,9 +31,9 @@ describe('the invented season', () => {
     expect(exportWindow(DEMO_FILES.venyou, bookings)).toEqual({ from: '2026-09-01', to: '2027-06-30' })
   })
 
-  it('reads as a Visma export of eight projects, named as their events in Venyou', () => {
+  it('reads as a Visma export of the events with stands, named as they are in Venyou', () => {
     const projects = new Map(rows.map((row) => [row.projectNo, row.eventName]))
-    expect(projects.size).toBe(8)
+    expect(projects.size).toBe(DEMO_EVENTS.filter((event) => event.stands > 0).length)
     for (const [projectNo, name] of projects) expect(DEMO_EVENTS.find((event) => event.projectNo === projectNo)?.name).toBe(name)
   })
 
@@ -55,11 +56,18 @@ describe('the invented season', () => {
     expect(lines.some((line) => line.key.includes('montering etter avtale'))).toBe(true)
   })
 
-  it('reads as the planner’s own tables of staff, suppliers and budgets', () => {
-    expect(readPersonellWorkbook(bytes('personell')).map((p) => p.name)).toEqual(DEMO_PEOPLE.map(([name]) => name))
+  it('reads as the planner’s own tables of competences, staff, suppliers and budgets', () => {
+    expect(readKompetanserWorkbook(bytes('kompetanser'))).toEqual(expect.arrayContaining([{ label: 'Vegger', shortLabel: 'VEG', color: 'line-blue' }]))
+    expect(readKompetanserWorkbook(bytes('kompetanser')).map((c) => c.label)).toEqual(DEMO_COMPETENCES)
+    const people = readPersonellWorkbook(bytes('personell'))
+    expect(people.map((p) => p.name)).toEqual(DEMO_PEOPLE.map(([name]) => name))
+    expect(new Set(people.map((p) => p.name)).size).toBe(40)
+    // Every competence has people, and everyone has at least one.
+    for (const competence of DEMO_COMPETENCES) expect(people.some((p) => p.competences[competence])).toBe(true)
+    expect(people.every((p) => Object.values(p.competences).some(Boolean))).toBe(true)
     const suppliers = readLeverandorerWorkbook(bytes('leverandorer'))
-    expect(suppliers).toHaveLength(4)
+    expect(suppliers).toHaveLength(DEMO_SUPPLIERS.length)
     expect(suppliers.every((s) => !s.contact)).toBe(true)
-    expect(readBudsjettWorkbook(bytes('budsjett'))).toHaveLength(8)
+    expect(readBudsjettWorkbook(bytes('budsjett')).length).toBeGreaterThan(12)
   })
 })
