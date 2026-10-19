@@ -787,11 +787,9 @@ export interface AbsenceInput {
   personId: string
   from: ISODate
   to: ISODate
-  kind: Unavailability['kind']
   /** Both unset: whole days. */
   start?: Minute
   end?: Minute
-  note?: string
 }
 
 /**
@@ -803,32 +801,31 @@ export const addAbsence = (unavailability: Unavailability[], input: AbsenceInput
   const partial = input.start !== undefined && input.end !== undefined && input.end > input.start
   const days: Unavailability[] = []
   for (let date = input.from; date <= input.to; date = addDays(date, 1)) {
-    days.push({ id: makeId(), personId: input.personId, date, kind: input.kind, ...(partial ? { start: input.start, end: input.end } : {}), ...(input.note ? { note: input.note } : {}) })
+    days.push({ id: makeId(), personId: input.personId, date, ...(partial ? { start: input.start, end: input.end } : {}) })
   }
   return [...unavailability.filter((u) => u.personId !== input.personId || u.date < input.from || u.date > input.to), ...days]
 }
 
-export const isSick = (unavailability: Unavailability[], personId: string, date: ISODate): boolean => absenceOf(unavailability, personId, date).some((u) => u.kind === 'syk' && isWholeDay(u))
+/** The person is away the whole day. */
+export const isAway = (unavailability: Unavailability[], personId: string, date: ISODate): boolean => absenceOf(unavailability, personId, date).some(isWholeDay)
 
 /** A person's absence as stretches of days that follow each other and are alike, newest last. */
 export interface AbsenceSpan {
   ids: string[]
   from: ISODate
   to: ISODate
-  kind: Unavailability['kind']
   start?: Minute
   end?: Minute
-  note?: string
 }
 
 export const absenceSpans = (unavailability: Unavailability[], personId: string): AbsenceSpan[] => {
   const spans: AbsenceSpan[] = []
   for (const u of unavailability.filter((x) => x.personId === personId).sort((a, b) => a.date.localeCompare(b.date))) {
     const last = spans[spans.length - 1]
-    if (last && addDays(last.to, 1) === u.date && last.kind === u.kind && last.start === u.start && last.end === u.end && (last.note ?? '') === (u.note ?? '')) {
+    if (last && addDays(last.to, 1) === u.date && last.start === u.start && last.end === u.end) {
       last.ids.push(u.id)
       last.to = u.date
-    } else spans.push({ ids: [u.id], from: u.date, to: u.date, kind: u.kind, start: u.start, end: u.end, note: u.note })
+    } else spans.push({ ids: [u.id], from: u.date, to: u.date, start: u.start, end: u.end })
   }
   return spans
 }
@@ -843,9 +840,9 @@ export const editAbsence = (unavailability: Unavailability[], span: AbsenceSpan,
   return addAbsence(unavailability.filter((u) => !old.has(u.id)), input, makeId)
 }
 
-/** R35 «Friskmeld fra»: ends the sickness a day is in on the day before: that day and the sick days that follow it are taken back. */
-export const clearSickFrom = (unavailability: Unavailability[], personId: string, date: ISODate): Unavailability[] => {
-  const span = absenceSpans(unavailability, personId).find((s) => s.kind === 'syk' && s.from <= date && date <= s.to)
+/** R35 «Tilbake fra» (once «Friskmeld fra»): ends the absence a day is in on the day before: that day and the days of it that follow are taken back. */
+export const backFrom = (unavailability: Unavailability[], personId: string, date: ISODate): Unavailability[] => {
+  const span = absenceSpans(unavailability, personId).find((s) => s.from <= date && date <= s.to)
   if (!span) return unavailability
   const ids = new Set(span.ids)
   return unavailability.filter((u) => !(ids.has(u.id) && u.date >= date))

@@ -4,7 +4,7 @@ import { dayType } from '../../domain/holidays'
 import { assignmentStatus, clickBlock, openUnresolved, deleteBlock, drawBlock, editableWindows, isEligible, moveBlock, moveTarget, normalWindows, overtimeHours, paidTotal, recolourBlock, resizeBlock, splitBlock, workedParts, type EditOptions } from '../../domain/staffing'
 import type { Assignment, CompetenceStyle, Interval, Minute, Person, Workspace } from '../../domain/types'
 import { X } from 'lucide-react'
-import { ABSENCE_LABELS, absenceNote } from './dayCell'
+import { AWAY_LABEL, absenceNote } from './dayCell'
 import { HOUR_PX } from './layout'
 import type { Tool } from './tools'
 import { competenceColor } from '../dom'
@@ -183,7 +183,10 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
       {awayAllDay ? (
         <>
           {away(range.start, range.end, 'all')}
-          {awayAllDay.kind !== 'syk' && <span className="bm-track-away">{ABSENCE_LABELS[awayAllDay.kind]}</span>}
+          <span className="bm-track-away">
+            {AWAY_LABEL}
+            {stored.some((a) => stillOpen.has(a.id)) ? ` · ${stored.filter((a) => stillOpen.has(a.id)).length} uløst` : ''}
+          </span>
         </>
       ) : (
         absence.length > 0 && (
@@ -281,7 +284,6 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
             </span>
           )
         })()}
-      {awayAllDay?.kind === 'syk' && <span className="bm-sick">Syk{stored.some((a) => stillOpen.has(a.id)) ? ` · ${stored.filter((a) => stillOpen.has(a.id)).length} uløst` : ''}</span>}
     </span>
   )
 }

@@ -150,10 +150,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-away-part,.bm-cell.erasing .bm-block{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px)}
 /* unresolved, but the day is covered by others: a faint trace of what was planned */
 .bm-block.replaced,.bm-edit-block.replaced{opacity:.4}
-/* why the person is away the whole day: one badge in the middle of it, a solid fill with its own ink so it is read on a hatch of any colour, red for sickness alone */
-.bm-reason{position:absolute;left:50%;top:50%;z-index:1;transform:translate(-50%,-50%);padding:2px 7px;border-radius:999px;font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
-.bm-reason:not(.sick){background:var(--muted);color:var(--bg)}
-.bm-reason.sick{background:var(--alert-block);color:var(--alert-on)}
+/* that the person is away the whole day: one badge in the middle of it, a solid fill with its own ink so it is read on a hatch of any colour */
+.bm-reason{position:absolute;left:50%;top:50%;z-index:1;transform:translate(-50%,-50%);padding:2px 7px;border-radius:999px;font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:600;white-space:nowrap;background:var(--muted);color:var(--bg)}
 .bm-note{position:absolute;right:0;top:-6px;padding:0 3px;border-radius:3px;background:var(--bg);font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .bm-ot-tag{position:absolute;right:-2px;top:-6px;z-index:1;padding:0 4px;border-radius:4px;background:var(--text);color:var(--bg);font:600 var(--fs-2xs)/13px var(--font-num)}
 
@@ -254,7 +252,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .pp-period:hover{background:var(--wash)}
 .pp-period b{font-weight:600}
 .pp-period span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-sm) var(--font-num);color:var(--muted)}
-.pp-periods li.sick .pp-period b{color:var(--neg)}
 .pp-add{margin:8px 0 0 -6px;padding:5px 8px}
 .pp-form{display:flex;flex-direction:column;gap:10px;margin-top:10px;padding:12px;border-radius:8px;background:var(--surface)}
 .pp-form label{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);color:var(--muted)}

@@ -26,7 +26,8 @@ export const loadStaffingFixture = async (): Promise<StaffingFixture> => {
     persons: persons.default,
     competences: competences.default as CompetenceStyle[],
     assignments: assignments.default as Assignment[],
-    unavailability: unavailability.default as Unavailability[],
+    // The mockup's absence has a kind and a note, which the app no longer stores.
+    unavailability: (unavailability.default as (Unavailability & { kind?: string; note?: string })[]).map(({ kind: _kind, note: _note, ...u }) => u),
     demand: demand.default,
   }
 }

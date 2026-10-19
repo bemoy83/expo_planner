@@ -14,7 +14,7 @@ describe('folded day cell', () => {
   it('shows one block over the whole normal day', () => {
     const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [], yes, wd)
     expect(cell.blocks).toMatchObject([{ left: 0, width: 100, hours: 7.5 }])
-    expect(cell).toMatchObject({ offDay: false, away: null, overtime: 0, unresolved: 0 })
+    expect(cell).toMatchObject({ offDay: false, away: false, overtime: 0, unresolved: 0 })
   })
 
   it('places several blocks by their time', () => {
@@ -32,18 +32,17 @@ describe('folded day cell', () => {
     expect(cell.overtime).toBe(2)
   })
 
-  it('hatches the part of the day a person is away, with a note', () => {
-    const leaves: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'annet', start: 720, end: 900 }
+  it('hatches the part of the day a person is away, and says when', () => {
+    const leaves: Unavailability = { id: 'u', personId: 'p', date: TUE, start: 720, end: 900 }
     const cell = dayCell(TUE, [block('a', 'banner', 420, 720)], [leaves], yes, wd)
     expect(cell.hatches).toEqual([{ left: 62.5, width: 37.5 }])
     expect(cell.note).toBe('Går 12:00')
-    const late: Unavailability = { ...leaves, start: 420, end: 600, note: 'Tannlege' }
-    expect(dayCell(TUE, [], [{ ...late, note: undefined }], yes, wd).note).toBe('Kommer 10:00')
-    expect(dayCell(TUE, [], [late], yes, wd).note).toBe('Tannlege')
+    const late: Unavailability = { ...leaves, start: 420, end: 600 }
+    expect(dayCell(TUE, [], [late], yes, wd).note).toBe('Kommer 10:00')
   })
 
   it('hatches a whole day away where nothing is planned, and leaves what is planned to be hatched itself', () => {
-    const holiday: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'ferie' }
+    const holiday: Unavailability = { id: 'u', personId: 'p', date: TUE }
     expect(dayCell(TUE, [], [holiday], () => false, wd).hatches).toEqual([{ left: 0, width: 100 }])
     expect(dayCell(TUE, [block('a', 'foga', 420, 660)], [holiday], () => false, wd).hatches).toEqual([{ left: 50, width: 50 }])
     expect(dayCell(TUE, [block('a', 'foga', 420, 900)], [holiday], () => false, wd).hatches).toEqual([])
@@ -57,22 +56,22 @@ describe('folded day cell', () => {
   })
 
   it('hatches only the stretch of a block the person is away for', () => {
-    const morning: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'annet', start: 420, end: 720 }
+    const morning: Unavailability = { id: 'u', personId: 'p', date: TUE, start: 420, end: 720 }
     const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [morning], yes, wd)
     expect(cell.blocks[0]).toMatchObject({ unresolved: false, away: [{ left: 0, width: 62.5 }], hours: 3, times: '12:00–15:00' })
     expect(cell).toMatchObject({ hatches: [], unresolved: 0, note: 'Kommer 12:00' })
   })
 
   it('marks a whole day away, and the blocks that are unresolved by it', () => {
-    const sick: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'syk' }
-    const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [sick], () => false, wd)
-    expect(cell).toMatchObject({ away: 'syk', unresolved: 1, overtime: 0 })
+    const away: Unavailability = { id: 'u', personId: 'p', date: TUE }
+    const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [away], () => false, wd)
+    expect(cell).toMatchObject({ away: true, unresolved: 1, overtime: 0 })
     expect(cell.blocks[0]).toMatchObject({ unresolved: true })
   })
 
   it('stops counting a block as unresolved once others cover the day', () => {
-    const sick: Unavailability = { id: 'u', personId: 'p', date: TUE, kind: 'syk' }
-    const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [sick], () => false, wd, () => false)
+    const away: Unavailability = { id: 'u', personId: 'p', date: TUE }
+    const cell = dayCell(TUE, [block('a', 'foga', 420, 900)], [away], () => false, wd, () => false)
     expect(cell.unresolved).toBe(0)
     expect(cell.blocks[0]).toMatchObject({ unresolved: true, replaced: true })
   })

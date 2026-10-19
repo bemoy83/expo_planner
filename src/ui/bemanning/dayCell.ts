@@ -1,7 +1,7 @@
 import { dayType } from '../../domain/holidays'
 import type { ISODate } from '../../domain/dates'
 import { overtimeHours, paidTotal, subtract } from '../../domain/staffing'
-import type { Assignment, Interval, Minute, Unavailability, UnavailabilityKind, WorkdaySettings } from '../../domain/types'
+import type { Assignment, Interval, Minute, Unavailability, WorkdaySettings } from '../../domain/types'
 import { clock } from './week'
 
 /** What a block says: the name with its hours, the name, the short name, or nothing. */
@@ -68,21 +68,22 @@ export interface CellBlock extends Span {
   away: Span[]
 }
 
-/** What a day says of absence for a part of it, where no note is written: when the person leaves, comes, or is gone between. */
+/** What a day says of absence for a part of it: when the person leaves, comes, or is gone between. */
 export const absenceNote = (u: Unavailability, wd: WorkdaySettings): string =>
-  u.note || (u.end! >= wd.dayEnd ? `Går ${clock(u.start!)}` : u.start! <= wd.dayStart ? `Kommer ${clock(u.end!)}` : `Borte ${clock(u.start!)}–${clock(u.end!)}`)
+  u.end! >= wd.dayEnd ? `Går ${clock(u.start!)}` : u.start! <= wd.dayStart ? `Kommer ${clock(u.end!)}` : `Borte ${clock(u.start!)}–${clock(u.end!)}`
 
-export const ABSENCE_LABELS: Record<UnavailabilityKind, string> = { syk: 'Syk', ferie: 'Ferie', kurs: 'Kurs', annet: 'Fravær' }
+/** What a day away the whole of it says: away, and no more. */
+export const AWAY_LABEL = 'Borte'
 
 /** What a person's day shows when it is folded: a small timeline of the normal day. */
 export interface DayCell {
   /** A weekend or a holiday: no normal time, only overtime. Its blocks are drawn as a working day's; absence shows only where it has blocks. */
   offDay: boolean
-  /** Away the whole day, and why. */
-  away: UnavailabilityKind | null
+  /** Away the whole day. */
+  away: boolean
   /** The parts of the normal day the person is away for and has nothing planned in. What is planned there is hatched itself. */
   hatches: Span[]
-  /** «Går 12:00», or the note written on the absence. */
+  /** «Går 12:00», for absence for a part of the day. */
   note: string
   /** The blocks, cut to the normal day. */
   blocks: CellBlock[]
@@ -117,9 +118,9 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
   const first = partial[0]
   return {
     offDay,
-    away: whole ? whole.kind : null,
+    away: !!whole,
     hatches: subtract(awayFor, sorted).map((iv) => spanOf(iv, day)),
-    note: whole?.note || (first ? absenceNote(first, wd) : ''),
+    note: first ? absenceNote(first, wd) : '',
     blocks,
     unresolved: assignments.filter((a) => !ok(a) && open(a)).length,
     overtime: assignments.filter(ok).reduce((sum, a) => sum + overtimeHours(a, kind, wd), 0),

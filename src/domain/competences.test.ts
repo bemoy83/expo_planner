@@ -77,7 +77,7 @@ describe('people', () => {
     const ws: Workspace = {
       ...base,
       persons: addPerson(base.persons!, 'Ola', 'p2'),
-      unavailability: [{ id: 'u1', personId: 'p1', date: '2026-10-12', kind: 'ferie' }],
+      unavailability: [{ id: 'u1', personId: 'p1', date: '2026-10-12' }],
       assignments: [
         { id: 's1', personId: 'p1', date: '2026-10-13', competence: 'banner', start: 420, end: 900, source: 'manual' },
         { id: 's2', personId: 'p2', date: '2026-10-13', competence: 'banner', start: 420, end: 900, source: 'manual' },
@@ -206,7 +206,7 @@ describe('people from a file', () => {
       { id: 'p2', name: 'Bjarne', order: 1, competences: ['foga'] },
     ],
     assignments: [{ id: 's1', personId: 'p2', date: '2026-10-12', competence: 'foga', start: 420, end: 900, source: 'manual' }],
-    unavailability: [{ id: 'u1', personId: 'p2', date: '2026-10-13', kind: 'ferie' }],
+    unavailability: [{ id: 'u1', personId: 'p2', date: '2026-10-13' }],
   }
   const file: FilePerson[] = [
     { name: 'anna ', competences: { FOGA: false, Skilting: true } },

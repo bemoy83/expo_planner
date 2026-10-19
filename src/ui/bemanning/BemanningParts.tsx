@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ClipboardCopy, Eraser, Maximize2, MousePointer2, Paintbrush, TriangleAlert, X } from 'lucide-react'
 import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { carry, clearSickFrom, freeCapacity, isSick, paintBlock, removeCarried } from '../../domain/staffing'
+import { backFrom, carry, freeCapacity, isAway, paintBlock, removeCarried } from '../../domain/staffing'
 import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor, modKey } from '../dom'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
@@ -163,11 +163,10 @@ export function BemanningOverlays() {
           hasBlocks={(ws.assignments ?? []).some((a) => a.personId === menu.cell.personId && a.date === menu.cell.date)}
           open={bm.unfolded === menu.cell.personId}
           onToggleOpen={() => bm.toggleUnfolded(menu.cell.personId)}
-          sick={dayType(menu.cell.date) === 'arbeidsdag' ? isSick(ws.unavailability ?? [], menu.cell.personId, menu.cell.date) : null}
+          away={dayType(menu.cell.date) === 'arbeidsdag' && isAway(ws.unavailability ?? [], menu.cell.personId, menu.cell.date)}
           dayShort={`${dayName(menu.cell.date).slice(0, 3)} ${dayOfMonth(menu.cell.date)}.`}
-          onSick={() => bm.setPanel({ personId: menu.cell.personId, draft: { kind: 'syk', from: menu.cell.date, to: menu.cell.date } })}
-          onWell={() => updateStaffing((w) => ({ ...w, unavailability: clearSickFrom(w.unavailability ?? [], menu.cell.personId, menu.cell.date) }))}
-          onAbsence={() => bm.setPanel({ personId: menu.cell.personId, draft: { kind: 'ferie', from: menu.cell.date, to: menu.cell.date } })}
+          onBack={() => updateStaffing((w) => ({ ...w, unavailability: backFrom(w.unavailability ?? [], menu.cell.personId, menu.cell.date) }))}
+          onAbsence={() => bm.setPanel({ personId: menu.cell.personId, draft: { from: menu.cell.date, to: menu.cell.date } })}
           onClose={() => bm.setMenu(null)}
           onPaint={(competence) => bm.paint([menu.cell], competence, false)}
           onClear={() => bm.clear([menu.cell])}

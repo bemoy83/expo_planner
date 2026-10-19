@@ -133,7 +133,7 @@ describe('undo history', () => {
       ...before,
       persons: [anna, person('kari', 2)],
       assignments: [shorter, block('s3', 'kari')],
-      unavailability: [{ id: 'u1', personId: 'anna', date: '2026-10-13', kind: 'syk' }],
+      unavailability: [{ id: 'u1', personId: 'anna', date: '2026-10-13' }],
       demandAdjustments: [{ id: 'd1', competence: 'foga', date: '2026-10-13', hours: 3, reason: 'carry', fromDate: '2026-10-12', createdAt: '' }],
       competenceStyles: { foga: { key: 'foga', label: 'FOGA', shortLabel: 'FOGA', color: 'line-teal', order: 0 } },
     }

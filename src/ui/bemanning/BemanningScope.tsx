@@ -12,7 +12,7 @@ import { fmtDay } from '../kalender/labels'
 import { LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'
 import { useToasts, type Toast } from '../Toasts'
-import { ABSENCE_LABELS, type BlockNames } from './dayCell'
+import { type BlockNames } from './dayCell'
 import type { AbsenceDraft } from './PersonPanel'
 import { DIVIDER_H, PANEL_W, PERSON_H } from './layout'
 import type { ProjectSpan } from './projectsInView'
@@ -487,9 +487,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     const why = paintBlock(ws, cell, competence, true)
     if (why === 'ineligible') return `${nameOf(cell.personId)} har ikke ${labelOf(competence)}.`
     if (!why) return `${nameOf(cell.personId)} har ingen ledig tid ${dayName(cell.date)}.`
-    const away = (ws.unavailability ?? []).find((u) => u.personId === cell.personId && u.date === cell.date)
-    const reason = away ? ABSENCE_LABELS[away.kind].toLowerCase() : ''
-    return `${nameOf(cell.personId)} er ikke tilgjengelig ${dayName(cell.date)}${reason ? ` (${reason})` : ''}.`
+    const away = (ws.unavailability ?? []).some((u) => u.personId === cell.personId && u.date === cell.date)
+    return `${nameOf(cell.personId)} er ikke tilgjengelig ${dayName(cell.date)}${away ? ' (borte)' : ''}.`
   }
 
   /** Paints the free time of the days (R6). A paint never replaces what is there. */

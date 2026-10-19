@@ -3,14 +3,12 @@ import { Pencil, Plus, X } from 'lucide-react'
 import { addDays, dayOfMonth, isoWeek, monthShort, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { absenceSpans, addAbsence, editAbsence, overtimeByWeek, paidHours, personWeek, type AbsenceInput, type AbsenceSpan } from '../../domain/staffing'
-import type { UnavailabilityKind, WorkdaySettings } from '../../domain/types'
+import type { WorkdaySettings } from '../../domain/types'
 import { SidePanel } from '../common'
 import { competenceColor } from '../dom'
 import { useBemanning } from './BemanningScope'
-import { ABSENCE_LABELS } from './dayCell'
+import { AWAY_LABEL } from './dayCell'
 import { clock, EPSILON, hoursText } from './week'
-
-const KINDS: UnavailabilityKind[] = ['ferie', 'kurs', 'syk', 'annet']
 
 /** «21.–23. okt», «30. sep–2. okt», or «21. okt» for one day. */
 const periodText = (from: ISODate, to: ISODate): string =>
@@ -20,7 +18,6 @@ const minutes = (text: string): number | null => (/^\d{2}:\d{2}$/.test(text) ? N
 
 /** What the absence form starts with: a new absence from a day, or a period that is being changed. */
 export interface AbsenceDraft {
-  kind: UnavailabilityKind
   from: ISODate
   to: ISODate
   /** The period being changed; none for a new absence. */
@@ -35,16 +32,14 @@ interface FormProps {
   onCancel: () => void
 }
 
-/** The form for a stretch of absence: its kind, its days, the whole day or a part of it, and a note (R35). */
+/** The form for a stretch of absence: its days, and the whole day or a part of it (R35). No reason is asked for: that belongs in HR. */
 function AbsenceForm({ personId, draft, workday, onSave, onCancel }: FormProps) {
-  const [kind, setKind] = useState(draft.kind)
   const [from, setFrom] = useState(draft.from)
   const [to, setTo] = useState(draft.to)
   const partial = draft.span?.start !== undefined && draft.span.end !== undefined
   const [wholeDay, setWholeDay] = useState(!partial)
   const [start, setStart] = useState(clock(draft.span?.start ?? workday.breakEnd))
   const [end, setEnd] = useState(clock(draft.span?.end ?? workday.dayEnd))
-  const [note, setNote] = useState(draft.span?.note ?? '')
   const startMin = minutes(start)
   const endMin = minutes(end)
   const valid = from !== '' && to !== '' && to >= from && (wholeDay || (startMin !== null && endMin !== null && endMin > startMin))
@@ -53,19 +48,9 @@ function AbsenceForm({ personId, draft, workday, onSave, onCancel }: FormProps) 
       className="pp-form"
       onSubmit={(e) => {
         e.preventDefault()
-        if (valid) onSave({ personId, from, to, kind, note: note.trim() || undefined, ...(wholeDay ? {} : { start: startMin!, end: endMin! }) })
+        if (valid) onSave({ personId, from, to, ...(wholeDay ? {} : { start: startMin!, end: endMin! }) })
       }}
     >
-      <label>
-        Type
-        <select value={kind} onChange={(e) => setKind(e.target.value as UnavailabilityKind)}>
-          {KINDS.map((k) => (
-            <option key={k} value={k}>
-              {ABSENCE_LABELS[k]}
-            </option>
-          ))}
-        </select>
-      </label>
       <div className="field-row">
         <label>
           Fra
@@ -99,10 +84,6 @@ function AbsenceForm({ personId, draft, workday, onSave, onCancel }: FormProps) 
           </label>
         </div>
       )}
-      <label>
-        Notat
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Valgfritt, f.eks. Går 12:00" />
-      </label>
       <p className="insp-note">Tildelinger på dagene beholdes, men merkes uløst, og timene går tilbake i behovet. Annet fravær på dagene erstattes.</p>
       <div className="dialog-actions">
         <button type="button" onClick={onCancel}>
@@ -211,16 +192,15 @@ export function PersonPanel() {
           <ul className="pp-periods">
             {spans.map((span) =>
               panel.draft?.span?.ids[0] === span.ids[0] ? null : (
-                <li key={span.ids[0]} className={span.kind === 'syk' ? 'sick' : ''}>
+                <li key={span.ids[0]}>
                   <button className="pp-period" title="Vis dagene" onClick={() => bm.onShowDate(span.from)}>
-                    <b>{ABSENCE_LABELS[span.kind]}</b>
+                    <b>{AWAY_LABEL}</b>
                     <span>
                       {periodText(span.from, span.to)}
                       {span.start !== undefined && span.end !== undefined && ` · ${clock(span.start)}–${clock(span.end)}`}
-                      {span.note && ` · ${span.note}`}
                     </span>
                   </button>
-                  <button className="row-action" aria-label="Endre fraværet" title="Endre fraværet" onClick={() => bm.setPanel({ personId: person.id, draft: { kind: span.kind, from: span.from, to: span.to, span } })}>
+                  <button className="row-action" aria-label="Endre fraværet" title="Endre fraværet" onClick={() => bm.setPanel({ personId: person.id, draft: { from: span.from, to: span.to, span } })}>
                     <Pencil size={13} aria-hidden />
                   </button>
                   <button className="row-action" aria-label="Fjern fraværet" title="Fjern fraværet" onClick={() => updateStaffing((w) => ({ ...w, unavailability: (w.unavailability ?? []).filter((u) => !span.ids.includes(u.id)) }))}>
@@ -231,9 +211,9 @@ export function PersonPanel() {
             )}
           </ul>
           {panel.draft ? (
-            <AbsenceForm key={`${panel.draft.span?.ids[0] ?? 'new'}|${panel.draft.kind}|${panel.draft.from}`} personId={person.id} draft={panel.draft} workday={wd} onSave={save} onCancel={() => bm.setPanel({ personId: person.id })} />
+            <AbsenceForm key={`${panel.draft.span?.ids[0] ?? 'new'}|${panel.draft.from}`} personId={person.id} draft={panel.draft} workday={wd} onSave={save} onCancel={() => bm.setPanel({ personId: person.id })} />
           ) : (
-            <button className="ghost pp-add" onClick={() => bm.setPanel({ personId: person.id, draft: { kind: 'ferie', from: startDay, to: startDay } })}>
+            <button className="ghost pp-add" onClick={() => bm.setPanel({ personId: person.id, draft: { from: startDay, to: startDay } })}>
               <Plus size={14} aria-hidden /> Legg til fravær
             </button>
           )}

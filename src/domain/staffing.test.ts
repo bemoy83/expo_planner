@@ -10,14 +10,14 @@ import {
   absenceLine,
   absenceSpans,
   addAbsence,
-  clearSickFrom,
+  backFrom,
   copyDays,
   moveDay,
   pasteDays,
   editAbsence,
   overtimeBreaches,
   overtimeByWeek,
-  isSick,
+  isAway,
   openUnresolved,
   removeCarried,
   assignmentStatus,
@@ -91,7 +91,7 @@ const of = (list: Assignment[], personId: string, date: string) =>
     .map((a) => ({ competence: a.competence, start: a.start, end: a.end }))
 const withAssignments = (assignments: Assignment[]): Workspace => ({ ...ws, assignments })
 const withAssignmentsOf = (base: Workspace, assignments: Assignment[]): Workspace => ({ ...base, assignments })
-const sick = (personId: string, dates: string[]): Unavailability[] => dates.map((date) => ({ id: `sick-${personId}-${date}`, personId, date, kind: 'syk' }))
+const sick = (personId: string, dates: string[]): Unavailability[] => dates.map((date) => ({ id: `sick-${personId}-${date}`, personId, date }))
 
 describe('hours and overtime', () => {
   it('D1 leaves the lunch break out of the paid hours', () => {
@@ -466,15 +466,15 @@ describe('balance', () => {
   })
 })
 
-describe('sickness', () => {
-  it('D19 gives the hours of a sick person back to the demand, with the blocks kept', () => {
+describe('days away', () => {
+  it('D19 gives the hours of a person away back to the demand, with the blocks kept', () => {
     const ill: Workspace = { ...ws, unavailability: [...ws.unavailability!, ...sick(ANDERS, [MON, TUE, WED, THU, FRI])] }
     expect(unresolvedAssignments(ill).map((a) => `${a.personId} ${a.date}`)).toEqual([`${ANDERS} ${MON}`, `${ANDERS} ${TUE}`])
     expect(ill.assignments).toBe(ws.assignments)
     for (const date of [MON, TUE]) expect(dayBalance(ill, 'teppefliser', date).remaining).toBe(dayBalance(ws, 'teppefliser', date).remaining + 7.5)
   })
 
-  it('D20 makes a block count again when the sickness is taken back', () => {
+  it('D20 makes a block count again when the absence is taken back', () => {
     const ill: Workspace = { ...ws, unavailability: [...ws.unavailability!, ...sick(ANDERS, [MON, TUE])] }
     const tuesday = ill.assignments!.find((a) => a.personId === ANDERS && a.date === TUE)!
     expect(assignmentStatus(tuesday, ill)).toBe('unresolved')
@@ -533,24 +533,28 @@ describe('sickness', () => {
 
 describe('absence', () => {
   it('adds absence over a stretch of days, replacing what was there', () => {
-    const away = addAbsence(ws.unavailability!, { personId: HANNE, from: TUE, to: THU, kind: 'kurs', note: 'Truck' }, id)
+    const away = addAbsence(ws.unavailability!, { personId: HANNE, from: TUE, to: THU }, id)
     const hers = away.filter((u) => u.personId === HANNE).sort((a, b) => a.date.localeCompare(b.date))
-    expect(hers.map((u) => [u.date, u.kind])).toEqual([[TUE, 'kurs'], [WED, 'kurs'], [THU, 'kurs'], [FRI, 'ferie']])
+    expect(hers.map((u) => u.date)).toEqual([TUE, WED, THU, FRI])
+    expect(hers.every((u) => Object.keys(u).sort().join() === 'date,id,personId')).toBe(true)
     expect(away.filter((u) => u.personId !== HANNE)).toEqual(ws.unavailability!.filter((u) => u.personId !== HANNE))
-    expect(addAbsence(ws.unavailability!, { personId: HANNE, from: THU, to: TUE, kind: 'kurs' }, id)).toBe(ws.unavailability)
+    expect(addAbsence(ws.unavailability!, { personId: HANNE, from: THU, to: TUE }, id)).toBe(ws.unavailability)
   })
 
   it('adds a part of a day, which leaves the rest of the day open', () => {
-    const away = addAbsence([], { personId: ANDERS, from: MON, to: MON, kind: 'annet', start: t('12:00'), end: t('15:00') }, id)
+    const away = addAbsence([], { personId: ANDERS, from: MON, to: MON, start: t('12:00'), end: t('15:00') }, id)
     expect(normalWindows(ANDERS, MON, away, wd)).toEqual([iv('07:00', '12:00')])
   })
 
   it('lists a person\'s absence as stretches of like days', () => {
-    expect(absenceSpans(ws.unavailability!, HANNE)).toMatchObject([{ from: WED, to: FRI, kind: 'ferie', ids: ['u2', 'u3', 'u4'] }])
-    const mixed = addAbsence(ws.unavailability!, { personId: HANNE, from: MON, to: MON, kind: 'syk' }, id)
-    expect(isSick(mixed, HANNE, MON)).toBe(true)
-    expect(isSick(mixed, HANNE, WED)).toBe(false)
-    expect(absenceSpans(mixed, HANNE).map((s) => [s.from, s.to, s.kind])).toEqual([[MON, MON, 'syk'], [WED, FRI, 'ferie']])
+    expect(absenceSpans(ws.unavailability!, HANNE)).toMatchObject([{ from: WED, to: FRI, ids: ['u2', 'u3', 'u4'] }])
+    const apart = addAbsence(ws.unavailability!, { personId: HANNE, from: MON, to: MON }, id)
+    expect(isAway(apart, HANNE, MON)).toBe(true)
+    expect(isAway(apart, HANNE, TUE)).toBe(false)
+    expect(absenceSpans(apart, HANNE).map((s) => [s.from, s.to])).toEqual([[MON, MON], [WED, FRI]])
+    // A part of a day is no whole day away, and a stretch of its own.
+    const part = addAbsence([], { personId: ANDERS, from: MON, to: MON, start: t('12:00'), end: t('15:00') }, id)
+    expect(isAway(part, ANDERS, MON)).toBe(false)
   })
 })
 
@@ -675,25 +679,23 @@ describe('absence as periods (R35)', () => {
   const abs = () => `abs-${n++}`
 
   it('B35 writes a period as one record per day, and reads it back as one period', () => {
-    const list = addAbsence([], { personId: ANDERS, from: '2026-10-21', to: '2026-10-23', kind: 'ferie' }, abs)
+    const list = addAbsence([], { personId: ANDERS, from: '2026-10-21', to: '2026-10-23' }, abs)
     expect(list.map((u) => u.date)).toEqual(['2026-10-21', '2026-10-22', '2026-10-23'])
-    expect(absenceSpans(list, ANDERS)).toMatchObject([{ from: '2026-10-21', to: '2026-10-23', kind: 'ferie' }])
+    expect(absenceSpans(list, ANDERS)).toMatchObject([{ from: '2026-10-21', to: '2026-10-23' }])
   })
   it('B35 drops the days a shortened period leaves out', () => {
-    const list = addAbsence([], { personId: ANDERS, from: '2026-10-21', to: '2026-10-23', kind: 'ferie' }, abs)
-    const shorter = editAbsence(list, absenceSpans(list, ANDERS)[0], { personId: ANDERS, from: '2026-10-21', to: '2026-10-22', kind: 'ferie' }, abs)
+    const list = addAbsence([], { personId: ANDERS, from: '2026-10-21', to: '2026-10-23' }, abs)
+    const shorter = editAbsence(list, absenceSpans(list, ANDERS)[0], { personId: ANDERS, from: '2026-10-21', to: '2026-10-22' }, abs)
     expect(shorter.map((u) => u.date).sort()).toEqual(['2026-10-21', '2026-10-22'])
-    // A period can change kind and move, too.
-    const moved = editAbsence(list, absenceSpans(list, ANDERS)[0], { personId: ANDERS, from: '2026-10-26', to: '2026-10-26', kind: 'kurs' }, abs)
-    expect(absenceSpans(moved, ANDERS)).toMatchObject([{ from: '2026-10-26', to: '2026-10-26', kind: 'kurs' }])
+    // A period can move, too.
+    const moved = editAbsence(list, absenceSpans(list, ANDERS)[0], { personId: ANDERS, from: '2026-10-26', to: '2026-10-26' }, abs)
+    expect(absenceSpans(moved, ANDERS)).toMatchObject([{ from: '2026-10-26', to: '2026-10-26' }])
   })
-  it('D46 ends a sickness on the day before the day the person is well from', () => {
-    const sickDays = addAbsence([], { personId: ANDERS, from: '2026-10-20', to: '2026-10-23', kind: 'syk' }, abs)
-    expect(clearSickFrom(sickDays, ANDERS, '2026-10-22').map((u) => u.date)).toEqual(['2026-10-20', '2026-10-21'])
-    // A day the person is not sick ends nothing, and another kind of absence is left alone.
-    expect(clearSickFrom(sickDays, ANDERS, '2026-10-26')).toBe(sickDays)
-    const holiday = addAbsence([], { personId: ANDERS, from: '2026-10-20', to: '2026-10-23', kind: 'ferie' }, abs)
-    expect(clearSickFrom(holiday, ANDERS, '2026-10-22')).toBe(holiday)
+  it('D46 ends an absence on the day before the day the person is back from', () => {
+    const away = addAbsence([], { personId: ANDERS, from: '2026-10-20', to: '2026-10-23' }, abs)
+    expect(backFrom(away, ANDERS, '2026-10-22').map((u) => u.date)).toEqual(['2026-10-20', '2026-10-21'])
+    // A day the person is not away ends nothing.
+    expect(backFrom(away, ANDERS, '2026-10-26')).toBe(away)
   })
 })
 
@@ -742,7 +744,7 @@ describe('carry', () => {
 
 describe('absence in the Kalender', () => {
   const person = (id: string) => ({ id, name: id, order: 0, competences: [] })
-  const away = (personId: string, date: string, part?: [string, string]): Unavailability => ({ id: `${personId}-${date}-${part?.[0] ?? 'day'}`, personId, date, kind: 'ferie', ...(part ? iv(part[0], part[1]) : {}) })
+  const away = (personId: string, date: string, part?: [string, string]): Unavailability => ({ id: `${personId}-${date}-${part?.[0] ?? 'day'}`, personId, date, ...(part ? iv(part[0], part[1]) : {}) })
   const crew: Workspace = { ...empty, persons: [person('a'), person('b')] }
 
   it('counts a whole day away as 1 and a part of the day as its share of the normal day', () => {

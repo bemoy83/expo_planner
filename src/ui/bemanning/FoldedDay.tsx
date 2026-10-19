@@ -1,7 +1,7 @@
 import type { PersonWeek } from '../../domain/staffing'
 import type { CompetenceStyle } from '../../domain/types'
 import { competenceColor } from '../dom'
-import { ABSENCE_LABELS, blockLabel, type BlockNames, type DayCell, type Span } from './dayCell'
+import { AWAY_LABEL, blockLabel, type BlockNames, type DayCell, type Span } from './dayCell'
 import { DAY_INSET, EDGE_W, joinedClass, joinedPlace } from './layout'
 import type { EndShape, RunLink } from './runs'
 import { EPSILON, hoursText } from './week'
@@ -83,8 +83,8 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes, cu
         )
       })}
       {cell.away && (
-        <span className={`bm-reason ${cell.away === 'syk' ? 'sick' : ''}`} title={cell.note || undefined}>
-          {ABSENCE_LABELS[cell.away]}
+        <span className="bm-reason">
+          {AWAY_LABEL}
           {cell.unresolved ? ` · ${cell.unresolved} uløst` : ''}
         </span>
       )}

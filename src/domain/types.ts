@@ -253,18 +253,14 @@ export interface Person {
   note?: string
 }
 
-export type UnavailabilityKind = 'syk' | 'ferie' | 'kurs' | 'annet'
-
-/** A day, or a part of one, a person is away. */
+/** A day, or a part of one, a person is away. Why is not stored: the plan needs only there or away, and the reason belongs in HR. */
 export interface Unavailability {
   id: string
   personId: string
   date: ISODate
-  kind: UnavailabilityKind
   /** Both unset: the whole day. Set: only this part of the day. */
   start?: Minute
   end?: Minute
-  note?: string
 }
 
 /** A person doing work of one competence for a stretch of a day. */
