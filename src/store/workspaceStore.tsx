@@ -10,11 +10,10 @@ import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCom
 import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { budgetsRenumbered } from '../domain/result'
-import { isVismaLine, vismaDemandLines } from '../domain/visma'
-import { clearAll, db, deleteAllocation, loadWorkspace, putBudgets, putSettings, putHallRules, deleteHallRules, putHiddenVenue, putStaffing, saveWorkspace, STAFFING_TABLES, writeProjects, writeDemand, writeVenue, type DemandWrite } from './db'
+import { withVismaDemand } from '../domain/visma'
+import { clearAll, loadWorkspace, saveWorkspace, writeRecords } from './db'
 import { clearPrefs } from './prefs'
-import { writeQueue } from './writeQueue'
-import { applyChange, changeWrites, emptyChange, isEmptyChange, recordAllocation, recordBudgets, recordHallRules, recordHiddenVenue, recordLedger, recordProjects, recordSettings, recordStaffing, recordVenue, type Change, type Direction } from './history'
+import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, writesOf, type Delta, type RecordWrite } from './records'
 
 const HISTORY_LIMIT = 200
 
@@ -94,9 +93,6 @@ const withDay = (values: Record<ISODate, number>, date: ISODate, value: number |
   return next
 }
 
-/** A fill or paste changes a row once per cell; the row is written once, when the event is over. */
-const rowWrites = writeQueue<AllocationRow>((rows) => db.allocations.bulkPut(rows))
-
 /** True when the cell already holds the value, so the edit would change nothing. */
 const sameDay = (values: Record<ISODate, number>, date: ISODate, value: number | null) => (values[date] ?? 0) === (value ?? 0)
 
@@ -106,10 +102,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const current = useRef<Workspace | null>(null)
   const pending = useRef(0)
-  const undoStack = useRef<Change[]>([])
-  const redoStack = useRef<Change[]>([])
+  const undoStack = useRef<Delta[][]>([])
+  const redoStack = useRef<Delta[][]>([])
   /** Edits made in the same event (a range fill, a paste) collect here and become one undo step. */
-  const openStep = useRef<Change | null>(null)
+  const openStep = useRef<Map<string, Delta> | null>(null)
+  /** The records written in the same event, each once as it ended up; they are written together when the event is over. */
+  const pendingWrites = useRef<Map<string, RecordWrite> | null>(null)
   const [historySize, setHistorySize] = useState({ undo: 0, redo: 0 })
 
   useEffect(() => {
@@ -131,8 +129,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const closeStep = useCallback(() => {
     const step = openStep.current
     openStep.current = null
-    if (step && !isEmptyChange(step)) {
-      undoStack.current.push(step)
+    const deltas = step ? effective(step) : []
+    if (deltas.length) {
+      undoStack.current.push(deltas)
       if (undoStack.current.length > HISTORY_LIMIT) undoStack.current.shift()
       redoStack.current = []
     }
@@ -163,20 +162,45 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  /** Applies a change in memory immediately, notes it for undo, and persists the affected record in the background. */
-  const commit = useCallback((next: Workspace, persist: () => Promise<unknown>, note: (step: Change) => void) => {
-    if (!openStep.current) {
-      openStep.current = emptyChange()
-      setTimeout(closeStep, 0)
-    }
-    note(openStep.current)
-    current.current = next
-    setWorkspace(next)
-    track(persist)
-  }, [closeStep, track])
+  /** Notes records to be written; those of one event are written together, each once, in one transaction, when it is over. */
+  const write = useCallback(
+    (writes: RecordWrite[]) => {
+      if (!pendingWrites.current) {
+        const pending = new Map<string, RecordWrite>()
+        pendingWrites.current = pending
+        track(() =>
+          Promise.resolve().then(() => {
+            pendingWrites.current = null
+            return writeRecords([...pending.values()])
+          }),
+        )
+      }
+      for (const w of writes) pendingWrites.current.set(recordKey(w.kind, w.id), w)
+    },
+    [track],
+  )
+
+  /** Applies a change in memory immediately, notes the records it changed for undo, and writes them in the background. */
+  const commit = useCallback(
+    (next: Workspace) => {
+      const before = current.current
+      if (!before || next === before) return
+      const deltas = diffWorkspace(before, next)
+      current.current = next
+      setWorkspace(next)
+      if (!deltas.length) return
+      if (!openStep.current) {
+        openStep.current = new Map()
+        setTimeout(closeStep, 0)
+      }
+      mergeDeltas(openStep.current, deltas)
+      write(writesOf(deltas, 'after'))
+    },
+    [closeStep, write],
+  )
 
   const stepThroughHistory = useCallback(
-    (direction: Direction) => {
+    (direction: 'undo' | 'redo') => {
       closeStep()
       const from = direction === 'undo' ? undoStack.current : redoStack.current
       const to = direction === 'undo' ? redoStack.current : undoStack.current
@@ -184,35 +208,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const ws = current.current
       if (!step || !ws) return
       to.push(step)
-      const next = applyChange(ws, step, direction)
+      const side = direction === 'undo' ? 'before' : 'after'
+      const next = applyDeltas(ws, step, side)
       current.current = next
       setWorkspace(next)
       syncHistorySize()
-      const writes = changeWrites(step, direction)
-      track(() =>
-        db.transaction('rw', [db.allocations, db.meta, db.demand, db.visma, ...STAFFING_TABLES()], async () => {
-          await db.allocations.bulkPut(writes.putAllocations)
-          await db.allocations.bulkDelete(writes.deleteAllocations)
-          if (writes.settings) await putSettings(writes.settings)
-          await db.demand.bulkDelete(writes.deleteDemand)
-          await db.demand.bulkPut(writes.putDemand)
-          await db.visma.bulkDelete(writes.deleteVisma)
-          await db.visma.bulkPut(writes.putVisma)
-          if (writes.overrides) await db.meta.put({ key: 'overrides', value: writes.overrides })
-          if (writes.kpi === null) await db.meta.delete('kpi')
-          else if (writes.kpi) await db.meta.put({ key: 'kpi', value: writes.kpi })
-          await putStaffing(writes.staffing)
-        })
-          .then(() => (writes.venue ? writeVenue(writes.venue.bookings, writes.venue.info) : undefined))
-          .then(() => (writes.hiddenVenue ? putHiddenVenue(writes.hiddenVenue) : undefined))
-          .then(async () => {
-            if (writes.hallRules !== null) await (writes.hallRules ? putHallRules(writes.hallRules) : deleteHallRules())
-          })
-          .then(() => (writes.projects ? writeProjects(writes.projects) : undefined))
-          .then(() => (writes.budgets ? putBudgets(writes.budgets) : undefined)),
-      )
+      write(writesOf(step, side))
     },
-    [closeStep, track],
+    [closeStep, write],
   )
   const undo = useCallback(() => stepThroughHistory('undo'), [stepThroughHistory])
   const redo = useCallback(() => stepThroughHistory('redo'), [stepThroughHistory])
@@ -245,7 +248,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (!ws || !row) return
       const updated = change(row)
       if (updated === row) return
-      commit({ ...ws, allocations: ws.allocations.map((r) => (r.id === rowId ? updated : r)) }, () => rowWrites.put(updated), (step) => recordAllocation(step, rowId, row, updated))
+      commit({ ...ws, allocations: ws.allocations.map((r) => (r.id === rowId ? updated : r)) })
     },
     [commit],
   )
@@ -264,7 +267,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (existing) return setAllocationFte(existing.id, date, value)
       if (!value) return
       const row: AllocationRow = { ...suggested, id: `row-${crypto.randomUUID()}`, order: Math.max(-1, ...ws.allocations.map((r) => r.order)) + 1, fte: { [date]: value }, notes: {} }
-      commit({ ...ws, allocations: [...ws.allocations, row] }, () => rowWrites.put(row), (step) => recordAllocation(step, row.id, null, row))
+      commit({ ...ws, allocations: [...ws.allocations, row] })
     },
     [commit, setAllocationFte],
   )
@@ -291,7 +294,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         fte: {},
         notes: {},
       }
-      commit({ ...ws, allocations: [...ws.allocations, row] }, () => rowWrites.put(row), (step) => recordAllocation(step, row.id, null, row))
+      commit({ ...ws, allocations: [...ws.allocations, row] })
       return row
     },
     [commit],
@@ -304,7 +307,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const ws = current.current
       const row = ws?.allocations.find((r) => r.id === rowId)
       if (!ws || !row) return
-      commit({ ...ws, allocations: ws.allocations.filter((r) => r.id !== rowId) }, () => (rowWrites.drop(rowId), deleteAllocation(rowId)), (step) => recordAllocation(step, rowId, row, null))
+      commit({ ...ws, allocations: ws.allocations.filter((r) => r.id !== rowId) })
     },
     [commit],
   )
@@ -312,28 +315,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(
     (settings: Settings) => {
       const ws = current.current
-      if (ws) commit({ ...ws, settings }, () => putSettings(settings), (step) => recordSettings(step, ws.settings, settings))
+      if (ws) commit({ ...ws, settings })
     },
     [commit],
   )
-
-  /** Applies a ledger change in memory, notes it for undo and writes it to storage. */
-  const commitDemand = useCallback(
-    (next: Workspace, write: DemandWrite) => {
-      const before = current.current!
-      commit(next, () => writeDemand(write), (step) => recordLedger(step, before, next))
-    },
-    [commit],
-  )
-
-  /** Recalculates the Visma lines of the given projects and swaps them into the ledger. */
-  const withVismaLines = (ws: Workspace, projectNos: string[], kpi: KpiConfig, overrides: Record<string, LineOverride>, visma: VismaImport[]) => {
-    const affected = new Set(projectNos)
-    const removed = ws.demand.filter((line) => affected.has(line.projectNo) && isVismaLine(line))
-    const added = visma.filter((v) => affected.has(v.projectNo)).flatMap((v) => vismaDemandLines(v, kpi, overrides))
-    const demand = [...ws.demand.filter((line) => !(affected.has(line.projectNo) && isVismaLine(line))), ...added]
-    return { demand, write: { deleteIds: removed.map((line) => line.id), putLines: added } }
-  }
 
   const importVenue = useCallback<WorkspaceStore['importVenue']>(
     (bookings, fileName) => {
@@ -347,14 +332,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // The first halls bring the example rules with them, as the planner's own from then on.
       const hallRules = ws.hallRules ?? exampleRules(hallNames(venue))
       const next: Workspace = { ...ws, venue, venueImport: { fileName, importedAt, ...window }, hallRules }
-      commit(
-        next,
-        () => writeVenue(next.venue, next.venueImport).then(() => (ws.hallRules ? undefined : putHallRules(hallRules))),
-        (step) => {
-          recordVenue(step, ws, next)
-          if (!ws.hallRules) recordHallRules(step, undefined, hallRules)
-        },
-      )
+      commit(next)
       return { ...diff, ...window }
     },
     [commit],
@@ -375,16 +353,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         allocations: rows.size ? ws.allocations.map((row) => rows.get(row.id) ?? row) : ws.allocations,
         demand: lines.size ? ws.demand.map((line) => lines.get(line.id) ?? line) : ws.demand,
       }
-      commit(
-        next,
-        () => Promise.all([...allocations.map(rowWrites.put), demand.length ? writeDemand({ putLines: demand }) : undefined, budgets !== ws.budgets ? putBudgets(budgets ?? {}) : undefined]).then(() => writeProjects(projects)),
-        (step) => {
-          recordProjects(step, ws.projects, projects)
-          if (budgets !== ws.budgets) recordBudgets(step, ws.budgets ?? {}, budgets ?? {})
-          recordLedger(step, ws, next)
-          for (const row of ws.allocations) if (rows.has(row.id)) recordAllocation(step, row.id, row, rows.get(row.id)!)
-        },
-      )
+      commit(next)
       return { rows: allocations.length, lines: demand.length }
     },
     [commit],
@@ -393,7 +362,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const setBudgets = useCallback(
     (budgets: Budgets) => {
       const ws = current.current
-      if (ws) commit({ ...ws, budgets }, () => putBudgets(budgets), (step) => recordBudgets(step, ws.budgets ?? {}, budgets))
+      if (ws) commit({ ...ws, budgets })
     },
     [commit],
   )
@@ -401,7 +370,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const setHallRules = useCallback(
     (rules: HallRules) => {
       const ws = current.current
-      if (ws) commit({ ...ws, hallRules: rules }, () => putHallRules(rules), (step) => recordHallRules(step, ws.hallRules, rules))
+      if (ws) commit({ ...ws, hallRules: rules })
     },
     [commit],
   )
@@ -418,9 +387,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (keys: string[], hidden: boolean) => {
       const ws = current.current
       if (!ws) return
-      const before = ws.hiddenVenue ?? {}
-      const after = withHidden(before, keys, hidden)
-      commit({ ...ws, hiddenVenue: after }, () => putHiddenVenue(after), (step) => recordHiddenVenue(step, before, after))
+      commit({ ...ws, hiddenVenue: withHidden(ws.hiddenVenue ?? {}, keys, hidden) })
     },
     [commit],
   )
@@ -429,25 +396,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (kpi: KpiConfig) => {
       const ws = current.current
       if (!ws) return { rows: 0, replaced: [] }
-      const visma = ws.visma ?? []
-      const { demand, write } = withVismaLines(ws, visma.map((v) => v.projectNo), kpi, ws.overrides ?? {}, visma)
+      const demand = withVismaDemand({ ...ws, kpi })
       // Rows already planned for a product type that was given another competence follow it there, in the same step.
       const moved = new Map(followCompetence(ws.allocations, ws.kpi ?? EMPTY_KPI, kpi, ws.demand, demand).map((row) => [row.id, row]))
       const planned: Workspace = { ...ws, kpi, demand, allocations: moved.size ? ws.allocations.map((row) => moved.get(row.id) ?? row) : ws.allocations }
       // A competence that only people name after the change is replaced for them too: who had it, their blocks, its colour.
       const replaced = supersededCompetences(ws.kpi ?? EMPTY_KPI, planned)
       const next = replaced.reduce((w, { from, to }) => replaceCompetence(w, from, to), planned)
-      const staffing = emptyChange()
-      recordStaffing(staffing, ws, next)
-      commit(
-        next,
-        () => Promise.all([writeDemand({ ...write, kpi }), ...[...moved.values()].map(rowWrites.put), putStaffing(changeWrites(staffing, 'redo').staffing)]),
-        (step) => {
-          recordLedger(step, ws, next)
-          recordStaffing(step, ws, next)
-          for (const row of ws.allocations) if (moved.has(row.id)) recordAllocation(step, row.id, row, moved.get(row.id)!)
-        },
-      )
+      commit(next)
       return { rows: moved.size, replaced: replaced.map(({ from }) => competenceStyles(ws).find((style) => style.key === from)?.label ?? from) }
     },
     [commit],
@@ -458,21 +414,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const ws = current.current
       const next = ws && withCompetenceRenamed(ws, key, label)
       if (!ws || !next) return false
-      if (next === ws) return true
-      const before = new Map(ws.demand.map((line) => [line.id, line]))
-      const lines = next.demand.filter((line) => before.get(line.id) !== line)
-      const rows = next.allocations.filter((row, index) => row !== ws.allocations[index])
-      const staffing = emptyChange()
-      recordStaffing(staffing, ws, next)
-      commit(
-        next,
-        () => Promise.all([writeDemand({ putLines: lines, kpi: next.kpi !== ws.kpi ? next.kpi : undefined }), ...rows.map(rowWrites.put), putStaffing(changeWrites(staffing, 'redo').staffing)]),
-        (step) => {
-          recordLedger(step, ws, next)
-          recordStaffing(step, ws, next)
-          next.allocations.forEach((row, index) => row !== ws.allocations[index] && recordAllocation(step, row.id, ws.allocations[index], row))
-        },
-      )
+      commit(next)
       return true
     },
     [commit],
@@ -490,11 +432,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const imports: VismaImport[] = [...byProject].map(([projectNo, projectRows]) => ({ projectNo, eventName: projectRows[0].eventName, fileName, importedAt, rows: projectRows }))
       const overrides = ws.overrides ?? {}
       const visma = [...(ws.visma ?? []).filter((v) => !byProject.has(v.projectNo)), ...imports]
-      const { demand, write } = withVismaLines(ws, [...byProject.keys()], kpi, overrides, visma)
-      commitDemand({ ...ws, visma, overrides, demand }, { ...write, overrides, visma: imports })
+      commit({ ...ws, visma, overrides, demand: withVismaDemand({ ...ws, kpi, visma, overrides }, [...byProject.keys()]) })
       return [...byProject.keys()]
     },
-    [commitDemand],
+    [commit],
   )
 
   const setLineOverrides = useCallback(
@@ -503,10 +444,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (!ws || !patches.length) return
       const overrides = { ...ws.overrides }
       for (const { key, patch } of patches) overrides[key] = { ...overrides[key], ...patch }
-      const { demand, write } = withVismaLines(ws, [projectNo].flat(), ws.kpi ?? EMPTY_KPI, overrides, ws.visma ?? [])
-      commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
+      commit({ ...ws, overrides, demand: withVismaDemand({ ...ws, overrides }, [projectNo].flat()) })
     },
-    [commitDemand],
+    [commit],
   )
 
   const setLineOverride = useCallback((projectNo: string, key: string, patch: LineOverride) => setLineOverrides(projectNo, [{ key, patch }]), [setLineOverrides])
@@ -517,10 +457,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (!ws?.overrides?.[key]) return
       const overrides = { ...ws.overrides }
       delete overrides[key]
-      const { demand, write } = withVismaLines(ws, [projectNo], ws.kpi ?? EMPTY_KPI, overrides, ws.visma ?? [])
-      commitDemand({ ...ws, overrides, demand }, { ...write, overrides })
+      commit({ ...ws, overrides, demand: withVismaDemand({ ...ws, overrides }, [projectNo]) })
     },
-    [commitDemand],
+    [commit],
   )
 
   const saveDemandLine = useCallback<WorkspaceStore['saveDemandLine']>(
@@ -529,46 +468,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (!ws) return
       const line: DemandLine = { ...fields, id: fields.id ?? `manual-${crypto.randomUUID()}` }
       const exists = ws.demand.some((l) => l.id === line.id)
-      commitDemand({ ...ws, demand: exists ? ws.demand.map((l) => (l.id === line.id ? line : l)) : [...ws.demand, line] }, { putLines: [line] })
+      commit({ ...ws, demand: exists ? ws.demand.map((l) => (l.id === line.id ? line : l)) : [...ws.demand, line] })
     },
-    [commitDemand],
+    [commit],
   )
 
   const removeDemandLine = useCallback(
     (id: string) => {
       const ws = current.current
-      if (ws) commitDemand({ ...ws, demand: ws.demand.filter((l) => l.id !== id) }, { deleteIds: [id] })
+      if (ws) commit({ ...ws, demand: ws.demand.filter((l) => l.id !== id) })
     },
-    [commitDemand],
+    [commit],
   )
 
   const updateStaffing = useCallback<WorkspaceStore['updateStaffing']>(
     (change) => {
       const ws = current.current
       if (!ws) return
-      const next = change(ws)
-      if (next === ws) return
-      const step = emptyChange()
-      recordStaffing(step, ws, next)
-      const rowsBefore = new Map(ws.allocations.map((row) => [row.id, row]))
-      const rowsAfter = new Map(next.allocations.map((row) => [row.id, row]))
-      for (const [id, row] of rowsAfter) if (rowsBefore.get(id) !== row) recordAllocation(step, id, rowsBefore.get(id) ?? null, row)
-      for (const [id, row] of rowsBefore) if (!rowsAfter.has(id)) recordAllocation(step, id, row, null)
-      if (isEmptyChange(step)) return
-      const writes = changeWrites(step, 'redo')
-      commit(
-        next,
-        () =>
-          db.transaction('rw', [db.allocations, db.meta, ...STAFFING_TABLES()], async () => {
-            await db.allocations.bulkDelete(writes.deleteAllocations)
-            await db.allocations.bulkPut(writes.putAllocations)
-            await putStaffing(writes.staffing)
-          }),
-        (open) => {
-          recordStaffing(open, ws, next)
-          for (const [id, delta] of step.allocations) recordAllocation(open, id, delta.before, delta.after)
-        },
-      )
+      commit(change(ws))
     },
     [commit],
   )

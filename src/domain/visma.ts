@@ -7,8 +7,9 @@ import {
   type LineOverride,
   type VismaImport,
   type VismaRow,
+  type Workspace,
 } from './types'
-import { isCounted, productTypeKey } from './kpi'
+import { EMPTY_KPI, isCounted, productTypeKey } from './kpi'
 
 /**
  * Turns Visma booking lines into demand lines the way the planner's «Nøkkeltall Visma» workbook does:
@@ -241,3 +242,14 @@ export const vismaDemandLines = (source: VismaImport, kpi: KpiConfig, overrides:
 
 /** True for the ledger lines a Visma export for the project replaces: those of earlier exports. */
 export const isVismaLine = (line: DemandLine): boolean => line.origin === 'visma'
+
+/**
+ * The ledger with the Visma lines of the given projects, or of every project, worked out again from the exports, the
+ * KPI setup and the planner's decisions. The Visma lines are always this, so they are never stored or synced: they
+ * are worked out wherever those three change, and when the workspace is loaded.
+ */
+export const withVismaDemand = (ws: Pick<Workspace, 'demand' | 'visma' | 'kpi' | 'overrides'>, projectNos?: string[]): DemandLine[] => {
+  const affected = (projectNo: string) => !projectNos || projectNos.includes(projectNo)
+  const kept = ws.demand.filter((line) => !(isVismaLine(line) && affected(line.projectNo)))
+  return [...kept, ...(ws.visma ?? []).filter((v) => affected(v.projectNo)).flatMap((v) => vismaDemandLines(v, ws.kpi ?? EMPTY_KPI, ws.overrides ?? {}))]
+}
