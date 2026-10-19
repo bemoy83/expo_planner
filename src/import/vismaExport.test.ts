@@ -26,13 +26,13 @@ describe('the Hall/Sted of a booking line', () => {
   })
 })
 
-/** Runs against the real exports, which are kept out of the repository; skipped where they are missing. */
+/** Runs against the real exports, which are kept out of the repository, only with EXPO_REAL_DATA=1 and the files present. */
 const DIR = 'example_data/'
 const FILES = {
   visma: `${DIR}utskrift_visma_21.09.26.xlsx`,
   rates: `${DIR}Kpier.xlsx`,
 }
-const available = Object.values(FILES).every((path) => existsSync(path))
+const available = process.env.EXPO_REAL_DATA === '1' && Object.values(FILES).every((path) => existsSync(path))
 const bytes = (path: string) => new Uint8Array(readFileSync(path))
 
 describe.skipIf(!available)('Visma export (local data)', () => {

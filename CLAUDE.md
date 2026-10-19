@@ -70,15 +70,17 @@ Everything is stored in the browser (IndexedDB database `expo-planner`). There i
 - Reference data lives in editable tables in the app. A file import is at most an optional shortcut and must offer merge or replace when the table already has content.
 - The planner tests from a clean state, so there are no migrations for data stored by earlier versions: when a stored shape changes, change it, and do not add code that reads the old one.
 - Every mutation goes through `workspaceStore.tsx`, is undoable, and is persisted. Edits made in one user action form one undo step.
-- New domain logic gets a test next to it. Tests ending in "(local data)" run against the real files in `example_data/` and are skipped when those are missing.
+- New domain logic gets a test next to it. Tests ending in "(local data)" run against the real files in `example_data/`, only with `EXPO_REAL_DATA=1` set and the files present; otherwise they are skipped.
 
 ## Data and privacy
 
 `example_data/` and all `.xlsx` files are git-ignored: they contain real customer and booking data. Never commit them, and do not copy customer names from them into tests, docs or commit messages. Event and project names already used in tests (VVS, Hage, Oslo Motor Show) are fine.
 
+Testing is done on invented data only (2026-10-19): the app has been checked against the real files, and from now on Claude does not open, read or run anything against `example_data/`, nor sets `EXPO_REAL_DATA`. The invented season is made by `src/demo/demoData.ts` (Venyou and Visma exports in their layouts, and the KPI, Personell, Leverandører and budget tables as the app exports them; no customer, order number or contact person) and checked by its test. `npm run demo-data` writes the files to `demo_data/` (git-ignored) to read into the app. A browser profile that has held real data must be emptied («Slett alt og start på nytt») before Claude looks at it.
+
 ## Checking against the real files
 
-With `example_data/` present, the local-data tests verify the readers of the Venyou, Visma and KPI files. To try the app in a browser without file dialogs, start the dev server and load a file through Vite's `/@fs/` path into the hidden file input (see the test notes in docs/TODO.md).
+The local-data tests verify the readers of the Venyou, Visma and KPI files against the real files; the planner runs them himself (`EXPO_REAL_DATA=1 npm test`) when a reader changes. To try the app in a browser without file dialogs, start the dev server and load a file from `demo_data/` through Vite's `/@fs/` path into the hidden file input (see the test notes in docs/TODO.md).
 
 ## Working with the user
 

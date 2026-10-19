@@ -25,6 +25,8 @@ dist-ssr
 
 # Real operational workbooks contain customer data; keep them local only.
 example_data/
+# The invented test files are made by `npm run demo-data`.
+demo_data/
 *.xlsx
 *.xls
 *.xlsm

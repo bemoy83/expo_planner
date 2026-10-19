@@ -46,7 +46,7 @@ describe('the Budsjett file', () => {
 // The budget workbook is loaded into the planner workbook's table «Tabell_budsjett_arbeidstimer», with the same columns.
 const WORKBOOK = 'example_data/Bemanning_Behov_24 måneder.xlsx'
 
-describe.skipIf(!existsSync(WORKBOOK))('the budget table of the planner workbook (local data)', () => {
+describe.skipIf(process.env.EXPO_REAL_DATA !== '1' || !existsSync(WORKBOOK))('the budget table of the planner workbook (local data)', () => {
   it('is read as budgets', () => {
     const budgets = readBudsjettWorkbook(new Uint8Array(readFileSync(WORKBOOK)))
     expect(budgets.length).toBeGreaterThan(20)

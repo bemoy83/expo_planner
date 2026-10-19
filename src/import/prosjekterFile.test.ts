@@ -40,7 +40,7 @@ describe('the Prosjekter file', () => {
 })
 
 const local = 'example_data/Prosjekt.xlsx'
-describe.skipIf(!existsSync(local))('the project list (local data)', () => {
+describe.skipIf(process.env.EXPO_REAL_DATA !== '1' || !existsSync(local))('the project list (local data)', () => {
   it('reads every name with its number, and every number begins with its year', () => {
     const read = readProsjekterWorkbook(new Uint8Array(readFileSync(local)))
     expect(read.length).toBeGreaterThan(500)

@@ -4,9 +4,9 @@ import type { VenueBooking } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue } from '../domain/venueImport'
 import { readVenyouExport } from './venyouExport'
 
-/** Runs against the real export, which is kept out of the repository; skipped where it is missing. */
+/** Runs against the real export, which is kept out of the repository, only with EXPO_REAL_DATA=1 and the file present. */
 const EXPORT = 'location_format_from-2026-01-01_to-2026-12-31.xlsx'
-const available = existsSync(`example_data/${EXPORT}`)
+const available = process.env.EXPO_REAL_DATA === '1' && existsSync(`example_data/${EXPORT}`)
 
 describe.skipIf(!available)('Venyou export (local data)', () => {
   const bookings = available ? readVenyouExport(new Uint8Array(readFileSync(`example_data/${EXPORT}`))) : []
