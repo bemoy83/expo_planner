@@ -142,7 +142,14 @@ The proof of concept runs on Supabase's free plan, which has no backups of its o
 
 ### Data protection
 
-The workspace holds customer and booking data, and staff absence including sickness, which is health data under GDPR. Until whoever owns data protection at the company has said yes, the proof of concept holds **invented test data only**, never data from the real files. The Supabase project is made in an EU region (Stockholm or Frankfurt) so that nothing has to move later. Real data waits on that answer, and so does Pro.
+Until whoever owns data protection at the company has said yes, the proof of concept holds **invented test data only**, never data from the real files. The Supabase project is made in an EU region (Stockholm or Frankfurt) so that nothing has to move later. Real data waits on that answer, and so does Pro.
+
+What the workspace holds is cut down before that question is asked, so that the answer is easier (decided 2026-10-19):
+
+- **No customer and no order number from Visma.** The calculation needs neither. `customer` (the column «navn») is read into `VismaRow` and used nowhere in the app; `orderNo` is only shown on the sample cards of «Avklar». Both stop being read in `import/vismaExport.ts`, so they are not stored at all, locally or in the cloud. What a line keeps is booking information: project, Avdeling, article number and text, quantity, product type and the stand or Hall/Sted text. To check in a real export: whether «Avdeling» ever holds a customer's name (the code notes it may come from `FAKTURA-MOTTAKER`).
+- **No reason for absence.** The plan needs two states for a person's day, there or away; why someone is away belongs in HR. `Unavailability.kind` (syk, ferie, kurs, annet) and its free-text `note` are removed, so no health data is stored, locally or in the cloud. What this changes in Bemanning: the reason badge becomes one «Borte»; the sickness shortcuts in the cell menu («Syk», «Friskmeld fra», R35) become «Borte» and «Tilbake fra»; a day away shows its blocks that are still open («uløst») whatever the reason, as a sick day does today. The hours count as now, since every absence already gives a person's hours back to the demand.
+
+What is left that is personal data: the permanent staff by name with their competences, hours and the days they are away; supplier contacts, where the contact is a person; and the planners' own accounts. That still needs the company's yes and Supabase's data processing agreement, but no longer covers health data.
 
 ## Phasing
 
@@ -150,7 +157,7 @@ Each phase is usable on its own and can stop there.
 
 Phases 1 and 2 come before the first version; 3 and 4 after it.
 
-1. **One write path (no Supabase).** Everything under «What has to change in the local model first»: every mutation produces a list of record writes, applied with the outbox's place ready in one transaction; `Change` per record; the split into cells and keys at the sync boundary; ids from the source for Venyou bookings and `name|projectNo` for projects; Visma lines kept out of what is synced; tombstones for a deleted row's cells and ties in `order` broken by id. Tests on the domain and the store. Nothing visible changes.
+1. **One write path (no Supabase).** Everything under «What has to change in the local model first»: every mutation produces a list of record writes, applied with the outbox's place ready in one transaction; `Change` per record; the split into cells and keys at the sync boundary; ids from the source for Venyou bookings and `name|projectNo` for projects; Visma lines kept out of what is synced; tombstones for a deleted row's cells and ties in `order` broken by id; no customer or order number read from Visma, and no reason or note on absence. Tests on the domain and the store. Nothing visible changes.
 2. **Cloud copy for one planner (the proof of concept).** Supabase free project in an EU region, Microsoft sign-in with a private account, the schema with the workspace counter, sign-in, RLS with writes through `push_records` only; a database per workspace, the outbox, push and pull in whole batches, without realtime; signing out and «Slett alt» as above. One planner on two computers has the same plan, and the data is off the browser. This alone settles «Data that lasts», once real data may go in.
 3. **Live, several planners.** Realtime nudges, remote writes applied in the grid, `baseRev` conflict notices, undo of own steps only, «Frakoblet» in the save indicator.
 4. **Comfort.** Presence, who changed what and when (the `updated_by` and `updated_at` are already stored; Innleid asked for it on answers), an invite screen, preferences per user, a scheduled JSON export.
@@ -178,3 +185,4 @@ Settled since:
 
 - The questions of data protection and of the company's Microsoft tenant stay with the user; they are not part of this plan, and do not block phases 1 and 2.
 - The test data of the proof of concept is **invented**, never taken from the real files.
+- **Less to protect** (2026-10-19): Visma's customer and order number are not read, and absence is stored without a reason, only there or away. See «Data protection».
