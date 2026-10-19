@@ -43,6 +43,6 @@ npm run build   # type check + production build
 - [docs/TODO.md](docs/TODO.md) lists what is open: deferred items, gaps and technical debt.
 - [CLAUDE.md](CLAUDE.md) explains how the code fits together and the conventions to follow.
 - [docs/kalender-workbook.md](docs/kalender-workbook.md) describes how the old Excel workbook works. The app does not read it; the rules for hours and staffing come from it.
-- `design_docs/` holds design notes from an earlier attempt. Treat them as background reading, not binding specs.
+- `design_docs/` holds the designs of the Kalender's look, Bemanning and Innleid.
 
 Real source files contain customer data; they are kept outside the project and never committed. Testing uses the invented files of `npm run demo-data`.

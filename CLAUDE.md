@@ -2,7 +2,7 @@
 
 A browser app for planning crew for exhibition build-up (montering) and tear-down (demontering). It replaces the planner's Excel workbook (`Bemanning_Behov_24 måneder.xlsx`), which it does not read: the app stands on the source exports alone. The workbook was the model for the rules and the test data while the app was built.
 
-Open work is listed in [docs/TODO.md](docs/TODO.md). How the old workbook works is described in [docs/kalender-workbook.md](docs/kalender-workbook.md). The files in `design_docs/` come from an abandoned earlier attempt; read them for background only, they are not requirements.
+Open work is listed in [docs/TODO.md](docs/TODO.md). How the old workbook works is described in [docs/kalender-workbook.md](docs/kalender-workbook.md). `design_docs/` holds the designs the planner made for parts of the app: the rules of the Kalender's look (`kalender-v9`, normative), Bemanning (`bemanning`, `bemanning-v2`) and Innleid (`innleid`). The notes of an abandoned earlier attempt are deleted (2026-10-19).
 
 ## Commands
 
