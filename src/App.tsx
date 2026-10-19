@@ -19,12 +19,21 @@ import { download, errorText, takeFile } from './ui/files'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { Tooltips } from './ui/Tooltips'
 import { Settings } from 'lucide-react'
+import { loadLocalWorkspace } from './store/db'
+import { CloudDialog } from './sync/CloudDialog'
+import { CloudProvider, SharedSync, useCloud } from './sync/CloudProvider'
+import { syncText } from './sync/syncText'
 
 export default function App() {
   return (
-    <WorkspaceProvider>
-      <Shell />
-    </WorkspaceProvider>
+    <CloudProvider>
+      {(database) => (
+        <WorkspaceProvider key={database}>
+          <SharedSync />
+          <Shell />
+        </WorkspaceProvider>
+      )}
+    </CloudProvider>
   )
 }
 
@@ -81,11 +90,42 @@ const tabOf = (view: View) => TABS.find((tab) => tab.pages.some((page) => page.v
 /** Its own component, so that saving an edit does not render the tabs again. */
 function SaveIndicator() {
   const saveState = useSaveState()
+  const { shared, state } = useCloud()
+  // In a shared workspace, once saved in the browser, what counts is how far the shared copy has come.
+  if (shared && state && saveState === 'saved') {
+    return (
+      <span className={`save-state ${state === 'synced' ? 'saved' : state === 'syncing' ? 'saving' : 'error'}`} title={`Lagret i nettleseren. ${syncText(state)}: ${shared.name}`}>
+        <i />
+        {syncText(state)}
+      </span>
+    )
+  }
   return (
     <span className={`save-state ${saveState}`} title={saveState === 'saved' ? 'Lagret i nettleseren' : undefined}>
       <i />
       {saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet' : 'Lagret'}
     </span>
+  )
+}
+
+/**
+ * The start screen of a shared workspace with nothing in it: offers what this browser holds of its own, to put in
+ * it. A shared workspace that has not been read yet waits for that first, so nothing is started over what it holds.
+ */
+function SharedStart({ onStart }: { onStart: (ws: Workspace) => void }) {
+  const cloud = useCloud()
+  const [local, setLocal] = useState<Workspace | null>(null)
+  useEffect(() => {
+    loadLocalWorkspace().then(setLocal)
+  }, [])
+  if (!cloud.read) return <p className="center muted">{cloud.state && cloud.state !== 'syncing' ? `${syncText(cloud.state)}. Arbeidsområdet hentes når skyen svarer.` : 'Henter fra skyen …'}</p>
+  if (!local) return null
+  return (
+    <p className="empty-actions">
+      <button className="primary" onClick={() => confirm(`Legge alt nettleseren har fra før inn i «${cloud.shared!.name}», for alle som bruker det?`) && onStart(local)}>
+        Last opp data fra denne nettleseren
+      </button>
+    </p>
   )
 }
 
@@ -106,6 +146,8 @@ function Shell() {
   const [error, setError] = useState<string | null>(null)
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [cloudOpen, setCloudOpen] = useState(false)
+  const cloud = useCloud()
   // Whether hovering shows help texts. A choice for this browser, like the other view preferences.
   const [tooltips, setTooltips] = usePref('tooltips', true)
   // Whether the Avvik line of the Kalender is drawn as a heat map.
@@ -252,6 +294,17 @@ function Shell() {
                 </span>
               </label>
               <span className="menu-group">Data</span>
+              {cloud.configured && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    close()
+                    setCloudOpen(true)
+                  }}
+                >
+                  {cloud.shared ? `Skyen: ${cloud.shared.name} …` : cloud.email ? 'Skyen: logget inn …' : 'Logg inn i skyen …'}
+                </button>
+              )}
               {workspace && (
                 <button
                   role="menuitem"
@@ -288,14 +341,21 @@ function Shell() {
                 <button
                   role="menuitem"
                   className="danger"
-                  title="Sletter alt som er lagret i nettleseren: haller, prosjekter, behov, KPI og planlegging. Last ned en sikkerhetskopi først hvis du vil kunne gå tilbake."
+                  title={
+                    cloud.shared
+                      ? `Sletter alt i det delte arbeidsområdet «${cloud.shared.name}», for alle: haller, prosjekter, behov, KPI og planlegging. Last ned en sikkerhetskopi først hvis du vil kunne gå tilbake.`
+                      : 'Sletter alt som er lagret i nettleseren: haller, prosjekter, behov, KPI og planlegging. Last ned en sikkerhetskopi først hvis du vil kunne gå tilbake.'
+                  }
                   onClick={async () => {
                     close()
-                    if (!confirm('Slette alt som er lagret i Expo Planner i denne nettleseren? Dette kan ikke angres.')) return
+                    const question = cloud.shared
+                      ? `Slette alt i det delte arbeidsområdet «${cloud.shared.name}», for alle som bruker det? Dette kan ikke angres.`
+                      : 'Slette alt som er lagret i Expo Planner i denne nettleseren? Dette kan ikke angres.'
+                    if (!confirm(question)) return
                     await resetWorkspace()
                   }}
                 >
-                  Slett alt og start på nytt …
+                  {cloud.shared ? 'Tøm det delte arbeidsområdet …' : 'Slett alt og start på nytt …'}
                 </button>
               )}
             </>
@@ -336,14 +396,16 @@ function Shell() {
       )}
 
       {status === 'loading' && <p className="center muted">Åpner …</p>}
-      {status === 'empty' && (
+      {status === 'empty' && cloud.shared && !cloud.read && <SharedStart onStart={(ws) => run('Laster opp …', () => replaceWorkspace(ws))} />}
+      {status === 'empty' && (!cloud.shared || cloud.read) && (
         <div className="empty-state">
           <h2>Kom i gang</h2>
           <p>
             Start med blanke ark og les inn kildene hver for seg: hallbookinger fra Venyou (<code>location_format</code>), KPI-oppsettet og Visma-utskrifter. Kalenderen følger perioden i
             hallbookingene.
           </p>
-          <p className="muted">Filer leses bare i nettleseren og sendes ingen steder.</p>
+          <p className="muted">{cloud.shared ? `Du arbeider i det delte arbeidsområdet «${cloud.shared.name}». Det du leser inn, lagres i skyen for alle som bruker det.` : 'Filer leses bare i nettleseren og sendes ingen steder.'}</p>
+          {cloud.shared && <SharedStart onStart={(ws) => run('Laster opp …', () => replaceWorkspace(ws))} />}
           <div className="empty-actions">
             <button className="primary" onClick={() => run('Oppretter …', () => replaceWorkspace(emptyWorkspace()))} disabled={!!busy}>
               Start
@@ -370,6 +432,7 @@ function Shell() {
       {status === 'ready' && workspace && view === 'behov' && <Behov projectNo={behovProject} onProjectChange={setBehovProject} onOpenSetup={() => setView('kpi')} onOpenRules={() => setView('hallregler')} />}
       {status === 'ready' && workspace && view === 'resultat' && <Resultat onOpenSettings={() => setSettingsOpen(true)} onOpenBehov={(projectNo) => (setBehovProject(projectNo), setView('behov'))} onOpenProjects={() => setView('prosjekter')} />}
       {settingsOpen && workspace && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {cloudOpen && <CloudDialog onClose={() => setCloudOpen(false)} />}
     </div>
   )
 }

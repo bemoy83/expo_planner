@@ -8,6 +8,7 @@ import { readLeverandorerWorkbook } from '../import/leverandorerFile'
 import { readPersonellWorkbook } from '../import/personellFile'
 import { readVenyouExport } from '../import/venyouExport'
 import { readVismaExport } from '../import/vismaExport'
+import { readXlsx } from '../import/xlsx'
 import { DEMO_COMPETENCES, DEMO_EVENTS, DEMO_FILES, DEMO_HALLS, DEMO_PEOPLE, DEMO_PRODUCT_TYPES, DEMO_SUPPLIERS, demoFiles, type DemoFile } from './demoData'
 
 const files = new Map(demoFiles().map((file) => [file.kind, file.bytes]))
@@ -19,7 +20,9 @@ describe('the invented season', () => {
   const kpi = readKpiWorkbook(bytes('kpi'))
 
   it('is the same each time it is made', () => {
-    expect(demoFiles().map((file) => file.bytes)).toEqual([...files.values()])
+    // The files' own dates differ by when they are made; what they hold does not.
+    const sheets = (all: Uint8Array[]) => all.map((bytes) => [...readXlsx(bytes).values()].map((sheet) => [...sheet.rows].map(([r, cells]) => [r, [...cells]])))
+    expect(sheets(demoFiles().map((file) => file.bytes))).toEqual(sheets([...files.values()]))
   })
 
   it('reads as a Venyou export: a booking per hall and event, and one for maintenance, in the period of its name', () => {

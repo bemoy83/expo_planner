@@ -11,9 +11,9 @@ import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { budgetsRenumbered } from '../domain/result'
 import { withVismaDemand } from '../domain/visma'
-import { clearAll, loadWorkspace, saveWorkspace, writeRecords } from './db'
+import { clearAll, isShared, loadWorkspace, saveWorkspace, writeRecords } from './db'
 import { clearPrefs } from './prefs'
-import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, writesOf, type Delta, type RecordWrite } from './records'
+import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, toRecords, writesOf, type Delta, type RecordWrite } from './records'
 
 const HISTORY_LIMIT = 200
 
@@ -26,8 +26,10 @@ interface WorkspaceStore {
   /** The demand with Hall/Sted read as a hall of the hall ledger, or as unresolved. See `locateDemand`. */
   locatedDemand: DemandLine[]
   replaceWorkspace: (workspace: Workspace) => Promise<void>
-  /** Deletes everything stored in the browser and returns to the start screen. Cannot be undone. */
+  /** Deletes everything stored in the browser, and in a shared workspace for everyone, and returns to the start screen. Cannot be undone. */
   resetWorkspace: () => Promise<void>
+  /** Takes in what another computer wrote to the shared copy. It is no step of this planner's undo. */
+  applyRemote: (deltas: Delta[]) => void
   setAllocationFte: (rowId: string, date: ISODate, value: number | null) => void
   /** Types FTE into a row suggested from planned demand, which turns it into an ordinary planning row. */
   setSuggestedFte: (suggested: AllocationRow, date: ISODate, value: number | null) => void
@@ -231,7 +233,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [clearHistory])
 
   const resetWorkspace = useCallback(async () => {
-    await clearAll()
+    // A shared workspace is emptied for everyone: every record is deleted, and the deletes are sent like any write.
+    if (isShared()) await writeRecords(current.current ? toRecords(current.current).map(({ kind, id }) => ({ kind, id, value: null })) : [])
+    else await clearAll()
     // View preferences (filters, zoom, collapsed projects) belong to the data that is gone.
     clearPrefs()
     current.current = null
@@ -239,6 +243,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     clearHistory()
     setStatus('empty')
     setSaveState('saved')
+  }, [clearHistory])
+
+  const applyRemote = useCallback((deltas: Delta[]) => {
+    const ws = current.current
+    if (!ws) {
+      // The first records of a shared workspace this browser has not held before.
+      loadWorkspace().then((loaded) => {
+        if (!loaded || current.current) return
+        current.current = loaded
+        setWorkspace(loaded)
+        setStatus('ready')
+      })
+      return
+    }
+    const next = applyDeltas(ws, deltas, 'after')
+    current.current = next
+    setWorkspace(next)
+    // Emptied for everyone on another computer.
+    if (!deltas.some((d) => d.kind === 'settings' && d.after === null)) return
+    current.current = null
+    setWorkspace(null)
+    clearHistory()
+    setStatus('empty')
   }, [clearHistory])
 
   const updateRow = useCallback(
@@ -508,6 +535,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       locatedDemand,
       replaceWorkspace,
       resetWorkspace,
+      applyRemote,
       setAllocationFte,
       setSuggestedFte,
       setAllocationNote,
@@ -535,7 +563,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setBudgets, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallChoice, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, applyRemote, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setBudgets, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallChoice, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>
