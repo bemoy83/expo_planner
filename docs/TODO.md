@@ -266,7 +266,7 @@ An end of a span (the days in a row a planning row has FTE) is pulled along the 
 
 Testing is on the invented season (`src/demo/demoData.ts`); `npm run demo-data` writes its files to `demo_data/`, to read in one by one: the Venyou export, then the Visma export, KPI under Oppsett, Personell, Leverandører and the budgets under Resultat.
 
-The local-data tests need these files in `example_data/` (git-ignored) and run only with `EXPO_REAL_DATA=1`, by the planner himself. The planner workbook is no longer one of them; the checks of required hours, daily need and available staffing against Excel's own numbers went with its reader.
+The tests against the real files are deleted (2026-10-19); the planner keeps those files outside the project.
 
 - `utskrift_visma_21.09.26.xlsx`
 - `location_format_from-2026-01-01_to-2026-12-31.xlsx`

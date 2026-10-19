@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { BudsjettFormatError, readBudsjettWorkbook, writeBudsjettWorkbook } from './budsjettFile'
 import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
@@ -40,16 +39,5 @@ describe('the Budsjett file', () => {
 
   it('says what a file must hold when it is something else', () => {
     expect(() => readBudsjettWorkbook(writeXlsx([{ name: 'Ark1', head: ['Navn', 'Aktiv'], rows: [['Anna', 'Ja']] }]))).toThrow(BudsjettFormatError)
-  })
-})
-
-// The budget workbook is loaded into the planner workbook's table «Tabell_budsjett_arbeidstimer», with the same columns.
-const WORKBOOK = 'example_data/Bemanning_Behov_24 måneder.xlsx'
-
-describe.skipIf(process.env.EXPO_REAL_DATA !== '1' || !existsSync(WORKBOOK))('the budget table of the planner workbook (local data)', () => {
-  it('is read as budgets', () => {
-    const budgets = readBudsjettWorkbook(new Uint8Array(readFileSync(WORKBOOK)))
-    expect(budgets.length).toBeGreaterThan(20)
-    expect(budgets.every((entry) => !!entry.projectNo && entry.hours > 0)).toBe(true)
   })
 })

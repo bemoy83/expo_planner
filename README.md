@@ -45,4 +45,4 @@ npm run build   # type check + production build
 - [docs/kalender-workbook.md](docs/kalender-workbook.md) describes how the old Excel workbook works. The app does not read it; the rules for hours and staffing come from it.
 - `design_docs/` holds design notes from an earlier attempt. Treat them as background reading, not binding specs.
 
-The source files in `example_data/` contain real customer data and are not committed.
+Real source files contain customer data; they are kept outside the project and never committed. Testing uses the invented files of `npm run demo-data`.

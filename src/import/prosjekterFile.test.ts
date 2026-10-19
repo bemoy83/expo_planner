@@ -1,6 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { numberYear } from '../domain/projects'
 import { ProsjekterFormatError, readProsjekterWorkbook, writeProsjekterWorkbook } from './prosjekterFile'
 import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
 
@@ -36,14 +34,5 @@ describe('the Prosjekter file', () => {
 
   it('says what a file must hold when it is something else', () => {
     expect(() => readProsjekterWorkbook(writeXlsx([{ name: 'Ark1', head: ['Navn', 'Aktiv'], rows: [['Anna', 'Ja']] }]))).toThrow(ProsjekterFormatError)
-  })
-})
-
-const local = 'example_data/Prosjekt.xlsx'
-describe.skipIf(process.env.EXPO_REAL_DATA !== '1' || !existsSync(local))('the project list (local data)', () => {
-  it('reads every name with its number, and every number begins with its year', () => {
-    const read = readProsjekterWorkbook(new Uint8Array(readFileSync(local)))
-    expect(read.length).toBeGreaterThan(500)
-    expect(read.every((ref) => numberYear(ref.projectNo) && !ref.year)).toBe(true)
   })
 })
