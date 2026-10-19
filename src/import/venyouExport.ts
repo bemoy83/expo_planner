@@ -1,6 +1,6 @@
 import { normalizeDate } from '../domain/dates'
 import type { DateSpan, VenueBooking, VenuePhase } from '../domain/types'
-import { VENYOU_ID_PREFIX } from '../domain/venueImport'
+import { withVenueIds } from '../domain/venueImport'
 import { cellAt, readXlsx, text, type Sheet } from './xlsx'
 
 export class VenyouFormatError extends Error {}
@@ -35,9 +35,9 @@ const readBookings = (sheet: Sheet, headerRow: number): VenueBooking[] => {
       const end = normalizeDate(get(row, `${label} end date`))
       if (start && end) phases[phase] = start <= end ? { start, end } : { start: end, end: start }
     }
-    bookings.push({ id: `${VENYOU_ID_PREFIX}${bookings.length}-${hall}-${eventName}`, hall, eventName, status: text(get(row, 'status')), phases })
+    bookings.push({ id: '', hall, eventName, status: text(get(row, 'status')), phases })
   }
-  return bookings
+  return withVenueIds(bookings)
 }
 
 /** Reads a Venyou location export (`location_format_from-…_to-….xlsx`). */

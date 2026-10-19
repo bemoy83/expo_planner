@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VenueBooking } from './types'
-import { diffVenue, exportWindow, mergeVenue, venueKey, visibleVenue, withHidden } from './venueImport'
+import { diffVenue, exportWindow, mergeVenue, venueKey, visibleVenue, withHidden, withVenueIds } from './venueImport'
 
 const booking = (id: string, eventName: string, hall: string, eventStart: string, extra: VenueBooking['phases'] = {}): VenueBooking => ({
   id,
@@ -44,6 +44,18 @@ describe('hidden hall bookings', () => {
     const key = venueKey(existing[0])
     expect(withHidden({ [key]: true }, [key], false)).toEqual({})
     expect(visibleVenue(existing, undefined)).toBe(existing)
+  })
+})
+
+describe('the id of a booking', () => {
+  it('is made from the booking, so the same export read twice gives the same ids', () => {
+    const ids = withVenueIds(incoming).map((b) => b.id)
+    expect(ids[0]).toBe('venyou-c|vvs dagene 2026|2026-10-14|confirmed')
+    expect(withVenueIds(incoming.map((b) => ({ ...b, id: 'x' }))).map((b) => b.id)).toEqual(ids)
+  })
+
+  it('tells apart two bookings alike in hall, event, start and status', () => {
+    expect(withVenueIds([incoming[0], incoming[0]]).map((b) => b.id)).toEqual(['venyou-c|vvs dagene 2026|2026-10-14|confirmed', 'venyou-c|vvs dagene 2026|2026-10-14|confirmed|2'])
   })
 })
 

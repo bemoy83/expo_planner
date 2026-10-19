@@ -20,6 +20,20 @@ export const anchorDate = (booking: VenueBooking): ISODate | null => booking.pha
  */
 export const venueKey = (booking: VenueBooking): string => [booking.hall, booking.eventName, anchorDate(booking) ?? ''].map((part) => part.trim().toLowerCase()).join('|')
 
+/**
+ * Gives each booking an id made from what it is: the prefix, its `venueKey` and its status, so that the same booking
+ * read in twice, on one computer or two, has the same id. A second booking with all of these alike gets «|2», and so on.
+ */
+export const withVenueIds = (bookings: VenueBooking[]): VenueBooking[] => {
+  const seen = new Map<string, number>()
+  return bookings.map((booking) => {
+    const base = `${VENYOU_ID_PREFIX}${venueKey(booking)}|${booking.status.trim().toLowerCase()}`
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    return { ...booking, id: n > 1 ? `${base}|${n}` : base }
+  })
+}
+
 export const visibleVenue = (bookings: VenueBooking[], hidden: Record<string, true> | undefined): VenueBooking[] =>
   hidden && Object.keys(hidden).length ? bookings.filter((booking) => !hidden[venueKey(booking)]) : bookings
 

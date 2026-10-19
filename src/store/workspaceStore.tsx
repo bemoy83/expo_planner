@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
 import { type AllocationRow, type Budgets, type DemandLine, type HallRules, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
-import { diffVenue, exportWindow, mergeVenue, VENYOU_ID_PREFIX, withHidden, type VenueDiff } from '../domain/venueImport'
+import { diffVenue, exportWindow, mergeVenue, withHidden, withVenueIds, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
 import { followCompetence, rowScope } from '../domain/plannedRows'
 import { exampleRules, locateDemand, withChoice } from '../domain/locations'
@@ -341,7 +341,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const window = exportWindow(fileName, bookings)
       if (!ws || !window) throw new Error('Fant ingen datoer i Venyou-filen.')
       const importedAt = new Date().toISOString()
-      const incoming = bookings.map((booking, index) => ({ ...booking, id: `${VENYOU_ID_PREFIX}${importedAt}-${index}` }))
+      const incoming = withVenueIds(bookings)
       const diff = diffVenue(ws.venue, incoming, window)
       const venue = mergeVenue(ws.venue, incoming, window)
       // The first halls bring the example rules with them, as the planner's own from then on.
