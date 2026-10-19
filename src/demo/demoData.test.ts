@@ -30,11 +30,10 @@ describe('the invented season', () => {
     expect(exportWindow(DEMO_FILES.venyou, bookings)).toEqual({ from: '2026-09-01', to: '2027-06-30' })
   })
 
-  it('reads as a Visma export of eight projects, named as their events in Venyou, with no customer and no order number', () => {
+  it('reads as a Visma export of eight projects, named as their events in Venyou', () => {
     const projects = new Map(rows.map((row) => [row.projectNo, row.eventName]))
     expect(projects.size).toBe(8)
     for (const [projectNo, name] of projects) expect(DEMO_EVENTS.find((event) => event.projectNo === projectNo)?.name).toBe(name)
-    expect(rows.every((row) => row.customer === '' && row.orderNo === '')).toBe(true)
   })
 
   it('reads as a KPI file, with a type of several units left for the planner and the freight left out', () => {

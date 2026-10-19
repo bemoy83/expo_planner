@@ -100,9 +100,7 @@ const vismaRow = (productType: string): VismaRow => ({
   stand: 'C01-01',
   transInfo: '',
   hall: 'Hall C',
-  customer: '',
   avdeling: '65',
-  orderNo: '',
   articleNo: '',
   description: '',
   quantity: 1,
@@ -225,7 +223,7 @@ describe('typeAndRate', () => {
 })
 
 describe('article numbers left out', () => {
-  const line = (articleNo: string, productType = 'Print', description = ''): VismaRow => ({ projectNo: '1', eventName: 'VVS 2026', stand: '', transInfo: '', hall: '', customer: '', avdeling: '', orderNo: '', articleNo, description, quantity: 1, productGroup: '', productType })
+  const line = (articleNo: string, productType = 'Print', description = ''): VismaRow => ({ projectNo: '1', eventName: 'VVS 2026', stand: '', transInfo: '', hall: '', avdeling: '', articleNo, description, quantity: 1, productGroup: '', productType })
   const visma: VismaImport[] = [{ projectNo: '1', eventName: 'VVS 2026', fileName: 'x', importedAt: '', rows: [line('4711', 'Print', 'Frakt'), line('4711', '', 'frakt'), line('12'), line('')] }]
 
   it('are one list, matched whatever the spacing or case, with a note that can be changed', () => {

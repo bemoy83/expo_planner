@@ -21,7 +21,7 @@ export const vismaProductType = (text: string): string => {
  */
 export const vismaHall = (stand: string, transInfo: string): string => (stand ? `Hall ${stand[0]}` : transInfo)
 
-/** Reads a Visma booking export (`utskrift_visma`). The total row and rows without a project are left out; every project must have its name, see `withProjectNames`. */
+/** Reads a Visma booking export (`utskrift_visma`), leaving the customer («Navn») and the order number in the file. The total row and rows without a project are left out; every project must have its name, see `withProjectNames`. */
 export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
   for (const sheet of readXlsx(bytes).values()) {
     const header = findHeader(sheet, ['prosjekt', 'totalt antall', 'produkttype 2'])
@@ -42,9 +42,7 @@ export const readVismaExport = (bytes: Uint8Array): VismaRow[] => {
         stand,
         transInfo,
         hall: vismaHall(stand, transInfo),
-        customer: text(cell(row, 'navn')),
         avdeling: text(cell(row, 'avdeling')),
-        orderNo: text(cell(row, 'ordrenr')),
         articleNo: text(cell(row, 'art.nr')),
         description: text(cell(row, 'beskrivelse')),
         quantity: num(cell(row, 'totalt antall')) ?? 0,

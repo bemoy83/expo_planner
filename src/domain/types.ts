@@ -155,7 +155,7 @@ export interface CapacityLine {
   hours?: DayValues
 }
 
-/** One booking line of a Visma export (`utskrift_visma`). */
+/** One booking line of a Visma export (`utskrift_visma`). The customer and the order number are not read: the app needs neither. */
 export interface VismaRow {
   projectNo: string
   eventName: string
@@ -163,9 +163,7 @@ export interface VismaRow {
   transInfo: string
   /** The Hall/Sted of the line, as the reader worked it out from the two above. */
   hall: string
-  customer: string
   avdeling: string
-  orderNo: string
   articleNo: string
   description: string
   quantity: number

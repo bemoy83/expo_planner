@@ -290,7 +290,7 @@ function Bookings({ lines }: { lines: ReviewedLine[] }) {
           <span className="cause-booking-text" title={sample.description}>
             {sample.description ? `«${sample.description}»` : <span className="muted">uten tekst</span>}
             <small>
-              {[`antall ${sample.quantity}`, sample.stand || sample.transInfo, sample.orderNo && `ordre ${sample.orderNo}`, bookings > 1 && `${bookings} linjer`].filter(Boolean).join(' · ')}
+              {[`antall ${sample.quantity}`, sample.stand || sample.transInfo, bookings > 1 && `${bookings} linjer`].filter(Boolean).join(' · ')}
             </small>
           </span>
           <button className="ghost" title={`Utelat art.nr ${articleNo}: ordrelinjene med det leses ikke, i noe prosjekt. Listen er under KPI.`} onClick={() => setKpi(withExcludedArticle(kpi, articleNo, sample.description))}>
