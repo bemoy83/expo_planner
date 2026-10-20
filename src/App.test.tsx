@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('renders the app title', () => {
+  it('renders the app title', async () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'Expo Planner' })).toBeDefined()
+    // With a Supabase project set up, the app first reads whether someone is signed in.
+    expect(await screen.findByRole('heading', { name: 'Expo Planner' })).toBeDefined()
   })
 })
