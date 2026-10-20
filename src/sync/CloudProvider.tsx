@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { deleteDatabase, LOCAL_DB, onWritten, pendingOutbox, sharedDbName, switchDatabase } from '../store/db'
+import { deleteDatabase, LOCAL_DB, notePlanner, onWritten, pendingOutbox, plannerNames, sharedDbName, switchDatabase } from '../store/db'
 import { useWorkspace } from '../store/workspaceStore'
-import { cloudConfigured, supabase, supabaseCopy } from './client'
+import { count } from '../ui/dom'
+import { Toasts, useToasts } from '../ui/Toasts'
+import { cloudConfigured, liveChannel, supabase, supabaseCopy } from './client'
 import { startEngine, type SyncState } from './engine'
 
 interface SharedWorkspace {
@@ -13,8 +15,9 @@ interface SharedWorkspace {
 interface Cloud {
   /** The app has a Supabase project to sync with. */
   configured: boolean
-  /** The e-mail of the planner signed in. */
+  /** The e-mail of the planner signed in, and their id. */
   email: string | null
+  userId: string | null
   /** The shared workspace open; none when signed out, or signed in without being a member yet. */
   shared: SharedWorkspace | null
   /** Signed in, but not yet added to a workspace. */
@@ -107,7 +110,7 @@ export function CloudProvider({ children }: { children: (database: string) => Re
 
   const waiting = useCallback(async () => (shared ? (await pendingOutbox()).length : 0), [shared])
 
-  const value: Cloud = { configured: cloudConfigured, email: session?.user.email ?? null, shared, noMembership, state, read, signIn, signOut, readAgain, waiting }
+  const value: Cloud = { configured: cloudConfigured, email: session?.user.email ?? null, userId: session?.user.id ?? null, shared, noMembership, state, read, signIn, signOut, readAgain, waiting }
   return (
     <Context.Provider value={value}>
       <SyncContext.Provider value={{ state, read, setState }}>{ready ? children(database) : <p className="center muted">Åpner …</p>}</SyncContext.Provider>
@@ -115,27 +118,46 @@ export function CloudProvider({ children }: { children: (database: string) => Re
   )
 }
 
-/** Keeps the open shared workspace in step with the shared copy; draws nothing. Inside the workspace's provider. */
+/** The planners' e-mails for their ids, «en annen» for one this browser has not heard of. */
+const namesOf = async (ids: string[]): Promise<string> => {
+  const names = await plannerNames()
+  const all = [...new Set(ids.map((id) => names.get(id) ?? 'en annen'))]
+  return all.length > 1 ? `${all.slice(0, -1).join(', ')} og ${all[all.length - 1]}` : all[0]
+}
+
+/**
+ * Keeps the open shared workspace in step with the shared copy, and tells the planner when their work met another
+ * planner's: a write that replaced what someone had just changed, and an undo that left what someone changed since.
+ * Inside the workspace's provider.
+ */
 export function SharedSync() {
   const cloud = useCloud()
   const { setState } = useContext(SyncContext)!
-  const { applyRemote } = useWorkspace()
+  const { applyRemote, setOnLeft } = useWorkspace()
+  const { toasts, show, dismiss } = useToasts()
   const id = cloud.shared?.id
+  const me = cloud.userId
+  const email = cloud.email
   useEffect(() => {
-    if (!id) return
+    if (!id || !me || !email) return
+    notePlanner(me, email)
+    const live = liveChannel(id, () => engine.now())
     const engine = startEngine(supabaseCopy(id), {
       remote: applyRemote,
       state: setState,
-      // Telling the planner who changed a record unseen belongs to several planners at once (phase 3).
-      overwritten: () => undefined,
+      sent: live.say,
+      overwritten: async (by) => show(`Du endret noe ${await namesOf(by)} nettopp hadde endret. Din endring gjelder.`),
     })
     const off = onWritten(engine.nudge)
+    setOnLeft(async (left, by) => show(`${count(left, 'endring', 'endringer')} ble ikke angret: endret av ${await namesOf(by)} etterpå.`))
     return () => {
       off()
+      setOnLeft(null)
       engine.stop()
+      live.close()
     }
-  }, [id, applyRemote, setState])
-  return null
+  }, [id, me, email, applyRemote, setOnLeft, setState, show])
+  return <Toasts toasts={toasts} onDismiss={dismiss} />
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

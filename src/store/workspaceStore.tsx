@@ -13,6 +13,7 @@ import { budgetsRenumbered } from '../domain/result'
 import { withVismaDemand } from '../domain/visma'
 import { clearAll, isShared, loadWorkspace, saveWorkspace, writeRecords } from './db'
 import { clearPrefs } from './prefs'
+import { History, type Step } from './history'
 import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, toRecords, writesOf, type Delta, type RecordWrite } from './records'
 
 const HISTORY_LIMIT = 200
@@ -30,6 +31,8 @@ interface WorkspaceStore {
   resetWorkspace: () => Promise<void>
   /** Takes in what another computer wrote to the shared copy. It is no step of this planner's undo. */
   applyRemote: (deltas: Delta[]) => void
+  /** Who is told when an undo or redo leaves records another planner has changed since: how many, and their ids. */
+  setOnLeft: (handler: ((count: number, by: string[]) => void) | null) => void
   setAllocationFte: (rowId: string, date: ISODate, value: number | null) => void
   /** Types FTE into a row suggested from planned demand, which turns it into an ordinary planning row. */
   setSuggestedFte: (suggested: AllocationRow, date: ISODate, value: number | null) => void
@@ -88,6 +91,15 @@ const SaveStateContext = createContext<SaveState>('saved')
 
 const EMPTY_DEMAND: DemandLine[] = []
 
+/** Whether a mouse button is held anywhere on the page: a stroke, a drag or a pull is being drawn. */
+let pointerDown = false
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', () => (pointerDown = true), true)
+  window.addEventListener('pointerup', () => (pointerDown = false), true)
+  window.addEventListener('pointercancel', () => (pointerDown = false), true)
+  window.addEventListener('blur', () => (pointerDown = false))
+}
+
 const withDay = (values: Record<ISODate, number>, date: ISODate, value: number | null) => {
   const next = { ...values }
   if (value === null || value === 0) delete next[date]
@@ -104,8 +116,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const current = useRef<Workspace | null>(null)
   const pending = useRef(0)
-  const undoStack = useRef<Delta[][]>([])
-  const redoStack = useRef<Delta[][]>([])
+  const undoStack = useRef<Step[]>([])
+  const redoStack = useRef<Step[]>([])
+  const history = useRef(new History())
+  const onLeft = useRef<((count: number, by: string[]) => void) | null>(null)
+  /** What other computers wrote while the planner held the mouse down: it waits until the stroke or the drag is over. */
+  const held = useRef<Delta[] | null>(null)
   /** Edits made in the same event (a range fill, a paste) collect here and become one undo step. */
   const openStep = useRef<Map<string, Delta> | null>(null)
   /** The records written in the same event, each once as it ended up; they are written together when the event is over. */
@@ -133,7 +149,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     openStep.current = null
     const deltas = step ? effective(step) : []
     if (deltas.length) {
-      undoStack.current.push(deltas)
+      undoStack.current.push({ deltas, at: history.current.tick() })
       if (undoStack.current.length > HISTORY_LIMIT) undoStack.current.shift()
       redoStack.current = []
     }
@@ -141,6 +157,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const clearHistory = useCallback(() => {
+    history.current.forget()
     openStep.current = null
     undoStack.current = []
     redoStack.current = []
@@ -209,13 +226,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const step = from.pop()
       const ws = current.current
       if (!step || !ws) return
-      to.push(step)
+      // What another planner has changed since is left as they made it.
+      const { deltas, left, by } = history.current.split(step)
+      to.push({ deltas: step.deltas, at: history.current.tick() })
       const side = direction === 'undo' ? 'before' : 'after'
-      const next = applyDeltas(ws, step, side)
+      const next = applyDeltas(ws, deltas, side)
       current.current = next
       setWorkspace(next)
       syncHistorySize()
-      write(writesOf(step, side))
+      write(writesOf(deltas, side))
+      if (left.length) onLeft.current?.(left.length, by)
     },
     [closeStep, write],
   )
@@ -245,7 +265,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setSaveState('saved')
   }, [clearHistory])
 
-  const applyRemote = useCallback((deltas: Delta[]) => {
+  const applyRemote = useCallback((incoming: Delta[]) => {
+    // Not under a stroke or a drag that is being drawn: what it shows was worked out from the workspace as it was.
+    if (pointerDown) {
+      held.current = [...(held.current ?? []), ...incoming]
+      return
+    }
+    const deltas = [...(held.current ?? []), ...incoming]
+    held.current = null
+    history.current.changedElsewhere(deltas)
     const ws = current.current
     if (!ws) {
       // The first records of a shared workspace this browser has not held before.
@@ -267,6 +295,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     clearHistory()
     setStatus('empty')
   }, [clearHistory])
+
+  // What was held while the mouse was down is taken in when it is let go, after the stroke has been committed.
+  useEffect(() => {
+    const up = () => setTimeout(() => held.current && applyRemote([]), 0)
+    window.addEventListener('pointerup', up)
+    return () => window.removeEventListener('pointerup', up)
+  }, [applyRemote])
+
+  const setOnLeft = useCallback((handler: ((count: number, by: string[]) => void) | null) => {
+    onLeft.current = handler
+  }, [])
 
   const updateRow = useCallback(
     (rowId: string, change: (row: AllocationRow) => AllocationRow) => {
@@ -536,6 +575,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       replaceWorkspace,
       resetWorkspace,
       applyRemote,
+      setOnLeft,
       setAllocationFte,
       setSuggestedFte,
       setAllocationNote,
@@ -563,7 +603,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       undo,
       redo,
     }),
-    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, applyRemote, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setBudgets, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallChoice, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
+    [status, workspace, demandIndex, locatedDemand, replaceWorkspace, resetWorkspace, applyRemote, setOnLeft, setAllocationFte, setSuggestedFte, setAllocationNote, addAllocation, updateAllocation, removeAllocation, updateSettings, importVenue, setProjects, setBudgets, setVenueHidden, setKpi, renameCompetence, importVisma, setLineOverride, setLineOverrides, setHallChoice, setHallRules, removeLineOverride, saveDemandLine, removeDemandLine, updateStaffing, canUndo, canRedo, undo, redo],
   )
   return (
     <Context.Provider value={value}>

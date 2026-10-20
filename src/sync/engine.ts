@@ -12,6 +12,7 @@ export interface RemoteRow {
   deleted: boolean
   rev: number
   batch_id: string
+  updated_by: string
 }
 
 /** What the engine needs of the shared copy: the two calls it makes. Supabase in the app, a stand-in in the tests. */
@@ -67,7 +68,7 @@ export const pullAll = async (copy: SharedCopy): Promise<Delta[]> => {
     carried = rows.slice(whole.length)
     if (whole.length) {
       cursor = whole[whole.length - 1].rev
-      deltas.push(...(await takeRemote(whole.map((row): RemoteRecord => ({ kind: row.kind as Kind, id: row.id, value: row.deleted ? null : row.data, rev: row.rev })), cursor)))
+      deltas.push(...(await takeRemote(whole.map((row): RemoteRecord => ({ kind: row.kind as Kind, id: row.id, value: row.deleted ? null : row.data, rev: row.rev, by: row.updated_by })), cursor)))
     }
     if (!full) return deltas
   }
@@ -80,8 +81,10 @@ const offline = (error: unknown) => (typeof navigator !== 'undefined' && !naviga
 const paused = (error: unknown) => /paused|project.*(inactive|not found)|540/i.test(String((error as { message?: string })?.message ?? error))
 
 export interface Engine {
-  /** Sends and reads now, or as soon as the run under way is over. */
+  /** Sends and reads a moment from now: for writes, which come in bursts while a planner works. */
   nudge: () => void
+  /** Sends and reads now, or as soon as the run under way is over: when another computer says it wrote. */
+  now: () => void
   stop: () => void
 }
 
@@ -89,7 +92,10 @@ export interface Engine {
  * Keeps the browser's copy and the shared one in step: sends what waits and reads what is new, at start, when told
  * (after a write), every half minute, when the network comes back and when the page is looked at again.
  */
-export const startEngine = (copy: SharedCopy, on: { remote: (deltas: Delta[]) => void; state: (state: SyncState) => void; overwritten: (by: string[]) => void }): Engine => {
+export const startEngine = (
+  copy: SharedCopy,
+  on: { remote: (deltas: Delta[]) => void; state: (state: SyncState) => void; overwritten: (by: string[]) => void; sent: () => void },
+): Engine => {
   let running = false
   let again = false
   let stopped = false
@@ -104,8 +110,10 @@ export const startEngine = (copy: SharedCopy, on: { remote: (deltas: Delta[]) =>
     running = true
     on.state('syncing')
     try {
+      const sending = (await pendingOutbox()).length > 0
       const by = await pushAll(copy)
       if (by.length) on.overwritten(by)
+      if (sending) on.sent()
       const deltas = await pullAll(copy)
       if (deltas.length && !stopped) on.remote(deltas)
       on.state('synced')
@@ -124,6 +132,7 @@ export const startEngine = (copy: SharedCopy, on: { remote: (deltas: Delta[]) =>
     if (timer) clearTimeout(timer)
     timer = setTimeout(run, 800)
   }
+  // Others say when they write; this is the check for a word that was lost.
   const interval = setInterval(run, 30_000)
   const visible = () => document.visibilityState === 'visible' && void run()
   window.addEventListener('online', run)
@@ -131,6 +140,7 @@ export const startEngine = (copy: SharedCopy, on: { remote: (deltas: Delta[]) =>
   void run()
   return {
     nudge,
+    now: () => void run(),
     stop: () => {
       stopped = true
       if (timer) clearTimeout(timer)

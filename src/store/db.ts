@@ -150,6 +150,8 @@ export interface RemoteRecord {
   id: string
   value: unknown
   rev: number
+  /** The planner who wrote it. */
+  by: string
 }
 
 /**
@@ -166,8 +168,18 @@ export const takeRemote = (records: RemoteRecord[], cursor: number): Promise<Del
       const before = known[i]?.value ?? null
       if (r.value === null) await db.records.delete([r.kind, r.id])
       else await db.records.put({ kind: r.kind, id: r.id, value: r.value, rev: r.rev })
-      if (JSON.stringify(before) !== JSON.stringify(r.value)) deltas.push({ kind: r.kind, id: r.id, before, after: r.value })
+      if (JSON.stringify(before) !== JSON.stringify(r.value)) deltas.push({ kind: r.kind, id: r.id, before, after: r.value, by: r.by })
     }
     await db.sync.put({ key: 'cursor', value: cursor })
     return deltas
   })
+
+/** The planners of the shared workspace, by their id: the e-mail each signs in with. */
+export const plannerNames = async (): Promise<Map<string, string>> =>
+  new Map((await db.records.where('[kind+id]').between(['planner', ''], ['planner', '\uffff']).toArray()).map((r) => [r.id, (r.value as { email: string }).email]))
+
+/** Notes the planner signed in, once, so the others can be told who changed what. */
+export const notePlanner = async (id: string, email: string) => {
+  const known = await db.records.get(['planner', id])
+  if ((known?.value as { email?: string } | undefined)?.email !== email) await writeRecords([{ kind: 'planner', id, value: { email } }])
+}

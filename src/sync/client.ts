@@ -26,8 +26,21 @@ export const supabaseCopy = (workspaceId: string): SharedCopy => ({
     return (data as { kind: string; id: string; rev: number; overwritten_by: string | null }[]).map((row) => ({ ...row, rev: Number(row.rev) }))
   },
   pull: async (after, limit) => {
-    const { data, error } = await supabase().from('records').select('kind, id, data, deleted, rev, batch_id').eq('workspace_id', workspaceId).gt('rev', after).order('rev').limit(limit)
+    const { data, error } = await supabase().from('records').select('kind, id, data, deleted, rev, batch_id, updated_by').eq('workspace_id', workspaceId).gt('rev', after).order('rev').limit(limit)
     if (error) throw error
     return (data as RemoteRow[]).map((row) => ({ ...row, rev: Number(row.rev) }))
   },
 })
+
+/**
+ * A word between the computers in a workspace that one of them has written: the others then read at once rather than
+ * at their next look. The word carries nothing; what was written is read from the shared copy, under its rules.
+ */
+export const liveChannel = (workspaceId: string, onWritten: () => void) => {
+  const channel = supabase().channel(`workspace:${workspaceId}`, { config: { broadcast: { self: false } } })
+  channel.on('broadcast', { event: 'written' }, onWritten).subscribe()
+  return {
+    say: () => void channel.send({ type: 'broadcast', event: 'written', payload: {} }),
+    close: () => void supabase().removeChannel(channel),
+  }
+}

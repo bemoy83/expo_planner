@@ -35,6 +35,8 @@ export type Kind =
   | 'demandAdjustment'
   | 'supplier'
   | 'hireOrder'
+  /** A planner of a shared workspace, with the e-mail they sign in with: to say who changed what. No part of the workspace itself. */
+  | 'planner'
 
 /** A record as it is stored. */
 export interface StoredRecord {
@@ -49,6 +51,8 @@ export interface Delta {
   id: string
   before: unknown
   after: unknown
+  /** Who wrote it, for a change read from the shared copy. */
+  by?: string
 }
 
 /** What is written for a record: its value, or `null` to delete it. */
