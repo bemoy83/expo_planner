@@ -11,7 +11,7 @@ import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { budgetsRenumbered } from '../domain/result'
 import { withVismaDemand } from '../domain/visma'
-import { clearAll, isShared, loadWorkspace, saveWorkspace, writeRecords } from './db'
+import { clearAll, isShared, loadWorkspace, onOtherWindow, saveWorkspace, writeRecords } from './db'
 import { clearPrefs } from './prefs'
 import { History, type Step } from './history'
 import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, toRecords, writesOf, type Delta, type RecordWrite } from './records'
@@ -295,6 +295,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     clearHistory()
     setStatus('empty')
   }, [clearHistory])
+
+  // Another window of this browser on the same database: what it writes is taken in as written elsewhere.
+  useEffect(() => onOtherWindow(applyRemote), [applyRemote])
 
   // What was held while the mouse was down is taken in when it is let go, after the stroke has been committed.
   useEffect(() => {

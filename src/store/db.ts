@@ -59,13 +59,43 @@ let db = new PlannerDb(LOCAL_DB)
 let shared = false
 const written = new Set<() => void>()
 
+/**
+ * The other windows of this browser that have the same database open: they share its records but not the workspace in
+ * memory, so each says what it wrote or read in, and the others take it in as written elsewhere.
+ */
+const tabName = (name: string) => `${name}:records`
+let tabs = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(tabName(LOCAL_DB))
+const fromTabs = new Set<(deltas: Delta[]) => void>()
+const listen = (channel: BroadcastChannel | null) => {
+  if (channel) channel.onmessage = (event: MessageEvent<Delta[]>) => fromTabs.forEach((listener) => listener(event.data))
+}
+listen(tabs)
+
+/** Called with what another window of this browser wrote to the database, or read into it from the shared copy. */
+export const onOtherWindow = (listener: (deltas: Delta[]) => void) => {
+  fromTabs.add(listener)
+  return () => {
+    fromTabs.delete(listener)
+  }
+}
+
+const tellWindows = (deltas: Delta[]) => {
+  if (deltas.length) tabs?.postMessage(deltas)
+}
+
 /** Switches to the database of a shared workspace, or back to this browser's own. */
 export const switchDatabase = (name: string) => {
   if (db.name === name) return
   db.close()
   db = new PlannerDb(name)
   shared = name !== LOCAL_DB
+  tabs?.close()
+  tabs = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(tabName(name))
+  listen(tabs)
 }
+
+/** The name of the database open, so that work on it can be kept to one window at a time. */
+export const databaseName = () => db.name
 
 export const isShared = () => shared
 
@@ -106,6 +136,7 @@ export const writeRecords = async (writes: RecordWrite[]): Promise<void> => {
       await db.outbox.bulkAdd(writes.map((w) => ({ batch, kind: w.kind, id: w.id, value: w.value, baseRev: revOf.get(recordKey(w.kind, w.id)) ?? null })))
     }
   })
+  tellWindows(writes.map(({ kind, id, value }) => ({ kind, id, before: null, after: value })))
   if (shared) for (const listener of written) listener()
 }
 
@@ -158,7 +189,13 @@ export interface RemoteRecord {
  * Takes in records read from the shared copy and moves the cursor past them. A record with a write of this browser
  * still waiting is left as it is here: that write is later and will win. Returns what changed, to apply in memory.
  */
-export const takeRemote = (records: RemoteRecord[], cursor: number): Promise<Delta[]> =>
+export const takeRemote = async (records: RemoteRecord[], cursor: number): Promise<Delta[]> => {
+  const deltas = await takeIn(records, cursor)
+  tellWindows(deltas)
+  return deltas
+}
+
+const takeIn = (records: RemoteRecord[], cursor: number): Promise<Delta[]> =>
   db.transaction('rw', [db.records, db.outbox, db.sync], async () => {
     const waiting = new Set((await db.outbox.toArray()).map((entry) => recordKey(entry.kind, entry.id)))
     const incoming = records.filter((r) => !waiting.has(recordKey(r.kind, r.id)))

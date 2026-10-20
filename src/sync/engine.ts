@@ -1,4 +1,4 @@
-import { confirmSent, pendingOutbox, readCursor, takeRemote, type OutboxEntry, type RemoteRecord } from '../store/db'
+import { confirmSent, databaseName, pendingOutbox, readCursor, takeRemote, type OutboxEntry, type RemoteRecord } from '../store/db'
 import type { Delta, Kind } from '../store/records'
 
 /** Where the shared copy stands, as the page header says it. */
@@ -80,6 +80,13 @@ const offline = (error: unknown) => (typeof navigator !== 'undefined' && !naviga
 /** A paused free project answers that it is not there. */
 const paused = (error: unknown) => /paused|project.*(inactive|not found)|540/i.test(String((error as { message?: string })?.message ?? error))
 
+/**
+ * Windows of one browser share its database, outbox and cursor: they send and read one at a time, so a batch is not
+ * sent twice and nothing read in is read again.
+ */
+const oneWindowAtATime = (work: () => Promise<void>): Promise<void> =>
+  typeof navigator !== 'undefined' && navigator.locks ? navigator.locks.request(`${databaseName()}:sync`, work) : work()
+
 export interface Engine {
   /** Sends and reads a moment from now: for writes, which come in bursts while a planner works. */
   nudge: () => void
@@ -110,12 +117,7 @@ export const startEngine = (
     running = true
     on.state('syncing')
     try {
-      const sending = (await pendingOutbox()).length > 0
-      const by = await pushAll(copy)
-      if (by.length) on.overwritten(by)
-      if (sending) on.sent()
-      const deltas = await pullAll(copy)
-      if (deltas.length && !stopped) on.remote(deltas)
+      await oneWindowAtATime(sync)
       on.state('synced')
     } catch (error) {
       on.state(offline(error) ? 'offline' : paused(error) ? 'paused' : 'error')
@@ -126,6 +128,14 @@ export const startEngine = (
         void run()
       }
     }
+  }
+  const sync = async () => {
+    const sending = (await pendingOutbox()).length > 0
+    const by = await pushAll(copy)
+    if (by.length) on.overwritten(by)
+    if (sending) on.sent()
+    const deltas = await pullAll(copy)
+    if (deltas.length && !stopped) on.remote(deltas)
   }
   // Writes come in bursts while a planner works; they are sent a moment after the last.
   const nudge = () => {

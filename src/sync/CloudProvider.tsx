@@ -149,7 +149,7 @@ export function SharedSync() {
       overwritten: async (by) => show(`Du endret noe ${await namesOf(by)} nettopp hadde endret. Din endring gjelder.`),
     })
     const off = onWritten(engine.nudge)
-    setOnLeft(async (left, by) => show(`${count(left, 'endring', 'endringer')} ble ikke angret: endret av ${await namesOf(by)} etterpå.`))
+    setOnLeft(async (left, by) => show(`${count(left, 'endring', 'endringer')} ble ikke angret: endret ${by.length ? `av ${await namesOf(by)}` : 'i et annet vindu'} etterpå.`))
     return () => {
       off()
       setOnLeft(null)
