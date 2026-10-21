@@ -1,31 +1,32 @@
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
-import type { Assignment, Interval, Minute, WorkdaySettings } from '../../domain/types'
+import { sameProject, type Assignment, type Interval, type Minute, type WorkdaySettings } from '../../domain/types'
 
 /** The blocks of one person on a day. */
 export type BlocksOn = (date: ISODate) => Assignment[] | undefined
 
 /**
- * A run: the days in a row a person has one competence, drawn as one piece. A block goes on into the next
+ * A run: the days in a row a person has one competence for one project, drawn as one piece. A block goes on into the next
  * day when it lasts to the end of the normal day and a block of its competence begins the next day
- * from its start. Another competence or time left empty ends a run, so a weekend does when it is not worked,
+ * from its start. Another competence, another project or time left empty ends a run, so a weekend does when it is not worked,
  * and a run goes on through one that is. What happens to the person (sickness, absence, overtime) does not
  * end it: the blocks are still there.
  */
 const reachesEnd = (iv: Interval, wd: WorkdaySettings) => iv.end >= wd.dayEnd && iv.start < wd.dayEnd
 const fromStart = (iv: Interval, wd: WorkdaySettings) => iv.start <= wd.dayStart && iv.end > wd.dayStart
+const sameWork = (a: Piece, b: Piece) => a.competence === b.competence && sameProject(a, b)
 
 /** The block the run of `block` goes on with the day after, if any. */
 export const nextInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
   const next = addDays(date, 1)
   if (!reachesEnd(block, wd)) return undefined
-  return blocks(next)?.find((a) => a.competence === block.competence && fromStart(a, wd))
+  return blocks(next)?.find((a) => sameWork(a, block) && fromStart(a, wd))
 }
 
 /** The block the run of `block` comes from the day before, if any. */
 export const prevInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
   const prev = addDays(date, -1)
   if (!fromStart(block, wd)) return undefined
-  return blocks(prev)?.find((a) => a.competence === block.competence && reachesEnd(a, wd))
+  return blocks(prev)?.find((a) => sameWork(a, block) && reachesEnd(a, wd))
 }
 
 /** Which of its neighbours a block is joined to. */
@@ -40,8 +41,8 @@ export interface EndShape extends RunLink {
   meetsAfter: boolean
 }
 
-/** Time of one competence in a day: a block, or what a stroke would put down. */
-export type Piece = Interval & { competence: string }
+/** Time of one competence, for a project or none, in a day: a block, or what a stroke would put down. */
+export type Piece = Interval & { competence: string; projectNo?: string }
 export type PiecesOn = (date: ISODate) => Piece[] | undefined
 
 /**
@@ -50,7 +51,7 @@ export type PiecesOn = (date: ISODate) => Piece[] | undefined
  * one piece with what lies right `beside` it in its own day: the previews for a block, the blocks for a preview.
  */
 export const endShape = (piece: Piece, date: ISODate, beside: Piece[], blocks: PiecesOn, previews: PiecesOn, wd: WorkdaySettings): EndShape => {
-  const same = (other: Piece) => other.competence === piece.competence
+  const same = (other: Piece) => sameWork(other, piece)
   const on = (day: ISODate, joins: (iv: Interval, wd: WorkdaySettings) => boolean) => [blocks, previews].some((pieces) => pieces(day)?.some((other) => same(other) && joins(other, wd)) === true)
   return {
     prev: fromStart(piece, wd) && on(addDays(date, -1), reachesEnd),
@@ -67,6 +68,7 @@ export const runLink = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: 
 
 export interface Run {
   competence: string
+  projectNo?: string
   from: ISODate
   to: ISODate
   /** The days it has a block on. */
@@ -100,7 +102,7 @@ export const runOf = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: Wo
   const days = runDays(blocks, date, block, wd)
   const first = days[0]
   const last = days[days.length - 1]
-  return { competence: block.competence, from: first.date, to: last.date, days: days.length, startShare: share(first.block.start), endShare: share(last.block.end) }
+  return { competence: block.competence, ...(block.projectNo && { projectNo: block.projectNo }), from: first.date, to: last.date, days: days.length, startShare: share(first.block.start), endShare: share(last.block.end) }
 }
 
 /** A day a pulled end of a run is to give time. */

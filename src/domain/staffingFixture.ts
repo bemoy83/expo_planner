@@ -59,3 +59,39 @@ export const withStaffingFixture = (workspace: Workspace, fixture: StaffingFixtu
     competenceStyles: Object.fromEntries(fixture.competences.map((style) => [style.key, style])),
   }
 }
+
+/** The two projects of `withTwoProjects`, built up in the same week with the same competence. */
+export const TWO_PROJECTS = { first: '26102', second: '26101' } as const
+
+/**
+ * A small invented week of two projects that are built up at the same time, for the tests of the project balance:
+ * walls for both on Monday and Tuesday of week 42, and walls without a project on Monday. Four people have walls.
+ * Demand per day: Monday 15 h for the first, 7,5 for the second and 7,5 without a project; Tuesday 15 and 15.
+ */
+export const withTwoProjects = (workspace: Workspace): Workspace => {
+  const row = (id: string, projectNo: string, fte: Record<ISODate, number>): AllocationRow => ({
+    id,
+    order: 0,
+    projectName: projectNo ? `Prosjekt ${projectNo}` : 'Uten nummer',
+    projectNo,
+    refYear: '',
+    competence: 'Vegger',
+    phase: 'Montering',
+    basis: '',
+    fte,
+    notes: {},
+  })
+  return {
+    ...workspace,
+    allocations: [
+      row('two-first', TWO_PROJECTS.first, { '2026-10-12': 2, '2026-10-13': 2 }),
+      row('two-second', TWO_PROJECTS.second, { '2026-10-12': 1, '2026-10-13': 2 }),
+      row('two-none', '', { '2026-10-12': 1 }),
+    ],
+    persons: ['Kari', 'Ola', 'Per', 'Siri'].map((name, index) => ({ id: `two-${index + 1}`, name, order: index, competences: ['vegger'] })),
+    unavailability: [],
+    assignments: [],
+    demandAdjustments: [],
+    hireOrders: [],
+  }
+}

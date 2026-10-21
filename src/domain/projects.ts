@@ -1,6 +1,6 @@
 import type { ISODate } from './dates'
 import { diffBy, type TableDiff } from './tableDiff'
-import { VENUE_PHASES, type AllocationRow, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
+import { VENUE_PHASES, type AllocationRow, type Assignment, type DemandAdjustment, type DemandLine, type HireOrder, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { anchorDate } from './venueImport'
 
 /**
@@ -31,7 +31,10 @@ export const projectRef = (name: string, projectNo: string, year = ''): ProjectR
 }
 
 const refKey = (ref: ProjectRef): string => `${normalizeName(ref.name)}|${refYear(ref)}`
-const sameNumber = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase()
+/** A project number as it is compared and looked up, whatever its case and spaces. */
+export const numberKey = (projectNo: string): string => projectNo.trim().toLowerCase()
+
+const sameNumber = (a: string, b: string): boolean => numberKey(a) === numberKey(b)
 
 export interface VenueEvent {
   key: string
@@ -204,16 +207,23 @@ export const diffProjectList = (existing: ProjectRef[], incoming: ProjectRef[]):
 export interface ProjectFollowers {
   allocations: AllocationRow[]
   demand: DemandLine[]
+  /** The blocks, orders and moved hours tagged with a project, which follow its number. */
+  assignments: Assignment[]
+  hireOrders: HireOrder[]
+  demandAdjustments: DemandAdjustment[]
 }
 
 /**
  * The planning rows and the planner's own demand lines that follow a change of the project table, as they become.
  * Rows planned for an event follow it to the number it gets, so their demand is looked up there. A project that
  * gets another number (`renumbered`) takes its rows and its own demand lines along; orders keep the number they came with.
+ * What is tagged with a project (blocks, orders of Innleid, moved hours) has no event of its own: it follows a new number,
+ * and follows the events of its number where all of them go to one other number.
  */
-export const projectFollowers = (ws: Pick<Workspace, 'venue' | 'projects' | 'allocations' | 'demand'>, projects: ProjectRef[], renumbered?: { from: string; to: string }): ProjectFollowers => {
+export const projectFollowers = (ws: Pick<Workspace, 'venue' | 'projects' | 'allocations' | 'demand' | 'assignments' | 'hireOrders' | 'demandAdjustments'>, projects: ProjectRef[], renumbered?: { from: string; to: string }): ProjectFollowers => {
   const before = new Map(venueEvents(ws.venue, ws.projects).map((event) => [event.key, event.projectNo]))
-  const moves = venueEvents(ws.venue, projects)
+  const after = venueEvents(ws.venue, projects)
+  const moves = after
     .filter((event) => before.get(event.key) !== event.projectNo)
     .map((event) => ({ name: normalizeName(event.name), from: before.get(event.key) ?? '', to: event.projectNo }))
   const moved = (row: AllocationRow): string => {
@@ -221,9 +231,26 @@ export const projectFollowers = (ws: Pick<Workspace, 'venue' | 'projects' | 'all
     const move = moves.find((event) => event.name === normalizeName(row.projectName) && row.projectNo === event.from)
     return move ? move.to : row.projectNo
   }
+  // The number each number of the events goes to, where all of its events go to the same one.
+  const goesTo = new Map<string, string | null>()
+  for (const event of after) {
+    const from = before.get(event.key)
+    if (!from) continue
+    const key = numberKey(from)
+    goesTo.set(key, goesTo.has(key) && goesTo.get(key) !== event.projectNo ? null : event.projectNo)
+  }
+  const numberOf = (projectNo: string): string => {
+    if (renumbered && sameNumber(projectNo, renumbered.from)) return renumbered.to
+    const to = goesTo.get(numberKey(projectNo))
+    return to && !sameNumber(to, projectNo) ? to : projectNo
+  }
+  const tagged = <T extends { projectNo?: string }>(items: T[] | undefined): T[] => (items ?? []).flatMap((item) => (item.projectNo && numberOf(item.projectNo) !== item.projectNo ? [{ ...item, projectNo: numberOf(item.projectNo) }] : []))
   return {
     allocations: ws.allocations.flatMap((row) => (moved(row) === row.projectNo ? [] : [{ ...row, projectNo: moved(row) }])),
     demand: renumbered ? ws.demand.flatMap((line) => (line.origin === 'manual' && sameNumber(line.projectNo, renumbered.from) ? [{ ...line, projectNo: renumbered.to }] : [])) : [],
+    assignments: tagged(ws.assignments),
+    hireOrders: tagged(ws.hireOrders),
+    demandAdjustments: tagged(ws.demandAdjustments),
   }
 }
 

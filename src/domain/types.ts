@@ -230,6 +230,21 @@ export type CompetenceKey = string
 
 export const competenceKey = (text: string): CompetenceKey => text.trim().toLowerCase()
 
+/** What a block or an order is work of: a competence, and the project it is for where the planner picked one. */
+export interface Work {
+  competence: CompetenceKey
+  projectNo?: string
+}
+
+/** A competence alone is work for no project in particular. */
+export const workOf = (work: CompetenceKey | Work): Work => (typeof work === 'string' ? { competence: work } : work)
+
+/** The project as it is stored on a block or an order: none rather than an empty number. */
+export const projectTag = (work: Work): { projectNo?: string } => (work.projectNo ? { projectNo: work.projectNo } : {})
+
+/** Whether two pieces of work are for the same project, none being the same as none. */
+export const sameProject = (a: { projectNo?: string }, b: { projectNo?: string }): boolean => (a.projectNo ?? '').trim().toLowerCase() === (b.projectNo ?? '').trim().toLowerCase()
+
 export const LINE_COLORS = ['line-blue', 'line-teal', 'line-green', 'line-amber', 'line-rose', 'line-violet', 'line-slate', 'line-orange'] as const
 export type LineColor = (typeof LINE_COLORS)[number]
 
@@ -273,8 +288,9 @@ export interface Assignment {
   end: Minute
   /** `suggested` is kept for assignments the app may propose later. */
   source: 'manual' | 'suggested'
-  /** Not set yet; kept so an assignment can later be tied to a Kalender row. */
+  /** The project the work is for, where the planner painted it on the project's line. Without it, the hours are shared out over the projects that lack them (`projectBalance`). */
   projectNo?: string
+  /** Not set yet; kept so an assignment can later be tied to a hall. */
   hall?: string
 }
 
@@ -311,6 +327,8 @@ export interface HireOrder {
   conf: number | null
   /** What was asked for, where the supplier confirmed fewer. */
   asked?: number
+  /** The project the people are for, as on a block. */
+  projectNo?: string
 }
 
 /** Hours added to a day's demand for a competence, on top of what the Kalender plans. */
@@ -323,6 +341,8 @@ export interface DemandAdjustment {
   reason: 'carry'
   /** The day the work was not finished. */
   fromDate?: ISODate
+  /** The project the hours are for. Without it they are demand without a project («Uten prosjekt»). */
+  projectNo?: string
   createdAt: string
   note?: string
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { diffProjectList, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectRows, suggestProjectNo, venueEvents, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
-import type { AllocationRow, DemandLine, ProjectRef, VenueBooking } from './types'
+import type { AllocationRow, Assignment, DemandAdjustment, DemandLine, HireOrder, ProjectRef, VenueBooking } from './types'
 
 const booking = (eventName: string, hall: string, phases: VenueBooking['phases']): VenueBooking => ({ id: `${eventName}-${hall}`, hall, eventName, status: 'confirmed', phases })
 
@@ -99,6 +99,25 @@ describe('what follows a project', () => {
     const { allocations, demand } = projectFollowers(planned, withProjectNo(before, '26HAG', '26100'), { from: '26HAG', to: '26100' })
     expect(allocations.map((r) => r.projectNo)).toEqual(['26100'])
     expect(demand.map((l) => [l.id, l.projectNo])).toEqual([['26HAG-manual', '26100']])
+  })
+
+  const block = (projectNo?: string): Assignment => ({ id: `a-${projectNo ?? 'none'}`, personId: 'p1', date: '2026-04-08', competence: 'foga', start: 420, end: 900, source: 'manual', ...(projectNo && { projectNo }) })
+  const order: HireOrder = { id: 'o1', supplierId: 's1', competence: 'foga', date: '2026-04-08', fte: 2, start: 420, end: 900, conf: 2, projectNo: '26HAG' }
+  const moved: DemandAdjustment = { id: 'm1', competence: 'foga', date: '2026-04-09', hours: 3, reason: 'carry', createdAt: '', projectNo: '26HAG' }
+
+  it('moves the blocks, orders and moved hours of a project that gets another number', () => {
+    const before = withProjectName([], '26HAG', 'HAGE 2026', '2026')
+    const planned = { ...ws, projects: before, assignments: [block('26HAG'), block()], hireOrders: [order], demandAdjustments: [moved] }
+    const follow = projectFollowers(planned, withProjectNo(before, '26HAG', '26100'), { from: '26HAG', to: '26100' })
+    expect(follow.assignments.map((a) => [a.id, a.projectNo])).toEqual([['a-26HAG', '26100']])
+    expect(follow.hireOrders.map((o) => o.projectNo)).toEqual(['26100'])
+    expect(follow.demandAdjustments.map((m) => m.projectNo)).toEqual(['26100'])
+  })
+
+  it('moves what is tagged with a number whose events all go to another project', () => {
+    const planned = { ...ws, projects: withProjectName([], '26HAG', 'HAGE 2026', '2026'), assignments: [block('26HAG'), block('26970')] }
+    const follow = projectFollowers(planned, withProjectName([], '26101', 'HAGE 2026', '2026'))
+    expect(follow.assignments.map((a) => [a.id, a.projectNo])).toEqual([['a-26HAG', '26101']])
   })
 })
 

@@ -1,5 +1,5 @@
 import { dateRange, type ISODate } from './dates'
-import { eventKey, numberYear, venueEvents } from './projects'
+import { eventKey, numberKey, numberYear, venueEvents } from './projects'
 import { diffBy, type TableDiff } from './tableDiff'
 import { PLANNED_BASIS, type Budgets, type Workspace, type WorkPhase } from './types'
 import { anchorDate, visibleVenue } from './venueImport'
@@ -11,8 +11,6 @@ import { anchorDate, visibleVenue } from './venueImport'
  */
 
 /** A project number as budgets are looked up by it. */
-const numberKey = (projectNo: string): string => projectNo.trim().toLowerCase()
-
 /** The budget of a project, or null where it has none. */
 export const budgetOf = (budgets: Budgets | undefined, projectNo: string): number | null => {
   const key = numberKey(projectNo)

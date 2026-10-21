@@ -1,5 +1,5 @@
 import { dayOfMonth, monthShort, weekdayIndex, WEEKDAYS_NB, type ISODate } from './dates'
-import { SHIFT_IDS, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type WorkdaySettings, type Workspace } from './types'
+import { projectTag, sameProject, SHIFT_IDS, workOf, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type Work, type WorkdaySettings, type Workspace } from './types'
 
 /**
  * The rules of Innleid: orders of people from suppliers against the hours of a competence that remain on a day
@@ -116,9 +116,9 @@ export const deviation = (covers: Coverage[]): Deviation => {
 
 const newId = () => `hire-${crypto.randomUUID()}`
 
-const sameOrder = (a: HireOrder, b: HireOrder) => a.supplierId === b.supplierId && a.competence === b.competence && a.date === b.date && a.start === b.start && a.end === b.end
+const sameOrder = (a: HireOrder, b: HireOrder) => a.supplierId === b.supplierId && a.competence === b.competence && a.date === b.date && a.start === b.start && a.end === b.end && sameProject(a, b)
 
-/** I5: orders of the same supplier, competence, day and time are one: their people add up, and it waits while one of them does. */
+/** I5: orders of the same supplier, competence, project, day and time are one: their people add up, and it waits while one of them does. */
 export const mergeOrders = (orders: HireOrder[]): HireOrder[] => {
   const merged: HireOrder[] = []
   for (const order of orders) {
@@ -134,23 +134,26 @@ export const mergeOrders = (orders: HireOrder[]): HireOrder[] => {
   return merged.length === orders.length ? orders : merged
 }
 
-const ordersOf = (orders: HireOrder[], competence: CompetenceKey, date: ISODate) => orders.filter((order) => order.competence === competence && order.date === date)
+const ordersOf = (orders: HireOrder[], work: Work, date: ISODate) => orders.filter((order) => order.competence === work.competence && order.date === date && (!work.projectNo || sameProject(order, work)))
 
 /**
  * I3: the orders a supplier is given for a competence over some days, each with the people that cover what is missing.
- * The shift is the supplier's first that it is not ordered for on those days already. Only the days that are short are
- * ordered; where none is and `strict` is not set, every day gets one person, as an extra supplier.
- * `restOf` gives the hours that remain of the competence on a day after the permanent staff.
+ * The shift is the supplier's first that it is not ordered for on those days already, for the same project. Only the days
+ * that are short are ordered; where none is and `strict` is not set, every day gets one person, as an extra supplier.
+ * `restOf` gives the hours that remain of the competence on a day after the permanent staff: of the project, where
+ * the work is for one, and then only that project's orders cover them.
  */
-export const planOrders = (orders: HireOrder[], supplier: Supplier, competence: CompetenceKey, dates: ISODate[], restOf: (date: ISODate) => number, wd: WorkdaySettings, strict = false, makeId: () => string = newId): HireOrder[] => {
+export const planOrders = (orders: HireOrder[], supplier: Supplier, work: CompetenceKey | Work, dates: ISODate[], restOf: (date: ISODate) => number, wd: WorkdaySettings, strict = false, makeId: () => string = newId): HireOrder[] => {
+  const tagged = workOf(work)
+  const competence = tagged.competence
   if (!supplier.competences.includes(competence) || !supplier.shifts.length) return []
-  const taken = new Set(orders.filter((order) => order.supplierId === supplier.id && order.competence === competence && dates.includes(order.date)).map((order) => shiftOf(order, wd)))
+  const taken = new Set(orders.filter((order) => order.supplierId === supplier.id && order.competence === competence && sameProject(order, tagged) && dates.includes(order.date)).map((order) => shiftOf(order, wd)))
   const times = shiftTimes(supplier.shifts.find((shift) => !taken.has(shift)) ?? supplier.shifts[0], wd)
   const hours = hireHours(times, wd)
-  const missing = new Map(dates.map((date) => [date, coverage(restOf(date), ordersOf(orders, competence, date), wd)]))
+  const missing = new Map(dates.map((date) => [date, coverage(restOf(date), ordersOf(orders, tagged, date), wd)]))
   const short = dates.filter((date) => missing.get(date)!.state === 'short')
   const days = short.length ? short : strict ? [] : dates
-  return days.map((date) => ({ id: makeId(), supplierId: supplier.id, competence, date, fte: Math.max(1, Math.ceil(Math.max(0, missing.get(date)!.remaining) / hours - 1e-6)), ...times, conf: null }))
+  return days.map((date) => ({ id: makeId(), supplierId: supplier.id, competence, ...projectTag(tagged), date, fte: Math.max(1, Math.ceil(Math.max(0, missing.get(date)!.remaining) / hours - 1e-6)), ...times, conf: null }))
 }
 
 /** The orders with `change` made to those with the ids, merged again where two have become the same. */
@@ -205,17 +208,18 @@ export const eraseOrders = (orders: HireOrder[], competence: CompetenceKey, date
   return orders.some(gone) ? orders.filter((order) => !gone(order)) : orders
 }
 
-/** The orders of one supplier at one time, over the days that are picked: a line of the editor. */
+/** The orders of one supplier at one time for one project, over the days that are picked: a line of the editor. */
 export interface OrderGroup {
   key: string
   supplierId: string
   start: Minute
   end: Minute
+  projectNo?: string
   orders: HireOrder[]
 }
 
-/** What tells the lines of the editor apart: a supplier and a time. */
-export const groupKey = (supplierId: string, times: Interval): string => `${supplierId}|${times.start}|${times.end}`
+/** What tells the lines of the editor apart: a supplier, a time and a project. */
+export const groupKey = (supplierId: string, times: Interval & { projectNo?: string }): string => `${supplierId}|${times.start}|${times.end}|${(times.projectNo ?? '').trim().toLowerCase()}`
 
 /** How late in the working day a time is, counted from six in the morning, so that a night shift comes last. */
 const fromMorning = (minute: Minute) => (minute - 360 + DAY) % DAY
@@ -225,7 +229,7 @@ export const orderGroups = (orders: HireOrder[], suppliers: Supplier[]): OrderGr
   const groups = new Map<string, OrderGroup>()
   for (const order of orders) {
     const key = groupKey(order.supplierId, order)
-    if (!groups.has(key)) groups.set(key, { key, supplierId: order.supplierId, start: order.start, end: order.end, orders: [] })
+    if (!groups.has(key)) groups.set(key, { key, supplierId: order.supplierId, start: order.start, end: order.end, ...projectTag(order), orders: [] })
     groups.get(key)!.orders.push(order)
   }
   const place = (id: string) => suppliers.findIndex((supplier) => supplier.id === id)
@@ -240,7 +244,7 @@ export const fillGroup = (group: OrderGroup, competence: CompetenceKey, dates: I
   const counts = group.orders.map((order) => order.fte).sort((a, b) => a - b)
   const fte = counts[Math.floor(counts.length / 2)]
   const have = new Set(group.orders.map((order) => order.date))
-  return dates.filter((date) => !have.has(date)).map((date) => ({ id: makeId(), supplierId: group.supplierId, competence, date, fte, start: group.start, end: group.end, conf: null }))
+  return dates.filter((date) => !have.has(date)).map((date) => ({ id: makeId(), supplierId: group.supplierId, competence, ...(group.projectNo && { projectNo: group.projectNo }), date, fte, start: group.start, end: group.end, conf: null }))
 }
 
 /** A supplier's orders as they are listed: by day, then in the planner's order of the competences, then by time. */
@@ -250,16 +254,18 @@ export const supplierOrders = (supplier: Supplier, orders: HireOrder[], competen
 }
 
 /**
- * I9: a supplier's order as text, to send: a heading per day, and under it a line per competence and time.
- * `competences` are the competences in the planner's order, with their names.
+ * I9: a supplier's order as text, to send: a heading per day, and under it a line per competence and time, with the
+ * project the people are for, which tells the supplier where they meet. `competences` are the competences in the
+ * planner's order, with their names; `projectName` names a project by its number.
  */
-export const orderText = (supplier: Supplier, orders: HireOrder[], competences: { key: CompetenceKey; label: string }[]): string => {
+export const orderText = (supplier: Supplier, orders: HireOrder[], competences: { key: CompetenceKey; label: string }[], projectName: (projectNo: string) => string = (projectNo) => projectNo): string => {
   const lines = [`Bestilling – ${supplier.name}`]
   let day = ''
   for (const order of supplierOrders(supplier, orders, competences)) {
     if (order.date !== day) lines.push(`${WEEKDAYS_NB[weekdayIndex(order.date)].toLowerCase()} ${dayOfMonth(order.date)}. ${monthShort(order.date)}`)
     day = order.date
-    lines.push(`  ${competences.find((competence) => competence.key === order.competence)?.label ?? order.competence}: ${order.fte} pers. ${timesText(order)}`)
+    const label = competences.find((competence) => competence.key === order.competence)?.label ?? order.competence
+    lines.push(`  ${label}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}: ${order.fte} pers. ${timesText(order)}`)
   }
   return lines.join('\n')
 }

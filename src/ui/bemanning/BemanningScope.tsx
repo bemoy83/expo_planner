@@ -99,6 +99,8 @@ export interface StretchPlan {
   colFrom: number
   colTo: number
   competence: string
+  /** The project of the run, which the days it goes on over get too. */
+  projectNo?: string
   erase: boolean
   cells: Day[]
   /** The blocks of the run that are given up. */
@@ -364,6 +366,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       row: stroke.row0,
       ...colsOf(changed),
       competence: block.competence,
+      ...(block.projectNo && { projectNo: block.projectNo }),
       erase,
       cells,
       blockIds: plan.remove.map((day) => day.block.id),
@@ -378,7 +381,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const stretched = (w: Workspace, plan: StretchPlan): Assignment[] =>
     plan.erase
       ? (w.assignments ?? []).filter((a) => !plan.blockIds.includes(a.id)).map((a) => (plan.trim && a.id === plan.trim.blockId ? { ...a, start: plan.trim.start, end: plan.trim.end } : a))
-      : paintDays(w, plan.cells, plan.competence, 'full')
+      : paintDays(w, plan.cells, { competence: plan.competence, projectNo: plan.projectNo }, 'full')
   const { ghost, info, refused } = useMemo((): { ghost: Ghosts; info: StrokeInfo | null; refused: Day | null } => {
     const none = { ghost: NO_GHOST, info: null, refused: null }
     if (!active) return none
@@ -390,13 +393,13 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       found.get(cell.personId)!.set(cell.date, blocks)
     }
     /** What the brush would give the days, drawn across: the time as a preview, and the count of it. A working day it cannot fill is passed over; `own` is none. */
-    const brushed = (cells: Day[], competence: string, span: PaintSpan, own?: ISODate) => {
+    const brushed = (cells: Day[], competence: string, span: PaintSpan, own?: ISODate, projectNo?: string) => {
       const count = { days: 0, hours: 0, skipped: 0 }
       const offDays = onlyOffDays(cells)
       for (const cell of cells) {
         const gaps = paintGaps(ws, cell, competence, span, offDays)
         if (gaps.length) {
-          put(cell, gaps.map((gap) => ({ ...gap, competence })))
+          put(cell, gaps.map((gap) => ({ ...gap, competence, ...(projectNo && { projectNo }) })))
           count.days += 1
           count.hours += paidTotal(gaps, wd)
         } else if (dayType(cell.date) === 'arbeidsdag' && cell.date !== own) count.skipped += 1
@@ -412,7 +415,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
         return { ...none, info: { mode: 'erase', half: false, days: gone.length + (cut ? 1 : 0), hours: paidTotal(gone, wd) + cutHours, people: 1, skipped: 0 } }
       }
       // The days the run is to go on over get what the brush would give them.
-      const count = brushed(stretch.cells, stretch.competence, 'full', stretch.own)
+      const count = brushed(stretch.cells, stretch.competence, 'full', stretch.own, stretch.projectNo)
       return { ghost: found, info: { mode: 'paint', half: false, people: 1, competence: stretch.competence, toDemand: stroke.toDemand, ...count }, refused: null }
     }
     if (stroke?.mode === 'erase') {

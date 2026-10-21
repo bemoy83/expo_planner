@@ -1,7 +1,10 @@
 import { staffedCompetences } from './competences'
 import { addDays, daysBetween, weekdayIndex, type ISODate } from './dates'
+import { hireHours, isWaiting } from './hire'
 import { dayType, type DayType } from './holidays'
-import { competenceKey, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type WorkdaySettings, type Workspace } from './types'
+import { numberKey } from './projects'
+import { spread } from './spread'
+import { competenceKey, projectTag, sameProject, workOf, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type Work, type WorkdaySettings, type Workspace } from './types'
 
 /**
  * The rules of Bemanning: who can work when, what an assignment counts for, and how far the assigned
@@ -121,7 +124,7 @@ const dayKey = (personId: string, date: ISODate) => `${personId}|${date}`
 const keyOf = (a: { personId: string; date: ISODate }) => dayKey(a.personId, a.date)
 
 /**
- * R9: joins a block to the one before it when they touch and have the same competence; the earlier block's id is kept.
+ * R9: joins a block to the one before it when they touch and are the same work, of one competence for one project; the earlier block's id is kept.
  * With `only`, just those person-days are looked at.
  */
 export const mergeAdjacent = (assignments: Assignment[], only?: Set<string>): Assignment[] => {
@@ -135,7 +138,7 @@ export const mergeAdjacent = (assignments: Assignment[], only?: Set<string>): As
     blocks.sort((a, b) => a.start - b.start)
     let last = blocks[0]
     for (const block of blocks.slice(1)) {
-      if (block.start === last.end && block.competence === last.competence) {
+      if (block.start === last.end && block.competence === last.competence && sameProject(block, last)) {
         last = { ...last, end: block.end }
         replaced.set(last.id, last)
         replaced.set(block.id, null)
@@ -203,8 +206,13 @@ export const paintGaps = (ws: Workspace, cell: DayCell, competence: CompetenceKe
   return halves.map(free).find((found) => found.length) ?? []
 }
 
-/** R6: gives each cell's person work of the competence in the time `paintGaps` finds. Cells that have none are skipped, as weekends and holidays are among working days. */
-export const paintDays = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, span: PaintSpan, makeId: () => string = newId): Assignment[] => {
+/**
+ * R6: gives each cell's person work of the competence in the time `paintGaps` finds, for the project where one is given.
+ * Cells that have none are skipped, as weekends and holidays are among working days.
+ */
+export const paintDays = (ws: Workspace, cells: DayCell[], work: CompetenceKey | Work, span: PaintSpan, makeId: () => string = newId): Assignment[] => {
+  const tagged = workOf(work)
+  const competence = tagged.competence
   const before = ws.assignments ?? []
   let assignments = before
   const touched = new Set<string>()
@@ -212,7 +220,7 @@ export const paintDays = (ws: Workspace, cells: DayCell[], competence: Competenc
   for (const cell of cells) {
     const gaps = paintGaps(ws, cell, competence, span, offDays, assignments)
     if (!gaps.length) continue
-    assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, start: gap.start, end: gap.end, source: 'manual' }))]
+    assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, ...projectTag(tagged), start: gap.start, end: gap.end, source: 'manual' }))]
     touched.add(keyOf(cell))
   }
   return touched.size ? mergeAdjacent(assignments, touched) : before
@@ -323,7 +331,7 @@ const roomFor = (ws: Workspace, block: Assignment, opts: EditOptions): Interval 
 
 const withBlock = (ws: Workspace, block: Assignment, changed: Assignment, merge = true): Assignment[] => {
   const all = ws.assignments ?? []
-  if (changed.start === block.start && changed.end === block.end && changed.competence === block.competence) return all
+  if (changed.start === block.start && changed.end === block.end && changed.competence === block.competence && sameProject(changed, block)) return all
   const next = all.map((a) => (a.id === block.id ? changed : a))
   return merge ? mergeAdjacent(next, new Set([keyOf(block)])) : next
 }
@@ -373,6 +381,7 @@ export const moveAssignment = (ws: Workspace, id: string, toDate: ISODate, toSta
 /** A block without its place: what is copied, and what a move carries to another day. */
 export interface BlockShape {
   competence: CompetenceKey
+  projectNo?: string
   start: Minute
   end: Minute
 }
@@ -439,7 +448,7 @@ export interface Clipboard {
 export const copyDays = (ws: Workspace, cells: DayCell[]): Clipboard | null => {
   const from = cells.map((cell) => cell.date).sort()[0]
   const items = cells
-    .map((cell) => ({ personId: cell.personId, dayOffset: daysBetween(from, cell.date), blocks: blocksOf(ws.assignments ?? [], cell.personId, cell.date).map(({ competence, start, end }) => ({ competence, start, end })) }))
+    .map((cell) => ({ personId: cell.personId, dayOffset: daysBetween(from, cell.date), blocks: blocksOf(ws.assignments ?? [], cell.personId, cell.date).map((a) => ({ competence: a.competence, ...projectTag(a), start: a.start, end: a.end })) }))
     .filter((item) => item.blocks.length > 0)
   return items.length ? { from, people: [...new Set(cells.map((cell) => cell.personId))], items } : null
 }
@@ -461,7 +470,7 @@ export const pasteTargets = (ws: Workspace, clip: Clipboard, anchor: ISODate, la
       ? []
       : item.blocks.flatMap((block) => {
           if (!isEligible(person, block.competence)) return []
-          const gaps = landingGaps(ws, cell, block, assignments).map((gap) => ({ competence: block.competence, start: gap.start, end: gap.end }))
+          const gaps = landingGaps(ws, cell, block, assignments).map((gap) => ({ competence: block.competence, ...projectTag(block), start: gap.start, end: gap.end }))
           // What is placed takes its time, so two copied blocks never land on each other.
           assignments = [...assignments, ...gaps.map((gap): Assignment => ({ ...gap, id: '', personId: cell.personId, date: cell.date, source: 'manual' }))]
           return gaps
@@ -520,39 +529,39 @@ export const deleteBlock = (assignments: Assignment[], id: string): Assignment[]
 const gapAt = (ws: Workspace, personId: string, date: ISODate, t: Minute, opts: EditOptions): Interval | null =>
   subtract(openWindows(ws, personId, date, opts), blocksOf(ws.assignments ?? [], personId, date)).find((iv) => iv.start <= t && t < iv.end) ?? null
 
-const addBlock = (ws: Workspace, cell: DayCell, competence: CompetenceKey, iv: Interval, makeId: () => string): Assignment[] => {
+const addBlock = (ws: Workspace, cell: DayCell, work: Work, iv: Interval, makeId: () => string): Assignment[] => {
   const wd = ws.settings.workday
   const all = ws.assignments ?? []
   if (length(iv) < wd.snap || paidHours(iv, wd) <= 0) return all
-  const block: Assignment = { id: makeId(), personId: cell.personId, date: cell.date, competence, start: iv.start, end: iv.end, source: 'manual' }
+  const block: Assignment = { id: makeId(), personId: cell.personId, date: cell.date, competence: work.competence, ...projectTag(work), start: iv.start, end: iv.end, source: 'manual' }
   return mergeAdjacent([...all, block], new Set([keyOf(cell)]))
 }
 
 /** R8: draws a block over the dragged span, within the free stretch the drag started in. */
-export const drawBlock = (ws: Workspace, cell: DayCell, competence: CompetenceKey, from: Minute, to: Minute, opts: EditOptions = {}, makeId: () => string = newId): Assignment[] => {
+export const drawBlock = (ws: Workspace, cell: DayCell, work: CompetenceKey | Work, from: Minute, to: Minute, opts: EditOptions = {}, makeId: () => string = newId): Assignment[] => {
   const wd = ws.settings.workday
   const all = ws.assignments ?? []
   const gap = gapAt(ws, cell.personId, cell.date, from, opts)
-  if (!gap || !isEligible(ws.persons?.find((p) => p.id === cell.personId), competence)) return all
+  if (!gap || !isEligible(ws.persons?.find((p) => p.id === cell.personId), workOf(work).competence)) return all
   const start = clamp(snapped(Math.min(from, to), wd, opts), gap.start, gap.end)
   const end = clamp(snapped(Math.max(from, to), wd, opts), gap.start, gap.end)
-  return addBlock(ws, cell, competence, { start, end }, makeId)
+  return addBlock(ws, cell, workOf(work), { start, end }, makeId)
 }
 
 /**
  * R8: a click with the brush on free time. Inside the person's normal time it fills what is free of it around the click;
  * in overtime it makes an hour's block from the full hour clicked.
  */
-export const clickBlock = (ws: Workspace, cell: DayCell, competence: CompetenceKey, t: Minute, opts: EditOptions = {}, makeId: () => string = newId): Assignment[] => {
+export const clickBlock = (ws: Workspace, cell: DayCell, work: CompetenceKey | Work, t: Minute, opts: EditOptions = {}, makeId: () => string = newId): Assignment[] => {
   const wd = ws.settings.workday
   const all = ws.assignments ?? []
   const gap = gapAt(ws, cell.personId, cell.date, t, opts)
-  if (!gap || !isEligible(ws.persons?.find((p) => p.id === cell.personId), competence)) return all
+  if (!gap || !isEligible(ws.persons?.find((p) => p.id === cell.personId), workOf(work).competence)) return all
   const normal = normalWindows(cell.personId, cell.date, ws.unavailability ?? [], wd).find((iv) => iv.start <= t && t < iv.end)
   const hour = Math.floor(t / 60) * 60
   const wanted = normal ?? { start: hour, end: hour + CLICK_OVERTIME_BLOCK }
   const iv = intersect(wanted, gap)
-  return iv ? addBlock(ws, cell, competence, iv, makeId) : all
+  return iv ? addBlock(ws, cell, workOf(work), iv, makeId) : all
 }
 
 /** What must hold for the stored assignments; returns a line per breach. Used by the tests after every kind of edit. */
@@ -633,6 +642,139 @@ export const buildBalance = (ws: Workspace, dates: ISODate[]): Balance => {
 
 export const dayBalance = (ws: Workspace, competence: CompetenceKey, date: ISODate): DayBalance => buildBalance(ws, [date]).get(competence, date)
 
+/** The recipient of the hours that are for no project: demand on Kalender rows without a number, and hours moved without a project. */
+export const NO_PROJECT = ''
+
+/** How a project is looked up in the balance: by its number, as Resultat finds it; `NO_PROJECT` where it has none. */
+const projectKey = (projectNo: string | undefined): string => numberKey(projectNo ?? NO_PROJECT)
+
+/** One project's part of a competence on a day. */
+export interface ProjectDay {
+  /** The number as the first row or block that has the project writes it; `NO_PROJECT` for the demand without one. */
+  projectNo: string
+  /** The hours the Kalender plans for the project, plus the hours moved to the day for it. */
+  demand: number
+  /** The part of the demand that was moved here from another day. */
+  carried: number
+  /** The hours of blocks, and in `withHired` of confirmed orders, that are for the project. */
+  tagged: number
+  /** The project's share of the hours that are for no project in particular. */
+  shared: number
+  /** `demand − tagged − shared`: negative when the project is tagged with more than it needs. */
+  remaining: number
+}
+
+/** A competence on a day, shared out on its projects. */
+export interface ProjectDayBalance {
+  /** By the project's `numberKey`, with `NO_PROJECT` for the demand that has none. */
+  projects: Map<string, ProjectDay>
+  /** The hours assigned for no project, before they are shared out. */
+  untagged: number
+  /** The untagged hours more than all the projects lack together, which go to none: «Ikke fordelt». */
+  unshared: number
+}
+
+export interface ProjectBalance {
+  get: (competence: CompetenceKey, date: ISODate) => ProjectDayBalance
+  /** One project's part, nothing where it has none. */
+  of: (competence: CompetenceKey, date: ISODate, projectNo: string | undefined) => ProjectDay
+  /** Every competence with demand or assigned hours on the dates. */
+  competences: CompetenceKey[]
+}
+
+const NO_PROJECT_DAY: ProjectDay = { projectNo: NO_PROJECT, demand: 0, carried: 0, tagged: 0, shared: 0, remaining: 0 }
+const NO_PROJECT_BALANCE: ProjectDayBalance = { projects: new Map(), untagged: 0, unshared: 0 }
+
+/**
+ * The balance of `buildBalance` per project, over the whole workspace: what is hidden in the Kalender does not change it.
+ * A project gets the hours tagged with it, and a share of the untagged hours by what it still lacks after them, as
+ * `spreadOpen` shares by hours: where one project alone lacks hours, it gets them all. Untagged hours more than all
+ * lack together go to none. The demand without a project is a recipient of its own, `NO_PROJECT`. Nothing of this
+ * is stored. Bemanning counts the permanent staff alone, whose rest is what Innleid orders for; `withHired` counts
+ * the confirmed orders too, as Resultat does. Shared by what is lacking, the two give each project the same.
+ */
+export const buildProjectBalance = (ws: Workspace, dates: ISODate[], withHired = false): ProjectBalance => {
+  const wd = ws.settings.workday
+  const wanted = new Set(dates)
+  const cells = new Map<string, { projects: Map<string, ProjectDay>; untagged: number; unshared: number }>()
+  const cell = (competence: CompetenceKey, date: ISODate) => {
+    const key = `${competence}|${date}`
+    if (!cells.has(key)) cells.set(key, { projects: new Map(), untagged: 0, unshared: 0 })
+    return cells.get(key)!
+  }
+  const part = (competence: CompetenceKey, date: ISODate, projectNo: string | undefined) => {
+    const projects = cell(competence, date).projects
+    const key = projectKey(projectNo)
+    if (!projects.has(key)) projects.set(key, { ...NO_PROJECT_DAY, projectNo: key ? projectNo!.trim() : NO_PROJECT })
+    return projects.get(key)!
+  }
+  const assigned = (competence: CompetenceKey, date: ISODate, projectNo: string | undefined, hours: number) => {
+    if (projectKey(projectNo)) part(competence, date, projectNo).tagged += hours
+    else cell(competence, date).untagged += hours
+  }
+  for (const row of ws.allocations) {
+    const competence = competenceKey(row.competence)
+    if (!competence) continue
+    for (const date in row.fte) if (row.fte[date] && wanted.has(date)) part(competence, date, row.projectNo).demand += row.fte[date] * ws.settings.hoursPerDay
+  }
+  for (const adjustment of ws.demandAdjustments ?? []) {
+    if (!wanted.has(adjustment.date)) continue
+    const p = part(adjustment.competence, adjustment.date, adjustment.projectNo)
+    p.demand += adjustment.hours
+    p.carried += adjustment.hours
+  }
+  for (const a of okAssignments(ws)) if (wanted.has(a.date)) assigned(a.competence, a.date, a.projectNo, paidHours(a, wd))
+  if (withHired) for (const order of ws.hireOrders ?? []) if (wanted.has(order.date) && !isWaiting(order)) assigned(order.competence, order.date, order.projectNo, order.fte * hireHours(order, wd))
+  for (const c of cells.values()) {
+    const lacking = [...c.projects.values()].map((p) => Math.max(0, p.demand - p.tagged))
+    const lack = lacking.reduce((sum, hours) => sum + hours, 0)
+    const share = Math.min(c.untagged, lack)
+    let i = 0
+    for (const p of c.projects.values()) {
+      p.shared = lack > 0 ? (share * lacking[i]) / lack : 0
+      p.remaining = p.demand - p.tagged - p.shared
+      i += 1
+    }
+    c.unshared = Math.max(0, c.untagged - lack)
+  }
+  const get = (competence: CompetenceKey, date: ISODate) => cells.get(`${competence}|${date}`) ?? NO_PROJECT_BALANCE
+  return {
+    get,
+    of: (competence, date, projectNo) => get(competence, date).projects.get(projectKey(projectNo)) ?? NO_PROJECT_DAY,
+    competences: [...new Set([...cells.keys()].map((key) => key.slice(0, key.lastIndexOf('|'))))].sort(),
+  }
+}
+
+/** A project over a period: what the Kalender plans for it, what is staffed, and what remains. */
+export interface ProjectTotal {
+  planned: number
+  tagged: number
+  shared: number
+  /** `planned − tagged − shared`. Hours moved from one day to the next are demand on both, so the days' own remaining would count them twice. */
+  remaining: number
+}
+
+/** The totals per project, by its `numberKey`, of the competences and dates given, and the hours that went to none. */
+export const projectTotals = (balance: ProjectBalance, dates: ISODate[], competences: CompetenceKey[] = balance.competences): { projects: Map<string, ProjectTotal>; unshared: number } => {
+  const projects = new Map<string, ProjectTotal>()
+  let unshared = 0
+  for (const competence of competences) {
+    for (const date of dates) {
+      const day = balance.get(competence, date)
+      unshared += day.unshared
+      for (const [key, p] of day.projects) {
+        const total = projects.get(key) ?? { planned: 0, tagged: 0, shared: 0, remaining: 0 }
+        total.planned += p.demand - p.carried
+        total.tagged += p.tagged
+        total.shared += p.shared
+        total.remaining = total.planned - total.tagged - total.shared
+        projects.set(key, total)
+      }
+    }
+  }
+  return { projects, unshared }
+}
+
 export interface FreeCapacity {
   hours: number
   /** How many people have free normal time. */
@@ -711,11 +853,22 @@ export const cellsToDemand = (ws: Workspace, cells: DayCell[], competence: Compe
 export const uncoverable = (ws: Workspace, competence: CompetenceKey, date: ISODate, balance: Balance = buildBalance(ws, [date])): number =>
   dayType(date) === 'arbeidsdag' ? Math.max(0, balance.get(competence, date).remaining - freeCapacity(ws, date, competence).hours) : 0
 
-/** R12: moves unfinished hours to the next day as added demand. The day they come from keeps its demand and its assignments. */
-export const carry = (ws: Workspace, competence: CompetenceKey, fromDate: ISODate, hours: number, makeId: () => string = () => `adj-${crypto.randomUUID()}`): DemandAdjustment[] => {
+/**
+ * R12: moves unfinished hours to the next day as added demand. The day they come from keeps its demand and its assignments.
+ * Moved for a project, the hours are for it. Moved for the competence alone, they are shared on what each project and
+ * the demand without one still lack that day, among the permanent staff, so no hours moved are left without a recipient;
+ * where none lacks any, they are for no project.
+ */
+export const carry = (ws: Workspace, work: CompetenceKey | Work, fromDate: ISODate, hours: number, makeId: () => string = () => `adj-${crypto.randomUUID()}`): DemandAdjustment[] => {
   const all = ws.demandAdjustments ?? []
   if (!(hours > 0)) return all
-  return [...all, { id: makeId(), competence, date: addDays(fromDate, 1), hours, reason: 'carry', fromDate, createdAt: new Date().toISOString() }]
+  const { competence, projectNo } = workOf(work)
+  const moved = (part: number, to: string | undefined): DemandAdjustment => ({ id: makeId(), competence, ...(to && { projectNo: to }), date: addDays(fromDate, 1), hours: part, reason: 'carry', fromDate, createdAt: new Date().toISOString() })
+  if (projectNo) return [...all, moved(hours, projectNo)]
+  const lacking = [...buildProjectBalance(ws, [fromDate]).get(competence, fromDate).projects.values()].filter((p) => p.remaining > MET)
+  if (!lacking.length) return [...all, moved(hours, undefined)]
+  const parts = spread(hours, lacking.map((p) => p.remaining))
+  return [...all, ...lacking.flatMap((p, i) => (parts[i] > 0 ? [moved(parts[i], p.projectNo || undefined)] : []))]
 }
 
 export interface WeekTotals {
@@ -871,8 +1024,12 @@ export const overtimeBreaches = (ws: Workspace, limit: number): { personId: stri
     .map((p) => ({ personId: p.id, weeks: [...overtimeByWeek(ws, p.id)].filter(([, hours]) => hours > limit).map(([monday, hours]) => ({ monday, hours })) }))
     .filter((person) => person.weeks.length > 0)
 
-/** The carried hours taken back: the adjustments for the competence on the date are removed. */
-export const removeCarried = (adjustments: DemandAdjustment[], competence: CompetenceKey, date: ISODate): DemandAdjustment[] => {
-  const kept = adjustments.filter((a) => !(a.competence === competence && a.date === date))
+/**
+ * The carried hours taken back: the adjustments for the competence on the date are removed. For a project, only those for
+ * it; for the competence alone, all of them, so every part a move was shared in goes.
+ */
+export const removeCarried = (adjustments: DemandAdjustment[], work: CompetenceKey | Work, date: ISODate): DemandAdjustment[] => {
+  const { competence, projectNo } = workOf(work)
+  const kept = adjustments.filter((a) => !(a.competence === competence && a.date === date && (!projectNo || sameProject(a, { projectNo }))))
   return kept.length === adjustments.length ? adjustments : kept
 }

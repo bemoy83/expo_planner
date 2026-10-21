@@ -232,7 +232,7 @@ function useInnleidState(active: boolean) {
     times: (group: OrderGroup, times: Interval) => {
       if (times.start === times.end) return
       setOrders((list) => changeOrders(list, idsOf(group), times))
-      follow(group, groupKey(group.supplierId, times))
+      follow(group, groupKey(group.supplierId, { ...times, projectNo: group.projectNo }))
     },
     waits: (group: OrderGroup) => setOrders((list) => setWaiting(list, idsOf(group))),
     confirm: (group: OrderGroup) => setOrders((list) => confirmOrders(list, idsOf(group))),

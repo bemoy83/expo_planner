@@ -411,9 +411,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (projects, renumbered) => {
       const ws = current.current
       if (!ws) return { rows: 0, lines: 0 }
-      const { allocations, demand } = projectFollowers(ws, projects, renumbered)
+      const { allocations, demand, ...tagged } = projectFollowers(ws, projects, renumbered)
       const rows = new Map(allocations.map((row) => [row.id, row]))
       const lines = new Map(demand.map((line) => [line.id, line]))
+      const follow = <T extends { id: string }>(items: T[] | undefined, moved: T[]): T[] | undefined => {
+        const byId = new Map(moved.map((item) => [item.id, item]))
+        return byId.size && items ? items.map((item) => byId.get(item.id) ?? item) : items
+      }
       const budgets = renumbered ? budgetsRenumbered(ws.budgets, renumbered.from, renumbered.to) : ws.budgets
       const next: Workspace = {
         ...ws,
@@ -421,6 +425,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         budgets,
         allocations: rows.size ? ws.allocations.map((row) => rows.get(row.id) ?? row) : ws.allocations,
         demand: lines.size ? ws.demand.map((line) => lines.get(line.id) ?? line) : ws.demand,
+        assignments: follow(ws.assignments, tagged.assignments),
+        hireOrders: follow(ws.hireOrders, tagged.hireOrders),
+        demandAdjustments: follow(ws.demandAdjustments, tagged.demandAdjustments),
       }
       commit(next)
       return { rows: allocations.length, lines: demand.length }
