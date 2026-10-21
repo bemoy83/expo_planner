@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useCloud } from './CloudProvider'
+import { Members } from './Members'
 import { syncText } from './syncText'
 
 /** Signing in to the shared workspace, and out of it: from ⚙ › Data › Skyen. */
@@ -70,6 +71,7 @@ export function CloudDialog({ onClose }: { onClose: () => void }) {
               )}
             </p>
             {cloud.noMembership && <p className="hint">Du er ikke lagt til i et arbeidsområde ennå. Til da arbeider du i nettleserens egne data.</p>}
+            {cloud.shared && <Members workspaceId={cloud.shared.id} me={cloud.userId} />}
             {cloud.shared && (
               <p className="hint">
                 Endringene lagres i nettleseren først og sendes til skyen så snart det er nett. Nettleserens egne data fra før innlogging ligger urørt og kommer tilbake når du logger ut.

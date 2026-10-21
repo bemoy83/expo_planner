@@ -42,6 +42,7 @@ beforeAll(async () => {
   db = new PGlite()
   await db.exec(AUTH)
   await db.exec(readFileSync('supabase/schema.sql', 'utf8'))
+  await db.exec(readFileSync('supabase/002_members.sql', 'utf8'))
   // Supabase grants the roles everything on the tables of `public`; row-level security is what holds them back.
   await db.exec('grant all on workspaces, workspace_members, records to anon, authenticated')
   workspace = (await db.query<{ id: string }>(`select id from workspaces where name = 'Expo Planner'`)).rows[0].id
@@ -112,6 +113,24 @@ const browser = (name: string, user: string) => ({
     switchDatabase(sharedDbName(name))
     return loadWorkspace()
   },
+})
+
+describe('the members of a workspace', () => {
+  it('are listed for members, with their e-mails', async () => {
+    const members = await as<{ email: string }>(KARI, 'select email from list_members($1)', [workspace])
+    expect(members.map((m) => m.email)).toEqual(['kari@example.com', 'ola@example.com'])
+    await expect(as(OUTSIDER, 'select * from list_members($1)', [workspace])).rejects.toThrow(/not a member/)
+  })
+
+  it('are added by a member, once they have signed in, and taken out again', async () => {
+    expect(await as<{ add_member: string }>(KARI, 'select add_member($1, $2)', [workspace, 'nobody@example.com'])).toEqual([{ add_member: 'not-signed-in' }])
+    expect(await as<{ add_member: string }>(KARI, 'select add_member($1, $2)', [workspace, ' UTE@example.com '])).toEqual([{ add_member: 'added' }])
+    expect(await as<{ add_member: string }>(KARI, 'select add_member($1, $2)', [workspace, 'ute@example.com'])).toEqual([{ add_member: 'already' }])
+    await as(KARI, 'select remove_member($1, $2)', [workspace, OUTSIDER])
+    expect((await as(KARI, 'select * from list_members($1)', [workspace])).length).toBe(2)
+    await expect(as(KARI, 'select remove_member($1, $2)', [workspace, KARI])).rejects.toThrow(/not allowed/)
+    await expect(as(OUTSIDER, 'select add_member($1, $2)', [workspace, 'ute@example.com'])).rejects.toThrow(/not a member/)
+  })
 })
 
 describe('two browsers through the shared copy', () => {

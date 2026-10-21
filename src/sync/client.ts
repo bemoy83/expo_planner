@@ -53,3 +53,21 @@ export const liveChannel = (workspaceId: string, me: { id: string; email: string
     close: () => void supabase().removeChannel(channel),
   }
 }
+
+/** The members of a workspace (`supabase/002_members.sql`). */
+export const members = {
+  list: async (workspaceId: string): Promise<{ user_id: string; email: string }[]> => {
+    const { data, error } = await supabase().rpc('list_members', { p_workspace: workspaceId })
+    if (error) throw error
+    return data as { user_id: string; email: string }[]
+  },
+  add: async (workspaceId: string, email: string): Promise<'added' | 'already' | 'not-signed-in'> => {
+    const { data, error } = await supabase().rpc('add_member', { p_workspace: workspaceId, p_email: email })
+    if (error) throw error
+    return data as 'added' | 'already' | 'not-signed-in'
+  },
+  remove: async (workspaceId: string, userId: string): Promise<void> => {
+    const { error } = await supabase().rpc('remove_member', { p_workspace: workspaceId, p_user: userId })
+    if (error) throw error
+  },
+}
