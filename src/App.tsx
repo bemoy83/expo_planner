@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { todayIso } from './domain/dates'
+import { addDays, todayIso } from './domain/dates'
 import { DEFAULT_SETTINGS, type Workspace } from './domain/types'
 import { readVenyouExport } from './import/venyouExport'
 import { parseBackup, toBackup } from './store/backup'
@@ -164,6 +164,13 @@ function Shell() {
   const [venueResult, setVenueResult] = useState<ReturnType<typeof importVenue> | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [cloudOpen, setCloudOpen] = useState(false)
+  // The day the planner is next reminded to download a backup: a week after the last, or a day after «Senere». The
+  // backup is the copy that lasts, the free plan of the shared copy keeping none of its own.
+  const [backupDue, setBackupDue] = usePref('backupDue', '')
+  useEffect(() => {
+    if (!backupDue) setBackupDue(addDays(todayIso(), 7))
+  }, [backupDue, setBackupDue])
+  const remindBackup = status === 'ready' && !!workspace && (workspace.venue.length > 0 || workspace.demand.length > 0) && !!backupDue && todayIso() >= backupDue
   const cloud = useCloud()
   // Whether hovering shows help texts. A choice for this browser, like the other view preferences.
   const [tooltips, setTooltips] = usePref('tooltips', true)
@@ -231,6 +238,7 @@ function Shell() {
   const exportBackup = () => {
     if (!workspace) return
     download(`expo-planner-${todayIso()}.json`, JSON.stringify(toBackup(workspace)), 'application/json')
+    setBackupDue(addDays(todayIso(), 7))
   }
 
   return (
@@ -383,6 +391,18 @@ function Shell() {
         <input ref={venyouInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFile(e, importVenyou)} />
         <input ref={backupInput} type="file" accept=".json,application/json" hidden onChange={(e) => takeFile(e, restoreBackup)} />
       </header>
+
+      {remindBackup && (
+        <div className="info-banner" role="status">
+          Det er en uke eller mer siden du lastet ned en sikkerhetskopi. Den er kopien som varer om noe skulle gå galt i nettleseren{cloud.shared ? ' eller i skyen' : ''}.{' '}
+          <button className="link" onClick={exportBackup}>
+            Last ned nå
+          </button>{' '}
+          <button className="link" onClick={() => setBackupDue(addDays(todayIso(), 1))}>
+            Senere
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="error-banner" role="alert">
