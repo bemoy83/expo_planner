@@ -1,7 +1,8 @@
 import { dateRange, type ISODate } from './dates'
 import { eventKey, numberKey, numberYear, venueEvents } from './projects'
+import { buildProjectBalance, NO_PROJECT, projectTotals, type ProjectBalance, type ProjectTotal } from './staffing'
 import { diffBy, type TableDiff } from './tableDiff'
-import { PLANNED_BASIS, type Budgets, type Workspace, type WorkPhase } from './types'
+import { competenceKey, PLANNED_BASIS, type Budgets, type Workspace, type WorkPhase } from './types'
 import { anchorDate, visibleVenue } from './venueImport'
 
 /**
@@ -241,4 +242,77 @@ export const projectHours = (ws: Pick<Workspace, 'demand' | 'allocations' | 'set
     if (fte) of(row.competence).planned[phaseOf(row.phase)] += fte * ws.settings.hoursPerDay
   }
   return [...byCompetence.values()].sort((a, b) => a.competence.localeCompare(b.competence, 'nb'))
+}
+
+/** The staffing of the season: per project, by its `numberKey`, and what is not on any project. */
+export interface SeasonStaffing {
+  projects: Map<string, ProjectTotal>
+  /** The staffing of the demand without a project number. */
+  noProject: ProjectTotal
+  /** The hours staffed beyond what all the projects lack: «Ikke fordelt». */
+  unshared: number
+}
+
+/** Every day something is planned, staffed, ordered or moved to: the days the season's balance is counted on. */
+const seasonDates = (ws: Workspace): ISODate[] => {
+  const dates = new Set<ISODate>()
+  for (const row of ws.allocations) for (const date in row.fte) if (row.fte[date]) dates.add(date)
+  for (const a of ws.assignments ?? []) dates.add(a.date)
+  for (const order of ws.hireOrders ?? []) dates.add(order.date)
+  for (const adjustment of ws.demandAdjustments ?? []) dates.add(adjustment.date)
+  return [...dates].sort()
+}
+
+/** The balance of the season per project, with the permanent staff and the confirmed orders of Innleid, over the whole workspace. */
+export const seasonBalance = (ws: Workspace): { balance: ProjectBalance; dates: ISODate[] } => {
+  const dates = seasonDates(ws)
+  return { balance: buildProjectBalance(ws, dates, true), dates }
+}
+
+/**
+ * What the season is staffed with, per project: the hours tagged with it and its share of the rest, against what is planned.
+ * Hours moved from one day to the next are counted once, as the plan is: what remains is planned less staffed.
+ */
+export const seasonStaffing = ({ balance, dates }: ReturnType<typeof seasonBalance>): SeasonStaffing => {
+  const { projects, unshared } = projectTotals(balance, dates)
+  const noProject = projects.get(NO_PROJECT) ?? { planned: 0, tagged: 0, shared: 0, remaining: 0 }
+  projects.delete(NO_PROJECT)
+  return { projects, noProject, unshared }
+}
+
+/** One competence of a project: what it is staffed with per work phase, and what remains of its plan. */
+export interface CompetenceStaffing {
+  competence: string
+  tagged: PhaseHours
+  shared: PhaseHours
+  remaining: number
+}
+
+/**
+ * A project's staffing per competence and work phase. A day's hours go to the phases of the project's rows that day
+ * by their FTE; hours on a day without a row of the project are without a phase.
+ */
+export const projectStaffing = (ws: Workspace, { balance, dates }: ReturnType<typeof seasonBalance>, projectNo: string): CompetenceStaffing[] => {
+  const key = numberKey(projectNo)
+  const rows = ws.allocations.filter((row) => numberKey(row.projectNo) === key)
+  const names = new Map(rows.map((row) => [competenceKey(row.competence), row.competence.trim()]))
+  const entries = new Map<string, CompetenceStaffing & { planned: number; staffed: number }>()
+  for (const competence of balance.competences) {
+    for (const date of dates) {
+      const p = balance.of(competence, date, projectNo)
+      if (!p.demand && !p.tagged && !p.shared) continue
+      const entry = entries.get(competence) ?? { competence: names.get(competence) ?? competence, tagged: emptyPhases(), shared: emptyPhases(), remaining: 0, planned: 0, staffed: 0 }
+      const phases = rows.filter((row) => competenceKey(row.competence) === competence && row.fte[date])
+      const fte = phases.reduce((sum, row) => sum + row.fte[date], 0)
+      for (const [phase, weight] of fte ? phases.map((row) => [phaseOf(row.phase), row.fte[date] / fte] as const) : [['other', 1] as const]) {
+        entry.tagged[phase] += p.tagged * weight
+        entry.shared[phase] += p.shared * weight
+      }
+      entry.planned += p.demand - p.carried
+      entry.staffed += p.tagged + p.shared
+      entry.remaining = entry.planned - entry.staffed
+      entries.set(competence, entry)
+    }
+  }
+  return [...entries.values()].map(({ planned: _planned, staffed: _staffed, ...entry }) => entry).sort((a, b) => a.competence.localeCompare(b.competence, 'nb'))
 }

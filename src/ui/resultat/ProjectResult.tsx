@@ -1,20 +1,24 @@
-import { useMemo } from 'react'
-import { projectHours, type PhaseHours, type SeasonRow } from '../../domain/result'
+import { Fragment, useMemo } from 'react'
+import { projectHours, projectStaffing, type PhaseHours, type seasonBalance, type SeasonRow } from '../../domain/result'
 import { useWorkspace } from '../../store/workspaceStore'
 import { hours } from '../behov/format'
 import { SidePanel } from '../common'
-import { deviationText, shareText } from './format'
+import { deviationText, remainingText, shareText } from './format'
 
 const shown = (value: number) => (value ? hours(value) : '')
 
 /** One project of Resultat: its budget against the plan, its halls, and its hours per competence and phase beside its demand. */
-export function ProjectResult({ row, budget, overhead, onClose, onOpenBehov }: { row: SeasonRow; budget: number | null; overhead: string; onClose: () => void; onOpenBehov: () => void }) {
+export function ProjectResult({ row, season, budget, overhead, onClose, onOpenBehov }: { row: SeasonRow; season: ReturnType<typeof seasonBalance>; budget: number | null; overhead: string; onClose: () => void; onOpenBehov: () => void }) {
   const { workspace } = useWorkspace()
   const ws = workspace!
   const competences = useMemo(() => projectHours(ws, row.projectNo), [ws.demand, ws.allocations, ws.settings, row.projectNo]) // eslint-disable-line react-hooks/exhaustive-deps
   const other = competences.some((entry) => entry.planned.other)
   const sum = (of: (entry: (typeof competences)[number]) => PhaseHours, phase: keyof PhaseHours) => competences.reduce((total, entry) => total + of(entry)[phase], 0)
   const over = row.deviation !== null && row.deviation < -0.05
+  const staffing = useMemo(() => projectStaffing(ws, season, row.projectNo), [season, row.projectNo]) // eslint-disable-line react-hooks/exhaustive-deps
+  const staffedOther = staffing.some((entry) => entry.tagged.other || entry.shared.other)
+  const staffedSum = (of: (entry: (typeof staffing)[number]) => PhaseHours, phase: keyof PhaseHours) => staffing.reduce((total, entry) => total + of(entry)[phase], 0)
+  const staffedTotal = staffing.reduce((total, entry) => total + entry.tagged.Montering + entry.tagged.Demontering + entry.tagged.other + entry.shared.Montering + entry.shared.Demontering + entry.shared.other, 0)
 
   return (
     <SidePanel
@@ -43,6 +47,71 @@ export function ProjectResult({ row, budget, overhead, onClose, onOpenBehov }: {
             <dt>Avvik</dt>
             <dd className={`num ${over ? 'res-over' : ''}`}>{row.deviation === null ? '–' : `${deviationText(row.deviation)} t · ${shareText(row.deviationShare)}`}</dd>
           </dl>
+        </section>
+        <section className="insp-sec res-hours">
+          <h3 className="insp-h">Bemannet</h3>
+          <dl className="insp-dl res-dl">
+            <dt>Bemannet</dt>
+            <dd className="num">{hours(staffedTotal)} t</dd>
+            <dt>Gjenstår</dt>
+            <dd className="num">{remainingText(row.plannedTotal - staffedTotal) || '0'} t</dd>
+          </dl>
+          {staffing.length > 0 && (
+            <table className="ledger summary">
+              <thead>
+                <tr>
+                  <th rowSpan={2}>Kompetanse</th>
+                  <th colSpan={2}>Montering</th>
+                  <th colSpan={2}>Demontering</th>
+                  {staffedOther && <th colSpan={2} title="Bemannet på dager uten rad for prosjektet">Uten fase</th>}
+                  <th rowSpan={2} title="Planlagt minus bemannet">Gjenstår</th>
+                </tr>
+                <tr className="sub">
+                  {[0, 1, ...(staffedOther ? [2] : [])].map((i) => (
+                    <Fragment key={i}>
+                      <th title="Blokker og bekreftede bestillinger merket med prosjektet">Merket</th>
+                      <th title="Prosjektets del av de umerkede timene, etter hva det mangler">Fordelt</th>
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {staffing.map((entry) => (
+                  <tr key={entry.competence.toLowerCase()}>
+                    <td>{entry.competence}</td>
+                    <td className="num">{shown(entry.tagged.Montering)}</td>
+                    <td className="num">{shown(entry.shared.Montering)}</td>
+                    <td className="num">{shown(entry.tagged.Demontering)}</td>
+                    <td className="num">{shown(entry.shared.Demontering)}</td>
+                    {staffedOther && (
+                      <>
+                        <td className="num">{shown(entry.tagged.other)}</td>
+                        <td className="num">{shown(entry.shared.other)}</td>
+                      </>
+                    )}
+                    <td className="num">{remainingText(entry.remaining)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Sum</td>
+                  <td className="num">{shown(staffedSum((entry) => entry.tagged, 'Montering'))}</td>
+                  <td className="num">{shown(staffedSum((entry) => entry.shared, 'Montering'))}</td>
+                  <td className="num">{shown(staffedSum((entry) => entry.tagged, 'Demontering'))}</td>
+                  <td className="num">{shown(staffedSum((entry) => entry.shared, 'Demontering'))}</td>
+                  {staffedOther && (
+                    <>
+                      <td className="num">{shown(staffedSum((entry) => entry.tagged, 'other'))}</td>
+                      <td className="num">{shown(staffedSum((entry) => entry.shared, 'other'))}</td>
+                    </>
+                  )}
+                  <td className="num">{remainingText(staffing.reduce((total, entry) => total + entry.remaining, 0))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+          <p className="insp-note">Faste fra Bemanning og bekreftede bestillinger fra Innleid. Merket er timer satt på prosjektet. Fordelt er prosjektets del av de umerkede timene, etter hva det mangler den dagen.</p>
         </section>
         <section className="insp-sec">
           <h3 className="insp-h">Haller</h3>

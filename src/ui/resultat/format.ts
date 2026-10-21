@@ -17,3 +17,9 @@ export const shareText = (share: number | null): string => {
   const pct = Math.round(share * 100)
   return pct === 0 ? '0 %' : `${pct > 0 ? '+' : '−'}${Math.abs(pct)} %`
 }
+
+/** Hours that remain, with a minus where more is done than planned: «12,5», «−3». */
+export const remainingText = (remaining: number): string => {
+  const shown = hours(Math.abs(remaining))
+  return shown === '0' ? '' : `${remaining < 0 ? '−' : ''}${shown}`
+}

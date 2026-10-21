@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { todayIso } from '../../domain/dates'
-import { venueEvents } from '../../domain/projects'
-import { budgetOf, diffBudgets, mergeBudgets, replaceBudgets, seasonRows, seasonTotals, withBudget, type BudgetEntry, type SeasonRow } from '../../domain/result'
+import { numberKey, venueEvents } from '../../domain/projects'
+import { budgetOf, diffBudgets, mergeBudgets, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonTotals, withBudget, type BudgetEntry, type SeasonRow } from '../../domain/result'
+import type { ProjectTotal } from '../../domain/staffing'
 import { readBudsjettWorkbook, writeBudsjettWorkbook } from '../../import/budsjettFile'
 import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -14,7 +15,7 @@ import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { useTable, type Column } from '../useTable'
-import { deviationText, percentText, shareText } from './format'
+import { deviationText, percentText, remainingText, shareText } from './format'
 import { ProjectResult } from './ProjectResult'
 
 interface Props {
@@ -40,6 +41,12 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
   const [open, setOpen] = useState<string | null>(null)
   const rows = useMemo(() => seasonRows(ws), [ws.venue, ws.hiddenVenue, ws.projects, ws.allocations, ws.budgets, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
   const budgets = ws.budgets ?? {}
+  // The staffing of the season, from Bemanning and the confirmed orders of Innleid, shared out on the projects.
+  const season = useMemo(() => seasonBalance(ws), [ws.allocations, ws.assignments, ws.persons, ws.unavailability, ws.hireOrders, ws.demandAdjustments, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  const staffing = useMemo(() => seasonStaffing(season), [season])
+  const staffedOf = (row: SeasonRow): ProjectTotal | undefined => staffing.projects.get(numberKey(row.projectNo))
+  const staffedHours = (row: SeasonRow) => (staffedOf(row)?.tagged ?? 0) + (staffedOf(row)?.shared ?? 0)
+  const remainingOf = (row: SeasonRow) => row.plannedTotal - staffedHours(row)
   // Events of the hall calendar without a project number have no row: the plan and the budget are kept by number.
   const unnumbered = useMemo(() => venueEvents(visibleVenue(ws.venue, ws.hiddenVenue), ws.projects).filter((event) => !event.projectNo).length, [ws.venue, ws.hiddenVenue, ws.projects])
   const overhead = percentText(ws.settings.overhead)
@@ -115,10 +122,21 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
         cellProps: (row) => ({ className: overClass(row.deviation) }),
         foot: (list) => <span className={overClass(seasonTotals(list).deviation)}>{shareText(seasonTotals(list).deviationShare)}</span>,
       },
+      {
+        key: 'staffed',
+        head: 'Bemannet',
+        title: 'Timer bemannet i Bemanning og bekreftet i Innleid: merket med prosjektet, og prosjektets del av de umerkede etter hva det mangler',
+        className: 'num',
+        sort: staffedHours,
+        cell: (row) => (staffedHours(row) ? hours(staffedHours(row)) : ''),
+        cellProps: (row) => ({ className: 'num', title: staffedOf(row) ? `${hours(staffedOf(row)!.tagged)} t merket, ${hours(staffedOf(row)!.shared)} t fordelt` : undefined }),
+        foot: (list) => hours(sumOf(list, staffedHours)),
+      },
+      { key: 'left', head: 'Gjenstår', title: 'Planlagt minus bemannet, uten overhead: det som ikke er bemannet ennå, negativt der mer er bemannet', className: 'num', sort: remainingOf, cell: (row) => remainingText(remainingOf(row)), foot: (list) => remainingText(sumOf(list, remainingOf)) },
       { key: 'up', head: 'Plan. mont.', title: 'Planlagte timer til montering, uten overhead', className: 'num', sort: (row) => row.planned.Montering, cell: (row) => (row.planned.Montering ? hours(row.planned.Montering) : ''), foot: (list) => hours(sumOf(list, (row) => row.planned.Montering)) },
       { key: 'down', head: 'Plan. dem.', title: 'Planlagte timer til demontering, uten overhead', className: 'num', sort: (row) => row.planned.Demontering, cell: (row) => (row.planned.Demontering ? hours(row.planned.Demontering) : ''), foot: (list) => hours(sumOf(list, (row) => row.planned.Demontering)) },
     ]
-  }, [overhead, open, budgets]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [overhead, open, budgets, staffing]) // eslint-disable-line react-hooks/exhaustive-deps
   const table = useTable(rows, columns)
 
   const { pending, onFile, done } = useTableFile<BudgetEntry[]>({
@@ -170,6 +188,12 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
           ) : (
             <p className="res-empty muted">Ingen prosjekter ennå. Les inn hallbookingene fra Venyou og gi prosjektene nummer på Prosjekter, eller les inn budsjettene under «Fil».</p>
           )}
+          {(staffing.unshared > NOISE || staffing.noProject.tagged + staffing.noProject.shared > NOISE) && (
+            <p className="res-note muted">
+              {staffing.unshared > NOISE && <>Ikke fordelt: {hours(staffing.unshared)} t er bemannet utover det prosjektene mangler. </>}
+              {staffing.noProject.tagged + staffing.noProject.shared > NOISE && <>Uten prosjekt: {hours(staffing.noProject.tagged + staffing.noProject.shared)} t er bemannet på behov uten prosjektnummer.</>}
+            </p>
+          )}
           {unnumbered > 0 && (
             <p className="res-note muted">
               {count(unnumbered, 'arrangement', 'arrangementer')} i hallkalenderen har ikke prosjektnummer og er ikke med.{' '}
@@ -179,7 +203,7 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
             </p>
           )}
         </div>
-        {opened && <ProjectResult row={opened} budget={budgetOf(budgets, opened.projectNo)} overhead={overhead} onClose={() => setOpen(null)} onOpenBehov={() => onOpenBehov(opened.projectNo)} />}
+        {opened && <ProjectResult row={opened} season={season} budget={budgetOf(budgets, opened.projectNo)} overhead={overhead} onClose={() => setOpen(null)} onOpenBehov={() => onOpenBehov(opened.projectNo)} />}
       </div>
       {pending && (
         <MergeReplaceDialog

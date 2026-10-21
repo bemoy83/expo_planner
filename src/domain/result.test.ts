@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { budgetOf, budgetsRenumbered, diffBudgets, mergeBudgets, projectHours, replaceBudgets, seasonRows, seasonTotals, withBudget } from './result'
-import { DEFAULT_SETTINGS, type AllocationRow, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
+import { budgetOf, budgetsRenumbered, diffBudgets, mergeBudgets, projectHours, projectStaffing, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonTotals, withBudget } from './result'
+import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
+import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type AllocationRow, type Assignment, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { venueKey } from './venueImport'
 
 const booking = (eventName: string, hall: string, phases: VenueBooking['phases']): VenueBooking => ({ id: `${eventName}-${hall}`, hall, eventName, status: 'Bekreftet', phases })
@@ -131,6 +132,41 @@ describe('projectHours', () => {
     expect(hours).toEqual([
       { competence: 'Elektro', demand: { Montering: 8, Demontering: 0, other: 0 }, planned: { Montering: 0, Demontering: 0, other: 0 } },
       { competence: 'Vegger', demand: { Montering: 40, Demontering: 12, other: 0 }, planned: { Montering: 30, Demontering: 15, other: 0 } },
+    ])
+  })
+})
+
+describe('the staffing of the season', () => {
+  const { first: FIRST, second: SECOND } = TWO_PROJECTS
+  const wd = DEFAULT_WORKDAY
+  const day = (person: number, date: string, projectNo?: string): Assignment => ({ id: `b-${person}-${date}`, personId: `two-${person}`, date, competence: 'vegger', start: wd.dayStart, end: wd.dayEnd, source: 'manual', ...(projectNo && { projectNo }) })
+  const staffed: Workspace = {
+    ...withTwoProjects({ settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [] }),
+    assignments: [1, 2, 3, 4].map((person) => day(person, '2026-10-12')).concat(day(1, '2026-10-13', FIRST), day(1, '2026-10-14')),
+    hireOrders: [
+      { id: 'o1', supplierId: 's1', competence: 'vegger', date: '2026-10-13', fte: 2, start: wd.dayStart, end: wd.dayEnd, conf: 2 },
+      { id: 'o2', supplierId: 's1', competence: 'vegger', date: '2026-10-13', fte: 4, start: wd.dayStart, end: wd.dayEnd, conf: null },
+    ],
+  }
+
+  it('gives each project its tagged hours and its share of the rest, with the confirmed orders, and what remains of its plan', () => {
+    const { projects, noProject, unshared } = seasonStaffing(seasonBalance(staffed))
+    expect(projects.get(FIRST)).toEqual({ planned: 30, tagged: 7.5, shared: 20, remaining: 2.5 })
+    expect(projects.get(SECOND)).toEqual({ planned: 22.5, tagged: 0, shared: 17.5, remaining: 5 })
+    expect(noProject).toMatchObject({ planned: 7.5, shared: 7.5 })
+    expect(unshared).toBe(7.5)
+  })
+
+  it('adds up to the hours staffed in Bemanning and the confirmed orders', () => {
+    const { projects, noProject, unshared } = seasonStaffing(seasonBalance(staffed))
+    const total = [...projects.values(), noProject].reduce((sum, p) => sum + p.tagged + p.shared, 0) + unshared
+    expect(total).toBe(6 * 7.5 + 2 * 7.5)
+  })
+
+  it('shares the hours of a project per competence on the phases of its rows, and those of a day without a row as without a phase', () => {
+    const extra = { ...staffed, assignments: [...staffed.assignments!, day(2, '2026-10-15', FIRST)] }
+    expect(projectStaffing(extra, seasonBalance(extra), FIRST)).toEqual([
+      { competence: 'Vegger', tagged: { Montering: 7.5, Demontering: 0, other: 7.5 }, shared: { Montering: 20, Demontering: 0, other: 0 }, remaining: -5 },
     ])
   })
 })
