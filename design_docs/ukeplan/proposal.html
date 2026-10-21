@@ -114,6 +114,7 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
 .legend .k-short{border-bottom:3px solid var(--short)}
 .legend .k-wait{border-bottom:3px solid var(--wait)}
 /* where */
+.locked{border-left:3px solid var(--gran);background:var(--gran-band);padding:12px 14px;font-size:14px;max-width:none}
 .life{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--line-strong);border-radius:4px;overflow:hidden;background:var(--paper)}
 .life .st{padding:10px 12px;display:grid;gap:4px;border-left:1px solid var(--line);position:relative}
 .life .st:first-child{border-left:0}
@@ -295,7 +296,7 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
       <div class="opt"><div class="tag">B</div><h3>Merkes selv når det er entydig</h3><p>Har bare ett prosjekt i utsnittet behov for kompetansen den dagen, får blokken prosjektet uten at noen velger det. Har flere det, brukes det aktive prosjektet, eller den blir umerket og vises med en prikk.</p><p class="pc"><b>For:</b> nesten ingen ekstra klikk i en vanlig uke. <b>Mot:</b> en regel du må stole på, og umerkede blokker må ryddes.</p></div>
       <div class="opt"><div class="tag">C</div><h3>Behovet delt per prosjekt</h3><p>Under hver kompetanse står én behovslinje per prosjekt: Vegger › Spillfestivalen, Vegger › Byggemessen. Linjen i fokus er penselen, så den bestemmer både kompetansen og prosjektet.</p><p class="pc"><b>For:</b> du ser hvor det mangler, og merkingen følger av hvor du maler. <b>Mot:</b> flere linjer i behovet når to messer går samtidig.</p></div>
     </div>
-    <p><b>Mitt forslag:</b> B som grunnregel og C for å se hvor det mangler, der A er det samme som å folde ut ett prosjekt. Merk per prosjekt først. Hallen viser vi som prosjektets haller (B1–B4) til vi ser at montørene trenger mer.</p>
+    <div class="locked"><b>Foreløpig valgt 21.10.2026: B og C.</b> Prosjektmerking bygges for seg selv, uavhengig av utskriftene, fordi den gir Resultat bemannede timer per prosjekt. Når du velger en kompetanse i behovet, foldes den ut i en sumlinje og én linje per prosjekt i utsnittet. De andre kompetansene krymper til en tynn linje med avviket, men skjules ikke. Linjen du står på, er penselen. På sumlinjen merkes blokken av seg selv der det er entydig (B). Uten valg står alt som i dag. Merk per prosjekt først, og vis hallen som prosjektets haller.</div>
 
     <h3>Å gå opp sammen</h3>
     <ol class="dec">
