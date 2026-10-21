@@ -5,6 +5,9 @@ import { fromRecords, recordKey, toRecords, type Delta, type Kind, type RecordWr
 /** A record as the browser keeps it: with the rev of the shared copy it was last seen at, where it has been synced. */
 export interface LocalRecord extends StoredRecord {
   rev?: number
+  /** In a shared workspace: who wrote it last, and when. */
+  by?: string
+  at?: string
 }
 
 /** A write waiting to be sent to the shared copy. The writes of one user action share a batch. */
@@ -99,6 +102,12 @@ export const databaseName = () => db.name
 
 export const isShared = () => shared
 
+/** The planner signed in, whose writes in a shared workspace are noted as theirs. */
+let planner: string | null = null
+export const setPlanner = (id: string | null) => {
+  planner = id
+}
+
 /** Called after each write to a shared workspace, so it can be sent. */
 export const onWritten = (listener: () => void) => {
   written.add(listener)
@@ -125,9 +134,10 @@ export const writeRecords = async (writes: RecordWrite[]): Promise<void> => {
     const known = shared ? await db.records.bulkGet(writes.map((w): [Kind, string] => [w.kind, w.id])) : []
     const revOf = new Map(writes.map((w, i) => [recordKey(w.kind, w.id), known[i]?.rev]))
     const deletes = writes.filter((w) => w.value === null).map((w): [Kind, string] => [w.kind, w.id])
+    const signed = shared && planner ? { by: planner, at: new Date().toISOString() } : {}
     const puts = writes.filter((w) => w.value !== null).map(({ kind, id, value }): LocalRecord => {
       const rev = revOf.get(recordKey(kind, id))
-      return rev === undefined ? { kind, id, value } : { kind, id, value, rev }
+      return { kind, id, value, ...(rev === undefined ? {} : { rev }), ...signed }
     })
     if (deletes.length) await db.records.bulkDelete(deletes)
     if (puts.length) await db.records.bulkPut(puts)
@@ -181,8 +191,9 @@ export interface RemoteRecord {
   id: string
   value: unknown
   rev: number
-  /** The planner who wrote it. */
+  /** The planner who wrote it, and when. */
   by: string
+  at: string
 }
 
 /**
@@ -204,7 +215,7 @@ const takeIn = (records: RemoteRecord[], cursor: number): Promise<Delta[]> =>
     for (const [i, r] of incoming.entries()) {
       const before = known[i]?.value ?? null
       if (r.value === null) await db.records.delete([r.kind, r.id])
-      else await db.records.put({ kind: r.kind, id: r.id, value: r.value, rev: r.rev })
+      else await db.records.put({ kind: r.kind, id: r.id, value: r.value, rev: r.rev, by: r.by, at: r.at })
       if (JSON.stringify(before) !== JSON.stringify(r.value)) deltas.push({ kind: r.kind, id: r.id, before, after: r.value, by: r.by })
     }
     await db.sync.put({ key: 'cursor', value: cursor })
@@ -219,4 +230,11 @@ export const plannerNames = async (): Promise<Map<string, string>> =>
 export const notePlanner = async (id: string, email: string) => {
   const known = await db.records.get(['planner', id])
   if ((known?.value as { email?: string } | undefined)?.email !== email) await writeRecords([{ kind: 'planner', id, value: { email } }])
+}
+
+/** Who last wrote any of the records, and when; none where they were written before the workspace was shared. */
+export const lastChanged = async (keys: [Kind, string][]): Promise<{ by: string; at: string } | null> => {
+  let last: { by: string; at: string } | null = null
+  for (const record of await db.records.bulkGet(keys)) if (record?.by && record.at && (!last || record.at > last.at)) last = { by: record.by, at: record.at }
+  return last
 }

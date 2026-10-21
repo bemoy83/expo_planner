@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { deleteDatabase, LOCAL_DB, notePlanner, onWritten, pendingOutbox, plannerNames, sharedDbName, switchDatabase } from '../store/db'
+import { deleteDatabase, LOCAL_DB, setPlanner, notePlanner, onWritten, pendingOutbox, plannerNames, sharedDbName, switchDatabase } from '../store/db'
 import { useWorkspace } from '../store/workspaceStore'
 import { count } from '../ui/dom'
 import { Toasts, useToasts } from '../ui/Toasts'
@@ -23,6 +23,8 @@ interface Cloud {
   /** Signed in, but not yet added to a workspace. */
   noMembership: boolean
   state: SyncState | null
+  /** The e-mails of the planners who have the shared workspace open now, this one among them. */
+  present: string[]
   /** The shared workspace has been read once since it was opened, so what it holds is known. */
   read: boolean
   signIn: (email: string) => Promise<void>
@@ -35,7 +37,7 @@ interface Cloud {
 }
 
 const Context = createContext<Cloud | null>(null)
-const SyncContext = createContext<{ state: SyncState | null; read: boolean; setState: (state: SyncState) => void } | null>(null)
+const SyncContext = createContext<{ setState: (state: SyncState) => void; setPresent: (emails: string[]) => void } | null>(null)
 
 /**
  * The planner's sign-in and the shared workspace they open. Signed in to a workspace, the app works in its own
@@ -50,6 +52,7 @@ export function CloudProvider({ children }: { children: (database: string) => Re
   const [membership, setMembership] = useState<{ userId: string; shared: SharedWorkspace | null } | null>(null)
   /** How the sync of a database stands, by its name. */
   const [sync, setSync] = useState<{ database: string; state: SyncState | null; read: boolean }>({ database: '', state: null, read: false })
+  const [presence, setPresence] = useState<{ database: string; emails: string[] }>({ database: '', emails: [] })
 
   useEffect(() => {
     if (!cloudConfigured) return
@@ -80,8 +83,11 @@ export function CloudProvider({ children }: { children: (database: string) => Re
   const ready = !cloudConfigured || (authKnown && (!session || !!found))
   const database = shared ? sharedDbName(shared.id) : LOCAL_DB
   switchDatabase(database)
+  setPlanner(shared ? (userId ?? null) : null)
   const state = sync.database === database ? sync.state : null
   const read = sync.database === database && sync.read
+  const present = presence.database === database ? presence.emails : []
+  const setPresent = useCallback((emails: string[]) => setPresence({ database, emails }), [database])
   const setState = useCallback((next: SyncState) => setSync((now) => ({ database, state: next, read: now.database === database && (now.read || next === 'synced') })), [database])
 
   const signIn = useCallback(async (email: string) => {
@@ -110,10 +116,10 @@ export function CloudProvider({ children }: { children: (database: string) => Re
 
   const waiting = useCallback(async () => (shared ? (await pendingOutbox()).length : 0), [shared])
 
-  const value: Cloud = { configured: cloudConfigured, email: session?.user.email ?? null, userId: session?.user.id ?? null, shared, noMembership, state, read, signIn, signOut, readAgain, waiting }
+  const value: Cloud = { configured: cloudConfigured, email: session?.user.email ?? null, userId: session?.user.id ?? null, shared, noMembership, state, present, read, signIn, signOut, readAgain, waiting }
   return (
     <Context.Provider value={value}>
-      <SyncContext.Provider value={{ state, read, setState }}>{ready ? children(database) : <p className="center muted">Åpner …</p>}</SyncContext.Provider>
+      <SyncContext.Provider value={{ setState, setPresent }}>{ready ? children(database) : <p className="center muted">Åpner …</p>}</SyncContext.Provider>
     </Context.Provider>
   )
 }
@@ -132,7 +138,7 @@ const namesOf = async (ids: string[]): Promise<string> => {
  */
 export function SharedSync() {
   const cloud = useCloud()
-  const { setState } = useContext(SyncContext)!
+  const { setState, setPresent } = useContext(SyncContext)!
   const { applyRemote, setOnLeft } = useWorkspace()
   const { toasts, show, dismiss } = useToasts()
   const id = cloud.shared?.id
@@ -141,7 +147,7 @@ export function SharedSync() {
   useEffect(() => {
     if (!id || !me || !email) return
     notePlanner(me, email)
-    const live = liveChannel(id, () => engine.now())
+    const live = liveChannel(id, { id: me, email }, () => engine.now(), setPresent)
     const engine = startEngine(supabaseCopy(id), {
       remote: applyRemote,
       state: setState,
@@ -156,7 +162,7 @@ export function SharedSync() {
       engine.stop()
       live.close()
     }
-  }, [id, me, email, applyRemote, setOnLeft, setState, show])
+  }, [id, me, email, applyRemote, setOnLeft, setState, setPresent, show])
   return <Toasts toasts={toasts} onDismiss={dismiss} />
 }
 

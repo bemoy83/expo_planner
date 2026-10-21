@@ -108,6 +108,23 @@ function SaveIndicator() {
   )
 }
 
+/** Who else has the shared workspace open now: their number, and their e-mails on hover. Nothing when one is alone in it. */
+function Present() {
+  const { present, email } = useCloud()
+  const others = present.filter((each) => each !== email)
+  if (!others.length) return null
+  return (
+    <span className="present" title={`Inne nå: ${others.join(', ')}`}>
+      {others.map((each) => (
+        <i key={each} aria-hidden>
+          {each.slice(0, 1).toUpperCase()}
+        </i>
+      ))}
+      {others.length === 1 ? others[0].split('@')[0] : `${others.length} andre`}
+    </span>
+  )
+}
+
 /**
  * The start screen of a shared workspace with nothing in it: offers what this browser holds of its own, to put in
  * it. A shared workspace that has not been read yet waits for that first, so nothing is started over what it holds.
@@ -234,6 +251,7 @@ function Shell() {
         )}
         <span className="toolbar-gap" />
         {busy && <span className="busy">{busy}</span>}
+        {status === 'ready' && <Present />}
         {status === 'ready' && <SaveIndicator />}
         <Menu
           label={<Settings size={16} aria-hidden />}

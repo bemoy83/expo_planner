@@ -7,6 +7,8 @@ import { PHASE_LABELS } from '../../domain/venue'
 import { SidePanel } from '../common'
 import { fmtDay } from './labels'
 import { Pencil } from 'lucide-react'
+import { LastChanged } from '../../sync/LastChanged'
+import { cellId } from '../../store/records'
 
 /** The row the panel is about, with what the Kalender knows of it. */
 export interface RowDetails {
@@ -82,6 +84,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
             <span className="insp-sep">·</span>
             <span className="insp-trunc">{projectName}</span>
           </div>
+          {stored && <LastChanged records={[['allocation', row.id], ...[...new Set([...Object.keys(row.fte), ...Object.keys(row.notes)])].map((date): ['allocCell', string] => ['allocCell', cellId(row.id, date)])]} />}
         </>
       }
       actions={

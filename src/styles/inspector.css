@@ -9,6 +9,8 @@
 .insp-head-text{flex:1;min-width:0}
 .insp-title{font-size:var(--fs-title-sm);font-weight:700;line-height:1.25;letter-spacing:-.02em}
 .insp-sub{display:flex;align-items:center;gap:6px;margin-top:6px;min-width:0;font-size:var(--fs-md);color:var(--muted)}
+/* who last changed the row, in a shared workspace */
+.insp-changed{margin-top:4px;font-size:var(--fs-sm);color:var(--faint)}
 .insp-sep{color:var(--faint)}
 .insp-trunc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .insp-actions{display:flex;gap:2px;flex:none;margin-top:-4px}

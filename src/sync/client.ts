@@ -26,7 +26,7 @@ export const supabaseCopy = (workspaceId: string): SharedCopy => ({
     return (data as { kind: string; id: string; rev: number; overwritten_by: string | null }[]).map((row) => ({ ...row, rev: Number(row.rev) }))
   },
   pull: async (after, limit) => {
-    const { data, error } = await supabase().from('records').select('kind, id, data, deleted, rev, batch_id, updated_by').eq('workspace_id', workspaceId).gt('rev', after).order('rev').limit(limit)
+    const { data, error } = await supabase().from('records').select('kind, id, data, deleted, rev, batch_id, updated_by, updated_at').eq('workspace_id', workspaceId).gt('rev', after).order('rev').limit(limit)
     if (error) throw error
     return (data as RemoteRow[]).map((row) => ({ ...row, rev: Number(row.rev) }))
   },
@@ -36,9 +36,18 @@ export const supabaseCopy = (workspaceId: string): SharedCopy => ({
  * A word between the computers in a workspace that one of them has written: the others then read at once rather than
  * at their next look. The word carries nothing; what was written is read from the shared copy, under its rules.
  */
-export const liveChannel = (workspaceId: string, onWritten: () => void) => {
-  const channel = supabase().channel(`workspace:${workspaceId}`, { config: { broadcast: { self: false } } })
-  channel.on('broadcast', { event: 'written' }, onWritten).subscribe()
+export const liveChannel = (workspaceId: string, me: { id: string; email: string }, onWritten: () => void, onPresent: (emails: string[]) => void) => {
+  const channel = supabase().channel(`workspace:${workspaceId}`, { config: { broadcast: { self: false }, presence: { key: me.id } } })
+  channel
+    .on('broadcast', { event: 'written' }, onWritten)
+    // Who has the workspace open now, each once however many windows they have open.
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<{ email: string }>()
+      onPresent([...new Set(Object.values(state).flatMap((entries) => entries.map((entry) => entry.email)))].sort())
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') void channel.track({ email: me.email })
+    })
   return {
     say: () => void channel.send({ type: 'broadcast', event: 'written', payload: {} }),
     close: () => void supabase().removeChannel(channel),

@@ -97,7 +97,7 @@ describe('the shared copy', () => {
 const copyFor = (user: string): SharedCopy => ({
   push: async (batch, records) => (await push(user, records, batch)).map((row) => ({ ...row, rev: Number(row.rev) })),
   pull: async (after, limit) =>
-    (await as<RemoteRow>(user, 'select kind, id, data, deleted, rev, batch_id, updated_by from records where workspace_id = $1 and rev > $2 order by rev limit $3', [workspace, after, limit])).map((row) => ({ ...row, rev: Number(row.rev) })),
+    (await as<RemoteRow>(user, 'select kind, id, data, deleted, rev, batch_id, updated_by, updated_at::text from records where workspace_id = $1 and rev > $2 order by rev limit $3', [workspace, after, limit])).map((row) => ({ ...row, rev: Number(row.rev) })),
 })
 
 /** One browser: its own database, switched to before it acts. */
@@ -164,7 +164,7 @@ describe('two browsers through the shared copy', () => {
 })
 
 describe('reading in pages', () => {
-  const r = (rev: number, batch: string): RemoteRow => ({ kind: 'x', id: String(rev), data: {}, deleted: false, rev, batch_id: batch, updated_by: KARI })
+  const r = (rev: number, batch: string): RemoteRow => ({ kind: 'x', id: String(rev), data: {}, deleted: false, rev, batch_id: batch, updated_by: KARI, updated_at: '' })
 
   it('holds back the last batch of a full page, which may go on in the next', () => {
     expect(wholeBatches([r(1, 'a'), r(2, 'b'), r(3, 'b')], true).map((row) => row.rev)).toEqual([1])

@@ -13,6 +13,7 @@ export interface RemoteRow {
   rev: number
   batch_id: string
   updated_by: string
+  updated_at: string
 }
 
 /** What the engine needs of the shared copy: the two calls it makes. Supabase in the app, a stand-in in the tests. */
@@ -68,7 +69,7 @@ export const pullAll = async (copy: SharedCopy): Promise<Delta[]> => {
     carried = rows.slice(whole.length)
     if (whole.length) {
       cursor = whole[whole.length - 1].rev
-      deltas.push(...(await takeRemote(whole.map((row): RemoteRecord => ({ kind: row.kind as Kind, id: row.id, value: row.deleted ? null : row.data, rev: row.rev, by: row.updated_by })), cursor)))
+      deltas.push(...(await takeRemote(whole.map((row): RemoteRecord => ({ kind: row.kind as Kind, id: row.id, value: row.deleted ? null : row.data, rev: row.rev, by: row.updated_by, at: row.updated_at })), cursor)))
     }
     if (!full) return deltas
   }
