@@ -2,8 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type WeekTotals } from '../../domain/staffing'
-import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, VenuePhase, Workspace } from '../../domain/types'
+import { buildBalance, buildProjectBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type ProjectBalance, type WeekTotals } from '../../domain/staffing'
+import { numberKey } from '../../domain/projects'
+import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, VenuePhase, Work, Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
@@ -119,6 +120,23 @@ const NO_HOURS = new Map<string, number>()
 /** Where across the days a point of the window is, counted in days from the first: the whole of it is the column, the rest how far into that day. */
 const daysAcross = (el: HTMLElement, x: number, colW: number): number => (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW
 
+/** A project's line under the competence in focus: its number and name, and the hours it lacks in the days in view. */
+export interface ProjectLine {
+  projectNo: string
+  name: string
+  remaining: number
+}
+
+/** A project's part of a competence as the lines of the demand show a day: what is tagged with it and its share of the rest are what it is assigned. */
+const projectDays = (projects: ProjectBalance, projectNo: string): Balance => ({
+  get: (competence, date) => {
+    const p = projects.of(competence, date, projectNo)
+    const assigned = p.tagged + p.shared
+    return { demand: p.demand, carried: p.carried, assigned, assignedOT: 0, remaining: p.remaining, covered: Math.min(p.demand, assigned) }
+  },
+  competences: projects.competences,
+})
+
 /** Per competence: the hours that remain in the days. A day that is over does not make up for one that is short. */
 const remainingIn = (balance: Balance, days: ISODate[]): Map<string, number> =>
   new Map(balance.competences.map((competence) => [competence, days.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0)]))
@@ -131,6 +149,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const [tool, setTool] = useState<Tool>('select')
   /** The competence in focus, which is also what the brush paints. */
   const [brush, setBrush] = useState<string | null>(null)
+  /** The project whose line under the competence in focus is the brush, by its number; none is the sum line, which paints for no project. */
+  const [brushProject, setBrushProject] = useState<string | null>(null)
   /** The days selected with «Velg», as lines and columns of the people shown, and what was copied from them. */
   const [selection, setSelection] = useState<Rect | null>(null)
   const [clip, setClip] = useState<Clipboard | null>(null)
@@ -180,6 +200,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
 
   // ---- the balance of the whole period, worked out once per change ---------------------------------
   const balance = useMemo<Balance>(() => buildBalance(planned === ws.allocations ? ws : { ...ws, allocations: planned }, active ? dates : []), [active, ws, planned, dates])
+  // The same per project, over the whole workspace: what is hidden in the Kalender takes its share all the same.
+  const projectBalance = useMemo<ProjectBalance>(() => buildProjectBalance(ws, active ? dates : []), [active, ws, dates])
   // ---- what is in view ---------------------------------------------------------------------------------
   // The days that are seen: those the panel does not lie over.
   const room = Math.max(colW, viewport.width - LEFT_W - (panel ? PANEL_W : 0))
@@ -196,6 +218,36 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     const held = new Set(staffed.map((style) => style.key))
     return [...styles.values()].filter((style) => held.has(style.key) || remainingOf.has(style.key)).map((style) => ({ style, key: keyOf.get(style.key) ?? 0 }))
   }, [staffed, styles, remainingOf, keyOf])
+
+  /** The names of the projects of the plan, by number. */
+  const projectNames = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const row of ws.allocations) if (row.projectNo.trim() && !names.has(numberKey(row.projectNo))) names.set(numberKey(row.projectNo), row.projectName)
+    return names
+  }, [ws.allocations])
+  const projectName = useCallback((projectNo: string) => projectNames.get(numberKey(projectNo)) ?? projectNo, [projectNames])
+  /**
+   * The lines under the competence in focus: a project shown in the Kalender with hours of it, or tagged with it, in the days in view.
+   * They come in the order their work does.
+   */
+  const projectLines = useMemo<ProjectLine[]>(() => {
+    if (!activeBrush) return []
+    const shown = new Set(planned.filter((row) => row.projectNo.trim()).map((row) => numberKey(row.projectNo)))
+    const lines = new Map<string, ProjectLine & { first: ISODate }>()
+    for (const date of viewDates) {
+      for (const [key, p] of projectBalance.get(activeBrush, date).projects) {
+        if (!shown.has(key) || (p.demand < EPSILON && p.tagged < EPSILON)) continue
+        const line = lines.get(key) ?? { projectNo: p.projectNo, name: projectName(p.projectNo), remaining: 0, first: date }
+        line.remaining += Math.max(0, p.remaining)
+        lines.set(key, line)
+      }
+    }
+    return [...lines.values()].sort((a, b) => a.first.localeCompare(b.first) || a.name.localeCompare(b.name, 'nb')).map(({ first: _first, ...line }) => line)
+  }, [activeBrush, planned, viewDates, projectBalance, projectName])
+  // A project whose line is gone from the demand is no brush any more.
+  const activeProject = brushProject && projectLines.some((line) => numberKey(line.projectNo) === numberKey(brushProject)) ? brushProject : null
+  /** What the brush paints: the competence in focus, for the project of the line in focus. */
+  const brushWork = useMemo<Work | null>(() => (activeBrush ? { competence: activeBrush, ...(activeProject && { projectNo: activeProject }) } : null), [activeBrush, activeProject])
 
   const firstWorkday = useMemo(() => {
     for (let col = Math.min(dates.length - 1, Math.ceil(viewport.left / colW)); col < dates.length; col++) if (dayType(dates[col]) === 'arbeidsdag') return dates[col]
@@ -339,13 +391,13 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   /** The days a brush stroke fills: those it is drawn over, and with Shift held no further than where the demand is met (R47). */
   const paintCells = (s: Stroke): Day[] => {
     const drawn = drawnCells(s)
-    return s.toDemand && activeBrush ? cellsToDemand(ws, drawn, activeBrush, balance, s.col1 < s.col0) : drawn
+    return s.toDemand && brushWork ? cellsToDemand(ws, drawn, brushWork, balance, s.col1 < s.col0, projectBalance) : drawn
   }
   /** The days the brush stroke under way fills, worked out once for its preview, its outline and the count of the demand. */
   const painted = useMemo(
     () => (stroke?.mode === 'paint' ? paintCells(stroke) : null),
     // `paintCells` reads `listed`, `dates`, the brush and the balance.
-    [stroke, ws, listed, dates, activeBrush, balance], // eslint-disable-line react-hooks/exhaustive-deps
+    [stroke, ws, listed, dates, brushWork, balance, projectBalance], // eslint-disable-line react-hooks/exhaustive-deps
   )
   /** R46: what the end of a run that is being pulled does, or `null` while it is where it was. */
   const stretch = useMemo((): StretchPlan | null => {
@@ -359,7 +411,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     const erase = plan.remove.length > 0 || plan.trim !== undefined
     const drawn: Day[] = erase ? plan.remove.map((day) => ({ personId: line.person.id, date: day.date })) : plan.add.map((day) => ({ personId: line.person.id, date: day.date, within: day.within }))
     // With Shift held, an end pulled outward goes no further than where the demand is met (R47).
-    const cells = !erase && stroke.toDemand ? cellsToDemand(ws, drawn, block.competence, balance, stroke.stretch.edge === 'start') : drawn
+    const cells = !erase && stroke.toDemand ? cellsToDemand(ws, drawn, { competence: block.competence, projectNo: block.projectNo }, balance, stroke.stretch.edge === 'start', projectBalance) : drawn
     const changed = erase ? [...plan.remove.map((day) => day.date), ...(plan.trim ? [plan.trim.block.date] : [])] : cells.map((cell) => cell.date)
     if (!changed.length) return null
     return {
@@ -374,7 +426,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       own: plan.add.find((day) => day.own)?.date,
     }
     // `colsOf` reads `dates`.
-  }, [stroke, listed, dates, ws, wd, balance]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stroke, listed, dates, ws, wd, balance, projectBalance]) // eslint-disable-line react-hooks/exhaustive-deps
   /** The days a brush stroke that stops where the demand is met reaches, `null` where it lacks nothing; `undefined` for any other stroke. */
   const paintReach = !painted || !stroke?.toDemand ? undefined : painted.length ? colsOf(painted.map((cell) => cell.date)) : null
   /** R46: the assignments as a pulled end of a run leaves them: its days painted as the brush would, or the run's blocks on them removed and the one it stops in cut. */
@@ -446,10 +498,10 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     const cells = stroke ? (painted ?? []) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
     if (!cells.length) return none
     const half = stroke ? stroke.half : shift
-    const count = brushed(cells, activeBrush, half ? 'half' : 'full')
+    const count = brushed(cells, activeBrush, half ? 'half' : 'full', undefined, activeProject ?? undefined)
     return { ghost: found, info: stroke ? { mode: 'paint', half, people: found.size, toDemand: stroke.toDemand, ...count } : null, refused: null }
     // `strokeCells`, `dayAt` and `blocksOn` read `lineOf`, `listed` and `dates`.
-  }, [active, ws, lineOf, listed, dates, activeTool, activeBrush, stroke, stretch, painted, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, ws, lineOf, listed, dates, activeTool, activeBrush, activeProject, stroke, stretch, painted, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- the demand as it would be after the stroke under way ---------------------------------------------
   // What remains is counted while a stroke is drawn, so it can be stopped where the demand is met. The stroke is worked out as
@@ -463,13 +515,13 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       return { assignments: stretched(ws, stretch), dates: dates.slice(stretch.colFrom, stretch.colTo + 1) }
     }
     if (stroke.mode === 'erase') return { assignments: clearDays(all, strokeCells(stroke)), dates: between }
-    if (stroke.mode === 'paint') return activeBrush && painted ? { assignments: paintDays(ws, painted, activeBrush, stroke.half ? 'half' : 'full'), dates: between } : null
+    if (stroke.mode === 'paint') return brushWork && painted ? { assignments: paintDays(ws, painted, brushWork, stroke.half ? 'half' : 'full'), dates: between } : null
     const from = dayAt(stroke.row0, stroke.col0)
     const to = dayAt(stroke.row1, stroke.col1)
     const moved = moveDay(ws, { from, to, blockIds: blocksOn(from).map((a) => a.id) })
     return typeof moved === 'string' ? null : { assignments: moved, dates: [from.date, to.date] }
     // `strokeCells`, `dayAt` and `blocksOn` read `lineOf`, `listed` and `dates`.
-  }, [active, ws, lineOf, listed, dates, activeBrush, stroke, stretch, painted]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, ws, lineOf, listed, dates, brushWork, stroke, stretch, painted]) // eslint-disable-line react-hooks/exhaustive-deps
   /** The balance the demand shows: as it is, and on the days of a stroke under way as the stroke would leave it. */
   const shownBalance = useMemo<Balance>(() => {
     if (!afterStroke || afterStroke.assignments === (ws.assignments ?? [])) return balance
@@ -479,6 +531,26 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   }, [afterStroke, balance, ws, planned])
   /** Per competence: the hours that remain in the days in view, as the demand shows them. */
   const shownRemaining = useMemo(() => (shownBalance === balance ? remainingOf : remainingIn(shownBalance, viewDates)), [shownBalance, balance, remainingOf, viewDates])
+  /** The balance per project as the lines of the projects show it: on the days of a stroke under way as the stroke would leave it. */
+  const shownProjects = useMemo<ProjectBalance>(() => {
+    if (!activeBrush || !afterStroke || afterStroke.assignments === (ws.assignments ?? [])) return projectBalance
+    const days = new Set(afterStroke.dates)
+    const after = buildProjectBalance({ ...ws, assignments: afterStroke.assignments }, afterStroke.dates)
+    const pick = (date: ISODate) => (days.has(date) ? after : projectBalance)
+    return { get: (competence, date) => pick(date).get(competence, date), of: (competence, date, projectNo) => pick(date).of(competence, date, projectNo), competences: projectBalance.competences }
+  }, [activeBrush, afterStroke, projectBalance, ws])
+  /** Per project line: its days as a line of the demand shows them, and the hours it lacks in the days in view. */
+  const projectShown = useMemo(
+    () =>
+      new Map(
+        projectLines.map((line) => {
+          const days = projectDays(shownProjects, line.projectNo)
+          const remaining = activeBrush ? viewDates.reduce((sum, date) => sum + Math.max(0, days.get(activeBrush, date).remaining), 0) : 0
+          return [line.projectNo, { balance: days, remaining }] as const
+        }),
+      ),
+    [projectLines, shownProjects, activeBrush, viewDates],
+  )
 
   // ---- what the tools do ------------------------------------------------------------------------------
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
@@ -501,7 +573,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       if (cells.length === 1) toast(blockText(cells[0], competence))
       return
     }
-    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence, span) }))
+    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence === activeBrush && activeProject ? { competence, projectNo: activeProject } : competence, span) }))
   }
   const clear = (cells: Day[]) => updateStaffing((w) => ({ ...w, assignments: clearDays(w.assignments ?? [], cells) }))
   const removeOpen = () => updateStaffing((w) => ({ ...w, assignments: removeUnresolved(w, dates) }))
@@ -575,14 +647,28 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   }
 
   const pickBrush = (competence: string) => {
+    if (competence !== activeBrush) setBrushProject(null)
     setBrush(competence)
     setTool('paint')
     setSelection(null)
   }
   const clearBrush = () => {
     setBrush(null)
+    setBrushProject(null)
     setTool('select')
     setSelection(null)
+  }
+  /** A project's line under the competence in focus is made the brush, or the sum line where it is `null`. */
+  const pickProject = (projectNo: string | null) => {
+    setBrushProject(projectNo)
+    setTool('paint')
+    setSelection(null)
+  }
+  /** Steps the brush to the line above or below under the competence in focus: the sum line first, then the projects. */
+  const stepProject = (delta: number) => {
+    const at = activeProject ? projectLines.findIndex((line) => numberKey(line.projectNo) === numberKey(activeProject)) + 1 : 0
+    const next = Math.min(Math.max(at + delta, 0), projectLines.length)
+    pickProject(next ? projectLines[next - 1].projectNo : null)
   }
   const pickTool = (next: Tool) => {
     if (next === 'paint' && !activeBrush) {
@@ -595,7 +681,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   }
   /** A pick in the demand is a step back to all the people: the open hours fold. */
   const pickFromDemand = (competence: string) => {
-    if (competence === activeBrush) return clearBrush()
+    // On the competence in focus, a pick goes from a project's line back to the sum line, and from the sum line out of focus.
+    if (competence === activeBrush) return activeProject ? pickProject(null) : clearBrush()
     pickBrush(competence)
     setUnfolded(null)
   }
@@ -733,6 +820,9 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       } else if ((key === 'arrowup' || key === 'arrowdown') && unfolded) {
         e.preventDefault()
         stepUnfolded(key === 'arrowup' ? -1 : 1)
+      } else if ((key === 'arrowup' || key === 'arrowdown') && activeBrush && projectLines.length) {
+        e.preventDefault()
+        stepProject(key === 'arrowup' ? -1 : 1)
       } else if ((key === 'delete' || key === 'backspace') && (selectedBlock || selection)) {
         e.preventDefault()
         if (selectedBlock) {
@@ -762,8 +852,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   return {
     ws, dates, cols, room, viewFrom, viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
-    tool: activeTool, brush: activeBrush, pickTool, pickBrush, clearBrush, pickFromDemand, shift,
-    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, uncoverable,
+    tool: activeTool, brush: activeBrush, brushProject: activeProject, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand, pickProject, shift,
+    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, uncoverable, projectLines, projectShown, projectName,
     lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, paintReach, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,

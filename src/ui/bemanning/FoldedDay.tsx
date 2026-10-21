@@ -37,10 +37,12 @@ interface Props {
   shapes: Map<string, EndShape>
   /** A block of the day that a pulled end of a run is cut back into, and where in the block the time that goes lies: hatched as hours that go are. */
   cut?: Span & { blockId: string }
+  /** The name of a project, by its number. */
+  projectName: (projectNo: string) => string
 }
 
 /** What a person's day shows when it is folded: a small timeline of the normal day. */
-export function FoldedDay({ cell, styles, brush, width, names, links, shapes, cut }: Props) {
+export function FoldedDay({ cell, styles, brush, width, names, links, shapes, cut, projectName }: Props) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
   // A weekend or a holiday with nothing on it is left empty, whatever absence covers it.
@@ -70,7 +72,7 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes, cu
             key={block.id}
             className={`bm-block ${joinedClass(shape)} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
             style={{ ...joinedPlace(block, shape), paddingLeft: lead ? `calc(${lead}% + 7px)` : undefined, ...colorOf(styles, block.competence) }}
-            title={`${name} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
+            title={`${name}${block.projectNo ? ` · ${projectName(block.projectNo)}` : ''} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
           >
             {(cut?.blockId === block.id ? [cut, ...block.away] : block.away).map((part, at) => (
               <i key={at} className="bm-away-part" style={{ left: `${part.left}%`, width: `${part.width}%` }} />

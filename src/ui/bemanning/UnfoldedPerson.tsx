@@ -128,6 +128,8 @@ function Unfolded({ line: { person, assignments, week } }: { line: PersonLine })
               colW={cols.colW}
               styles={styles}
               brush={brush}
+              brushProject={bm.brushProject}
+              projectName={bm.projectName}
               tool={tool}
               onChange={(change) => updateStaffing((w) => ({ ...w, assignments: change(w) }))}
               onTouch={(touched) => tool === 'select' && bm.onFocusDate(touched)}

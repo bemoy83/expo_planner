@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { groupKey, mergeOrders, orderGroups, orderText, fillGroup, planOrders } from './hire'
-import { buildBalance, buildProjectBalance, carry, clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, NO_PROJECT, paintDays, pasteDays, projectTotals, recolourBlock, removeCarried, resizeBlock, splitBlock } from './staffing'
+import { buildBalance, buildProjectBalance, carry, cellsToDemand, clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, NO_PROJECT, paintDays, pasteDays, projectTotals, recolourBlock, removeCarried, resizeBlock, splitBlock } from './staffing'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from './types'
 import { nextInRun } from '../ui/bemanning/runs'
@@ -72,6 +72,15 @@ describe('the project balance', () => {
     const { projects, unshared } = projectTotals(buildProjectBalance(moved, [TUE, WED]), [TUE, WED])
     expect(projects.get(FIRST)).toMatchObject({ planned: 15, tagged: 4.5, shared: 7.5, remaining: 3 })
     expect(unshared).toBe(0)
+  })
+})
+
+describe('a stroke to where the demand is met', () => {
+  it('goes as far as the project of the brush lacks hours, where the sum line goes as far as the competence does', () => {
+    const w = staffed(day(1, TUE, FIRST), day(2, TUE, FIRST))
+    const cells = [MON, TUE].map((date) => ({ personId: 'two-3', date }))
+    expect(cellsToDemand(w, cells, { competence: 'vegger', projectNo: FIRST }, buildBalance(w, [MON, TUE]), false, buildProjectBalance(w, [MON, TUE])).map((c) => c.date)).toEqual([MON])
+    expect(cellsToDemand(w, cells, 'vegger', buildBalance(w, [MON, TUE])).map((c) => c.date)).toEqual([MON, TUE])
   })
 })
 

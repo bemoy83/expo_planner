@@ -31,7 +31,7 @@
 
 /* ---- the demand per competence ---- */
 .bm-demand{transition:opacity 160ms var(--ease)}
-.grid-label>.bm-pick{flex:1;align-self:stretch;min-width:0;justify-content:flex-start;gap:8px;margin:0 -12px 0 -10px;padding:0 12px 0 36px;border-radius:0;background:transparent;font:inherit;text-align:left}
+.grid-label>.bm-pick{flex:1;align-self:stretch;min-width:0;justify-content:flex-start;gap:8px;margin:0 -12px 0 -10px;padding:0 12px 0 var(--pick-indent,36px);border-radius:0;background:transparent;font:inherit;text-align:left}
 .bm-pick:hover{background:var(--wash-bg)}
 .bm-pick:disabled{opacity:1;cursor:default}
 .bm-pick:disabled:hover{background:transparent}
@@ -58,11 +58,15 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bar .overtime{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 35%,transparent) 0 4px,var(--cc) 4px 6px)}
 .bar .surplus{background:var(--over)}
 .bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--neg) 0 4px,transparent 4px 6px)}
-/* a competence in focus: its line is lit, the others step back */
+/* a competence in focus: its line and the lines of its projects are lit, the others step back; the line that is the brush has the mark */
 .bm-demand.dim{opacity:.5}
 .bm-demand.dim:hover{opacity:.8}
-.bm-demand.on{background:color-mix(in oklab,var(--cc) 7%,var(--bg))}
-.bm-demand.on .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
+.bm-demand.on,.bm-demand-project{background:color-mix(in oklab,var(--cc) 7%,var(--bg))}
+.bm-demand.on:not(.held) .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
+/* a project's line under the competence in focus: indented under its name, the name in the ink of what is under something */
+.bm-project-pick{--pick-indent:52px}
+.bm-project-pick .bm-name{color:var(--muted)}
+.bm-demand-project.on .bm-project-pick .bm-name{color:var(--text)}
 /* Open, a competence's line has a figure per day that is read across, so it has a rule under it, and none between the days. Compact, it is a bar, and bars have no rules. */
 .bm-demand:not(.compact) .cell{border-bottom:1px solid var(--grid-row)}
 /* compact: one thin line per day, the demand as a tint that fills solid from the left as it is covered */

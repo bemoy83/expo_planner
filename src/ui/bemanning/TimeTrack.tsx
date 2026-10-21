@@ -36,6 +36,10 @@ interface Props {
   colW: number
   styles: Map<string, CompetenceStyle>
   brush: string | null
+  /** The project the brush paints for, where a project's line is the brush. */
+  brushProject: string | null
+  /** The name of a project, by its number. */
+  projectName: (projectNo: string) => string
   tool: Tool
   onChange: (change: AssignmentChange) => void
   /** The pointer went down in an empty part of the day. */
@@ -59,7 +63,7 @@ type Draft = { kind: 'move'; id: string; start: Minute } | { kind: 'start' | 'en
  * One person's day as a track of time from the first to the last hour of overtime, where blocks are
  * drawn, moved, resized, split, recoloured and removed (R8), and dragged on to another day (R19).
  */
-export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChange, onTouch, dateAt, cross, onCross, onCrossEnd, selectedId, onSelect }: Props) {
+export function TimeTrack({ ws, person, date, colW, styles, brush, brushProject, projectName, tool, onChange, onTouch, dateAt, cross, onCross, onCrossEnd, selectedId, onSelect }: Props) {
   const track = useRef<HTMLSpanElement>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const latest = useRef<Draft | null>(null)
@@ -77,7 +81,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
 
   const apply = (d: Draft): AssignmentChange => {
     if (d.kind === 'move') return (w) => moveBlock(w, d.id, d.start, opts)
-    if (d.kind === 'draw') return (w) => drawBlock(w, cell, brush!, d.from, d.to, opts)
+    if (d.kind === 'draw') return (w) => drawBlock(w, cell, { competence: brush!, ...(brushProject && { projectNo: brushProject }) }, d.from, d.to, opts)
     return (w) => resizeBlock(w, d.id, d.kind, d.t, opts)
   }
   const stored = (ws.assignments ?? []).filter((a) => a.personId === person.id && a.date === date)
@@ -161,7 +165,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
       () => {
         // A press without a drag fills the free time around it; a drag draws its own span.
         if (latest.current) commit()
-        else onChange((w) => clickBlock(w, cell, brush!, t0, opts))
+        else onChange((w) => clickBlock(w, cell, { competence: brush!, ...(brushProject && { projectNo: brushProject }) }, t0, opts))
       },
     )
   }
@@ -223,7 +227,7 @@ export function TimeTrack({ ws, person, date, colW, styles, brush, tool, onChang
             key={block.id}
             className={`bm-edit-block ${unresolved ? 'unresolved' : ''} ${awayAtStart ? 'away-start' : ''} ${replaced ? 'replaced' : ''} ${ghost ? 'ghost' : ''} ${dragging ? 'dragging' : ''} ${cross?.id === block.id ? 'leaving' : ''} ${selectedId === block.id ? 'selected' : ''} ${brush && brush !== block.competence ? 'other' : ''}`}
             style={{ ...place(from, to), ...competenceColor(style) }}
-            title={`${name} · ${times(false)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
+            title={`${name}${block.projectNo ? ` · ${projectName(block.projectNo)}` : ''} · ${times(false)} · ${hoursText(total)} t${overtime > EPSILON ? ` (${hoursText(overtime)} t overtid)` : ''}${replaced ? ' · teller ikke, behovet er dekket av andre' : unresolved ? ' · uløst' : '\nDra for å flytte · dra kantene · dobbeltklikk for å dele'}`}
             onMouseDown={(e) => blockDown(e, block, 'move')}
             onDoubleClick={(e) => {
               e.stopPropagation()

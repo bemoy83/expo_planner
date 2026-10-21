@@ -42,6 +42,8 @@ interface LineProps {
   overLimit: boolean
   /** The setting «Navn på blokker». */
   names: BlockNames
+  /** The name of a project, by its number: for what a block tagged with one says under the pointer. */
+  projectName: (projectNo: string) => string
   /** The tool the days answer to, for what a day shows that the brush cannot fill. */
   painting: boolean
   /** The columns of the line a stroke covers, and what it does to them. */
@@ -60,7 +62,7 @@ interface LineProps {
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, painting, strokeFrom, strokeTo, erasing, cut, movingCol, refusedCol, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, projectName, painting, strokeFrom, strokeTo, erasing, cut, movingCol, refusedCol, ghost, actions }: LineProps) {
   const day = { start: workday.dayStart, end: workday.dayEnd }
   const blocksOn: BlocksOn = (date) => assignments?.get(date)
   const previewsOn: PiecesOn = (date) => ghost?.get(date)
@@ -128,7 +130,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} cut={cut?.col === col ? cut : undefined} />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} cut={cut?.col === col ? cut : undefined} projectName={projectName} />
             {previews.length > 0 && (
               <span className="bm-timeline bm-ghosts">
                 {previews.map(({ gap, shape }) => (
@@ -233,6 +235,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               dim={dim}
               overLimit={bm.overLimit.has(person.id)}
               names={bm.blockNames}
+              projectName={bm.projectName}
               painting={tool === 'paint'}
               strokeFrom={inStroke ? range.colFrom : -1}
               strokeTo={inStroke ? range.colTo : -1}

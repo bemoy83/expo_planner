@@ -823,18 +823,20 @@ export const removeUnresolved = (ws: Workspace, dates: ISODate[]): Assignment[] 
  * hours of the competence: the days before it are left as they are, the days past it are dropped, and that
  * day is filled no further than its remaining hours ask, to the quarter of an hour, by all the people of the
  * stroke together. Where they have too little free time for that, they get what the stroke gave them. Nothing
- * is left of a stroke over days that lack no hours.
+ * is left of a stroke over days that lack no hours. Work for a project goes as far as the project lacks hours, by `projects`.
  */
-export const cellsToDemand = (ws: Workspace, cells: DayCell[], competence: CompetenceKey, balance: Balance, back = false): DayCell[] => {
+export const cellsToDemand = (ws: Workspace, cells: DayCell[], work: CompetenceKey | Work, balance: Balance, back = false, projects?: ProjectBalance): DayCell[] => {
   const wd = ws.settings.workday
+  const { competence, projectNo } = workOf(work)
+  const remaining = (date: ISODate) => (projectNo && projects ? projects.of(competence, date, projectNo).remaining : balance.get(competence, date).remaining)
   const offDays = onlyOffDays(cells)
   const outward = [...new Set(cells.map((cell) => cell.date))].sort((a, b) => (back ? b.localeCompare(a) : a.localeCompare(b)))
-  const last = outward.findLastIndex((date) => (offDays || dayType(date) === 'arbeidsdag') && balance.get(competence, date).remaining > MET)
+  const last = outward.findLastIndex((date) => (offDays || dayType(date) === 'arbeidsdag') && remaining(date) > MET)
   if (last < 0) return []
   const far = outward[last]
   const kept = new Set(outward.slice(0, last + 1))
   const ends = cells.filter((cell) => cell.date === far)
-  const need = balance.get(competence, far).remaining
+  const need = remaining(far)
   const given = (within: Interval) => ends.reduce((sum, cell) => sum + paidTotal(paintGaps(ws, { ...cell, within }, competence, 'full', offDays), wd), 0)
   // Every end of the stroke on that day has the same bounds: the normal day, or the part of it the stroke was drawn to.
   const bounds = ends[0].within ?? normalDay(wd)

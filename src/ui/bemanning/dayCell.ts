@@ -54,6 +54,8 @@ export const spanOf = (part: Interval, whole: Interval): Span => {
 export interface CellBlock extends Span {
   id: string
   competence: string
+  /** The project it is for, where it is tagged with one. */
+  projectNo?: string
   start: Minute
   end: Minute
   /** The hours of it that count; of a block that does not count, its own. */
@@ -113,7 +115,7 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
     const counted = ok(a) ? subtract([{ start: a.start, end: a.end }], partial.map((u) => ({ start: u.start!, end: u.end! }))) : [a]
     const hours = paidTotal(counted, wd)
     const times = counted.map((part) => `${clock(part.start)}–${clock(part.end)}`).join(' · ')
-    return [{ id: a.id, competence: a.competence, start: a.start, end: a.end, hours, times, unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...spanOf(drawn, day) }]
+    return [{ id: a.id, competence: a.competence, ...(a.projectNo && { projectNo: a.projectNo }), start: a.start, end: a.end, hours, times, unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...spanOf(drawn, day) }]
   })
   const first = partial[0]
   return {
