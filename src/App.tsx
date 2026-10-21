@@ -21,7 +21,7 @@ import { Tooltips } from './ui/Tooltips'
 import { Settings } from 'lucide-react'
 import { loadLocalWorkspace } from './store/db'
 import { CloudDialog } from './sync/CloudDialog'
-import { CloudProvider, SharedSync, useCloud } from './sync/CloudProvider'
+import { CloudProvider, SharedSync, useCloud, useSyncStatus } from './sync/CloudProvider'
 import { syncText } from './sync/syncText'
 
 export default function App() {
@@ -90,7 +90,8 @@ const tabOf = (view: View) => TABS.find((tab) => tab.pages.some((page) => page.v
 /** Its own component, so that saving an edit does not render the tabs again. */
 function SaveIndicator() {
   const saveState = useSaveState()
-  const { shared, state } = useCloud()
+  const { shared } = useCloud()
+  const { state } = useSyncStatus()
   // In a shared workspace, once saved in the browser, what counts is how far the shared copy has come.
   if (shared && state && saveState === 'saved') {
     return (
@@ -110,7 +111,8 @@ function SaveIndicator() {
 
 /** Who else has the shared workspace open now: their number, and their e-mails on hover. Nothing when one is alone in it. */
 function Present() {
-  const { present, email } = useCloud()
+  const { email } = useCloud()
+  const { present } = useSyncStatus()
   const others = present.filter((each) => each !== email)
   if (!others.length) return null
   return (
@@ -131,11 +133,12 @@ function Present() {
  */
 function SharedStart({ onStart }: { onStart: (ws: Workspace) => void }) {
   const cloud = useCloud()
+  const { state } = useSyncStatus()
   const [local, setLocal] = useState<Workspace | null>(null)
   useEffect(() => {
     loadLocalWorkspace().then(setLocal)
   }, [])
-  if (!cloud.read) return <p className="center muted">{cloud.state && cloud.state !== 'syncing' ? `${syncText(cloud.state)}. Arbeidsområdet hentes når skyen svarer.` : 'Henter fra skyen …'}</p>
+  if (!cloud.read) return <p className="center muted">{state && state !== 'syncing' ? `${syncText(state)}. Arbeidsområdet hentes når skyen svarer.` : 'Henter fra skyen …'}</p>
   if (!local) return null
   return (
     <p className="empty-actions">

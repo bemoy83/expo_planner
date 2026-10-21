@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useCloud } from './CloudProvider'
+import { useCloud, useSyncStatus } from './CloudProvider'
 import { Members } from './Members'
 import { syncText } from './syncText'
 
 /** Signing in to the shared workspace, and out of it: from ⚙ › Data › Skyen. */
 export function CloudDialog({ onClose }: { onClose: () => void }) {
   const cloud = useCloud()
+  const status = useSyncStatus()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,12 +65,20 @@ export function CloudDialog({ onClose }: { onClose: () => void }) {
               Logget inn som <b>{cloud.email}</b>
               {cloud.shared ? (
                 <>
-                  , i <b>{cloud.shared.name}</b>. {cloud.state ? syncText(cloud.state) : ''}
+                  , i <b>{cloud.shared.name}</b>. {status.state ? syncText(status.state) : ''}
                 </>
               ) : (
                 '.'
               )}
             </p>
+            {status.error && (
+              <p className="issue">
+                Synkroniseringen er stoppet: skyen sa nei ({status.error}). Endringene dine ligger i nettleseren.{' '}
+                <button type="button" className="link" onClick={cloud.retry}>
+                  Prøv igjen
+                </button>
+              </p>
+            )}
             {cloud.noMembership && <p className="hint">Du er ikke lagt til i et arbeidsområde ennå. Til da arbeider du i nettleserens egne data.</p>}
             {cloud.shared && <Members workspaceId={cloud.shared.id} me={cloud.userId} />}
             {cloud.shared && (

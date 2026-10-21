@@ -1,6 +1,6 @@
 # Supabase sync: a plan
 
-Status: agreed in outline with the user, 2026-10-18 (see «Decisions»), and revised the same day after a review against the code. Nothing is built. Read with `src/store/` open.
+Status: agreed in outline with the user, 2026-10-18 (see «Decisions»). Phases 1 to 4 are built (2026-10-19 to 2026-10-21) and reviewed (2026-10-21, «Review» below). Read with `src/store/` and `src/sync/` open.
 
 ## End goal
 
@@ -120,7 +120,7 @@ Supabase Auth with Microsoft sign-in (the Azure provider). The company uses Micr
 
 To check before it is built: Supabase needs an e-mail from the provider, and a personal Microsoft account gives one only when the app registration asks for it (the `email` claim, the `consumers` or `common` tenant). The sign-in returns to the page it came from, so the published address on GitHub Pages and `localhost` both go into Supabase's list of redirect URLs.
 
-Membership of the one workspace is added by hand in the Supabase dashboard; there is no invite screen in the proof of concept. The app without sign-in stays as it is today (local only), so nothing breaks for someone who never signs in.
+What is built is the sign-in link by e-mail; Microsoft sign-in is not. Sign-up is closed (2026-10-21): the owner makes a planner's user in the dashboard («Invite user»), and the app sends a link only to an e-mail that has one. The owner of the workspace (`role = 'owner'`) alone adds and takes out members, in «Skyen» (`supabase/003_owner_and_channel.sql`). The app without sign-in stays as it is today (local only), so nothing breaks for someone who never signs in.
 
 ### The local copy and the shared one
 
@@ -161,6 +161,19 @@ Phases 1 and 2 come before the first version; 3 and 4 after it.
 2. **Cloud copy for one planner (the proof of concept).** On the invented season (see «Data protection»). Supabase free project in an EU region, Microsoft sign-in with a private account, the schema with the workspace counter, sign-in, RLS with writes through `push_records` only; a database per workspace, the outbox, push and pull in whole batches, without realtime; signing out and «Slett alt» as above. One planner on two computers has the same plan, and the data is off the browser. This alone settles «Data that lasts», once the real data is in it. **Built 2026-10-19, connected 2026-10-20** (project in Stockholm, address and publishable key in `.env`; the schema and the planner's membership added by hand in the dashboard; tested by the planner on two browsers): `supabase/schema.sql` (tested in an in-memory Postgres, `src/sync/shared.test.ts`), the outbox and the engine (`src/sync/engine.ts`), sign-in by e-mail link and the dialog «Skyen» under ⚙ › Data (`src/sync/CloudProvider.tsx`, `CloudDialog.tsx`). The app reads the project from `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY`; without them it is the local app it was. Two choices made while building: the browser's own data is not moved or kept aside as a file when the planner signs in, since the shared workspace has a database of its own and the local one lies untouched until they sign out; and in a shared workspace «Slett alt og start på nytt» becomes «Tøm det delte arbeidsområdet», for everyone, since a reset of this browser's copy alone would only read it all back. «Hent alt på nytt» in «Skyen» is the reset of this browser's copy.
 3. **Live, several planners.** Realtime nudges, remote writes applied in the grid, `baseRev` conflict notices, undo of own steps only, «Frakoblet» in the save indicator. **Built 2026-10-20:** a computer that has sent writes says so on a Realtime broadcast channel of the workspace (`liveChannel` in `src/sync/client.ts`), a word that carries nothing, and the others read at once; the half-minute look stays as the check for a lost word. Remote writes wait while a mouse button is held. Each planner notes their e-mail as a `planner` record, so a notice can name who: a write that replaced what another had just changed, and an undo that left records another changed since (`History` in `src/store/history.ts`). No schema change, and nothing beyond the free plan.
 4. **Comfort.** Presence, who changed what and when (the `updated_by` and `updated_at` are already stored; Innleid asked for it on answers), an invite screen, preferences per user, a scheduled JSON export. **Built 2026-10-21, all on the free plan:** presence on the workspace's Realtime channel (the others who have it open, in the header); who last wrote each record and when, kept in the browser, shown in row details; the members of the workspace in «Skyen», added by the e-mail they signed in with (`supabase/002_members.sql`, run by hand); and, instead of a scheduled export, which would land in the same project, a reminder to download a backup a week after the last. Not done: preferences per user, and who changed an answer in Innleid.
+
+## Review
+
+Made 2026-10-21 against the code of phases 1 to 4; fixed the same day on the user's word:
+
+- A planner's own writes, read back, were taken for another planner's, so an undo was refused as «endret av» themself: Postgres gives the keys of jsonb back in an order of its own. A record read back with the rev its push was answered with is passed over, and values are compared with their keys sorted (`takeIn` in `db.ts`).
+- Signed in without the network, or with the project paused, the app opened this browser's own data. The workspace last found is kept in localStorage per user (`expo-planner-cloud:workspace:<id>`) and opened when the lookup fails; the browser's own data only where the shared copy answers that there is none.
+- Replacing or emptying a shared workspace kept the planners' records (`deletesOfAll`, `emptyShared` in `db.ts`), and empties every record stored, not only those the workspace in memory holds.
+- A batch the shared copy says no to, with a code of Postgres or PostgREST, stops the sync with the message in «Skyen» and «Prøv igjen», rather than being sent again every half minute.
+- The sync status and who is present are a context of their own (`useSyncStatus`), and the tree under `CloudProvider` is drawn again only when the database changes; a look that finds nothing to send says nothing.
+- The Realtime channel is private, open to the members of the workspace (policies on `realtime.messages`, `003_owner_and_channel.sql`), with public access turned off in the project's Realtime settings.
+
+Left as they are: `records.updated_by` keeps a user who has written from being deleted; a push is one call however big the batch; the notice of an overwrite also comes where both wrote the same value.
 
 ## Alternatives weighed
 

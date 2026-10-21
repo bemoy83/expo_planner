@@ -79,7 +79,20 @@ export const pullAll = async (copy: SharedCopy): Promise<Delta[]> => {
 const offline = (error: unknown) => (typeof navigator !== 'undefined' && !navigator.onLine) || (error instanceof TypeError && /fetch|network/i.test(error.message))
 
 /** A paused free project answers that it is not there. */
-const paused = (error: unknown) => /paused|project.*(inactive|not found)|540/i.test(String((error as { message?: string })?.message ?? error))
+const paused = (error: unknown) => /paused|project.*(inactive|not found)|\b540\b/i.test(String((error as { message?: string })?.message ?? error))
+
+/**
+ * Whether the shared copy said no to what was sent, with a code of Postgres or of its REST layer (a member taken out,
+ * a record it cannot take): sending the same again gets the same answer, so the sync stops until told to try again.
+ * A sign-in that has run out (PGRST301, PGRST302) is renewed by itself, and is tried again.
+ */
+export const refused = (error: unknown): boolean => {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' && /^([0-9A-Z]{5}|PGRST\d+)$/.test(code) && !/^PGRST30[12]$/.test(code)
+}
+
+/** What went wrong, as the shared copy said it. */
+const messageOf = (error: unknown): string => String((error as { message?: string } | null)?.message ?? error)
 
 /**
  * Windows of one browser share its database, outbox and cursor: they send and read one at a time, so a batch is not
@@ -93,8 +106,15 @@ export interface Engine {
   nudge: () => void
   /** Sends and reads now, or as soon as the run under way is over: when another computer says it wrote. */
   now: () => void
+  /** Starts again after the shared copy has said no. */
+  retry: () => void
   stop: () => void
 }
+
+/** A write is sent this long after the last of a burst. */
+const BURST_MS = 800
+/** How often the shared copy is looked at without a word from the others: the check for a word that was lost. */
+const LOOK_MS = 30_000
 
 /**
  * Keeps the browser's copy and the shared one in step: sends what waits and reads what is new, at start, when told
@@ -102,26 +122,28 @@ export interface Engine {
  */
 export const startEngine = (
   copy: SharedCopy,
-  on: { remote: (deltas: Delta[]) => void; state: (state: SyncState) => void; overwritten: (by: string[]) => void; sent: () => void },
+  on: { remote: (deltas: Delta[]) => void; state: (state: SyncState, error?: string) => void; overwritten: (by: string[]) => void; sent: () => void },
 ): Engine => {
   let running = false
   let again = false
   let stopped = false
+  /** The shared copy said no: nothing is sent or read until the planner tries again. */
+  let halted = false
   let timer: ReturnType<typeof setTimeout> | null = null
 
   const run = async () => {
-    if (stopped) return
+    if (stopped || halted) return
     if (running) {
       again = true
       return
     }
     running = true
-    on.state('syncing')
     try {
       await oneWindowAtATime(sync)
       on.state('synced')
     } catch (error) {
-      on.state(offline(error) ? 'offline' : paused(error) ? 'paused' : 'error')
+      halted = !offline(error) && refused(error)
+      on.state(halted ? 'error' : offline(error) ? 'offline' : paused(error) ? 'paused' : 'error', halted ? messageOf(error) : undefined)
     } finally {
       running = false
       if (again) {
@@ -132,6 +154,8 @@ export const startEngine = (
   }
   const sync = async () => {
     const sending = (await pendingOutbox()).length > 0
+    // Said only when there is something to send: a look that finds nothing new says nothing.
+    if (sending) on.state('syncing')
     const by = await pushAll(copy)
     if (by.length) on.overwritten(by)
     if (sending) on.sent()
@@ -141,10 +165,9 @@ export const startEngine = (
   // Writes come in bursts while a planner works; they are sent a moment after the last.
   const nudge = () => {
     if (timer) clearTimeout(timer)
-    timer = setTimeout(run, 800)
+    timer = setTimeout(run, BURST_MS)
   }
-  // Others say when they write; this is the check for a word that was lost.
-  const interval = setInterval(run, 30_000)
+  const interval = setInterval(run, LOOK_MS)
   const visible = () => document.visibilityState === 'visible' && void run()
   window.addEventListener('online', run)
   document.addEventListener('visibilitychange', visible)
@@ -152,6 +175,10 @@ export const startEngine = (
   return {
     nudge,
     now: () => void run(),
+    retry: () => {
+      halted = false
+      void run()
+    },
     stop: () => {
       stopped = true
       if (timer) clearTimeout(timer)

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { deleteDatabase, LOCAL_DB, setPlanner, notePlanner, onWritten, pendingOutbox, plannerNames, sharedDbName, switchDatabase } from '../store/db'
 import { useWorkspace } from '../store/workspaceStore'
@@ -22,9 +22,6 @@ interface Cloud {
   shared: SharedWorkspace | null
   /** Signed in, but not yet added to a workspace. */
   noMembership: boolean
-  state: SyncState | null
-  /** The e-mails of the planners who have the shared workspace open now, this one among them. */
-  present: string[]
   /** The shared workspace has been read once since it was opened, so what it holds is known. */
   read: boolean
   signIn: (email: string) => Promise<void>
@@ -34,10 +31,47 @@ interface Cloud {
   readAgain: () => Promise<void>
   /** Writes not yet sent. */
   waiting: () => Promise<number>
+  /** Starts the sync again after the shared copy has said no. */
+  retry: () => void
+}
+
+/** How the sync stands. Kept apart from `Cloud`, since it changes on every look at the shared copy: only what shows it renders again. */
+interface SyncStatus {
+  state: SyncState | null
+  /** What the shared copy said when it said no, and the sync stopped. */
+  error: string | null
+  /** The e-mails of the planners who have the shared workspace open now, this one among them. */
+  present: string[]
 }
 
 const Context = createContext<Cloud | null>(null)
-const SyncContext = createContext<{ setState: (state: SyncState) => void; setPresent: (emails: string[]) => void } | null>(null)
+const StatusContext = createContext<SyncStatus>({ state: null, error: null, present: [] })
+const SyncContext = createContext<{ setState: (state: SyncState, error?: string) => void; setPresent: (emails: string[]) => void; setRetry: (retry: (() => void) | null) => void } | null>(null)
+
+/**
+ * The workspace a planner was last found a member of, kept in this browser: a sign-in without the network, or with the
+ * shared copy paused, opens it, rather than this browser's own data.
+ */
+const KNOWN = (userId: string) => `expo-planner-cloud:workspace:${userId}`
+const knownWorkspace = (userId: string): SharedWorkspace | null | undefined => {
+  try {
+    const raw = localStorage.getItem(KNOWN(userId))
+    return raw ? (JSON.parse(raw) as SharedWorkspace | null) : undefined
+  } catch {
+    return undefined
+  }
+}
+const noteWorkspace = (userId: string, shared: SharedWorkspace | null) => {
+  try {
+    localStorage.setItem(KNOWN(userId), JSON.stringify(shared))
+  } catch {
+    // the lookup is made again at the next start
+  }
+}
+
+/** Says in Norwegian why a sign-in link was not sent, where the shared copy said it in English. */
+const signInError = (error: { message?: string; code?: string }): Error =>
+  new Error(error.code === 'otp_disabled' || /signups? not allowed/i.test(error.message ?? '') ? 'Denne e-posten har ingen bruker i skyen. Be eieren av arbeidsområdet opprette den.' : (error.message ?? String(error)))
 
 /**
  * The planner's sign-in and the shared workspace they open. Signed in to a workspace, the app works in its own
@@ -51,8 +85,9 @@ export function CloudProvider({ children }: { children: (database: string) => Re
   /** The workspace found for a signed-in planner, by their id. */
   const [membership, setMembership] = useState<{ userId: string; shared: SharedWorkspace | null } | null>(null)
   /** How the sync of a database stands, by its name. */
-  const [sync, setSync] = useState<{ database: string; state: SyncState | null; read: boolean }>({ database: '', state: null, read: false })
+  const [sync, setSync] = useState<{ database: string; state: SyncState | null; error: string | null; read: boolean }>({ database: '', state: null, error: null, read: false })
   const [presence, setPresence] = useState<{ database: string; emails: string[] }>({ database: '', emails: [] })
+  const retryRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     if (!cloudConfigured) return
@@ -65,15 +100,21 @@ export function CloudProvider({ children }: { children: (database: string) => Re
     return () => data.subscription.unsubscribe()
   }, [])
 
-  // The workspace the planner is a member of: there is one in the proof of concept.
-  const userId = session?.user.id
+  // The workspace the planner is a member of: there is one in the proof of concept. Where the shared copy does not
+  // answer, the one last found in this browser; this browser's own data only where it answers that there is none.
+  const userId = session?.user.id ?? null
   useEffect(() => {
     if (!cloudConfigured || !userId) return
     supabase()
       .from('workspaces')
       .select('id, name')
       .limit(1)
-      .then(({ data }) => setMembership({ userId, shared: (data as SharedWorkspace[] | null)?.[0] ?? null }))
+      .then(({ data, error }) => {
+        if (error || !data) return setMembership({ userId, shared: knownWorkspace(userId) ?? null })
+        const shared = (data as SharedWorkspace[])[0] ?? null
+        noteWorkspace(userId, shared)
+        setMembership({ userId, shared })
+      })
   }, [userId])
 
   const found = userId && membership?.userId === userId ? membership : null
@@ -82,17 +123,32 @@ export function CloudProvider({ children }: { children: (database: string) => Re
   // Known once there is no planner signed in, or the workspace of the one who is has been looked up.
   const ready = !cloudConfigured || (authKnown && (!session || !!found))
   const database = shared ? sharedDbName(shared.id) : LOCAL_DB
-  switchDatabase(database)
-  setPlanner(shared ? (userId ?? null) : null)
-  const state = sync.database === database ? sync.state : null
   const read = sync.database === database && sync.read
-  const present = presence.database === database ? presence.emails : []
-  const setPresent = useCallback((emails: string[]) => setPresence({ database, emails }), [database])
-  const setState = useCallback((next: SyncState) => setSync((now) => ({ database, state: next, read: now.database === database && (now.read || next === 'synced') })), [database])
+
+  // The database is chosen before the children are drawn, since they read it as they start.
+  const tree = useMemo(() => {
+    switchDatabase(database)
+    setPlanner(shared ? userId : null)
+    return children(database)
+  }, [children, database, shared, userId])
+
+  const setPresent = useCallback((emails: string[]) => setPresence((now) => (now.database === database && now.emails.join() === emails.join() ? now : { database, emails })), [database])
+  const setState = useCallback(
+    (state: SyncState, error?: string) =>
+      setSync((now) => {
+        const next = { database, state, error: error ?? null, read: now.database === database && (now.read || state === 'synced') }
+        return now.database === next.database && now.state === next.state && now.error === next.error && now.read === next.read ? now : next
+      }),
+    [database],
+  )
+  const setRetry = useCallback((retry: (() => void) | null) => {
+    retryRef.current = retry
+  }, [])
 
   const signIn = useCallback(async (email: string) => {
-    const { error } = await supabase().auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href.split('#')[0].split('?')[0] } })
-    if (error) throw error
+    // Planners are made by the owner in the dashboard: a link is sent only to an e-mail that has a user.
+    const { error } = await supabase().auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: window.location.href.split('#')[0].split('?')[0] } })
+    if (error) throw signInError(error)
   }, [])
 
   const signOut = useCallback(
@@ -100,11 +156,12 @@ export function CloudProvider({ children }: { children: (database: string) => Re
       const name = shared ? sharedDbName(shared.id) : null
       await supabase().auth.signOut()
       if (forget && name) {
+        if (userId) noteWorkspace(userId, null)
         switchDatabase(LOCAL_DB)
         await deleteDatabase(name)
       }
     },
-    [shared],
+    [shared, userId],
   )
 
   const readAgain = useCallback(async () => {
@@ -115,14 +172,28 @@ export function CloudProvider({ children }: { children: (database: string) => Re
   }, [shared])
 
   const waiting = useCallback(async () => (shared ? (await pendingOutbox()).length : 0), [shared])
+  const retry = useCallback(() => retryRef.current?.(), [])
 
-  const value: Cloud = { configured: cloudConfigured, email: session?.user.email ?? null, userId: session?.user.id ?? null, shared, noMembership, state, present, read, signIn, signOut, readAgain, waiting }
+  const email = session?.user.email ?? null
+  const value = useMemo<Cloud>(
+    () => ({ configured: cloudConfigured, email, userId, shared, noMembership, read, signIn, signOut, readAgain, waiting, retry }),
+    [email, userId, shared, noMembership, read, signIn, signOut, readAgain, waiting, retry],
+  )
+  const state = sync.database === database ? sync.state : null
+  const error = sync.database === database ? sync.error : null
+  const present = presence.database === database ? presence.emails : NOBODY
+  const status = useMemo<SyncStatus>(() => ({ state, error, present }), [state, error, present])
+  const control = useMemo(() => ({ setState, setPresent, setRetry }), [setState, setPresent, setRetry])
   return (
     <Context.Provider value={value}>
-      <SyncContext.Provider value={{ setState, setPresent }}>{ready ? children(database) : <p className="center muted">Åpner …</p>}</SyncContext.Provider>
+      <StatusContext.Provider value={status}>
+        <SyncContext.Provider value={control}>{ready ? tree : <p className="center muted">Åpner …</p>}</SyncContext.Provider>
+      </StatusContext.Provider>
     </Context.Provider>
   )
 }
+
+const NOBODY: string[] = []
 
 /** The planners' e-mails for their ids, «en annen» for one this browser has not heard of. */
 const namesOf = async (ids: string[]): Promise<string> => {
@@ -138,7 +209,7 @@ const namesOf = async (ids: string[]): Promise<string> => {
  */
 export function SharedSync() {
   const cloud = useCloud()
-  const { setState, setPresent } = useContext(SyncContext)!
+  const { setState, setPresent, setRetry } = useContext(SyncContext)!
   const { applyRemote, setOnLeft } = useWorkspace()
   const { toasts, show, dismiss } = useToasts()
   const id = cloud.shared?.id
@@ -155,14 +226,16 @@ export function SharedSync() {
       overwritten: async (by) => show(`Du endret noe ${await namesOf(by)} nettopp hadde endret. Din endring gjelder.`),
     })
     const off = onWritten(engine.nudge)
+    setRetry(engine.retry)
     setOnLeft(async (left, by) => show(`${count(left, 'endring', 'endringer')} ble ikke angret: endret ${by.length ? `av ${await namesOf(by)}` : 'i et annet vindu'} etterpå.`))
     return () => {
       off()
       setOnLeft(null)
+      setRetry(null)
       engine.stop()
       live.close()
     }
-  }, [id, me, email, applyRemote, setOnLeft, setState, setPresent, show])
+  }, [id, me, email, applyRemote, setOnLeft, setState, setPresent, setRetry, show])
   return <Toasts toasts={toasts} onDismiss={dismiss} />
 }
 
@@ -172,3 +245,7 @@ export const useCloud = (): Cloud => {
   if (!cloud) throw new Error('useCloud must be used inside CloudProvider')
   return cloud
 }
+
+/** How the sync stands, and who is in the shared workspace now. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const useSyncStatus = (): SyncStatus => useContext(StatusContext)

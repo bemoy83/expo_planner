@@ -37,7 +37,9 @@ export const supabaseCopy = (workspaceId: string): SharedCopy => ({
  * at their next look. The word carries nothing; what was written is read from the shared copy, under its rules.
  */
 export const liveChannel = (workspaceId: string, me: { id: string; email: string }, onWritten: () => void, onPresent: (emails: string[]) => void) => {
-  const channel = supabase().channel(`workspace:${workspaceId}`, { config: { broadcast: { self: false }, presence: { key: me.id } } })
+  // Private: the members of the workspace alone may join it (`supabase/003_owner_and_channel.sql`).
+  const channel = supabase().channel(`workspace:${workspaceId}`, { config: { private: true, broadcast: { self: false }, presence: { key: me.id } } })
+  void supabase().realtime.setAuth()
   channel
     .on('broadcast', { event: 'written' }, onWritten)
     // Who has the workspace open now, each once however many windows they have open.
@@ -54,12 +56,19 @@ export const liveChannel = (workspaceId: string, me: { id: string; email: string
   }
 }
 
-/** The members of a workspace (`supabase/002_members.sql`). */
+/** A member of a workspace, and whether they own it: the owner alone adds and removes members. */
+export interface Member {
+  user_id: string
+  email: string
+  owner: boolean
+}
+
+/** The members of a workspace (`supabase/002_members.sql`, `003_owner_and_channel.sql`). */
 export const members = {
-  list: async (workspaceId: string): Promise<{ user_id: string; email: string }[]> => {
+  list: async (workspaceId: string): Promise<Member[]> => {
     const { data, error } = await supabase().rpc('list_members', { p_workspace: workspaceId })
     if (error) throw error
-    return data as { user_id: string; email: string }[]
+    return data as Member[]
   },
   add: async (workspaceId: string, email: string): Promise<'added' | 'already' | 'not-signed-in'> => {
     const { data, error } = await supabase().rpc('add_member', { p_workspace: workspaceId, p_email: email })

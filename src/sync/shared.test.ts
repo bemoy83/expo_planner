@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs'
 import 'fake-indexeddb/auto'
 import { PGlite } from '@electric-sql/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS } from '../domain/types'
-import { loadWorkspace, pendingOutbox, sharedDbName, switchDatabase, writeRecords } from '../store/db'
-import { pullAll, pushAll, wholeBatches, type RemoteRow, type SharedCopy } from './engine'
+import { DEFAULT_SETTINGS, type Workspace } from '../domain/types'
+import { emptyShared, loadWorkspace, notePlanner, pendingOutbox, plannerNames, saveWorkspace, sharedDbName, switchDatabase, writeRecords } from '../store/db'
+import { pullAll, pushAll, refused, wholeBatches, type RemoteRow, type SharedCopy } from './engine'
 
 /**
  * The shared copy and the sync with it. The schema is run in an in-memory Postgres with a stand-in for Supabase's `auth` schema: the user
@@ -18,6 +18,12 @@ const AUTH = `
   create role anon;
   create role authenticated;
   grant usage on schema public, auth to anon, authenticated;
+  create schema realtime;
+  create table realtime.messages (topic text);
+  alter table realtime.messages enable row level security;
+  create function realtime.topic() returns text language sql stable as $$ select current_setting('realtime.topic', true) $$;
+  grant usage on schema realtime to authenticated;
+  grant select, insert on realtime.messages to authenticated;
   insert into auth.users values ('00000000-0000-0000-0000-00000000000a', 'kari@example.com'), ('00000000-0000-0000-0000-00000000000b', 'ola@example.com'), ('00000000-0000-0000-0000-00000000000c', 'ute@example.com');
 `
 const KARI = '00000000-0000-0000-0000-00000000000a'
@@ -43,10 +49,11 @@ beforeAll(async () => {
   await db.exec(AUTH)
   await db.exec(readFileSync('supabase/schema.sql', 'utf8'))
   await db.exec(readFileSync('supabase/002_members.sql', 'utf8'))
+  await db.exec(readFileSync('supabase/003_owner_and_channel.sql', 'utf8'))
   // Supabase grants the roles everything on the tables of `public`; row-level security is what holds them back.
   await db.exec('grant all on workspaces, workspace_members, records to anon, authenticated')
   workspace = (await db.query<{ id: string }>(`select id from workspaces where name = 'Expo Planner'`)).rows[0].id
-  await db.query('insert into workspace_members (workspace_id, user_id) values ($1, $2), ($1, $3)', [workspace, KARI, OLA])
+  await db.query(`insert into workspace_members (workspace_id, user_id, role) values ($1, $2, 'owner'), ($1, $3, 'planner')`, [workspace, KARI, OLA])
 }, 30000)
 
 describe('the shared copy', () => {
@@ -116,20 +123,46 @@ const browser = (name: string, user: string) => ({
 })
 
 describe('the members of a workspace', () => {
-  it('are listed for members, with their e-mails', async () => {
-    const members = await as<{ email: string }>(KARI, 'select email from list_members($1)', [workspace])
-    expect(members.map((m) => m.email)).toEqual(['kari@example.com', 'ola@example.com'])
+  it('are listed for members, with their e-mails and who owns it', async () => {
+    const members = await as<{ email: string; owner: boolean }>(OLA, 'select email, owner from list_members($1)', [workspace])
+    expect(members).toEqual([
+      { email: 'kari@example.com', owner: true },
+      { email: 'ola@example.com', owner: false },
+    ])
     await expect(as(OUTSIDER, 'select * from list_members($1)', [workspace])).rejects.toThrow(/not a member/)
   })
 
-  it('are added by a member, once they have signed in, and taken out again', async () => {
+  it('are added by the owner, once they have a user, and taken out again', async () => {
     expect(await as<{ add_member: string }>(KARI, 'select add_member($1, $2)', [workspace, 'nobody@example.com'])).toEqual([{ add_member: 'not-signed-in' }])
     expect(await as<{ add_member: string }>(KARI, 'select add_member($1, $2)', [workspace, ' UTE@example.com '])).toEqual([{ add_member: 'added' }])
     expect(await as<{ add_member: string }>(KARI, 'select add_member($1, $2)', [workspace, 'ute@example.com'])).toEqual([{ add_member: 'already' }])
     await as(KARI, 'select remove_member($1, $2)', [workspace, OUTSIDER])
     expect((await as(KARI, 'select * from list_members($1)', [workspace])).length).toBe(2)
     await expect(as(KARI, 'select remove_member($1, $2)', [workspace, KARI])).rejects.toThrow(/not allowed/)
-    await expect(as(OUTSIDER, 'select add_member($1, $2)', [workspace, 'ute@example.com'])).rejects.toThrow(/not a member/)
+  })
+
+  it('are managed by the owner alone', async () => {
+    await expect(as(OLA, 'select add_member($1, $2)', [workspace, 'ute@example.com'])).rejects.toThrow(/not the owner/)
+    await expect(as(OLA, 'select remove_member($1, $2)', [workspace, KARI])).rejects.toThrow(/not allowed/)
+    await expect(as(OUTSIDER, 'select add_member($1, $2)', [workspace, 'ute@example.com'])).rejects.toThrow(/not the owner/)
+  })
+})
+
+describe('the channel of a workspace', () => {
+  /** Whether a user may listen on, and write to, a Realtime topic. */
+  const onChannel = async (user: string, topic: string) => {
+    await db.query(`select set_config('realtime.topic', $1, false)`, [topic])
+    await db.query('delete from realtime.messages')
+    await db.query('insert into realtime.messages (topic) values ($1)', [topic])
+    const listen = (await as(user, 'select * from realtime.messages')).length === 1
+    const write = await as(user, 'insert into realtime.messages (topic) values (realtime.topic())').then(() => true, () => false)
+    return { listen, write }
+  }
+
+  it('is open to the members of the workspace alone', async () => {
+    expect(await onChannel(OLA, `workspace:${workspace}`)).toEqual({ listen: true, write: true })
+    expect(await onChannel(OUTSIDER, `workspace:${workspace}`)).toEqual({ listen: false, write: false })
+    expect(await onChannel(OLA, 'workspace:something-else')).toEqual({ listen: false, write: false })
   })
 })
 
@@ -137,6 +170,7 @@ describe('two browsers through the shared copy', () => {
   const settings = { kind: 'settings' as const, id: 'settings', value: DEFAULT_SETTINGS }
   const row = (id: string) => ({ kind: 'allocation' as const, id, value: { id, order: 0, projectName: 'Byggemessen 2026', projectNo: '26101', refYear: '2026', competence: 'Vegger', phase: 'Montering', basis: 'Planlagt' } })
   const cell = (rowId: string, date: string, fte: number | null) => ({ kind: 'allocCell' as const, id: `${rowId}|${date}`, value: fte === null ? null : { fte } })
+  const emptyWorkspace: Workspace = { settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [], overrides: {}, hiddenVenue: {}, visma: [] }
   const a = browser('a', KARI)
   const b = browser('b', OLA)
 
@@ -180,6 +214,29 @@ describe('two browsers through the shared copy', () => {
     const deltas = await b.act(() => pullAll(b.copy))
     expect(deltas).toEqual([{ kind: 'allocCell', id: 'r9|2026-10-12', before: { fte: 1 }, after: null, by: KARI }])
   })
+
+  it('reads its own writes back as no change, though the shared copy orders their keys otherwise', async () => {
+    // Postgres keeps the keys of jsonb in an order of its own: «name» comes back after «id».
+    const person = { kind: 'person' as const, id: 'p1', value: { name: 'Kari Nordmann', id: 'p1', order: 0, competences: ['Vegger'] } }
+    await a.act(() => writeRecords([person]))
+    await a.act(() => pushAll(a.copy))
+    expect(await a.act(() => pullAll(a.copy))).toEqual([])
+    expect((await b.act(() => pullAll(b.copy))).map((d) => d.id)).toEqual(['p1'])
+    // Read again from the start, as «Hent alt på nytt» does, the same values are no change either.
+    expect(await b.act(async () => (await pullAll({ ...b.copy, pull: (_after, limit) => b.copy.pull(0, limit) })).filter((d) => d.id === 'p1'))).toEqual([])
+  })
+
+  it('keeps the planners when the shared workspace is emptied or replaced', async () => {
+    await a.act(() => notePlanner(KARI, 'kari@example.com'))
+    await a.act(emptyShared)
+    const sent = await a.act(pendingOutbox)
+    expect(sent.some((entry) => entry.kind === 'planner' && entry.value === null)).toBe(false)
+    expect(sent.filter((entry) => entry.value === null).map((entry) => entry.kind)).toEqual(expect.arrayContaining(['settings', 'allocation', 'allocCell', 'person']))
+    expect([...(await a.act(plannerNames)).values()]).toEqual(['kari@example.com'])
+    await a.act(() => saveWorkspace(emptyWorkspace))
+    expect([...(await a.act(plannerNames)).values()]).toEqual(['kari@example.com'])
+    await a.act(() => pushAll(a.copy))
+  })
 })
 
 describe('reading in pages', () => {
@@ -189,5 +246,15 @@ describe('reading in pages', () => {
     expect(wholeBatches([r(1, 'a'), r(2, 'b'), r(3, 'b')], true).map((row) => row.rev)).toEqual([1])
     expect(wholeBatches([r(1, 'a'), r(2, 'b'), r(3, 'b')], false).map((row) => row.rev)).toEqual([1, 2, 3])
     expect(wholeBatches([r(1, 'a'), r(2, 'a')], true)).toEqual([])
+  })
+})
+
+describe('an answer of the shared copy', () => {
+  it('stops the sync where it said no, and not where the network or a sign-in that ran out is to blame', () => {
+    expect(refused({ code: '42501', message: 'not a member of the workspace' })).toBe(true)
+    expect(refused({ code: 'PGRST204', message: 'no such column' })).toBe(true)
+    expect(refused({ code: 'PGRST301', message: 'JWT expired' })).toBe(false)
+    expect(refused(new TypeError('Failed to fetch'))).toBe(false)
+    expect(refused({ code: '', message: 'Internal server error' })).toBe(false)
   })
 })

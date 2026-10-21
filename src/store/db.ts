@@ -150,6 +150,10 @@ export const writeRecords = async (writes: RecordWrite[]): Promise<void> => {
   if (shared) for (const listener of written) listener()
 }
 
+/** The planners of a shared workspace are no part of the workspace: they stay when it is replaced or emptied. */
+const deletesOfAll = async (keep: Set<string> = new Set()): Promise<RecordWrite[]> =>
+  (await db.records.toArray()).filter((r) => r.kind !== 'planner' && !keep.has(recordKey(r.kind, r.id))).map(({ kind, id }) => ({ kind, id, value: null }))
+
 /** Replaces everything stored with the given workspace, in one transaction; in a shared workspace, for everyone. */
 export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
   const records = toRecords(workspace)
@@ -160,10 +164,11 @@ export const saveWorkspace = async (workspace: Workspace): Promise<void> => {
     })
     return
   }
-  const keep = new Set(records.map((r) => recordKey(r.kind, r.id)))
-  const gone = (await db.records.toArray()).filter((r) => !keep.has(recordKey(r.kind, r.id)))
-  await writeRecords([...gone.map(({ kind, id }) => ({ kind, id, value: null })), ...records])
+  await writeRecords([...(await deletesOfAll(new Set(records.map((r) => recordKey(r.kind, r.id))))), ...records])
 }
+
+/** Empties a shared workspace for everyone: every record stored, also those the workspace in memory leaves out, is deleted, and the deletes are sent like any write. */
+export const emptyShared = async (): Promise<void> => writeRecords(await deletesOfAll())
 
 /** Removes everything stored in the browser for the workspace: its records, and in a shared one what was not sent yet and how far it was read. */
 export const clearAll = () => db.transaction('rw', [db.records, db.outbox, db.sync], () => Promise.all([db.records.clear(), db.outbox.clear(), db.sync.clear()]))
@@ -206,6 +211,11 @@ export const takeRemote = async (records: RemoteRecord[], cursor: number): Promi
   return deltas
 }
 
+/** Values compared by what they hold: the shared copy gives the keys of an object back in an order of its own. */
+const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(sorted(a)) === JSON.stringify(sorted(b))
+const sorted = (value: unknown): unknown =>
+  Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, sorted((value as Record<string, unknown>)[key])])) : value
+
 const takeIn = (records: RemoteRecord[], cursor: number): Promise<Delta[]> =>
   db.transaction('rw', [db.records, db.outbox, db.sync], async () => {
     const waiting = new Set((await db.outbox.toArray()).map((entry) => recordKey(entry.kind, entry.id)))
@@ -213,10 +223,12 @@ const takeIn = (records: RemoteRecord[], cursor: number): Promise<Delta[]> =>
     const known = await db.records.bulkGet(incoming.map((r): [Kind, string] => [r.kind, r.id]))
     const deltas: Delta[] = []
     for (const [i, r] of incoming.entries()) {
+      // This browser's own write, read back: it has the rev its push was answered with.
+      if (known[i]?.rev === r.rev) continue
       const before = known[i]?.value ?? null
       if (r.value === null) await db.records.delete([r.kind, r.id])
       else await db.records.put({ kind: r.kind, id: r.id, value: r.value, rev: r.rev, by: r.by, at: r.at })
-      if (JSON.stringify(before) !== JSON.stringify(r.value)) deltas.push({ kind: r.kind, id: r.id, before, after: r.value, by: r.by })
+      if (!sameJson(before, r.value)) deltas.push({ kind: r.kind, id: r.id, before, after: r.value, by: r.by })
     }
     await db.sync.put({ key: 'cursor', value: cursor })
     return deltas

@@ -11,10 +11,10 @@ import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { budgetsRenumbered } from '../domain/result'
 import { withVismaDemand } from '../domain/visma'
-import { clearAll, isShared, loadWorkspace, onOtherWindow, saveWorkspace, writeRecords } from './db'
+import { clearAll, emptyShared, isShared, loadWorkspace, onOtherWindow, saveWorkspace, writeRecords } from './db'
 import { clearPrefs } from './prefs'
 import { History, type Step } from './history'
-import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, toRecords, writesOf, type Delta, type RecordWrite } from './records'
+import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, writesOf, type Delta, type RecordWrite } from './records'
 
 const HISTORY_LIMIT = 200
 
@@ -254,7 +254,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const resetWorkspace = useCallback(async () => {
     // A shared workspace is emptied for everyone: every record is deleted, and the deletes are sent like any write.
-    if (isShared()) await writeRecords(current.current ? toRecords(current.current).map(({ kind, id }) => ({ kind, id, value: null })) : [])
+    if (isShared()) await emptyShared()
     else await clearAll()
     // View preferences (filters, zoom, collapsed projects) belong to the data that is gone.
     clearPrefs()
