@@ -1,0 +1,320 @@
+<title>Ukeplan og dagsplan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column for the proposal; the two mockups sit on "paper" the width of an A4 sheet. Tokens follow the app's tokens.css. */
+:root{
+  --bg:#f3f2ee; --paper:#ffffff; --ink:#1f1e1b; --ink-2:#5d5a53; --ink-3:#8b877e;
+  --line:#dedad1; --line-strong:#c4bfb4; --gran:#3f6b55; --gran-band:#e3ebe5;
+  --c-veg:#94b1d0; --c-tep:#9cb796; --c-mob:#beac86; --c-gra:#b2a7cd; --c-ele:#cca48f; --c-rig:#cea0a6; --c-lag:#a3afbe;
+  --ok:#3d7a4a; --short:#b3412f; --wait:#8a6a1f; --hatch:#b9b4a9;
+  --font-ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-num:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#171614; --paper:#201f1c; --ink:#ebe8e1; --ink-2:#b0aca2; --ink-3:#827e75;
+  --line:#34322e; --line-strong:#4a4741; --gran:#7fb197; --gran-band:#22302a;
+  --c-veg:#365575; --c-tep:#3f5b39; --c-mob:#635025; --c-gra:#574a72; --c-ele:#6f4831; --c-rig:#72434a; --c-lag:#475462;
+  --ok:#7fc08c; --short:#ec8a78; --wait:#d8b45e; --hatch:#5a564f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171614; --paper:#201f1c; --ink:#ebe8e1; --ink-2:#b0aca2; --ink-3:#827e75;
+  --line:#34322e; --line-strong:#4a4741; --gran:#7fb197; --gran-band:#22302a;
+  --c-veg:#365575; --c-tep:#3f5b39; --c-mob:#635025; --c-gra:#574a72; --c-ele:#6f4831; --c-rig:#72434a; --c-lag:#475462;
+  --ok:#7fc08c; --short:#ec8a78; --wait:#d8b45e; --hatch:#5a564f; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.5}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px;display:grid;gap:40px}
+h1{font-size:26px;line-height:1.2;margin:0;text-wrap:balance}
+h2{font-size:19px;margin:0 0 8px;text-wrap:balance}
+h3{font-size:15px;margin:0}
+p{margin:0;max-width:68ch}
+.lede{display:grid;gap:10px}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gran);font-weight:600}
+.muted{color:var(--ink-2)}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+section{display:grid;gap:14px}
+ul{margin:0;padding-left:20px;display:grid;gap:6px;max-width:68ch}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.fact{border-top:2px solid var(--line-strong);padding-top:8px;display:grid;gap:4px}
+.fact b{font-weight:600}
+.fact.gap{border-color:var(--short)}
+/* paper */
+.scroll{overflow-x:auto}
+.paper{background:var(--paper);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0 / .06),0 8px 24px rgb(0 0 0 / .06);padding:28px 32px;min-width:640px;display:grid;gap:18px}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:10px}
+.sheet-head .who{font-size:22px;font-weight:700;line-height:1.1}
+.sheet-head .meta{text-align:right;font-size:12px;color:var(--ink-2)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:600;padding:1px 7px;border-radius:3px;background:var(--c);color:var(--ink)}
+.veg{--c:var(--c-veg)}.tep{--c:var(--c-tep)}.mob{--c:var(--c-mob)}.gra{--c:var(--c-gra)}.ele{--c:var(--c-ele)}.rig{--c:var(--c-rig)}.lag{--c:var(--c-lag)}
+table{border-collapse:collapse;width:100%}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600;text-align:left;padding:4px 8px;border-bottom:1px solid var(--line-strong)}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.off td{color:var(--ink-3)}
+.day b{display:block}
+.day span{font-size:12px;color:var(--ink-2)}
+/* time track 06–21 */
+.track{position:relative;height:22px;background:linear-gradient(to right,transparent calc(6.67% - 1px),var(--line) 0 6.67%,transparent 0) 0 0/6.67% 100%;border:1px solid var(--line);border-radius:3px;min-width:220px}
+.blk{position:absolute;top:2px;bottom:2px;border-radius:2px;background:var(--c);font-size:10px;font-weight:600;padding:0 4px;line-height:18px;overflow:hidden;white-space:nowrap}
+.blk.ot{outline:1.5px dashed var(--ink-2);outline-offset:-1.5px}
+.blk.away{background:repeating-linear-gradient(135deg,var(--hatch) 0 2px,transparent 2px 6px);color:var(--ink-2)}
+.where{font-size:13px}
+.where i{color:var(--ink-3);font-style:normal;font-size:12px}
+.sum{display:flex;gap:24px;justify-content:flex-end;font-size:13px;color:var(--ink-2)}
+.sum b{color:var(--ink)}
+.foot{font-size:11px;color:var(--ink-3);display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px}
+/* day view */
+.band{background:var(--gran-band);border-bottom:2px solid var(--gran);margin:-28px -32px 0;padding:18px 32px 12px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.band .d{font-size:22px;font-weight:700;line-height:1.1}
+.kpis{display:flex;gap:18px;font-size:12px;color:var(--ink-2);flex-wrap:wrap}
+.kpis b{display:block;font-size:16px;color:var(--ink);font-family:var(--font-num)}
+.kpis .short b{color:var(--short)}
+.groups{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
+.grp{display:grid;gap:6px;align-content:start}
+.grp-head{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-strong);padding-bottom:4px}
+.grp-head .sw{width:10px;height:10px;border-radius:2px;background:var(--c)}
+.grp-head h3{flex:1}
+.cov{font-size:12px;font-family:var(--font-num)}
+.cov.ok{color:var(--ok)}.cov.short{color:var(--short)}.cov.wait{color:var(--wait)}
+.grp .where{color:var(--ink-2);font-size:12px}
+.ppl{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13px}
+.ppl .t{font-family:var(--font-num);font-size:12px;color:var(--ink-2)}
+.hire{font-size:13px;display:flex;justify-content:space-between;gap:8px;border-top:1px dashed var(--line);padding-top:4px}
+.hire .st{font-size:11px;font-weight:600}
+.hire .st.wait{color:var(--wait)}.hire .st.ok{color:var(--ok)}
+.away-list{font-size:13px;color:var(--ink-2);border-top:1px solid var(--line);padding-top:10px}
+/* decisions */
+ol.dec{margin:0;padding:0;list-style:none;display:grid;gap:14px;counter-reset:d}
+ol.dec>li{counter-increment:d;display:grid;grid-template-columns:28px 1fr;gap:4px 10px}
+ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500;color:var(--gran);grid-row:span 2}
+.opts{display:grid;gap:2px;font-size:14px;color:var(--ink-2)}
+.opts .rec{color:var(--ink)}
+.opts .rec::after{content:"  anbefalt";font-size:11px;font-weight:600;color:var(--gran);letter-spacing:.04em}
+/* shared week */
+.wk{min-width:760px}
+.wkt th,.wkt td{text-align:center}
+.wkt thead th.we{color:var(--ink-3)}
+.wkt tr.ph td{border-bottom:0;padding:6px 2px 2px}
+.pbar{display:block;font-size:11px;font-weight:600;padding:2px 6px;border-radius:3px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbar.up{background:var(--c-veg)}
+.pbar.ev{background:var(--line);color:var(--ink-2)}
+.wkt tbody td{padding:7px 4px;height:46px;border-left:1px solid var(--line)}
+.wkt td b{display:block;font-family:var(--font-num);font-size:16px;font-weight:500;line-height:1.1}
+.wkt td span{display:block;font-family:var(--font-num);font-size:11px;color:var(--ink-3)}
+.wkt td em{display:block;font-style:normal;font-size:11px;font-weight:600}
+.wkt td.short{box-shadow:inset 0 -3px 0 var(--short)}
+.wkt td.short em{color:var(--short)}
+.wkt td.wait{box-shadow:inset 0 -3px 0 var(--wait)}
+.wkt td.wait em{color:var(--wait)}
+.wkt th.cmp{text-align:left;font-size:13px;letter-spacing:0;text-transform:none;color:var(--ink);font-weight:600;white-space:nowrap;border-bottom:1px solid var(--line)}
+.wkt th.cmp .sw{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:7px}
+.wkt tfoot th{text-align:left;font-size:12px;letter-spacing:0;text-transform:none;color:var(--ink);border:0}
+.wkt tfoot tr:first-child td,.wkt tfoot tr:first-child th{border-top:2px solid var(--ink);border-bottom:0}
+.wkt tfoot tr.split td,.wkt tfoot tr.split th{font-size:11px;color:var(--ink-3);font-family:var(--font-num);border:0;padding-top:0;font-weight:400}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:var(--ink-2)}
+.legend .k-short{border-bottom:3px solid var(--short)}
+.legend .k-wait{border-bottom:3px solid var(--wait)}
+/* where */
+.life{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--line-strong);border-radius:4px;overflow:hidden;background:var(--paper)}
+.life .st{padding:10px 12px;display:grid;gap:4px;border-left:1px solid var(--line);position:relative}
+.life .st:first-child{border-left:0}
+.life .st b{color:var(--gran)}
+.life .st span{font-size:13px;color:var(--ink-2)}
+.life .st:last-child{background:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in oklab,var(--line) 60%,transparent) 6px 7px)}
+.optgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.opt{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px;display:grid;gap:8px;align-content:start}
+.opt .tag{font-family:var(--font-num);font-size:12px;color:var(--paper);background:var(--gran);width:22px;height:22px;border-radius:3px;display:grid;place-items:center}
+.opt p{font-size:13.5px}
+.opt .pc{color:var(--ink-2)}
+@media (max-width:720px){.optgrid,.life{grid-template-columns:1fr}.life .st{border-left:0;border-top:1px solid var(--line)}.life .st:first-child{border-top:0}}
+@media (max-width:640px){.groups{grid-template-columns:1fr}.paper{padding:20px}.band{margin:-20px -20px 0;padding:14px 20px 10px}}
+</style>
+
+<div class="wrap">
+  <header class="lede">
+    <div class="eyebrow">Forslag · ikke bygget</div>
+    <h1>Ukeplan per montør og dagsplan for arbeidsdagen</h1>
+    <p class="muted">Tre utskrifter laget av det som allerede ligger i Plan og Bemanning: en felles ukeplan med mål per kompetanse, en ukeplan per montør og en dagsplan som viser hvem som jobber med hva. Skissene bruker demosesongen (uke 44, Spillfestivalen 2026 bygges opp i B1–B4).</p>
+  </header>
+
+  <section>
+    <h2>Hva dataene gir i dag</h2>
+    <div class="facts">
+      <div class="fact"><b>Blokker per person og dag</b><span class="muted">Kompetanse, start og slutt, betalte timer og overtid (<span class="num">Assignment</span>, <span class="num">staffing.ts</span>).</span></div>
+      <div class="fact"><b>Fravær</b><span class="muted">Hel eller del av dag, uten grunn («Borte»). Delvis fravær kutter blokken.</span></div>
+      <div class="fact"><b>Innleid</b><span class="muted">Antall personer per leverandør, kompetanse, dag og skift, venter eller bekreftet. Ingen navn.</span></div>
+      <div class="fact"><b>Normaldag og lunsj</b><span class="muted">Fra Innstillinger, 07:00–15:00 med lunsj 11:30–12:00 som standard.</span></div>
+      <div class="fact gap"><b>Mangler: hvor</b><span class="muted">En blokk har ingen prosjekt eller hall. Feltene finnes i typen, men settes aldri. Prosjektmerking ble utsatt i Bemanning v2.</span></div>
+      <div class="fact"><b>Kan avledes</b><span class="muted">Hvilke prosjekter som har planlagt FTE for kompetansen den dagen, fra Kalender-radene. Entydig bare når det er ett.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>1 · Felles ukeplan</h2>
+    <p class="muted">A4 liggende, mandag til søndag, uten navn. Én linje per kompetanse med målet for hver dag: hvor mange personer og timer som trengs, og hvor langt faste og innleide dekker det. Hvem som gjør hva står i dagsplanen.</p>
+    <div class="scroll"><div class="paper wk" aria-label="Skisse av felles ukeplan">
+      <div class="sheet-head">
+        <div class="who">Uke 44</div>
+        <div class="meta">26. okt – 1. nov 2026<br>Mål per kompetanse · personer og timer</div>
+      </div>
+      <table class="wkt">
+        <thead>
+          <tr><th></th><th>Man 26</th><th>Tir 27</th><th>Ons 28</th><th>Tor 29</th><th>Fre 30</th><th class="we">Lør 31</th><th class="we">Søn 1</th></tr>
+          <tr class="ph"><td></td><td colspan="4"><span class="pbar up">Spillfestivalen 2026 · oppbygging · B1–B4</span></td><td colspan="3"><span class="pbar ev">Messedager</span></td></tr>
+        </thead>
+        <tbody>
+          <tr><th class="cmp veg"><span class="sw"></span>Vegger</th>
+            <td><b>14</b><span>105 t</span></td><td><b>12</b><span>90 t</span></td><td><b>10</b><span>75 t</span></td><td class="short"><b>6</b><span>45 t</span><em>−7,5</em></td><td></td><td></td><td></td></tr>
+          <tr><th class="cmp tep"><span class="sw"></span>Tepper</th>
+            <td><b>4</b><span>30 t</span></td><td class="wait"><b>7</b><span>52,5 t</span><em>3 venter</em></td><td class="wait"><b>8</b><span>60 t</span><em>2 venter</em></td><td><b>3</b><span>22,5 t</span></td><td></td><td></td><td></td></tr>
+          <tr><th class="cmp mob"><span class="sw"></span>Møbler</th>
+            <td></td><td><b>3</b><span>22,5 t</span></td><td><b>6</b><span>45 t</span></td><td><b>9</b><span>67,5 t</span></td><td><b>1</b><span>7,5 t</span></td><td></td><td></td></tr>
+          <tr><th class="cmp ele"><span class="sw"></span>Elektro</th>
+            <td><b>2</b><span>15 t</span></td><td class="short"><b>4</b><span>34,5 t</span><em>−4,5</em></td><td><b>4</b><span>30 t</span></td><td><b>5</b><span>37,5 t</span></td><td><b>2</b><span>15 t</span></td><td><b>2</b><span>15 t</span></td><td><b>2</b><span>15 t</span></td></tr>
+          <tr><th class="cmp rig"><span class="sw"></span>Rigg</th>
+            <td><b>6</b><span>45 t</span></td><td><b>3</b><span>22,5 t</span></td><td><b>1</b><span>7,5 t</span></td><td></td><td></td><td></td><td></td></tr>
+          <tr><th class="cmp gra"><span class="sw"></span>Grafikk</th>
+            <td></td><td><b>1</b><span>7,5 t</span></td><td><b>2</b><span>15 t</span></td><td><b>3</b><span>22,5 t</span></td><td></td><td></td><td></td></tr>
+          <tr><th class="cmp lag"><span class="sw"></span>Lager</th>
+            <td></td><td></td><td></td><td></td><td><b>1</b><span>7,5 t</span></td><td><b>1</b><span>7,5 t</span></td><td><b>2</b><span>15 t</span></td></tr>
+        </tbody>
+        <tfoot>
+          <tr><th>Sum</th><td><b>26</b><span>195 t</span></td><td><b>30</b><span>229,5 t</span></td><td><b>31</b><span>232,5 t</span></td><td><b>26</b><span>195 t</span></td><td><b>4</b><span>30 t</span></td><td><b>3</b><span>22,5 t</span></td><td><b>4</b><span>30 t</span></td></tr>
+          <tr class="split"><th>Faste · innleid</th><td>22 · 4</td><td>21 · 9</td><td>23 · 8</td><td>20 · 6</td><td>4 · 0</td><td>3 · 0</td><td>4 · 0</td></tr>
+        </tfoot>
+      </table>
+      <div class="legend"><span><b class="num">12</b> personer som trengs</span><span><span class="num">90 t</span> timer i behov</span><span class="k-short">−7,5 timer udekket</span><span class="k-wait">bestilt, venter på svar</span></div>
+      <div class="foot"><span>Personer = timer ÷ normaldag (7,5 t), rundet opp</span><span class="num">Skrevet ut 21.10.2026 14:05</span></div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>2 · Ukeplan for én montør</h2>
+    <p class="muted">A4 stående, ett ark per person. «Skriv ut alle» gir ett ark per person med blokker den uka. Tidslinjen er den samme som i Bemanning, bare mindre.</p>
+    <div class="scroll"><div class="paper" aria-label="Skisse av ukeplan">
+      <div class="sheet-head">
+        <div style="display:grid;gap:6px"><div class="who">Kari Nordli</div><div class="chips"><span class="chip veg">Vegger</span><span class="chip tep">Tepper</span><span class="chip mob">Møbler</span></div></div>
+        <div class="meta"><b style="color:var(--ink);font-size:14px">Uke 44</b><br>26. okt – 1. nov 2026</div>
+      </div>
+      <table>
+        <thead><tr><th style="width:90px">Dag</th><th>Tid <span class="num" style="letter-spacing:0;text-transform:none">06–21</span></th><th>Kompetanse og sted</th><th style="text-align:right">Timer</th></tr></thead>
+        <tbody>
+          <tr><td class="day"><b>Man</b><span>26. okt</span></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.3%">07–15</div></div></td>
+            <td class="where">Vegger<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Tir</b><span>27. okt</span></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.3%">07–15</div></div></td>
+            <td class="where">Vegger<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Ons</b><span>28. okt</span></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:30%">07–11:30</div><div class="blk tep" style="left:40%;width:20%">12–15</div></div></td>
+            <td class="where">Vegger til lunsj, så Tepper<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Tor</b><span>29. okt</span></td>
+            <td><div class="track"><div class="blk mob" style="left:6.67%;width:53.3%">07–15</div><div class="blk mob ot" style="left:60%;width:20%">15–18</div></div></td>
+            <td class="where">Møbler, 3 t overtid<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">10,5</td></tr>
+          <tr><td class="day"><b>Fre</b><span>30. okt</span></td>
+            <td><div class="track"><div class="blk away" style="left:6.67%;width:53.3%">Borte</div></div></td>
+            <td class="where">Borte</td><td class="num" style="text-align:right">–</td></tr>
+          <tr class="off"><td class="day"><b>Lør</b><span>31. okt</span></td><td></td><td class="where">Fri</td><td></td></tr>
+          <tr class="off"><td class="day"><b>Søn</b><span>1. nov</span></td><td></td><td class="where">Fri</td><td></td></tr>
+        </tbody>
+      </table>
+      <div class="sum"><span>Normaltid <b class="num">30,0 t</b></span><span>Overtid <b class="num">3,0 t</b></span></div>
+      <div class="foot"><span>Sted er avledet fra planen, ikke satt av planleggeren.</span><span class="num">Skrevet ut 21.10.2026 14:05</span></div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>3 · Dagsplan for arbeidsdagen</h2>
+    <p class="muted">Én side per dag til arbeidsleder og oppslagstavla. Lag per kompetanse med folk og tider, innleide under sitt lag, og hvor langt laget dekker behovet. Det samme bildet vises på skjermen og skrives ut.</p>
+    <div class="scroll"><div class="paper" aria-label="Skisse av dagsplan">
+      <div class="band">
+        <div><div class="eyebrow">Dagsplan · uke 44</div><div class="d">Tirsdag 27. oktober 2026</div><div class="muted" style="font-size:12px">Spillfestivalen 2026 · oppbygging dag 2 av 4 · B1–B4</div></div>
+        <div class="kpis"><span>Behov<b>229,5 t</b></span><span>Faste<b>157,5 t</b></span><span>Innleid<b>45 t</b></span><span class="short">Avvik<b>−27 t</b></span></div>
+      </div>
+      <div class="groups">
+        <div class="grp veg">
+          <div class="grp-head"><span class="sw"></span><h3>Vegger · 12 pers</h3><span class="cov ok">90 / 90 t</span></div>
+          <div class="ppl">
+            <span>Anders Berg</span><span class="t">07–15</span><span>Kari Nordli</span><span class="t">07–15</span><span>Ola Strand</span><span class="t">07–15</span><span>Per Lunde</span><span class="t">07–15</span><span>Jonas Bakke</span><span class="t">07–15</span><span>Erik Dahl</span><span class="t">07–15</span><span>Lars Holm</span><span class="t">07–15</span><span>Tor Sand</span><span class="t">07–15</span>
+          </div>
+          <div class="hire"><span>Messehjelp AS · 4 pers</span><span><span class="t num" style="font-size:12px">07–15</span> <span class="st ok">Bekreftet</span></span></div>
+        </div>
+        <div class="grp tep">
+          <div class="grp-head"><span class="sw"></span><h3>Tepper · 4 + 3 pers</h3><span class="cov wait">30 / 52,5 t</span></div>
+          <div class="ppl"><span>Ingrid Haug</span><span class="t">07–15</span><span>Siri Moen</span><span class="t">07–15</span><span>Hanne Vik</span><span class="t">07–15</span><span>Eva Fjeld</span><span class="t">07–15</span></div>
+          <div class="hire"><span>Gulv og Tepper Service · 3 pers</span><span><span class="t num" style="font-size:12px">07–15</span> <span class="st wait">Venter</span></span></div>
+        </div>
+        <div class="grp ele">
+          <div class="grp-head"><span class="sw"></span><h3>Elektro · 4 pers</h3><span class="cov short">30 / 34,5 t</span></div>
+          <div class="ppl"><span>Knut Brekke</span><span class="t">07–15</span><span>Henrik Myhre</span><span class="t">07–15</span></div>
+          <div class="hire"><span>Lys og Lyd Utleie · 2 pers</span><span><span class="t num" style="font-size:12px">07–15</span> <span class="st ok">Bekreftet</span></span></div>
+        </div>
+        <div class="grp mob">
+          <div class="grp-head"><span class="sw"></span><h3>Møbler · 3 pers</h3><span class="cov ok">22,5 / 22,5 t</span></div>
+          <div class="ppl"><span>Mia Solberg</span><span class="t">07–15</span><span>Sofie Eide</span><span class="t">07–15</span><span>Magnus Tangen</span><span class="t">07–15</span></div>
+        </div>
+        <div class="grp rig">
+          <div class="grp-head"><span class="sw"></span><h3>Rigg · 3 pers</h3><span class="cov ok">22,5 / 22,5 t</span></div>
+          <div class="ppl"><span>Even Berg</span><span class="t">07–15</span><span>Sindre Lie</span><span class="t">07–15</span><span>Øystein Aas</span><span class="t">07–15</span></div>
+        </div>
+        <div class="grp gra">
+          <div class="grp-head"><span class="sw"></span><h3>Grafikk · 1 pers</h3><span class="cov ok">7,5 / 7,5 t</span></div>
+          <div class="ppl"><span>Thea Rønning</span><span class="t">07–15</span></div>
+        </div>
+      </div>
+      <div class="away-list"><b style="color:var(--ink)">Borte:</b> Ida Strand (hele dagen), Petter Haug (07–11). <b style="color:var(--ink)">Uten blokk:</b> Live Moen, Frida Bakke.</div>
+      <div class="foot"><span>Lunsj 11:30–12:00 · innleide har ikke navn, bare antall</span><span class="num">Skrevet ut 21.10.2026 14:05</span></div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>Innvendinger</h2>
+    <ul>
+      <li><b>«Hvor» finnes ikke.</b> En montør vil vite hvilken hall de skal møte i, men en blokk vet bare kompetansen. Skissene viser et sted avledet fra planen. Det holder når ett prosjekt har behov for kompetansen den dagen, men når to prosjekter bygger samtidig, kan vi bare skrive begge. Ekte merking (prosjekt på blokken) er designet i Bemanning v2 som utsatt, og koster et ekstra valg for deg ved hvert strøk.</li>
+      <li><b>Mål i personer er en avrunding.</b> Behovet regnes i timer. Personer er timer delt på normaldagen, rundet opp, så 34,5 t blir 5 personer selv om 4,6 er nok. Timene står derfor alltid under tallet.</li>
+      <li><b>Trenger ukeplanen per montør fortsatt?</b> Med felles ukeplan og dagsplan er det kanskje nok. Arket per montør passer best når planen deles ut til hver enkelt.</li>
+      <li><b>Utskrift blir fort gammel.</b> Planen endres etter at arket er skrevet ut. Derfor står tidspunktet nederst. Å sende planen til folk på telefonen krever innlogging for montører i den delte arbeidsflaten, og hører hjemme etter første versjon.</li>
+      <li><b>Dagsplanen overlapper Bemanning.</b> Den er ingen ny planleggingsflate: den er skrivebeskyttet og åpnes fra en dato i Bemanning. Alt redigeres fortsatt der.</li>
+    </ul>
+  </section>
+
+  <section id="hvor">
+    <h2>Hvor: prosjekt på blokkene</h2>
+    <p class="muted">Bjørns idé: velg et prosjekt i Bemanning, behovet følger valget, og kompetansen males inn som før. Prosjektene som kan velges, er de som står i prosjektlinjene i utsnittet (<span class="num">projectsInView</span>). Da får hver blokk et prosjekt, og hvert prosjekt får en timekonto som timene skrives til. Feltene <span class="num">projectNo</span> og <span class="num">hall</span> finnes allerede på blokken, og en utsatt design for merking ligger i <span class="num">bemanning-v2/DEFERRED.md</span>.</p>
+
+    <h3>Timekontoen: et prosjekts livsløp</h3>
+    <div class="life">
+      <div class="st"><b>Behov</b><span>Fra Plan: FTE × normaltid per dag, per prosjekt, fase og kompetanse</span></div>
+      <div class="st"><b>Tildelt</b><span>Blokker merket med prosjektet, pluss bekreftede bestillinger</span></div>
+      <div class="st"><b>Gjenstår</b><span>Behov minus tildelt, per dag og samlet for fasen</span></div>
+      <div class="st"><b>Utført</b><span>Senere: dagsplanen kvitteres etter dagen, og resten flyttes eller strykes</span></div>
+    </div>
+    <p class="muted">Resten av en dag kan allerede flyttes til neste dag («carry»), men bare per kompetanse. Med prosjekt på flyttingen blir resten liggende i prosjektets konto. Resultat kan da vise bemannede timer mot budsjettet, ikke bare planlagte.</p>
+
+    <div class="optgrid">
+      <div class="opt"><div class="tag">A</div><h3>Aktivt prosjekt</h3><p>Velg et prosjekt i planleggingslinjen eller ved et klikk på prosjektlinjen. Behovet viser prosjektets timer, og penselen merker det den maler. Uten valg vises summen, og blokkene får ikke noe prosjekt.</p><p class="pc"><b>For:</b> enkelt, og samme grep som kompetansen i fokus. <b>Mot:</b> lett å glemme å bytte, og da merkes feil prosjekt.</p></div>
+      <div class="opt"><div class="tag">B</div><h3>Merkes selv når det er entydig</h3><p>Har bare ett prosjekt i utsnittet behov for kompetansen den dagen, får blokken prosjektet uten at noen velger det. Har flere det, brukes det aktive prosjektet, eller den blir umerket og vises med en prikk.</p><p class="pc"><b>For:</b> nesten ingen ekstra klikk i en vanlig uke. <b>Mot:</b> en regel du må stole på, og umerkede blokker må ryddes.</p></div>
+      <div class="opt"><div class="tag">C</div><h3>Behovet delt per prosjekt</h3><p>Under hver kompetanse står én behovslinje per prosjekt: Vegger › Spillfestivalen, Vegger › Byggemessen. Linjen i fokus er penselen, så den bestemmer både kompetansen og prosjektet.</p><p class="pc"><b>For:</b> du ser hvor det mangler, og merkingen følger av hvor du maler. <b>Mot:</b> flere linjer i behovet når to messer går samtidig.</p></div>
+    </div>
+    <p><b>Mitt forslag:</b> B som grunnregel og C for å se hvor det mangler, der A er det samme som å folde ut ett prosjekt. Merk per prosjekt først. Hallen viser vi som prosjektets haller (B1–B4) til vi ser at montørene trenger mer.</p>
+
+    <h3>Å gå opp sammen</h3>
+    <ol class="dec">
+      <li><h3>Prosjekt, eller prosjekt og hall?</h3><div class="opts"><span class="rec">Prosjekt nå, hall senere</span><span>Prosjekt og hall fra starten</span></div></li>
+      <li><h3>Kan en blokk stå uten prosjekt?</h3><div class="opts"><span class="rec">Ja, den teller i summen og merkes med en prikk</span><span>Nei, hver blokk må ha et prosjekt</span></div></li>
+      <li><h3>Hvor langt skal livsløpet gå?</h3><div class="opts"><span class="rec">Behov, tildelt og gjenstår nå, utført etter første versjon</span><span>Også utført nå: dagsplanen kvitteres etter dagen</span></div></li>
+      <li><h3>Skal bekreftede innleide få prosjekt også?</h3><div class="opts"><span class="rec">Ja, på samme måte som blokkene</span><span>Nei, de teller bare i summen</span></div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Beslutninger for Bjørn</h2>
+    <ol class="dec">
+      <li><h3>Hvordan vises sted?</h3><div class="opts"><span class="rec">Avledet fra planen, med alle prosjekter når det er flere</span><span>Bare kompetanse, ikke sted</span><span>Merk blokker med prosjekt nå (den utsatte v2-designen)</span></div></li>
+      <li><h3>Hva er målet i felles ukeplan?</h3><div class="opts"><span class="rec">Personer, med timene under</span><span>Bare timer</span><span>Bare personer</span></div></li>
+      <li><h3>Hva bygges først?</h3><div class="opts"><span class="rec">Felles ukeplan og dagsplan, ukeplan per montør senere</span><span>Alle tre</span></div></li>
+      <li><h3>Hva grupperes dagsplanen etter?</h3><div class="opts"><span class="rec">Kompetanse, som i skissen</span><span>Prosjekt og hall (krever svar på 1)</span></div></li>
+      <li><h3>Skal innleide stå i dagsplanen?</h3><div class="opts"><span class="rec">Ja, som antall per leverandør med svar</span><span>Nei, bare faste</span></div></li>
+      <li><h3>Hvor åpnes de?</h3><div class="opts"><span class="rec">Klikk på en dato i Bemanning for dagsplan, ukeplan fra Person-panelet og en knapp for hele uka</span><span>En egen fane</span></div></li>
+    </ol>
+  </section>
+</div>
