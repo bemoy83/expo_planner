@@ -32,7 +32,10 @@ describe('the day plan sheet', () => {
     expect(html).toContain('Messehjelp AS')
     expect(html).toContain('venter, teller ikke før svar')
     expect(html).toContain('Skrevet ut 12.10.2026 08:00')
-    // A fitter who changes project in the day is one row, with the arrow between the projects.
-    expect(html).toContain('dp-arrow')
+    // A fitter who changes project in the day stands in both places: the later part marked, the rest of the day in outline.
+    expect(html.match(/<b>Kari<\/b>/g)).toHaveLength(2)
+    expect(html).toContain('dp-later')
+    expect(html).toContain('dp-blk ghost')
+    expect(html).toContain('1,5 pers + 3 venter')
   })
 })

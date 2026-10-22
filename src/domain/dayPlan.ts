@@ -3,7 +3,7 @@ import { competenceStyles } from './competences'
 import { dayType } from './holidays'
 import { isWaiting } from './hire'
 import { eventKey, numberKey, venueEvents } from './projects'
-import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, okAssignments, placeKey } from './staffing'
+import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, okAssignments, paidHours, placeKey } from './staffing'
 import { VENUE_PHASES, type CompetenceKey, type Minute, type VenuePhase, type Workspace } from './types'
 import { PHASE_LABELS } from './venue'
 import { anchorDate, visibleVenue } from './venueImport'
@@ -11,8 +11,9 @@ import { bookedPlaces, dealPlaces } from './workPlace'
 
 /**
  * The day plan (`design_docs/ukeplan/`): one day for print, read-only. A card per project that works that day, then the
- * people, a row each, with the day as blocks of a place and a competence, so a move between halls, competences or
- * projects is on one row. Everything is worked out from Bemanning and the Kalender, and nothing is stored.
+ * people as the day is read out at the start-up meeting: by place, then competence (`groups`). A person with work in two
+ * groups stands in each, with the whole day drawn and the group's part of it marked. Everything is worked out from
+ * Bemanning and the Kalender, and nothing is stored.
  */
 
 /** How far a project's hours of one competence are covered that day, counting the permanent staff and confirmed orders. */
@@ -97,11 +98,43 @@ export interface DayAbsence {
   idle: boolean
 }
 
+/** A fitter in a group: the whole day, and which of its blocks are the group's. */
+export interface GroupFitter {
+  kind: 'fitter'
+  personId: string
+  name: string
+  blocks: DayBlock[]
+  /** The indices of the blocks of `blocks` that belong to the group. */
+  here: number[]
+  /** The group's part is not the first of the person's day: the row is a later part. */
+  later: boolean
+}
+
+/** The people of a competence in a place, with what they come to. */
+export interface DayCompetenceGroup {
+  competence: CompetenceKey
+  entries: (GroupFitter | ({ kind: 'hired' } & DayHired))[]
+  /** The people of the group as whole days: a fitter's paid hours in it over the hours of a normal day, and the people of confirmed orders. */
+  people: number
+  /** The people of orders that wait for an answer: shown, not counted. */
+  waiting: number
+  /** How far the project's hours of the competence are covered that day, from its card. */
+  state?: CoverageState
+}
+
+/** A place of a project that day, with its competences; `projectNo` is `NO_PROJECT` for the work of no project. */
+export interface DayPlaceGroup {
+  projectNo: string
+  name: string
+  hall: string
+  competences: DayCompetenceGroup[]
+}
+
 export interface DayPlan {
   date: ISODate
   projects: ProjectCard[]
-  /** The people with blocks for a project, then the suppliers, clustered by the project and place where the day begins. */
-  rows: (({ kind: 'fitter' } & DayFitter) | ({ kind: 'hired' } & DayHired))[]
+  /** The people by place and then competence, as the day is read out; a person with work in two of them is in both. */
+  groups: DayPlaceGroup[]
   /** The people whose blocks are for no project or no place. */
   unplaced: DayFitter[]
   /** People who are away, or without a block on a working day. */
@@ -228,17 +261,6 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
     })
     .sort((a, b) => a.projectNo.localeCompare(b.projectNo, 'nb', { numeric: true }))
 
-  // Rows: clustered by where the day begins (project, then place), then competence, then name; a supplier sits in its project's cluster.
-  type Row = DayPlan['rows'][number]
-  const clusterOf = (projectNo: string, hall: string) => `${projectKeyOf(projectNo)}|${hall.toLowerCase()}`
-  const rows: { row: Row; cluster: string; competence: CompetenceKey; name: string }[] = []
-  for (const [personId, blocks] of blocksOf) {
-    const first = blocks[0]
-    rows.push({ row: { kind: 'fitter', personId, name: nameOf(personId), blocks }, cluster: clusterOf(first.projectNo, first.hall), competence: first.competence, name: nameOf(personId) })
-  }
-  for (const h of hiredRows) if (h.projectNo) rows.push({ row: { kind: 'hired', ...h }, cluster: clusterOf(h.projectNo, h.hall), competence: h.competence, name: h.name })
-  rows.sort((a, b) => a.cluster.localeCompare(b.cluster, 'nb', { numeric: true }) || rankOf(a.competence) - rankOf(b.competence) || Number(a.row.kind === 'hired') - Number(b.row.kind === 'hired') || a.name.localeCompare(b.name, 'nb'))
-
   const unplaced: DayFitter[] = [...unplacedOf].map(([personId, blocks]) => ({ personId, name: nameOf(personId), blocks })).sort((a, b) => a.name.localeCompare(b.name, 'nb'))
 
   const working = new Set([...blocksOf.keys(), ...unplacedOf.keys()])
@@ -257,7 +279,7 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
   return {
     date,
     projects,
-    rows: rows.map((r) => r.row),
+    groups: dayGroups(ws, [...blocksOf].map(([personId, blocks]) => ({ personId, name: nameOf(personId), blocks })), hiredRows, projects, rankOf),
     unplaced,
     away,
     uncertain: [...blocksOf.values()].reduce((sum, list) => sum + list.filter((b) => b.uncertain).length, 0),
@@ -265,4 +287,57 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
     hired: hiredRows.filter((h) => !h.waiting).reduce((sum, h) => sum + h.people, 0),
     waiting,
   }
+}
+
+/**
+ * The people by place and then competence: a group per project and place, a competence group in it per competence. A fitter
+ * is in every group they have a block in, with their whole day; the groups come in the order of the projects' cards and
+ * then of the places, the competences in the planner's order, and in a competence those who begin their day there first,
+ * then the suppliers, then those who come to it later. The work of no project is a group of its own, last.
+ */
+const dayGroups = (ws: Workspace, fitters: DayFitter[], hired: DayHired[], cards: ProjectCard[], rankOf: (c: CompetenceKey) => number): DayPlaceGroup[] => {
+  const wd = ws.settings.workday
+  const fullDay = paidHours({ start: wd.dayStart, end: wd.dayEnd }, wd) || ws.settings.hoursPerDay
+  const places = new Map<string, DayPlaceGroup>()
+  const keyOf = (projectNo: string, hall: string) => `${numberKey(projectNo)}|${hall.trim().toLowerCase()}`
+  const cardOf = (projectNo: string) => cards.find((card) => numberKey(card.projectNo) === numberKey(projectNo))
+  const competenceIn = (projectNo: string, hall: string, competence: CompetenceKey) => {
+    const key = keyOf(projectNo, hall)
+    if (!places.has(key)) places.set(key, { projectNo, name: projectNo ? (cardOf(projectNo)?.name ?? projectNo) : 'Uten prosjekt', hall, competences: [] })
+    const place = places.get(key)!
+    let group = place.competences.find((g) => g.competence === competence)
+    if (!group) {
+      const state = cardOf(projectNo)?.coverage.find((c) => c.competence === competence)?.state
+      group = { competence, entries: [], people: 0, waiting: 0, ...(state && { state }) }
+      place.competences.push(group)
+    }
+    return group
+  }
+  for (const fitter of fitters) {
+    const parts = new Map<string, number[]>()
+    fitter.blocks.forEach((block, i) => {
+      const key = `${keyOf(block.projectNo, block.hall)}|${block.competence}`
+      parts.set(key, [...(parts.get(key) ?? []), i])
+    })
+    for (const here of parts.values()) {
+      const first = fitter.blocks[here[0]]
+      const group = competenceIn(first.projectNo, first.hall, first.competence)
+      group.entries.push({ kind: 'fitter', personId: fitter.personId, name: fitter.name, blocks: fitter.blocks, here, later: here[0] > 0 })
+      group.people += here.reduce((sum, i) => sum + paidHours(fitter.blocks[i], wd), 0) / fullDay
+    }
+  }
+  for (const h of hired) {
+    if (!h.projectNo) continue
+    const group = competenceIn(h.projectNo, h.hall, h.competence)
+    group.entries.push({ kind: 'hired', ...h })
+    if (h.waiting) group.waiting += h.people
+    else group.people += h.people
+  }
+  const order = (entry: DayCompetenceGroup['entries'][number]) => (entry.kind === 'hired' ? 1 : entry.later ? 2 : 0)
+  const cardRank = (projectNo: string) => (projectNo ? cards.findIndex((card) => numberKey(card.projectNo) === numberKey(projectNo)) : cards.length)
+  for (const place of places.values()) {
+    place.competences.sort((a, b) => rankOf(a.competence) - rankOf(b.competence))
+    for (const group of place.competences) group.entries.sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name, 'nb'))
+  }
+  return [...places.values()].sort((a, b) => cardRank(a.projectNo) - cardRank(b.projectNo) || a.hall.localeCompare(b.hall, 'nb', { numeric: true }))
 }

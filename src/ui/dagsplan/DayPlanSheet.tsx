@@ -1,7 +1,8 @@
 import { Fragment } from 'react'
+import { formatFte } from '../../domain/calc'
 import { isoWeek } from '../../domain/dates'
 import { competenceStyles } from '../../domain/competences'
-import type { DayBlock, DayPlan, ProjectCard } from '../../domain/dayPlan'
+import type { DayBlock, DayCompetenceGroup, DayPlan, ProjectCard } from '../../domain/dayPlan'
 import type { CompetenceKey, CompetenceStyle, Minute, Workspace } from '../../domain/types'
 import { count } from '../dom'
 import { colorOf, hm, longDate, shortDate, span } from './format'
@@ -12,16 +13,20 @@ const DAY_TO = 21 * 60
 const pct = (minute: Minute) => ((Math.min(DAY_TO, Math.max(DAY_FROM, minute)) - DAY_FROM) / (DAY_TO - DAY_FROM)) * 100
 
 const COVER_TEXT = { ok: '', short: 'mangler', wait: 'venter' } as const
+const GROUP_STATE = { ok: 'dekket', short: 'mangler', wait: 'venter' } as const
 
-function Track({ blocks, styles, names }: { blocks: { block: DayBlock | { competence: CompetenceKey; start: Minute; end: Minute; hall: string; waiting?: boolean; hired?: boolean }; text?: string }[]; styles: Map<CompetenceKey, CompetenceStyle>; names: Map<CompetenceKey, string> }) {
+/** People as whole days, with one decimal where they are not: «8 pers», «4,6 pers». */
+const peopleText = (people: number) => `${formatFte(Math.round(people * 10) / 10, 1) || '0'} pers`
+
+function Track({ blocks, styles, names }: { blocks: { block: DayBlock | { competence: CompetenceKey; start: Minute; end: Minute; hall: string; waiting?: boolean; hired?: boolean }; text?: string; ghost?: boolean }[]; styles: Map<CompetenceKey, CompetenceStyle>; names: Map<CompetenceKey, string> }) {
   return (
     <div className="dp-track">
-      {blocks.map(({ block, text }, i) => {
+      {blocks.map(({ block, text, ghost }, i) => {
         const left = pct(block.start)
         const hired = 'hired' in block && block.hired
         const waiting = 'waiting' in block && block.waiting
         return (
-          <div key={i} className={`dp-blk${hired ? ' hired' : ''}${waiting ? ' wait' : ''}`} style={{ left: `${left}%`, width: `${pct(block.end) - left}%`, ['--cc' as string]: colorOf(styles, block.competence) }}>
+          <div key={i} className={`dp-blk${hired ? ' hired' : ''}${waiting ? ' wait' : ''}${ghost ? ' ghost' : ''}`} style={{ left: `${left}%`, width: `${pct(block.end) - left}%`, ['--cc' as string]: colorOf(styles, block.competence) }}>
             {block.hall && <i>{block.hall}</i>}
             {text ?? names.get(block.competence) ?? block.competence}
           </div>
@@ -81,12 +86,27 @@ function Card({ card, names, styles }: { card: ProjectCard; names: Map<Competenc
   )
 }
 
+/** A competence's head in a place: its people as whole days, what waits, and how far the project's hours of it are covered. */
+function GroupHead({ group, names, styles }: { group: DayCompetenceGroup; names: Map<CompetenceKey, string>; styles: Map<CompetenceKey, CompetenceStyle> }) {
+  return (
+    <tr className="dp-comp">
+      <td colSpan={3}>
+        <i style={{ background: colorOf(styles, group.competence) }} />
+        <b>{names.get(group.competence) ?? group.competence}</b>
+        <span className="dp-count">
+          {peopleText(group.people)}
+          {group.waiting > 0 && ` + ${group.waiting} venter`}
+        </span>
+        {group.state && <em className={`dp-state ${group.state}`}>{GROUP_STATE[group.state]}</em>}
+      </td>
+    </tr>
+  )
+}
+
 /** The day plan as a sheet: always the light palette, so what is printed is what is seen. */
 export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: { plan: DayPlan; ws: Workspace; printedAt: string; unsetCount: number; onSetPlaces?: () => void }) {
   const styles = new Map(competenceStyles(ws).map((s) => [s.key, s]))
   const names = new Map([...styles].map(([key, s]) => [key, s.label]))
-  const projectName = (projectNo: string) => plan.projects.find((p) => p.projectNo === projectNo)?.name ?? 'Uten prosjekt'
-  const projectsOf = (blocks: DayBlock[]) => blocks.reduce<string[]>((list, b) => (list[list.length - 1] === b.projectNo ? list : [...list, b.projectNo]), [])
   const wd = ws.settings.workday
   const head = [plan.projects.length ? count(plan.projects.length, 'prosjekt', 'prosjekter') : 'Ingen prosjekter', count(plan.fitters, 'fast', 'faste'), plan.hired ? `${plan.hired} innleide bekreftet` : '', plan.waiting ? `${plan.waiting} venter` : ''].filter(Boolean)
   return (
@@ -118,63 +138,64 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
           <tr>
             <th>Montør</th>
             <th>Arbeidsdag 06–21</th>
-            <th>Tid</th>
-            <th>Prosjekt</th>
+            <th>Tid her</th>
           </tr>
         </thead>
         <tbody>
-          {plan.rows.length === 0 && plan.unplaced.length === 0 && (
+          {plan.groups.length === 0 && plan.unplaced.length === 0 && (
             <tr>
-              <td colSpan={4} className="dp-empty">
+              <td colSpan={3} className="dp-empty">
                 Ingen er satt opp denne dagen.
               </td>
             </tr>
           )}
-          {plan.rows.map((row, i) => {
-            if (row.kind === 'fitter') {
-              const uncertain = row.blocks.some((b) => b.uncertain)
-              return (
-                <tr key={`f:${row.personId}`}>
-                  <td className="dp-name">
-                    <b>{row.name}</b>
-                    {uncertain && <span className="dp-est" title="Stedet er regnet ut og kunne vært et annet">≈</span>}
-                  </td>
-                  <td>
-                    <Track blocks={row.blocks.map((block) => ({ block }))} styles={styles} names={names} />
-                  </td>
-                  <td className="dp-time">{row.blocks.map((b) => span(b.start, b.end)).join(' · ')}</td>
-                  <td className="dp-proj">
-                    {projectsOf(row.blocks).map((no, j) => (
-                      <Fragment key={j}>
-                        {j > 0 && <i className="dp-arrow"> → </i>}
-                        {projectName(no)}
-                      </Fragment>
-                    ))}
-                  </td>
-                </tr>
-              )
-            }
-            return (
-              <tr key={`h:${i}`} className="dp-hired">
-                <td className="dp-name">
-                  <b>
-                    {row.name} · {count(row.people, 'pers', 'pers')}
-                  </b>
-                  {row.uncertain && <span className="dp-est" title="Stedet er regnet ut og kunne vært et annet">≈</span>}
+          {plan.groups.map((place) => (
+            <Fragment key={`${place.projectNo}|${place.hall}`}>
+              <tr className="dp-place">
+                <td colSpan={3}>
+                  {place.hall && <span className="dp-pl">{place.hall}</span>}
+                  {place.name}
                 </td>
-                <td>
-                  <Track blocks={[{ block: { competence: row.competence, start: row.start, end: row.end, hall: row.hall, waiting: row.waiting, hired: true } }]} styles={styles} names={names} />
-                </td>
-                <td className="dp-time">
-                  {span(row.start, row.end)} · {row.waiting ? 'venter, teller ikke før svar' : 'bekreftet'}
-                </td>
-                <td className="dp-proj">{projectName(row.projectNo)}</td>
               </tr>
-            )
-          })}
+              {place.competences.map((group) => (
+                <Fragment key={group.competence}>
+                  <GroupHead group={group} names={names} styles={styles} />
+                  {group.entries.map((entry, i) =>
+                    entry.kind === 'fitter' ? (
+                      <tr key={`f:${entry.personId}`} className={entry.later ? 'dp-later' : undefined}>
+                        <td className="dp-name">
+                          <b>{entry.name}</b>
+                          {entry.here.some((at) => entry.blocks[at].uncertain) && <span className="dp-est" title="Stedet er regnet ut og kunne vært et annet">≈</span>}
+                        </td>
+                        <td>
+                          <Track blocks={entry.blocks.map((block, at) => ({ block, ghost: !entry.here.includes(at) }))} styles={styles} names={names} />
+                        </td>
+                        <td className="dp-time">{entry.here.map((at) => span(entry.blocks[at].start, entry.blocks[at].end)).join(' · ')}</td>
+                      </tr>
+                    ) : (
+                      <tr key={`h:${i}`} className="dp-hired">
+                        <td className="dp-name">
+                          <b>
+                            {entry.name} · {count(entry.people, 'pers', 'pers')}
+                          </b>
+                          {entry.uncertain && <span className="dp-est" title="Stedet er regnet ut og kunne vært et annet">≈</span>}
+                        </td>
+                        <td>
+                          <Track blocks={[{ block: { competence: entry.competence, start: entry.start, end: entry.end, hall: entry.hall, waiting: entry.waiting, hired: true } }]} styles={styles} names={names} />
+                        </td>
+                        <td className="dp-time">
+                          {span(entry.start, entry.end)} · {entry.waiting ? 'venter, teller ikke før svar' : 'bekreftet'}
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </Fragment>
+              ))}
+            </Fragment>
+          ))}
           {plan.unplaced.length > 0 && (
             <tr className="dp-band">
-              <td colSpan={4}>Uten prosjekt eller sted</td>
+              <td colSpan={3}>Uten prosjekt eller sted</td>
             </tr>
           )}
           {plan.unplaced.map((p) => (
@@ -186,12 +207,11 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
                 <Track blocks={p.blocks.map((block) => ({ block }))} styles={styles} names={names} />
               </td>
               <td className="dp-time">{p.blocks.map((b) => span(b.start, b.end)).join(' · ')} · ingen behov for kompetansen i dag</td>
-              <td className="dp-proj dp-none">Uten prosjekt</td>
             </tr>
           ))}
           {plan.away.length > 0 && (
             <tr className="dp-band">
-              <td colSpan={4}>Borte eller uten blokk</td>
+              <td colSpan={3}>Borte eller uten blokk</td>
             </tr>
           )}
           {plan.away.map((a) => (
@@ -203,14 +223,13 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
                 <div className="dp-track">{a.away && <div className="dp-blk away" style={a.from !== undefined && a.to !== undefined ? { left: `${pct(a.from)}%`, width: `${pct(a.to) - pct(a.from)}%` } : { left: `${pct(wd.dayStart)}%`, width: `${pct(wd.dayEnd) - pct(wd.dayStart)}%` }}>Borte</div>}</div>
               </td>
               <td className="dp-time">{!a.away ? 'Ingen blokk' : a.from !== undefined && a.to !== undefined ? `Borte ${span(a.from, a.to)}${a.idle ? ', ingen blokk ellers' : ''}` : 'Borte hele dagen'}</td>
-              <td />
             </tr>
           ))}
         </tbody>
       </table>
       <footer className="dp-foot">
         <span>
-          Lunsj {hm(wd.breakStart)}–{hm(wd.breakEnd)} · <b className="dp-est">≈</b> sted regnet ut, kunne vært et annet · skravert: venter på svar
+          Lunsj {hm(wd.breakStart)}–{hm(wd.breakEnd)} · fylt: denne gruppen, omriss: resten av dagen · strek foran navnet: senere del av dagen · <b className="dp-est">≈</b> sted regnet ut, kunne vært et annet · skravert: venter på svar · antall = timer ÷ normaldag
         </span>
         <span>Skrevet ut {printedAt}</span>
       </footer>

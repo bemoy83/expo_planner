@@ -44,13 +44,16 @@ describe('the day plan', () => {
     expect(plan.projects.find((p) => p.projectNo === SECOND)!.coverage[0].state).toBe('ok')
   })
 
-  it('puts a fitter on one row, with the blocks of a split day in order and the place of each', () => {
+  it('draws the whole of a split day in each group the fitter is in, the blocks in order with the place of each', () => {
     const morning = block(1, FIRST, 'B', { end: 660, id: 'am' })
     const afternoon = block(1, SECOND, undefined, { start: 720, end: 900, id: 'pm' })
     const plan = buildDayPlan(staffed(morning, afternoon), MON)
-    const rows = plan.rows.filter((r) => r.kind === 'fitter')
-    expect(rows).toHaveLength(1)
-    expect(rows[0].kind === 'fitter' && rows[0].blocks.map((b) => [b.projectNo, b.hall, b.start])).toEqual([
+    const entries = plan.groups.flatMap((g) => g.competences.flatMap((c) => c.entries.map((e) => [g.projectNo, g.hall, e] as const)))
+    expect(entries.map(([projectNo, hall, e]) => [projectNo, hall, e.kind === 'fitter' && e.here])).toEqual([
+      [SECOND, 'D1', [1]],
+      [FIRST, 'B', [0]],
+    ])
+    for (const [, , e] of entries) expect(e.kind === 'fitter' && e.blocks.map((b) => [b.projectNo, b.hall, b.start])).toEqual([
       [FIRST, 'B', wd.dayStart],
       [SECOND, 'D1', 720],
     ])
@@ -60,7 +63,7 @@ describe('the day plan', () => {
   it('shows a supplier under its project, and what waits does not cover', () => {
     const order = { id: 'o1', supplierId: 's1', competence: 'vegger', date: MON, fte: 3, start: wd.dayStart, end: wd.dayEnd, conf: null, projectNo: FIRST }
     const plan = buildDayPlan({ ...staffed(), hireOrders: [order] }, MON)
-    const hired = plan.rows.find((r) => r.kind === 'hired')!
+    const hired = plan.groups.flatMap((g) => g.competences.flatMap((c) => c.entries)).find((e) => e.kind === 'hired')!
     expect(hired).toMatchObject({ kind: 'hired', name: 'Messehjelp AS', people: 3, waiting: true, projectNo: FIRST })
     expect(plan.waiting).toBe(3)
     expect(plan.hired).toBe(0)
@@ -83,14 +86,44 @@ describe('the day plan', () => {
     expect(buildDayPlan(w, SUN).away).toEqual([])
   })
 
-  it('keeps a person with blocks of both kinds on one row', () => {
+  it('keeps a person with blocks of both kinds among the projects, the block of no project in a group of its own', () => {
     const w: Workspace = {
       ...staffed(block(2, FIRST, 'B'), block(2, undefined, undefined, { competence: 'rigg', start: 960, end: 1020, id: 'late' })),
       persons: base.persons!.map((p) => ({ ...p, competences: ['vegger', 'rigg'] })),
     }
     const plan = buildDayPlan(w, MON)
     expect(plan.unplaced).toEqual([])
-    const row = plan.rows.find((r) => r.kind === 'fitter')!
-    expect(row.kind === 'fitter' && row.blocks.map((b) => b.projectNo)).toEqual([FIRST, ''])
+    expect(plan.groups.map((g) => [g.projectNo, g.name])).toEqual([
+      [FIRST, 'Byggemessen'],
+      ['', 'Uten prosjekt'],
+    ])
+  })
+
+  it('groups the people by place and then competence, a person with work in two groups in both, the later part after', () => {
+    const morning = block(1, FIRST, 'B', { end: 690, id: 'am' })
+    const afternoon = block(1, FIRST, 'B', { competence: 'tepper', start: 720, end: 900, id: 'pm' })
+    const w: Workspace = { ...staffed(morning, afternoon, block(2, FIRST, 'B')), persons: base.persons!.map((p) => ({ ...p, competences: ['vegger', 'tepper'] })) }
+    const plan = buildDayPlan(w, MON)
+    const b = plan.groups.find((g) => g.projectNo === FIRST && g.hall === 'B')!
+    expect(b.name).toBe('Byggemessen')
+    const walls = b.competences.find((c) => c.competence === 'vegger')!
+    const carpets = b.competences.find((c) => c.competence === 'tepper')!
+    expect(walls.entries.map((e) => e.kind === 'fitter' && [e.personId, e.here, e.later])).toEqual([
+      ['two-1', [0], false],
+      ['two-2', [0], false],
+    ])
+    expect(carpets.entries.map((e) => e.kind === 'fitter' && [e.personId, e.here, e.later])).toEqual([['two-1', [1], true]])
+    // Whole days: 4,5 of 7,5 hours in the walls and 3 in the carpets, so no one is counted twice.
+    expect(walls.people).toBeCloseTo(1 + 4.5 / 7.5)
+    expect(carpets.people).toBeCloseTo(3 / 7.5)
+    expect(walls.state).toBe('short')
+  })
+
+  it('counts the people of a confirmed order in its group, and shows those that wait without counting them', () => {
+    const order = (id: string, conf: number | null) => ({ id, supplierId: 's1', competence: 'vegger', date: MON, fte: 2, start: wd.dayStart, end: wd.dayEnd, conf, projectNo: SECOND })
+    const plan = buildDayPlan({ ...staffed(), hireOrders: [order('o1', 2), { ...order('o2', null), start: 960, end: 1200 }] }, MON)
+    const group = plan.groups.flatMap((g) => g.competences).find((c) => c.entries.some((e) => e.kind === 'hired'))!
+    expect(group.people).toBe(2)
+    expect(group.waiting).toBe(2)
   })
 })
