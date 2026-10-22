@@ -113,6 +113,14 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
 .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:var(--ink-2)}
 .legend .k-short{border-bottom:3px solid var(--short)}
 .legend .k-wait{border-bottom:3px solid var(--wait)}
+/* places: a place as the rows write it, on a small tag; ≈ where it is worked out, not set */
+.pl{display:inline-block;min-width:16px;margin-right:6px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--ink);font:500 11px/16px var(--font-num);text-align:center;font-style:normal}
+.pl.est{background:transparent;box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--ink-2)}
+.pbar.dn{background:var(--c-rig)}
+.wkt tr.sub th{padding:2px 8px 2px 24px;font-size:12px;font-weight:400;color:var(--ink-2);text-transform:none;letter-spacing:0;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.wkt tr.sub td{height:auto;padding:2px 4px;font:400 12px var(--font-num);color:var(--ink-2)}
+.place-head{display:flex;align-items:center;gap:0;font-size:12px;color:var(--ink-2);padding-top:4px}
+.place-head .cov{margin-left:auto}
 /* where */
 .locked{border-left:3px solid var(--gran);background:var(--gran-band);padding:12px 14px;font-size:14px;max-width:none}
 .life{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--line-strong);border-radius:4px;overflow:hidden;background:var(--paper)}
@@ -132,9 +140,9 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
 
 <div class="wrap">
   <header class="lede">
-    <div class="eyebrow">Forslag · ikke bygget</div>
+    <div class="eyebrow">Forslag · ikke bygget · oppdatert 22.10.2026 med steder</div>
     <h1>Ukeplan per montør og dagsplan for arbeidsdagen</h1>
-    <p class="muted">Tre utskrifter laget av det som allerede ligger i Plan og Bemanning: en felles ukeplan med mål per kompetanse, en ukeplan per montør og en dagsplan som viser hvem som jobber med hva. Skissene bruker demosesongen (uke 44, Spillfestivalen 2026 bygges opp i B1–B4).</p>
+    <p class="muted">Tre utskrifter laget av det som allerede ligger i Plan og Bemanning: en felles ukeplan med mål per kompetanse, en ukeplan per montør og en dagsplan som viser hvem som jobber med hva. Nå som blokkene har prosjekt og sted, sier alle tre også <b>hvor</b> arbeidet er. Skissene bruker en oppdiktet uke 44: Spillfestivalen 2026 bygges opp i B (B1–B4) mandag til torsdag, og Byggemessen 2026 rives i C mandag til onsdag.</p>
   </header>
 
   <section>
@@ -142,16 +150,18 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
     <div class="facts">
       <div class="fact"><b>Blokker per person og dag</b><span class="muted">Kompetanse, start og slutt, betalte timer og overtid (<span class="num">Assignment</span>, <span class="num">staffing.ts</span>).</span></div>
       <div class="fact"><b>Fravær</b><span class="muted">Hel eller del av dag, uten grunn («Borte»). Delvis fravær kutter blokken.</span></div>
-      <div class="fact"><b>Innleid</b><span class="muted">Antall personer per leverandør, kompetanse, dag og skift, venter eller bekreftet. Ingen navn.</span></div>
+      <div class="fact"><b>Innleid</b><span class="muted">Antall personer per leverandør, kompetanse, prosjekt, dag og skift, venter eller bekreftet. Ingen navn.</span></div>
       <div class="fact"><b>Normaldag og lunsj</b><span class="muted">Fra Innstillinger, 07:00–15:00 med lunsj 11:30–12:00 som standard.</span></div>
-      <div class="fact gap"><b>Mangler: hvor</b><span class="muted">En blokk har ingen prosjekt eller hall. Feltene finnes i typen, men settes aldri. Prosjektmerking ble utsatt i Bemanning v2.</span></div>
-      <div class="fact"><b>Kan avledes</b><span class="muted">Hvilke prosjekter som har planlagt FTE for kompetansen den dagen, fra Kalender-radene. Entydig bare når det er ett.</span></div>
+      <div class="fact"><b>Prosjekt og sted på blokken</b><span class="muted">Malt på en prosjektlinje får blokken prosjektet, og på en stedslinje under prosjektet også stedet (<span class="num">Assignment.hall</span>). Stedet er slik radene skriver det: «B», ikke B1.</span></div>
+      <div class="fact"><b>Sted som regnes ut</b><span class="muted">En blokk uten sted får stedene til prosjektet etter hva hvert mangler, og en blokk uten prosjekt først prosjektene (<span class="num">blockPlaces</span>). Det som er over alt behov, får ikke noe sted.</span></div>
+      <div class="fact"><b>Prosjektets haller</b><span class="muted">En rad for alle haller eller «Ufordelt» er de stedene prosjektet har booket den dagen (<span class="num">bookedPlaces</span>).</span></div>
+      <div class="fact gap"><b>Innleide: prosjekt, ikke sted</b><span class="muted">En bestilling har prosjekt, men ikke sted ennå. Stedet regnes ut fra prosjektets behov, som for en blokk uten sted.</span></div>
     </div>
   </section>
 
   <section>
     <h2>1 · Felles ukeplan</h2>
-    <p class="muted">A4 liggende, mandag til søndag, uten navn. Én linje per kompetanse med målet for hver dag: hvor mange personer og timer som trengs, og hvor langt faste og innleide dekker det. Hvem som gjør hva står i dagsplanen.</p>
+    <p class="muted">A4 liggende, mandag til søndag, uten navn. Én linje per kompetanse med målet for hver dag: hvor mange personer og timer som trengs, og hvor langt faste og innleide dekker det. Der en kompetanse er på to eller flere steder samme uke, står hvert sted på en tynn linje under, som stedslinjene i Bemanning. Hvem som gjør hva står i dagsplanen.</p>
     <div class="scroll"><div class="paper wk" aria-label="Skisse av felles ukeplan">
       <div class="sheet-head">
         <div class="who">Uke 44</div>
@@ -160,13 +170,18 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
       <table class="wkt">
         <thead>
           <tr><th></th><th>Man 26</th><th>Tir 27</th><th>Ons 28</th><th>Tor 29</th><th>Fre 30</th><th class="we">Lør 31</th><th class="we">Søn 1</th></tr>
-          <tr class="ph"><td></td><td colspan="4"><span class="pbar up">Spillfestivalen 2026 · oppbygging · B1–B4</span></td><td colspan="3"><span class="pbar ev">Messedager</span></td></tr>
+          <tr class="ph"><td></td><td colspan="4"><span class="pbar up">Spillfestivalen 2026 · oppbygging · B</span></td><td colspan="3"><span class="pbar ev">Messedager</span></td></tr>
+          <tr class="ph"><td></td><td colspan="3"><span class="pbar dn">Byggemessen 2026 · demontering · C</span></td><td colspan="4"></td></tr>
         </thead>
         <tbody>
           <tr><th class="cmp veg"><span class="sw"></span>Vegger</th>
             <td><b>14</b><span>105 t</span></td><td><b>12</b><span>90 t</span></td><td><b>10</b><span>75 t</span></td><td class="short"><b>6</b><span>45 t</span><em>−7,5</em></td><td></td><td></td><td></td></tr>
+          <tr class="sub"><th><span class="pl">B</span>Spillfestivalen</th><td>10</td><td>8</td><td>8</td><td>6</td><td></td><td></td><td></td></tr>
+          <tr class="sub"><th><span class="pl">C</span>Byggemessen</th><td>4</td><td>4</td><td>2</td><td></td><td></td><td></td><td></td></tr>
           <tr><th class="cmp tep"><span class="sw"></span>Tepper</th>
             <td><b>4</b><span>30 t</span></td><td class="wait"><b>7</b><span>52,5 t</span><em>3 venter</em></td><td class="wait"><b>8</b><span>60 t</span><em>2 venter</em></td><td><b>3</b><span>22,5 t</span></td><td></td><td></td><td></td></tr>
+          <tr class="sub"><th><span class="pl">B</span>Spillfestivalen</th><td></td><td>4</td><td>8</td><td>3</td><td></td><td></td><td></td></tr>
+          <tr class="sub"><th><span class="pl">C</span>Byggemessen</th><td>4</td><td>3</td><td></td><td></td><td></td><td></td><td></td></tr>
           <tr><th class="cmp mob"><span class="sw"></span>Møbler</th>
             <td></td><td><b>3</b><span>22,5 t</span></td><td><b>6</b><span>45 t</span></td><td><b>9</b><span>67,5 t</span></td><td><b>1</b><span>7,5 t</span></td><td></td><td></td></tr>
           <tr><th class="cmp ele"><span class="sw"></span>Elektro</th>
@@ -184,7 +199,7 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
         </tfoot>
       </table>
       <div class="legend"><span><b class="num">12</b> personer som trengs</span><span><span class="num">90 t</span> timer i behov</span><span class="k-short">−7,5 timer udekket</span><span class="k-wait">bestilt, venter på svar</span></div>
-      <div class="foot"><span>Personer = timer ÷ normaldag (7,5 t), rundet opp</span><span class="num">Skrevet ut 21.10.2026 14:05</span></div>
+      <div class="foot"><span>Personer = timer ÷ normaldag (7,5 t), rundet opp · stedslinjer bare der kompetansen er på to steder eller flere</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
     </div></div>
   </section>
 
@@ -201,16 +216,16 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
         <tbody>
           <tr><td class="day"><b>Man</b><span>26. okt</span></td>
             <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.3%">07–15</div></div></td>
-            <td class="where">Vegger<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">7,5</td></tr>
+            <td class="where">Vegger<br><i><span class="pl est" title="Regnet ut fra planen">≈ C</span>Byggemessen 2026</i></td><td class="num" style="text-align:right">7,5</td></tr>
           <tr><td class="day"><b>Tir</b><span>27. okt</span></td>
             <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.3%">07–15</div></div></td>
-            <td class="where">Vegger<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">7,5</td></tr>
+            <td class="where">Vegger<br><i><span class="pl">B</span>Spillfestivalen 2026</i></td><td class="num" style="text-align:right">7,5</td></tr>
           <tr><td class="day"><b>Ons</b><span>28. okt</span></td>
             <td><div class="track"><div class="blk veg" style="left:6.67%;width:30%">07–11:30</div><div class="blk tep" style="left:40%;width:20%">12–15</div></div></td>
-            <td class="where">Vegger til lunsj, så Tepper<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">7,5</td></tr>
+            <td class="where">Vegger til lunsj, så Tepper<br><i><span class="pl">C</span>Byggemessen 2026, så <span class="pl">B</span>Spillfestivalen 2026</i></td><td class="num" style="text-align:right">7,5</td></tr>
           <tr><td class="day"><b>Tor</b><span>29. okt</span></td>
             <td><div class="track"><div class="blk mob" style="left:6.67%;width:53.3%">07–15</div><div class="blk mob ot" style="left:60%;width:20%">15–18</div></div></td>
-            <td class="where">Møbler, 3 t overtid<br><i>Spillfestivalen 2026 · B1–B4</i></td><td class="num" style="text-align:right">10,5</td></tr>
+            <td class="where">Møbler, 3 t overtid<br><i><span class="pl">B</span>Spillfestivalen 2026</i></td><td class="num" style="text-align:right">10,5</td></tr>
           <tr><td class="day"><b>Fre</b><span>30. okt</span></td>
             <td><div class="track"><div class="blk away" style="left:6.67%;width:53.3%">Borte</div></div></td>
             <td class="where">Borte</td><td class="num" style="text-align:right">–</td></tr>
@@ -219,58 +234,71 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
         </tbody>
       </table>
       <div class="sum"><span>Normaltid <b class="num">30,0 t</b></span><span>Overtid <b class="num">3,0 t</b></span></div>
-      <div class="foot"><span>Sted er avledet fra planen, ikke satt av planleggeren.</span><span class="num">Skrevet ut 21.10.2026 14:05</span></div>
+      <div class="foot"><span><span class="pl est">≈</span>sted regnet ut fra planen · uten ≈: satt i Bemanning</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
     </div></div>
   </section>
 
   <section>
     <h2>3 · Dagsplan for arbeidsdagen</h2>
-    <p class="muted">Én side per dag til arbeidsleder og oppslagstavla. Lag per kompetanse med folk og tider, innleide under sitt lag, og hvor langt laget dekker behovet. Det samme bildet vises på skjermen og skrives ut.</p>
+    <p class="muted">Én side per dag til arbeidsleder og oppslagstavla. Lag per kompetanse, og under hver kompetanse ett lag per sted med folk og tider, innleide under sitt lag, og hvor langt laget dekker behovet der. Det samme bildet vises på skjermen og skrives ut.</p>
     <div class="scroll"><div class="paper" aria-label="Skisse av dagsplan">
       <div class="band">
-        <div><div class="eyebrow">Dagsplan · uke 44</div><div class="d">Tirsdag 27. oktober 2026</div><div class="muted" style="font-size:12px">Spillfestivalen 2026 · oppbygging dag 2 av 4 · B1–B4</div></div>
+        <div><div class="eyebrow">Dagsplan · uke 44</div><div class="d">Tirsdag 27. oktober 2026</div><div class="muted" style="font-size:12px"><span class="pl">B</span>Spillfestivalen 2026 · oppbygging dag 2 av 4 &nbsp; <span class="pl">C</span>Byggemessen 2026 · demontering dag 2 av 3</div></div>
         <div class="kpis"><span>Behov<b>229,5 t</b></span><span>Faste<b>157,5 t</b></span><span>Innleid<b>45 t</b></span><span class="short">Avvik<b>−27 t</b></span></div>
       </div>
       <div class="groups">
         <div class="grp veg">
           <div class="grp-head"><span class="sw"></span><h3>Vegger · 12 pers</h3><span class="cov ok">90 / 90 t</span></div>
+          <div class="place-head"><span class="pl">B</span>Spillfestivalen 2026<span class="cov ok">60 / 60 t</span></div>
           <div class="ppl">
-            <span>Anders Berg</span><span class="t">07–15</span><span>Kari Nordli</span><span class="t">07–15</span><span>Ola Strand</span><span class="t">07–15</span><span>Per Lunde</span><span class="t">07–15</span><span>Jonas Bakke</span><span class="t">07–15</span><span>Erik Dahl</span><span class="t">07–15</span><span>Lars Holm</span><span class="t">07–15</span><span>Tor Sand</span><span class="t">07–15</span>
+            <span>Anders Berg</span><span class="t">07–15</span><span>Kari Nordli</span><span class="t">07–15</span><span>Ola Strand</span><span class="t">07–15</span><span>Per Lunde <span class="pl est" title="Regnet ut fra planen">≈</span></span><span class="t">07–15</span>
           </div>
           <div class="hire"><span>Messehjelp AS · 4 pers</span><span><span class="t num" style="font-size:12px">07–15</span> <span class="st ok">Bekreftet</span></span></div>
+          <div class="place-head"><span class="pl">C</span>Byggemessen 2026<span class="cov ok">30 / 30 t</span></div>
+          <div class="ppl">
+            <span>Jonas Bakke</span><span class="t">07–15</span><span>Erik Dahl</span><span class="t">07–15</span><span>Lars Holm</span><span class="t">07–15</span><span>Tor Sand</span><span class="t">07–15</span>
+          </div>
         </div>
         <div class="grp tep">
           <div class="grp-head"><span class="sw"></span><h3>Tepper · 4 + 3 pers</h3><span class="cov wait">30 / 52,5 t</span></div>
+          <div class="place-head"><span class="pl">B</span>Spillfestivalen 2026<span class="cov ok">30 / 30 t</span></div>
           <div class="ppl"><span>Ingrid Haug</span><span class="t">07–15</span><span>Siri Moen</span><span class="t">07–15</span><span>Hanne Vik</span><span class="t">07–15</span><span>Eva Fjeld</span><span class="t">07–15</span></div>
+          <div class="place-head"><span class="pl est" title="Regnet ut fra prosjektets behov">≈ C</span>Byggemessen 2026<span class="cov wait">0 / 22,5 t</span></div>
           <div class="hire"><span>Gulv og Tepper Service · 3 pers</span><span><span class="t num" style="font-size:12px">07–15</span> <span class="st wait">Venter</span></span></div>
         </div>
         <div class="grp ele">
           <div class="grp-head"><span class="sw"></span><h3>Elektro · 4 pers</h3><span class="cov short">30 / 34,5 t</span></div>
+          <div class="place-head"><span class="pl">B</span>Spillfestivalen 2026</div>
           <div class="ppl"><span>Knut Brekke</span><span class="t">07–15</span><span>Henrik Myhre</span><span class="t">07–15</span></div>
           <div class="hire"><span>Lys og Lyd Utleie · 2 pers</span><span><span class="t num" style="font-size:12px">07–15</span> <span class="st ok">Bekreftet</span></span></div>
         </div>
         <div class="grp mob">
           <div class="grp-head"><span class="sw"></span><h3>Møbler · 3 pers</h3><span class="cov ok">22,5 / 22,5 t</span></div>
+          <div class="place-head"><span class="pl">B</span>Spillfestivalen 2026</div>
           <div class="ppl"><span>Mia Solberg</span><span class="t">07–15</span><span>Sofie Eide</span><span class="t">07–15</span><span>Magnus Tangen</span><span class="t">07–15</span></div>
         </div>
         <div class="grp rig">
           <div class="grp-head"><span class="sw"></span><h3>Rigg · 3 pers</h3><span class="cov ok">22,5 / 22,5 t</span></div>
+          <div class="place-head"><span class="pl">B</span>Spillfestivalen 2026</div>
           <div class="ppl"><span>Even Berg</span><span class="t">07–15</span><span>Sindre Lie</span><span class="t">07–15</span><span>Øystein Aas</span><span class="t">07–15</span></div>
         </div>
         <div class="grp gra">
           <div class="grp-head"><span class="sw"></span><h3>Grafikk · 1 pers</h3><span class="cov ok">7,5 / 7,5 t</span></div>
+          <div class="place-head"><span class="pl">B</span>Spillfestivalen 2026</div>
           <div class="ppl"><span>Thea Rønning</span><span class="t">07–15</span></div>
         </div>
       </div>
       <div class="away-list"><b style="color:var(--ink)">Borte:</b> Ida Strand (hele dagen), Petter Haug (07–11). <b style="color:var(--ink)">Uten blokk:</b> Live Moen, Frida Bakke.</div>
-      <div class="foot"><span>Lunsj 11:30–12:00 · innleide har ikke navn, bare antall</span><span class="num">Skrevet ut 21.10.2026 14:05</span></div>
+      <div class="foot"><span>Lunsj 11:30–12:00 · innleide har ikke navn, bare antall · <span class="pl est">≈</span>sted regnet ut fra planen</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
     </div></div>
   </section>
 
   <section>
     <h2>Innvendinger</h2>
     <ul>
-      <li><b>«Hvor» finnes ikke.</b> En montør vil vite hvilken hall de skal møte i, men en blokk vet bare kompetansen. Skissene viser et sted avledet fra planen. Det holder når ett prosjekt har behov for kompetansen den dagen, men når to prosjekter bygger samtidig, kan vi bare skrive begge. Ekte merking (prosjekt på blokken) er designet i Bemanning v2 som utsatt, og koster et ekstra valg for deg ved hvert strøk.</li>
+      <li><b>Mye av stedet er regnet ut.</b> Bare blokker malt på en stedslinje har stedet sitt lagret. Resten fordeles etter hva prosjektene og stedene mangler, og kan flytte seg når planen endres. Arkene merker et utregnet sted med ≈, så du ser hva som er sikkert, og slik at en montør ikke møter i feil hall uten at det sto noe om det.</li>
+      <li><b>En blokk kan fordeles på to steder.</b> En umerket blokk på en dag der to prosjekter mangler vegger, går til begge etter hva de mangler. På papir må den stå ett sted. Jeg foreslår å vise stedet med størst del, merket ≈.</li>
+      <li><b>Innleide har ikke sted.</b> Bestillingen har prosjekt, så stedet regnes ut fra prosjektets behov. For et prosjekt med ett sted den dagen er det sikkert. For et prosjekt med flere, står det med ≈ til innleide får sted på bestillingen.</li>
       <li><b>Mål i personer er en avrunding.</b> Behovet regnes i timer. Personer er timer delt på normaldagen, rundet opp, så 34,5 t blir 5 personer selv om 4,6 er nok. Timene står derfor alltid under tallet.</li>
       <li><b>Trenger ukeplanen per montør fortsatt?</b> Med felles ukeplan og dagsplan er det kanskje nok. Arket per montør passer best når planen deles ut til hver enkelt.</li>
       <li><b>Utskrift blir fort gammel.</b> Planen endres etter at arket er skrevet ut. Derfor står tidspunktet nederst. Å sende planen til folk på telefonen krever innlogging for montører i den delte arbeidsflaten, og hører hjemme etter første versjon.</li>
@@ -279,38 +307,25 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
   </section>
 
   <section id="hvor">
-    <h2>Hvor: prosjekt på blokkene</h2>
-    <p class="muted">Bjørns idé: velg et prosjekt i Bemanning, behovet følger valget, og kompetansen males inn som før. Prosjektene som kan velges, er de som står i prosjektlinjene i utsnittet (<span class="num">projectsInView</span>). Da får hver blokk et prosjekt, og hvert prosjekt får en timekonto som timene skrives til. Feltene <span class="num">projectNo</span> og <span class="num">hall</span> finnes allerede på blokken, og en utsatt design for merking ligger i <span class="num">bemanning-v2/DEFERRED.md</span>.</p>
-
-    <h3>Timekontoen: et prosjekts livsløp</h3>
-    <div class="life">
-      <div class="st"><b>Behov</b><span>Fra Plan: FTE × normaltid per dag, per prosjekt, fase og kompetanse</span></div>
-      <div class="st"><b>Tildelt</b><span>Blokker merket med prosjektet, pluss bekreftede bestillinger</span></div>
-      <div class="st"><b>Gjenstår</b><span>Behov minus tildelt, per dag og samlet for fasen</span></div>
-      <div class="st"><b>Utført</b><span>Senere: dagsplanen kvitteres etter dagen, og resten flyttes eller strykes</span></div>
-    </div>
-    <p class="muted">Resten av en dag kan allerede flyttes til neste dag («carry»), men bare per kompetanse. Med prosjekt på flyttingen blir resten liggende i prosjektets konto. Resultat kan da vise bemannede timer mot budsjettet, ikke bare planlagte.</p>
-
-    <div class="optgrid">
-      <div class="opt"><div class="tag">A</div><h3>Aktivt prosjekt</h3><p>Velg et prosjekt i planleggingslinjen eller ved et klikk på prosjektlinjen. Behovet viser prosjektets timer, og penselen merker det den maler. Uten valg vises summen, og blokkene får ikke noe prosjekt.</p><p class="pc"><b>For:</b> enkelt, og samme grep som kompetansen i fokus. <b>Mot:</b> lett å glemme å bytte, og da merkes feil prosjekt.</p></div>
-      <div class="opt"><div class="tag">B</div><h3>Merkes selv når det er entydig</h3><p>Har bare ett prosjekt i utsnittet behov for kompetansen den dagen, får blokken prosjektet uten at noen velger det. Har flere det, brukes det aktive prosjektet, eller den blir umerket og vises med en prikk.</p><p class="pc"><b>For:</b> nesten ingen ekstra klikk i en vanlig uke. <b>Mot:</b> en regel du må stole på, og umerkede blokker må ryddes.</p></div>
-      <div class="opt"><div class="tag">C</div><h3>Behovet delt per prosjekt</h3><p>Under hver kompetanse står én behovslinje per prosjekt: Vegger › Spillfestivalen, Vegger › Byggemessen. Linjen i fokus er penselen, så den bestemmer både kompetansen og prosjektet.</p><p class="pc"><b>For:</b> du ser hvor det mangler, og merkingen følger av hvor du maler. <b>Mot:</b> flere linjer i behovet når to messer går samtidig.</p></div>
-    </div>
-    <div class="locked"><b>Foreløpig valgt 21.10.2026: B og C.</b> Prosjektmerking bygges for seg selv, uavhengig av utskriftene, fordi den gir Resultat bemannede timer per prosjekt. Når du velger en kompetanse i behovet, foldes den ut i en sumlinje og én linje per prosjekt i utsnittet. De andre kompetansene krymper til en tynn linje med avviket, men skjules ikke. Linjen du står på, er penselen. På sumlinjen merkes blokken av seg selv der det er entydig (B). Uten valg står alt som i dag. Merk per prosjekt først, og vis hallen som prosjektets haller.</div>
-
-    <h3>Å gå opp sammen</h3>
-    <ol class="dec">
-      <li><h3>Prosjekt, eller prosjekt og hall?</h3><div class="opts"><span class="rec">Prosjekt nå, hall senere</span><span>Prosjekt og hall fra starten</span></div></li>
-      <li><h3>Kan en blokk stå uten prosjekt?</h3><div class="opts"><span class="rec">Ja, den teller i summen og merkes med en prikk</span><span>Nei, hver blokk må ha et prosjekt</span></div></li>
-      <li><h3>Hvor langt skal livsløpet gå?</h3><div class="opts"><span class="rec">Behov, tildelt og gjenstår nå, utført etter første versjon</span><span>Også utført nå: dagsplanen kvitteres etter dagen</span></div></li>
-      <li><h3>Skal bekreftede innleide få prosjekt også?</h3><div class="opts"><span class="rec">Ja, på samme måte som blokkene</span><span>Nei, de teller bare i summen</span></div></li>
-    </ol>
+    <h2>Hvor: prosjekt og sted på blokkene</h2>
+    <div class="locked"><b>Bygget og slått inn i main 21.–22.10.2026.</b> Velger du en kompetanse i Bemanning, får den én linje per prosjekt i utsnittet. Under prosjektet i fokus er det én linje per sted der prosjektet har behov på to steder eller flere. Linjen du står på, er penselen. Timer uten prosjekt eller sted fordeles i bakgrunnen etter hva hvert prosjekt og sted mangler, og lagres ikke. Resultat viser bemannede timer per prosjekt. Innleide får prosjekt på bestillingen, og sted kommer senere.</div>
+    <p class="muted">Utskriftene leser det som er bygget: stedet til en blokk fra <span class="num">blockPlaces</span>, og hva «Prosjektets haller» er den dagen fra <span class="num">bookedPlaces</span>. Valgene som førte hit, står i <span class="num">design_docs/ukeplan/README.md</span>.</p>
   </section>
 
   <section>
     <h2>Beslutninger for Bjørn</h2>
     <ol class="dec">
-      <li><h3>Hvordan vises sted?</h3><div class="opts"><span class="rec">Avledet fra planen, med alle prosjekter når det er flere</span><span>Bare kompetanse, ikke sted</span><span>Merk blokker med prosjekt nå (den utsatte v2-designen)</span></div></li>
+      <li><h3>Hvordan skilles et utregnet sted fra et satt?</h3><div class="opts"><span class="rec">≈ foran stedet når det er regnet ut</span><span>Ingen forskjell på arket</span></div></li>
+      <li><h3>Hvor står en blokk som er fordelt på to steder?</h3><div class="opts"><span class="rec">Stedet med størst del, merket ≈</span><span>Alle stedene, «B / C»</span></div></li>
+      <li><h3>Hva grupperes dagsplanen etter?</h3><div class="opts"><span class="rec">Kompetanse, med ett lag per sted under</span><span>Sted (der folk møter), med kompetansene under</span></div></li>
+      <li><h3>Stedslinjer i felles ukeplan?</h3><div class="opts"><span class="rec">Bare der kompetansen er på to steder eller flere</span><span>Alltid</span><span>Aldri, bare kompetanse</span></div></li>
+      <li><h3>Hva er målet i felles ukeplan?</h3><div class="opts"><span class="rec">Personer, med timene under</span><span>Bare timer</span><span>Bare personer</span></div></li>
+      <li><h3>Hva bygges først?</h3><div class="opts"><span class="rec">Felles ukeplan og dagsplan, ukeplan per montør senere</span><span>Alle tre</span></div></li>
+      <li><h3>Skal innleide stå i dagsplanen?</h3><div class="opts"><span class="rec">Ja, som antall per leverandør med svar, under stedet til prosjektet</span><span>Nei, bare faste</span></div></li>
+      <li><h3>Hvor åpnes de?</h3><div class="opts"><span class="rec">Klikk på en dato i Bemanning for dagsplan, ukeplan fra Person-panelet og en knapp for hele uka</span><span>En egen fane</span></div></li>
+    </ol>
+  </section>
+</div></li>
       <li><h3>Hva er målet i felles ukeplan?</h3><div class="opts"><span class="rec">Personer, med timene under</span><span>Bare timer</span><span>Bare personer</span></div></li>
       <li><h3>Hva bygges først?</h3><div class="opts"><span class="rec">Felles ukeplan og dagsplan, ukeplan per montør senere</span><span>Alle tre</span></div></li>
       <li><h3>Hva grupperes dagsplanen etter?</h3><div class="opts"><span class="rec">Kompetanse, som i skissen</span><span>Prosjekt og hall (krever svar på 1)</span></div></li>

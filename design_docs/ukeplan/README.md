@@ -17,3 +17,7 @@ A block (`Assignment`) has no project or hall: the fields exist in the type and 
 Carrying the rest of a day (`carry` in `staffing.ts`, `DemandAdjustment`) is per competence today; with tagging it would carry within the project.
 
 **Answers (2026-10-21):** a block is tagged only when a project line is picked; one without stays untagged and still counts in the sum. The account stops at Gjenstår. Confirmed hire orders get a project too. Open: whether the untagged hours of a competence and day are shared out over its projects in the background, as `spreadOpen` shares FTE in the Kalender, which would replace B's tagging by itself.
+
+## Places on the printouts (2026-10-22)
+
+Project tagging and places on blocks are built (`buildProjectBalance`, `workPlace.ts`), so the proposal is updated: every printout says where the work is, as project and place («B», as the rows write it). A place painted on a place's line is set; any other is worked out by `blockPlaces` and marked «≈». The shared week plan has a thin line per place under a competence only where it works in two or more places that week; the fitter's sheet shows project and place per block, the largest share where a block is split; the day plan has a team per place under each competence, with the hired crew under its project's place (orders have a project, not yet a place). Open decisions are listed at the foot of `proposal.html`.
