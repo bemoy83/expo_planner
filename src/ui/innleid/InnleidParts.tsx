@@ -38,8 +38,8 @@ export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPla
       <ModeTag mode="bemanning" part="innleid" />
       <span className="page-meta" title="Gjelder hele perioden">{meta.join(' · ')}</span>
       {places}
-      <button className="ghost" onClick={onDayPlan} title="Dagsplan for dagen du står på: hvem som jobber hvor, til utskrift.">
-        <Printer size={14} aria-hidden /> Dagsplan
+      <button className="ghost" onClick={onDayPlan} title="Arbeidsplan til utskrift: dagsplanen for dagen du står på, og ukeplanen.">
+        <Printer size={14} aria-hidden /> Arbeidsplan
       </button>
       <PanelToggle open={!!panel} what="leverandører" hint="bestillingen til en leverandør, og hva hver av dem tilbyr" onToggle={() => setPanel(panel ? null : brush ? { kind: 'supplier', id: brush.id } : { kind: 'matrix' })} />
     </div>

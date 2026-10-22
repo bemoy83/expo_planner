@@ -1,13 +1,16 @@
 /* The frame the work plans are printed in: the page shows nothing but the open sheet, on white, from the top of the paper. */
 
+@page day{size:A4 portrait;margin:12mm}
+@page week{size:A4 landscape;margin:10mm}
+
 @media print{
-  @page{margin:12mm}
   html,body{background:#fff!important}
   #root{display:none!important}
   .dp-overlay{position:static;display:block;background:none}
   .dp-bar,.dp-setbar{display:none!important}
   .dp-page{overflow:visible;padding:0}
   .dp-sheet{box-shadow:none;width:100%;padding:0;font-size:11px}
+  .wp-attn{break-inside:avoid}
   .dp-list thead{display:table-header-group}
   .dp-card,.dp-list tr{break-inside:avoid}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}

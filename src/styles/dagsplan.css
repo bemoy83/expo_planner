@@ -9,6 +9,7 @@
   --text:#171613; --muted:#5b5953; --faint:#77746c; --line:#dcd8cf; --line-strong:#c4bfb4; --surface:#ffffff;
   --line-blue:#94b1d0; --line-teal:#86bab3; --line-green:#9cb796; --line-amber:#beac86; --line-rose:#cea0a6; --line-violet:#b2a7cd; --line-slate:#a3afbe; --line-orange:#cca48f;
   --on-line:#140c05; --neg:#c53637; --pos:#287c42; --over:#8f5e0a;
+  --ph-up:color-mix(in oklab,oklch(0.56 0.13 250) 34%,#fff); --ph-mi:color-mix(in oklab,oklch(0.53 0.13 185) 34%,#fff); --ph-ev:color-mix(in oklab,oklch(0.56 0.13 300) 48%,#fff); --ph-mo:color-mix(in oklab,oklch(0.56 0.13 85) 34%,#fff); --ph-dn:color-mix(in oklab,oklch(0.56 0.13 10) 34%,#fff);
   box-sizing:border-box;width:min(860px,100%);margin:0 auto;padding:28px 32px;background:var(--surface);color:var(--text);display:grid;gap:16px;font-size:13px;line-height:1.4;box-shadow:var(--card)}
 .dp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid var(--text);padding-bottom:10px}
 .dp-head h1{margin:0;font-size:22px;line-height:1.1}
@@ -62,3 +63,27 @@
 .dp-foot{display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--line);padding-top:8px;font-size:11px;color:var(--faint)}
 .dp-foot span:last-child{font-family:var(--font-num);white-space:nowrap}
 .dp-foot .dp-est{margin:0 2px}
+
+/* The week plan: projects and places down, the seven days across, a bar for each work. Landscape on paper. */
+.dp-sheet.dp-week{width:min(1100px,100%);page:week}
+.dp-sheet:not(.dp-week){page:day}
+.wp-grid{display:grid;grid-template-columns:150px repeat(7,minmax(0,1fr));align-items:center;gap:5px 0}
+.wp-day{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;text-align:center;padding-bottom:4px;border-bottom:1px solid var(--line-strong)}
+.wp-day.we{opacity:.7}
+.wp-proj{grid-column:1/-1;display:grid;grid-template-columns:subgrid;gap:5px 0;align-items:center;margin-top:10px;padding-top:8px;border-top:2px solid var(--text);break-inside:avoid}
+.wp-proj h2{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin:0;font-size:13px}
+.wp-proj h2 b{font-size:15px}
+.wp-proj h2 span{font-size:12px;font-weight:400;color:var(--muted)}
+.wp-row{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center}
+.wp-lbl{font-size:13px;padding-right:8px;white-space:nowrap}
+.wp-lbl .dp-pl{display:inline-block;min-width:16px;margin-right:6px;padding:0 4px;border-radius:3px;background:var(--line);font:500 11px/16px var(--font-num);font-style:normal;text-align:center}
+.wp-fase{color:var(--muted)}
+.wp-phase{height:18px;margin:0 1px;padding:0 6px;border-radius:3px;font-size:11px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;background:var(--ph-up);color:var(--on-line)}
+.wp-phase.mi{background:var(--ph-mi)}.wp-phase.ev{background:var(--ph-ev)}.wp-phase.mo{background:var(--ph-mo)}.wp-phase.dn{background:var(--ph-dn)}
+.wp-bar{height:24px;margin:0 1px;padding:0 7px;border-radius:3px;background:var(--cc);color:var(--on-line);font-size:12px;font-weight:500;line-height:24px;white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:8px}
+.wp-flag{font-style:normal;font-size:10.5px;font-weight:700;padding:0 5px;border-radius:2px;line-height:16px;background:var(--surface);box-shadow:inset 0 0 0 1px currentColor}
+.wp-flag.short,.wp-attn b.short,.wp-short{color:var(--neg)}
+.wp-flag.wait,.wp-attn b.wait,.wp-wait{color:var(--over)}
+.wp-attn{display:grid;gap:3px;border-left:3px solid var(--neg);padding:6px 12px;background:color-mix(in srgb,var(--neg) 7%,transparent)}
+.wp-attn p{margin:0;display:flex;flex-wrap:wrap;gap:2px 14px}
+.wp-attn b{margin-right:2px}

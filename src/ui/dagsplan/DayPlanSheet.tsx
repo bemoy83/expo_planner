@@ -1,18 +1,10 @@
 import { Fragment } from 'react'
-import { dayOfMonth, isoWeek, weekdayIndex, type ISODate } from '../../domain/dates'
+import { isoWeek } from '../../domain/dates'
 import { competenceStyles } from '../../domain/competences'
 import type { DayBlock, DayPlan, ProjectCard } from '../../domain/dayPlan'
 import type { CompetenceKey, CompetenceStyle, Minute, Workspace } from '../../domain/types'
 import { count } from '../dom'
-
-const WEEKDAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag']
-const MONTHS = ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember']
-
-const longDate = (date: ISODate) => `${WEEKDAYS[weekdayIndex(date)]} ${dayOfMonth(date)}. ${MONTHS[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`
-const shortDate = (date: ISODate) => `${WEEKDAYS[weekdayIndex(date)].slice(0, 3).toLowerCase()} ${dayOfMonth(date)}.`
-/** 07, 11:30: the hour alone where it is on the hour. */
-const hm = (minute: Minute) => (minute % 60 ? `${Math.floor(minute / 60)}:${String(minute % 60).padStart(2, '0')}` : String(Math.floor(minute / 60)).padStart(2, '0'))
-const span = (start: Minute, end: Minute) => `${hm(start)}–${hm(end)}`
+import { colorOf, hm, longDate, shortDate, span } from './format'
 
 /** The track runs over the day from DAY_FROM to DAY_TO, in minutes. */
 const DAY_FROM = 6 * 60
@@ -20,9 +12,6 @@ const DAY_TO = 21 * 60
 const pct = (minute: Minute) => ((Math.min(DAY_TO, Math.max(DAY_FROM, minute)) - DAY_FROM) / (DAY_TO - DAY_FROM)) * 100
 
 const COVER_TEXT = { ok: '', short: 'mangler', wait: 'venter' } as const
-
-/** The colour a competence has, as the Kalender draws it. */
-const colorOf = (styles: Map<CompetenceKey, CompetenceStyle>, key: CompetenceKey) => `var(--${styles.get(key)?.color ?? 'line-slate'})`
 
 function Track({ blocks, styles, names }: { blocks: { block: DayBlock | { competence: CompetenceKey; start: Minute; end: Minute; hall: string; waiting?: boolean; hired?: boolean }; text?: string }[]; styles: Map<CompetenceKey, CompetenceStyle>; names: Map<CompetenceKey, string> }) {
   return (

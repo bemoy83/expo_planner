@@ -35,8 +35,8 @@ export function BemanningHead({ places, onDayPlan }: { /** The button «Steder»
       <ModeTag mode="bemanning" />
       <span className="page-meta" title="Behov, overtid og åpne timer gjelder dagene som vises">{meta.join(' · ')}</span>
       {places}
-      <button className="ghost" onClick={onDayPlan} title="Dagsplan for dagen du står på: hvem som jobber hvor, til utskrift. Høyreklikk en dato gjør det samme.">
-        <Printer size={14} aria-hidden /> Dagsplan
+      <button className="ghost" onClick={onDayPlan} title="Arbeidsplan til utskrift: dagsplanen for dagen du står på, og ukeplanen. Høyreklikk en dato for dagsplanen.">
+        <Printer size={14} aria-hidden /> Arbeidsplan
       </button>
       <PanelToggle open={!!panel} what="persondetaljer" hint="timer, overtid og fravær. Klikk et navn for å åpne dem for personen." disabled={!subject} onToggle={() => setPanel(panel ? null : subject ? { personId: subject } : null)} />
     </div>

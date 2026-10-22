@@ -115,8 +115,8 @@ export interface DayPlan {
 
 const EPS = 0.01
 
-/** The phase of a project on a day, and where it stands among its days. */
-const phaseOn = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string, date: ISODate): ProjectPhaseDay | undefined => {
+/** The days each phase takes over the halls of a project's events, as the hall calendar does. */
+export const projectPhaseSpans = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string): Map<VenuePhase, { start: ISODate; end: ISODate }> => {
   const venue = visibleVenue(ws.venue, ws.hiddenVenue)
   const keys = new Set(venueEvents(venue, ws.projects).filter((event) => numberKey(event.projectNo) === numberKey(projectNo)).map((event) => event.key))
   const spans = new Map<VenuePhase, { start: ISODate; end: ISODate }>()
@@ -129,11 +129,22 @@ const phaseOn = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, proj
       spans.set(phase, held ? { start: span.start < held.start ? span.start : held.start, end: span.end > held.end ? span.end : held.end } : { ...span })
     }
   }
-  // The central phase wins where phases overlap, as in the hall calendar.
-  const rank: Record<VenuePhase, number> = { event: 5, movingIn: 4, movingOut: 4, assembly: 3, dismantle: 3 }
-  const here = [...spans].filter(([, span]) => span.start <= date && date <= span.end).sort((a, b) => rank[b[0]] - rank[a[0]])[0]
-  if (!here) return undefined
-  const [phase, span] = here
+  return spans
+}
+
+/** The central phase wins where phases overlap, as in the hall calendar. */
+const PHASE_RANK: Record<VenuePhase, number> = { event: 5, movingIn: 4, movingOut: 4, assembly: 3, dismantle: 3 }
+
+/** The phase a project is in on a day. */
+export const phaseAt = (spans: Map<VenuePhase, { start: ISODate; end: ISODate }>, date: ISODate): VenuePhase | undefined =>
+  [...spans].filter(([, span]) => span.start <= date && date <= span.end).sort((a, b) => PHASE_RANK[b[0]] - PHASE_RANK[a[0]])[0]?.[0]
+
+/** The phase of a project on a day, and where it stands among its days. */
+const phaseOn = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string, date: ISODate): ProjectPhaseDay | undefined => {
+  const spans = projectPhaseSpans(ws, projectNo)
+  const phase = phaseAt(spans, date)
+  if (!phase) return undefined
+  const span = spans.get(phase)!
   const length = (a: ISODate, b: ISODate) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1
   const later = [...spans].filter(([, s]) => s.start > date).sort((a, b) => a[1].start.localeCompare(b[1].start))[0]
   return { label: PHASE_LABELS[phase], day: length(span.start, date), of: length(span.start, span.end), ...(later && { next: { label: PHASE_LABELS[later[0]], date: later[1].start } }) }

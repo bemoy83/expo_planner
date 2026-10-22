@@ -19,7 +19,7 @@ import { BemanningHead, BemanningOverlays, BemanningToolbar, BemanningTop } from
 import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
 import { PersonPanel } from '../bemanning/PersonPanel'
-import { DayPlanDialog } from '../dagsplan/DayPlanDialog'
+import { WorkPlanDialog, type OpenPlan } from '../dagsplan/WorkPlanDialog'
 import type { BlockNames } from '../bemanning/dayCell'
 import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
@@ -740,9 +740,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       return [{ key: group.key, name: group.projectName, halls: [...(hallsOf.get(group.key) ?? [])].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true })), start, end: daysBetween(range.start, days[days.length - 1][0]), eventStart: event ? daysBetween(range.start, event[0]) : start }]
     })
   }, [bemanning, hallsOf, allGroups, phasesOfProject, range.start, halls])
-  // The day plan: a day to read and print, opened from the page header or a right-click on a date in Bemanning.
-  const [dayPlan, setDayPlan] = useState<ISODate | null>(null)
-  const openDayPlan = setDayPlan
+  // The work plans: a day or a week to read and print, opened from the page header or a right-click on a date in Bemanning.
+  const [workPlan, setWorkPlan] = useState<OpenPlan | null>(null)
+  const openDayPlan = useCallback((date: ISODate) => setWorkPlan({ view: 'day', date }), [setWorkPlan])
   const focusDay = useCallback((date: ISODate) => setPlanningFocus({ date }), [setPlanningFocus])
   const showDate = useCallback((date: ISODate) => scrollToDate(date, 1), [scrollToDate])
 
@@ -1025,7 +1025,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         />
       )}
 
-      {dayPlan && <DayPlanDialog date={dayPlan} onDate={setDayPlan} onClose={() => setDayPlan(null)} />}
+      {workPlan && <WorkPlanDialog open={workPlan} onOpen={setWorkPlan} onClose={() => setWorkPlan(null)} />}
       {bemanning && !innleid && <BemanningOverlays />}
       {!bemanning && <StatusBar focus={focusInfo} selectionSum={selectionSum} notice={notice} progress={progress} onSaveNote={setAllocationNote} />}
 
