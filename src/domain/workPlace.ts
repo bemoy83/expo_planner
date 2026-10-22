@@ -20,6 +20,9 @@ export interface WorkPlace {
   share: number
 }
 
+/** The name a place is shown with: the project's halls, on a row of all of them or «Ufordelt», as such. */
+export const placeName = (hall: string): string => (placeKey(hall) === PROJECT_PLACE ? 'Prosjektets haller' : hall.trim())
+
 /** The shares given, scaled to one; nothing where they sum to none. */
 const scaled = <T extends { share: number }>(parts: T[]): T[] => {
   const total = parts.reduce((sum, part) => sum + part.share, 0)
@@ -43,7 +46,7 @@ const projectPlaces = (balance: ProjectBalance, a: Pick<Assignment, 'competence'
  */
 export const blockPlaces = (balance: ProjectBalance, a: Pick<Assignment, 'competence' | 'date' | 'projectNo' | 'hall'>): WorkPlace[] => {
   if (a.projectNo?.trim()) {
-    if (a.hall?.trim()) return [{ projectNo: a.projectNo.trim(), hall: a.hall.trim(), share: 1 }]
+    if (a.hall?.trim()) return [{ projectNo: a.projectNo.trim(), hall: placeKey(a.hall) === PROJECT_PLACE ? PROJECT_PLACE : a.hall.trim(), share: 1 }]
     return projectPlaces(balance, a, a.projectNo.trim())
   }
   const projects = scaled([...balance.get(a.competence, a.date).projects.values()].map((p) => ({ projectNo: p.projectNo, share: p.shared })))

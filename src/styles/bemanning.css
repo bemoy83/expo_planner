@@ -63,10 +63,11 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-demand.dim:hover{opacity:.8}
 .bm-demand.on,.bm-demand-project{background:color-mix(in oklab,var(--cc) 7%,var(--bg))}
 .bm-demand.on:not(.held) .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
-/* a project's line under the competence in focus: indented under its name, the name in the ink of what is under something */
+/* a project's line under the competence in focus, and a place's under the project in focus: indented under its name, the name in the ink of what is under something */
 .bm-project-pick{--pick-indent:52px}
-.bm-project-pick .bm-name{color:var(--muted)}
-.bm-demand-project.on .bm-project-pick .bm-name{color:var(--text)}
+.bm-place-pick{--pick-indent:72px}
+.bm-project-pick .bm-name,.bm-place-pick .bm-name{color:var(--muted)}
+.bm-demand-project.on .bm-project-pick .bm-name,.bm-demand-place.on .bm-place-pick .bm-name{color:var(--text)}
 /* Open, a competence's line has a figure per day that is read across, so it has a rule under it, and none between the days. Compact, it is a bar, and bars have no rules. */
 .bm-demand:not(.compact) .cell{border-bottom:1px solid var(--grid-row)}
 /* compact: one thin line per day, the demand as a tint that fills solid from the left as it is covered */

@@ -1,7 +1,7 @@
 import { dayType } from '../../domain/holidays'
 import type { ISODate } from '../../domain/dates'
 import { overtimeHours, paidTotal, subtract } from '../../domain/staffing'
-import type { Assignment, Interval, Minute, Unavailability, WorkdaySettings } from '../../domain/types'
+import { workTag, type Assignment, type Interval, type Minute, type Unavailability, type WorkdaySettings } from '../../domain/types'
 import { clock } from './week'
 
 /** What a block says: the name with its hours, the name, the short name, or nothing. */
@@ -54,8 +54,9 @@ export const spanOf = (part: Interval, whole: Interval): Span => {
 export interface CellBlock extends Span {
   id: string
   competence: string
-  /** The project it is for, where it is tagged with one. */
+  /** The project it is for, where it is tagged with one, and the place, where it is painted on one. */
   projectNo?: string
+  hall?: string
   start: Minute
   end: Minute
   /** The hours of it that count; of a block that does not count, its own. */
@@ -115,7 +116,7 @@ export const dayCell = (date: ISODate, assignments: Assignment[], absence: Unava
     const counted = ok(a) ? subtract([{ start: a.start, end: a.end }], partial.map((u) => ({ start: u.start!, end: u.end! }))) : [a]
     const hours = paidTotal(counted, wd)
     const times = counted.map((part) => `${clock(part.start)}–${clock(part.end)}`).join(' · ')
-    return [{ id: a.id, competence: a.competence, ...(a.projectNo && { projectNo: a.projectNo }), start: a.start, end: a.end, hours, times, unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...spanOf(drawn, day) }]
+    return [{ id: a.id, competence: a.competence, ...workTag(a), start: a.start, end: a.end, hours, times, unresolved: !ok(a), replaced: !ok(a) && !open(a), away, ...spanOf(drawn, day) }]
   })
   const first = partial[0]
   return {

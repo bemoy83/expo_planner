@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildProjectBalance, copyDays, mergeAdjacent, moveDay, NO_PROJECT, paintDays, drawBlock, clickBlock, pasteDays, PROJECT_PLACE, splitBlock } from './staffing'
+import { buildBalance, buildProjectBalance, cellsToDemand, copyDays, mergeAdjacent, moveDay, NO_PROJECT, paintDays, drawBlock, clickBlock, pasteDays, PROJECT_PLACE, splitBlock } from './staffing'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type VenueBooking, type Workspace } from './types'
-import { blockPlaces, bookedPlaces } from './workPlace'
+import { blockPlaces, bookedPlaces, placeName } from './workPlace'
 import { nextInRun } from '../ui/bemanning/runs'
 
 /** Where a block's work is: the places of the project balance, and what a project has booked. */
@@ -137,5 +137,23 @@ describe('the places a project has booked', () => {
     expect(bookedPlaces(ws, FIRST, MON)).toEqual(['B1'])
     expect(bookedPlaces(ws, FIRST, TUE)).toEqual([])
     expect(bookedPlaces(ws, NO_PROJECT, MON)).toEqual([])
+  })
+})
+
+describe('the line of a place', () => {
+  it('stops a stroke drawn with Shift where the place’s demand is met', () => {
+    const w = staffed(day(1, MON, FIRST, 'B'))
+    const cells = [2, 3].map((person) => ({ personId: `two-${person}`, date: MON }))
+    const projects = buildProjectBalance(w, [MON])
+    expect(cellsToDemand(w, cells, { competence: 'vegger', projectNo: FIRST, hall: 'B' }, buildBalance(w, [MON]), false, projects)).toEqual([])
+    expect(cellsToDemand(w, cells, { competence: 'vegger', projectNo: FIRST, hall: 'C2' }, buildBalance(w, [MON]), false, projects)).toHaveLength(2)
+  })
+
+  it('of the project’s halls paints «Ufordelt», which is where the rows of all its halls are', () => {
+    const w = staffed({ ...day(1, MON, SECOND), hall: 'Ufordelt' })
+    expect(blockPlaces(buildProjectBalance(w, [MON]), w.assignments![0])).toEqual([{ projectNo: SECOND, hall: PROJECT_PLACE, share: 1 }])
+    expect(buildProjectBalance(w, [MON]).of('vegger', MON, SECOND).places.get(PROJECT_PLACE)!.tagged).toBe(7.5)
+    expect(placeName('Ufordelt')).toBe('Prosjektets haller')
+    expect(placeName(' B ')).toBe('B')
   })
 })

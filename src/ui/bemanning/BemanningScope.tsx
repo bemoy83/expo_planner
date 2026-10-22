@@ -2,8 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, buildProjectBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type ProjectBalance, type WeekTotals } from '../../domain/staffing'
+import { buildBalance, buildProjectBalance, cellsToDemand, placeKey, PROJECT_PLACE, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type ProjectBalance, type WeekTotals } from '../../domain/staffing'
+import { PROJECT_HALLS } from '../../domain/locations'
 import { numberKey } from '../../domain/projects'
+import { placeName } from '../../domain/workPlace'
 import { workTag, type AllocationRow, type Assignment, type CompetenceStyle, type Person, type Unavailability, type VenuePhase, type Work, type Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -128,6 +130,30 @@ export interface ProjectLine {
   remaining: number
 }
 
+/** A place's line under the project in focus: the place as the rows name it (`PROJECT_PLACE` for the project's halls), and the hours it lacks in the days in view. */
+export interface PlaceLine {
+  hall: string
+  name: string
+  remaining: number
+}
+
+/** What a place's line paints: the place, with the line of the project's halls as «Ufordelt», which stands for them. */
+const placeTag = (hall: string): string => (hall === PROJECT_PLACE ? PROJECT_HALLS : hall)
+
+/** A place's part of a project's competence as the lines of the demand show a day, as `projectDays` shows the project's. */
+const placeDays = (projects: ProjectBalance, projectNo: string, hall: string): Balance => ({
+  get: (competence, date) => {
+    const p = projects.of(competence, date, projectNo)
+    const at = p.places.get(placeKey(hall))
+    if (!at) return NO_DAY
+    const assigned = at.tagged + at.shared
+    const carried = placeKey(hall) === PROJECT_PLACE ? p.carried : 0
+    return { demand: at.demand, carried, assigned, assignedOT: 0, remaining: at.remaining, covered: Math.min(at.demand, assigned) }
+  },
+  competences: projects.competences,
+})
+const NO_DAY = { demand: 0, carried: 0, assigned: 0, assignedOT: 0, remaining: 0, covered: 0 }
+
 /** A project's part of a competence as the lines of the demand show a day: what is tagged with it and its share of the rest are what it is assigned. */
 const projectDays = (projects: ProjectBalance, projectNo: string): Balance => ({
   get: (competence, date) => {
@@ -152,6 +178,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const [brush, setBrush] = useState<string | null>(null)
   /** The project whose line under the competence in focus is the brush, by its number; none is the sum line, which paints for no project. */
   const [brushProject, setBrushProject] = useState<string | null>(null)
+  /** The place whose line under the project in focus is the brush, as the rows name it; none is the project's line, which paints for no place. */
+  const [brushHall, setBrushHall] = useState<string | null>(null)
   /** The days selected with «Velg», as lines and columns of the people shown, and what was copied from them. */
   const [selection, setSelection] = useState<Rect | null>(null)
   const [clip, setClip] = useState<Clipboard | null>(null)
@@ -249,8 +277,31 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   }, [activeBrush, kalenderProjects, viewDates, projectBalance, projectName])
   // A project whose line is gone from the demand is no brush any more.
   const activeProject = brushProject && projectLines.some((line) => numberKey(line.projectNo) === numberKey(brushProject)) ? brushProject : null
-  /** What the brush paints: the competence in focus, for the project of the line in focus. */
-  const brushWork = useMemo<Work | null>(() => (activeBrush ? { competence: activeBrush, ...(activeProject && { projectNo: activeProject }) } : null), [activeBrush, activeProject])
+  /**
+   * The lines under the project in focus: a place of its rows with hours of the competence, or with blocks painted on it, in the days in view.
+   * Only where there are two or more: a project in one place has no doubt about where its work is.
+   */
+  const placeLines = useMemo<PlaceLine[]>(() => {
+    if (!activeBrush || !activeProject) return []
+    const lines = new Map<string, PlaceLine & { first: ISODate }>()
+    for (const date of viewDates) {
+      for (const [key, at] of projectBalance.of(activeBrush, date, activeProject).places) {
+        if (at.demand < EPSILON && at.tagged < EPSILON) continue
+        const line = lines.get(key) ?? { hall: at.hall, name: placeName(at.hall), remaining: 0, first: date }
+        line.remaining += Math.max(0, at.remaining)
+        lines.set(key, line)
+      }
+    }
+    if (lines.size < 2) return []
+    return [...lines.values()].sort((a, b) => a.first.localeCompare(b.first) || a.name.localeCompare(b.name, 'nb', { numeric: true })).map(({ first: _first, ...line }) => line)
+  }, [activeBrush, activeProject, viewDates, projectBalance])
+  // A place whose line is gone is no brush any more.
+  const activeHall = brushHall !== null && placeLines.some((line) => placeKey(line.hall) === placeKey(brushHall)) ? brushHall : null
+  /** What the brush paints: the competence in focus, for the project of the line in focus, in the place of the line in focus. */
+  const brushWork = useMemo<Work | null>(
+    () => (activeBrush ? { competence: activeBrush, ...(activeProject && { projectNo: activeProject }), ...(activeProject && activeHall !== null && { hall: placeTag(activeHall) }) } : null),
+    [activeBrush, activeProject, activeHall],
+  )
 
   const firstWorkday = useMemo(() => {
     for (let col = Math.min(dates.length - 1, Math.ceil(viewport.left / colW)); col < dates.length; col++) if (dayType(dates[col]) === 'arbeidsdag') return dates[col]
@@ -554,6 +605,18 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       ),
     [projectLines, shownProjects, activeBrush, viewDates],
   )
+  /** Per place line: its days as a line of the demand shows them, and the hours it lacks in the days in view. */
+  const placeShown = useMemo(
+    () =>
+      new Map(
+        placeLines.map((line) => {
+          const days = placeDays(shownProjects, activeProject ?? '', line.hall)
+          const remaining = activeBrush ? viewDates.reduce((sum, date) => sum + Math.max(0, days.get(activeBrush, date).remaining), 0) : 0
+          return [line.hall, { balance: days, remaining }] as const
+        }),
+      ),
+    [placeLines, shownProjects, activeProject, activeBrush, viewDates],
+  )
 
   // ---- what the tools do ------------------------------------------------------------------------------
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
@@ -576,7 +639,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       if (cells.length === 1) toast(blockText(cells[0], competence))
       return
     }
-    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence === activeBrush && activeProject ? { competence, projectNo: activeProject } : competence, span) }))
+    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence === activeBrush && brushWork ? brushWork : competence, span) }))
   }
   const clear = (cells: Day[]) => updateStaffing((w) => ({ ...w, assignments: clearDays(w.assignments ?? [], cells) }))
   const removeOpen = () => updateStaffing((w) => ({ ...w, assignments: removeUnresolved(w, dates) }))
@@ -658,20 +721,36 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const clearBrush = () => {
     setBrush(null)
     setBrushProject(null)
+    setBrushHall(null)
     setTool('select')
     setSelection(null)
   }
   /** A project's line under the competence in focus is made the brush, or the sum line where it is `null`. */
   const pickProject = (projectNo: string | null) => {
     setBrushProject(projectNo)
+    setBrushHall(null)
     setTool('paint')
     setSelection(null)
   }
-  /** Steps the brush to the line above or below under the competence in focus: the sum line first, then the projects. */
+  /** A place's line under the project in focus is made the brush, or the project's line where it is `null`. */
+  const pickPlace = (hall: string | null) => {
+    setBrushHall(hall)
+    setTool('paint')
+    setSelection(null)
+  }
+  /** Steps the brush to the line above or below under the competence in focus: the sum line first, then the projects, with the places of the one in focus under it. */
   const stepProject = (delta: number) => {
-    const at = activeProject ? projectLines.findIndex((line) => numberKey(line.projectNo) === numberKey(activeProject)) + 1 : 0
-    const next = Math.min(Math.max(at + delta, 0), projectLines.length)
-    pickProject(next ? projectLines[next - 1].projectNo : null)
+    const steps: { projectNo: string | null; hall: string | null }[] = [{ projectNo: null, hall: null }]
+    for (const line of projectLines) {
+      steps.push({ projectNo: line.projectNo, hall: null })
+      if (activeProject && numberKey(line.projectNo) === numberKey(activeProject)) for (const place of placeLines) steps.push({ projectNo: line.projectNo, hall: place.hall })
+    }
+    const at = Math.max(0, steps.findIndex((step) => numberKey(step.projectNo ?? '') === numberKey(activeProject ?? '') && (step.hall === null ? activeHall === null : activeHall !== null && placeKey(step.hall) === placeKey(activeHall))))
+    const next = steps[Math.min(Math.max(at + delta, 0), steps.length - 1)]
+    setBrushProject(next.projectNo)
+    setBrushHall(next.hall)
+    setTool('paint')
+    setSelection(null)
   }
   const pickTool = (next: Tool) => {
     if (next === 'paint' && !activeBrush) {
@@ -685,7 +764,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   /** A pick in the demand is a step back to all the people: the open hours fold. */
   const pickFromDemand = (competence: string) => {
     // On the competence in focus, a pick goes from a project's line back to the sum line, and from the sum line out of focus.
-    if (competence === activeBrush) return activeProject ? pickProject(null) : clearBrush()
+    if (competence === activeBrush) return activeHall !== null ? pickPlace(null) : activeProject ? pickProject(null) : clearBrush()
     pickBrush(competence)
     setUnfolded(null)
   }
@@ -855,8 +934,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   return {
     ws, dates, cols, room, viewFrom, viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
-    tool: activeTool, brush: activeBrush, brushProject: activeProject, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand, pickProject, shift,
-    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, uncoverable, projectLines, projectShown, projectName, projectBalance, kalenderProjects,
+    tool: activeTool, brush: activeBrush, brushProject: activeProject, brushHall: activeHall, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand, pickProject, pickPlace, shift,
+    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, uncoverable, projectLines, projectShown, placeLines, placeShown, projectName, projectBalance, kalenderProjects,
     lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, paintReach, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,

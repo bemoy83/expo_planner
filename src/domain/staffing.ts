@@ -889,8 +889,12 @@ export const removeUnresolved = (ws: Workspace, dates: ISODate[]): Assignment[] 
  */
 export const cellsToDemand = (ws: Workspace, cells: DayCell[], work: CompetenceKey | Work, balance: Balance, back = false, projects?: ProjectBalance): DayCell[] => {
   const wd = ws.settings.workday
-  const { competence, projectNo } = workOf(work)
-  const remaining = (date: ISODate) => (projectNo && projects ? projects.of(competence, date, projectNo).remaining : balance.get(competence, date).remaining)
+  const { competence, projectNo, hall } = workOf(work)
+  const remaining = (date: ISODate) => {
+    if (!projectNo || !projects) return balance.get(competence, date).remaining
+    const p = projects.of(competence, date, projectNo)
+    return hall?.trim() ? (p.places.get(placeKey(hall))?.remaining ?? 0) : p.remaining
+  }
   const offDays = onlyOffDays(cells)
   const outward = [...new Set(cells.map((cell) => cell.date))].sort((a, b) => (back ? b.localeCompare(a) : a.localeCompare(b)))
   const last = outward.findLastIndex((date) => (offDays || dayType(date) === 'arbeidsdag') && remaining(date) > MET)

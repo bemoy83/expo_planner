@@ -1,5 +1,6 @@
 import type { PersonWeek } from '../../domain/staffing'
 import type { CompetenceStyle } from '../../domain/types'
+import { placeName } from '../../domain/workPlace'
 import { competenceColor } from '../dom'
 import { AWAY_LABEL, blockLabel, type BlockNames, type DayCell, type Span } from './dayCell'
 import { DAY_INSET, EDGE_W, joinedClass, joinedPlace } from './layout'
@@ -72,7 +73,7 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes, cu
             key={block.id}
             className={`bm-block ${joinedClass(shape)} ${block.unresolved ? 'unresolved' : ''} ${block.replaced ? 'replaced' : ''} ${other(block.competence)}`}
             style={{ ...joinedPlace(block, shape), paddingLeft: lead ? `calc(${lead}% + 7px)` : undefined, ...colorOf(styles, block.competence) }}
-            title={`${name}${block.projectNo ? ` · ${projectName(block.projectNo)}` : ''} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
+            title={`${name}${block.projectNo ? ` · ${projectName(block.projectNo)}` : ''}${block.hall ? ` · ${placeName(block.hall)}` : ''} · ${block.times} · ${hoursText(block.hours)} t${block.replaced ? ' · teller ikke, behovet er dekket av andre' : block.unresolved ? ' · uløst' : block.away.length ? ' · borte en del av tiden, de timene er tilbake i behovet' : ''}`}
           >
             {(cut?.blockId === block.id ? [cut, ...block.away] : block.away).map((part, at) => (
               <i key={at} className="bm-away-part" style={{ left: `${part.left}%`, width: `${part.width}%` }} />

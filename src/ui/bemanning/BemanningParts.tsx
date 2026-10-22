@@ -3,6 +3,7 @@ import { ClipboardCopy, Eraser, Maximize2, MousePointer2, Paintbrush, TriangleAl
 import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { backFrom, carry, freeCapacity, isAway, paintBlock, removeCarried } from '../../domain/staffing'
+import { placeName } from '../../domain/workPlace'
 import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor, modKey } from '../dom'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
@@ -70,7 +71,7 @@ interface ToolbarProps {
  * and Tøm), the project, and where in the period.
  */
 export function BemanningToolbar({ width, mode, onMode, onPart, projects, project, onProject, onToday, onFit }: ToolbarProps) {
-  const { tool, pickTool, brush, brushProject, projectName, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
+  const { tool, pickTool, brush, brushProject, brushHall, projectName, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
   const style = brush ? styles.get(brush) : undefined
   const tools: ToolChoice<Tool>[] = [
     { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager: klikk en dag, eller dra over flere for å kopiere dem. Dra en blokk til en annen dag eller person for å flytte dagens blokker, med Alt for å kopiere (V).' },
@@ -80,7 +81,7 @@ export function BemanningToolbar({ width, mode, onMode, onPart, projects, projec
       name: style ? (
         <>
           Pensel <i className="swatch" style={competenceColor(style)} /> {style.label}
-          {brushProject && <span className="bm-brush-project"> · {projectName(brushProject)}</span>}
+          {brushProject && <span className="bm-brush-project"> · {projectName(brushProject)}{brushHall !== null && ` · ${placeName(brushHall)}`}</span>}
         </>
       ) : (
         'Pensel'
@@ -91,7 +92,7 @@ export function BemanningToolbar({ width, mode, onMode, onPart, projects, projec
     { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
   ]
   return (
-    <PlanBar width={width} fitKey={`${project}|${tool}|${brush}|${brushProject}|${unresolved}|${!!clip}|${breaches.length}`}>
+    <PlanBar width={width} fitKey={`${project}|${tool}|${brush}|${brushProject}|${brushHall}|${unresolved}|${!!clip}|${breaches.length}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <PartSwitch part="faste" onChange={onPart} />
