@@ -1,8 +1,8 @@
 import type { ISODate } from './dates'
 import { collectedIn } from './locations'
 import { eventKey, numberKey, venueEvents } from './projects'
-import { NO_PROJECT, PROJECT_PLACE, placeKey, type ProjectBalance } from './staffing'
-import type { Assignment, Workspace } from './types'
+import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, okAssignments, paidHours, placeKey, type ProjectBalance } from './staffing'
+import { competenceKey, type Assignment, type Workspace } from './types'
 import { hallNames } from './venue'
 import { anchorDate, visibleVenue } from './venueImport'
 
@@ -71,4 +71,87 @@ export const bookedPlaces = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'proj
     found.set(placeKey(place), place)
   }
   return [...found.values()].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }))
+}
+
+/** Where a whole block is, for the work plans: one place, and whether it was set or worked out, and whether it could have been another. */
+export interface DealtPlace {
+  projectNo: string
+  hall: string
+  /** The block was painted on the place's line: nothing was worked out. */
+  set: boolean
+  /** Worked out, and more than one place or project lacked the hours of the block that day: it could have been another (≈ on the sheets). */
+  uncertain: boolean
+}
+
+interface Recipient {
+  projectNo: string
+  hall: string
+  /** What the place still lacks. */
+  place: number
+  /** What it lacked before any block was dealt. */
+  start: number
+}
+
+/**
+ * Deals the blocks of the dates out whole on the places, as the work plans print them. `blockPlaces` gives every block
+ * without a place the same shares, which would send all of them to one place on a sheet that must say one. Here the
+ * blocks of a competence and day go one by one, in the order of the people (then by id): first those of a project,
+ * then those of none, each to the place of its project, or of any project, that lacks most, the largest first and in a
+ * fixed order among equals. A block bigger than what any place lacks is not cut: it stands where it has its largest
+ * share, which is that one. The hours that no place lacks («Ikke fordelt») go nowhere (`null`), except a block of a
+ * project, which stands in the project's halls. Blocks with nothing that counts are left out. Nothing of this is stored.
+ */
+export const dealPlaces = (ws: Workspace, dates?: ISODate[]): Map<string, DealtPlace | null> => {
+  const blocks = ws.assignments ?? []
+  const days = dates ?? [...new Set(blocks.map((a) => a.date))]
+  const balance = buildProjectBalance(ws, days)
+  const wd = ws.settings.workday
+  const hours = new Map<string, number>()
+  for (const a of okAssignments(ws)) hours.set(a.id, (hours.get(a.id) ?? 0) + paidHours(a, wd))
+  const order = new Map((ws.persons ?? []).map((person, i) => [person.id, i]))
+  const rank = (personId: string) => order.get(personId) ?? order.size
+  const dealt = new Map<string, DealtPlace | null>()
+  const groups = new Map<string, typeof blocks>()
+  for (const a of blocks) {
+    if (!(hours.get(a.id)! > 0) || !days.includes(a.date)) continue
+    const competence = competenceKey(a.competence)
+    if (!competence) continue
+    const key = `${competence}|${a.date}`
+    groups.set(key, [...(groups.get(key) ?? []), a])
+  }
+  for (const [key, list] of groups) {
+    const [competence, date] = [key.slice(0, key.lastIndexOf('|')), key.slice(key.lastIndexOf('|') + 1)]
+    const day = balance.get(competence, date)
+    const projectLeft = new Map<string, number>()
+    const projectStart = new Map<string, number>()
+    const recipients: Recipient[] = []
+    for (const p of day.projects.values()) {
+      projectLeft.set(p.projectNo, Math.max(0, p.demand - p.tagged))
+      projectStart.set(p.projectNo, Math.max(0, p.demand - p.tagged))
+      for (const at of p.places.values()) recipients.push({ projectNo: p.projectNo, hall: at.hall, place: Math.max(0, at.demand - at.tagged), start: Math.max(0, at.demand - at.tagged) })
+    }
+    recipients.sort((a, b) => a.projectNo.localeCompare(b.projectNo, 'nb', { numeric: true }) || a.hall.localeCompare(b.hall, 'nb', { numeric: true }))
+    const tagged = (a: Assignment) => !!a.projectNo?.trim()
+    const sorted = [...list].sort((a, b) => Number(tagged(b)) - Number(tagged(a)) || rank(a.personId) - rank(b.personId) || a.id.localeCompare(b.id))
+    for (const a of sorted) {
+      const h = hours.get(a.id)!
+      if (tagged(a) && a.hall?.trim()) {
+        const projectNo = a.projectNo!.trim()
+        dealt.set(a.id, { projectNo, hall: placeKey(a.hall) === PROJECT_PLACE ? PROJECT_PLACE : a.hall.trim(), set: true, uncertain: false })
+        continue
+      }
+      const ofProject = tagged(a) ? a.projectNo!.trim().toLowerCase() : undefined
+      const candidates = recipients.filter((r) => (ofProject === undefined ? true : r.projectNo.trim().toLowerCase() === ofProject))
+      const room = (r: Recipient) => (ofProject === undefined ? Math.min(r.place, projectLeft.get(r.projectNo) ?? 0) : r.place)
+      const open = candidates.filter((r) => room(r) > 0)
+      const best = open.reduce<Recipient | undefined>((top, r) => (!top || room(r) > room(top) ? r : top), undefined)
+      if (best) {
+        best.place = Math.max(0, best.place - h)
+        if (ofProject === undefined) projectLeft.set(best.projectNo, Math.max(0, (projectLeft.get(best.projectNo) ?? 0) - h))
+        const couldBe = candidates.filter((r) => (ofProject === undefined ? Math.min(r.start, projectStart.get(r.projectNo) ?? 0) : r.start) > 0).length
+        dealt.set(a.id, { projectNo: best.projectNo, hall: best.hall, set: false, uncertain: couldBe > 1 })
+      } else dealt.set(a.id, ofProject === undefined ? null : { projectNo: a.projectNo!.trim(), hall: PROJECT_PLACE, set: false, uncertain: false })
+    }
+  }
+  return dealt
 }

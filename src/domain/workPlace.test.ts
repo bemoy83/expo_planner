@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildBalance, buildProjectBalance, cellsToDemand, copyDays, mergeAdjacent, moveDay, NO_PROJECT, paintDays, drawBlock, clickBlock, pasteDays, PROJECT_PLACE, splitBlock } from './staffing'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type VenueBooking, type Workspace } from './types'
-import { blockPlaces, bookedPlaces, placeName } from './workPlace'
+import { blockPlaces, bookedPlaces, dealPlaces, placeName } from './workPlace'
 import { nextInRun } from '../ui/bemanning/runs'
 
 /** Where a block's work is: the places of the project balance, and what a project has booked. */
@@ -155,5 +155,40 @@ describe('the line of a place', () => {
     expect(buildProjectBalance(w, [MON]).of('vegger', MON, SECOND).places.get(PROJECT_PLACE)!.tagged).toBe(7.5)
     expect(placeName('Ufordelt')).toBe('Prosjektets haller')
     expect(placeName(' B ')).toBe('B')
+  })
+})
+
+describe('the blocks dealt on the places', () => {
+  const at = (w: Workspace, date = MON) => dealPlaces(w, [date])
+
+  it('keeps a block painted on a place, and deals the others whole to the places that lack most', () => {
+    const w = staffed(day(1, MON, FIRST, 'B'), day(2, MON, FIRST), day(3, MON, FIRST))
+    const dealt = at(w)
+    expect(dealt.get('b-1-' + MON)).toEqual({ projectNo: FIRST, hall: 'B', set: true, uncertain: false })
+    // «B» is taken by the first block, so the next one goes to «C2», and the third has no place to lack its hours.
+    expect(dealt.get('b-2-' + MON)).toMatchObject({ projectNo: FIRST, hall: 'C2', set: false })
+    expect(dealt.get('b-3-' + MON)).toMatchObject({ projectNo: FIRST, hall: PROJECT_PLACE, set: false, uncertain: false })
+  })
+
+  it('sends untagged blocks to different places, not all to one, in the order of the people', () => {
+    const w = staffed(day(1, MON), day(2, MON), day(3, MON), day(4, MON))
+    const dealt = at(w)
+    const where = ['1', '2', '3', '4'].map((n) => dealt.get(`b-${n}-${MON}`))
+    expect(new Set(where.map((d) => `${d!.projectNo}|${d!.hall}`)).size).toBe(4)
+    expect(where.every((d) => d!.uncertain && !d!.set)).toBe(true)
+    expect(at(w)).toEqual(dealt)
+  })
+
+  it('is certain where the project has the one place, and nowhere for hours no place lacks', () => {
+    const w = staffed(day(1, MON, SECOND))
+    expect(at(w).get('b-1-' + MON)).toEqual({ projectNo: SECOND, hall: PROJECT_PLACE, set: false, uncertain: false })
+    // Tuesday lacks 30 hours of walls, four blocks of 7,5 cover them, and a fifth is over what any project lacks.
+    const full = staffed(day(1, TUE, FIRST), day(2, TUE, FIRST), day(3, TUE, SECOND), day(4, TUE, SECOND), { ...day(1, TUE), id: 'extra' })
+    expect(at(full, TUE).get('extra')).toBeNull()
+  })
+
+  it('leaves out a block that does not count', () => {
+    const w = { ...staffed(day(1, MON)), unavailability: [{ id: 'u', personId: 'two-1', date: MON }] }
+    expect(at(w).has('b-1-' + MON)).toBe(false)
   })
 })
