@@ -24,19 +24,21 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
   const last = plan.dates[6]
   const range = `${dayOfMonth(first)}. ${MONTHS[Number(first.slice(5, 7)) - 1].slice(0, 3)} – ${dayOfMonth(last)}. ${MONTHS[Number(last.slice(5, 7)) - 1].slice(0, 3)} ${last.slice(0, 4)}`
   const bar = (b: WeekBar, project: string, placed: boolean) => (
-    <div className="wp-row" key={`${project}|${b.competence}|${b.hall}|${b.avdeling}`}>
-      <span className="wp-lbl">
-        {placed && b.hall && <i className="dp-pl">{b.hall}</i>}
-        {label(b.competence)}
-      </span>
-      <span className="wp-bar" style={{ gridColumn: `${b.from + 2} / ${b.to + 3}`, ['--cc' as string]: colorOf(styles, b.competence) }}>
-        {b.avdeling}
-        {b.flags.map((f) => (
-          <em key={f.state} className={`wp-flag ${f.state}`}>
-            {f.state === 'short' ? 'mangler' : 'venter'} {daysText(f.days, DAY_NAMES)}
-          </em>
-        ))}
-      </span>
+    <div className="wp-row" key={`${project}|${b.competence}`}>
+      <span className="wp-lbl">{label(b.competence)}</span>
+      {b.runs.map((run, i) => (
+        <span key={run.from} className="wp-bar" style={{ gridColumn: `${run.from + 2} / ${run.to + 3}`, ['--cc' as string]: colorOf(styles, b.competence) }}>
+          {i === 0 && placed && b.halls.map((hall) => <i key={hall} className="dp-pl">{hall}</i>)}
+          {i === 0 && b.avdelinger.join(' · ')}
+          {b.flags
+            .filter((f) => f.days[0] >= run.from && f.days[0] <= run.to)
+            .map((f) => (
+              <em key={f.state} className={`wp-flag ${f.state}`}>
+                {f.state === 'short' ? 'mangler' : 'venter'} {daysText(f.days, DAY_NAMES)}
+              </em>
+            ))}
+        </span>
+      ))}
     </div>
   )
   const empty = plan.projects.length === 0 && plan.without.length === 0
@@ -100,8 +102,7 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
                 <b className={state}>{state === 'short' ? 'Mangler' : 'Venter på svar'}</b>
                 {list.map((a, i) => (
                   <span key={i}>
-                    {a.projectName} · {label(a.competence)}
-                    {a.hall && plan.projects.find((p) => p.projectNo === a.projectNo)!.places.length >= 2 ? ` i ${a.hall}` : ''} {daysText(a.days, DAY_NAMES)}
+                    {a.projectName} · {label(a.competence)} {daysText(a.days, DAY_NAMES)}
                   </span>
                 ))}
               </p>

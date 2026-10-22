@@ -43,3 +43,5 @@ Two printouts only: the shared week plan and the day plan as a list. The sheet p
 ## Built (2026-10-22)
 
 Slices 1–4 are built: `dealPlaces` and `withPlacesSet` (`domain/workPlace.ts`), the day plan (`domain/dayPlan.ts`, `ui/dagsplan/DayPlanSheet.tsx`), the week plan (`domain/weekPlan.ts`, `WeekPlanSheet.tsx`), and the dialog with print (`WorkPlanDialog.tsx`, `styles/dagsplan.css`, `styles/print.css`). Not built: a place on hire orders (a supplier's place is worked out from the project's demand and marked ≈ where the project has several), the planning rows' notes beyond the cards, and a check of the printed result in a real printer dialog.
+
+**Week plan, one line per competence (2026-10-22):** the first build drew a bar per competence, place and department, so a competence stood several times. It is now one line per competence of a project, a bar over each stretch of days it is planned (a gap is a pause), with the departments written on it and the places only where the project has two or more halls that week.

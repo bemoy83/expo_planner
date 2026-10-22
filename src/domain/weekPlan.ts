@@ -31,14 +31,15 @@ export interface WeekFlag {
   days: number[]
 }
 
+/** A competence's line of a project: where in the week it is planned, once, however many places and departments the rows have. */
 export interface WeekBar {
   competence: CompetenceKey
-  /** The Visma department the planning rows are for; empty where they cover them all. */
-  avdeling: string
-  /** The place as the rows name it; empty for rows of all the project's halls. */
-  hall: string
-  from: number
-  to: number
+  /** The Visma departments of its planning rows, as they are named; none where the rows cover them all. */
+  avdelinger: string[]
+  /** The places of its rows, as the rows name them; none for rows of all the project's halls. */
+  halls: string[]
+  /** The stretches of days it is planned, as indexes 0 to 6: a gap between two is a pause. */
+  runs: { from: number; to: number }[]
   flags: WeekFlag[]
 }
 
@@ -56,7 +57,6 @@ export interface WeekAttention {
   projectNo: string
   projectName: string
   competence: CompetenceKey
-  hall: string
   days: number[]
 }
 
@@ -71,8 +71,18 @@ export interface WeekPlan {
 
 const EPS = 0.01
 
-const sortBars = (bars: WeekBar[], order: (c: CompetenceKey) => number) =>
-  bars.sort((a, b) => a.from - b.from || order(a.competence) - order(b.competence) || a.hall.localeCompare(b.hall, 'nb', { numeric: true }) || a.avdeling.localeCompare(b.avdeling, 'nb'))
+const first = (bar: WeekBar) => bar.runs[0].from
+
+const sortBars = (bars: WeekBar[], order: (c: CompetenceKey) => number) => bars.sort((a, b) => first(a) - first(b) || order(a.competence) - order(b.competence))
+
+/** Day indexes as runs of consecutive days. */
+const runsOf = (days: number[]): WeekBar['runs'] =>
+  [...new Set(days)].sort((a, b) => a - b).reduce<WeekBar['runs']>((runs, d) => {
+    const last = runs[runs.length - 1]
+    if (last && last.to === d - 1) last.to = d
+    else runs.push({ from: d, to: d })
+    return runs
+  }, [])
 
 /** The week plan of the week that holds `date`, Monday to Sunday. */
 export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (c: CompetenceKey) => number = () => 0): WeekPlan => {
@@ -92,32 +102,34 @@ export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (
   for (const o of ws.hireOrders ?? []) if (dates.includes(o.date)) note(o.projectNo)
   for (const event of venueEvents(visibleVenue(ws.venue, ws.hiddenVenue), ws.projects)) if (event.projectNo && event.start <= dates[6] && event.end >= dates[0]) note(event.projectNo)
 
-  // A bar per project, place, competence and department, from the first to the last planned day.
-  type Key = string
-  const barsOf = (rows: Workspace['allocations']): Map<Key, WeekBar> => {
-    const bars = new Map<Key, WeekBar>()
+  // A line per competence, from the days any of its rows is planned.
+  const barsOf = (rows: Workspace['allocations']): Map<CompetenceKey, WeekBar & { days: number[] }> => {
+    const bars = new Map<CompetenceKey, WeekBar & { days: number[] }>()
     for (const row of rows) {
       const days = dates.flatMap((d, i) => (row.fte[d] ? [i] : []))
       if (!days.length) continue
       const competence = row.competence.trim().toLowerCase()
       const hall = row.hall?.trim() && placeKey(row.hall) !== PROJECT_PLACE ? row.hall.trim() : ''
       const avdeling = row.avdeling?.trim() ?? ''
-      const key = [competence, hall.toLowerCase(), avdeling.toLowerCase()].join('|')
-      const held = bars.get(key)
-      bars.set(key, held ? { ...held, from: Math.min(held.from, days[0]), to: Math.max(held.to, days[days.length - 1]) } : { competence, avdeling, hall, from: days[0], to: days[days.length - 1], flags: [] })
+      const held = bars.get(competence) ?? { competence, avdelinger: [], halls: [], runs: [], flags: [], days: [] }
+      if (avdeling && !held.avdelinger.some((x) => x.toLowerCase() === avdeling.toLowerCase())) held.avdelinger.push(avdeling)
+      if (hall && !held.halls.some((x) => x.toLowerCase() === hall.toLowerCase())) held.halls.push(hall)
+      held.days = [...new Set([...held.days, ...days])].sort((a, b) => a - b)
+      held.runs = runsOf(held.days)
+      bars.set(competence, held)
     }
     return bars
   }
 
   const waiting = (projectNo: string, competence: CompetenceKey, date: ISODate) => (ws.hireOrders ?? []).some((o) => o.date === date && isWaiting(o) && o.competence === competence && numberKey(o.projectNo ?? NO_PROJECT) === numberKey(projectNo))
-  const flagsOf = (projectNo: string, bar: Omit<WeekBar, 'flags'>): WeekFlag[] => {
+  const flagsOf = (projectNo: string, bar: { competence: CompetenceKey; days: number[] }): WeekFlag[] => {
     const short: number[] = []
     const wait: number[] = []
-    for (let i = bar.from; i <= bar.to; i++) {
+    for (const i of bar.days) {
       const day = balance.of(bar.competence, dates[i], projectNo)
-      const place = bar.hall ? day.places.get(placeKey(bar.hall)) : undefined
-      const remaining = place ? place.remaining : day.remaining
-      if (remaining > EPS) (waiting(projectNo, bar.competence, dates[i]) ? wait : short).push(i)
+      // Short where the project lacks hours, or any of its places does.
+      const lacking = day.remaining > EPS || [...day.places.values()].some((place) => place.remaining > EPS)
+      if (lacking) (waiting(projectNo, bar.competence, dates[i]) ? wait : short).push(i)
     }
     return [...(short.length ? [{ state: 'short' as const, days: short }] : []), ...(wait.length ? [{ state: 'wait' as const, days: wait }] : [])]
   }
@@ -141,10 +153,10 @@ export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (
     })
     const rows = ws.allocations.filter((row) => numberKey(row.projectNo) === numberKey(projectNo))
     const bars = sortBars(
-      [...barsOf(rows).values()].map((bar) => ({ ...bar, flags: flagsOf(projectNo, bar) })),
+      [...barsOf(rows).values()].map(({ days, ...bar }) => ({ ...bar, flags: flagsOf(projectNo, { competence: bar.competence, days }) })),
       competenceOrder,
     )
-    for (const bar of bars) for (const flag of bar.flags) attention.push({ state: flag.state, projectNo, projectName: nameOf(projectNo), competence: bar.competence, hall: bar.hall, days: flag.days })
+    for (const bar of bars) for (const flag of bar.flags) attention.push({ state: flag.state, projectNo, projectName: nameOf(projectNo), competence: bar.competence, days: flag.days })
     const places = [...new Set(dates.flatMap((d) => bookedPlaces(ws, projectNo, d)))].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }))
     projects.push({ projectNo, name: nameOf(projectNo), phases, places, bars })
   }
@@ -152,22 +164,17 @@ export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (
 
   // Work for no project: rows without a number, and blocks that went nowhere or to the demand without a number.
   const withoutRows = barsOf(ws.allocations.filter((row) => !row.projectNo.trim()))
-  const blocks = new Map<CompetenceKey, number[]>()
   for (const a of ws.assignments ?? []) {
     const i = dates.indexOf(a.date)
     if (i < 0) continue
     const at = dealt.get(a.id)
     if (at === undefined || (at !== null && at.projectNo)) continue
-    blocks.set(a.competence, [...(blocks.get(a.competence) ?? []), i])
+    const held = withoutRows.get(a.competence) ?? { competence: a.competence, avdelinger: [], halls: [], runs: [], flags: [], days: [] }
+    held.days = [...new Set([...held.days, i])].sort((x, y) => x - y)
+    held.runs = runsOf(held.days)
+    withoutRows.set(a.competence, held)
   }
-  for (const [competence, days] of blocks) {
-    const key = `${competence}||`
-    const held = withoutRows.get(key)
-    const from = Math.min(...days)
-    const to = Math.max(...days)
-    withoutRows.set(key, held ? { ...held, from: Math.min(held.from, from), to: Math.max(held.to, to) } : { competence, avdeling: '', hall: '', from, to, flags: [] })
-  }
-  const without = sortBars([...withoutRows.values()], competenceOrder)
+  const without = sortBars([...withoutRows.values()].map(({ days: _days, ...bar }) => bar), competenceOrder)
 
   attention.sort((a, b) => Number(a.state === 'wait') - Number(b.state === 'wait') || a.days[0] - b.days[0])
   return { monday, dates, projects, without, attention }

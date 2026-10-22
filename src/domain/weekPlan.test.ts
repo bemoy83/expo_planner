@@ -46,12 +46,9 @@ describe('the week plan', () => {
     ])
   })
 
-  it('has a bar per work and place, from the first to the last planned day', () => {
+  it('has one line per competence, however many places and departments its rows have', () => {
     const first = plan.projects.find((p) => p.projectNo === FIRST)!
-    expect(first.bars.map((b) => [b.hall, b.avdeling, b.from, b.to])).toEqual([
-      ['B', 'Stands', 0, 2],
-      ['C2', '', 0, 0],
-    ])
+    expect(first.bars.map((b) => [b.competence, b.halls, b.avdelinger, b.runs])).toEqual([['vegger', ['B', 'C2'], ['Stands'], [{ from: 0, to: 0 }, { from: 2, to: 2 }]]])
     expect(first.places).toEqual(['B'])
   })
 
@@ -69,11 +66,11 @@ describe('the week plan', () => {
 
   it('has no flag where the staff cover the hours', () => {
     const staffed = buildWeekPlan({ ...ws, assignments: [block(1, FIRST, 'B'), block(2, FIRST, 'C2')] }, MON)
-    expect(staffed.projects.find((p) => p.projectNo === FIRST)!.bars.map((b) => b.flags.map((f) => f.days))).toEqual([[[2]], []])
+    expect(staffed.projects.find((p) => p.projectNo === FIRST)!.bars.map((b) => b.flags.map((f) => f.days))).toEqual([[[2]]])
   })
 
   it('keeps work for no project apart, rows without a number and blocks that went nowhere', () => {
-    expect(plan.without.map((b) => [b.competence, b.from, b.to])).toEqual([['vegger', 0, 0]])
+    expect(plan.without.map((b) => [b.competence, b.runs])).toEqual([['vegger', [{ from: 0, to: 0 }]]])
     const extra = buildWeekPlan({ ...ws, persons: base.persons!.map((p) => ({ ...p, competences: ['vegger', 'rigg'] })), assignments: [{ ...block(1), competence: 'rigg' }] }, MON)
     expect(extra.without.map((b) => b.competence).sort()).toEqual(['rigg', 'vegger'])
   })
