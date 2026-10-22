@@ -113,6 +113,26 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
 .wp .none{grid-column:2/-1;font-size:12px;color:var(--ink-3)}
 .attn{display:grid;gap:3px;font-size:13px;border-left:3px solid var(--short);padding:6px 12px;background:color-mix(in oklab,var(--short) 7%,transparent)}
 .attn .fl{font-weight:700;margin-right:6px}
+/* 2b: the day read aloud: place, then competence, then people; a later part of a person's day is muted and points back */
+.rgrid{display:grid;gap:14px}
+.rp{display:grid;gap:8px}
+.rph{display:flex;align-items:center;font-weight:600;font-size:14px;border-bottom:2px solid var(--ink);padding-bottom:4px}
+.rp.rest .rph{border-bottom:1px solid var(--line-strong);font-size:13px;color:var(--ink-2)}
+.rc{display:grid;gap:2px;padding-left:12px}
+.rh{display:flex;align-items:center;gap:8px;font-size:13px;border-bottom:1px solid var(--line);padding-bottom:2px}
+.rh .sw{width:10px;height:10px;border-radius:2px;background:var(--c)}
+.rh .cnt{font:400 12px var(--font-num);color:var(--ink-2)}
+.rh .cv{margin-left:auto;font-size:11px;font-weight:600}
+.rh .cv.ok{color:var(--ok)}.rh .cv.short{color:var(--short)}.rh .cv.wait{color:var(--wait)}
+.rgrid ul{list-style:none;margin:0;padding:0 0 0 18px;display:grid;gap:1px}
+.rgrid li{display:grid;grid-template-columns:minmax(150px,220px) 90px 1fr;gap:10px;font-size:13px;align-items:baseline}
+.rgrid li b{font-weight:500}
+.rgrid li .tm{font:400 12px var(--font-num);color:var(--ink-2)}
+.rgrid li .nx{font-size:12px;color:var(--ink-2)}
+.rgrid li.mut b,.rgrid li.mut .tm{color:var(--ink-3);font-weight:400}
+.rgrid li.hired b{font-style:italic}
+.rgrid .se{font-style:italic;color:var(--ink-3)}
+@media (max-width:640px){.rgrid li{grid-template-columns:1fr auto}.rgrid li .nx{grid-column:1/-1}}
 /* the day as a list: the fitter's sheet with people down the side */
 .daylist tr.grp-row.place td{padding-top:14px;font-size:13px;color:var(--ink)}
 .setbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:12px;color:var(--ink-2)}
@@ -293,6 +313,54 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
   </section>
 
   <section>
+    <h2>2b · Oppstartsmøtet: sted → kompetanse → folk</h2>
+    <p class="muted">Skisse 22.10.2026, ikke bygget. Dagsplanen leses opp på oppstartsmøtet, og det er lettest når den er gruppert slik arbeidslederen sier det: «I B, vegger: Anders, Kari …». Grupperingen etter kompetanse krasjet da noen hadde flere kompetanser samme dag. Her står en person i <b>hver</b> gruppe hen jobber i den dagen, med tiden for den delen. Første del står vanlig, med en pil til det som kommer etterpå. Senere deler er nedtonet og peker tilbake («se Tepper»), så navnet leses to ganger med beskjed om skiftet. Antallet på en gruppe er timer omgjort til personer: Ola teller 0,6 i Vegger (4,5 t) og 0,4 i Tepper (3 t), så ingen telles to ganger, og summen går opp mot dekningen. Prosjektkortene og listen per montør (2) kan stå etter som oppslagsside.</p>
+    <div class="scroll"><div class="paper" aria-label="Skisse av dagsplan for oppstartsmøtet">
+      <div class="sheet-head">
+        <div class="who">Tirsdag 27. oktober 2026</div>
+        <div class="meta"><b style="color:var(--ink);font-size:14px">Dagsplan · uke 44</b><br>2 prosjekter · 21 faste · 6 innleide bekreftet · 3 venter</div>
+      </div>
+      <div class="rgrid">
+      <div class="rp"><div class="rph"><span class="pl">B</span>Spillfestivalen 2026 · oppbygging dag 2 av 4</div>
+        <div class="rc veg"><div class="rh"><i class="sw"></i><b>Vegger</b><span class="cnt">8 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Anders Berg</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Kari Nordli</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Ola Strand</b><span class="tm">07–11:30</span><span class="nx">→ Tepper fra 12</span></li><li><b>Per Lunde <span class="pl est" title="Ikke satt: kunne gått til B eller C">≈</span></b><span class="tm">07–11:30</span><span class="nx">→ C fra 12</span></li><li class="hired"><b>Messehjelp AS · 4 pers</b><span class="tm">07–15</span><span class="nx"></span></li><li class="mut"><b>Siri Moen</b><span class="tm">fra 12</span><span class="nx"><span class="se">se Tepper</span></span></li><li class="mut"><b>Tor Sand</b><span class="tm">fra 12</span><span class="nx"><span class="se">se C · Vegger</span></span></li></ul></div>
+        <div class="rc tep"><div class="rh"><i class="sw"></i><b>Tepper</b><span class="cnt">4 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Eva Fjeld</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Hanne Vik</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Ingrid Haug</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Siri Moen</b><span class="tm">07–11:30</span><span class="nx">→ Vegger fra 12</span></li><li class="mut"><b>Ola Strand</b><span class="tm">fra 12</span><span class="nx"><span class="se">se Vegger</span></span></li></ul></div>
+        <div class="rc ele"><div class="rh"><i class="sw"></i><b>Elektro</b><span class="cnt">4 pers</span><span class="cv short">mangler 4,5 t</span></div>
+          <ul><li><b>Henrik Myhre</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Knut Brekke</b><span class="tm">07–15</span><span class="nx"></span></li><li class="hired"><b>Lys og Lyd Utleie · 2 pers</b><span class="tm">07–15</span><span class="nx"></span></li></ul></div>
+        <div class="rc mob"><div class="rh"><i class="sw"></i><b>Møbler</b><span class="cnt">3 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Magnus Tangen</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Mia Solberg</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Sofie Eide</b><span class="tm">07–15</span><span class="nx"></span></li></ul></div>
+        <div class="rc rig"><div class="rh"><i class="sw"></i><b>Rigg</b><span class="cnt">3 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Even Berg</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Sindre Lie</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Øystein Aas</b><span class="tm">07–15</span><span class="nx"></span></li></ul></div>
+        <div class="rc gra"><div class="rh"><i class="sw"></i><b>Grafikk</b><span class="cnt">1 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Thea Rønning</b><span class="tm">07–15</span><span class="nx"></span></li></ul></div>
+      </div>
+      <div class="rp"><div class="rph"><span class="pl">C</span>Byggemessen 2026 · demontering dag 2 av 3</div>
+        <div class="rc veg"><div class="rh"><i class="sw"></i><b>Vegger</b><span class="cnt">4 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Erik Dahl</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Jonas Bakke</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Lars Holm</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Tor Sand</b><span class="tm">07–11:30</span><span class="nx">→ B fra 12</span></li><li class="mut"><b>Per Lunde <span class="pl est" title="Ikke satt: kunne gått til B eller C">≈</span></b><span class="tm">fra 12</span><span class="nx"><span class="se">se B · Vegger</span></span></li></ul></div>
+        <div class="rc tep"><div class="rh"><i class="sw"></i><b>Tepper</b><span class="cnt">0 + 3 venter</span><span class="cv wait">venter</span></div>
+          <ul><li class="hired"><b>Gulv og Tepper Service · 3 pers</b><span class="tm">07–15</span><span class="nx">venter på svar</span></li></ul></div>
+      </div>
+      <div class="rp rest"><div class="rph">Uten sted</div><ul><li><b>Live Moen</b><span class="tm">07–15</span><span class="nx">Lager, ingen behov i dag</span></li></ul></div>
+      <div class="rp rest"><div class="rph">Borte eller uten blokk</div><ul><li><b>Ida Strand</b><span class="tm"></span><span class="nx">borte hele dagen</span></li><li><b>Petter Haug</b><span class="tm"></span><span class="nx">borte til 11, ingen blokk etter</span></li><li><b>Frida Bakke</b><span class="tm"></span><span class="nx">ingen blokk</span></li></ul></div>
+      </div>
+      <div class="foot"><span>Nedtonet: andre del av dagen, se gruppen med pil · <span class="pl est">≈</span>sted ikke satt · antall = timer ÷ 7,5</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
+    </div></div>
+    <h3 style="margin-top:18px">Variant: hver person bare én gang</h3>
+    <p class="muted">Hver person står bare under kompetansen hen har flest timer i, med pilen til resten av dagen. Listene blir kortere, men den som leser opp Tepper, får ikke med seg at Ola kommer fra 12. Utsnitt av B:</p>
+    <div class="scroll"><div class="paper" aria-label="Skisse, variant med hver person én gang">
+      <div class="rgrid">
+      <div class="rp"><div class="rph"><span class="pl">B</span>Spillfestivalen 2026</div>
+        <div class="rc veg"><div class="rh"><i class="sw"></i><b>Vegger</b><span class="cnt">8 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Anders Berg</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Kari Nordli</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Ola Strand</b><span class="tm">07–11:30</span><span class="nx">→ Tepper fra 12</span></li><li><b>Per Lunde <span class="pl est" title="Ikke satt: kunne gått til B eller C">≈</span></b><span class="tm">07–11:30</span><span class="nx">→ C fra 12</span></li><li class="hired"><b>Messehjelp AS · 4 pers</b><span class="tm">07–15</span><span class="nx"></span></li></ul></div>
+        <div class="rc tep"><div class="rh"><i class="sw"></i><b>Tepper</b><span class="cnt">4 pers</span><span class="cv ok">dekket</span></div>
+          <ul><li><b>Eva Fjeld</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Hanne Vik</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Ingrid Haug</b><span class="tm">07–15</span><span class="nx"></span></li><li><b>Siri Moen</b><span class="tm">07–11:30</span><span class="nx">→ Vegger fra 12</span></li></ul></div>
+      </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section>
     <h2>Regler for sted på arkene</h2>
     <ul>
       <li><b>Hele blokker deles ut.</b> En blokk uten satt sted går til ett sted, ikke en andel av flere. Blokkene en dag deles ut på stedene etter hvor mye hvert mangler, den med størst rest først, i en fast rekkefølge (personens plass i listen). Bare en blokk som er større enn det noe sted mangler, deles. Da står den der den har størst del. En ny ren funksjon i <span class="num">workPlace.ts</span> gjør dette, ved siden av <span class="num">blockPlaces</span>. Uten den ville alle umerkede veggmontører fått samme sted, fordi <span class="num">blockPlaces</span> gir hver umerket blokk de samme andelene.</li>
@@ -334,6 +402,7 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
   <section>
     <h2>Beslutninger for Bjørn</h2>
     <ol class="dec">
+      <li><h3>Dagsplan til oppstartsmøtet (2b)?</h3><div class="opts"><span class="rec">Sted → kompetanse → folk, en person i hver gruppe hen jobber i, senere deler nedtonet</span><span>Hver person én gang, under kompetansen med flest timer</span><span>Bli ved listen per montør (2)</span></div></li>
       <li><h3>Hvilke utskrifter?</h3><div class="opts"><span class="rec">Felles ukeplan (1) og dagsplan som liste (2). Ukeplan per montør og laglisten (3b) er droppet</span></div></li>
       <li><h3>«Sett stedene» før utskrift?</h3><div class="opts"><span class="rec">Ja: en knapp lagrer utdelingen på blokkene i ett angresteg</span><span>Nei, arket viser alltid utregnet sted</span></div></li>
       <li><h3>Hvordan merkes et usikkert sted?</h3><div class="opts"><span class="rec">≈ der blokken ikke har satt sted og kunne gått til mer enn ett sted den dagen</span><span>≈ på alle utregnede steder</span><span>Ingen merking</span></div></li>
