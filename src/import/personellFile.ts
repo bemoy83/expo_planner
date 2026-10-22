@@ -12,6 +12,8 @@ export class PersonellFormatError extends Error {}
 const NAME = 'Navn'
 const NOTE = 'Notat'
 const MARK = 'x'
+/** Headings only a file of suppliers has: such a file read here would make its rate and its shifts competences of people. */
+const SUPPLIER_HEADINGS = ['kontakt', 'kr per time']
 
 /** The staff as a workbook, with a column for every competence, in the planner's order. */
 export const writePersonellWorkbook = (ws: Workspace): Uint8Array => {
@@ -28,6 +30,7 @@ export const readPersonellWorkbook = (bytes: Uint8Array): FilePerson[] => {
   for (const sheet of readXlsx(bytes).values()) {
     const header = findHeader(sheet, [NAME.toLowerCase()])
     if (!header) continue
+    if (SUPPLIER_HEADINGS.some((heading) => header.columns.has(heading))) throw new PersonellFormatError('Dette er en fil med leverandører. Les den inn på Mannskap › Innleid.')
     const name = header.columns.get(NAME.toLowerCase())!
     const note = header.columns.get(NOTE.toLowerCase())
     // The headings as they are spelled in the file name the competences.

@@ -56,4 +56,8 @@ describe('the Personell file', () => {
     expect(() => file(['Fornavn', 'FOGA'], ['Anna', 'x'])).toThrow(PersonellFormatError)
     expect(() => file(['Navn', 'FOGA'])).toThrow(PersonellFormatError)
   })
+
+  it('refuses a file of suppliers, whose rate and shifts would become competences', () => {
+    expect(() => file(['Navn', 'Kontakt', 'Kr per time', 'Notat', 'Dag', 'Kveld', 'Natt', 'FOGA'], ['Messehjelp AS', '', 520, '', 'x', '', '', 'x'])).toThrow(/leverandører/)
+  })
 })
