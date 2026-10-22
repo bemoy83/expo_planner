@@ -114,6 +114,12 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
 .legend .k-short{border-bottom:3px solid var(--short)}
 .legend .k-wait{border-bottom:3px solid var(--wait)}
 /* the day as a list: the fitter's sheet with people down the side */
+.daylist tr.grp-row.comp td{padding:6px 8px 3px 20px;border-bottom:1px solid var(--line);font-weight:500;color:var(--ink)}
+.daylist tr.grp-row.comp .sw{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:7px}
+.daylist tr.grp-row.place td{padding-top:14px;font-size:13px;color:var(--ink)}
+.setbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:12px;color:var(--ink-2)}
+.setbar button{font:500 12px var(--font-ui);padding:4px 10px;border-radius:5px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink)}
+.wkt tfoot tr.split td i{font-style:normal;color:var(--wait)}
 .daylist td.day b{font-weight:500}
 .daylist tr.grp-row td{padding:10px 8px 4px;border-bottom:1px solid var(--line-strong);font-size:12px;font-weight:600;color:var(--ink-2)}
 .daylist tr.grp-row .cov{margin-left:8px}
@@ -202,10 +208,10 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
         </tbody>
         <tfoot>
           <tr><th>Sum</th><td><b>26</b><span>195 t</span></td><td><b>30</b><span>229,5 t</span></td><td><b>31</b><span>232,5 t</span></td><td><b>26</b><span>195 t</span></td><td><b>4</b><span>30 t</span></td><td><b>3</b><span>22,5 t</span></td><td><b>4</b><span>30 t</span></td></tr>
-          <tr class="split"><th>Faste · innleid</th><td>22 · 4</td><td>21 · 9</td><td>23 · 8</td><td>20 · 6</td><td>4 · 0</td><td>3 · 0</td><td>4 · 0</td></tr>
+          <tr class="split"><th>Faste · innleid</th><td>22 · 4</td><td>21 · 6 <i>+3 venter</i></td><td>23 · 6 <i>+2 venter</i></td><td>20 · 6</td><td>4 · 0</td><td>3 · 0</td><td>4 · 0</td></tr>
         </tfoot>
       </table>
-      <div class="legend"><span><b class="num">12</b> personer som trengs</span><span><span class="num">90 t</span> timer i behov</span><span class="k-short">−7,5 timer udekket</span><span class="k-wait">bestilt, venter på svar</span></div>
+      <div class="legend"><span><b class="num">12</b> personer som trengs</span><span>Ventende bestillinger teller ikke som dekket</span><span><span class="num">90 t</span> timer i behov</span><span class="k-short">−7,5 timer udekket</span><span class="k-wait">bestilt, venter på svar</span></div>
       <div class="foot"><span>Personer = timer ÷ normaldag (7,5 t), rundet opp · stedslinjer bare der kompetansen er på to steder eller flere</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
     </div></div>
   </section>
@@ -246,8 +252,122 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
   </section>
 
   <section>
-    <h2>3 · Dagsplan for arbeidsdagen</h2>
-    <p class="muted">Én side per dag til arbeidsleder og oppslagstavla. Lag per kompetanse, og under hver kompetanse ett lag per sted med folk og tider, innleide under sitt lag, og hvor langt laget dekker behovet der. Det samme bildet vises på skjermen og skrives ut.</p>
+    <h2>3 · Dagsplan som liste</h2>
+    <p class="muted">Samme oppsett som montørarket, men med montørene nedover i stedet for dagene. Gruppert etter sted og så kompetanse, med dekningen på hodet til hver kompetanse. Innleide står som én linje per leverandør under stedet til prosjektet. Ventende er skravert og teller ikke som dekket. Til slutt kommer de uten sted, og de som er borte eller ikke har noen blokk, så ingen faller ut av arket. Med 40 faste blir det to sider.</p>
+    <div class="scroll"><div class="paper" aria-label="Skisse av dagsplan som liste">
+      <div class="sheet-head">
+        <div class="who">Tirsdag 27. oktober 2026</div>
+        <div class="meta"><b style="color:var(--ink);font-size:14px">Dagsplan · uke 44</b><br>Behov 229,5 t · faste 157,5 t · innleid 45 t bekreftet · <span style="color:var(--short)">avvik −27 t</span></div>
+      </div>
+      <div class="setbar"><span>1 sted er regnet ut, ikke satt</span><button type="button" tabindex="-1">Sett stedene</button></div>
+      <table class="daylist">
+        <thead><tr><th style="width:200px">Montør</th><th>Tid <span class="num" style="letter-spacing:0;text-transform:none">06–21</span></th><th>Kompetanse</th><th style="text-align:right">Timer</th></tr></thead>
+        <tbody>
+          <tr class="grp-row place"><td colspan="4"><span class="pl">B</span>Spillfestivalen 2026 · oppbygging dag 2 av 4</td></tr>
+          <tr class="grp-row comp veg"><td colspan="4"><span class="sw"></span>Vegger · 8 pers<span class="cov ok">60 / 60 t</span></td></tr>
+          <tr><td class="day"><b>Anders Berg</b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Kari Nordli</b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Ola Strand</b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Per Lunde <span class="pl est" title="Ikke satt: kunne gått til B eller C, delt ut hit">≈</span></b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="hired"><td class="day"><b>Messehjelp AS · 4 pers</b></td>
+            <td><div class="track"><div class="blk veg hired" style="left:6.67%;width:53.33%">07–15 · Bekreftet</div></div></td>
+            <td class="where">Vegger, innleid</td><td class="num" style="text-align:right">30</td></tr>
+          <tr class="grp-row comp tep"><td colspan="4"><span class="sw"></span>Tepper · 4 pers<span class="cov ok">30 / 30 t</span></td></tr>
+          <tr><td class="day"><b>Ingrid Haug</b></td>
+            <td><div class="track"><div class="blk tep" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Tepper</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Siri Moen</b></td>
+            <td><div class="track"><div class="blk tep" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Tepper</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Hanne Vik</b></td>
+            <td><div class="track"><div class="blk tep" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Tepper</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Eva Fjeld</b></td>
+            <td><div class="track"><div class="blk tep" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Tepper</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="grp-row comp ele"><td colspan="4"><span class="sw"></span>Elektro · 4 pers<span class="cov short">30 / 34,5 t</span></td></tr>
+          <tr><td class="day"><b>Knut Brekke</b></td>
+            <td><div class="track"><div class="blk ele" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Elektro</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Henrik Myhre</b></td>
+            <td><div class="track"><div class="blk ele" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Elektro</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="hired"><td class="day"><b>Lys og Lyd Utleie · 2 pers</b></td>
+            <td><div class="track"><div class="blk ele hired" style="left:6.67%;width:53.33%">07–15 · Bekreftet</div></div></td>
+            <td class="where">Elektro, innleid</td><td class="num" style="text-align:right">15</td></tr>
+          <tr class="grp-row comp mob"><td colspan="4"><span class="sw"></span>Møbler · 3 pers<span class="cov ok">22,5 / 22,5 t</span></td></tr>
+          <tr><td class="day"><b>Mia Solberg</b></td>
+            <td><div class="track"><div class="blk mob" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Møbler</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Sofie Eide</b></td>
+            <td><div class="track"><div class="blk mob" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Møbler</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Magnus Tangen</b></td>
+            <td><div class="track"><div class="blk mob" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Møbler</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="grp-row comp rig"><td colspan="4"><span class="sw"></span>Rigg · 3 pers<span class="cov ok">22,5 / 22,5 t</span></td></tr>
+          <tr><td class="day"><b>Even Berg</b></td>
+            <td><div class="track"><div class="blk rig" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Rigg</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Sindre Lie</b></td>
+            <td><div class="track"><div class="blk rig" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Rigg</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Øystein Aas</b></td>
+            <td><div class="track"><div class="blk rig" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Rigg</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="grp-row comp gra"><td colspan="4"><span class="sw"></span>Grafikk · 1 pers<span class="cov ok">7,5 / 7,5 t</span></td></tr>
+          <tr><td class="day"><b>Thea Rønning</b></td>
+            <td><div class="track"><div class="blk gra" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Grafikk</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="grp-row place"><td colspan="4"><span class="pl">C</span>Byggemessen 2026 · demontering dag 2 av 3</td></tr>
+          <tr class="grp-row comp veg"><td colspan="4"><span class="sw"></span>Vegger · 4 pers<span class="cov ok">30 / 30 t</span></td></tr>
+          <tr><td class="day"><b>Jonas Bakke</b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Erik Dahl</b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Lars Holm</b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr><td class="day"><b>Tor Sand</b></td>
+            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="grp-row comp tep"><td colspan="4"><span class="sw"></span>Tepper · 0 + 3 venter<span class="cov wait">0 / 22,5 t</span></td></tr>
+          <tr class="hired"><td class="day"><b>Gulv og Tepper Service · 3 pers</b></td>
+            <td><div class="track"><div class="blk tep hired wait" style="left:6.67%;width:53.33%">07–15 · Venter</div></div></td>
+            <td class="where">Tepper, innleid · teller ikke før svar</td><td class="num" style="text-align:right">22,5</td></tr>
+          <tr class="grp-row place"><td colspan="4">Uten sted</td></tr>
+          <tr><td class="day"><b>Live Moen</b></td>
+            <td><div class="track"><div class="blk lag" style="left:6.67%;width:53.33%">07–15</div></div></td>
+            <td class="where">Lager · ingen behov for Lager i dag («Ikke fordelt»)</td><td class="num" style="text-align:right">7,5</td></tr>
+          <tr class="grp-row place"><td colspan="4">Borte eller uten blokk</td></tr>
+          <tr class="off"><td class="day"><b>Ida Strand</b></td>
+            <td><div class="track"><div class="blk away" style="left:6.67%;width:53.33%">Borte</div></div></td>
+            <td class="where">Borte</td><td class="num" style="text-align:right">–</td></tr>
+          <tr class="off"><td class="day"><b>Petter Haug</b></td>
+            <td><div class="track"><div class="blk away" style="left:6.67%;width:26.67%">Borte</div></div></td>
+            <td class="where">Borte til 11, ingen blokk etter</td><td class="num" style="text-align:right">–</td></tr>
+          <tr class="off"><td class="day"><b>Frida Bakke</b></td>
+            <td><div class="track"></div></td>
+            <td class="where">Ingen blokk</td><td class="num" style="text-align:right">–</td></tr>
+        </tbody>
+      </table>
+      <div class="foot"><span>Lunsj 11:30–12:00 · <span class="pl est">≈</span>sted ikke satt, kunne vært et annet · skravert: venter på svar</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>3b · Alternativ: lag per kompetanse</h2>
+    <p class="muted">Samme tirsdag som listen over, som lag: ett lag per kompetanse, og under hver kompetanse ett lag per sted. Den holder seg på én side, men viser ikke tidene til hver enkelt like godt. Vurderingen anbefaler å droppe den, og jeg er enig i at listen er bedre som hovedvisning.</p>
     <div class="scroll"><div class="paper" aria-label="Skisse av dagsplan">
       <div class="band">
         <div><div class="eyebrow">Dagsplan · uke 44</div><div class="d">Tirsdag 27. oktober 2026</div><div class="muted" style="font-size:12px"><span class="pl">B</span>Spillfestivalen 2026 · oppbygging dag 2 av 4 &nbsp; <span class="pl">C</span>Byggemessen 2026 · demontering dag 2 av 3</div></div>
@@ -270,7 +390,7 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
           <div class="grp-head"><span class="sw"></span><h3>Tepper · 4 + 3 pers</h3><span class="cov wait">30 / 52,5 t</span></div>
           <div class="place-head"><span class="pl">B</span>Spillfestivalen 2026<span class="cov ok">30 / 30 t</span></div>
           <div class="ppl"><span>Ingrid Haug</span><span class="t">07–15</span><span>Siri Moen</span><span class="t">07–15</span><span>Hanne Vik</span><span class="t">07–15</span><span>Eva Fjeld</span><span class="t">07–15</span></div>
-          <div class="place-head"><span class="pl est" title="Regnet ut fra prosjektets behov">≈ C</span>Byggemessen 2026<span class="cov wait">0 / 22,5 t</span></div>
+          <div class="place-head"><span class="pl">C</span>Byggemessen 2026<span class="cov wait">0 / 22,5 t</span></div>
           <div class="hire"><span>Gulv og Tepper Service · 3 pers</span><span><span class="t num" style="font-size:12px">07–15</span> <span class="st wait">Venter</span></span></div>
         </div>
         <div class="grp ele">
@@ -295,92 +415,41 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
           <div class="ppl"><span>Thea Rønning</span><span class="t">07–15</span></div>
         </div>
       </div>
-      <div class="away-list"><b style="color:var(--ink)">Borte:</b> Ida Strand (hele dagen), Petter Haug (07–11). <b style="color:var(--ink)">Uten blokk:</b> Live Moen, Frida Bakke.</div>
+      <div class="away-list"><b style="color:var(--ink)">Uten sted:</b> Live Moen (Lager 07–15, ingen behov for Lager i dag). <b style="color:var(--ink)">Borte:</b> Ida Strand (hele dagen), Petter Haug (07–11, uten blokk resten av dagen). <b style="color:var(--ink)">Uten blokk:</b> Frida Bakke.</div>
       <div class="foot"><span>Lunsj 11:30–12:00 · innleide har ikke navn, bare antall · <span class="pl est">≈</span>sted regnet ut fra planen</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
     </div></div>
   </section>
 
   <section>
-    <h2>3b · Dagsplan som liste (variant)</h2>
-    <p class="muted">Samme oppsett som montørarket, men med montørene nedover i stedet for dagene. Én linje per person med tidslinje, kompetanse og timer, gruppert etter sted. Innleide står som én linje per leverandør under stedet til prosjektet. Arket viser hele dagen på én side, og det er lett å se hvem som har overtid eller er ledig.</p>
-    <div class="scroll"><div class="paper" aria-label="Skisse av dagsplan som liste">
-      <div class="sheet-head">
-        <div class="who">Tirsdag 27. oktober 2026</div>
-        <div class="meta"><b style="color:var(--ink);font-size:14px">Dagsplan · uke 44</b><br>Behov 229,5 t · faste 157,5 t · innleid 45 t · <span style="color:var(--short)">avvik −27 t</span></div>
-      </div>
-      <table class="daylist">
-        <thead><tr><th style="width:190px">Montør</th><th>Tid <span class="num" style="letter-spacing:0;text-transform:none">06–21</span></th><th>Kompetanse</th><th style="text-align:right">Timer</th></tr></thead>
-        <tbody>
-          <tr class="grp-row"><td colspan="4"><span class="pl">B</span>Spillfestivalen 2026 · oppbygging dag 2 av 4<span class="cov ok"></span></td></tr>
-          <tr><td class="day"><b>Anders Berg</b></td>
-            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr><td class="day"><b>Kari Nordli</b></td>
-            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr><td class="day"><b>Ola Strand</b></td>
-            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr><td class="day"><b>Per Lunde</b></td>
-            <td><div class="track"><div class="blk veg" style="left:6.67%;width:30.00%">07–11:30</div><div class="blk rig" style="left:40.00%;width:20.00%">12–15</div></div></td>
-            <td class="where">Vegger <span class="pl est" title="Regnet ut fra planen">≈</span>, så Rigg</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr><td class="day"><b>Ingrid Haug</b></td>
-            <td><div class="track"><div class="blk tep" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Tepper</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr><td class="day"><b>Siri Moen</b></td>
-            <td><div class="track"><div class="blk tep" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Tepper</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr><td class="day"><b>Knut Brekke</b></td>
-            <td><div class="track"><div class="blk ele" style="left:6.67%;width:53.33%">07–15</div><div class="blk ele ot" style="left:60.00%;width:20.00%">15–18</div></div></td>
-            <td class="where">Elektro, 3 t overtid</td><td class="num" style="text-align:right">10,5</td></tr>
-          <tr><td class="day"><b>Thea Rønning</b></td>
-            <td><div class="track"><div class="blk gra" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Grafikk</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr class="hired"><td class="day"><b>Messehjelp AS · 4 pers</b></td>
-            <td><div class="track"><div class="blk veg hired" style="left:6.67%;width:53.33%">07–15 · Bekreftet</div></div></td>
-            <td class="where">Vegger, innleid</td><td class="num" style="text-align:right">30</td></tr>
-          <tr class="hired"><td class="day"><b>Lys og Lyd Utleie · 2 pers</b></td>
-            <td><div class="track"><div class="blk ele hired" style="left:6.67%;width:53.33%">07–15 · Bekreftet</div></div></td>
-            <td class="where">Elektro, innleid</td><td class="num" style="text-align:right">15</td></tr>
-          <tr class="grp-row"><td colspan="4"><span class="pl">C</span>Byggemessen 2026 · demontering dag 2 av 3<span class="cov ok"></span></td></tr>
-          <tr><td class="day"><b>Jonas Bakke</b></td>
-            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div><div class="blk veg ot" style="left:60.00%;width:20.00%">15–18</div></div></td>
-            <td class="where">Vegger, 3 t overtid</td><td class="num" style="text-align:right">10,5</td></tr>
-          <tr><td class="day"><b>Erik Dahl</b></td>
-            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr><td class="day"><b>Lars Holm</b></td>
-            <td><div class="track"><div class="blk veg" style="left:6.67%;width:53.33%">07–15</div></div></td>
-            <td class="where">Vegger</td><td class="num" style="text-align:right">7,5</td></tr>
-          <tr class="hired"><td class="day"><b>Gulv og Tepper Service · 3 pers</b></td>
-            <td><div class="track"><div class="blk tep hired wait" style="left:6.67%;width:53.33%">07–15 · Venter</div></div></td>
-            <td class="where">Tepper, innleid <span class="pl est" title="Regnet ut fra prosjektets behov">≈</span></td><td class="num" style="text-align:right">22,5</td></tr>
-          <tr class="grp-row"><td colspan="4">Uten blokk eller borte</td></tr>
-          <tr class="off"><td class="day"><b>Ida Strand</b></td>
-            <td><div class="track"><div class="blk away" style="left:6.67%;width:53.33%">Borte</div></div></td>
-            <td class="where">Borte</td><td class="num" style="text-align:right">–</td></tr>
-          <tr><td class="day"><b>Petter Haug</b></td>
-            <td><div class="track"><div class="blk away" style="left:6.67%;width:26.67%">Borte</div><div class="blk mob" style="left:33.33%;width:26.67%">11–15</div></div></td>
-            <td class="where">Møbler fra 11</td><td class="num" style="text-align:right">3,5</td></tr>
-          <tr class="off"><td class="day"><b>Live Moen</b></td>
-            <td><div class="track"></div></td>
-            <td class="where">Ingen blokk</td><td class="num" style="text-align:right">–</td></tr>
-        </tbody>
-      </table>
-      <div class="foot"><span>Lunsj 11:30–12:00 · <span class="pl est">≈</span>sted regnet ut fra planen · stiplet: overtid</span><span class="num">Skrevet ut 22.10.2026 14:05</span></div>
-    </div></div>
+    <h2>Regler for sted på arkene</h2>
+    <ul>
+      <li><b>Hele blokker deles ut.</b> En blokk uten satt sted går til ett sted, ikke en andel av flere. Blokkene en dag deles ut på stedene etter hvor mye hvert mangler, den med størst rest først, i en fast rekkefølge (personens plass i listen). Bare en blokk som er større enn det noe sted mangler, deles. Da står den der den har størst del. En ny ren funksjon i <span class="num">workPlace.ts</span> gjør dette, ved siden av <span class="num">blockPlaces</span>. Uten den ville alle umerkede veggmontører fått samme sted, fordi <span class="num">blockPlaces</span> gir hver umerket blokk de samme andelene.</li>
+      <li><b>≈ bare der stedet er usikkert:</b> blokken har ikke satt sted, og den kunne gått til mer enn ett sted den dagen, enten to steder i samme prosjekt eller to prosjekter. Byggemessen har bare C, så en blokk merket med Byggemessen er sikker uten at stedet er satt.</li>
+      <li><b>«Sett stedene»</b> lagrer utdelingen på blokkene i ett angresteg. ≈ blir da et varsel før utskrift, ikke noe som henger på oppslagstavla.</li>
+      <li><b>Arkene regner som Resultat:</b> faste og bekreftede innleide, over hele arbeidsflaten, ikke etter «Steder». Ventende bestillinger vises, men teller ikke som dekket.</li>
+      <li><b>Ingen faller ut:</b> timer over behovet («Ikke fordelt») og blokker uten noe sted står under «Uten sted». Behov uten prosjektnummer står som et eget sted, «Uten prosjekt».</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Utskrift</h2>
+    <ul>
+      <li>Appen har ingen utskrift i dag. Arkene får én felles ramme og ett <span class="num">print.css</span>, så alle tre skrives ut likt.</li>
+      <li>Alltid lys palett på papir, uansett hva skjermen viser.</li>
+      <li>Kompetansen står alltid med navn i tekst, fordi fargene blir like i gråtoner.</li>
+      <li>Dagsplanen og felles ukeplan kan gå over to sider. Overskriften gjentas, og en gruppe deles ikke midt i et sted.</li>
+    </ul>
   </section>
 
   <section>
     <h2>Innvendinger</h2>
     <ul>
-      <li><b>Mye av stedet er regnet ut.</b> Bare blokker malt på en stedslinje har stedet sitt lagret. Resten fordeles etter hva prosjektene og stedene mangler, og kan flytte seg når planen endres. Arkene merker et utregnet sted med ≈, så du ser hva som er sikkert, og slik at en montør ikke møter i feil hall uten at det sto noe om det.</li>
-      <li><b>En blokk kan fordeles på to steder.</b> En umerket blokk på en dag der to prosjekter mangler vegger, går til begge etter hva de mangler. På papir må den stå ett sted. Jeg foreslår å vise stedet med størst del, merket ≈.</li>
-      <li><b>Innleide har ikke sted.</b> Bestillingen har prosjekt, så stedet regnes ut fra prosjektets behov. For et prosjekt med ett sted den dagen er det sikkert. For et prosjekt med flere, står det med ≈ til innleide får sted på bestillingen.</li>
+      <li><b>Mye av stedet er regnet ut.</b> Bare blokker malt på en stedslinje har stedet sitt lagret. Resten deles ut etter hva stedene mangler, og kan flytte seg når planen endres. Derfor «Sett stedene» før utskrift, og ≈ der stedet fortsatt er usikkert.</li>
+      <li><b>Innleide har ikke sted.</b> Bestillingen har prosjekt, så stedet regnes ut fra prosjektets behov. For et prosjekt med ett sted den dagen er det sikkert. For et prosjekt med flere står det med ≈ til innleide får sted på bestillingen. «Sett stedene» gjelder bare blokker.</li>
       <li><b>Mål i personer er en avrunding.</b> Behovet regnes i timer. Personer er timer delt på normaldagen, rundet opp, så 34,5 t blir 5 personer selv om 4,6 er nok. Timene står derfor alltid under tallet.</li>
       <li><b>Trenger ukeplanen per montør fortsatt?</b> Med felles ukeplan og dagsplan er det kanskje nok. Arket per montør passer best når planen deles ut til hver enkelt.</li>
       <li><b>Utskrift blir fort gammel.</b> Planen endres etter at arket er skrevet ut. Derfor står tidspunktet nederst. Å sende planen til folk på telefonen krever innlogging for montører i den delte arbeidsflaten, og hører hjemme etter første versjon.</li>
-      <li><b>Dagsplanen overlapper Bemanning.</b> Den er ingen ny planleggingsflate: den er skrivebeskyttet og åpnes fra en dato i Bemanning. Alt redigeres fortsatt der.</li>
+      <li><b>Dagsplanen overlapper Bemanning.</b> Den er ingen ny planleggingsflate: den er skrivebeskyttet, bortsett fra «Sett stedene». Den åpnes fra en knapp i sidehodet eller med høyreklikk på en dag, fordi et klikk på en dato allerede velger dagen i Bemanning.</li>
     </ul>
   </section>
 
@@ -393,22 +462,13 @@ ol.dec>li::before{content:counter(d);font-family:var(--font-num);font-weight:500
   <section>
     <h2>Beslutninger for Bjørn</h2>
     <ol class="dec">
-      <li><h3>Hvordan skilles et utregnet sted fra et satt?</h3><div class="opts"><span class="rec">≈ foran stedet når det er regnet ut</span><span>Ingen forskjell på arket</span></div></li>
-      <li><h3>Hvor står en blokk som er fordelt på to steder?</h3><div class="opts"><span class="rec">Stedet med størst del, merket ≈</span><span>Alle stedene, «B / C»</span></div></li>
-      <li><h3>Hvilken dagsplan?</h3><div class="opts"><span class="rec">Liste per montør (3b), gruppert etter sted</span><span>Lag per kompetanse med sted under (3)</span><span>Begge, som to visninger av samme dag</span></div></li>
-      <li><h3>Stedslinjer i felles ukeplan?</h3><div class="opts"><span class="rec">Bare der kompetansen er på to steder eller flere</span><span>Alltid</span><span>Aldri, bare kompetanse</span></div></li>
+      <li><h3>Hvilken dagsplan?</h3><div class="opts"><span class="rec">Liste per montør (3), gruppert etter sted og så kompetanse</span><span>Lag per kompetanse (3b)</span><span>Begge</span></div></li>
+      <li><h3>«Sett stedene» før utskrift?</h3><div class="opts"><span class="rec">Ja: en knapp lagrer utdelingen på blokkene i ett angresteg</span><span>Nei, arket viser alltid utregnet sted</span></div></li>
+      <li><h3>Hvordan merkes et usikkert sted?</h3><div class="opts"><span class="rec">≈ der blokken ikke har satt sted og kunne gått til mer enn ett sted den dagen</span><span>≈ på alle utregnede steder</span><span>Ingen merking</span></div></li>
+      <li><h3>Stedslinjer i felles ukeplan?</h3><div class="opts"><span class="rec">Bare der kompetansen er på to steder eller flere</span><span>Alltid</span><span>Aldri</span></div></li>
       <li><h3>Hva er målet i felles ukeplan?</h3><div class="opts"><span class="rec">Personer, med timene under</span><span>Bare timer</span><span>Bare personer</span></div></li>
-      <li><h3>Hva bygges først?</h3><div class="opts"><span class="rec">Felles ukeplan og dagsplan, ukeplan per montør senere</span><span>Alle tre</span></div></li>
-      <li><h3>Skal innleide stå i dagsplanen?</h3><div class="opts"><span class="rec">Ja, som antall per leverandør med svar, under stedet til prosjektet</span><span>Nei, bare faste</span></div></li>
-      <li><h3>Hvor åpnes de?</h3><div class="opts"><span class="rec">Klikk på en dato i Bemanning for dagsplan, ukeplan fra Person-panelet og en knapp for hele uka</span><span>En egen fane</span></div></li>
-    </ol>
-  </section>
-</div></li>
-      <li><h3>Hva er målet i felles ukeplan?</h3><div class="opts"><span class="rec">Personer, med timene under</span><span>Bare timer</span><span>Bare personer</span></div></li>
-      <li><h3>Hva bygges først?</h3><div class="opts"><span class="rec">Felles ukeplan og dagsplan, ukeplan per montør senere</span><span>Alle tre</span></div></li>
-      <li><h3>Hva grupperes dagsplanen etter?</h3><div class="opts"><span class="rec">Kompetanse, som i skissen</span><span>Prosjekt og hall (krever svar på 1)</span></div></li>
-      <li><h3>Skal innleide stå i dagsplanen?</h3><div class="opts"><span class="rec">Ja, som antall per leverandør med svar</span><span>Nei, bare faste</span></div></li>
-      <li><h3>Hvor åpnes de?</h3><div class="opts"><span class="rec">Klikk på en dato i Bemanning for dagsplan, ukeplan fra Person-panelet og en knapp for hele uka</span><span>En egen fane</span></div></li>
+      <li><h3>Hva bygges først?</h3><div class="opts"><span class="rec">Utdelingen i domenet med tester, så dagsplanen og utskriftsrammen, så felles ukeplan, og montørarket sist</span><span>Alle tre samtidig</span></div></li>
+      <li><h3>Hvor åpnes de?</h3><div class="opts"><span class="rec">En knapp i sidehodet, høyreklikk på en dag, og ukeplanen fra Person-panelet</span><span>En egen fane</span></div></li>
     </ol>
   </section>
 </div>
