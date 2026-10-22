@@ -1,5 +1,5 @@
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
-import { sameProject, type Assignment, type Interval, type Minute, type WorkdaySettings } from '../../domain/types'
+import { sameTag, workTag, type Assignment, type Interval, type Minute, type WorkdaySettings } from '../../domain/types'
 
 /** The blocks of one person on a day. */
 export type BlocksOn = (date: ISODate) => Assignment[] | undefined
@@ -13,7 +13,7 @@ export type BlocksOn = (date: ISODate) => Assignment[] | undefined
  */
 const reachesEnd = (iv: Interval, wd: WorkdaySettings) => iv.end >= wd.dayEnd && iv.start < wd.dayEnd
 const fromStart = (iv: Interval, wd: WorkdaySettings) => iv.start <= wd.dayStart && iv.end > wd.dayStart
-const sameWork = (a: Piece, b: Piece) => a.competence === b.competence && sameProject(a, b)
+const sameWork = (a: Piece, b: Piece) => a.competence === b.competence && sameTag(a, b)
 
 /** The block the run of `block` goes on with the day after, if any. */
 export const nextInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
@@ -42,7 +42,7 @@ export interface EndShape extends RunLink {
 }
 
 /** Time of one competence, for a project or none, in a day: a block, or what a stroke would put down. */
-export type Piece = Interval & { competence: string; projectNo?: string }
+export type Piece = Interval & { competence: string; projectNo?: string; hall?: string }
 export type PiecesOn = (date: ISODate) => Piece[] | undefined
 
 /**
@@ -69,6 +69,7 @@ export const runLink = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: 
 export interface Run {
   competence: string
   projectNo?: string
+  hall?: string
   from: ISODate
   to: ISODate
   /** The days it has a block on. */
@@ -102,7 +103,7 @@ export const runOf = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: Wo
   const days = runDays(blocks, date, block, wd)
   const first = days[0]
   const last = days[days.length - 1]
-  return { competence: block.competence, ...(block.projectNo && { projectNo: block.projectNo }), from: first.date, to: last.date, days: days.length, startShare: share(first.block.start), endShare: share(last.block.end) }
+  return { competence: block.competence, ...workTag(block), from: first.date, to: last.date, days: days.length, startShare: share(first.block.start), endShare: share(last.block.end) }
 }
 
 /** A day a pulled end of a run is to give time. */

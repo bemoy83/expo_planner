@@ -4,7 +4,7 @@ import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { buildBalance, buildProjectBalance, cellsToDemand, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type ProjectBalance, type WeekTotals } from '../../domain/staffing'
 import { numberKey } from '../../domain/projects'
-import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, VenuePhase, Work, Workspace } from '../../domain/types'
+import { workTag, type AllocationRow, type Assignment, type CompetenceStyle, type Person, type Unavailability, type VenuePhase, type Work, type Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { isTyping } from '../dom'
@@ -100,8 +100,9 @@ export interface StretchPlan {
   colFrom: number
   colTo: number
   competence: string
-  /** The project of the run, which the days it goes on over get too. */
+  /** The project of the run, and its place, which the days it goes on over get too. */
   projectNo?: string
+  hall?: string
   erase: boolean
   cells: Day[]
   /** The blocks of the run that are given up. */
@@ -413,14 +414,14 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     const erase = plan.remove.length > 0 || plan.trim !== undefined
     const drawn: Day[] = erase ? plan.remove.map((day) => ({ personId: line.person.id, date: day.date })) : plan.add.map((day) => ({ personId: line.person.id, date: day.date, within: day.within }))
     // With Shift held, an end pulled outward goes no further than where the demand is met (R47).
-    const cells = !erase && stroke.toDemand ? cellsToDemand(ws, drawn, { competence: block.competence, projectNo: block.projectNo }, balance, stroke.stretch.edge === 'start', projectBalance) : drawn
+    const cells = !erase && stroke.toDemand ? cellsToDemand(ws, drawn, { competence: block.competence, ...workTag(block) }, balance, stroke.stretch.edge === 'start', projectBalance) : drawn
     const changed = erase ? [...plan.remove.map((day) => day.date), ...(plan.trim ? [plan.trim.block.date] : [])] : cells.map((cell) => cell.date)
     if (!changed.length) return null
     return {
       row: stroke.row0,
       ...colsOf(changed),
       competence: block.competence,
-      ...(block.projectNo && { projectNo: block.projectNo }),
+      ...workTag(block),
       erase,
       cells,
       blockIds: plan.remove.map((day) => day.block.id),
@@ -435,7 +436,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const stretched = (w: Workspace, plan: StretchPlan): Assignment[] =>
     plan.erase
       ? (w.assignments ?? []).filter((a) => !plan.blockIds.includes(a.id)).map((a) => (plan.trim && a.id === plan.trim.blockId ? { ...a, start: plan.trim.start, end: plan.trim.end } : a))
-      : paintDays(w, plan.cells, { competence: plan.competence, projectNo: plan.projectNo }, 'full')
+      : paintDays(w, plan.cells, { competence: plan.competence, ...workTag(plan) }, 'full')
   const { ghost, info, refused } = useMemo((): { ghost: Ghosts; info: StrokeInfo | null; refused: Day | null } => {
     const none = { ghost: NO_GHOST, info: null, refused: null }
     if (!active) return none
@@ -447,13 +448,13 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       found.get(cell.personId)!.set(cell.date, blocks)
     }
     /** What the brush would give the days, drawn across: the time as a preview, and the count of it. A working day it cannot fill is passed over; `own` is none. */
-    const brushed = (cells: Day[], competence: string, span: PaintSpan, own?: ISODate, projectNo?: string) => {
+    const brushed = (cells: Day[], competence: string, span: PaintSpan, own?: ISODate, tag: { projectNo?: string; hall?: string } = {}) => {
       const count = { days: 0, hours: 0, skipped: 0 }
       const offDays = onlyOffDays(cells)
       for (const cell of cells) {
         const gaps = paintGaps(ws, cell, competence, span, offDays)
         if (gaps.length) {
-          put(cell, gaps.map((gap) => ({ ...gap, competence, ...(projectNo && { projectNo }) })))
+          put(cell, gaps.map((gap) => ({ ...gap, competence, ...workTag(tag) })))
           count.days += 1
           count.hours += paidTotal(gaps, wd)
         } else if (dayType(cell.date) === 'arbeidsdag' && cell.date !== own) count.skipped += 1
@@ -469,7 +470,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
         return { ...none, info: { mode: 'erase', half: false, days: gone.length + (cut ? 1 : 0), hours: paidTotal(gone, wd) + cutHours, people: 1, skipped: 0 } }
       }
       // The days the run is to go on over get what the brush would give them.
-      const count = brushed(stretch.cells, stretch.competence, 'full', stretch.own, stretch.projectNo)
+      const count = brushed(stretch.cells, stretch.competence, 'full', stretch.own, stretch)
       return { ghost: found, info: { mode: 'paint', half: false, people: 1, competence: stretch.competence, toDemand: stroke.toDemand, ...count }, refused: null }
     }
     if (stroke?.mode === 'erase') {
@@ -500,10 +501,10 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     const cells = stroke ? (painted ?? []) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
     if (!cells.length) return none
     const half = stroke ? stroke.half : shift
-    const count = brushed(cells, activeBrush, half ? 'half' : 'full', undefined, activeProject ?? undefined)
+    const count = brushed(cells, activeBrush, half ? 'half' : 'full', undefined, brushWork ?? undefined)
     return { ghost: found, info: stroke ? { mode: 'paint', half, people: found.size, toDemand: stroke.toDemand, ...count } : null, refused: null }
     // `strokeCells`, `dayAt` and `blocksOn` read `lineOf`, `listed` and `dates`.
-  }, [active, ws, lineOf, listed, dates, activeTool, activeBrush, activeProject, stroke, stretch, painted, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, ws, lineOf, listed, dates, activeTool, activeBrush, brushWork, stroke, stretch, painted, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- the demand as it would be after the stroke under way ---------------------------------------------
   // What remains is counted while a stroke is drawn, so it can be stopped where the demand is met. The stroke is worked out as

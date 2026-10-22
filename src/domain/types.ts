@@ -234,6 +234,8 @@ export const competenceKey = (text: string): CompetenceKey => text.trim().toLowe
 export interface Work {
   competence: CompetenceKey
   projectNo?: string
+  /** The place of the project the work is in, as the Kalender's rows name it, where the planner picked one. Only with a project. */
+  hall?: string
 }
 
 /** A competence alone is work for no project in particular. */
@@ -244,6 +246,14 @@ export const projectTag = (work: Work): { projectNo?: string } => (work.projectN
 
 /** Whether two pieces of work are for the same project, none being the same as none. */
 export const sameProject = (a: { projectNo?: string }, b: { projectNo?: string }): boolean => (a.projectNo ?? '').trim().toLowerCase() === (b.projectNo ?? '').trim().toLowerCase()
+
+/** The project and the place as they are stored on a block: a place only with a project, and none rather than an empty text. */
+export const workTag = (work: { projectNo?: string; hall?: string }): { projectNo?: string; hall?: string } =>
+  work.projectNo ? { projectNo: work.projectNo, ...(work.hall?.trim() && { hall: work.hall }) } : {}
+
+/** Whether two pieces of work are for the same project and the same place, none being the same as none. */
+export const sameTag = (a: { projectNo?: string; hall?: string }, b: { projectNo?: string; hall?: string }): boolean =>
+  sameProject(a, b) && (a.hall ?? '').trim().toLowerCase() === (b.hall ?? '').trim().toLowerCase()
 
 export const LINE_COLORS = ['line-blue', 'line-teal', 'line-green', 'line-amber', 'line-rose', 'line-violet', 'line-slate', 'line-orange'] as const
 export type LineColor = (typeof LINE_COLORS)[number]
@@ -290,7 +300,7 @@ export interface Assignment {
   source: 'manual' | 'suggested'
   /** The project the work is for, where the planner painted it on the project's line. Without it, the hours are shared out over the projects that lack them (`projectBalance`). */
   projectNo?: string
-  /** Not set yet; kept so an assignment can later be tied to a hall. */
+  /** The place of the project the work is in, where the planner painted it on the place's line. Without it, the place is worked out from the project's rows (`workPlace.ts`). Only with a project. */
   hall?: string
 }
 

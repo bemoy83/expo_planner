@@ -2,9 +2,10 @@ import { staffedCompetences } from './competences'
 import { addDays, daysBetween, weekdayIndex, type ISODate } from './dates'
 import { hireHours, isWaiting } from './hire'
 import { dayType, type DayType } from './holidays'
+import { PROJECT_HALLS } from './locations'
 import { numberKey } from './projects'
 import { spread } from './spread'
-import { competenceKey, projectTag, sameProject, workOf, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type Work, type WorkdaySettings, type Workspace } from './types'
+import { competenceKey, sameProject, sameTag, workOf, workTag, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type Work, type WorkdaySettings, type Workspace } from './types'
 
 /**
  * The rules of Bemanning: who can work when, what an assignment counts for, and how far the assigned
@@ -124,7 +125,7 @@ const dayKey = (personId: string, date: ISODate) => `${personId}|${date}`
 const keyOf = (a: { personId: string; date: ISODate }) => dayKey(a.personId, a.date)
 
 /**
- * R9: joins a block to the one before it when they touch and are the same work, of one competence for one project; the earlier block's id is kept.
+ * R9: joins a block to the one before it when they touch and are the same work, of one competence for one project in one place; the earlier block's id is kept.
  * With `only`, just those person-days are looked at.
  */
 export const mergeAdjacent = (assignments: Assignment[], only?: Set<string>): Assignment[] => {
@@ -138,7 +139,7 @@ export const mergeAdjacent = (assignments: Assignment[], only?: Set<string>): As
     blocks.sort((a, b) => a.start - b.start)
     let last = blocks[0]
     for (const block of blocks.slice(1)) {
-      if (block.start === last.end && block.competence === last.competence && sameProject(block, last)) {
+      if (block.start === last.end && block.competence === last.competence && sameTag(block, last)) {
         last = { ...last, end: block.end }
         replaced.set(last.id, last)
         replaced.set(block.id, null)
@@ -220,7 +221,7 @@ export const paintDays = (ws: Workspace, cells: DayCell[], work: CompetenceKey |
   for (const cell of cells) {
     const gaps = paintGaps(ws, cell, competence, span, offDays, assignments)
     if (!gaps.length) continue
-    assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, ...projectTag(tagged), start: gap.start, end: gap.end, source: 'manual' }))]
+    assignments = [...assignments, ...gaps.map((gap): Assignment => ({ id: makeId(), personId: cell.personId, date: cell.date, competence, ...workTag(tagged), start: gap.start, end: gap.end, source: 'manual' }))]
     touched.add(keyOf(cell))
   }
   return touched.size ? mergeAdjacent(assignments, touched) : before
@@ -331,7 +332,7 @@ const roomFor = (ws: Workspace, block: Assignment, opts: EditOptions): Interval 
 
 const withBlock = (ws: Workspace, block: Assignment, changed: Assignment, merge = true): Assignment[] => {
   const all = ws.assignments ?? []
-  if (changed.start === block.start && changed.end === block.end && changed.competence === block.competence && sameProject(changed, block)) return all
+  if (changed.start === block.start && changed.end === block.end && changed.competence === block.competence && sameTag(changed, block)) return all
   const next = all.map((a) => (a.id === block.id ? changed : a))
   return merge ? mergeAdjacent(next, new Set([keyOf(block)])) : next
 }
@@ -382,6 +383,7 @@ export const moveAssignment = (ws: Workspace, id: string, toDate: ISODate, toSta
 export interface BlockShape {
   competence: CompetenceKey
   projectNo?: string
+  hall?: string
   start: Minute
   end: Minute
 }
@@ -448,7 +450,7 @@ export interface Clipboard {
 export const copyDays = (ws: Workspace, cells: DayCell[]): Clipboard | null => {
   const from = cells.map((cell) => cell.date).sort()[0]
   const items = cells
-    .map((cell) => ({ personId: cell.personId, dayOffset: daysBetween(from, cell.date), blocks: blocksOf(ws.assignments ?? [], cell.personId, cell.date).map((a) => ({ competence: a.competence, ...projectTag(a), start: a.start, end: a.end })) }))
+    .map((cell) => ({ personId: cell.personId, dayOffset: daysBetween(from, cell.date), blocks: blocksOf(ws.assignments ?? [], cell.personId, cell.date).map((a) => ({ competence: a.competence, ...workTag(a), start: a.start, end: a.end })) }))
     .filter((item) => item.blocks.length > 0)
   return items.length ? { from, people: [...new Set(cells.map((cell) => cell.personId))], items } : null
 }
@@ -470,7 +472,7 @@ export const pasteTargets = (ws: Workspace, clip: Clipboard, anchor: ISODate, la
       ? []
       : item.blocks.flatMap((block) => {
           if (!isEligible(person, block.competence)) return []
-          const gaps = landingGaps(ws, cell, block, assignments).map((gap) => ({ competence: block.competence, ...projectTag(block), start: gap.start, end: gap.end }))
+          const gaps = landingGaps(ws, cell, block, assignments).map((gap) => ({ competence: block.competence, ...workTag(block), start: gap.start, end: gap.end }))
           // What is placed takes its time, so two copied blocks never land on each other.
           assignments = [...assignments, ...gaps.map((gap): Assignment => ({ ...gap, id: '', personId: cell.personId, date: cell.date, source: 'manual' }))]
           return gaps
@@ -533,7 +535,7 @@ const addBlock = (ws: Workspace, cell: DayCell, work: Work, iv: Interval, makeId
   const wd = ws.settings.workday
   const all = ws.assignments ?? []
   if (length(iv) < wd.snap || paidHours(iv, wd) <= 0) return all
-  const block: Assignment = { id: makeId(), personId: cell.personId, date: cell.date, competence: work.competence, ...projectTag(work), start: iv.start, end: iv.end, source: 'manual' }
+  const block: Assignment = { id: makeId(), personId: cell.personId, date: cell.date, competence: work.competence, ...workTag(work), start: iv.start, end: iv.end, source: 'manual' }
   return mergeAdjacent([...all, block], new Set([keyOf(cell)]))
 }
 
@@ -662,6 +664,33 @@ export interface ProjectDay {
   shared: number
   /** `demand − tagged − shared`: negative when the project is tagged with more than it needs. */
   remaining: number
+  /** The project's part shared out on its places, by `placeKey`, as the project's part is on the projects: `PROJECT_PLACE` for the demand on rows of all its halls. */
+  places: Map<string, PlaceDay>
+  /** The project's hours for no place in particular more than all its places lack together, which go to none of them. */
+  unplaced: number
+}
+
+/** One place's part of a project's competence on a day. */
+export interface PlaceDay {
+  /** The place as the first row or block that has it writes it; `PROJECT_PLACE` for the project's halls. */
+  hall: string
+  /** The hours the project's rows of the place plan, plus, for `PROJECT_PLACE`, the hours moved to the day for the project. */
+  demand: number
+  /** The hours of blocks painted on the place's line. */
+  tagged: number
+  /** The place's share of the project's hours that are for no place in particular: its blocks without one, its confirmed orders and its share of the untagged hours. */
+  shared: number
+  /** `demand − tagged − shared`. */
+  remaining: number
+}
+
+/** The place of the demand on a row for all of a project's halls, for none of them, or «Ufordelt»: the halls the project has booked that day (`bookedPlaces`). */
+export const PROJECT_PLACE = ''
+
+/** How a place is looked up in the balance: by its name as it is compared, `PROJECT_PLACE` for a row of all the project's halls. */
+export const placeKey = (hall: string | undefined): string => {
+  const name = (hall ?? '').trim().toLowerCase()
+  return name === PROJECT_HALLS.toLowerCase() ? PROJECT_PLACE : name
 }
 
 /** A competence on a day, shared out on its projects. */
@@ -682,8 +711,24 @@ export interface ProjectBalance {
   competences: CompetenceKey[]
 }
 
-const NO_PROJECT_DAY: ProjectDay = { projectNo: NO_PROJECT, demand: 0, carried: 0, tagged: 0, shared: 0, remaining: 0 }
+const NO_PROJECT_DAY: ProjectDay = { projectNo: NO_PROJECT, demand: 0, carried: 0, tagged: 0, shared: 0, remaining: 0, places: new Map(), unplaced: 0 }
 const NO_PROJECT_BALANCE: ProjectDayBalance = { projects: new Map(), untagged: 0, unshared: 0 }
+
+/**
+ * Shares `untagged` hours out on the recipients by what each lacks after its tagged hours, as `spreadOpen` shares by
+ * hours: where one alone lacks hours, it gets them all. Sets each one's `shared` and `remaining`, and returns the
+ * hours more than all lack together, which go to none.
+ */
+const shareOut = (recipients: { demand: number; tagged: number; shared: number; remaining: number }[], untagged: number): number => {
+  const lacking = recipients.map((r) => Math.max(0, r.demand - r.tagged))
+  const lack = lacking.reduce((sum, hours) => sum + hours, 0)
+  const share = Math.min(untagged, lack)
+  recipients.forEach((r, i) => {
+    r.shared = lack > 0 ? (share * lacking[i]) / lack : 0
+    r.remaining = r.demand - r.tagged - r.shared
+  })
+  return Math.max(0, untagged - lack)
+}
 
 /**
  * The balance of `buildBalance` per project, over the whole workspace: what is hidden in the Kalender does not change it.
@@ -692,6 +737,8 @@ const NO_PROJECT_BALANCE: ProjectDayBalance = { projects: new Map(), untagged: 0
  * lack together go to none. The demand without a project is a recipient of its own, `NO_PROJECT`. Nothing of this
  * is stored. Bemanning counts the permanent staff alone, whose rest is what Innleid orders for; `withHired` counts
  * the confirmed orders too, as Resultat does. Shared by what is lacking, the two give each project the same.
+ * Each project's part is shared on its places one step further: the place of a block painted on a place's line is
+ * tagged, and the project's other hours go to its places by what each lacks (`places`, `PROJECT_PLACE`).
  */
 export const buildProjectBalance = (ws: Workspace, dates: ISODate[], withHired = false): ProjectBalance => {
   const wd = ws.settings.workday
@@ -705,37 +752,52 @@ export const buildProjectBalance = (ws: Workspace, dates: ISODate[], withHired =
   const part = (competence: CompetenceKey, date: ISODate, projectNo: string | undefined) => {
     const projects = cell(competence, date).projects
     const key = projectKey(projectNo)
-    if (!projects.has(key)) projects.set(key, { ...NO_PROJECT_DAY, projectNo: key ? projectNo!.trim() : NO_PROJECT })
+    if (!projects.has(key)) projects.set(key, { ...NO_PROJECT_DAY, projectNo: key ? projectNo!.trim() : NO_PROJECT, places: new Map() })
     return projects.get(key)!
   }
-  const assigned = (competence: CompetenceKey, date: ISODate, projectNo: string | undefined, hours: number) => {
-    if (projectKey(projectNo)) part(competence, date, projectNo).tagged += hours
-    else cell(competence, date).untagged += hours
+  const place = (p: ProjectDay, hall: string | undefined) => {
+    const key = placeKey(hall)
+    if (!p.places.has(key)) p.places.set(key, { hall: key ? hall!.trim() : PROJECT_PLACE, demand: 0, tagged: 0, shared: 0, remaining: 0 })
+    return p.places.get(key)!
+  }
+  const assigned = (competence: CompetenceKey, date: ISODate, work: { projectNo?: string; hall?: string }, hours: number) => {
+    if (!projectKey(work.projectNo)) {
+      cell(competence, date).untagged += hours
+      return
+    }
+    const p = part(competence, date, work.projectNo)
+    p.tagged += hours
+    if (work.hall?.trim()) place(p, work.hall).tagged += hours
   }
   for (const row of ws.allocations) {
     const competence = competenceKey(row.competence)
     if (!competence) continue
-    for (const date in row.fte) if (row.fte[date] && wanted.has(date)) part(competence, date, row.projectNo).demand += row.fte[date] * ws.settings.hoursPerDay
+    for (const date in row.fte) {
+      if (!row.fte[date] || !wanted.has(date)) continue
+      const p = part(competence, date, row.projectNo)
+      const hours = row.fte[date] * ws.settings.hoursPerDay
+      p.demand += hours
+      place(p, row.hall).demand += hours
+    }
   }
   for (const adjustment of ws.demandAdjustments ?? []) {
     if (!wanted.has(adjustment.date)) continue
     const p = part(adjustment.competence, adjustment.date, adjustment.projectNo)
     p.demand += adjustment.hours
     p.carried += adjustment.hours
+    place(p, PROJECT_PLACE).demand += adjustment.hours
   }
-  for (const a of okAssignments(ws)) if (wanted.has(a.date)) assigned(a.competence, a.date, a.projectNo, paidHours(a, wd))
-  if (withHired) for (const order of ws.hireOrders ?? []) if (wanted.has(order.date) && !isWaiting(order)) assigned(order.competence, order.date, order.projectNo, order.fte * hireHours(order, wd))
+  for (const a of okAssignments(ws)) if (wanted.has(a.date)) assigned(a.competence, a.date, a, paidHours(a, wd))
+  if (withHired) for (const order of ws.hireOrders ?? []) if (wanted.has(order.date) && !isWaiting(order)) assigned(order.competence, order.date, order, order.fte * hireHours(order, wd))
   for (const c of cells.values()) {
-    const lacking = [...c.projects.values()].map((p) => Math.max(0, p.demand - p.tagged))
-    const lack = lacking.reduce((sum, hours) => sum + hours, 0)
-    const share = Math.min(c.untagged, lack)
-    let i = 0
-    for (const p of c.projects.values()) {
-      p.shared = lack > 0 ? (share * lacking[i]) / lack : 0
-      p.remaining = p.demand - p.tagged - p.shared
-      i += 1
+    const projects = [...c.projects.values()]
+    c.unshared = shareOut(projects, c.untagged)
+    // A project's hours for no place in particular are shared on its places the same way.
+    for (const p of projects) {
+      const places = [...p.places.values()]
+      const placed = places.reduce((sum, at) => sum + at.tagged, 0)
+      p.unplaced = shareOut(places, p.tagged - placed + p.shared)
     }
-    c.unshared = Math.max(0, c.untagged - lack)
   }
   const get = (competence: CompetenceKey, date: ISODate) => cells.get(`${competence}|${date}`) ?? NO_PROJECT_BALANCE
   return {
