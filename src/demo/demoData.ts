@@ -9,7 +9,7 @@ import { writeXlsx, type CellValue } from '../import/xlsx.ts'
  * The data is fixed, not random, so tests can count on it. It is built to touch what the app has to handle: product
  * types with several units, one missing from the KPI table, lines without a product type, a free-text place, a place
  * of several halls, a project booked in several halls, events that overlap, events with and without demand, two
- * statuses, and a season that runs over the new year. The crew is 40 people over eight competences and seven suppliers.
+ * statuses, and a season that runs over the new year. The crew is 40 people over eight competences and ten suppliers.
  */
 
 /** The file names, as the app reads the period of a Venyou export and the date of a Visma export from them. */
@@ -255,15 +255,18 @@ const marks = (has: string[]) => DEMO_COMPETENCES.map((competence) => (has.inclu
 
 const personellFile = () => writeXlsx([{ name: 'Personell', head: ['Navn', 'Notat', ...DEMO_COMPETENCES], rows: DEMO_PEOPLE.map(([name, has]) => [name, '', ...marks(has)]) }])
 
-/** Made-up suppliers, with no contact person. */
+/** Made-up suppliers, with no contact person. Most offer one or two competences: few can be ordered for all of them. */
 export const DEMO_SUPPLIERS: { name: string; rate: number; shifts: string[]; competences: string[] }[] = [
   { name: 'Messehjelp AS', rate: 520, shifts: ['Dag', 'Kveld'], competences: ['Vegger', 'Møbler'] },
   { name: 'Riggteamet', rate: 560, shifts: ['Dag', 'Kveld', 'Natt'], competences: ['Vegger', 'Elektro', 'Rigg'] },
   { name: 'Gulv og Tepper Service', rate: 495, shifts: ['Dag'], competences: ['Tepper'] },
-  { name: 'Bemanningsbyrået Nord', rate: 480, shifts: ['Dag', 'Kveld'], competences: ['Møbler', 'Tepper', 'Grafikk', 'Lager'] },
+  { name: 'Bemanningsbyrået Nord', rate: 480, shifts: ['Dag', 'Kveld'], competences: ['Møbler', 'Lager'] },
   { name: 'Snekkerverkstedet', rate: 610, shifts: ['Dag'], competences: ['Snekker', 'Vegger'] },
   { name: 'Lys og Lyd Utleie', rate: 590, shifts: ['Dag', 'Kveld', 'Natt'], competences: ['Elektro', 'Rigg'] },
   { name: 'Ekstrahender', rate: 450, shifts: ['Dag', 'Kveld'], competences: ['Møbler', 'Lager'] },
+  { name: 'Folie og Skilt', rate: 575, shifts: ['Dag'], competences: ['Grafikk'] },
+  { name: 'Kveldsteppe', rate: 530, shifts: ['Kveld', 'Natt'], competences: ['Tepper'] },
+  { name: 'Trussmontasje', rate: 640, shifts: ['Dag', 'Natt'], competences: ['Rigg'] },
 ]
 
 const leverandorerFile = () =>
