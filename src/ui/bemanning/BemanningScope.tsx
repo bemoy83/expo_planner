@@ -230,9 +230,11 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
    * The lines under the competence in focus: a project shown in the Kalender with hours of it, or tagged with it, in the days in view.
    * They come in the order their work does.
    */
+  /** The projects shown in the Kalender, by `numberKey`: those a project's line can be for. */
+  const kalenderProjects = useMemo(() => new Set(planned.filter((row) => row.projectNo.trim()).map((row) => numberKey(row.projectNo))), [planned])
   const projectLines = useMemo<ProjectLine[]>(() => {
     if (!activeBrush) return []
-    const shown = new Set(planned.filter((row) => row.projectNo.trim()).map((row) => numberKey(row.projectNo)))
+    const shown = kalenderProjects
     const lines = new Map<string, ProjectLine & { first: ISODate }>()
     for (const date of viewDates) {
       for (const [key, p] of projectBalance.get(activeBrush, date).projects) {
@@ -243,7 +245,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       }
     }
     return [...lines.values()].sort((a, b) => a.first.localeCompare(b.first) || a.name.localeCompare(b.name, 'nb')).map(({ first: _first, ...line }) => line)
-  }, [activeBrush, planned, viewDates, projectBalance, projectName])
+  }, [activeBrush, kalenderProjects, viewDates, projectBalance, projectName])
   // A project whose line is gone from the demand is no brush any more.
   const activeProject = brushProject && projectLines.some((line) => numberKey(line.projectNo) === numberKey(brushProject)) ? brushProject : null
   /** What the brush paints: the competence in focus, for the project of the line in focus. */
@@ -853,7 +855,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     ws, dates, cols, room, viewFrom, viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, brushProject: activeProject, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand, pickProject, shift,
-    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, uncoverable, projectLines, projectShown, projectName,
+    balance, shownBalance, shownRemaining, totals, remainingOf, demandRows, uncoverable, projectLines, projectShown, projectName, projectBalance, kalenderProjects,
     lines, listed, listedAble, able, week, isOk, isOpen, ghost, info, refused, stroke, stretch, paintReach, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX,
     unresolved: open.length, removeOpen, paint, clear,

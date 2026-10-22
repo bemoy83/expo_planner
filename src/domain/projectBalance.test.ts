@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupKey, mergeOrders, orderGroups, orderText, fillGroup, planOrders } from './hire'
+import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, planOrders, tagOrders } from './hire'
 import { buildBalance, buildProjectBalance, carry, cellsToDemand, clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, NO_PROJECT, paintDays, pasteDays, projectTotals, recolourBlock, removeCarried, resizeBlock, splitBlock } from './staffing'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from './types'
@@ -154,6 +154,18 @@ describe('the project on an order', () => {
     const [planned] = planOrders([order(MON, 2, FIRST)], supplier, { competence: 'vegger', projectNo: SECOND }, [MON], () => 7.5, wd, true, id)
     expect(planned).toMatchObject({ projectNo: SECOND, start: wd.dayStart, end: wd.dayEnd, fte: 1 })
     expect(planOrders([order(MON, 2)], supplier, 'vegger', [MON], () => 30, wd, true, id)[0].start).not.toBe(wd.dayStart)
+  })
+
+  it('is set or taken off without a new answer, and joins an order of the same project', () => {
+    const tagged = tagOrders([order(MON, 2), order(MON, 1, FIRST)], [`o-${MON}-none-2`], FIRST)
+    expect(tagged).toMatchObject([{ fte: 3, conf: 3, projectNo: FIRST }])
+    expect(tagOrders(tagged, [tagged[0].id], null)[0].projectNo).toBeUndefined()
+  })
+
+  it('is erased for one project, or for all', () => {
+    const both = [order(MON, 2, FIRST), order(MON, 1, SECOND)]
+    expect(eraseOrders(both, 'vegger', [MON], undefined, FIRST).map((o) => o.projectNo)).toEqual([SECOND])
+    expect(eraseOrders(both, 'vegger', [MON])).toEqual([])
   })
 
   it('fills a line with its project, and names the project in the text to the supplier', () => {

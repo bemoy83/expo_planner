@@ -269,6 +269,9 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-row:not(.open) .grid-label:hover{background:var(--wash-bg)}
 .il-unfold{flex:none;margin:0 3px;color:var(--faint)}
 .il-row .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
+/* a project's line under the competence that is open: indented under it, on a tint of the competence, its name in the ink of what is under something */
+.il-project{background:color-mix(in oklab,var(--cc) 6%,var(--bg))}
+.il-project-name{margin-left:24px;color:var(--muted)}
 /* A day of a competence: how far it is covered and the hours missing or over on one line, and under it a chip per supplier ordered.
    Compact, a folded competence is that one line alone, 32 px high whatever it has of orders: one block per day on the left, and the figure. */
 .il-day{flex-direction:column;align-items:stretch;justify-content:flex-start;min-width:0;cursor:pointer;user-select:none}
@@ -360,6 +363,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-order-supplier{flex:0 1 auto;min-width:64px;max-width:170px;margin-right:auto;padding:5px 6px;font-size:var(--fs-sm);font-weight:500}
 .il-order-supplier span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .il-order-shift{height:26px;padding:0 6px;font-size:var(--fs-xs);font-weight:500}
+/* the project a line's people are for, under the line */
+.il-order-for{display:flex;padding:0 0 2px 6px}
+.il-order-project{max-width:100%;height:22px;padding:0 4px;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:var(--fs-xs)}
+.il-order-project:hover{background:var(--sunken);color:var(--text)}
 .il-order-spread{font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .il-order-days{display:flex;align-items:center;gap:3px;padding:0 0 6px 6px}
 .il-order-days i{width:8px;height:8px;border-radius:2px;background:var(--line)}

@@ -196,15 +196,23 @@ export const changeOrders = (orders: HireOrder[], ids: string[], to: Partial<Pic
     return next.supplierId === order.supplierId && next.start === order.start && next.end === order.end ? order : { ...withoutAsked(next), conf: null }
   })
 
+/** Other work for some orders: the project they are for, or none. The supplier's answer stands: the people are the same. */
+export const tagOrders = (orders: HireOrder[], ids: string[], projectNo: string | null): HireOrder[] =>
+  patch(orders, ids, (order) => {
+    if (sameProject(order, { projectNo: projectNo ?? undefined })) return order
+    const { projectNo: _was, ...rest } = order
+    return projectNo ? { ...rest, projectNo } : rest
+  })
+
 export const removeOrders = (orders: HireOrder[], ids: string[]): HireOrder[] => {
   const picked = new Set(ids)
   return orders.some((order) => picked.has(order.id)) ? orders.filter((order) => !picked.has(order.id)) : orders
 }
 
-/** I4: the orders without those of a competence on some days: of every supplier, or of the one given. */
-export const eraseOrders = (orders: HireOrder[], competence: CompetenceKey, dates: ISODate[], supplierId?: string): HireOrder[] => {
+/** I4: the orders without those of a competence on some days: of every supplier, or of the one given; of every project, or of the one given. */
+export const eraseOrders = (orders: HireOrder[], competence: CompetenceKey, dates: ISODate[], supplierId?: string, projectNo?: string): HireOrder[] => {
   const days = new Set(dates)
-  const gone = (order: HireOrder) => order.competence === competence && days.has(order.date) && (supplierId === undefined || order.supplierId === supplierId)
+  const gone = (order: HireOrder) => order.competence === competence && days.has(order.date) && (supplierId === undefined || order.supplierId === supplierId) && (!projectNo || sameProject(order, { projectNo }))
   return orders.some(gone) ? orders.filter((order) => !gone(order)) : orders
 }
 

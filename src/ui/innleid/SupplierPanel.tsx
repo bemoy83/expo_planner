@@ -16,7 +16,7 @@ const COPIED_MS = 1600
 
 /** A supplier's order: what it is ordered for per day, with the answer of each, a text of it to send, and what it offers. */
 function SupplierOrder({ supplier }: { supplier: Supplier }) {
-  const { styles, onShowDate } = useBemanning()
+  const { styles, onShowDate, projectName } = useBemanning()
   const { orders, wd, tool, brush, pickTool, edits, openOn, pick } = useInnleid()
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -30,7 +30,7 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
   for (const order of own) byDay.set(order.date, [...(byDay.get(order.date) ?? []), order])
   const totals = supplierTotals(supplier, orders, wd)
   const offered = competences.filter((style) => supplier.competences.includes(style.key))
-  const copy = () => navigator.clipboard.writeText(orderText(supplier, orders, competences)).then(() => setCopied(true))
+  const copy = () => navigator.clipboard.writeText(orderText(supplier, orders, competences, projectName)).then(() => setCopied(true))
   const show = (order: HireOrder) => {
     openOn(order.competence, order.date)
     pick(groupKey(order.supplierId, order))
@@ -99,7 +99,10 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
                 <div key={order.id} className="il-panel-order" style={competenceColor(style)}>
                   <button className="il-panel-what" title="Vis i rutenettet" onClick={() => show(order)}>
                     <i className="swatch" />
-                    <span>{style?.label ?? order.competence}</span>
+                    <span title={order.projectNo ? projectName(order.projectNo) : undefined}>
+                      {style?.label ?? order.competence}
+                      {order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}
+                    </span>
                     <em>{shiftText(order, wd)}</em>
                   </button>
                   <b>{order.fte}</b>

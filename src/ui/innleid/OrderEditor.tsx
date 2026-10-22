@@ -26,7 +26,7 @@ const people = (group: OrderGroup): string => {
  */
 export function OrderEditor({ style }: { style: CompetenceStyle }) {
   const il = useInnleid()
-  const { open, openDates, groups, picked, summary, suppliers, wd, edits, setPop } = il
+  const { open, openDates, groups, picked, summary, suppliers, wd, edits, setPop, projectLines, projectName } = il
   if (!open || !summary) return null
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
   const offers = suppliers.filter((supplier) => supplier.competences.includes(style.key) && supplier.shifts.length)
@@ -103,6 +103,23 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
                   <button className="row-action" aria-label="Fjern bestillingen" title="Fjern (Delete)" onClick={(e) => (e.stopPropagation(), edits.remove(group))}>
                     <X size={13} aria-hidden />
                   </button>
+                </div>
+                <div className="il-order-for">
+                    <select
+                      className="il-order-project"
+                      aria-label="Prosjekt"
+                      title="Prosjektet folkene skal til. Det står i bestillingen til leverandøren."
+                      value={group.projectNo ?? ''}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => edits.project(group, e.target.value || null)}
+                    >
+                      <option value="">Uten prosjekt</option>
+                      {[...new Set([...(group.projectNo ? [group.projectNo] : []), ...projectLines.map((line) => line.projectNo)])].map((projectNo) => (
+                        <option key={projectNo} value={projectNo}>
+                          {projectName(projectNo)}
+                        </option>
+                      ))}
+                    </select>
                 </div>
                 {several && have.size < openDates.length && (
                   <div className="il-order-days">

@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, memo, type CSSProperties, type ReactNode } from 'react'
 import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { coverFigure, coverShares, dayBlock, dayChips, dayKey, HOURS_NOISE, isWaiting, shiftText, type Coverage, type DayBlock, type HireBoard, type OrderChip } from '../../domain/hire'
@@ -17,8 +17,9 @@ import { fmtDay } from '../kalender/labels'
 import { daysWide, HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
 import { PlanBar } from '../kalender/PlanBar'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
+import { numberKey } from '../../domain/projects'
 import { signedHours } from './hours'
-import { useInnleid, type HireTool, type InnleidActions } from './InnleidScope'
+import { useInnleid, type HireProjectLine, type HireTool, type InnleidActions } from './InnleidScope'
 import { OrderEditor } from './OrderEditor'
 import { SupplierRows } from './SupplierRows'
 import { AnswerGlyph, AnswerPopover, ShiftMenu, SupplierMenu, TimePopover } from './OrderPopovers'
@@ -250,20 +251,30 @@ interface RowProps {
   /** Compact: a folded competence is one line high, with one block per day. */
   compact: boolean
   actions: InnleidActions
+  /** A project's line under the competence that is open: its orders and its cover, in place of the competence's. */
+  project?: HireProjectLine
 }
 
 /**
  * One competence: its name with what is missing in the days in view, and per day a line of how far it is covered,
  * the hours missing or over, and a chip per supplier ordered. With days picked, its label is the editor of their orders.
  */
-const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, strokeFrom, strokeTo, strokePeople, strokeSupplier, cursor, compact, actions }: RowProps) {
+const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, strokeFrom, strokeTo, strokePeople, strokeSupplier, cursor, compact, actions, project }: RowProps) {
   const open = pickedFrom !== null && pickedTo !== null
   const oneLine = compact && !open
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
+  const coverOf = (date: ISODate) => (project ? project.cover(date) : board.cover(style.key, date))
+  const ordersOf = (date: ISODate) => (project ? project.orders(date) : (ordersOn.get(dayKey(style.key, date)) ?? []))
+  const label = project ? `${style.label} · ${project.name}` : style.label
   return (
-    <div className={`grid-row il-row ${open ? 'open' : ''} ${oneLine ? 'compact' : ''} ${cursor}`} style={{ ...competenceColor(style), ...(oneLine ? { height: DEMAND_H } : { minHeight: DEMAND_H }) }}>
-      <div className="grid-label" style={{ width: LEFT_W }} onClick={open ? undefined : () => actions.openFirst(style.key)} title={open ? undefined : `Bestill ${style.label}`}>
-        {open ? (
+    <div className={`grid-row il-row ${project ? 'il-project' : ''} ${open ? 'open' : ''} ${oneLine ? 'compact' : ''} ${cursor}`} style={{ ...competenceColor(style), ...(oneLine ? { height: DEMAND_H } : { minHeight: DEMAND_H }) }}>
+      <div className="grid-label" style={{ width: LEFT_W }} onClick={open || project ? undefined : () => actions.openFirst(style.key)} title={project ? `Det ${project.name} mangler av ${style.label} etter de faste, og det som er bestilt for prosjektet. Penselen her bestiller for prosjektet.` : open ? undefined : `Bestill ${style.label}`}>
+        {project ? (
+          <>
+            <span className="lbl-desc il-project-name">{project.name}</span>
+            <span className="il-total">{missing > HOURS_NOISE ? `${signedHours(-missing)} t` : <Check size={13} aria-label="Dekket" />}</span>
+          </>
+        ) : open ? (
           <OrderEditor style={style} />
         ) : (
           <>
@@ -276,7 +287,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
       </div>
       <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />
       {cols.dates.map((date) => {
-        const cover = board.cover(style.key, date)
+        const cover = coverOf(date)
         const picked = open && date >= pickedFrom && date <= pickedTo
         const dragged = dragFrom !== null && dragTo !== null && date >= dragFrom && date <= dragTo
         const stroked = strokeFrom !== null && strokeTo !== null && date >= strokeFrom && date <= strokeTo
@@ -285,7 +296,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         const ghost = stroked ? strokePeople?.get(date) : undefined
         const figure = coverFigure(cover)
         const { confirmed, waiting } = coverShares(cover)
-        const chips = dayChips(ordersOn.get(dayKey(style.key, date)) ?? [], suppliers, open)
+        const chips = dayChips(ordersOf(date), suppliers, open)
         const shown = chips.length > CHIPS_MAX && !open ? chips.slice(0, CHIPS_MAX - 1) : chips
         const erased = (chip: OrderChip) => erasing && (strokeSupplier === undefined || chip.supplierId === strokeSupplier)
         // Compact: the block is what the eraser would leave, or drawn as gone where it would leave nothing.
@@ -296,13 +307,13 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
           <div
             key={date}
             className={`${dayClass(cols, date)} cell il-day ${cover.state} ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''} ${erasing ? 'erasing' : ''}`}
-            title={coverTitle(style.label, date, cover)}
+            title={coverTitle(label, date, cover)}
             onMouseDown={(e) => {
               if (e.button !== 0) return
               e.preventDefault()
-              actions.dayDown(style.key, date, e.shiftKey, e.altKey)
+              actions.dayDown(style.key, date, e.shiftKey, e.altKey, project?.projectNo)
             }}
-            onMouseEnter={() => actions.dayEnter(style.key, date)}
+            onMouseEnter={() => actions.dayEnter(style.key, date, project?.projectNo)}
           >
             <span className="il-cover">
               {/* Compact: one block for the day's orders, the people of a supplier the eraser would leave, or what would go. */}
@@ -357,7 +368,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
 export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, dates, viewFrom, viewTo, styles } = useBemanning()
   const il = useInnleid()
-  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions, tool, brush, preview, density } = il
+  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions, tool, brush, preview, density, projectLines } = il
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
   const popGroup = pop?.group ? groups.find((group) => group.key === pop.group) : undefined
@@ -368,31 +379,64 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
     <div className="bm-people il-rows" onMouseLeave={actions.rowsLeave}>
       {rows.map((style) => {
         const mine = open?.competence === style.key
-        const dragged = dragOn?.competence === style.key
-        const stroked = preview?.competence === style.key ? preview : null
+        const dragged = dragOn?.competence === style.key && !dragOn.projectNo
+        const stroked = preview?.competence === style.key && !preview.projectNo ? preview : null
+        const cursor = tool === 'erase' ? 'erase' : tool === 'paint' ? (brush?.competences.includes(style.key) ? 'brush' : 'nobrush') : ''
         return (
-          <CompetenceRow
-            key={style.key}
-            style={style}
-            cols={cols}
-            board={board}
-            ordersOn={ordersOn}
-            suppliers={suppliers}
-            wd={wd}
-            missing={missing(style.key)}
-            pickedFrom={mine ? open.from : null}
-            pickedTo={mine ? open.to : null}
-            pickedGroup={mine ? open.group : null}
-            dragFrom={dragged ? dragOn.from : null}
-            dragTo={dragged ? dragOn.to : null}
-            strokeFrom={stroked ? stroked.from : null}
-            strokeTo={stroked ? stroked.to : null}
-            strokePeople={stroked?.mode === 'paint' ? stroked.people : null}
-            strokeSupplier={stroked?.supplierId}
-            cursor={tool === 'erase' ? 'erase' : tool === 'paint' ? (brush?.competences.includes(style.key) ? 'brush' : 'nobrush') : ''}
-            compact={density === 'compact'}
-            actions={actions}
-          />
+          <Fragment key={style.key}>
+            <CompetenceRow
+              style={style}
+              cols={cols}
+              board={board}
+              ordersOn={ordersOn}
+              suppliers={suppliers}
+              wd={wd}
+              missing={missing(style.key)}
+              pickedFrom={mine ? open.from : null}
+              pickedTo={mine ? open.to : null}
+              pickedGroup={mine ? open.group : null}
+              dragFrom={dragged ? dragOn.from : null}
+              dragTo={dragged ? dragOn.to : null}
+              strokeFrom={stroked ? stroked.from : null}
+              strokeTo={stroked ? stroked.to : null}
+              strokePeople={stroked?.mode === 'paint' ? stroked.people : null}
+              strokeSupplier={stroked?.supplierId}
+              cursor={cursor}
+              compact={density === 'compact'}
+              actions={actions}
+            />
+            {mine &&
+              projectLines.map((project) => {
+                const on = (projectNo?: string) => projectNo !== undefined && numberKey(projectNo) === numberKey(project.projectNo)
+                const draggedHere = dragOn?.competence === style.key && on(dragOn.projectNo)
+                const strokedHere = preview?.competence === style.key && on(preview.projectNo) ? preview : null
+                return (
+                  <CompetenceRow
+                    key={project.projectNo}
+                    style={style}
+                    cols={cols}
+                    board={board}
+                    ordersOn={ordersOn}
+                    suppliers={suppliers}
+                    wd={wd}
+                    missing={project.missing}
+                    pickedFrom={null}
+                    pickedTo={null}
+                    pickedGroup={null}
+                    dragFrom={draggedHere ? dragOn.from : null}
+                    dragTo={draggedHere ? dragOn.to : null}
+                    strokeFrom={strokedHere ? strokedHere.from : null}
+                    strokeTo={strokedHere ? strokedHere.to : null}
+                    strokePeople={strokedHere?.mode === 'paint' ? strokedHere.people : null}
+                    strokeSupplier={strokedHere?.supplierId}
+                    cursor={cursor}
+                    compact
+                    actions={actions}
+                    project={project}
+                  />
+                )
+              })}
+          </Fragment>
         )
       })}
       <SupplierRows />
