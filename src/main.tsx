@@ -9,6 +9,8 @@ import './styles/resultat.css'
 import './styles/kalender.css'
 import './styles/inspector.css'
 import './styles/bemanning.css'
+import './styles/dagsplan.css'
+import './styles/print.css'
 import App from './App.tsx'
 import { loadPref } from './store/prefs'
 

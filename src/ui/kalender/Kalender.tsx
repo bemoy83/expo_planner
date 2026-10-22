@@ -19,6 +19,7 @@ import { BemanningHead, BemanningOverlays, BemanningToolbar, BemanningTop } from
 import { BemanningScope } from '../bemanning/BemanningScope'
 import { PeopleHeading, PeopleRows } from '../bemanning/PeopleRows'
 import { PersonPanel } from '../bemanning/PersonPanel'
+import { DayPlanDialog } from '../dagsplan/DayPlanDialog'
 import type { BlockNames } from '../bemanning/dayCell'
 import { unfoldedHeight } from '../bemanning/layout'
 import type { ProjectSpan } from '../bemanning/projectsInView'
@@ -739,6 +740,9 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       return [{ key: group.key, name: group.projectName, halls: [...(hallsOf.get(group.key) ?? [])].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true })), start, end: daysBetween(range.start, days[days.length - 1][0]), eventStart: event ? daysBetween(range.start, event[0]) : start }]
     })
   }, [bemanning, hallsOf, allGroups, phasesOfProject, range.start, halls])
+  // The day plan: a day to read and print, opened from the page header or a right-click on a date in Bemanning.
+  const [dayPlan, setDayPlan] = useState<ISODate | null>(null)
+  const openDayPlan = setDayPlan
   const focusDay = useCallback((date: ISODate) => setPlanningFocus({ date }), [setPlanningFocus])
   const showDate = useCallback((date: ISODate) => scrollToDate(date, 1), [scrollToDate])
 
@@ -841,7 +845,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     <div className={`kalender ${bemanning ? 'bemanning-mode' : pull ? 'pulling' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode} data-part={planMode === 'bemanning' ? crewPart : undefined}>
       <BemanningScope active={bemanning} innleid={innleid} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={planned} phases={phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
       <InnleidScope active={innleid}>
-      {innleid ? <InnleidHead places={places} /> : bemanning ? <BemanningHead places={places} /> : <KalenderHead
+      {innleid ? <InnleidHead places={places} onDayPlan={() => openDayPlan(activeDate ?? (today >= range.start && today <= range.end ? today : dates[0]))} /> : bemanning ? <BemanningHead places={places} onDayPlan={() => openDayPlan(activeDate ?? (today >= range.start && today <= range.end ? today : dates[0]))} /> : <KalenderHead
         places={places}
         projects={shownGroups.length}
         rows={shownRowCount}
@@ -858,7 +862,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows. Where it leaves the rows no room it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef} {...hoverProps}>
             {dayHover}
-            <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} />
+            <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} onDayPlan={bemanning ? openDayPlan : undefined} />
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
           <div
@@ -1021,6 +1025,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         />
       )}
 
+      {dayPlan && <DayPlanDialog date={dayPlan} onDate={setDayPlan} onClose={() => setDayPlan(null)} />}
       {bemanning && !innleid && <BemanningOverlays />}
       {!bemanning && <StatusBar focus={focusInfo} selectionSum={selectionSum} notice={notice} progress={progress} onSaveNote={setAllocationNote} />}
 

@@ -1,5 +1,5 @@
 import { Fragment, memo, type CSSProperties, type ReactNode } from 'react'
-import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
+import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import type { ISODate } from '../../domain/dates'
 import { coverFigure, coverShares, dayBlock, dayChips, dayKey, HOURS_NOISE, isWaiting, shiftText, type Coverage, type DayBlock, type HireBoard, type OrderChip } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
@@ -27,7 +27,7 @@ import { AnswerGlyph, AnswerPopover, ShiftMenu, SupplierMenu, TimePopover } from
 const days = (n: number) => count(n, 'dag', 'dager')
 
 /** The page header in Innleid: how much of what the permanent staff leave is still missing. */
-export function InnleidHead({ places }: { places: ReactNode }) {
+export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPlan: () => void }) {
   const { ws } = useBemanning()
   const { board, rows, panel, setPanel, brush } = useInnleid()
   const suppliers = ws.suppliers?.length ?? 0
@@ -38,6 +38,9 @@ export function InnleidHead({ places }: { places: ReactNode }) {
       <ModeTag mode="bemanning" part="innleid" />
       <span className="page-meta" title="Gjelder hele perioden">{meta.join(' · ')}</span>
       {places}
+      <button className="ghost" onClick={onDayPlan} title="Dagsplan for dagen du står på: hvem som jobber hvor, til utskrift.">
+        <Printer size={14} aria-hidden /> Dagsplan
+      </button>
       <PanelToggle open={!!panel} what="leverandører" hint="bestillingen til en leverandør, og hva hver av dem tilbyr" onToggle={() => setPanel(panel ? null : brush ? { kind: 'supplier', id: brush.id } : { kind: 'matrix' })} />
     </div>
   )

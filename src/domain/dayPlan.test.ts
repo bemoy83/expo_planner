@@ -76,9 +76,9 @@ describe('the day plan', () => {
     }
     const plan = buildDayPlan(w, MON)
     expect(plan.unplaced.map((f) => f.personId)).toEqual(['two-1'])
-    expect(plan.away.map((a) => [a.personId, a.idle])).toEqual([
-      ['two-3', true],
-      ['two-4', true],
+    expect(plan.away.map((a) => [a.personId, a.away, a.idle])).toEqual([
+      ['two-3', true, true],
+      ['two-4', false, true],
     ])
     expect(buildDayPlan(w, SUN).away).toEqual([])
   })

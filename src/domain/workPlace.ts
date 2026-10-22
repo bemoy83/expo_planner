@@ -1,8 +1,8 @@
 import type { ISODate } from './dates'
-import { collectedIn } from './locations'
+import { PROJECT_HALLS, collectedIn } from './locations'
 import { eventKey, numberKey, venueEvents } from './projects'
 import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, okAssignments, paidHours, placeKey, type ProjectBalance } from './staffing'
-import { competenceKey, type Assignment, type Workspace } from './types'
+import { competenceKey, workTag, type Assignment, type Workspace } from './types'
 import { hallNames } from './venue'
 import { anchorDate, visibleVenue } from './venueImport'
 
@@ -130,7 +130,8 @@ export const dealPlaces = (ws: Workspace, dates?: ISODate[]): Map<string, DealtP
       projectStart.set(p.projectNo, Math.max(0, p.demand - p.tagged))
       for (const at of p.places.values()) recipients.push({ projectNo: p.projectNo, hall: at.hall, place: Math.max(0, at.demand - at.tagged), start: Math.max(0, at.demand - at.tagged) })
     }
-    recipients.sort((a, b) => a.projectNo.localeCompare(b.projectNo, 'nb', { numeric: true }) || a.hall.localeCompare(b.hall, 'nb', { numeric: true }))
+    // Among equals a project goes before the demand that has no number.
+    recipients.sort((a, b) => Number(a.projectNo === NO_PROJECT) - Number(b.projectNo === NO_PROJECT) || a.projectNo.localeCompare(b.projectNo, 'nb', { numeric: true }) || a.hall.localeCompare(b.hall, 'nb', { numeric: true }))
     const tagged = (a: Assignment) => !!a.projectNo?.trim()
     const sorted = [...list].sort((a, b) => Number(tagged(b)) - Number(tagged(a)) || rank(a.personId) - rank(b.personId) || a.id.localeCompare(b.id))
     for (const a of sorted) {
@@ -154,4 +155,21 @@ export const dealPlaces = (ws: Workspace, dates?: ISODate[]): Map<string, DealtP
     }
   }
   return dealt
+}
+
+/**
+ * The workspace with the places of a day stored on its blocks, as `dealPlaces` deals them: a block that was worked out
+ * gets its project and place, so that the sheet printed does not change when the plan does. Blocks that have a place,
+ * and blocks that go nowhere or to the demand without a project number, are left as they are.
+ */
+export const withPlacesSet = (ws: Workspace, date: ISODate): Workspace => {
+  const dealt = dealPlaces(ws, [date])
+  let changed = false
+  const assignments = (ws.assignments ?? []).map((a) => {
+    const at = dealt.get(a.id)
+    if (a.date !== date || !at || at.set || !at.projectNo) return a
+    changed = true
+    return { ...a, ...workTag({ projectNo: at.projectNo, hall: placeKey(at.hall) === PROJECT_PLACE ? PROJECT_HALLS : at.hall }) }
+  })
+  return changed ? { ...ws, assignments } : ws
 }

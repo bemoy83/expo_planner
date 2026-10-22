@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildBalance, buildProjectBalance, cellsToDemand, copyDays, mergeAdjacent, moveDay, NO_PROJECT, paintDays, drawBlock, clickBlock, pasteDays, PROJECT_PLACE, splitBlock } from './staffing'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type VenueBooking, type Workspace } from './types'
-import { blockPlaces, bookedPlaces, dealPlaces, placeName } from './workPlace'
+import { blockPlaces, bookedPlaces, dealPlaces, placeName, withPlacesSet } from './workPlace'
 import { nextInRun } from '../ui/bemanning/runs'
 
 /** Where a block's work is: the places of the project balance, and what a project has booked. */
@@ -190,5 +190,26 @@ describe('the blocks dealt on the places', () => {
   it('leaves out a block that does not count', () => {
     const w = { ...staffed(day(1, MON)), unavailability: [{ id: 'u', personId: 'two-1', date: MON }] }
     expect(at(w).has('b-1-' + MON)).toBe(false)
+  })
+})
+
+describe('setting the places of a day', () => {
+  it('stores the dealt place on the blocks that were worked out, and leaves the rest', () => {
+    const w = staffed(day(1, MON, FIRST, 'B'), day(2, MON, FIRST), day(3, MON, SECOND))
+    const set = withPlacesSet(w, MON)
+    const by = (n: number) => set.assignments!.find((a) => a.id === `b-${n}-${MON}`)!
+    expect(by(1).hall).toBe('B')
+    expect(by(2)).toMatchObject({ projectNo: FIRST, hall: 'C2' })
+    expect(by(3)).toMatchObject({ projectNo: SECOND, hall: 'Ufordelt' })
+    // Done once, the blocks are as the sheet printed them, and a second time changes nothing.
+    expect(withPlacesSet(set, MON)).toBe(set)
+    expect(dealPlaces(set, [MON]).get(`b-2-${MON}`)).toMatchObject({ hall: 'C2', set: true })
+  })
+
+  it('tags a block of no project with the project it was dealt to, and leaves other days alone', () => {
+    const w = staffed(day(1, MON), { ...day(2, TUE), id: 'tue' })
+    const set = withPlacesSet(w, MON)
+    expect(set.assignments!.find((a) => a.id === `b-1-${MON}`)!.projectNo).toBeTruthy()
+    expect(set.assignments!.find((a) => a.id === 'tue')).toBe(w.assignments![1])
   })
 })

@@ -1,0 +1,14 @@
+/* The frame the work plans are printed in: the page shows nothing but the open sheet, on white, from the top of the paper. */
+
+@media print{
+  @page{margin:12mm}
+  html,body{background:#fff!important}
+  #root{display:none!important}
+  .dp-overlay{position:static;display:block;background:none}
+  .dp-bar,.dp-setbar{display:none!important}
+  .dp-page{overflow:visible;padding:0}
+  .dp-sheet{box-shadow:none;width:100%;padding:0;font-size:11px}
+  .dp-list thead{display:table-header-group}
+  .dp-card,.dp-list tr{break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

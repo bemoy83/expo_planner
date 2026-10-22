@@ -91,7 +91,9 @@ export interface DayAbsence {
   /** The part of the day the person is away; none for the whole day. */
   from?: Minute
   to?: Minute
-  /** Away, and no block the rest of the day. */
+  /** Away at all that day, else only without a block. */
+  away: boolean
+  /** No block (the rest of the day, where the person is away only for a part). */
   idle: boolean
 }
 
@@ -234,10 +236,10 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
   for (const u of ws.unavailability ?? []) {
     if (u.date !== date) continue
     absent.add(u.personId)
-    away.push({ personId: u.personId, name: nameOf(u.personId), ...(u.start !== undefined && u.end !== undefined && { from: u.start, to: u.end }), idle: !working.has(u.personId) })
+    away.push({ personId: u.personId, name: nameOf(u.personId), ...(u.start !== undefined && u.end !== undefined && { from: u.start, to: u.end }), away: true, idle: !working.has(u.personId) })
   }
   // Without a block on a working day; on a weekend or a holiday nobody is expected to have one.
-  if (dayType(date) === 'arbeidsdag') for (const p of ws.persons ?? []) if (!working.has(p.id) && !absent.has(p.id)) away.push({ personId: p.id, name: p.name, idle: true })
+  if (dayType(date) === 'arbeidsdag') for (const p of ws.persons ?? []) if (!working.has(p.id) && !absent.has(p.id)) away.push({ personId: p.id, name: p.name, away: false, idle: true })
   away.sort((a, b) => a.name.localeCompare(b.name, 'nb'))
 
   const waiting = hiredRows.filter((h) => h.waiting).reduce((sum, h) => sum + h.people, 0)

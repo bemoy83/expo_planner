@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ClipboardCopy, Eraser, Maximize2, MousePointer2, Paintbrush, TriangleAlert, X } from 'lucide-react'
+import { ClipboardCopy, Eraser, Printer, Maximize2, MousePointer2, Paintbrush, TriangleAlert, X } from 'lucide-react'
 import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { backFrom, carry, freeCapacity, isAway, paintBlock, removeCarried } from '../../domain/staffing'
@@ -18,7 +18,7 @@ import type { Tool } from './tools'
 import { EPSILON, hoursText, WEEKDAYS_LONG } from './week'
 
 /** The page header in Bemanning: how far the people cover the demand of the days in view. */
-export function BemanningHead({ places }: { /** The button «Steder», as in the plan's header. */ places: ReactNode }) {
+export function BemanningHead({ places, onDayPlan }: { /** The button «Steder», as in the plan's header. */ places: ReactNode; /** Opens the day plan of the day in focus. */ onDayPlan: () => void }) {
   const { persons, totals, panel, setPanel, selected, unfolded } = useBemanning()
   // The panel opens on the person of the selected day, else the one whose hours are open, else the first.
   const subject = selected?.personId ?? unfolded ?? persons[0]?.id
@@ -35,6 +35,9 @@ export function BemanningHead({ places }: { /** The button «Steder», as in the
       <ModeTag mode="bemanning" />
       <span className="page-meta" title="Behov, overtid og åpne timer gjelder dagene som vises">{meta.join(' · ')}</span>
       {places}
+      <button className="ghost" onClick={onDayPlan} title="Dagsplan for dagen du står på: hvem som jobber hvor, til utskrift. Høyreklikk en dato gjør det samme.">
+        <Printer size={14} aria-hidden /> Dagsplan
+      </button>
       <PanelToggle open={!!panel} what="persondetaljer" hint="timer, overtid og fravær. Klikk et navn for å åpne dem for personen." disabled={!subject} onToggle={() => setPanel(panel ? null : subject ? { personId: subject } : null)} />
     </div>
   )
