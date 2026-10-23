@@ -62,7 +62,7 @@
 .res-hall{display:grid;place-items:center;align-self:stretch}
 .res-hall-head.lit,.res-hall.lit{background:var(--wash)}
 .res-dot{width:3px;height:3px;border-radius:50%;background:var(--line-strong)}
-.res-tile{display:block;width:14px;height:14px;border-radius:3px;background:var(--text)}
+.res-tile{display:block;width:14px;height:14px;border-radius:3px;background:var(--res-plan)}
 .res-tile.more{display:grid;place-items:center;width:18px;height:16px;background:var(--sunken);font-size:var(--fs-2xs);font-weight:600;color:var(--muted)}
 /* plan and actual hours against the budget: in the list each bar is scaled to its project's own budget */
 .res-bars-cell{padding:0 10px}
