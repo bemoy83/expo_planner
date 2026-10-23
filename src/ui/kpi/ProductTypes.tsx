@@ -375,7 +375,7 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
             <span />
             <span>
               {row.active ? (
-                <span className="op-in-use">I bruk</span>
+                <span className="pill ok">I bruk</span>
               ) : (
                 <button className="link" onClick={() => edits.useUnit(type, row.unit)}>
                   Bruk denne

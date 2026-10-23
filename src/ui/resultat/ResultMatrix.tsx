@@ -110,7 +110,7 @@ export function ResultMatrix({ rows, summary, halls, today, overhead, actuals, o
           <span className="res-project-meta">
             <span className="project-no">{row.projectNo}</span>
             {row.first && <span>{fmtPeriod(row.first, row.last)}</span>}
-            {seasonStatus(row, today) === 'live' && <span className="res-live">Pågår</span>}
+            {seasonStatus(row, today) === 'live' && <span className="pill ok">Pågår</span>}
           </span>
         </span>
         {phaseCells(row.days)}

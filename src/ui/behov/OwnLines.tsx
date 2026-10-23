@@ -194,7 +194,7 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                       </td>
                       <td>
                         <button
-                          className={`basis-pill ${line.basis === PLANNED_BASIS ? 'planned' : ''}`}
+                          className={`pill button ${line.basis === PLANNED_BASIS ? 'ok' : ''}`}
                           title={line.basis === PLANNED_BASIS ? 'Teller i behovet. Klikk for å gjøre den til utkast.' : 'Teller ikke ennå. Klikk for å planlegge med den.'}
                           onClick={() => onUpdate(line, { basis: line.basis === PLANNED_BASIS ? DRAFT_BASIS : PLANNED_BASIS })}
                         >

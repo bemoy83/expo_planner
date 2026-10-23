@@ -174,7 +174,7 @@ The planner's answers to the questions of the handoff (2026-10-23):
 Where the build differs from the handoff, to reuse what the app has:
 
 - The bar's tooltip is the app's own (`title`, shown by `Tooltips.tsx`), not a tooltip of its own.
-- Over the budget is `--over`, the app's colour for what is over, not a new orange. The hall tiles are `--mon`, and the phase chips of the hall days `.ph-*`. Montering and demontering are the work phases of the Kalender's plan, `--mon` and `--dem`, with its square mark `.phase-mark` before each line of hours per day (the planner's wish, 2026-10-23). New are only `--res-plan` and `--res-actual` for the two bars, in both palettes.
+- Over the budget is `--over`, the app's colour for what is over, not a new orange. The hall tiles are ink (`--text`, the planner's choice, 2026-10-23, so they are not taken for montering), and the phase chips of the hall days `.ph-*`. Montering and demontering are the work phases of the Kalender's plan, `--mon` and `--dem`, with its square mark `.phase-mark` before each line of hours per day (the planner's wish, 2026-10-23). New are only `--res-plan` and `--res-actual` for the two bars, in both palettes.
 - «Importer» and «Eksporter» stay behind «Fil», with the budget alone, until actual hours can be read in.
 - Hours on the figures and in the matrix are whole; the panels keep a decimal where the app writes one.
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.

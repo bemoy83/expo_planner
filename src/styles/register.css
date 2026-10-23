@@ -72,7 +72,6 @@
 /* the units of a type, folded out under it */
 .op-row.unfolded{border-bottom-color:transparent}
 .op-sub{min-height:34px;font-size:var(--fs-sm);background:color-mix(in oklab,var(--sunken) 50%,transparent)}
-.op-in-use{font-size:var(--fs-xs);font-weight:600;padding:2px 7px;border-radius:4px;background:var(--pos-bg);color:var(--pos)}
 .op-empty{margin:0;padding:16px 10px;color:var(--muted)}
 .register-page .faint{color:var(--faint)}
 @container (max-width:1080px){.op-types{--cols:24px minmax(150px,1.3fr) 150px minmax(110px,1fr) 84px 96px 44px 56px}.op-types .op-row>:nth-child(8){display:none}.op-flow-aside{display:none}}

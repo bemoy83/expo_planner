@@ -198,8 +198,6 @@ table.ledger.own-lines tr:hover td.actions .row-action{visibility:visible}
 tr:hover .edit-placeholder{visibility:visible}
 .edit-input{width:100%;min-width:60px;height:28px}
 .num .edit-input{width:80px;text-align:right}
-.basis-pill{height:22px;padding:0 8px;border-radius:5px;background:var(--sunken);color:var(--muted);font-size:var(--fs-sm);font-weight:500}
-.basis-pill.planned{background:var(--pos-bg);color:var(--pos)}
 .own-empty{padding:12px 0}
 .bulk-bar .menu-pop{top:auto;bottom:100%;margin:0 0 6px}
 .bulk-bar .menu-pop small{margin-left:8px}

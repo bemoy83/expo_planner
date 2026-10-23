@@ -155,6 +155,11 @@ input[type='checkbox']{accent-color:var(--accent)}
 .bar.over .share{background:var(--over)}
 .bar.done .share{background:var(--pos)}
 
+/* ---- pills: a short status on a line, grey or, with `ok`, green: «I bruk» on Produkttyper, «Pågår» on Resultat; `button` is the size of one that is clicked, as the basis of an own line on Behov ---- */
+.pill{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;background:var(--sunken);color:var(--muted);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--pos-bg);color:var(--pos)}
+.pill.button{height:22px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm);font-weight:500}
+
 /* ---- toasts: short messages in the corner, see Toasts.tsx ---- */
 .toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;width:400px;max-width:calc(100vw - 32px)}
 .toast{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);box-shadow:0 16px 40px -16px var(--shadow);font-size:var(--fs-md)}
