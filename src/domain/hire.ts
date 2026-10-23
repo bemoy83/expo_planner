@@ -51,7 +51,7 @@ export const hireHours = (times: Interval, wd: WorkdaySettings): number => {
 
 export const isWaiting = (order: HireOrder): boolean => order.conf === null
 
-export type CoverState = 'none' | 'short' | 'ok' | 'over'
+type CoverState = 'none' | 'short' | 'ok' | 'over'
 
 /** How far the orders cover what remains of one competence on one day. */
 export interface Coverage {
@@ -95,9 +95,9 @@ export const coverShares = (cover: Coverage): { confirmed: number; waiting: numb
 /** The figure a cover is shown with: the hours missing as a negative number, the hours over as a positive one, `null` where neither. */
 export const coverFigure = (cover: Coverage): number | null => (Math.abs(cover.remaining) > HOURS_NOISE ? -cover.remaining : null)
 
-export type DeviationState = 'none' | 'under' | 'ok' | 'over'
+type DeviationState = 'none' | 'under' | 'ok' | 'over'
 
-export interface Deviation {
+interface Deviation {
   state: DeviationState
   /** Negative: the hours missing. Positive: the hours ordered over what remains. */
   value: number
@@ -419,11 +419,11 @@ export const hiredFte = ({ hireOrders, settings }: Pick<Workspace, 'hireOrders' 
 }
 
 /** The confirmed orders as a staffing line of the Kalender, added to «Tilgjengelig». It is worked out, never stored, and cannot be typed in. */
-export const HIRED_LINE_ID = 'hired:innleid'
+const HIRED_LINE_ID = 'hired:innleid'
 export const hiredLine = (confirmed: DayValues): CapacityLine => ({ id: HIRED_LINE_ID, label: 'Innleid', group: 'added', values: confirmed })
 
 /** What a supplier is ordered for, together: for the head of its order. */
-export interface SupplierTotals {
+interface SupplierTotals {
   /** People, a person counted once per day. */
   people: number
   hours: number

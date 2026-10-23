@@ -12,8 +12,8 @@ export type CrewPart = 'faste' | 'innleid'
 export const cleanCrewPart = (stored: unknown): CrewPart => (stored === 'innleid' ? 'innleid' : 'faste')
 
 /** A day in Bemanning is never narrower or wider than this. */
-export const BEMANNING_MIN_W = 80
-export const BEMANNING_MAX_W = 160
+const BEMANNING_MIN_W = 80
+const BEMANNING_MAX_W = 160
 /** A day in Innleid is always this wide: most suppliers' names fit on the chip of an order (`design_docs/innleid/`). */
 export const INNLEID_W = 116
 /** The days Bemanning opens on when nothing says which. */

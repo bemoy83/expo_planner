@@ -75,7 +75,7 @@ export interface SpanInput {
   lacking?: number | null
 }
 
-export interface SpanStretch {
+interface SpanStretch {
   /** What changes, by day: a number to put there, null to clear the day. */
   cells: Map<number, number | null>
   /** The end was stopped by the next planned day of the line. */

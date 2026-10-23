@@ -65,7 +65,7 @@ export const placeKey = (hall: string | undefined): string => {
 }
 
 /** A competence on a day, shared out on its projects. */
-export interface ProjectDayBalance {
+interface ProjectDayBalance {
   /** By the project's `numberKey`, with `NO_PROJECT` for the demand that has none. */
   projects: Map<string, ProjectDay>
   /** The hours assigned for no project, before they are shared out. */

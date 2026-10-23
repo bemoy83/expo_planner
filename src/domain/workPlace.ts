@@ -17,7 +17,7 @@ import { pushTo } from './collections'
  */
 
 /** A part of a block's hours: for a project, in a place, as a share of the block. `PROJECT_PLACE` is the project's halls that day. */
-export interface WorkPlace {
+interface WorkPlace {
   projectNo: string
   hall: string
   share: number
@@ -63,7 +63,7 @@ export const blockPlaces = (balance: ProjectBalance, a: Pick<Assignment, 'compet
 }
 
 /** The bookings of a project in Venyou that the Kalender shows: its events by its number, in every hall. */
-export const projectBookings = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string): VenueBooking[] => {
+const projectBookings = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string): VenueBooking[] => {
   if (projectNo === NO_PROJECT) return []
   const venue = visibleVenue(ws.venue, ws.hiddenVenue)
   const key = numberKey(projectNo)
@@ -108,7 +108,7 @@ export const phaseAt = (spans: Map<VenuePhase, { start: ISODate; end: ISODate }>
   [...spans].filter(([, span]) => span.start <= date && date <= span.end).sort((a, b) => PHASE_RANK[b[0]] - PHASE_RANK[a[0]])[0]?.[0]
 
 /** Where a whole block is, for the work plans: one place, and whether it was set or worked out, and whether it could have been another. */
-export interface DealtPlace {
+interface DealtPlace {
   projectNo: string
   hall: string
   /** The block was painted on the place's line: nothing was worked out. */

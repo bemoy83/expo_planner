@@ -1,7 +1,7 @@
 import type { ISODate } from './dates'
 import { VENUE_PHASES, type Workspace } from './types'
 
-export interface CalendarRange {
+interface CalendarRange {
   start: ISODate
   end: ISODate
 }

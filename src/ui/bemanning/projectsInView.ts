@@ -13,7 +13,7 @@ export interface ProjectSpan {
 }
 
 /** A listed project stays listed until it is this many days out of view, so one at the edge does not flicker (R37). */
-export const LEAVE_AFTER_DAYS = 2
+const LEAVE_AFTER_DAYS = 2
 
 const meets = (project: ProjectSpan, from: number, to: number) => project.start <= to && project.end >= from
 
@@ -41,7 +41,7 @@ export const projectSlots = (projects: ProjectSpan[], visible: number, days: num
   return most
 }
 
-export interface PhaseBar {
+interface PhaseBar {
   phase: VenuePhase
   col: number
   span: number

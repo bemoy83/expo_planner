@@ -82,7 +82,7 @@ export const replaceSuppliers = (ws: Workspace, file: FileSupplier[]): Workspace
   return { ...kept, suppliers }
 }
 
-export interface SuppliersDiff extends TableDiff {
+interface SuppliersDiff extends TableDiff {
   /** Orders of the suppliers only in the app, which go with them when replacing. */
   lostOrders: number
   /** Competences the file names that the app does not know. */

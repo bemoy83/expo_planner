@@ -14,7 +14,7 @@ import { bookedPlaces, dealPlaces, phaseAt, projectPhaseSpans } from './workPlac
  */
 
 /** A stretch of days in a phase. */
-export interface WeekPhase {
+interface WeekPhase {
   phase: VenuePhase
   /** The days of the week, as indexes 0 to 6. */
   from: number
@@ -25,7 +25,7 @@ export interface WeekPhase {
 }
 
 /** What needs action on a bar, on which days of the week (indexes 0 to 6). */
-export interface WeekFlag {
+interface WeekFlag {
   state: 'short' | 'wait'
   days: number[]
 }
@@ -42,7 +42,7 @@ export interface WeekBar {
   flags: WeekFlag[]
 }
 
-export interface WeekProject {
+interface WeekProject {
   projectNo: string
   name: string
   phases: WeekPhase[]
@@ -51,7 +51,7 @@ export interface WeekProject {
   bars: WeekBar[]
 }
 
-export interface WeekAttention {
+interface WeekAttention {
   state: 'short' | 'wait'
   projectNo: string
   projectName: string

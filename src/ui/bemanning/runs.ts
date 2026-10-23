@@ -24,7 +24,7 @@ export const nextInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd
 }
 
 /** The block the run of `block` comes from the day before, if any. */
-export const prevInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
+const prevInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
   const prev = addDays(date, -1)
   if (!fromStart(block, wd)) return undefined
   return blocks(prev)?.find((a) => sameWork(a, block) && reachesEnd(a, wd))
@@ -67,7 +67,7 @@ export const runLink = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: 
   next: nextInRun(blocks, date, block, wd) !== undefined,
 })
 
-export interface Run {
+interface Run {
   competence: string
   projectNo?: string
   hall?: string
@@ -81,7 +81,7 @@ export interface Run {
 }
 
 /** A day of a run, with the block the run has on it. */
-export interface RunDay {
+interface RunDay {
   date: ISODate
   block: Assignment
 }
@@ -108,7 +108,7 @@ export const runOf = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: Wo
 }
 
 /** A day a pulled end of a run is to give time. */
-export interface StretchDay {
+interface StretchDay {
   date: ISODate
   /** Where the end stops within the day: the part of it that is to be filled. Without it, the whole day. */
   within?: { start: Minute; end: Minute }
@@ -117,7 +117,7 @@ export interface StretchDay {
 }
 
 /** What an end of a run that is pulled to a time of a day does: the days the run is to go on over, or what of it is given up. */
-export interface Stretch {
+interface Stretch {
   add: StretchDay[]
   /** The days of the run that are given up whole. */
   remove: RunDay[]

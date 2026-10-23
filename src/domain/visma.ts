@@ -193,7 +193,7 @@ export const lineRef = (line: VismaLine): NonNullable<LineOverride['ref']> => ({
 
 const hasDecision = (override: LineOverride): boolean => !!override.effekt || !!override.comment || !!override.excluded || !!override.workType
 
-export interface OrphanedDecision {
+interface OrphanedDecision {
   key: string
   override: LineOverride
   avdeling: string
@@ -213,7 +213,7 @@ export const orphanedDecisions = (projectNo: string, lines: VismaLine[], overrid
     })
 }
 
-export const VISMA_LINE_PREFIX = 'visma|'
+const VISMA_LINE_PREFIX = 'visma|'
 
 /**
  * Visma lines as ledger rows. A line that gives hours counts under «Planlagt» by itself unless the planner has left it out;

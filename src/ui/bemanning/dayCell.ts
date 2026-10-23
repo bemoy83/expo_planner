@@ -5,7 +5,7 @@ import { workTag, type Assignment, type Interval, type Minute, type Unavailabili
 import { clock } from './week'
 
 /** What a block says: the name with its hours, the name, the short name, or nothing. */
-export type BlockLabel = 'hours' | 'name' | 'short' | 'none'
+type BlockLabel = 'hours' | 'name' | 'short' | 'none'
 /** The setting «Navn på blokker»: the whole name where it fits, the hours too where there is room, or always the short name. */
 export type BlockNames = 'full' | 'auto' | 'short'
 export const cleanBlockNames = (stored: unknown): BlockNames => (stored === 'auto' || stored === 'short' ? stored : 'full')
@@ -51,7 +51,7 @@ export const spanOf = (part: Interval, whole: Interval): Span => {
   return { left: ((start - whole.start) / (whole.end - whole.start)) * 100, width: ((Math.min(part.end, whole.end) - start) / (whole.end - whole.start)) * 100 }
 }
 
-export interface CellBlock extends Span {
+interface CellBlock extends Span {
   id: string
   competence: string
   /** The project it is for, where it is tagged with one, and the place, where it is painted on one. */

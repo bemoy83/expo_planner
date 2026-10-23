@@ -57,7 +57,7 @@ export const dominantEntry = (entries: HallDayEntry[]): HallDayEntry =>
   entries.reduce((best, e) => (PRIORITY[e.phase] > PRIORITY[best.phase] ? e : best))
 
 /** One stretch of days in a hall where the same event is the main one. */
-export interface HallRun {
+interface HallRun {
   eventName: string
   start: ISODate
   end: ISODate

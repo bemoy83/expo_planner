@@ -9,7 +9,7 @@ import { pushTo } from './collections'
  * typed into it; then it becomes an ordinary planning row.
  */
 
-export const SUGGESTED_ROW_PREFIX = 'forslag|'
+const SUGGESTED_ROW_PREFIX = 'forslag|'
 
 export const isSuggestedRow = (row: Pick<AllocationRow, 'id'>): boolean => row.id.startsWith(SUGGESTED_ROW_PREFIX)
 

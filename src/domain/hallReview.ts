@@ -7,7 +7,7 @@ import { PLANNED_BASIS, type DemandLine, type HallRules } from './types'
 export const PLACE_STEPS: PlacedBy[] = ['own', 'choice', 'text', 'phrase', 'none']
 
 /** A place a text is offered: for every project, or for the one given, where the offer rests on what that project has booked. */
-export interface TextOffer {
+interface TextOffer {
   hall: string
   projectNo?: string
 }
@@ -28,7 +28,7 @@ export interface UnplacedText {
 }
 
 /** What one of the rules for words is used for. */
-export interface PhraseUse {
+interface PhraseUse {
   /** The lines it places. */
   lines: number
   /** The texts of those lines. */

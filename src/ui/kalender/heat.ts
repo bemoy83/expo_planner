@@ -8,7 +8,7 @@ export const OK_UP_TO = 1
 export type HeatKind = 'under' | 'ok' | 'over'
 
 /** How one day of an Avvik line is coloured in the heat map. */
-export interface HeatTile {
+interface HeatTile {
   kind: HeatKind
   /** How much of the kind's colour is mixed into the page colour, in per cent. */
   percent: number

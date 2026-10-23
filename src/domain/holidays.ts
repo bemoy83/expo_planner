@@ -20,7 +20,7 @@ export const easterSunday = (year: number): ISODate => {
 }
 
 /** Days off as listed in the planner workbook: public holidays plus Christmas Eve. */
-export const holidaysForYear = (year: number): Map<ISODate, string> => {
+const holidaysForYear = (year: number): Map<ISODate, string> => {
   const easter = easterSunday(year)
   const entries: [ISODate, string][] = [
     [`${year}-01-01`, '1. nyttårsdag'],

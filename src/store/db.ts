@@ -3,7 +3,7 @@ import type { Workspace } from '../domain/types'
 import { fromRecords, recordKey, toRecords, type Delta, type Kind, type RecordWrite, type StoredRecord } from './records'
 
 /** A record as the browser keeps it: with the rev of the shared copy it was last seen at, where it has been synced. */
-export interface LocalRecord extends StoredRecord {
+interface LocalRecord extends StoredRecord {
   rev?: number
   /** In a shared workspace: who wrote it last, and when. */
   by?: string

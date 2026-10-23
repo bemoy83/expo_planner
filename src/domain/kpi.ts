@@ -292,7 +292,7 @@ export const withoutExcludedArticle = (kpi: KpiConfig, articleNo: string): KpiCo
 })
 
 /** An article number found in the held exports: the texts its lines have, and how many lines it has. */
-export interface ArticleSeen {
+interface ArticleSeen {
   articleNo: string
   texts: string[]
   lines: number

@@ -28,7 +28,7 @@ const workTarget = (span: ISODate[]): ISODate[] => {
   return workdays.length ? workdays : span
 }
 
-export interface PencilStroke {
+interface PencilStroke {
   /** The days that get FTE. */
   target: ISODate[]
   /** What each line gets on each of those days. */
@@ -76,7 +76,7 @@ export const pencilProgress = (preview: PencilStroke): string =>
     ? `Tegner: opptil ${formatFte(Math.max(...preview.perDay), 1)} FTE per dag over ${count(preview.target.length, 'arbeidsdag', 'arbeidsdager')}`
     : 'Tegner: ikke noe behov igjen å fordele her'
 
-export interface Proposal {
+interface Proposal {
   writes: { row: AllocationRow; date: ISODate; value: number | null }[]
   done: number
   hadPlan: number
@@ -139,7 +139,7 @@ export const spanEndAt = (lane: Partial<AllocLane>, dates: ISODate[], col: numbe
   return col === from || col === to ? { from, to } : null
 }
 
-export interface PullPreview {
+interface PullPreview {
   cells: DrawnCell[]
   /** The days that get FTE they did not have, the days that are cleared, and the most a day ends up with. */
   added: number

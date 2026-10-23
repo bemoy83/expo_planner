@@ -8,7 +8,7 @@ import type { HallRules, VenueBooking } from './types'
  */
 
 /** An area of the planner's: a name, and its halls. */
-export type Area = NonNullable<HallRules['areas']>[number]
+type Area = NonNullable<HallRules['areas']>[number]
 
 /** The name of the node that holds the halls of no area. */
 export const NO_AREA = ''

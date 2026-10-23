@@ -123,7 +123,7 @@ interface DemoProductType {
 }
 
 /** The competences, with a short name and a colour as Kompetanser has them (the colour names of `kompetanserFile.ts`). */
-export const DEMO_COMPETENCE_STYLES: [string, string, string][] = [
+const DEMO_COMPETENCE_STYLES: [string, string, string][] = [
   ['Vegger', 'VEG', 'Blå'],
   ['Tepper', 'TEP', 'Grønn'],
   ['Møbler', 'MØB', 'Gul'],

@@ -3,9 +3,9 @@ import { VENUE_PHASES, type VenueBooking } from './types'
 import { pushTo } from './collections'
 
 /** Ids of bookings that came from a Venyou export read into the app. */
-export const VENYOU_ID_PREFIX = 'venyou-'
+const VENYOU_ID_PREFIX = 'venyou-'
 
-export interface DateWindow {
+interface DateWindow {
   from: ISODate
   to: ISODate
 }

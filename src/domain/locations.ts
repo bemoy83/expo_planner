@@ -265,7 +265,7 @@ export const withPhrase = (rules: HallRules = NO_HALL_RULES, text: string, hall:
 }
 
 /** One of the planner's choices for a text, as the Hallregler tab lists it: for every project, or for one. */
-export interface HallChoice {
+interface HallChoice {
   key: string
   text: string
   projectNo?: string

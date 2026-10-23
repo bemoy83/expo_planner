@@ -94,7 +94,7 @@ export const blocksOf = (assignments: Assignment[], personId: string, date: ISOD
 /** R15: only a person who has the competence can be given work of it. */
 export const isEligible = (person: Person | undefined, competence: CompetenceKey): boolean => !!person && person.competences.includes(competence)
 
-export type AssignmentStatus = 'ok' | 'unresolved'
+type AssignmentStatus = 'ok' | 'unresolved'
 
 /** R7: an assignment is unresolved when its person is away then, or no longer has the competence. */
 export const assignmentStatus = (a: Assignment, ws: Workspace): AssignmentStatus =>

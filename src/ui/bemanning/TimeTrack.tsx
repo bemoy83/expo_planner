@@ -30,7 +30,7 @@ export interface CrossMove {
 }
 
 /** A change to the assignments, worked out from the workspace as it is when the change is made. */
-export type AssignmentChange = (ws: Workspace) => Assignment[]
+type AssignmentChange = (ws: Workspace) => Assignment[]
 
 interface Props {
   ws: Workspace

@@ -3,7 +3,7 @@ import { withSettingsDefaults, type Workspace } from '../domain/types'
 const FORMAT = 'expo-planner-backup'
 const VERSION = 1
 
-export interface Backup {
+interface Backup {
   format: typeof FORMAT
   version: number
   exportedAt: string

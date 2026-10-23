@@ -69,7 +69,7 @@ export const placeLinesOf = (projects: ProjectBalance, competence: string, proje
 }
 
 /** A line under the competence in focus that the brush can be: the sum line (no project), a project's line, or a place's line under it. */
-export interface BrushLine {
+interface BrushLine {
   projectNo: string | null
   hall: string | null
 }

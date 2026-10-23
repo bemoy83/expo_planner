@@ -46,7 +46,7 @@ export function Stepper({ value, min = 1, max = Infinity, label, onStep }: { val
  * The first press outside it only closes it: the press is swallowed, with its click, so it selects no day and
  * presses nothing under it. Escape closes it, and Enter does where `onEnter` is given.
  */
-export function Popover({ at, width, className = '', onClose, onEnter, children }: { at: DOMRect; width: number; className?: string; onClose: () => void; onEnter?: () => void; children: ReactNode }) {
+function Popover({ at, width, className = '', onClose, onEnter, children }: { at: DOMRect; width: number; className?: string; onClose: () => void; onEnter?: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [above, setAbove] = useState(false)
   useLayoutEffect(() => {

@@ -3,7 +3,7 @@ import type { TableDiff } from '../domain/tableDiff'
 import { errorText } from './files'
 
 /** A file that has been read and waits for the planner to say whether it is merged into the table or replaces it. */
-export interface PendingFile<T> {
+interface PendingFile<T> {
   file: string
   incoming: T
 }

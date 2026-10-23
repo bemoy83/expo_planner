@@ -217,7 +217,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   }
 }
 
-export type BemanningState = ReturnType<typeof useBemanningState>
+type BemanningState = ReturnType<typeof useBemanningState>
 /** What the days of a person's line tell the grid; the handlers keep their identity (see `useStableActions`). */
 export type PersonActions = BemanningState['actions']
 export type DemandRow = { style: CompetenceStyle; key: number }

@@ -9,7 +9,7 @@ import { buildVismaLines, type VismaLine } from './visma'
  */
 
 /** What a line can lack before it counts: a work type, its product type on KPI, the unit in use there, a rate, a hall. */
-export type Missing = 'type' | 'kpi' | 'unit' | 'rate' | 'hall'
+type Missing = 'type' | 'kpi' | 'unit' | 'rate' | 'hall'
 
 /** Where a line stands: it lacks something, it counts, or the planner has left it out. */
 export type LineStatus = 'need' | 'counted' | 'excluded'
@@ -18,10 +18,10 @@ export type LineStatus = 'need' | 'counted' | 'excluded'
 export type LineFilter = LineStatus | 'all'
 
 /** A line whose Hall/Sted names no hall of the hall ledger counts under «Mangler hall» in the Kalender. */
-export const isUnplaced = (line: VismaLine, halls: string[], rules?: HallRules): boolean => placeOf(line.hall, halls, rules, line.projectNo).hall === UNRESOLVED_HALL
+const isUnplaced = (line: VismaLine, halls: string[], rules?: HallRules): boolean => placeOf(line.hall, halls, rules, line.projectNo).hall === UNRESOLVED_HALL
 
 /** What the line lacks before it counts, in the order it is resolved in. */
-export const missingOf = (line: VismaLine, halls: string[], rules?: HallRules): Missing[] => {
+const missingOf = (line: VismaLine, halls: string[], rules?: HallRules): Missing[] => {
   const missing: Missing[] = []
   if (line.issue === 'no-product-type') missing.push('type')
   if (line.issue === 'unknown-work-type') missing.push('kpi')
@@ -161,7 +161,7 @@ export const causeGroups = (lines: ReviewedLine[]): { hall: CauseGroup[]; type: 
 }
 
 /** An article number among the booking lines of some Visma lines: how many it has, and the first, to show as it reads in the orders. */
-export interface ArticleSample {
+interface ArticleSample {
   articleNo: string
   bookings: number
   sample: VismaRow

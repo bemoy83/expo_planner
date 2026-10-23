@@ -3,7 +3,7 @@ import type { DateSpan, VenueBooking, VenuePhase } from '../domain/types'
 import { withVenueIds } from '../domain/venueImport'
 import { cellAt, readXlsx, text, type Sheet } from './xlsx'
 
-export class VenyouFormatError extends Error {}
+class VenyouFormatError extends Error {}
 
 const PHASE_COLUMNS: [VenuePhase, string][] = [
   ['assembly', 'assembly'],

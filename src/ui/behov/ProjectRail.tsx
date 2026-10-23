@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Search } from 'lucide-react'
 
-export interface RailItem {
+interface RailItem {
   projectNo: string
   name: string
   /** Beside the name: a count to attend to, hours, or a mark that nothing is left. */

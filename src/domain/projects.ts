@@ -63,7 +63,7 @@ export interface VenueEvent {
 }
 
 /** name → the rows of the project table under it. */
-export const projectListIndex = (projects: ProjectRef[]): Map<string, ProjectRef[]> => {
+const projectListIndex = (projects: ProjectRef[]): Map<string, ProjectRef[]> => {
   const index = new Map<string, ProjectRef[]>()
   for (const project of projects) {
     const name = normalizeName(project.name)
@@ -74,7 +74,7 @@ export const projectListIndex = (projects: ProjectRef[]): Map<string, ProjectRef
 }
 
 /** The numbers of the projects that go by the name in the year, sorted. A row without a year holds for every year. */
-export const projectsNamed = (index: Map<string, ProjectRef[]>, name: string, year: string): string[] => {
+const projectsNamed = (index: Map<string, ProjectRef[]>, name: string, year: string): string[] => {
   const numbers = new Map<string, string>()
   for (const ref of index.get(normalizeName(name)) ?? []) {
     const of = refYear(ref)
@@ -214,7 +214,7 @@ export const diffProjectList = (existing: ProjectRef[], incoming: ProjectRef[]):
   return diffBy(numbers(existing), numbers(incoming), ([key]) => key, ([, from], [, to]) => from.size === to.size && [...from].every((no) => to.has(no)))
 }
 
-export interface ProjectFollowers {
+interface ProjectFollowers {
   allocations: AllocationRow[]
   demand: DemandLine[]
   /** The blocks, orders and moved hours tagged with a project, which follow its number. */
@@ -301,12 +301,12 @@ const likeness = (a: string, b: string): { alike: number; within: number } => {
 }
 
 /** How alike two names must be for one to be offered as the other. */
-export const ALIKE = 0.75
+const ALIKE = 0.75
 /** How much of a name must be in a longer one for the two to be offered as one project, where their days overlap too. */
-export const WITHIN = 0.9
+const WITHIN = 0.9
 
 /** A project a row is offered: its number, and the name of it that is like the row's. */
-export interface ProjectMatch {
+interface ProjectMatch {
   projectNo: string
   name: string
 }
@@ -441,7 +441,7 @@ export const projectRows = (ws: Pick<Workspace, 'venue' | 'projects' | 'visma' |
 }
 
 /** Whether the number was made up in the app or by hand, as «26VAM», and not given by the system the orders come from. */
-export const isMadeUpNumber = (projectNo: string): boolean => /[a-zæøå]/i.test(projectNo)
+const isMadeUpNumber = (projectNo: string): boolean => /[a-zæøå]/i.test(projectNo)
 
 /**
  * The table when a number that came with orders takes over from the project that has carried its name (`ProjectRow.replaces`).

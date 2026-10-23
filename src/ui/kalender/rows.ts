@@ -5,7 +5,7 @@ import { normalizeName, projectNamesIndex, type VenueEvent } from '../../domain/
 import type { AllocationRow, ProjectRef, Settings, WorkPhase } from '../../domain/types'
 import { ROW_H, TOP_ROW_H } from './layout'
 
-export interface ProjectGroup {
+interface ProjectGroup {
   key: string
   projectName: string
   projectNo: string

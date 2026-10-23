@@ -12,7 +12,7 @@ import { anchorDate } from './venueImport'
  */
 
 /** Hours as typed: the hours, and how they were read where it was more than a number («3 pers × 2 dager»). Hours are NaN for a text that cannot be read. */
-export interface TypedHours {
+interface TypedHours {
   hours: number
   read?: string
 }
@@ -68,7 +68,7 @@ export const projectHallSpans = (bookings: VenueBooking[], projects: ProjectRef[
 }
 
 /** The span of one phase over all the halls of a project. */
-export const wholeSpan = (halls: Map<string, HallSpans> | undefined, phase: keyof HallSpans): DateSpan | undefined => {
+const wholeSpan = (halls: Map<string, HallSpans> | undefined, phase: keyof HallSpans): DateSpan | undefined => {
   let whole: DateSpan | undefined
   for (const spans of halls?.values() ?? []) if (spans[phase]) whole = widen(whole, spans[phase]!)
   return whole
@@ -89,7 +89,7 @@ export const spanText = (span: DateSpan): string => {
 }
 
 /** Where a project stands from today: being built or soon, later, or done. */
-export interface ProjectTiming {
+interface ProjectTiming {
   group: 'now' | 'later' | 'done'
   text: string
   /** Builds up within a week («soon»), within three («near»), or neither. */

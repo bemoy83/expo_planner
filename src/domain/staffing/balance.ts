@@ -14,7 +14,7 @@ import { blocksOf, normalWindows, okAssignments, unresolvedAssignments } from '.
 export const MET = 0.01
 
 /** How far the assigned hours cover the demand for one competence on one day. */
-export interface DayBalance {
+interface DayBalance {
   /** The hours the Kalender plans, plus the hours moved to the day. */
   demand: number
   /** The part of the demand that was moved here from another day. */
@@ -74,7 +74,7 @@ export const buildBalance = (ws: Workspace, dates: ISODate[]): Balance => {
 
 export const dayBalance = (ws: Workspace, competence: CompetenceKey, date: ISODate): DayBalance => buildBalance(ws, [date]).get(competence, date)
 
-export interface FreeCapacity {
+interface FreeCapacity {
   hours: number
   /** How many people have free normal time. */
   people: number

@@ -66,7 +66,7 @@ export interface RecordWrite {
 export const recordKey = (kind: Kind, id: string): string => `${kind}|${id}`
 
 /** The id of a row of the project table: a row per name a project goes by, so the name and the number. */
-export const projectId = (ref: { name: string; projectNo: string }): string => `${ref.name}|${ref.projectNo}`
+const projectId = (ref: { name: string; projectNo: string }): string => `${ref.name}|${ref.projectNo}`
 
 /** The id of a day of a planning row. */
 export const cellId = (rowId: string, date: string): string => `${rowId}|${date}`

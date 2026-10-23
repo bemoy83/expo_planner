@@ -6,7 +6,7 @@ import type { AllocLane } from './gridTypes'
 import { rangeOf, type Pull, type Selection, type Tool } from './selection'
 import { eraserCells, eraserPill, ghostCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress } from './strokes'
 
-export type PlanStroke = Exclude<Tool, 'select'>
+type PlanStroke = Exclude<Tool, 'select'>
 
 interface Options {
   dates: ISODate[]

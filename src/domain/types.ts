@@ -77,7 +77,7 @@ export interface VenueBooking {
   phases: Partial<Record<VenuePhase, DateSpan>>
 }
 
-export interface VenueImportInfo {
+interface VenueImportInfo {
   fileName: string
   importedAt: string
   from: ISODate
@@ -142,7 +142,7 @@ export interface AllocationRow {
   notes: Record<ISODate, string>
 }
 
-export type CapacityGroup = 'added' | 'overtime' | 'unavailable'
+type CapacityGroup = 'added' | 'overtime' | 'unavailable'
 
 /** A staffing line of the Kalender beside «Faste». The lines are worked out from Bemanning (absence, overtime), never stored. */
 export interface CapacityLine {

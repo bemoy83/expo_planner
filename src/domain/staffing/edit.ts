@@ -53,7 +53,7 @@ export interface DayCell {
   within?: Interval
 }
 
-export type PaintBlock = 'ineligible' | 'unavailable'
+type PaintBlock = 'ineligible' | 'unavailable'
 
 /**
  * Whether the days are weekends and holidays alone. The brush skips such a day when it is drawn across
@@ -170,7 +170,7 @@ export const moveBlock = (ws: Workspace, id: string, start: Minute, opts: EditOp
 }
 
 /** Why a block cannot be moved to another day or person (R19). */
-export type MoveRefusal = 'overlap' | 'away' | 'ineligible'
+type MoveRefusal = 'overlap' | 'away' | 'ineligible'
 
 /**
  * R19: a block as it would be on another day, or with another person, starting at `toStart`: the same
@@ -201,7 +201,7 @@ export const moveAssignment = (ws: Workspace, id: string, toDate: ISODate, toSta
 }
 
 /** A block without its place: what is copied, and what a move carries to another day. */
-export interface BlockShape {
+interface BlockShape {
   competence: CompetenceKey
   projectNo?: string
   hall?: string
@@ -218,7 +218,7 @@ export const landingGaps = (ws: Workspace, cell: DayCell, shape: Interval, assig
 
 const isAwayAllDay = (ws: Workspace, cell: DayCell): boolean => absenceOf(ws.unavailability ?? [], cell.personId, cell.date).some(isWholeDay)
 
-export interface DayMove {
+interface DayMove {
   from: DayCell
   to: DayCell
   /** The blocks of the day that are moved. */

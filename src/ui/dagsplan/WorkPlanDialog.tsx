@@ -12,7 +12,7 @@ import { Segmented } from '../common'
 import { DayPlanSheet } from './DayPlanSheet'
 import { WeekPlanSheet } from './WeekPlanSheet'
 
-export type PlanView = 'day' | 'week'
+type PlanView = 'day' | 'week'
 export interface OpenPlan {
   view: PlanView
   date: ISODate

@@ -144,7 +144,7 @@ const MARKS = new Set(['ja', 'j', 'x', '1', 'true', 'yes'])
 export const isMarked = (value: CellValue): boolean => MARKS.has(text(value).toLowerCase())
 
 /** One sheet to write: a heading and the rows under it. */
-export interface SheetTable {
+interface SheetTable {
   name: string
   head: string[]
   rows: CellValue[][]

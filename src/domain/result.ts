@@ -52,7 +52,7 @@ export const diffBudgets = (existing: Budgets | undefined, incoming: BudgetEntry
   diffBy(entries(existing), incoming, (entry) => numberKey(entry.projectNo), (a, b) => a.hours === b.hours)
 
 /** Days of each of the venue's phases a project has in its halls, counted once however many halls have them. */
-export interface HallDays {
+interface HallDays {
   assembly: number
   event: number
   dismantle: number
@@ -179,7 +179,7 @@ export const seasonRows = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projec
 }
 
 /** The sums of the rows shown. The deviation is over the projects that have a budget alone, which are counted in `budgeted`. */
-export interface SeasonTotals {
+interface SeasonTotals {
   projects: number
   budgeted: number
   budget: number
@@ -211,7 +211,7 @@ export const seasonTotals = (rows: SeasonRow[]): SeasonTotals => {
 }
 
 /** One competence of a project: the hours of the demand it plans with, and the hours planned, per work phase. */
-export interface CompetenceHours {
+interface CompetenceHours {
   competence: string
   demand: PhaseHours
   planned: PhaseHours
@@ -245,7 +245,7 @@ export const projectHours = (ws: Pick<Workspace, 'demand' | 'allocations' | 'set
 }
 
 /** The staffing of the season: per project, by its `numberKey`, and what is not on any project. */
-export interface SeasonStaffing {
+interface SeasonStaffing {
   projects: Map<string, ProjectTotal>
   /** The staffing of the demand without a project number. */
   noProject: ProjectTotal
@@ -281,7 +281,7 @@ export const seasonStaffing = ({ balance, dates }: ReturnType<typeof seasonBalan
 }
 
 /** One competence of a project: what it is staffed with per work phase, and what remains of its plan. */
-export interface CompetenceStaffing {
+interface CompetenceStaffing {
   competence: string
   tagged: PhaseHours
   shared: PhaseHours

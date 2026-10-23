@@ -285,7 +285,7 @@ export const replacePersons = (ws: Workspace, file: FilePerson[]): Workspace => 
   return { ...kept, persons }
 }
 
-export interface PersonsDiff extends TableDiff {
+interface PersonsDiff extends TableDiff {
   /** Assignments and absences of the people only in the app, which go with them when replacing. */
   lostBlocks: number
   /** Competences the file names that the app does not know. */
@@ -352,7 +352,7 @@ export const mergeCompetenceStyles = (ws: Workspace, file: FileCompetence[], rep
   return asRecord([...fromRows, ...(replace ? [] : styles.filter((style) => !inFile.has(style.key)))])
 }
 
-export interface StylesDiff extends TableDiff {
+interface StylesDiff extends TableDiff {
   /** Of those only in the app, the ones something names: they cannot be removed, and stay when replacing. */
   inUse: number
 }

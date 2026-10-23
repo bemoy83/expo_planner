@@ -20,16 +20,16 @@ import { pushTo } from './collections'
  */
 
 /** How far a project's hours of one competence are covered that day, counting the permanent staff and confirmed orders. */
-export type CoverageState = 'ok' | 'short' | 'wait'
+type CoverageState = 'ok' | 'short' | 'wait'
 
-export interface ProjectCoverage {
+interface ProjectCoverage {
   competence: CompetenceKey
   state: CoverageState
   /** The suppliers that have an order waiting for an answer for it. */
   waiting: string[]
 }
 
-export interface ProjectPhaseDay {
+interface ProjectPhaseDay {
   label: string
   /** The day of the phase's days, from one. */
   day: number
@@ -38,7 +38,7 @@ export interface ProjectPhaseDay {
   next?: { label: string; date: ISODate }
 }
 
-export interface DayNote {
+interface DayNote {
   competence: CompetenceKey
   /** The hall of the planning row; empty for a row of all halls. */
   hall: string
@@ -69,14 +69,14 @@ export interface DayBlock {
   uncertain: boolean
 }
 
-export interface DayFitter {
+interface DayFitter {
   personId: string
   name: string
   blocks: DayBlock[]
 }
 
 /** The people of one supplier for a competence and project, with the answer. */
-export interface DayHired {
+interface DayHired {
   supplierId: string
   name: string
   people: number
@@ -89,7 +89,7 @@ export interface DayHired {
   waiting: boolean
 }
 
-export interface DayAbsence {
+interface DayAbsence {
   personId: string
   name: string
   /** The part of the day the person is away; none for the whole day. */
@@ -102,7 +102,7 @@ export interface DayAbsence {
 }
 
 /** A fitter in a group: the whole day, and which of its blocks are the group's. */
-export interface GroupFitter {
+interface GroupFitter {
   kind: 'fitter'
   personId: string
   name: string
@@ -128,7 +128,7 @@ export interface DayCompetenceGroup {
 }
 
 /** A product type of the demand, summed over the phase of the day. */
-export interface WorkItem {
+interface WorkItem {
   productType: string
   quantity: number | null
   unit: string
@@ -145,10 +145,10 @@ export interface DayWork {
 }
 
 /** The product types a competence group names; the rest are counted. */
-export const WORK_SHOWN = 2
+const WORK_SHOWN = 2
 
 /** A place of a project that day, with its competences; `projectNo` is `NO_PROJECT` for the work of no project. */
-export interface DayPlaceGroup {
+interface DayPlaceGroup {
   projectNo: string
   /** The project's name; empty for the work of no project. */
   name: string

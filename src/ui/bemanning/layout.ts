@@ -30,6 +30,6 @@ export const PHASE_NAME_MIN_W = 84
 export const PANEL_W = 340
 /** The pixels per hour of a day's track in a person's open hours, and the air above and below the track. */
 export const HOUR_PX = 20
-export const TRACK_MARGIN = 12
+const TRACK_MARGIN = 12
 /** The height of a person's open hours: an hour of the day for every hour overtime can be drawn in. */
 export const unfoldedHeight = (wd: WorkdaySettings): number => ((wd.overtimeLatest - wd.overtimeEarliest) / 60) * HOUR_PX + 2 * TRACK_MARGIN

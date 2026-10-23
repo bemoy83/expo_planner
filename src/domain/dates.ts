@@ -5,12 +5,12 @@ const DAY_MS = 86_400_000
 // Excel's day 0 is 1899-12-30 once the 1900 leap-year bug is accounted for.
 const EXCEL_EPOCH_MS = Date.UTC(1899, 11, 30)
 
-export const toUtc = (date: ISODate): number => {
+const toUtc = (date: ISODate): number => {
   const [y, m, d] = date.split('-').map(Number)
   return Date.UTC(y, m - 1, d)
 }
 
-export const fromUtc = (ms: number): ISODate => new Date(ms).toISOString().slice(0, 10)
+const fromUtc = (ms: number): ISODate => new Date(ms).toISOString().slice(0, 10)
 
 /** The calendar date of a moment where the planner sits, not in UTC: just after midnight it is already the new day. */
 export const localIso = (moment: Date): ISODate => `${moment.getFullYear()}-${String(moment.getMonth() + 1).padStart(2, '0')}-${String(moment.getDate()).padStart(2, '0')}`

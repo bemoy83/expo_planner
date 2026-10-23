@@ -2,7 +2,7 @@ import { withProjectNames } from '../domain/visma'
 import type { VismaRow } from '../domain/types'
 import { dataRows, findHeader, num, readXlsx, text } from './xlsx'
 
-export class VismaFormatError extends Error {}
+class VismaFormatError extends Error {}
 
 /**
  * The name of a product type from «Produkttype 2», where Visma writes it with a number in front and in brackets:

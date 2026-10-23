@@ -15,7 +15,7 @@ export const referenceProjectNo = (projectNo: string, refYear: string): string =
 /** The year a number begins with, as `referenceProjectNo` puts it there: 26970 → 2026. */
 export const dataYear = (projectNo: string): string => `20${projectNo.trim().slice(0, 2)}`
 
-export const seriesOf = (projectNo: string): string => projectNo.trim().slice(-3)
+const seriesOf = (projectNo: string): string => projectNo.trim().slice(-3)
 
 interface HourTotals {
   assembly: number
@@ -130,7 +130,7 @@ export const dailyNeed = (rows: AllocationRow[]): Map<ISODate, number> => {
   return need
 }
 
-export interface DayCapacity {
+interface DayCapacity {
   base: number
   added: number
   overtime: number

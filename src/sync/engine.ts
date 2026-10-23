@@ -25,7 +25,7 @@ export interface SharedCopy {
   pull: (after: number, limit: number) => Promise<RemoteRow[]>
 }
 
-export const PAGE = 1000
+const PAGE = 1000
 
 /**
  * Of a page of rows read in the order of their revs, those of the batches that are whole: the last batch of a full
@@ -38,7 +38,7 @@ export const wholeBatches = (rows: RemoteRow[], full: boolean): RemoteRow[] => {
 }
 
 /** The batches waiting to be sent, each with its writes, oldest first. */
-export const batchesOf = (entries: OutboxEntry[]): OutboxEntry[][] => {
+const batchesOf = (entries: OutboxEntry[]): OutboxEntry[][] => {
   const batches = new Map<string, OutboxEntry[]>()
   for (const entry of entries) pushTo(batches, entry.batch, entry)
   return [...batches.values()]
@@ -102,7 +102,7 @@ const messageOf = (error: unknown): string => String((error as { message?: strin
 const oneWindowAtATime = (work: () => Promise<void>): Promise<void> =>
   typeof navigator !== 'undefined' && navigator.locks ? navigator.locks.request(`${databaseName()}:sync`, work) : work()
 
-export interface Engine {
+interface Engine {
   /** Sends and reads a moment from now: for writes, which come in bursts while a planner works. */
   nudge: () => void
   /** Sends and reads now, or as soon as the run under way is over: when another computer says it wrote. */

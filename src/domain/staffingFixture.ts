@@ -2,7 +2,7 @@ import type { ISODate } from './dates'
 import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, Workspace } from './types'
 
 /** The data of the Bemanning mockup: invented people and one week of demand. For the tests only; nothing in the app reads it. */
-export interface StaffingFixture {
+interface StaffingFixture {
   persons: Person[]
   competences: CompetenceStyle[]
   assignments: Assignment[]
