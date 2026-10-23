@@ -63,6 +63,49 @@ export interface RecordWrite {
   value: unknown
 }
 
+/**
+ * What the value of a record of each kind is: an object, but for a hidden booking (`true`), a choice for a text (the
+ * place it is given) and a budget (a sum). Every kind is named, so a record read from elsewhere can be checked.
+ */
+const VALUE_OF: Record<Kind, 'object' | 'true' | 'string' | 'number'> = {
+  settings: 'object',
+  venueImport: 'object',
+  kpi: 'object',
+  kpiText: 'object',
+  kpiExcluded: 'object',
+  hallRules: 'object',
+  hallChoice: 'string',
+  override: 'object',
+  hidden: 'true',
+  competenceStyle: 'object',
+  budget: 'number',
+  visma: 'object',
+  demand: 'object',
+  venue: 'object',
+  project: 'object',
+  allocation: 'object',
+  allocCell: 'object',
+  person: 'object',
+  unavailability: 'object',
+  assignment: 'object',
+  demandAdjustment: 'object',
+  supplier: 'object',
+  hireOrder: 'object',
+  planner: 'object',
+}
+
+export const isKind = (kind: unknown): kind is Kind => typeof kind === 'string' && Object.hasOwn(VALUE_OF, kind)
+
+/** Whether a value can be that of a record of the kind; `null`, a delete, always can. */
+export const fitsKind = (kind: Kind, value: unknown): boolean => {
+  if (value === null) return true
+  const shape = VALUE_OF[kind]
+  if (shape === 'object') return typeof value === 'object' && !Array.isArray(value)
+  if (shape === 'true') return value === true
+  if (shape === 'number') return typeof value === 'number' && Number.isFinite(value)
+  return typeof value === shape
+}
+
 export const recordKey = (kind: Kind, id: string): string => `${kind}|${id}`
 
 /** The id of a row of the project table: a row per name a project goes by, so the name and the number. */

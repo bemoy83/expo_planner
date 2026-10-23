@@ -1,5 +1,5 @@
 import { confirmSent, databaseName, pendingOutbox, readCursor, takeRemote, type OutboxEntry, type RemoteRecord } from '../store/db'
-import type { Delta, Kind } from '../store/records'
+import { fitsKind, isKind, type Delta } from '../store/records'
 import { pushTo } from '../domain/collections'
 
 /** Where the shared copy stands, as the page header says it. */
@@ -37,6 +37,17 @@ export const wholeBatches = (rows: RemoteRow[], full: boolean): RemoteRow[] => {
   return rows.filter((row) => row.batch_id !== last)
 }
 
+/**
+ * A row of the shared table as a record to take in, or `null` where it is not one: a kind this version does not know (a
+ * later version may have written it), no id or rev, or a value of the wrong shape. Such a row is passed over, and the
+ * cursor moves past it all the same: reading it again would give the same.
+ */
+export const remoteRecord = (row: RemoteRow): RemoteRecord | null => {
+  const value = row.deleted ? null : row.data
+  if (!isKind(row.kind) || typeof row.id !== 'string' || !row.id || !Number.isFinite(row.rev) || (!row.deleted && value === null) || !fitsKind(row.kind, value)) return null
+  return { kind: row.kind, id: row.id, value, rev: row.rev, by: row.updated_by, at: row.updated_at }
+}
+
 /** The batches waiting to be sent, each with its writes, oldest first. */
 const batchesOf = (entries: OutboxEntry[]): OutboxEntry[][] => {
   const batches = new Map<string, OutboxEntry[]>()
@@ -70,7 +81,9 @@ export const pullAll = async (copy: SharedCopy): Promise<Delta[]> => {
     carried = rows.slice(whole.length)
     if (whole.length) {
       cursor = whole[whole.length - 1].rev
-      deltas.push(...(await takeRemote(whole.map((row): RemoteRecord => ({ kind: row.kind as Kind, id: row.id, value: row.deleted ? null : row.data, rev: row.rev, by: row.updated_by, at: row.updated_at })), cursor)))
+      const records = whole.map(remoteRecord).filter((record) => record !== null)
+      if (records.length < whole.length) console.warn(`sync: ${whole.length - records.length} records of the shared copy passed over`)
+      deltas.push(...(await takeRemote(records, cursor)))
     }
     if (!full) return deltas
   }
