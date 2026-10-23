@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import type { ISODate } from '../../domain/dates'
-import { okAssignments, openUnresolved, overtimeBreaches, personWeek, type PersonWeek } from '../../domain/staffing'
+import { openUnresolved } from '../../domain/staffing/balance'
+import { okAssignments, overtimeBreaches, personWeek, type PersonWeek } from '../../domain/staffing/time'
 import type { Assignment, Person, Unavailability, Workspace } from '../../domain/types'
 import { weekDates } from './week'
 

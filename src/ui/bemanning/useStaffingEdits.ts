@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
-import { clearDays, copyDays, moveDay, onlyOffDays, paintBlock, paintDays, paintGaps, pasteDays, removeUnresolved, type Clipboard, type DayCell as Day } from '../../domain/staffing'
+import { removeUnresolved } from '../../domain/staffing/balance'
+import { clearDays, copyDays, moveDay, onlyOffDays, paintBlock, paintDays, paintGaps, pasteDays, type Clipboard, type DayCell as Day } from '../../domain/staffing/edit'
 import type { CompetenceStyle, Person, Work, Workspace } from '../../domain/types'
 import { fmtDay } from '../kalender/labels'
 import type { Toast } from '../Toasts'

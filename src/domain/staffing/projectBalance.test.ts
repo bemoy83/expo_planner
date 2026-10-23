@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, planOrders, tagOrders } from './hire'
-import { buildBalance, buildProjectBalance, carry, cellsToDemand, clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, NO_PROJECT, paintDays, pasteDays, projectsWithWork, projectTotals, recolourBlock, removeCarried, resizeBlock, splitBlock } from './staffing'
-import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
-import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from './types'
-import { nextInRun } from '../ui/bemanning/runs'
+import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, planOrders, tagOrders } from '../hire'
+import { buildBalance, removeCarried } from './balance'
+import { clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, paintDays, pasteDays, recolourBlock, resizeBlock, splitBlock } from './edit'
+import { buildProjectBalance, carry, cellsToDemand, NO_PROJECT, projectsWithWork, projectTotals } from './projectBalance'
+import { TWO_PROJECTS, withTwoProjects } from '../staffingFixture'
+import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from '../types'
+import { nextInRun } from '../../ui/bemanning/runs'
 
 /** The project balance of `staffing.ts`: the hours of a competence on a day shared out on its projects. */
 

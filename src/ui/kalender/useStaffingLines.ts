@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { planningSettings } from '../../domain/calc'
 import { hiredFte, hiredLine } from '../../domain/hire'
-import { absenceLine, overtimeLine } from '../../domain/staffing'
+import { absenceLine, overtimeLine } from '../../domain/staffing/time'
 import type { Workspace } from '../../domain/types'
 
 /**

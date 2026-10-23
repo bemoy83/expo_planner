@@ -1,5 +1,5 @@
 import type { ISODate } from '../../domain/dates'
-import type { Clipboard, DayCell as Day } from '../../domain/staffing'
+import type { Clipboard, DayCell as Day } from '../../domain/staffing/edit'
 import type { Assignment } from '../../domain/types'
 import { DIVIDER_H, PERSON_H } from './layout'
 import { strokeRange, type Stroke } from './tools'

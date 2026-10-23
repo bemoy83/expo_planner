@@ -1,6 +1,7 @@
 import type { ISODate } from '../../domain/dates'
 import { numberKey } from '../../domain/projects'
-import { placeKey, PROJECT_PLACE, type Balance, type ProjectBalance } from '../../domain/staffing'
+import { type Balance } from '../../domain/staffing/balance'
+import { placeKey, PROJECT_PLACE, type ProjectBalance } from '../../domain/staffing/projectBalance'
 import { placeName } from '../../domain/workPlace'
 import { EPSILON } from './week'
 import { clamp } from '../../domain/numbers'

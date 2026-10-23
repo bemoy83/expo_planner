@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import type { ISODate } from '../../domain/dates'
-import { deleteBlock, type Clipboard, type DayCell as Day } from '../../domain/staffing'
+import { deleteBlock, type Clipboard, type DayCell as Day } from '../../domain/staffing/edit'
 import type { AllocationRow, CompetenceStyle, VenuePhase } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'

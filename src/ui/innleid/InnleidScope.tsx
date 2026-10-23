@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ISODate } from '../../domain/dates'
 import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, dayKey, eraseOrders, fillGroup, groupKey, hireBoard, isWaiting, mergeOrders, orderGroups, ordersByDay, planOrders, rangeSummary, removeOrders, setWaiting, tagOrders, waitingHours, type Coverage, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
-import { projectsWithWork } from '../../domain/staffing'
+import { projectsWithWork } from '../../domain/staffing/projectBalance'
 import { sameProject, type CompetenceKey, type CompetenceStyle, type HireOrder, type Interval, type ShiftId, type Supplier } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useBemanning, type Density } from '../bemanning/BemanningScope'

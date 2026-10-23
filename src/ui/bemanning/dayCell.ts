@@ -1,6 +1,6 @@
 import { dayType } from '../../domain/holidays'
 import type { ISODate } from '../../domain/dates'
-import { overtimeHours, paidTotal, subtract } from '../../domain/staffing'
+import { overtimeHours, paidTotal, subtract } from '../../domain/staffing/intervals'
 import { workTag, type Assignment, type Interval, type Minute, type Unavailability, type WorkdaySettings } from '../../domain/types'
 import { clock } from './week'
 

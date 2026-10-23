@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildBalance, buildProjectBalance, cellsToDemand, copyDays, mergeAdjacent, moveDay, NO_PROJECT, paintDays, drawBlock, clickBlock, pasteDays, PROJECT_PLACE, splitBlock } from './staffing'
+import { buildBalance } from './staffing/balance'
+import { copyDays, mergeAdjacent, moveDay, paintDays, drawBlock, clickBlock, pasteDays, splitBlock } from './staffing/edit'
+import { buildProjectBalance, cellsToDemand, NO_PROJECT, PROJECT_PLACE } from './staffing/projectBalance'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type VenueBooking, type Workspace } from './types'
 import { blockPlaces, bookedPlaces, dealPlaces, placeName, withPlacesSet } from './workPlace'

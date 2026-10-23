@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { ISODate } from '../../domain/dates'
-import type { DayCell as Day } from '../../domain/staffing'
+import type { DayCell as Day } from '../../domain/staffing/edit'
 import type { Workspace, WorkdaySettings } from '../../domain/types'
 import { LEFT_W } from '../kalender/layout'
 import { useStableActions } from '../kalender/useStableActions'

@@ -1,4 +1,4 @@
-import type { PersonWeek } from '../../domain/staffing'
+import type { PersonWeek } from '../../domain/staffing/time'
 import type { CompetenceStyle } from '../../domain/types'
 import { placeName } from '../../domain/workPlace'
 import { competenceColor } from '../dom'

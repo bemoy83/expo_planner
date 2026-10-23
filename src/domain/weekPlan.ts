@@ -1,7 +1,7 @@
 import { addDays, daysBetween, type ISODate } from './dates'
 import { isWaiting } from './hire'
 import { numberKey, projectNamer, venueEvents } from './projects'
-import { PROJECT_PLACE, buildProjectBalance, placeKey } from './staffing'
+import { PROJECT_PLACE, buildProjectBalance, placeKey } from './staffing/projectBalance'
 import { competenceKey, sameProject, type CompetenceKey, type VenuePhase, type Workspace } from './types'
 import { visibleVenue } from './venueImport'
 import { bookedPlaces, dealPlaces, phaseAt, projectPhaseSpans } from './workPlace'

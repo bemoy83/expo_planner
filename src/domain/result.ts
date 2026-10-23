@@ -1,6 +1,6 @@
 import { dateRange, type ISODate } from './dates'
 import { eventKey, numberKey, numberYear, venueEvents } from './projects'
-import { buildProjectBalance, NO_PROJECT, projectTotals, type ProjectBalance, type ProjectTotal } from './staffing'
+import { buildProjectBalance, NO_PROJECT, projectTotals, type ProjectBalance, type ProjectTotal } from './staffing/projectBalance'
 import { diffBy, type TableDiff } from './tableDiff'
 import { competenceKey, PLANNED_BASIS, type Budgets, type Workspace, type WorkPhase } from './types'
 import { anchorDate, visibleVenue } from './venueImport'

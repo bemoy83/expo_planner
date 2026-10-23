@@ -1,58 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { loadStaffingFixture, withStaffingFixture } from './staffingFixture'
-import { capacityForDate, dailyNeed, planningSettings } from './calc'
-import {
-  ABSENCE_LINE_ID,
-  OVERTIME_LINE_ID,
-  overtimeByDay,
-  overtimeLine,
-  absenceFte,
-  absenceLine,
-  absenceSpans,
-  addAbsence,
-  backFrom,
-  copyDays,
-  moveDay,
-  pasteDays,
-  editAbsence,
-  overtimeBreaches,
-  overtimeByWeek,
-  isAway,
-  openUnresolved,
-  removeCarried,
-  assignmentStatus,
-  balanceTotals,
-  buildBalance,
-  cellsToDemand,
-  carry,
-  clearDays,
-  clickBlock,
-  dayBalance,
-  defaultBrush,
-  drawBlock,
-  editableWindows,
-  freeCapacity,
-  freeIntervals,
-  invariantBreaches,
-  mergeAdjacent,
-  moveAssignment,
-  moveBlock,
-  moveTarget,
-  normalWindows,
-  overtimeHours,
-  paidHours,
-  paintBlock,
-  paintDays,
-  personWeek,
-  recolourBlock,
-  removeUnresolved,
-  resizeBlock,
-  splitBlock,
-  uncoverable,
-  unresolvedAssignments,
-  weekTotals,
-} from './staffing'
-import { competenceKey, DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type Unavailability, type Workspace } from './types'
+import { loadStaffingFixture, withStaffingFixture } from '../staffingFixture'
+import { capacityForDate, dailyNeed, planningSettings } from '../calc'
+import { openUnresolved, removeCarried, balanceTotals, buildBalance, dayBalance, defaultBrush, freeCapacity, removeUnresolved, uncoverable, weekTotals } from './balance'
+import { copyDays, moveDay, pasteDays, clearDays, clickBlock, drawBlock, invariantBreaches, mergeAdjacent, moveAssignment, moveBlock, moveTarget, paintBlock, paintDays, recolourBlock, resizeBlock, splitBlock } from './edit'
+import { freeIntervals, overtimeHours, paidHours } from './intervals'
+import { cellsToDemand, carry } from './projectBalance'
+import { ABSENCE_LINE_ID, OVERTIME_LINE_ID, overtimeByDay, overtimeLine, absenceFte, absenceLine, absenceSpans, addAbsence, backFrom, editAbsence, overtimeBreaches, overtimeByWeek, isAway, assignmentStatus, editableWindows, normalWindows, personWeek, unresolvedAssignments } from './time'
+import { competenceKey, DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type Unavailability, type Workspace } from '../types'
 
 /** `hh:mm` as minutes after midnight. */
 const t = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3))

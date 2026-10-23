@@ -37,8 +37,8 @@ What was built in each part, where the designs and the app disagreed and what wa
 
 ## Staffing lines: begun
 
-- **Fravær is in.** The absence entered in Bemanning shows in the Kalender's Bemanning section as the line «Fravær faste (FTE)», worked out per day (`absenceFte` in `domain/staffing.ts`: a whole day away is 1, a part of the day its share of the normal day, on workdays only), and is subtracted from «Tilgjengelig». It is read-only in the Kalender.
-- **Overtime is in.** The overtime drawn in Bemanning shows as «Overtid faste (FTE)» (`overtimeByDay` and `overtimeLine` in `domain/staffing.ts`: hours outside the normal day, and every paid hour on a weekend or holiday, divided by the hours of an FTE-day) and is added to «Tilgjengelig». Read-only in the Kalender.
+- **Fravær is in.** The absence entered in Bemanning shows in the Kalender's Bemanning section as the line «Fravær faste (FTE)», worked out per day (`absenceFte` in `domain/staffing/time.ts`: a whole day away is 1, a part of the day its share of the normal day, on workdays only), and is subtracted from «Tilgjengelig». It is read-only in the Kalender.
+- **Overtime is in.** The overtime drawn in Bemanning shows as «Overtid faste (FTE)» (`overtimeByDay` and `overtimeLine` in `domain/staffing/time.ts`: hours outside the normal day, and every paid hour on a weekend or holiday, divided by the hours of an FTE-day) and is added to «Tilgjengelig». Read-only in the Kalender.
 - **Innleid is in (2026-10-13).** The confirmed orders of Bemanning · Innleid show as «Innleid (FTE)» and are added to «Tilgjengelig»; see «Innleid: begun». Read-only in the Kalender.
 - **Deferred by the user (2026-10-07): the lines typed in by hand** (Innleid, trade crews, Admin, margin). The workbook was their only source; with its import gone, their storage and editing in the Kalender are removed too. Do not build them again. The user will design another system for hired crew, like Bemanning but for innleid: in his words it is basically every competence demand that is not met after the permanent staff are assigned. His design is `design_docs/innleid/`, built and merged 2026-10-13. Trade crews, Admin and margin are still not built.
 
@@ -106,7 +106,7 @@ General
 - The style sheets in `src/styles/` name every colour and every text size in `tokens.css`. Still plain values: the 15 px figures of the header and of Bemanning's demand strip, corner radii, and the dark shadow of the row details. The three figures side by side and the thin bar under them are one set of rules in `base.css` (`.stats`, `.bar`), used by the row details and by Bemanning.
 - Numbers typed with a decimal comma are read by one parser (`domain/numbers.ts`), but what an empty field means still differs by place: 0 in the tables and for the crew, nothing in a demand line, invalid for the hours of a day and for hours to move.
 - `docs/kalender-workbook.md` describes the workbook, which the app does not read.
-- Left from the survey of 2026-10-23 (the memo bugs, a retry of failed writes, tests of the store, the caches of `okAssignments` and of blocks and absence by person and day, plurals through `count` and the date header's heights were done then):
+- Left from the survey of 2026-10-23 (the memo bugs, a retry of failed writes, tests of the store, the caches of `okAssignments` and of blocks and absence by person and day, plurals through `count` and the date header's heights were done then, and `domain/staffing.ts` was split into `domain/staffing/` the same day):
   - `sync/engine.ts`: the state machine of `startEngine` has no test; `batchesOf` is O(n²) after a long time offline. What is read from the shared copy goes into the workspace unchecked (`row.kind as Kind`).
   - `domain/projects.ts`: `projectRows` matches every event by name likeness against every project (O(P²) in `inSeries`) on each FTE edit while Prosjekter or Haller is open; the matching needs only Venyou and the projects and could be worked out apart from the counts.
   - Day and month names are written in five places (`domain/dates.ts`, `bemanning/week.ts`, `dagsplan/format.ts`, `haller/Haller.tsx`, `domain/ownDemand.ts`), with about six date formatters beside them, and hours and numbers are formatted in about seven modules; one `ui/format.ts` would hold them.
@@ -116,7 +116,6 @@ General
   - `sync/CloudProvider.tsx` keeps its own keys in localStorage, outside `store/prefs.ts`, so «Slett alt» leaves them.
   - `PlacingPanel.tsx` draws its own panel frame rather than `SidePanel`; `domain/staffingFixture.ts` is read by tests only but lies in `domain/`.
   - Every test file starts jsdom, the pure domain tests too; jsdom takes about 60 % of the test time.
-  - `domain/staffing.ts` (about 1150 lines, 87 exports) is to be split, into time and intervals, painting and editing, and the balances, when work is next done there.
 
 ## Test notes
 

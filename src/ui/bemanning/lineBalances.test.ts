@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ISODate } from '../../domain/dates'
-import type { Balance, PlaceDay, ProjectBalance, ProjectDay } from '../../domain/staffing'
+import type { Balance } from '../../domain/staffing/balance'
+import type { PlaceDay, ProjectBalance, ProjectDay } from '../../domain/staffing/projectBalance'
 import { brushStep, leftIn, placeDays, placeLinesOf, projectDays, remainingIn, type PlaceLine, type ProjectLine } from './lineBalances'
 
 const place = (hall: string, demand: number, tagged = 0, shared = 0): PlaceDay => ({ hall, demand, tagged, shared, remaining: demand - tagged - shared })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { PersonWeek } from '../../domain/staffing'
+import type { PersonWeek } from '../../domain/staffing/time'
 import { dayGrid, dividerHeight, personRowAt } from './dayGrid'
 import { DIVIDER_H, PERSON_H } from './layout'
 import type { PersonLine } from './usePeopleLines'
