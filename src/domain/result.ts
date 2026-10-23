@@ -272,6 +272,12 @@ export const seasonTotals = (rows: SeasonRow[]): SeasonTotals => {
   }
 }
 
+/** The sums of the rows, their hours per day against the permanent staff, and what the staff can work per day: what the figures and the sums of the matrix show. */
+export const seasonSummary = (rows: SeasonRow[]) => ({ totals: seasonTotals(rows), averages: dayAverages(rows), staff: staffPerDay(rows) })
+
+/** How far the hours worked may pass the plan with overhead before it is said that the plan missed: a tenth. */
+export const PLAN_MARGIN = 0.1
+
 /** The projects that need the planner, by what they need. A project can be in several. */
 interface FollowUps {
   /** The plan with overhead is over the budget, and the project is not done. */

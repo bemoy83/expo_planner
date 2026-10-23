@@ -16,7 +16,7 @@
 .res-figure{display:flex;flex-direction:column;gap:4px;min-width:0;padding:9px 12px 10px;border-radius:12px;background:var(--surface);box-shadow:var(--card)}
 .res-figure.empty{background:var(--panel);box-shadow:inset 0 0 0 1px var(--line)}
 .res-figure-label{font-size:var(--fs-sm);font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.res-figure>b{font:600 26px/1.05 var(--font-num);letter-spacing:-.03em}
+.res-figure>b{font:600 var(--fs-kpi)/1.05 var(--font-num);letter-spacing:-.03em}
 .res-figure>b small{margin-left:4px;font:500 var(--fs-md) var(--font-num);letter-spacing:0;color:var(--faint)}
 .res-figure-sub{font-size:var(--fs-sm);color:var(--muted);text-wrap:pretty}
 .res-figure-pair{display:inline-flex;gap:14px}
@@ -48,23 +48,23 @@
 .res-num-head.staff>span>span{display:inline-flex;align-items:center;gap:5px}
 /* a project */
 .res-project{gap:1px;padding:4px 8px 4px 0}
-.res-project>b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-project>b{font-size:var(--fs-base);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .res-project-meta{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--muted);white-space:nowrap}
 .res-project-meta .project-no{margin:0;font-size:var(--fs-xs)}
 /* the hall days per phase, the phase colours of the hall calendar */
 .res-phase-head{display:grid;place-items:center}
-.res-phase-head b{display:grid;place-items:center;min-width:16px;height:18px;padding:0 1px;border-radius:4px;font:600 9px var(--font-num);letter-spacing:-.03em;color:var(--text)}
+.res-phase-head b{display:grid;place-items:center;min-width:16px;height:18px;padding:0 1px;border-radius:4px;font:600 var(--fs-3xs) var(--font-num);letter-spacing:-.03em;color:var(--text)}
 .res-phase-days{text-align:center;font-size:var(--fs-sm);color:var(--muted)}
 .res-phase-days.sum{font-weight:600;color:var(--text)}
 /* the halls: a tile in the colour of the plan where the project is booked */
 .res-hall-head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;align-self:stretch;border-radius:6px 6px 0 0}
-.res-hall-head b{max-width:100%;overflow:hidden;text-overflow:ellipsis;font:600 10.5px var(--font-num);letter-spacing:-.02em;color:var(--text);white-space:nowrap}
+.res-hall-head b{max-width:100%;overflow:hidden;text-overflow:ellipsis;font:600 var(--fs-2xs) var(--font-num);letter-spacing:-.02em;color:var(--text);white-space:nowrap}
 .res-hall-head small{min-height:13px;font-size:var(--fs-2xs)}
 .res-hall{display:grid;place-items:center;align-self:stretch}
 .res-hall-head.lit,.res-hall.lit{background:var(--wash)}
 .res-dot{width:3px;height:3px;border-radius:50%;background:var(--line-strong)}
 .res-tile{display:block;width:14px;height:14px;border-radius:3px;background:var(--mon)}
-.res-tile.more{display:grid;place-items:center;width:18px;height:16px;background:var(--sunken);font-size:10.5px;font-weight:600;color:var(--muted)}
+.res-tile.more{display:grid;place-items:center;width:18px;height:16px;background:var(--sunken);font-size:var(--fs-2xs);font-weight:600;color:var(--muted)}
 /* plan and actual hours against the budget: in the list each bar is scaled to its project's own budget */
 .res-bars-cell{padding:0 10px}
 .res-bars{position:relative;display:flex;flex-direction:column;justify-content:center;gap:4px;height:22px}
@@ -82,7 +82,7 @@
 .res-bars.big .res-line{height:10px;border-radius:5px}
 .res-bars.big .tick{width:3px;top:-3px;bottom:-3px}
 /* hours per day against the permanent staff: a bar from their line, right where the plan needs more, left where they are not filled */
-.res-staff{display:flex;flex-direction:column;gap:4px;padding-left:8px;font-size:12.5px}
+.res-staff{display:flex;flex-direction:column;gap:4px;padding-left:8px;font-size:var(--fs-sm)}
 .res-staff-line{display:grid;grid-template-columns:10px minmax(48px,1fr) 32px;align-items:center;gap:6px}
 .res-staff-line .num{text-align:right;font-variant-numeric:tabular-nums}
 .res-diverge{position:relative;display:block;height:8px}

@@ -4,7 +4,7 @@ import { hours } from '../behov/format'
 import { deviationText, overShareText, overText, percentText, shareText } from './format'
 
 /** What the bars of a project, or of the sum of several, are drawn from. */
-type Bars = Pick<SeasonRow, 'name' | 'budget' | 'withOverhead' | 'plannedTotal' | 'actual'>
+type Bars = Pick<SeasonRow, 'name' | 'budget' | 'withOverhead' | 'plannedTotal' | 'deviation' | 'deviationShare' | 'actual' | 'actualDeviation'>
 
 /** Where the budget stands on a bar of the list, as a share of its width: each project is scaled to its own budget. */
 const BUDGET_AT = 0.75
@@ -16,19 +16,16 @@ const barsTitle = (row: Bars, overhead: number): string => {
   const lines = [row.name || 'Uten navn', `Plan inkl. ${percentText(overhead)}: ${row.withOverhead ? `${hours(row.withOverhead)} t (${hours(row.plannedTotal)} t uten)` : 'ingen plan'}`]
   if (row.actual !== null) lines.push(`Faktisk: ${hours(row.actual)} t`)
   lines.push(`Budsjett: ${row.budget === null ? 'ikke satt' : `${hours(row.budget)} t`}`)
-  if (row.budget !== null) {
-    const share = (used: number) => overShareText(row.budget ? (row.budget - used) / row.budget : null)
-    if (row.withOverhead) lines.push(`Plan ${overText(row.budget - row.withOverhead)} t mot budsjett (${share(row.withOverhead)})`)
-    if (row.actual !== null) lines.push(`Faktisk ${overText(row.budget - row.actual)} t mot budsjett (${share(row.actual)})`)
-    if (row.withOverhead > row.budget + NOISE || (row.actual ?? 0) > row.budget + NOISE) lines.push('Oransje viser timene over budsjett')
-  }
+  if (row.deviation !== null && row.withOverhead) lines.push(`Plan ${overText(row.deviation)} t mot budsjett (${overShareText(row.deviationShare)})`)
+  if (row.actualDeviation !== null) lines.push(`Faktisk ${overText(row.actualDeviation)} t mot budsjett (${overShareText(row.budget ? row.actualDeviation / row.budget : null)})`)
+  if ((row.deviation ?? 0) < -NOISE || (row.actualDeviation ?? 0) < -NOISE) lines.push('Delen etter budsjettstreken er timene over budsjett')
   if (row.actual !== null && row.withOverhead) lines.push(`Faktisk ${deviationText(row.actual - row.withOverhead)} t mot plan (${shareText((row.actual - row.withOverhead) / row.withOverhead)})`)
   return lines.join('\n')
 }
 
 /**
  * The plan with overhead, and the actual hours where there are any, as two thin bars against the budget, which is a
- * tick through both; what is over the budget is orange. In the list a bar is scaled to the project's own budget, so the
+ * tick through both; what is over the budget is in the colour of what is over. In the list a bar is scaled to the project's own budget, so the
  * tick stands at the same place in every row; `scale` gives one scale in hours instead, for the panel of one project.
  */
 export function BudgetBars({ row, overhead, scale }: { row: Bars; overhead: number; scale?: number }) {
@@ -68,7 +65,7 @@ const WORK: { key: 'assembly' | 'dismantle'; label: string; mark: 'mon' | 'dem' 
 
 /**
  * The planned hours per day of build-up and of tear-down against what the permanent staff can work on those days: a bar
- * from the line of the staff, to the right and orange where the plan needs more than they cover, to the left where
+ * from the line of the staff, to the right in the colour of what is over where the plan needs more than they cover, to the left where
  * they are not filled.
  */
 export function StaffBars({ averages }: { averages: ReturnType<typeof dayAverages> }) {

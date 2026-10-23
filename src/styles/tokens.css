@@ -93,6 +93,7 @@
   --fs-title-sm:16px;/* dialog titles */
   --fs-title:20px;   /* page titles */
   --fs-figure:18px;  /* the three figures of a stats block */
+  --fs-kpi:26px;     /* the figures over Resultat's matrix */
   --fs-sheet-name:15px;  /* a project's name on a work plan */
   --fs-sheet-title:22px; /* the date or week a work plan is for */
 

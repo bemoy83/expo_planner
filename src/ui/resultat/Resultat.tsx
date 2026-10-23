@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { areaTree, cleanHallFilter, ALL_HALLS, shownHalls, venueStatuses, type HallFilter } from '../../domain/areas'
 import { todayIso } from '../../domain/dates'
 import { numberKey, venueEvents } from '../../domain/projects'
-import { diffBudgets, followUpCount, followUps, mergeBudgets, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonStatus, withBudget, type BudgetEntry, type SeasonRow, type SeasonStatus } from '../../domain/result'
+import { diffBudgets, followUpCount, followUps, mergeBudgets, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonSummary, withBudget, type BudgetEntry, type SeasonRow, type SeasonStatus } from '../../domain/result'
 import { hallNames } from '../../domain/venue'
 import { visibleVenue } from '../../domain/venueImport'
 import { readBudsjettWorkbook, writeBudsjettWorkbook } from '../../import/budsjettFile'
@@ -79,7 +79,8 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
     const booked = new Set(shown.flatMap((row) => row.halls))
     return shownHalls(hallTree, hallFilter).filter((hall) => booked.has(hall))
   }, [shown, hallTree, hallFilter])
-  const follow = followUpCount(followUps(shown, today, staffedOf))
+  const summary = useMemo(() => seasonSummary(shown), [shown])
+  const follow = useMemo(() => followUps(shown, today, staffedOf), [shown, today, staffing]) // eslint-disable-line react-hooks/exhaustive-deps
   const actuals = rows.some((row) => row.actual !== null)
   const opened = open ? rows.find((row) => row.projectNo === open) : undefined
   const overhead = ws.settings.overhead
@@ -133,7 +134,7 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
         </span>
         <span className="toolbar-gap" />
         <button className={`ghost ${following ? 'active' : ''}`} aria-pressed={following} title="Prosjekter i utvalget som trenger noe av deg: over budsjett, snart i gang uten nok folk, uten plan eller uten budsjett" onClick={() => (setFollowing(!following), setOpen(null))}>
-          <TriangleAlert size={14} aria-hidden /> Følg opp {follow > 0 && <span className="count-chip alert">{follow}</span>}
+          <TriangleAlert size={14} aria-hidden /> Følg opp {followUpCount(follow) > 0 && <span className="count-chip alert">{followUpCount(follow)}</span>}
         </button>
         <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
         <UndoRedoButtons />
@@ -149,8 +150,8 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
       <div className="res-stage">
         {rows.length ? (
           <div className="res-page">
-            <ResultFigures rows={shown} overhead={overhead} staffedOf={staffedOf} />
-            <ResultMatrix rows={shown} halls={halls} today={today} overhead={overhead} actuals={actuals} open={open} onOpen={openProject} />
+            <ResultFigures rows={shown} summary={summary} overhead={overhead} staffedOf={staffedOf} />
+            <ResultMatrix rows={shown} summary={summary} halls={halls} today={today} overhead={overhead} actuals={actuals} open={open} onOpen={openProject} />
           </div>
         ) : (
           <p className="res-empty muted">Ingen prosjekter ennå. Les inn hallbookingene fra Venyou og gi prosjektene nummer på Prosjekter, eller les inn budsjettene under «Fil».</p>
@@ -170,8 +171,7 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
         )}
         {following && (
           <FollowUp
-            rows={shown}
-            today={today}
+            follow={follow}
             staffedOf={staffedOf}
             unnumbered={unnumbered}
             unshared={staffing.unshared}

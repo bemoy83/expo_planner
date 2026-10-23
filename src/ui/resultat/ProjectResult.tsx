@@ -7,11 +7,11 @@ import { useWorkspace } from '../../store/workspaceStore'
 import { hours, useCompetenceColor } from '../behov/format'
 import { SidePanel } from '../common'
 import { NumberField } from '../fields'
-import { overShareText, overText, percentText, spanText } from './format'
+import { fmtPeriod } from '../kalender/labels'
+import { overHours, overShareText, percentText, wholeHours as whole } from './format'
 import { BudgetBars, StaffBars } from './ResultBars'
 
 const all = (phases: PhaseHours) => phases.Montering + phases.Demontering + phases.other
-const whole = (value: number) => hours(Math.round(value))
 
 interface Props {
   row: SeasonRow
@@ -52,7 +52,7 @@ export function ProjectResult({ row, season, today, overhead, staffed, onBudget,
           <div className="insp-title">{row.name || 'Uten navn'}</div>
           <div className="insp-sub">
             <span className="project-no">{row.projectNo}</span>
-            {row.first && <span>· {spanText(row.first, row.last)}</span>}
+            {row.first && <span>· {fmtPeriod(row.first, row.last)}</span>}
             {seasonStatus(row, today) === 'live' && <span className="res-live">Pågår</span>}
           </div>
         </>
@@ -75,13 +75,13 @@ export function ProjectResult({ row, season, today, overhead, staffed, onBudget,
             </div>
             <div>
               <span>Plan mot budsjett</span>
-              <b className={`num ${over ? 'res-over' : ''}`}>{row.deviation === null ? '–' : `${overText(Math.round(row.deviation))} t`}</b>
+              <b className={`num ${over ? 'res-over' : ''}`}>{row.deviation === null ? '–' : `${overHours(row.deviation)} t`}</b>
               <small>{row.deviation === null ? 'uten budsjett' : overShareText(row.deviationShare)}</small>
             </div>
             <div>
               <span>Faktisk</span>
               <b className={`num ${row.actualDeviation !== null && row.actualDeviation < -NOISE ? 'res-over' : ''}`}>{row.actual === null ? '–' : `${whole(row.actual)} t`}</b>
-              <small>{row.actual === null ? 'ikke lest inn' : `${overText(row.actualDeviation === null ? null : Math.round(row.actualDeviation))} t mot budsjett`}</small>
+              <small>{row.actual === null ? 'ikke lest inn' : `${overHours(row.actualDeviation)} t mot budsjett`}</small>
             </div>
           </div>
           <BudgetBars row={row} overhead={overhead} scale={Math.max(row.budget ?? 0, row.withOverhead, row.actual ?? 0) * 1.08 || 1} />

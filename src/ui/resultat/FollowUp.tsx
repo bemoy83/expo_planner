@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
-import { followUps, NOISE, type SeasonRow } from '../../domain/result'
+import { NOISE, type followUps, type SeasonRow } from '../../domain/result'
 import { hours } from '../behov/format'
 import { SidePanel } from '../common'
 import { count } from '../dom'
-import { overText, spanText } from './format'
+import { fmtPeriod } from '../kalender/labels'
+import { overHours, wholeHours } from './format'
 
 interface Props {
-  rows: SeasonRow[]
-  today: string
+  /** What there is to follow up among the projects shown, see `followUps`. */
+  follow: ReturnType<typeof followUps>
   staffedOf: (row: SeasonRow) => number
   /** Events of the hall calendar without a project number, which have no row. */
   unnumbered: number
@@ -21,12 +22,11 @@ interface Props {
 }
 
 /** «Følg opp»: the projects of those shown that need the planner, by what they need. A click opens the project. */
-export function FollowUp({ rows, today, staffedOf, unnumbered, unshared, noProject, onOpen, onOpenProjects, onClose }: Props) {
-  const follow = followUps(rows, today, staffedOf)
+export function FollowUp({ follow, staffedOf, unnumbered, unshared, noProject, onOpen, onOpenProjects, onClose }: Props) {
   const groups: [string, SeasonRow[], (row: SeasonRow) => ReactNode][] = [
-    ['Planen går over budsjett', follow.over, (row) => <span className="num res-over">{overText(row.deviation === null ? null : Math.round(row.deviation))} t</span>],
-    ['Faktisk over budsjett', follow.actualOver, (row) => <span className="num res-over">{overText(row.actualDeviation === null ? null : Math.round(row.actualDeviation))} t</span>],
-    ['Starter snart, ikke fullt bemannet', follow.soon, (row) => <span className="num">{hours(Math.round(row.plannedTotal - staffedOf(row)))} t igjen</span>],
+    ['Planen går over budsjett', follow.over, (row) => <span className="num res-over">{overHours(row.deviation)} t</span>],
+    ['Faktisk over budsjett', follow.actualOver, (row) => <span className="num res-over">{overHours(row.actualDeviation)} t</span>],
+    ['Starter snart, ikke fullt bemannet', follow.soon, (row) => <span className="num">{wholeHours(row.plannedTotal - staffedOf(row))} t igjen</span>],
     ['Har budsjett, ingen plan', follow.noPlan, (row) => <span className="num">{hours(row.budget ?? 0)} t budsjett</span>],
     ['Uten budsjett', follow.noBudget, () => <span className="res-act">Sett budsjett</span>],
   ]
@@ -52,7 +52,7 @@ export function FollowUp({ rows, today, staffedOf, unnumbered, unshared, noProje
               <button key={row.projectNo} className="res-item" onClick={() => onOpen(row.projectNo)}>
                 <span>
                   <b>{row.name || row.projectNo}</b>
-                  <small>{spanText(row.first, row.last)}</small>
+                  {row.first && <small>{fmtPeriod(row.first, row.last)}</small>}
                 </span>
                 {right(row)}
               </button>

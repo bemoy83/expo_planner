@@ -1,33 +1,33 @@
 import { Fragment, useState, type CSSProperties } from 'react'
-import { dayAverages, NOISE, seasonStatus, seasonTotals, staffPerDay, type HallPhases, type SeasonRow } from '../../domain/result'
+import { dayAverages, NOISE, PLAN_MARGIN, seasonStatus, type HallPhases, type seasonSummary, type SeasonRow } from '../../domain/result'
 import { VENUE_PHASES, type VenuePhase } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
-import { hours } from '../behov/format'
 import { count } from '../dom'
+import { fmtDayMonth, fmtPeriod } from '../kalender/labels'
 import { BudgetBars, StaffBars } from './ResultBars'
-import { dayText, deviationText, overShareText, overText, shareText, spanText } from './format'
+import { deviationText, overHours, overShareText, shareText, wholeHours } from './format'
 
 const SHORT: Record<VenuePhase, string> = { assembly: 'Mont.', movingIn: 'Innfl.', event: 'Arr.', movingOut: 'Utfl.', dismantle: 'Dem.' }
 
 /** The booked phases of a hall, for its tile: «B1 · Mont. 7.–9. sep · Arr. 10.–12. sep · Dem. 13. sep». */
-const hallTitle = (hall: string, phases: HallPhases) => [hall, ...VENUE_PHASES.filter((phase) => phases[phase]).map((phase) => `${SHORT[phase]} ${spanText(phases[phase]!.start, phases[phase]!.end)}`)].join(' · ')
+const hallTitle = (hall: string, phases: HallPhases) => [hall, ...VENUE_PHASES.filter((phase) => phases[phase]).map((phase) => `${SHORT[phase]} ${fmtPeriod(phases[phase]!.start, phases[phase]!.end)}`)].join(' · ')
 
-/** A deviation from the budget, against it: hours over the share, orange where over. */
+/** A deviation from the budget, against it: hours over the share, in the colour of what is over where it is. */
 function Deviation({ deviation, share, title }: { deviation: number | null; share: number | null; title: string }) {
   if (deviation === null) return <span />
   return (
     <span className={`res-dev num ${deviation < -NOISE ? 'res-over' : ''}`} title={title}>
-      <b>{overText(Math.round(deviation))}</b>
+      <b>{overHours(deviation)}</b>
       <small>{overShareText(share)}</small>
     </span>
   )
 }
 
-/** The hours worked against the plan with overhead: how well the plan hit. Orange more than a tenth over. */
+/** The hours worked against the plan with overhead: how well the plan hit, marked where it is more than `PLAN_MARGIN` over. */
 function Hit({ actual, planned }: { actual: number | null; planned: number }) {
   if (actual === null || !planned) return <span />
   return (
-    <span className={`res-dev num ${actual > planned * 1.1 ? 'res-over' : ''}`} title="Faktiske timer mot planlagt inkl. overhead. + er mer enn planlagt.">
+    <span className={`res-dev num ${actual > planned * (1 + PLAN_MARGIN) ? 'res-over' : ''}`} title="Faktiske timer mot planlagt inkl. overhead. + er mer enn planlagt.">
       <b>{deviationText(Math.round(actual - planned))}</b>
       <small>{shareText((actual - planned) / planned)}</small>
     </span>
@@ -36,6 +36,7 @@ function Hit({ actual, planned }: { actual: number | null; planned: number }) {
 
 interface Props {
   rows: SeasonRow[]
+  summary: ReturnType<typeof seasonSummary>
   /** The halls with a column of their own, in order; the other halls of the rows are counted under «Andre». */
   halls: string[]
   today: string
@@ -50,11 +51,11 @@ interface Props {
  * The season as a matrix, a row per project: its hall days per phase, its halls, its plan and actual hours against its
  * budget, its hours per day against the permanent staff, and its deviations. The heading and the sums stay in view.
  */
-export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOpen }: Props) {
+export function ResultMatrix({ rows, summary, halls, today, overhead, actuals, open, onOpen }: Props) {
   const [lit, setLit] = useState<string | null>(null)
   const fixed = new Set(halls)
   const others = [...new Set(rows.flatMap((row) => row.halls.filter((hall) => !fixed.has(hall))))]
-  const totals = seasonTotals(rows)
+  const { totals, averages: sumAverages, staff } = summary
   const columns = [
     'minmax(150px,2.4fr)',
     'repeat(5,24px)',
@@ -69,7 +70,7 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
   const todayAt = rows.findIndex((row) => row.first > today)
   const todayLine = (
     <div className="res-today">
-      <span>I dag · {dayText(today)}</span>
+      <span>I dag · {fmtDayMonth(today)}</span>
     </div>
   )
   const phaseCells = (days: SeasonRow['days'], sum?: boolean) => (
@@ -89,7 +90,16 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
     </span>
   )
   const budgeted = rows.filter((row) => row.budget !== null)
-  const sumBars = { name: 'Sum, prosjektene med budsjett', budget: totals.budget, withOverhead: totals.budgetedWithOverhead, plannedTotal: budgeted.reduce((sum, row) => sum + row.plannedTotal, 0), actual: null }
+  const sumBars = {
+    name: 'Sum, prosjektene med budsjett',
+    budget: totals.budget,
+    withOverhead: totals.budgetedWithOverhead,
+    plannedTotal: budgeted.reduce((sum, row) => sum + row.plannedTotal, 0),
+    deviation: totals.deviation,
+    deviationShare: totals.deviationShare,
+    actual: null,
+    actualDeviation: null,
+  }
 
   const row = (row: SeasonRow) => {
     const inOthers = row.halls.filter((hall) => !fixed.has(hall))
@@ -99,7 +109,7 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
           <b title={row.name}>{row.name || 'Uten navn'}</b>
           <span className="res-project-meta">
             <span className="project-no">{row.projectNo}</span>
-            <span>{spanText(row.first, row.last)}</span>
+            {row.first && <span>{fmtPeriod(row.first, row.last)}</span>}
             {seasonStatus(row, today) === 'live' && <span className="res-live">Pågår</span>}
           </span>
         </span>
@@ -139,8 +149,6 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
     )
   }
 
-  const sumAverages = dayAverages(rows)
-  const staff = staffPerDay(rows)
   return (
     <div className="res-card res-matrix" style={style}>
       <div className="res-matrix-body">
@@ -161,7 +169,7 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
             <span>{actuals ? 'Plan · faktisk' : 'Plan'}</span>
             <small>mot budsjett</small>
           </span>
-          <span className="res-num-head staff" title="Planlagte timer per monterings- og demonteringsdag, mot det de faste kan i normaltiden på de samme dagene. Oransje: mer enn de faste kan. Til venstre: de faste er ikke fylt.">
+          <span className="res-num-head staff" title="Planlagte timer per monterings- og demonteringsdag, mot det de faste kan i normaltiden på de samme dagene. Til høyre: mer enn de faste kan. Til venstre: de faste er ikke fylt.">
             <span>
               <span>
                 <i className="phase-mark mon" />
@@ -174,7 +182,7 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
                 <i className="phase-mark dem" />
                 Demontering
               </span>
-              <small className="num">{staff === null ? '' : `faste ${hours(Math.round(staff))}`}</small>
+              <small className="num">{staff === null ? '' : `faste ${wholeHours(staff)}`}</small>
             </span>
           </span>
           <span className="res-num-head" title="Planlagt inkl. overhead mot budsjett. + er over, − er under.">

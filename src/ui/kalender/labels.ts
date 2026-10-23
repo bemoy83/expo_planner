@@ -12,6 +12,13 @@ export const fmtDate = (date: ISODate) => {
   return `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${d}.${m}.${y}`
 }
 
+/** A day without its weekday or year, e.g. «5. okt». */
+export const fmtDayMonth = (date: ISODate) => `${dayOfMonth(date)}. ${monthShort(date)}`
+
+/** «21.–23. okt», «30. sep–2. okt», or «21. okt» for one day. */
+export const fmtPeriod = (from: ISODate, to: ISODate): string =>
+  from === to ? fmtDayMonth(from) : from.slice(0, 7) === to.slice(0, 7) ? `${dayOfMonth(from)}.–${fmtDayMonth(to)}` : `${fmtDayMonth(from)}–${fmtDayMonth(to)}`
+
 /** A day without its year, e.g. «man 5. okt». */
 export const fmtDay = (date: ISODate) => `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${dayOfMonth(date)}. ${monthShort(date)}`
 
