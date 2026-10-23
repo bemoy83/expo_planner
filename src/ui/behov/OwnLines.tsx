@@ -88,6 +88,9 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
 
   const shown = projects.filter(([no]) => lines.some((l) => l.projectNo === no) || single)
   if (!shown.length) return <p className="muted own-empty">Ingen egne linjer ennå.</p>
+  // The sum line: the lines of the projects shown, of which those planned with count.
+  const inView = lines.filter((l) => shown.some(([no]) => no === l.projectNo))
+  const plannedLines = inView.filter((l) => l.basis === PLANNED_BASIS)
   return (
     <table className="ledger own-lines">
       <thead>
@@ -217,6 +220,21 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
           </tbody>
         )
       })}
+      <tfoot>
+        <tr>
+          <td colSpan={5}>
+            <span className="sum-lead">
+              <b>{PLANNED_BASIS}</b>
+              <span className="muted">
+                {[`${plannedLines.length} av ${count(inView.length, 'linje', 'linjer')}`, inView.length > plannedLines.length && `${count(inView.length - plannedLines.length, 'utkast', 'utkast')} teller ikke`].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+          </td>
+          <td className="num">{hoursOrDash(planned(inView, 'assemblyHours'))}</td>
+          <td className="num">{hoursOrDash(planned(inView, 'dismantleHours'))}</td>
+          <td colSpan={2} />
+        </tr>
+      </tfoot>
     </table>
   )
 }

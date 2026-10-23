@@ -92,11 +92,17 @@ describe('DataTable', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /m²/ }))
     expect(foot()).toBe('Sum21,5')
   })
+
+  it('lets the text of the sum line cover the columns before the figures', () => {
+    render(<Sums span />)
+    const cells = screen.getAllByRole('row').at(-1)!.querySelectorAll('td')
+    expect([...cells].map((cell) => [cell.textContent, cell.colSpan])).toEqual([['Sum', 2], ['121,5', 1]])
+  })
 })
 
-function Sums() {
+function Sums({ span }: { span?: boolean }) {
   const columns: Column<Rate>[] = [
-    { key: 'name', head: 'Navn', cell: (row) => row.name, foot: () => 'Sum' },
+    { key: 'name', head: 'Navn', cell: (row) => row.name, foot: () => 'Sum', footSpan: span ? 2 : undefined },
     { key: 'unit', head: 'Enhet', text: (row) => row.unit, cell: (row) => row.unit },
     { key: 'rate', head: 'Sats', className: 'num', cell: (row) => row.rate, foot: (rows) => String(rows.reduce((sum, row) => sum + row.rate, 0)).replace('.', ',') },
   ]

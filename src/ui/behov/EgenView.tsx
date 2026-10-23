@@ -246,8 +246,6 @@ export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed
     return used
   }, [own, kpi])
   const shownProjects = projectNo ? ordered.filter(([no]) => no === projectNo) : ordered
-  const planned = scoped.filter((line) => line.basis === PLANNED_BASIS)
-  const drafts = scoped.length - planned.length
   const projectName = names.get(projectNo) ?? projectNo
   const pickedHours = picked.reduce((sum, line) => sum + line.assemblyHours + line.dismantleHours, 0)
   const moveHalls = projectNo ? [...(spans.get(projectNo)?.keys() ?? [])] : places
@@ -256,17 +254,7 @@ export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed
     <div className="behov-split">
       <ProjectRail all={{ label: 'Alle prosjekter', aside: <span className="count">{own.length}</span> }} sections={sections} projectNo={projectNo} onPick={pickProject} search />
       <div className="behov-main own-main">
-        <div className="behov-intro">
-          <h2>
-            {projectNo ? projectName : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
-          </h2>
-          <span className="toolbar-gap" />
-          <span className="intro-meta">
-            {count(scoped.length, 'linje', 'linjer')} · <i className="phase-swatch assembly" aria-hidden /> {hours(planned.reduce((s, l) => s + l.assemblyHours, 0))} t ·{' '}
-            <i className="phase-swatch dismantle" aria-hidden /> {hours(planned.reduce((s, l) => s + l.dismantleHours, 0))} t{drafts > 0 && ` · ${count(drafts, 'utkast', 'utkast')}`}
-          </span>
-        </div>
-        <div className="own-top">
+        <div className="behov-cards">
           <OwnLineForm
             ctx={ctx}
             onContext={setContext}
@@ -287,9 +275,7 @@ export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed
             onAdd={add}
             onProject={pickProject}
           />
-        </div>
-        {lastYear && lastYear.missing.length > 0 && (
-          <div className="own-top">
+          {lastYear && lastYear.missing.length > 0 && (
             <FromLastYear
               previousName={names.get(lastYear.previous) ?? lastYear.previous}
               missing={lastYear.missing}
@@ -299,27 +285,35 @@ export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed
               onAdjust={(line) => fromLine({ ...line, hall: !line.hall || bookedNow.has(line.hall) ? line.hall : ctx.hall }, { from: `Fra i fjor: ${names.get(line.projectNo) ?? line.projectNo}` }, projectNo)}
               onDismiss={(line) => update(line, { notIn: [...(line.notIn ?? []), projectNo] })}
             />
-          </div>
-        )}
-        <div className="behov-table">
-          <OwnLines
-            lines={scoped}
-            projects={shownProjects}
-            spans={spans}
-            single={!!projectNo}
-            selected={selected}
-            onSelect={setSelected}
-            flash={flash}
-            kpi={kpi}
-            hoursPerDay={hoursPerDay}
-            onUpdate={update}
-            onRemove={remove}
-            onAddHere={(no, hall) => {
-              setContext(no === ctx.projectNo ? { ...ctx, hall } : contextFor(no, hall))
-              focus(refs.work)
-            }}
-            onTemplate={(line) => fromLine(line, { from: `Mal: ${line.workType}` })}
-          />
+          )}
+          <section className="card behov-card">
+            <div className="behov-chead">
+              <h2 className="behov-title">
+                {projectNo ? projectName : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
+              </h2>
+              {projectNo && <span className="muted">{[timing.get(projectNo)?.text, ...(spans.get(projectNo)?.keys() ?? [])].filter(Boolean).join(' · ')}</span>}
+            </div>
+            <div className="behov-card-body">
+              <OwnLines
+                lines={scoped}
+                projects={shownProjects}
+                spans={spans}
+                single={!!projectNo}
+                selected={selected}
+                onSelect={setSelected}
+                flash={flash}
+                kpi={kpi}
+                hoursPerDay={hoursPerDay}
+                onUpdate={update}
+                onRemove={remove}
+                onAddHere={(no, hall) => {
+                  setContext(no === ctx.projectNo ? { ...ctx, hall } : contextFor(no, hall))
+                  focus(refs.work)
+                }}
+                onTemplate={(line) => fromLine(line, { from: `Mal: ${line.workType}` })}
+              />
+            </div>
+          </section>
         </div>
         {picked.length > 0 && (
           <div className="bulk-bar" role="toolbar" aria-label="Valgte linjer">

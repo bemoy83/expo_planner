@@ -180,6 +180,16 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
+## Behov v2, the table as a card: built, to be tested by the user
+
+Built 2026-10-23 from the handoff `design_docs/design_handoff_behov_v2/`, which the planner keeps out of git. Layout only, as on Resultat: each view's table is a raised card (`.card` in `base.css`, shared with Resultat's matrix), with the project and the controls in its heading, the column heads held at the top and a sum line held at the foot, while only the rows scroll. Visma: «Med i behovet · n av m linjer · x utelatt · y teller ikke før de er avklart» over the lines in scope, whatever the filter shows, beside the hours of the lines that count. Egen registrering: the form and «Fra i fjor» above the card; the heading holds the project's timing and booked halls; the sum line is «Planlagt · n av m linjer · x utkast teller ikke».
+
+- The planner kept Avd., Kommentar and Effekt in the tables (2026-10-23), where the handoff hides Avd. and Kommentar and has no Effekt.
+- The tables stay tables (`DataTable`, `OwnLines`), not the mock-up's grid; a foot cell can span columns (`Column.footSpan`).
+- The card is as tall as its rows, up to the foot of the page, so the sum line follows the last row rather than standing at the foot of an empty card.
+- The sentence under the title of Visma is the heading's tooltip; «N t med» is the sum line.
+- Below 900 px the Visma table empties the cells of Avd. and Antall (until then the rule hid Mont. and Antall by position, a mistake since Effekt and Kommentar came).
+
 ## Project tagging, places and work plans: built, to be tested by the user
 
 Blocks, orders and moved hours carry a project, blocks a place, and the shared week plan and the day plan print from them (`design_docs/ukeplan/README.md`, the Claude Doc «Prosjektmerking: byggeplan»). Still open:

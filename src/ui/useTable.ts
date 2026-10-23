@@ -19,6 +19,8 @@ export interface Column<T> {
   cellProps?: (row: T) => TdHTMLAttributes<HTMLTableCellElement>
   /** The column's cell in a line of sums under the rows, from the rows the filters let through. A table where no column has one has no such line. */
   foot?: (rows: T[]) => ReactNode
+  /** How many columns the foot's cell covers, this one included: a text that sums up the rows before the figures. */
+  footSpan?: number
 }
 
 /** What a column's heading needs to offer its filter. */

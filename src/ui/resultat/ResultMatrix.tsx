@@ -150,7 +150,7 @@ export function ResultMatrix({ rows, summary, halls, today, overhead, actuals, o
   }
 
   return (
-    <div className="res-card res-matrix" style={style}>
+    <div className="card res-matrix" style={style}>
       <div className="res-matrix-body">
         <div className="res-row res-head">
           <span>Prosjekt</span>
