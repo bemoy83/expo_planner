@@ -155,8 +155,8 @@
   --mode-h:195; --mode-c:.07;
   --mode-band:#b7d9d8; --mode-line:#79a9a8; --mode-track:#9cc3c3; --mode-ink:#183333; --mode-mute:#355353;
 }
-/* Behov: heather, from the formulas of the band. */
-.behov-page{--mode-h:300; --mode-c:.06}
+/* Behov: heather in flower, a rose apart from the lavender of Resultat, from the formulas of the band. */
+.behov-page{--mode-h:350; --mode-c:.06}
 /* Resultat: indigo, from the formulas of the band. */
 .resultat-page{--mode-h:285; --mode-c:.07}
 /* The tabs of the planner's tables (Haller, Mannskap, Oppsett): sand, from the formulas of the band. */
