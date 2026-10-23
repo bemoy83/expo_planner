@@ -187,6 +187,17 @@ Choices made in the build, for the user to confirm
 - The sums at the bottom are of the rows the filters let through. Avvik and Avvik % there are over the projects that have a budget alone.
 - Planning rows without a work phase count in Planlagt and not in montering or demontering; rows without a project number are not counted.
 
+## Project tagging, places and work plans: built, to be tested by the user
+
+Blocks, orders and moved hours carry a project, blocks a place, and the shared week plan and the day plan print from them (`design_docs/ukeplan/README.md`, the Claude Doc «Prosjektmerking: byggeplan»). Still open:
+
+- **How yesterday went.** Hours actually worked are not recorded, so the day plan cannot say whether a project is behind, and a project's account stops at «Gjenstår». It needs a study of its own of the workflow, how and by whom the day is signed off (the planner, 2026-10-23). The only signal today is hours moved to the next day.
+- **A place on hire orders.** An order has a project, not a place; the day plan works the place out from the project's demand and marks it ≈ where the project has several.
+- **Hired crew are anonymous.** The day plan shows the people of a supplier as a count, with no names or meeting time; left so for now (2026-10-23).
+- **No new data on the sheets.** Safety, deliveries, lifts and trucks, keys: only what is written as a note on a planning row reaches the day plan (2026-10-23).
+- **What the work is, for the day.** The day plan names the two largest product types of the phase with their quantities over the whole phase and «ca. N % i dag» (`dayWork`); the demand does not say what is done which day, so the share rests on the plan's FTE.
+- **Printing.** The sheets have not been checked in a real printer dialog.
+
 ## What the workbook has and the app does not
 
 - **History for earlier years.** The workbook's ledger has «Historikk Antall» and «Historikk Timer», and its Resultatside has «Historikk arbeidstimer», which are the actual timesheet hours of an earlier year, typed in its budget file. In the app, earlier years exist only if older Visma exports are read in, and there is no dedicated flow. The user wants history for comparing a project year over year, but not in the first version (2026-10-18).
