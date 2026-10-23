@@ -5,7 +5,7 @@ import { dayType } from '../../domain/holidays'
 import { backFrom, carry, freeCapacity, isAway, paintBlock, removeCarried } from '../../domain/staffing'
 import { placeName } from '../../domain/workPlace'
 import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
-import { competenceColor, modKey } from '../dom'
+import { competenceColor, count, modKey } from '../dom'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
 import { PlanBar } from '../kalender/PlanBar'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
@@ -124,7 +124,7 @@ export function BemanningToolbar({ width, mode, onMode, onPart, projects, projec
         )}
         {unresolved > 0 && (
           <span className="bm-unresolved" title="Blokker der personen er borte eller ikke lenger har kompetansen. Timene er tilbake i behovet.">
-            {unresolved === 1 ? '1 uløst' : `${unresolved} uløste`}
+            {count(unresolved, 'uløst', 'uløste')}
             <button onClick={removeOpen}>Fjern</button>
           </span>
         )}

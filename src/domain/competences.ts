@@ -1,6 +1,7 @@
 import { productTypeKey } from './kpi'
 import type { TableDiff } from './tableDiff'
 import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type KpiConfig, type LineColor, type Person, type Workspace } from './types'
+import { clamp } from './numbers'
 
 /**
  * The competences of Bemanning and the people who have them. The list of competences is derived: it is
@@ -102,7 +103,7 @@ export const renameCompetence = (ws: Workspace, from: CompetenceKey, toLabel: st
 export const moveCompetence = (ws: Workspace, key: CompetenceKey, toIndex: number): Record<CompetenceKey, CompetenceStyle> => {
   const styles = competenceStyles(ws)
   const from = styles.findIndex((style) => style.key === key)
-  const to = Math.min(Math.max(toIndex, 0), styles.length - 1)
+  const to = clamp(toIndex, 0, styles.length - 1)
   if (from < 0 || from === to) return ws.competenceStyles ?? {}
   const [moved] = styles.splice(from, 1)
   styles.splice(to, 0, moved)

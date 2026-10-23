@@ -13,6 +13,7 @@ import { copyText, pasteCells, spanEndAt } from './strokes'
 import { useGridDrag } from './useGridDrag'
 import { usePlanCells } from './usePlanCells'
 import { usePlanStrokes } from './usePlanStrokes'
+import { count } from '../dom'
 
 /** What a cell menu is opened on: where, and the row and day of its cell. */
 export interface CellMenuAt {
@@ -307,7 +308,7 @@ export function usePlanGrid({ scrollRef, dates, selection, setSelection, allocLa
     if (!selection) return null
     const date = dates[selection.focus.col]
     const { row: r, node } = allocLanes[selection.focus.lane] ?? {}
-    if (node) return { title: `${node.label} · fordeles på ${node.rows.length} ${node.rows.length === 1 ? 'rad' : 'rader'}`, date, value: node.daily.get(date), note: '', rowId: null }
+    if (node) return { title: `${node.label} · fordeles på ${count(node.rows.length, 'rad', 'rader')}`, date, value: node.daily.get(date), note: '', rowId: null }
     if (!r) return null
     return { title: rowTitle(r), date, value: r.fte[date], note: r.notes[date] ?? '', rowId: isSuggestedRow(r) ? null : r.id }
   })()

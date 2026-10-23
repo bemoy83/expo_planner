@@ -2,6 +2,7 @@ import type { HallReview } from '../../domain/hallReview'
 import { PLACE_STEPS } from '../../domain/hallReview'
 import { placeOf, type Place, type PlacedBy, suggestHall, UNRESOLVED_HALL } from '../../domain/locations'
 import type { HallRules } from '../../domain/types'
+import { count } from '../dom'
 
 /** A text to try against the rules, as it would stand on a line of a project, or of none. */
 export interface TriedText {
@@ -87,7 +88,7 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
                   <span className="nr">{index + 1}</span>
                   <span className="label">{STEP_TEXT[step].label}</span>
                   <span className={`count ${step === 'none' && review.steps.none ? 'issue' : 'muted'}`}>
-                    {review.steps[step]} {review.steps[step] === 1 ? 'linje' : 'linjer'}
+                    {count(review.steps[step], 'linje', 'linjer')}
                   </span>
                   <span className="detail">{STEP_TEXT[step].detail}</span>
                 </button>

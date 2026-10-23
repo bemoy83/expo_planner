@@ -11,6 +11,7 @@ import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, signed, type HeatKind } fr
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
 import { Twisty } from '../common'
 import { Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
+import { count } from '../dom'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
@@ -117,7 +118,7 @@ function OutsideWindow({ dates, window, where }: { dates: ISODate[]; window: Set
   const outside = window?.size ? dates.filter((date) => !window.has(date)).sort() : []
   if (!outside.length) return null
   return (
-    <span className="lbl-warning" title={`${outside.length} ${outside.length === 1 ? 'dag' : 'dager'} med FTE ligger utenfor ${where}: ${outside.map((d) => `${d.slice(8)}.${d.slice(5, 7)}.`).join(' ')}`}>
+    <span className="lbl-warning" title={`${count(outside.length, 'dag', 'dager')} med FTE ligger utenfor ${where}: ${outside.map((d) => `${d.slice(8)}.${d.slice(5, 7)}.`).join(' ')}`}>
       <TriangleAlert size={13} aria-hidden />
     </span>
   )

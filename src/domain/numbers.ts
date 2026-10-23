@@ -11,3 +11,6 @@ export const parseDecimal = (input: string): number | null | undefined => {
 
 /** A number as it is put in a field for editing: every decimal it has, with a decimal comma. */
 export const decimalText = (value: number): string => String(value).replace('.', ',')
+
+/** The value, or the nearest of `min` and `max` where it lies outside them. */
+export const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max)

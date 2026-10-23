@@ -5,7 +5,7 @@ import { dayType } from '../../domain/holidays'
 import { absenceSpans, addAbsence, editAbsence, overtimeByWeek, paidHours, personWeek, type AbsenceInput, type AbsenceSpan } from '../../domain/staffing'
 import type { WorkdaySettings } from '../../domain/types'
 import { SidePanel } from '../common'
-import { competenceColor } from '../dom'
+import { competenceColor, count } from '../dom'
 import { useBemanning } from './BemanningScope'
 import { AWAY_LABEL } from './dayCell'
 import { clock, EPSILON, hoursText } from './week'
@@ -157,7 +157,7 @@ export function PersonPanel() {
             <div className={over ? 'over' : ''}>
               <span>Overtid</span>
               <b>{hoursText(period.overtime)}</b>
-              <em>{over ? `${over} ${over === 1 ? 'uke' : 'uker'} over grensen` : ''}</em>
+              <em>{over ? `${count(over, 'uke', 'uker')} over grensen` : ''}</em>
             </div>
             <div>
               <span>Fravær</span>

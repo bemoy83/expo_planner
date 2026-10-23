@@ -3,6 +3,7 @@ import { numberKey } from '../../domain/projects'
 import { placeKey, PROJECT_PLACE, type Balance, type ProjectBalance } from '../../domain/staffing'
 import { placeName } from '../../domain/workPlace'
 import { EPSILON } from './week'
+import { clamp } from '../../domain/numbers'
 
 /** A project's line under the competence in focus: its number and name. */
 export interface ProjectLine {
@@ -83,5 +84,5 @@ export const brushStep = (projectLines: ProjectLine[], placeLines: PlaceLine[], 
     if (at.projectNo && numberKey(line.projectNo) === numberKey(at.projectNo)) for (const place of placeLines) steps.push({ projectNo: line.projectNo, hall: place.hall })
   }
   const index = Math.max(0, steps.findIndex((step) => numberKey(step.projectNo ?? '') === numberKey(at.projectNo ?? '') && (step.hall === null ? at.hall === null : at.hall !== null && placeKey(step.hall) === placeKey(at.hall))))
-  return steps[Math.min(Math.max(index + delta, 0), steps.length - 1)]
+  return steps[clamp(index + delta, 0, steps.length - 1)]
 }

@@ -7,6 +7,7 @@ import type { Toast } from '../Toasts'
 import type { DayGrid } from './dayGrid'
 import type { Rect } from './tools'
 import { WEEKDAYS_LONG } from './week'
+import { count } from '../dom'
 
 interface Options {
   ws: Workspace
@@ -87,7 +88,7 @@ export function useStaffingEdits({ ws, updateStaffing, undo, toast, dates, grid,
     const skippedText = skipped ? ` · ${skipped} hoppet over` : ''
     if (!pasted) return toast(`Ingenting ble limt inn fra ${fmtDay(anchor)}: dagene er opptatt, eller personen er borte eller har ikke kompetansen.`)
     updateStaffing((w) => ({ ...w, assignments: pasteDays(w, clip, anchor, lastDate, onto).assignments }))
-    toast(`Limte inn ${pasted === 1 ? '1 blokk' : `${pasted} blokker`} fra ${fmtDay(anchor)}${skippedText}`, { label: 'Angre', run: undo })
+    toast(`Limte inn ${count(pasted, 'blokk', 'blokker')} fra ${fmtDay(anchor)}${skippedText}`, { label: 'Angre', run: undo })
   }
 
   return { nameOf, labelOf, dayName, paint, clear, removeOpen, moveBlocks, selectionCells, copySelection, pasteClip }

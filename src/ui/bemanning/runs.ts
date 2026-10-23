@@ -1,5 +1,6 @@
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
 import { sameTag, workTag, type Assignment, type Interval, type Minute, type WorkdaySettings } from '../../domain/types'
+import { clamp } from '../../domain/numbers'
 
 /** The blocks of one person on a day. */
 export type BlocksOn = (date: ISODate) => Assignment[] | undefined
@@ -99,7 +100,7 @@ export const runDays = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: 
 
 /** The whole run a block is a part of. */
 export const runOf = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Run => {
-  const share = (t: number) => (Math.min(Math.max(t, wd.dayStart), wd.dayEnd) - wd.dayStart) / (wd.dayEnd - wd.dayStart)
+  const share = (t: number) => (clamp(t, wd.dayStart, wd.dayEnd) - wd.dayStart) / (wd.dayEnd - wd.dayStart)
   const days = runDays(blocks, date, block, wd)
   const first = days[0]
   const last = days[days.length - 1]
@@ -161,7 +162,7 @@ export const stretchRun = (days: RunDay[], edge: 'start' | 'end', to: ISODate, a
   const first = days[0]
   const last = days[days.length - 1]
   const between = (from: ISODate, until: ISODate) => Array.from({ length: Math.max(0, daysBetween(from, until) + 1) }, (_, i) => addDays(from, i))
-  const time = Math.min(Math.max(at, wd.dayStart), wd.dayEnd)
+  const time = clamp(at, wd.dayStart, wd.dayEnd)
   if (edge === 'end') {
     // The start of a day is the end of the day before it.
     const [date, t] = time <= wd.dayStart ? [addDays(to, -1), wd.dayEnd] : [to, time]

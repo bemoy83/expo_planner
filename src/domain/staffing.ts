@@ -6,6 +6,7 @@ import { PROJECT_HALLS } from './locations'
 import { numberKey } from './projects'
 import { spread } from './spread'
 import { competenceKey, sameProject, sameTag, workOf, workTag, type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type DemandAdjustment, type Interval, type Minute, type Person, type Unavailability, type Work, type WorkdaySettings, type Workspace } from './types'
+import { clamp } from './numbers'
 
 /**
  * The rules of Bemanning: who can work when, what an assignment counts for, and how far the assigned
@@ -335,7 +336,6 @@ const snapped = (t: Minute, wd: WorkdaySettings, opts: EditOptions): Minute => {
   return Math.round(t / wd.snap) * wd.snap
 }
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 /** The stretches of a person's day open to blocks: the editable windows, within the bounds. */
 const openWindows = (ws: Workspace, personId: string, date: ISODate, opts: EditOptions): Interval[] => {

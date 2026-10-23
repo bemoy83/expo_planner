@@ -144,7 +144,7 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
       </header>
       {unsetCount > 0 && onSetPlaces && (
         <div className="dp-setbar">
-          <span>{unsetCount === 1 ? '1 sted er regnet ut, ikke satt' : `${unsetCount} steder er regnet ut, ikke satt`}</span>
+          <span>{count(unsetCount, 'sted', 'steder')} er regnet ut, ikke satt</span>
           <button type="button" onClick={onSetPlaces}>
             Sett stedene
           </button>

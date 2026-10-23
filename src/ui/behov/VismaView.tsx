@@ -397,7 +397,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             </div>
             {orphans.length > 0 && (
               <div className="orphans" role="alert">
-                <strong>{orphans.length === 1 ? '1 linje du har endret finnes' : `${orphans.length} linjer du har endret finnes`} ikke lenger i Visma-utskriften.</strong> Valgene er tatt vare på og gjelder igjen hvis
+                <strong>{count(orphans.length, 'linje', 'linjer')} du har endret finnes ikke lenger i Visma-utskriften.</strong> Valgene er tatt vare på og gjelder igjen hvis
                 linjen kommer tilbake. Timene deres teller ikke med nå.
                 <ul>
                   {orphans.map((o) => (

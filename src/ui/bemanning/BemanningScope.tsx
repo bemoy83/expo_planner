@@ -20,6 +20,7 @@ import { usePeopleLines } from './usePeopleLines'
 import { useStaffingEdits } from './useStaffingEdits'
 import { useStrokeInput, useStrokeState } from './useStrokeInput'
 import { useStrokePreview } from './useStrokePreview'
+import { clamp } from '../../domain/numbers'
 
 export type { PersonLine } from './usePeopleLines'
 export type { PlaceLine, ProjectLine } from './lineBalances'
@@ -136,7 +137,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   /** Moves the open hours to the person before or after in the list. */
   const stepUnfolded = (delta: number) => {
     const at = lines.findIndex((line) => line.person.id === unfolded)
-    const next = lines[Math.min(Math.max(at + delta, 0), lines.length - 1)]
+    const next = lines[clamp(at + delta, 0, lines.length - 1)]
     setSelection(null)
     if (next) setUnfolded(next.person.id)
   }
