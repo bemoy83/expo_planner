@@ -2,14 +2,12 @@ import { competenceStyles } from '../domain/competences'
 import { SHIFT_LABELS } from '../domain/hire'
 import type { FileSupplier } from '../domain/suppliers'
 import { SHIFT_IDS, type ShiftId, type Workspace } from '../domain/types'
-import { dataRows, findHeader, isMarked, num, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
+import { cell, column, dataRows, FileFormatError, firstSheetWith, isMarked, num, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
 
 /**
  * The suppliers as a file: what «Eksporter» on Leverandører writes and «Importer fra fil» reads. A row per supplier,
  * a column per shift and a column per competence, marked where the supplier has it. Suppliers are told apart by their names.
  */
-
-export class LeverandorerFormatError extends Error {}
 
 const NAME = 'Navn'
 const CONTACT = 'Kontakt'
@@ -36,20 +34,20 @@ export const writeLeverandorerWorkbook = (ws: Workspace): Uint8Array => {
  * («Dag», «Kveld», «Natt»). Every other column with a heading is a competence, held by the suppliers whose cell is marked.
  */
 export const readLeverandorerWorkbook = (bytes: Uint8Array): FileSupplier[] => {
-  for (const sheet of readXlsx(bytes).values()) {
-    const header = findHeader(sheet, [NAME.toLowerCase()])
-    if (!header) continue
-    const column = (heading: string) => header.columns.get(heading.toLowerCase())
-    const name = column(NAME)!
-    const contact = column(CONTACT)
-    const rate = column(RATE)
-    const note = column(NOTE)
-    const shifts = SHIFT_IDS.flatMap((shift): { shift: ShiftId; col: number }[] => (column(SHIFT_LABELS[shift]) === undefined ? [] : [{ shift, col: column(SHIFT_LABELS[shift])! }]))
+  const found = firstSheetWith(readXlsx(bytes).values(), [NAME], (sheet, header) => {
+    const name = column(header, NAME)
+    const contact = column(header, CONTACT)
+    const rate = column(header, RATE)
+    const note = column(header, NOTE)
+    const shifts = SHIFT_IDS.flatMap((shift): { shift: ShiftId; col: number }[] => {
+      const col = column(header, SHIFT_LABELS[shift])
+      return col === undefined ? [] : [{ shift, col }]
+    })
     const own = [name, contact, rate, note, ...shifts.map(({ col }) => col)]
     // The headings as they are spelled in the file name the competences.
     const competences = [...sheet.rows.get(header.row)!].filter(([col, value]) => !own.includes(col) && text(value)).map(([col, value]) => ({ col, label: text(value) }))
     const suppliers = dataRows(sheet, header.row).flatMap((row): FileSupplier[] => {
-      const get = (col: number | undefined) => (col === undefined ? null : (sheet.rows.get(row)?.get(col) ?? null))
+      const get = (col: number | undefined) => cell(sheet, row, col)
       if (!text(get(name))) return []
       return [
         {
@@ -62,7 +60,8 @@ export const readLeverandorerWorkbook = (bytes: Uint8Array): FileSupplier[] => {
         },
       ]
     })
-    if (suppliers.length) return suppliers
-  }
-  throw new LeverandorerFormatError('Fant ingen leverandører. Filen må ha en kolonne «Navn», og en kolonne per kompetanse.')
+    return suppliers.length ? suppliers : null
+  })
+  if (!found) throw new FileFormatError('Fant ingen leverandører. Filen må ha en kolonne «Navn», og en kolonne per kompetanse.')
+  return found
 }

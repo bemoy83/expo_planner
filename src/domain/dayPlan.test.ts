@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildDayPlan, dayWork } from './dayPlan'
-import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
+import { TWO_PROJECTS, withTwoProjects } from '../test/staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type DemandLine, type VenueBooking, type Workspace } from './types'
 
 /** The day plan: the cards of the projects of a day and the people with their blocks, as `workPlace.test.ts` sets the week. */

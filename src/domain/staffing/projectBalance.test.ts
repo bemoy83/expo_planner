@@ -3,7 +3,7 @@ import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, 
 import { buildBalance, removeCarried } from './balance'
 import { clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, paintDays, pasteDays, recolourBlock, resizeBlock, splitBlock } from './edit'
 import { buildProjectBalance, carry, cellsToDemand, NO_PROJECT, projectsWithWork, projectTotals } from './projectBalance'
-import { TWO_PROJECTS, withTwoProjects } from '../staffingFixture'
+import { TWO_PROJECTS, withTwoProjects } from '../../test/staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from '../types'
 import { nextInRun } from '../../ui/bemanning/runs'
 

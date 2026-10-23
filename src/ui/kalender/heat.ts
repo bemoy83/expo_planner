@@ -1,5 +1,6 @@
-import { formatFte, FTE_NOISE } from '../../domain/calc'
+import { FTE_NOISE } from '../../domain/calc'
 import { ZOOM_WIDTHS } from './layout'
+import { formatFte, signed } from '../format'
 
 /** In the Kalender, up to this many FTE to spare on a day is ok; more is over. */
 export const OK_UP_TO = 1
@@ -47,8 +48,6 @@ export const heatTile = (deviation: number, maxShortage: number, maxSurplus: num
 
 export const HEAT_LABELS: Record<HeatKind, string> = { under: 'Underdekning', ok: 'Ok', over: 'Over' }
 
-/** A figure with its sign: «−» for what is missing, «+» for what is over, and nothing for zero, where the colour says it. */
-export const signed = (figure: string): string => (/[1-9]/.test(figure) ? (figure.startsWith('−') || figure.startsWith('-') ? figure : `+${figure}`) : '')
 
 /**
  * The figure on a tile: one decimal in wide columns, a whole number in narrower ones, where a figure

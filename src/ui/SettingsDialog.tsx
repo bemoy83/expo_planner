@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { decimalText, parseDecimal } from '../domain/numbers'
 import { useWorkspace } from '../store/workspaceStore'
-import { clock, clockMinutes } from './bemanning/week'
+import { clockMinutes } from './bemanning/week'
+import { clock } from './format'
 
 /** The base crew, the hours of a normal day and its lunch break, and the overhead Resultat adds to the plan. */
 export function SettingsDialog({ onClose }: { onClose: () => void }) {

@@ -1,17 +1,13 @@
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDownUp, Plus, X } from 'lucide-react'
-import { dayOfMonth, monthShort, weekdayIndex, WEEKDAYS_NB, type ISODate } from '../../domain/dates'
+import { dayOfMonth, dayText, monthShort, weekdayShort, type ISODate } from '../../domain/dates'
 import { groupWaits, HOURS_NOISE, shiftText, type OrderGroup } from '../../domain/hire'
 import type { CompetenceStyle } from '../../domain/types'
-import { hoursShort } from '../bemanning/week'
-import { fmtDay } from '../kalender/labels'
-import { signedHours } from './hours'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph, Stepper } from './OrderPopovers'
-
-const weekday = (date: ISODate) => WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()
+import { hoursShort, signedHours } from '../format'
 
 /** The days picked, as text: «tor 8. okt», or «tor 8.–man 12. okt». */
-const daysText = (from: ISODate, to: ISODate) => (from === to ? fmtDay(from) : `${weekday(from)} ${dayOfMonth(from)}.${monthShort(from) === monthShort(to) ? '' : ` ${monthShort(from)}`}–${fmtDay(to)}`)
+const daysText = (from: ISODate, to: ISODate) => (from === to ? dayText(from) : `${weekdayShort(from)} ${dayOfMonth(from)}.${monthShort(from) === monthShort(to) ? '' : ` ${monthShort(from)}`}–${dayText(to)}`)
 
 const people = (group: OrderGroup): string => {
   const counts = group.orders.map((order) => order.fte)
@@ -53,11 +49,11 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
       </div>
       <div className="il-daybar">
         <span className="il-days">
-          <button aria-label="Forrige dag som mangler timer" title={il.shortBefore ? `Forrige dag som mangler timer: ${fmtDay(il.shortBefore)}` : 'Ingen tidligere dag mangler timer'} disabled={!il.shortBefore} onClick={() => il.stepShort(-1)}>
+          <button aria-label="Forrige dag som mangler timer" title={il.shortBefore ? `Forrige dag som mangler timer: ${dayText(il.shortBefore)}` : 'Ingen tidligere dag mangler timer'} disabled={!il.shortBefore} onClick={() => il.stepShort(-1)}>
             <ChevronLeft size={14} aria-hidden />
           </button>
           <b title="Piltastene flytter en dag om gangen. Shift utvider.">{daysText(open.from, open.to)}</b>
-          <button aria-label="Neste dag som mangler timer" title={il.shortAfter ? `Neste dag som mangler timer: ${fmtDay(il.shortAfter)}` : 'Ingen senere dag mangler timer'} disabled={!il.shortAfter} onClick={() => il.stepShort(1)}>
+          <button aria-label="Neste dag som mangler timer" title={il.shortAfter ? `Neste dag som mangler timer: ${dayText(il.shortAfter)}` : 'Ingen senere dag mangler timer'} disabled={!il.shortAfter} onClick={() => il.stepShort(1)}>
             <ChevronRight size={14} aria-hidden />
           </button>
         </span>
@@ -124,7 +120,7 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
                 {several && have.size < openDates.length && (
                   <div className="il-order-days">
                     {openDates.map((date) => (
-                      <i key={date} className={have.has(date) ? 'on' : ''} title={fmtDay(date)} />
+                      <i key={date} className={have.has(date) ? 'on' : ''} title={dayText(date)} />
                     ))}
                     <button className="link" title="Bestill det samme på de valgte dagene som mangler" onClick={(e) => (e.stopPropagation(), edits.fill(group))}>
                       Fyll

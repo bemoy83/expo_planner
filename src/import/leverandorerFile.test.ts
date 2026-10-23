@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { diffSuppliers, mergeSuppliers } from '../domain/suppliers'
 import { DEFAULT_SETTINGS, type Workspace } from '../domain/types'
-import { LeverandorerFormatError, readLeverandorerWorkbook, writeLeverandorerWorkbook } from './leverandorerFile'
-import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
+import { readLeverandorerWorkbook, writeLeverandorerWorkbook } from './leverandorerFile'
+import { cellAt, dataRows, FileFormatError, readXlsx, writeXlsx } from './xlsx'
 
 const ws: Workspace = {
   settings: DEFAULT_SETTINGS,
@@ -48,6 +48,6 @@ describe('the Leverandører file', () => {
   })
 
   it('refuses a file without a name column', () => {
-    expect(() => file(['Leverandør', 'Vegger'], ['Manpower', 'x'])).toThrow(LeverandorerFormatError)
+    expect(() => file(['Leverandør', 'Vegger'], ['Manpower', 'x'])).toThrow(FileFormatError)
   })
 })

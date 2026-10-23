@@ -1,6 +1,7 @@
+// @vitest-environment jsdom
 import { strFromU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
-import { cellAt, dataRows, findHeader, readXlsx, writeXlsx } from './xlsx'
+import { cell, cellAt, column, dataRows, findHeader, firstSheetWith, readXlsx, writeXlsx } from './xlsx'
 
 describe('writing a workbook', () => {
   const bytes = writeXlsx([
@@ -43,5 +44,35 @@ describe('writing a workbook', () => {
     expect(sheet).toContain('<c r="A1" s="1" t="inlineStr">')
     expect(sheet).toContain('<c r="C2"><v>7.01</v></c>')
     expect(sheet).toContain('Disker &amp; Podier &lt;små&gt; &quot;x&quot;')
+  })
+})
+
+describe('reading a table of the app', () => {
+  const sheets = [
+    ...readXlsx(
+      writeXlsx([
+        { name: 'Notater', head: ['Notat'], rows: [['ingenting her']] },
+        { name: 'Tom', head: ['Prosjektnummer', 'Navn'], rows: [] },
+        { name: 'Prosjekter', head: ['Prosjektnummer', 'NAVN'], rows: [['26101', 'Byggemessen']] },
+      ]),
+    ).values(),
+  ]
+
+  it('finds a heading in any case and under any of its spellings', () => {
+    const header = findHeader(sheets[2], [['prosjektnr.', 'prosjektnummer'], 'Navn'])!
+    expect(column(header, ['prosjektnr.', 'prosjektnummer'])).toBe(0)
+    expect(column(header, 'Navn')).toBe(1)
+    expect(column(header, 'År')).toBeUndefined()
+    expect(cell(sheets[2], 1, column(header, 'År'))).toBeNull()
+  })
+
+  it('reads the first sheet with the headings that gives something', () => {
+    const read = (required: (string | string[])[]) =>
+      firstSheetWith(sheets, required, (sheet, header) => {
+        const names = dataRows(sheet, header.row).map((row) => String(cell(sheet, row, column(header, 'navn'))))
+        return names.length ? `${sheet.name}: ${names.join(', ')}` : null
+      })
+    expect(read([['prosjektnr.', 'prosjektnummer'], 'Navn'])).toBe('Prosjekter: Byggemessen')
+    expect(read(['Budsjett'])).toBeNull()
   })
 })

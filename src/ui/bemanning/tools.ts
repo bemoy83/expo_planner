@@ -1,6 +1,6 @@
-export type Tool = 'select' | 'paint' | 'erase'
-/** The keys that pick a tool, anywhere on the page. */
-export const TOOL_KEYS: Record<string, Tool> = { v: 'select', b: 'paint', t: 'erase' }
+import type { ToolKind } from '../toolKeys'
+
+export type Tool = ToolKind
 
 /** A stroke over the folded days: from the cell it started in to the one the pointer is over. */
 export interface Stroke {

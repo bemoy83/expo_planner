@@ -41,13 +41,34 @@ export const isoWeek = (date: ISODate): number => {
   return Math.floor((thursday - yearStart) / DAY_MS / 7) + 1
 }
 
-export const WEEKDAYS_NB = ['MAN', 'TIR', 'ONS', 'TOR', 'FRE', 'LØR', 'SØN']
-export const MONTHS_NB = ['JAN', 'FEB', 'MAR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DES']
+/** The days of the week from Monday, and the months: every name of a day or a month the app writes is made from these. */
+const WEEKDAY_NAMES = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag']
+const MONTH_NAMES = ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember']
+
+/** The day of the week, «mandag». */
+export const weekdayName = (date: ISODate): string => WEEKDAY_NAMES[weekdayIndex(date)]
+/** The day of the week in three letters, «man». */
+export const weekdayShort = (date: ISODate): string => weekdayName(date).slice(0, 3)
+/** The month of a date, or of a month as «2026-10»: «oktober». */
+export const monthName = (date: string): string => MONTH_NAMES[Number(date.slice(5, 7)) - 1]
+/** The month in three letters, as in «5. okt». */
+export const monthShort = (date: string): string => monthName(date).slice(0, 3)
+/** A name at the start of a line: «Mandag». */
+export const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
 
 /** The day of the month as it is written, without a leading zero. */
 export const dayOfMonth = (date: ISODate): number => Number(date.slice(8, 10))
-/** The month in lower case, as in «5. okt». */
-export const monthShort = (date: ISODate): string => MONTHS_NB[Number(date.slice(5, 7)) - 1].toLowerCase()
+
+/** A day without its year, «man 5. okt». */
+export const dayText = (date: ISODate): string => `${weekdayShort(date)} ${dayOfMonth(date)}. ${monthShort(date)}`
+
+/** Days from one to another: «21.–23. okt», «30. sep–2. okt», or «21. okt» for one day. */
+export const periodText = (from: ISODate, to: ISODate): string =>
+  from === to
+    ? `${dayOfMonth(from)}. ${monthShort(from)}`
+    : from.slice(0, 7) === to.slice(0, 7)
+      ? `${dayOfMonth(from)}.–${dayOfMonth(to)}. ${monthShort(to)}`
+      : `${dayOfMonth(from)}. ${monthShort(from)}–${dayOfMonth(to)}. ${monthShort(to)}`
 
 /** Accepts the forms dates arrive in from ExcelJS: Date, Excel serial, or ISO-like text. */
 export const normalizeDate = (value: unknown): ISODate | null => {

@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
+import { periodText } from '../../domain/dates'
 import { NOISE, type followUps, type SeasonRow } from '../../domain/result'
-import { hours } from '../behov/format'
 import { SidePanel } from '../common'
 import { count } from '../dom'
-import { fmtPeriod } from '../kalender/labels'
-import { overHours, wholeHours } from './format'
+import { hours, overHours, wholeHours } from '../format'
 
 interface Props {
   /** What there is to follow up among the projects shown, see `followUps`. */
@@ -52,7 +51,7 @@ export function FollowUp({ follow, staffedOf, unnumbered, unshared, noProject, o
               <button key={row.projectNo} className="res-item" onClick={() => onOpen(row.projectNo)}>
                 <span>
                   <b>{row.name || row.projectNo}</b>
-                  {row.first && <small>{fmtPeriod(row.first, row.last)}</small>}
+                  {row.first && <small>{periodText(row.first, row.last)}</small>}
                 </span>
                 {right(row)}
               </button>

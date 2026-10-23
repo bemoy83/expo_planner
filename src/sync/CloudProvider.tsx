@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { deleteDatabase, LOCAL_DB, setPlanner, notePlanner, onWritten, pendingOutbox, plannerNames, sharedDbName, switchDatabase } from '../store/db'
+import { loadPref, savePref } from '../store/prefs'
 import { useWorkspace } from '../store/workspaceStore'
 import { count } from '../ui/dom'
 import { Toasts, useToasts } from '../ui/Toasts'
@@ -50,24 +51,11 @@ const SyncContext = createContext<{ setState: (state: SyncState, error?: string)
 
 /**
  * The workspace a planner was last found a member of, kept in this browser: a sign-in without the network, or with the
- * shared copy paused, opens it, rather than this browser's own data.
+ * shared copy paused, opens it, rather than this browser's own data. It is looked up again at every start.
  */
-const KNOWN = (userId: string) => `expo-planner-cloud:workspace:${userId}`
-const knownWorkspace = (userId: string): SharedWorkspace | null | undefined => {
-  try {
-    const raw = localStorage.getItem(KNOWN(userId))
-    return raw ? (JSON.parse(raw) as SharedWorkspace | null) : undefined
-  } catch {
-    return undefined
-  }
-}
-const noteWorkspace = (userId: string, shared: SharedWorkspace | null) => {
-  try {
-    localStorage.setItem(KNOWN(userId), JSON.stringify(shared))
-  } catch {
-    // the lookup is made again at the next start
-  }
-}
+const KNOWN = (userId: string) => `cloud:workspace:${userId}`
+const knownWorkspace = (userId: string): SharedWorkspace | null | undefined => loadPref<SharedWorkspace | null | undefined>(KNOWN(userId), undefined)
+const noteWorkspace = (userId: string, shared: SharedWorkspace | null) => savePref(KNOWN(userId), shared)
 
 /** Says in Norwegian why a sign-in link was not sent, where the shared copy said it in English. */
 const signInError = (error: { message?: string; code?: string }): Error =>

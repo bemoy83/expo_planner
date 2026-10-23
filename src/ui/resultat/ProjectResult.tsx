@@ -1,14 +1,14 @@
 import { ChevronRight } from 'lucide-react'
+import { periodText } from '../../domain/dates'
 import { useMemo } from 'react'
 import { dayAverages, NOISE, projectHours, projectStaffing, seasonStatus, type PhaseHours, type seasonBalance, type SeasonRow } from '../../domain/result'
 import { competenceKey, VENUE_PHASES } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
-import { hours, useCompetenceColor } from '../behov/format'
+import { useCompetenceColor } from '../behov/format'
 import { SidePanel } from '../common'
 import { NumberField } from '../fields'
-import { fmtPeriod } from '../kalender/labels'
-import { overHours, overShareText, percentText, wholeHours as whole } from './format'
+import { hours, overHours, overShareText, percentText, wholeHours as whole } from '../format'
 import { BudgetBars, StaffBars } from './ResultBars'
 
 const all = (phases: PhaseHours) => phases.Montering + phases.Demontering + phases.other
@@ -52,7 +52,7 @@ export function ProjectResult({ row, season, today, overhead, staffed, onBudget,
           <div className="insp-title">{row.name || 'Uten navn'}</div>
           <div className="insp-sub">
             <span className="project-no">{row.projectNo}</span>
-            {row.first && <span>· {fmtPeriod(row.first, row.last)}</span>}
+            {row.first && <span>· {periodText(row.first, row.last)}</span>}
             {seasonStatus(row, today) === 'live' && <span className="pill ok">Pågår</span>}
           </div>
         </>

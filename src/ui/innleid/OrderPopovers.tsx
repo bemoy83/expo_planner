@@ -2,10 +2,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { Check, Minus, Plus } from 'lucide-react'
 import { groupWaits, hireHours, shiftOf, SHIFT_LABELS, shiftTimes, timesText, type OrderGroup } from '../../domain/hire'
 import { SHIFT_IDS, type CompetenceStyle, type Interval, type Supplier, type WorkdaySettings } from '../../domain/types'
-import { clock, clockMinutes, hoursText } from '../bemanning/week'
+import { clockMinutes } from '../bemanning/week'
 import { Segmented } from '../common'
-import { fmtDay } from '../kalender/labels'
+import { dayText } from '../../domain/dates'
 import { useStableActions } from '../kalender/useStableActions'
+import { clock, hoursText } from '../format'
 
 /** Waiting for an answer is a clock in a ring; confirmed is a solid disc with a check. Ink only: the colours say under, ok and over. */
 export function AnswerGlyph({ waits, size = 14 }: { waits: boolean; size?: number }) {
@@ -229,8 +230,8 @@ export function AnswerPopover({ at, group, supplier, onWaits, onConfirm, onFewer
           <div className="il-sends-list">
             {group.orders.map((order) => (
               <div key={order.id} className="il-sends">
-                <span className="il-sends-day">{fmtDay(order.date)}</span>
-                {sends([order.id], order.fte, asked(order), `Antall de stiller ${fmtDay(order.date)}`)}
+                <span className="il-sends-day">{dayText(order.date)}</span>
+                {sends([order.id], order.fte, asked(order), `Antall de stiller ${dayText(order.date)}`)}
               </div>
             ))}
           </div>

@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Pencil, Plus, X } from 'lucide-react'
-import { addDays, isoWeek, type ISODate } from '../../domain/dates'
+import { addDays, isoWeek, periodText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { paidHours } from '../../domain/staffing/intervals'
 import { absenceSpans, addAbsence, editAbsence, overtimeByWeek, personWeek, type AbsenceInput, type AbsenceSpan } from '../../domain/staffing/time'
 import type { WorkdaySettings } from '../../domain/types'
 import { SidePanel } from '../common'
 import { competenceColor, count } from '../dom'
-import { fmtPeriod } from '../kalender/labels'
 import { useBemanning } from './BemanningScope'
 import { AWAY_LABEL } from './dayCell'
-import { clock, EPSILON, hoursText } from './week'
+import { EPSILON } from './week'
+import { clock, hoursText } from '../format'
 
 /** «12:00» as minutes after midnight, or `null`. */
 const minutes = (text: string): number | null => (/^\d{2}:\d{2}$/.test(text) ? Number(text.slice(0, 2)) * 60 + Number(text.slice(3)) : null)
@@ -176,7 +176,7 @@ export function PersonPanel() {
                 {weeks.map(([monday, hours]) => (
                   <tr key={monday} className={`${hours > overtimeLimit ? 'over' : ''} ${panel.week === monday ? 'lit' : ''}`} title="Vis uken" onClick={() => bm.onShowDate(monday)}>
                     <td>
-                      Uke {isoWeek(monday)} <span>{fmtPeriod(monday, addDays(monday, 6))}</span>
+                      Uke {isoWeek(monday)} <span>{periodText(monday, addDays(monday, 6))}</span>
                     </td>
                     <td>{hoursText(hours)} t</td>
                   </tr>
@@ -195,7 +195,7 @@ export function PersonPanel() {
                   <button className="pp-period" title="Vis dagene" onClick={() => bm.onShowDate(span.from)}>
                     <b>{AWAY_LABEL}</b>
                     <span>
-                      {fmtPeriod(span.from, span.to)}
+                      {periodText(span.from, span.to)}
                       {span.start !== undefined && span.end !== undefined && ` · ${clock(span.start)}–${clock(span.end)}`}
                     </span>
                   </button>

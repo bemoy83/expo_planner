@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { formatFte } from '../../domain/calc'
 import { heatFigure, heatKind, heatScale, heatTile } from './heat'
 import { ZOOM_WIDTHS } from './layout'
+import { formatFte } from '../format'
 
 describe('heatScale', () => {
   it('finds the largest shortage and surplus, each at least 1', () => {

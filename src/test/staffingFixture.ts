@@ -1,5 +1,5 @@
-import type { ISODate } from './dates'
-import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, Workspace } from './types'
+import type { ISODate } from '../domain/dates'
+import type { AllocationRow, Assignment, CompetenceStyle, Person, Unavailability, Workspace } from '../domain/types'
 
 /** The data of the Bemanning mockup: invented people and one week of demand. For the tests only; nothing in the app reads it. */
 interface StaffingFixture {

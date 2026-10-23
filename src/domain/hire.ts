@@ -1,4 +1,4 @@
-import { dayOfMonth, monthShort, weekdayIndex, WEEKDAYS_NB, type ISODate } from './dates'
+import { dayText, type ISODate } from './dates'
 import { projectTag, sameProject, SHIFT_IDS, workOf, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type Work, type WorkdaySettings, type Workspace } from './types'
 import { pushTo } from './collections'
 
@@ -271,7 +271,7 @@ export const orderText = (supplier: Supplier, orders: HireOrder[], competences: 
   const lines = [`Bestilling – ${supplier.name}`]
   let day = ''
   for (const order of supplierOrders(supplier, orders, competences)) {
-    if (order.date !== day) lines.push(`${WEEKDAYS_NB[weekdayIndex(order.date)].toLowerCase()} ${dayOfMonth(order.date)}. ${monthShort(order.date)}`)
+    if (order.date !== day) lines.push(dayText(order.date))
     day = order.date
     const label = competences.find((competence) => competence.key === order.competence)?.label ?? order.competence
     lines.push(`  ${label}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}: ${order.fte} pers. ${timesText(order)}`)

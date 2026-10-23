@@ -1,13 +1,11 @@
 import { competenceStyles, type FileCompetence } from '../domain/competences'
 import { LINE_COLORS, type LineColor, type Workspace } from '../domain/types'
-import { dataRows, findHeader, readXlsx, text, writeXlsx } from './xlsx'
+import { cell, column, dataRows, FileFormatError, firstSheetWith, readXlsx, text, writeXlsx } from './xlsx'
 
 /**
  * The competences as a file: what «Eksporter» on Kompetanser writes and «Importer fra fil» reads. A row per
  * competence in the planner's order, with its short name and colour.
  */
-
-export class KompetanserFormatError extends Error {}
 
 export const COLOR_NAMES: Record<LineColor, string> = {
   'line-blue': 'Blå',
@@ -31,17 +29,13 @@ export const writeKompetanserWorkbook = (ws: Workspace): Uint8Array =>
 
 /** Reads a file of competences: a «Kompetanse» column, and optionally «Kort» and «Farge». A colour the app does not have is left out. */
 export const readKompetanserWorkbook = (bytes: Uint8Array): FileCompetence[] => {
-  for (const sheet of readXlsx(bytes).values()) {
-    const header = findHeader(sheet, [NAME.toLowerCase()])
-    if (!header) continue
-    const get = (row: number, name: string) => {
-      const col = header.columns.get(name.toLowerCase())
-      return col === undefined ? '' : text(sheet.rows.get(row)?.get(col) ?? null)
-    }
+  const found = firstSheetWith(readXlsx(bytes).values(), [NAME], (sheet, header) => {
+    const get = (row: number, name: string) => text(cell(sheet, row, column(header, name)))
     const rows = dataRows(sheet, header.row)
       .filter((row) => get(row, NAME))
       .map((row): FileCompetence => ({ label: get(row, NAME), ...(get(row, SHORT) ? { shortLabel: get(row, SHORT) } : {}), ...(colorOf(get(row, COLOR)) ? { color: colorOf(get(row, COLOR)) } : {}) }))
-    if (rows.length) return rows
-  }
-  throw new KompetanserFormatError('Fant ingen kompetanser. Filen må ha en kolonne «Kompetanse».')
+    return rows.length ? rows : null
+  })
+  if (!found) throw new FileFormatError('Fant ingen kompetanser. Filen må ha en kolonne «Kompetanse».')
+  return found
 }

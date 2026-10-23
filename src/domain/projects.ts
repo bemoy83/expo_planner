@@ -345,8 +345,34 @@ export interface ProjectRow {
   candidates: string[]
 }
 
-/** The rows of the Prosjekter tab: what lacks a project first, by date, then the projects, the latest year first. */
-export const projectRows = (ws: Pick<Workspace, 'venue' | 'projects' | 'visma' | 'demand' | 'allocations'>): ProjectRow[] => {
+/** A number the orders, the demand or the plan point at, with the first name they give it; once each, in the order they come. */
+export interface KnownNumber {
+  projectNo: string
+  name: string
+}
+
+/** The numbers the orders, the demand and the plan point at: they are projects too, to be given their names. */
+export const knownNumbers = (ws: Pick<Workspace, 'visma' | 'demand' | 'allocations'>): KnownNumber[] => {
+  const known = new Map<string, KnownNumber>()
+  const add = (projectNo: string, name: string) => {
+    if (!projectNo.trim()) return
+    const key = projectNo.trim().toLowerCase()
+    const found = known.get(key)
+    if (!found) known.set(key, { projectNo, name: name.trim() })
+    else if (!found.name) found.name = name.trim()
+  }
+  for (const order of ws.visma ?? []) add(order.projectNo, order.eventName)
+  for (const line of ws.demand) add(line.projectNo, line.projectName)
+  for (const planned of ws.allocations) add(planned.projectNo, planned.projectName)
+  return [...known.values()]
+}
+
+/**
+ * The rows of the Prosjekter tab without their counts: the projects, the numbers that are known, and the events with the
+ * projects and numbers they are offered. This is the matching of names, which is slow with many projects; it changes
+ * only with Venyou, the table and the numbers that are known, not with an edit of the plan (`withProjectCounts`).
+ */
+export const matchProjects = (venue: Workspace['venue'], projectList: ProjectRef[], known: KnownNumber[]): ProjectRow[] => {
   const byNumber = new Map<string, ProjectRow>()
   const row = (projectNo: string, year: string, lacking: ProjectLacking | null): ProjectRow => {
     const key = projectNo.trim().toLowerCase()
@@ -354,32 +380,17 @@ export const projectRows = (ws: Pick<Workspace, 'venue' | 'projects' | 'visma' |
     if (!found) byNumber.set(key, (found = { key, projectNo: projectNo.trim(), year, names: [], events: [], orders: false, lines: 0, rows: 0, lacking, suggestion: '', candidates: [] }))
     return found
   }
-  for (const ref of ws.projects) {
+  for (const ref of projectList) {
     if (!ref.name.trim() || !ref.projectNo.trim()) continue
     const project = row(ref.projectNo, refYear(ref), null)
     if (!project.names.some((name) => normalizeName(name) === normalizeName(ref.name))) project.names.push(ref.name)
   }
-  // Numbers the orders, the demand and the plan point at are projects too, to be given their names.
-  const known = (projectNo: string, name: string): ProjectRow | null => {
-    if (!projectNo.trim()) return null
+  for (const { projectNo, name } of known) {
     const project = row(projectNo, numberYear(projectNo), 'new')
-    if (project.lacking === 'new' && name.trim() && !project.names.length) project.names.push(name.trim())
-    return project
-  }
-  for (const order of ws.visma ?? []) {
-    const project = known(order.projectNo, order.eventName)
-    if (project) project.orders = true
-  }
-  for (const line of ws.demand) {
-    const project = known(line.projectNo, line.projectName)
-    if (project) project.lines += 1
-  }
-  for (const planned of ws.allocations) {
-    const project = known(planned.projectNo, planned.projectName)
-    if (project) project.rows += 1
+    if (project.lacking === 'new' && name && !project.names.length) project.names.push(name)
   }
   const taken = new Set([...byNumber.values()].map((project) => project.projectNo))
-  const events = venueEvents(ws.venue, ws.projects)
+  const events = venueEvents(venue, projectList)
   for (const event of events) if (event.projectNo) row(event.projectNo, event.year, null).events.push(event)
   /**
    * The project of the year with the name most like the given one. `sameDays` says whether the project has an event on
@@ -439,6 +450,21 @@ export const projectRows = (ws: Pick<Workspace, 'venue' | 'projects' | 'visma' |
   const projects = [...byNumber.values()].sort((a, b) => Number(b.lacking === 'new') - Number(a.lacking === 'new') || b.year.localeCompare(a.year) || a.projectNo.localeCompare(b.projectNo, 'nb'))
   return [...missing, ...projects]
 }
+
+/** The rows with what points at each number: whether orders are read in for it, and how many demand lines and planning rows. */
+export const withProjectCounts = (rows: ProjectRow[], ws: Pick<Workspace, 'visma' | 'demand' | 'allocations'>): ProjectRow[] => {
+  const orders = new Set<string>()
+  const lines = new Map<string, number>()
+  const planned = new Map<string, number>()
+  const key = (projectNo: string) => projectNo.trim().toLowerCase()
+  for (const order of ws.visma ?? []) orders.add(key(order.projectNo))
+  for (const line of ws.demand) lines.set(key(line.projectNo), (lines.get(key(line.projectNo)) ?? 0) + 1)
+  for (const row of ws.allocations) planned.set(key(row.projectNo), (planned.get(key(row.projectNo)) ?? 0) + 1)
+  return rows.map((row) => (row.projectNo ? { ...row, orders: orders.has(row.key), lines: lines.get(row.key) ?? 0, rows: planned.get(row.key) ?? 0 } : row))
+}
+
+/** The rows of the Prosjekter tab: what lacks a project first, by date, then the projects, the latest year first. */
+export const projectRows = (ws: Pick<Workspace, 'venue' | 'projects' | 'visma' | 'demand' | 'allocations'>): ProjectRow[] => withProjectCounts(matchProjects(ws.venue, ws.projects, knownNumbers(ws)), ws)
 
 /** Whether the number was made up in the app or by hand, as «26VAM», and not given by the system the orders come from. */
 const isMadeUpNumber = (projectNo: string): boolean => /[a-zæøå]/i.test(projectNo)

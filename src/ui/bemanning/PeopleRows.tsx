@@ -16,7 +16,7 @@ import { endShape, runLink, runOf, type BlocksOn, type EndShape, type Piece, typ
 import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
 import { UnfoldedPerson } from './UnfoldedPerson'
-import { hoursText } from './week'
+import { hoursText } from '../format'
 
 const NO_ASSIGNMENTS: Assignment[] = []
 const NO_ABSENCE: Unavailability[] = []
@@ -160,7 +160,7 @@ export function PeopleHeading() {
   const { persons, brush, able, labelOf } = useBemanning()
   return (
     <div className="grid-row col-head bm-people-head" style={{ height: ROW_H }}>
-      <div className="grid-label" style={{ width: LEFT_W }}>
+      <div className="grid-label">
         <span className="lbl-desc">Personell</span>
         <span className="bm-label-note">{brush ? `${able} med ${labelOf(brush)}` : `${persons.length} faste`}</span>
         <span className="bm-label-note bm-label-end">uke · normal/kap.</span>

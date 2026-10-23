@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { loadStaffingFixture, withStaffingFixture } from '../staffingFixture'
+import { loadStaffingFixture, withStaffingFixture } from '../../test/staffingFixture'
 import { capacityForDate, dailyNeed, planningSettings } from '../calc'
 import { openUnresolved, removeCarried, balanceTotals, buildBalance, dayBalance, defaultBrush, freeCapacity, removeUnresolved, uncoverable, weekTotals } from './balance'
 import { copyDays, moveDay, pasteDays, clearDays, clickBlock, drawBlock, invariantBreaches, mergeAdjacent, moveAssignment, moveBlock, moveTarget, paintBlock, paintDays, recolourBlock, resizeBlock, splitBlock } from './edit'

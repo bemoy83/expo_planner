@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { clock, clockMinutes, hoursShort, hoursText } from './week'
+import { clockMinutes } from './week'
+import { clock, hoursShort, hoursText } from '../format'
 
 describe('hours as text', () => {
   it('keeps quarter hours where the exact figure is wanted', () => {

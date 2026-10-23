@@ -1,14 +1,14 @@
 import { memo } from 'react'
-import { capacityForDate, formatFte, FTE_NOISE, type RowTotals } from '../../domain/calc'
-import type { ISODate } from '../../domain/dates'
+import { capacityForDate, FTE_NOISE, type RowTotals } from '../../domain/calc'
+import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
 import { PHASE_LABELS } from '../../domain/venue'
 import { SidePanel } from '../common'
-import { fmtDay } from './labels'
 import { Pencil } from 'lucide-react'
 import { LastChanged } from '../../sync/LastChanged'
 import { cellId } from '../../store/records'
+import { formatFte } from '../format'
 
 /** The row the panel is about, with what the Kalender knows of it. */
 export interface RowDetails {
@@ -128,7 +128,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
             <dl className="insp-dl">
               <dt>Periode</dt>
               <dd className="num">
-                {fmtDay(windowDays[0])} – {fmtDay(windowDays[windowDays.length - 1])}
+                {dayText(windowDays[0])} – {dayText(windowDays[windowDays.length - 1])}
               </dd>
               <dt>Arbeidsdager</dt>
               <dd className="num">{workdays}</dd>
@@ -173,7 +173,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
                   return (
                     <tr key={date}>
                       <td>
-                        {fmtDay(date)}
+                        {dayText(date)}
                         {window?.size && !window.has(date) ? (
                           <span className="insp-out" title="Utenfor vinduet">
                             {' '}

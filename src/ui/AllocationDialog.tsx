@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { availableYears, demandScopes, formatFte, referenceProjectNo, requiredHours } from '../domain/calc'
+import { availableYears, demandScopes, referenceProjectNo, requiredHours } from '../domain/calc'
 import type { AllocationRow, WorkPhase } from '../domain/types'
 import { useWorkspace } from '../store/workspaceStore'
 import { PickField } from './fields'
+import { formatFte } from './format'
 
 interface Props {
   row?: AllocationRow

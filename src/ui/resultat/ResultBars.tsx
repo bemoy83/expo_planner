@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react'
 import { NOISE, type dayAverages, type SeasonRow } from '../../domain/result'
-import { hours } from '../behov/format'
-import { deviationText, overShareText, overText, percentText, shareText } from './format'
+import { deviationText, hours, overShareText, overText, percentText, shareText } from '../format'
 
 /** What the bars of a project, or of the sum of several, are drawn from. */
 type Bars = Pick<SeasonRow, 'name' | 'budget' | 'withOverhead' | 'plannedTotal' | 'deviation' | 'deviationShare' | 'actual' | 'actualDeviation'>

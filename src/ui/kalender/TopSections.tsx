@@ -124,7 +124,7 @@ export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols
 export function PlanningHeading() {
   return (
     <div className="grid-row col-head" style={{ height: ROW_H }}>
-      <div className="grid-label" style={{ width: LEFT_W }}>
+      <div className="grid-label">
         <span className="lbl-desc">Planlegging</span>
         <span className="lbl-nums">
           <span className="lbl-num" title="Behov (FTE-dager)">

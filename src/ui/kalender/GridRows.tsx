@@ -1,17 +1,18 @@
 import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
-import { capacityForDate, formatFte, FTE_NOISE } from '../../domain/calc'
-import { addDays, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { capacityForDate, FTE_NOISE } from '../../domain/calc'
+import { addDays, weekdayShort, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import { dayClass, type CellEdit, type Columns, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { daysWide, HALL_COMPACT_H, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
-import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, signed, type HeatKind } from './heat'
+import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, type HeatKind } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
 import { Twisty } from '../common'
 import { Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 import { count } from '../dom'
+import { formatFte, signed } from '../format'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260
@@ -33,7 +34,7 @@ const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling'
 export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, style, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** On a hall's line: its projects, for the hover cue, see `useProjectHover` and `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
   return (
     <div className={`grid-row ${className}`} style={style ? { ...style, height } : { height }} data-projects={projects}>
-      <div className="grid-label" style={{ width: LEFT_W }} onClick={onLabelClick}>
+      <div className="grid-label" onClick={onLabelClick}>
         {label}
       </div>
       <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />
@@ -160,7 +161,7 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
             onContextMenu={onDayPlan && ((e) => { e.preventDefault(); onDayPlan(date) })}
             title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}${onDayPlan ? '\nHøyreklikk: dagsplan' : ''}`}
           >
-            <span className="wd">{WEEKDAYS_NB[weekdayIndex(date)].slice(0, zoom === 'compact' ? 1 : 3).toLowerCase()}</span>
+            <span className="wd">{weekdayShort(date).slice(0, zoom === 'compact' ? 1 : 3)}</span>
             <span className="dn">{Number(date.slice(8))}</span>
           </div>
         )}

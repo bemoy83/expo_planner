@@ -1,5 +1,5 @@
 import { FTE_NOISE } from '../../domain/calc'
-import { addDays, dayOfMonth, isoWeek, MONTHS_NB, monthShort, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, weekdayShort, type ISODate } from '../../domain/dates'
 import type { AllocationRow } from '../../domain/types'
 import { dimensionValue, type Dimension } from './rows'
 
@@ -9,18 +9,8 @@ export const describeRow = (row: AllocationRow, dimensions: Dimension[]): string
 
 export const fmtDate = (date: ISODate) => {
   const [y, m, d] = date.split('-')
-  return `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${d}.${m}.${y}`
+  return `${weekdayShort(date)} ${d}.${m}.${y}`
 }
-
-/** A day without its weekday or year, e.g. «5. okt». */
-export const fmtDayMonth = (date: ISODate) => `${dayOfMonth(date)}. ${monthShort(date)}`
-
-/** «21.–23. okt», «30. sep–2. okt», or «21. okt» for one day. */
-export const fmtPeriod = (from: ISODate, to: ISODate): string =>
-  from === to ? fmtDayMonth(from) : from.slice(0, 7) === to.slice(0, 7) ? `${dayOfMonth(from)}.–${fmtDayMonth(to)}` : `${fmtDayMonth(from)}–${fmtDayMonth(to)}`
-
-/** A day without its year, e.g. «man 5. okt». */
-export const fmtDay = (date: ISODate) => `${WEEKDAYS_NB[weekdayIndex(date)].toLowerCase()} ${dayOfMonth(date)}. ${monthShort(date)}`
 
 export const rowTitle = (row: AllocationRow) => `${describeRow(row, ['project', 'competence', 'hall', 'avdeling'])} · ${row.phase}`
 
@@ -39,7 +29,7 @@ export const headLabel = (date: ISODate, colW: number): { month?: string; week?:
   const day = dayOfMonth(date)
   if (day === 1) {
     const toMonday = (7 - weekdayIndex(date)) % 7
-    return { month: `${MONTHS_NB[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`, week: toMonday < covered ? `u${isoWeek(addDays(date, toMonday))}` : undefined }
+    return { month: `${monthShort(date).toUpperCase()} ${date.slice(0, 4)}`, week: toMonday < covered ? `u${isoWeek(addDays(date, toMonday))}` : undefined }
   }
   return weekdayIndex(date) === 0 && day > covered ? { week: `u${isoWeek(date)}` } : {}
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
+import { TWO_PROJECTS, withTwoProjects } from '../test/staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type VenueBooking, type Workspace } from './types'
 import { buildWeekPlan } from './weekPlan'
 

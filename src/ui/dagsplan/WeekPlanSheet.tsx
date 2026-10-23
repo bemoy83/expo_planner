@@ -1,20 +1,18 @@
 import type { CSSProperties } from 'react'
 import { competenceStyles } from '../../domain/competences'
-import { isoWeek, dayOfMonth, monthShort, weekdayIndex } from '../../domain/dates'
+import { capitalized, dayOfMonth, isoWeek, monthShort, weekdayIndex, weekdayShort, type ISODate } from '../../domain/dates'
 import type { VenuePhase, Workspace } from '../../domain/types'
 import { PHASE_LABELS } from '../../domain/venue'
 import type { WeekBar, WeekPlan } from '../../domain/weekPlan'
 import { competenceColor, count } from '../dom'
-import { WEEKDAYS } from './format'
 
-const DAY_NAMES = WEEKDAYS.map((d) => d.slice(0, 3))
 /** The colour of a phase's stretch: the phase's own, as in the hall calendar. */
 const phaseColor = (phase: VenuePhase) => ({ '--ph': `var(--ph-${phase.toLowerCase()})` }) as CSSProperties
 
 /** A flag's days as «tir», «tir–ons» or «tor og fre»: the first and last of a run, else the days one by one. */
-const daysText = (days: number[], names: string[]) => {
+const daysText = (days: number[], dates: ISODate[]) => {
   const run = days.every((d, i) => i === 0 || d === days[i - 1] + 1)
-  return days.length > 2 && run ? `${names[days[0]].toLowerCase()}–${names[days[days.length - 1]].toLowerCase()}` : days.map((d) => names[d].toLowerCase()).join(' og ')
+  return days.length > 2 && run ? `${weekdayShort(dates[days[0]])}–${weekdayShort(dates[days[days.length - 1]])}` : days.map((d) => weekdayShort(dates[d])).join(' og ')
 }
 
 /** The shared week plan as a sheet, A4 landscape: the same palette as the day plan, the colours of the Kalender. */
@@ -35,7 +33,7 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
             .filter((f) => f.days[0] >= run.from && f.days[0] <= run.to)
             .map((f) => (
               <em key={f.state} className={`wp-flag ${f.state}`}>
-                {f.state === 'short' ? 'mangler' : 'venter'} {daysText(f.days, DAY_NAMES)}
+                {f.state === 'short' ? 'mangler' : 'venter'} {daysText(f.days, plan.dates)}
               </em>
             ))}
         </span>
@@ -59,7 +57,7 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
           <span />
           {plan.dates.map((d) => (
             <span key={d} className={`wp-day${weekdayIndex(d) >= 5 ? ' we' : ''}`}>
-              {DAY_NAMES[weekdayIndex(d)]} {dayOfMonth(d)}
+              {capitalized(weekdayShort(d))} {dayOfMonth(d)}
             </span>
           ))}
           {plan.projects.map((p) => (
@@ -103,7 +101,7 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
                 <b className={state}>{state === 'short' ? 'Mangler' : 'Venter på svar'}</b>
                 {list.map((a, i) => (
                   <span key={i}>
-                    {a.projectName} · {label(a.competence)} {daysText(a.days, DAY_NAMES)}
+                    {a.projectName} · {label(a.competence)} {daysText(a.days, plan.dates)}
                   </span>
                 ))}
               </p>

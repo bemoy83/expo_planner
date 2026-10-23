@@ -38,7 +38,7 @@
 .op-group-count{font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 .op-group-note{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--muted)}
 .op-group.lacking{border-radius:10px 10px 0 0;background:color-mix(in oklab,var(--bg) 92%,var(--alert-warn))}
-.op-attention{width:8px;height:8px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 3px color-mix(in oklab,var(--alert-warn) 28%,transparent)}
+.op-attention{width:8px;height:8px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 3px var(--attention-ring)}
 .op-fold{display:grid;place-items:center}
 .op-table .icon-button{min-width:24px;width:24px;height:24px;padding:0;display:inline-grid;place-items:center;border-radius:6px;color:var(--faint)}
 /* the name, and beside it what the type lacks: the pair wraps, so the name is never cut */

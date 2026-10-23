@@ -1,16 +1,16 @@
 import { Fragment, useState, type CSSProperties } from 'react'
+import { periodText } from '../../domain/dates'
 import { dayAverages, NOISE, PLAN_MARGIN, seasonStatus, type HallPhases, type seasonSummary, type SeasonRow } from '../../domain/result'
 import { VENUE_PHASES, type VenuePhase } from '../../domain/types'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { count } from '../dom'
-import { fmtDayMonth, fmtPeriod } from '../kalender/labels'
 import { BudgetBars, StaffBars } from './ResultBars'
-import { deviationText, overHours, overShareText, shareText, wholeHours } from './format'
+import { deviationText, overHours, overShareText, shareText, wholeHours } from '../format'
 
 const SHORT: Record<VenuePhase, string> = { assembly: 'Mont.', movingIn: 'Innfl.', event: 'Arr.', movingOut: 'Utfl.', dismantle: 'Dem.' }
 
 /** The booked phases of a hall, for its tile: «B1 · Mont. 7.–9. sep · Arr. 10.–12. sep · Dem. 13. sep». */
-const hallTitle = (hall: string, phases: HallPhases) => [hall, ...VENUE_PHASES.filter((phase) => phases[phase]).map((phase) => `${SHORT[phase]} ${fmtPeriod(phases[phase]!.start, phases[phase]!.end)}`)].join(' · ')
+const hallTitle = (hall: string, phases: HallPhases) => [hall, ...VENUE_PHASES.filter((phase) => phases[phase]).map((phase) => `${SHORT[phase]} ${periodText(phases[phase]!.start, phases[phase]!.end)}`)].join(' · ')
 
 /** A deviation from the budget, against it: hours over the share, in the colour of what is over where it is. */
 function Deviation({ deviation, share, title }: { deviation: number | null; share: number | null; title: string }) {
@@ -70,7 +70,7 @@ export function ResultMatrix({ rows, summary, halls, today, overhead, actuals, o
   const todayAt = rows.findIndex((row) => row.first > today)
   const todayLine = (
     <div className="res-today">
-      <span>I dag · {fmtDayMonth(today)}</span>
+      <span>I dag · {periodText(today, today)}</span>
     </div>
   )
   const phaseCells = (days: SeasonRow['days'], sum?: boolean) => (
@@ -109,7 +109,7 @@ export function ResultMatrix({ rows, summary, halls, today, overhead, actuals, o
           <b title={row.name}>{row.name || 'Uten navn'}</b>
           <span className="res-project-meta">
             <span className="project-no">{row.projectNo}</span>
-            {row.first && <span>{fmtPeriod(row.first, row.last)}</span>}
+            {row.first && <span>{periodText(row.first, row.last)}</span>}
             {seasonStatus(row, today) === 'live' && <span className="pill ok">Pågår</span>}
           </span>
         </span>

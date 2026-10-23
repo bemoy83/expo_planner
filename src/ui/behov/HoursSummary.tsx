@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { PLANNED_BASIS } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { SidePanel } from '../common'
-import { hours } from './format'
+import { hours } from '../format'
 
 
 /** The hours of a project per competence and basis, Visma and own lines together: what the Kalender rows pick from. */

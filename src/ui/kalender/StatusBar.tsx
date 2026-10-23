@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { formatFte } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import { fmtDate } from './labels'
+import { formatFte } from '../format'
 
 /** The cell in focus, as the status bar tells it. */
 export interface FocusInfo {

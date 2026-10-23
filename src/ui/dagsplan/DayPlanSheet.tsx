@@ -1,11 +1,11 @@
 import { Fragment, type CSSProperties } from 'react'
-import { formatFte } from '../../domain/calc'
 import { isoWeek } from '../../domain/dates'
 import { competenceStyles } from '../../domain/competences'
 import type { DayBlock, DayCompetenceGroup, DayPlan, DayWork, ProjectCard } from '../../domain/dayPlan'
 import type { CompetenceKey, CompetenceStyle, Interval, Minute, Workspace } from '../../domain/types'
 import { competenceColor, count } from '../dom'
 import { hm, longDate, shortDate, span } from './format'
+import { formatFte } from '../format'
 
 /** Where a time stands on the track, in per cent of it. */
 const placeOn = (range: Interval, minute: Minute) => ((Math.min(range.end, Math.max(range.start, minute)) - range.start) / (range.end - range.start)) * 100

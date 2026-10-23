@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtPeriod, headLabel } from './labels'
+import { headLabel } from './labels'
 
 describe('headLabel', () => {
   it('names the month on the 1st and the week on a Monday', () => {
@@ -26,14 +26,5 @@ describe('headLabel', () => {
     expect(headLabel('2026-08-03', 26)).toEqual({})
     expect(headLabel('2026-08-01', 36)).toEqual({ month: 'AUG 2026', week: undefined })
     expect(headLabel('2026-08-03', 36)).toEqual({ week: 'u32' })
-  })
-})
-
-describe('fmtPeriod', () => {
-  it('writes a period in one month, over two months, and a single day', () => {
-    expect(fmtPeriod('2026-10-21', '2026-10-23')).toBe('21.–23. okt')
-    expect(fmtPeriod('2026-09-30', '2026-10-02')).toBe('30. sep–2. okt')
-    expect(fmtPeriod('2026-10-21', '2026-10-21')).toBe('21. okt')
-    expect(fmtPeriod('2026-12-30', '2027-12-31')).toBe('30. des–31. des')
   })
 })

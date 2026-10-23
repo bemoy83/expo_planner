@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, Minus, RefreshCw } from 'lucide-react'
-import { todayIso, type ISODate } from '../../domain/dates'
+import { capitalized, monthName, todayIso, type ISODate } from '../../domain/dates'
 import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from '../../domain/types'
 import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
 import { phaseSpans } from '../../domain/venue'
@@ -11,7 +11,6 @@ import { NeedButton } from '../behov/SplitPick'
 import type { TablePage } from '../RegisterHead'
 
 const PHASE_HEADERS: Record<VenuePhase, string> = { assembly: 'Montering', movingIn: 'Innflytting', event: 'Arrangement', movingOut: 'Utflytting', dismantle: 'Demontering' }
-const MONTHS = ['Januar', 'Februar', 'Mars', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Desember']
 
 const day = (date: ISODate) => `${Number(date.slice(8))}.${Number(date.slice(5, 7))}`
 /** A span of days as short as it reads: «3.–5.10», or «30.9–2.10» across months. */
@@ -262,7 +261,7 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
                 return (
                   <section key={month} className="op-group">
                     <div className="op-group-head">
-                      {MONTHS[Number(month.slice(5)) - 1]} {month.slice(0, 4)} <span className="op-group-count">{inMonth.length}</span>
+                      {capitalized(monthName(month))} {month.slice(0, 4)} <span className="op-group-count">{inMonth.length}</span>
                     </div>
                     {inMonth.map(row)}
                   </section>

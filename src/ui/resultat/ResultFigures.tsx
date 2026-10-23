@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { NOISE, type seasonSummary, type SeasonRow } from '../../domain/result'
 import { count } from '../dom'
-import { overHours, overShareText, percentText, wholeHours as whole } from './format'
+import { overHours, overShareText, percentText, wholeOrDash as whole } from '../format'
 
 function Figure({ label, value, unit = 't', sub, over, children }: { label: string; value: ReactNode; unit?: string; sub?: ReactNode; over?: boolean; children?: ReactNode }) {
   return (

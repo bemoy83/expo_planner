@@ -1,13 +1,11 @@
 import { competenceStyles, type FilePerson } from '../domain/competences'
 import type { Workspace } from '../domain/types'
-import { dataRows, findHeader, isMarked, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
+import { cell, column, dataRows, FileFormatError, firstSheetWith, isMarked, readXlsx, text, writeXlsx, type CellValue } from './xlsx'
 
 /**
  * The permanent staff as a file: what «Eksporter» on Personell writes and «Importer fra fil» reads. A row per person
  * and a column per competence, marked where the person has it. People are told apart by their names.
  */
-
-export class PersonellFormatError extends Error {}
 
 const NAME = 'Navn'
 const NOTE = 'Notat'
@@ -27,16 +25,14 @@ export const writePersonellWorkbook = (ws: Workspace): Uint8Array => {
  * is a competence, held by the people whose cell is marked.
  */
 export const readPersonellWorkbook = (bytes: Uint8Array): FilePerson[] => {
-  for (const sheet of readXlsx(bytes).values()) {
-    const header = findHeader(sheet, [NAME.toLowerCase()])
-    if (!header) continue
-    if (SUPPLIER_HEADINGS.some((heading) => header.columns.has(heading))) throw new PersonellFormatError('Dette er en fil med leverandører. Les den inn på Mannskap › Innleid.')
-    const name = header.columns.get(NAME.toLowerCase())!
-    const note = header.columns.get(NOTE.toLowerCase())
+  const found = firstSheetWith(readXlsx(bytes).values(), [NAME], (sheet, header) => {
+    if (SUPPLIER_HEADINGS.some((heading) => header.columns.has(heading))) throw new FileFormatError('Dette er en fil med leverandører. Les den inn på Mannskap › Innleid.')
+    const name = column(header, NAME)
+    const note = column(header, NOTE)
     // The headings as they are spelled in the file name the competences.
     const competences = [...sheet.rows.get(header.row)!].filter(([col, value]) => ![name, note].includes(col) && text(value)).map(([col, value]) => ({ col, label: text(value) }))
     const people = dataRows(sheet, header.row).flatMap((row): FilePerson[] => {
-      const get = (col: number | undefined) => (col === undefined ? null : (sheet.rows.get(row)?.get(col) ?? null))
+      const get = (col: number | undefined) => cell(sheet, row, col)
       if (!text(get(name))) return []
       return [
         {
@@ -46,7 +42,8 @@ export const readPersonellWorkbook = (bytes: Uint8Array): FilePerson[] => {
         },
       ]
     })
-    if (people.length) return people
-  }
-  throw new PersonellFormatError('Fant ingen personer. Filen må ha en kolonne «Navn», og en kolonne per kompetanse.')
+    return people.length ? people : null
+  })
+  if (!found) throw new FileFormatError('Fant ingen personer. Filen må ha en kolonne «Navn», og en kolonne per kompetanse.')
+  return found
 }

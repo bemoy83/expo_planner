@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
 import { todayIso } from '../../domain/dates'
-import { diffProjectList, mergeProjectList, normalizeName, projectRows, replaceProjectList, suggestProjectNo, withoutProject, withoutProjectName, withNumberTakingOver, withProjectName, withProjectNo, withProjectYear, type ProjectLacking, type ProjectRow } from '../../domain/projects'
+import { diffProjectList, mergeProjectList, normalizeName, replaceProjectList, suggestProjectNo, withoutProject, withoutProjectName, withNumberTakingOver, withProjectName, withProjectNo, withProjectYear, type ProjectLacking, type ProjectRow } from '../../domain/projects'
 import type { ProjectRef } from '../../domain/types'
 import { readProsjekterWorkbook, writeProsjekterWorkbook } from '../../import/prosjekterFile'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -31,7 +31,7 @@ const usedIn = (row: ProjectRow): string[] => [row.orders ? 'Ordre' : '', row.li
  * planning rows point at, and an event in Venyou gets the number of the project that carries its name in its year.
  * Events without a project are listed first, each with a number it can be given.
  */
-export function Prosjekter({ head, notify, show, onOpenBehov }: TablePage & { onOpenBehov: (projectNo: string) => void }) {
+export function Prosjekter({ head, notify, show, rows, onOpenBehov }: TablePage & { rows: ProjectRow[]; onOpenBehov: (projectNo: string) => void }) {
   const { workspace, setProjects } = useWorkspace()
   const ws = workspace!
   const projects = ws.projects
@@ -39,7 +39,6 @@ export function Prosjekter({ head, notify, show, onOpenBehov }: TablePage & { on
   const [adding, setAdding] = useState(false)
   const [merging, setMerging] = useState<{ row: ProjectRow; to: string; other: ProjectRow } | null>(null)
 
-  const rows = useMemo(() => projectRows(ws), [ws.venue, ws.projects, ws.visma, ws.demand, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
   const found = useMemo(() => {
     const q = search.trim().toLowerCase()
     return q ? rows.filter((row) => `${row.projectNo} ${row.names.join(' ')}`.toLowerCase().includes(q)) : rows

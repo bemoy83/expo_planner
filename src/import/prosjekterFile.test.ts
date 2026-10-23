@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ProsjekterFormatError, readProsjekterWorkbook, writeProsjekterWorkbook } from './prosjekterFile'
-import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
+import { readProsjekterWorkbook, writeProsjekterWorkbook } from './prosjekterFile'
+import { cellAt, dataRows, FileFormatError, readXlsx, writeXlsx } from './xlsx'
 
 const projects = [
   { name: 'VVS 2026', projectNo: '26970' },
@@ -33,6 +33,6 @@ describe('the Prosjekter file', () => {
   })
 
   it('says what a file must hold when it is something else', () => {
-    expect(() => readProsjekterWorkbook(writeXlsx([{ name: 'Ark1', head: ['Navn', 'Aktiv'], rows: [['Anna', 'Ja']] }]))).toThrow(ProsjekterFormatError)
+    expect(() => readProsjekterWorkbook(writeXlsx([{ name: 'Ark1', head: ['Navn', 'Aktiv'], rows: [['Anna', 'Ja']] }]))).toThrow(FileFormatError)
   })
 })

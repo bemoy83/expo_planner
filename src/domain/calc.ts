@@ -162,5 +162,3 @@ export const capacityForDate = (date: ISODate, lines: CapacityLine[], settings: 
 /** A difference in FTE this small is rounding: nothing is left, nothing is over. */
 export const FTE_NOISE = 0.05
 
-export const formatFte = (value: number | null | undefined, digits = 1): string =>
-  value === null || value === undefined || !Number.isFinite(value) ? '' : value.toLocaleString('nb-NO', { maximumFractionDigits: digits, minimumFractionDigits: 0 })
