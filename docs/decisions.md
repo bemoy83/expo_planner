@@ -26,7 +26,7 @@ Where v2's package disagreed with the app or with itself, and what was done
 
 Where the code is: the types in `domain/types.ts`; the rules in `domain/staffing/` (once `domain/staffing.ts`) (R1–R15 of RULES.md, with the checks D1–D23 of ACCEPTANCE.md in `staffing/staffing.test.ts`) and `domain/competences.ts`; people, absence, assignments and moved hours as records of the workspace (`store/records.ts`), and competence styles with them; undo through `updateStaffing` in the store; the mode in `ui/bemanning/`, held together by `BemanningScope.tsx`, and the tabs Personell and Kompetanser in `ui/personell/`; styles in `styles/bemanning.css`.
 
-The mockup's invented people and week 42 2026 are read by the tests only (`domain/staffingFixture.ts`, from `design_docs/bemanning/fixtures/`). The app has no way to load them; the menu item that did is removed.
+The mockup's invented people and week 42 2026 are read by the tests only (`test/staffingFixture.ts`, from `design_docs/bemanning/fixtures/`). The app has no way to load them; the menu item that did is removed.
 
 Choices made where the handoff was open or disagreed with itself
 
