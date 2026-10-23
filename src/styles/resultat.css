@@ -20,8 +20,7 @@
 .res-figure>b small{margin-left:4px;font:500 var(--fs-md) var(--font-num);letter-spacing:0;color:var(--faint)}
 .res-figure-sub{font-size:var(--fs-sm);color:var(--muted);text-wrap:pretty}
 .res-figure-pair{display:inline-flex;gap:14px}
-.res-figure-pair>span{display:inline-flex;align-items:center}
-.res-figure-pair .phase-swatch{width:10px;height:10px;margin-right:5px;border-radius:3px}
+.res-figure-pair>span{display:inline-flex;align-items:center;gap:5px}
 .res-figure .bar{--bar-track:var(--sunken)}
 .res-figure .bar:not(.over) .share{background:var(--muted)}
 
@@ -46,8 +45,7 @@
 .res-num-head.left{align-items:flex-start;padding-left:10px}
 .res-num-head.staff{align-items:stretch;padding-left:8px}
 .res-num-head.staff>span{display:flex;align-items:baseline;justify-content:space-between;gap:4px;font-size:var(--fs-2xs)}
-.res-num-head.staff>span>span{display:inline-flex;align-items:center}
-.res-num-head .phase-swatch{width:7px;height:7px}
+.res-num-head.staff>span>span{display:inline-flex;align-items:center;gap:5px}
 /* a project */
 .res-project{gap:1px;padding:4px 8px 4px 0}
 .res-project>b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -85,16 +83,13 @@
 .res-bars.big .tick{width:3px;top:-3px;bottom:-3px}
 /* hours per day against the permanent staff: a bar from their line, right where the plan needs more, left where they are not filled */
 .res-staff{display:flex;flex-direction:column;gap:4px;padding-left:8px;font-size:12.5px}
-.res-staff-line{display:grid;grid-template-columns:minmax(52px,1fr) 32px;align-items:center;gap:8px}
+.res-staff-line{display:grid;grid-template-columns:10px minmax(48px,1fr) 32px;align-items:center;gap:6px}
 .res-staff-line .num{text-align:right;font-variant-numeric:tabular-nums}
 .res-diverge{position:relative;display:block;height:8px}
 .res-diverge::after{content:"";position:absolute;left:50%;top:-1px;bottom:-1px;width:1px;background:var(--faint)}
 .res-diverge>i{position:absolute;top:1px;height:6px}
 .res-diverge .up{background:var(--over);border-radius:0 2px 2px 0}
 .res-diverge .down{background:var(--res-plan);border-radius:2px 0 0 2px}
-.res-diverge::before{content:"";position:absolute;left:-6px;top:1px;width:3px;height:6px;border-radius:1px}
-.res-diverge.assembly::before{background:var(--ph-assembly)}
-.res-diverge.dismantle::before{background:var(--ph-dismantle)}
 /* the deviations */
 .res-dev{display:flex;flex-direction:column;align-items:flex-end;gap:1px;padding-left:4px;font-size:var(--fs-md);white-space:nowrap}
 .res-dev b{font-weight:600}
@@ -141,13 +136,12 @@
 .res-competence-bar{position:relative;height:16px}
 .res-competence-bar i{position:absolute}
 .res-competence-bar .demand{left:0;top:0;height:16px;border-radius:3px;background:var(--sunken)}
-.res-competence-bar :is(.ph-assembly,.ph-dismantle){top:4px;height:8px}
-.res-competence-bar .ph-assembly{border-radius:2px 0 0 2px}
-.res-competence-bar .ph-dismantle{border-radius:0 2px 2px 0}
+.res-competence-bar :is(.mon,.dem){top:4px;height:8px}
+.res-competence-bar .mon{border-radius:2px 0 0 2px;background:var(--mon)}
+.res-competence-bar .dem{border-radius:0 2px 2px 0;background:var(--dem)}
 .res-competence-keys{display:flex;gap:14px;padding-top:8px;font-size:var(--fs-sm)}
 .res-competence-keys span{display:inline-flex;align-items:center;gap:5px}
-.res-competence-keys i{width:10px;height:8px;border-radius:2px}
-.res-competence-keys .demand{height:10px;background:var(--sunken)}
+.res-competence-keys .demand{width:10px;height:10px;border-radius:3px;background:var(--sunken)}
 .res-panel-foot{justify-content:flex-end}
 .insp-foot.res-panel-foot>button{width:auto;display:inline-flex;align-items:center;gap:4px}
 .res-rail-body{padding:0 12px 8px}

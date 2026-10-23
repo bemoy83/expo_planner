@@ -142,8 +142,8 @@ export function ProjectResult({ row, season, today, overhead, staffed, onBudget,
                     </span>
                     <span className="res-competence-bar" title={`Behov ${hours(demand)} t · plan ${hours(planned)} t (mont. ${hours(entry.planned.Montering)} · dem. ${hours(entry.planned.Demontering)})`}>
                       <i className="demand" style={{ width: `${(demand / widest) * 100}%` }} />
-                      <i className="ph-assembly" style={{ left: 0, width: `${(entry.planned.Montering / widest) * 100}%` }} />
-                      <i className="ph-dismantle" style={{ left: `${(entry.planned.Montering / widest) * 100}%`, width: `${(entry.planned.Demontering / widest) * 100}%` }} />
+                      <i className="mon" style={{ left: 0, width: `${(entry.planned.Montering / widest) * 100}%` }} />
+                      <i className="dem" style={{ left: `${(entry.planned.Montering / widest) * 100}%`, width: `${(entry.planned.Demontering / widest) * 100}%` }} />
                     </span>
                     <span className={`num ${planned < demand - NOISE ? 'warn-text' : ''}`}>{hours(planned)}</span>
                     <span className="num muted" title={staffing ? `${hours(all(staffing.tagged))} t merket, ${hours(all(staffing.shared))} t fordelt` : undefined}>
@@ -158,11 +158,11 @@ export function ProjectResult({ row, season, today, overhead, staffed, onBudget,
                   Behov
                 </span>
                 <span>
-                  <i className="ph-assembly" />
+                  <i className="phase-mark mon" />
                   Plan mont.
                 </span>
                 <span>
-                  <i className="ph-dismantle" />
+                  <i className="phase-mark dem" />
                   Plan dem.
                 </span>
               </div>

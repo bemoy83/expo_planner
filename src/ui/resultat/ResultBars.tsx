@@ -61,9 +61,9 @@ export function BudgetBars({ row, overhead, scale }: { row: Bars; overhead: numb
   )
 }
 
-const WORK: { key: 'assembly' | 'dismantle'; label: string }[] = [
-  { key: 'assembly', label: 'Montering' },
-  { key: 'dismantle', label: 'Demontering' },
+const WORK: { key: 'assembly' | 'dismantle'; label: string; mark: 'mon' | 'dem' }[] = [
+  { key: 'assembly', label: 'Montering', mark: 'mon' },
+  { key: 'dismantle', label: 'Demontering', mark: 'dem' },
 ]
 
 /**
@@ -74,12 +74,13 @@ const WORK: { key: 'assembly' | 'dismantle'; label: string }[] = [
 export function StaffBars({ averages }: { averages: ReturnType<typeof dayAverages> }) {
   return (
     <span className="res-staff">
-      {WORK.map(({ key, label }) => {
+      {WORK.map(({ key, label, mark }) => {
         const { planned, staff } = averages[key]
         if (planned === null) {
           return (
             <span key={key} className="res-staff-line">
-              <i className={`res-diverge ${key}`} />
+              <i className={`phase-mark ${mark}`} />
+              <i className="res-diverge" />
               <span className="num">–</span>
             </span>
           )
@@ -93,7 +94,8 @@ export function StaffBars({ averages }: { averages: ReturnType<typeof dayAverage
         const style: CSSProperties = up ? { left: '50%', width: `${share * 50}%` } : { right: '50%', width: `${-share * 50}%` }
         return (
           <span key={key} className="res-staff-line" title={title}>
-            <i className={`res-diverge ${key}`}>
+            <i className={`phase-mark ${mark}`} />
+            <i className="res-diverge">
               <i className={up ? 'up' : 'down'} style={style} />
             </i>
             <span className={`num ${up ? 'res-over' : ''}`}>{hours(Math.round(planned))}</span>

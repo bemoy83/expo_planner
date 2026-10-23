@@ -164,14 +164,14 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
           <span className="res-num-head staff" title="Planlagte timer per monterings- og demonteringsdag, mot det de faste kan i normaltiden på de samme dagene. Oransje: mer enn de faste kan. Til venstre: de faste er ikke fylt.">
             <span>
               <span>
-                <i className="phase-swatch assembly" />
+                <i className="phase-mark mon" />
                 Montering
               </span>
               <small className="num">t / dag</small>
             </span>
             <span>
               <span>
-                <i className="phase-swatch dismantle" />
+                <i className="phase-mark dem" />
                 Demontering
               </span>
               <small className="num">{staff === null ? '' : `faste ${hours(Math.round(staff))}`}</small>

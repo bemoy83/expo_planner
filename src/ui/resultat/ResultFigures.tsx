@@ -48,11 +48,11 @@ export function ResultFigures({ rows, overhead, staffedOf }: { rows: SeasonRow[]
         value={
           <span className="res-figure-pair">
             <span title="Planlagte timer til montering per monteringsdag">
-              <i className="phase-swatch assembly" />
+              <i className="phase-mark mon" />
               {whole(averages.assembly.planned)}
             </span>
             <span title="Planlagte timer til demontering per demonteringsdag">
-              <i className="phase-swatch dismantle" />
+              <i className="phase-mark dem" />
               {whole(averages.dismantle.planned)}
             </span>
           </span>
