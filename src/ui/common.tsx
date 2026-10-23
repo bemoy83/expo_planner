@@ -266,6 +266,19 @@ export function Switch({ on, label, onChange }: { on: boolean; label: string; on
   )
 }
 
+/**
+ * The text of a card's sum line: what it sums up in bold, then what counts and of how many, muted, the parts joined by «·».
+ * The parts left out (false, empty) are skipped.
+ */
+export function SumLead({ label, parts, className }: { label?: string; parts: (string | false | undefined)[]; className?: string }) {
+  return (
+    <span className={className ? `sum-lead ${className}` : 'sum-lead'}>
+      {label && <b>{label}</b>}
+      <span className="muted">{parts.filter(Boolean).join(' · ')}</span>
+    </span>
+  )
+}
+
 /** Asks before a change that cannot be got back by undoing it alone, and offers the safer way where there is one. */
 export function ConfirmDialog({ title, children, onCancel, actions }: { title: string; children: ReactNode; onCancel: () => void; actions: ReactNode }) {
   return (

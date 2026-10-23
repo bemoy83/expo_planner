@@ -5,7 +5,7 @@ import { overHours, overShareText, percentText, wholeOrDash as whole } from '../
 
 function Figure({ label, value, unit = 't', sub, over, children }: { label: string; value: ReactNode; unit?: string; sub?: ReactNode; over?: boolean; children?: ReactNode }) {
   return (
-    <div className="res-figure">
+    <div className="res-figure card">
       <span className="res-figure-label">{label}</span>
       <b className={over ? 'res-over' : undefined}>
         {value}
@@ -64,7 +64,7 @@ export function ResultFigures({ rows, summary, overhead, staffedOf }: { rows: Se
           sub={`${overHours(totals.actualDeviation)} t mot budsjett`}
         />
       ) : (
-        <div className="res-figure empty">
+        <div className="res-figure card empty">
           <span className="res-figure-label">Faktisk</span>
           <span className="res-figure-sub">Ingen faktiske timer lest inn.</span>
         </div>

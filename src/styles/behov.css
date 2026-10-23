@@ -14,7 +14,7 @@
 .project-no{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
 /* the view: what is above the table, and the table as a card whose heading and sum line stay while its rows scroll (as on Resultat).
    The card is as tall as its rows, up to the foot of the page. */
-.behov-cards{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:16px 24px}
+.behov-cards{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:var(--stage-pad)}
 .behov-cards>*{flex:none}
 .behov-cards>:is(.orphans,.hint){margin:0}
 .behov-card{flex:0 1 auto;display:flex;flex-direction:column;overflow:hidden}
@@ -22,7 +22,7 @@
 .behov-title .project-no{font-weight:400}
 .behov-card>.card-head .search{width:220px}
 .behov-card-body{flex:0 1 auto;min-height:0;overflow:auto}
-.behov-empty,.behov-limit,.own-empty{margin:0;padding:16px 14px}
+.behov-empty,.behov-limit,.own-empty{margin:0;padding:16px var(--card-inset)}
 .all-clear{display:flex;align-items:center;gap:8px;margin:16px;padding:16px 18px;border-radius:10px;background:var(--sunken);color:var(--muted)}
 .all-clear svg{color:var(--pos)}
 
@@ -119,8 +119,8 @@ button.exclude.on{color:var(--text)}
 .warn-text{color:var(--over)}
 
 /* the form: a raised card without an outline; the context on a recessed strip at its top */
-.own-form{display:flex;flex-direction:column;gap:12px;padding:0 16px 12px;border-radius:12px;background:var(--surface);box-shadow:var(--card);overflow:visible}
-.own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 -16px;padding:6px 12px;border-radius:12px 12px 0 0;background:var(--context-tint)}
+.own-form{display:flex;flex-direction:column;gap:12px;padding:0 16px 12px;overflow:visible}
+.own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 -16px;padding:6px 12px;border-radius:var(--card-radius) var(--card-radius) 0 0;background:var(--context-tint)}
 .crumbs{display:flex;align-items:center;gap:4px}
 .crumbs .crumb{max-width:260px;height:30px;margin:0;padding:0 8px;font-size:var(--fs-base);font-weight:600}
 .crumbs .quiet-chip.crumb svg{opacity:1}

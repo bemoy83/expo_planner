@@ -1,19 +1,18 @@
 /* The tabs of the planner's tables, Haller, Mannskap and Oppsett: a page each, switched in a band of sand that is the page header
-   alone (ui/RegisterHead.tsx). A page is a card (.card, base.css) that fills the window: its head (.card-head), the strips under it
-   and the table's heading stay, and only the rows scroll. First what they share, then what each page has of its own. */
+   alone (ui/RegisterHead.tsx). A page is a card (.card, base.css), as tall as its rows up to the foot of the page: its head
+   (.card-head), the strips under it and the table's heading stay, and only the rows scroll. First what they share, then what
+   each page has of its own. */
 
 .register-page{display:flex;flex-direction:column;flex:1;min-height:0}
 .op{display:flex;flex-direction:column;container-type:inline-size}
-/* as tall as its rows, up to the foot of the page (as on Behov) */
-.register-page>.op{flex:0 1 auto;margin:16px 24px}
+.register-page>.op{flex:0 1 auto;margin:var(--stage-pad)}
 .op>.card-head .search{width:300px}
 /* a lead in the head is short and muted, and gives way; the buttons beside it never wrap */
 .op-lead{flex:1 1 320px;min-width:0;margin:0;font-size:var(--fs-sm);color:var(--muted);text-wrap:pretty}
 .op-lead strong{color:var(--text)}
 .op>.card-head>button{flex:none;white-space:nowrap}
 /* what explains or adds to the table lies flat under the head, on the panel's tint */
-:is(.op-flow,.mk-cover,.hl-lead,.op-add){flex:none;margin:0;padding:7px 14px;border-radius:0;background:var(--panel);border-bottom:1px solid var(--line-soft)}
-@media (max-width:1100px){.register-page>.op{margin:12px 16px}}
+:is(.op-flow,.mk-cover,.hl-lead,.op-add){flex:none;margin:0;padding:7px var(--card-inset);border-radius:0;background:var(--panel);border-bottom:1px solid var(--line-soft)}
 
 /* Produkttyper: how a line becomes hours, in one strip */
 .op-flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:var(--fs-sm);color:var(--muted)}
@@ -25,9 +24,9 @@
 .op-table{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;font-size:var(--fs-base)}
 .op-types{--cols:24px minmax(180px,1.4fr) 168px minmax(130px,1fr) 92px 104px 52px 116px 56px}
 .op-body{flex:0 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
-.op-body:last-child{border-radius:0 0 12px 12px}   /* its rows fill to the card's rounded foot */
+.op-body:last-child{border-radius:0 0 var(--card-radius) var(--card-radius)}   /* its rows fill to the card's rounded foot */
 .op-body>*{flex:none}
-.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 14px;border-bottom:1px solid var(--line-soft)}
+.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 var(--card-inset);border-bottom:1px solid var(--line-soft)}
 .op-row>*{min-width:0}
 .op-row input.inline:not(.num){min-width:0}
 .op-row:not(.op-head,.op-foot):hover{background:var(--panel)}
@@ -36,15 +35,15 @@
 .op-head>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .op-head>span:has(.menu){display:flex;align-items:center;overflow:visible}   /* a heading with a filter: its menu hangs below it */
 .op-head .num{font:inherit}
-/* a group: what lacks setup first, then a competence each. The strong line is the start of a group, and nothing else. */
-.op-row.op-foot{flex:none;min-height:44px;border-top:1px solid var(--line-strong);border-bottom:0}
 /* the sum row, held at the foot of the card where there is a number to read (Produkttyper, Faste) */
-.op-foot-lead{grid-column:1 / -1;min-width:0;overflow:hidden;white-space:nowrap;font-weight:600}
+.op-row.op-foot{flex:none;min-height:var(--sum-h);border-top:1px solid var(--line-strong);border-bottom:0}
+.op-foot-lead{grid-column:1 / -1;min-width:0;overflow:hidden;white-space:nowrap}
 .op-foot-lead .muted{overflow:hidden;text-overflow:ellipsis}
+/* a group: what lacks setup first, then a competence each. The strong line is the start of a group, and nothing else. */
 .op-group+.op-group .op-group-head{border-top:1px solid var(--line-strong)}
 /* one line between groups: the strong one that starts the next, none under the last row above it or above the sum */
 .op-group>:last-child,.op-body>.op-row:last-child{border-bottom:0}
-.op-group-head{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px 14px 0;font-weight:600;border-bottom:1px solid var(--line-soft)}
+.op-group-head{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px var(--card-inset) 0;font-weight:600;border-bottom:1px solid var(--line-soft)}
 .op-group-head .field-dot{margin:0}
 .op-group-count{font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 .op-group-note{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--muted)}
@@ -83,7 +82,7 @@
 /* the units of a type, folded out under it */
 .op-row.unfolded{border-bottom-color:transparent}
 .op-sub{min-height:34px;font-size:var(--fs-sm);background:color-mix(in oklab,var(--sunken) 50%,transparent)}
-.op-empty{margin:0;padding:16px 14px;color:var(--muted)}
+.op-empty{margin:0;padding:16px var(--card-inset);color:var(--muted)}
 .register-page .faint{color:var(--faint)}
 .op-types .op-foot-lead{grid-column:2 / 8}
 .op-types .op-foot-hours{grid-column:8}
@@ -216,7 +215,7 @@
 .hl-add{display:flex;justify-content:flex-end;gap:4px}
 
 /* Hallregler (ui/behov/HallRules.tsx): the rules on the left, a part at a time, and the tester fixed at the right */
-.hl-rules{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;padding:16px 24px}
+.hl-rules{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;padding:var(--stage-pad)}
 .hl-rules>.op{position:relative}
 .hl-rules .op-body{padding-bottom:72px}   /* room for the bar of what is selected */
 .hl-side{overflow-y:auto}
@@ -243,4 +242,4 @@
   .hl-unplaced .op-row>:is(:nth-child(4),:nth-child(5),:nth-child(8)){display:none}
   .hl-unplaced .segmented button{padding:0 6px}
 }
-@media (max-width:1100px){.hl-rules{grid-template-columns:minmax(0,1fr) 260px;gap:12px;padding:12px 16px}}
+@media (max-width:1100px){.hl-rules{grid-template-columns:minmax(0,1fr) 260px;gap:12px}}

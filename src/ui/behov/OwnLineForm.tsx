@@ -146,7 +146,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
 
   return (
     <section
-      className="own-form"
+      className="own-form card"
       aria-label="Ny linje"
       onKeyDown={(e) => {
         const target = e.target as HTMLElement

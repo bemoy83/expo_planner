@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { ArrowRight, X } from 'lucide-react'
 import { EMPTY_KPI, linesByText, linesWithoutProductType, withTextType } from '../../domain/kpi'
 import { useWorkspace } from '../../store/workspaceStore'
+import { SumLead } from '../common'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { count } from '../dom'
@@ -33,13 +34,7 @@ export function TextRules({ notify, onOpenBehov }: { notify: Notify; onOpenBehov
       head: 'Artikkeltekst i Visma',
       text: (rule) => rule.text,
       cell: (rule) => <span className="op-quote">«{rule.text}»</span>,
-      foot: () => (
-        <span className="sum-lead">
-          <span className="muted">
-            {count(rules.length, 'regel', 'regler')} gir produkttype til {count(rules.reduce((sum, rule) => sum + linesOf(rule), 0), 'ordrelinje', 'ordrelinjer')}
-          </span>
-        </span>
-      ),
+      foot: () => <SumLead parts={[`${count(rules.length, 'regel', 'regler')} gir produkttype til ${count(rules.reduce((sum, rule) => sum + linesOf(rule), 0), 'ordrelinje', 'ordrelinjer')}`]} />,
       footSpan: 5,
     },
     { key: 'arrow', className: 'op-arrow', cell: () => <ArrowRight size={13} aria-hidden /> },

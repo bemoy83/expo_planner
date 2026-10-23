@@ -4,7 +4,7 @@ import { typeAndRate } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
 import { parseHours, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
-import { TriCheckbox } from '../common'
+import { SumLead, TriCheckbox } from '../common'
 import { count } from '../dom'
 import { useCompetenceColor } from './format'
 import { formatFte, hoursOrDash } from '../format'
@@ -223,12 +223,10 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
       <tfoot>
         <tr>
           <td colSpan={5}>
-            <span className="sum-lead">
-              <b>{PLANNED_BASIS}</b>
-              <span className="muted">
-                {[`${plannedLines.length} av ${count(inView.length, 'linje', 'linjer')}`, inView.length > plannedLines.length && `${count(inView.length - plannedLines.length, 'utkast', 'utkast')} teller ikke`].filter(Boolean).join(' · ')}
-              </span>
-            </span>
+            <SumLead
+              label={PLANNED_BASIS}
+              parts={[`${plannedLines.length} av ${count(inView.length, 'linje', 'linjer')}`, inView.length > plannedLines.length && `${count(inView.length - plannedLines.length, 'utkast', 'utkast')} teller ikke`]}
+            />
           </td>
           <td className="num">{hoursOrDash(planned(inView, 'assemblyHours'))}</td>
           <td className="num">{hoursOrDash(planned(inView, 'dismantleHours'))}</td>

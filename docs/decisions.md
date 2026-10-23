@@ -200,6 +200,7 @@ Built 2026-10-23 from the handoff `design_docs/design_handoff_samlet/` (its regi
 - A sum row only where there is a number to read: Produkttyper («Sum · n produkttyper · x mangler oppsett», with the hours of montering and demontering of the types shown) and Faste; Tekstregler and Utelatte keep their sentence, now held at the foot.
 - Faste's sum is the people times the paid hours of the normal day (`normalDayHours`, `domain/staffing/intervals.ts`), the day Resultat sets the plan against, not «Timer per dag» (the planner's choice, 2026-10-23). There is no «Aktiv» switch for a person, as the mock-up has: it would be new logic, and the planner left it for now.
 - Hallregler's tester is a card of its own beside the rules.
+- A check of the round (2026-10-23): the room around a card, its corners, the inset of its rows and the height of its sum line are tokens (`--stage-pad`, 12px 16px below 1100px on every page; `--card-radius`, `--card-inset`, `--sum-h`); the figures of Resultat and the form of Egen registrering are `.card` rather than writing it again; the text of every sum line is `SumLead` (`common.tsx`).
 
 ## Project tagging, places and work plans: built, to be tested by the user
 

@@ -7,7 +7,7 @@ import { countOf, missingText, type LineFilter, type LineStatus, type ProjectRev
 import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
-import { Segmented, TriCheckbox, type Message } from '../common'
+import { Segmented, SumLead, TriCheckbox, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { NumberField, TextField, type PickItem } from '../fields'
 import { Avklar } from './Avklar'
@@ -136,10 +136,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
         />
       ),
       foot: () => (
-        <span className="sum-lead">
-          <b>Med i behovet</b>
-          <span className="muted">{sumText.filter(Boolean).join(' · ')}</span>
-        </span>
+        <SumLead label="Med i behovet" parts={sumText} />
       ),
       cell: (line) => (
         <input

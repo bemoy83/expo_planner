@@ -6,7 +6,7 @@ import { countsStands, yieldByType, type TypeYield } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
 import { usePref } from '../../store/prefs'
 import { count } from '../dom'
-import { FormDialog, Segmented } from '../common'
+import { FormDialog, Segmented, SumLead } from '../common'
 import { NumberField, PickField, TextField, type PickItem } from '../fields'
 import { NeedButton, SplitPick } from '../behov/SplitPick'
 import { useCompetenceColor } from '../behov/format'
@@ -230,13 +230,14 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
             {!shown.length && <p className="op-empty">Ingen produkttyper passer søket eller filteret.</p>}
           </div>
           <div className="op-row op-foot">
-            <span className="sum-lead op-foot-lead">
-              Sum
-              <span className="muted">
-                {shown.length === types.length ? count(types.length, 'produkttype', 'produkttyper') : `${shown.length} av ${count(types.length, 'produkttype', 'produkttyper')}`}
-                {lacking.length > 0 && ` · ${lacking.length} mangler oppsett, timene deres er ukjente`}
-              </span>
-            </span>
+            <SumLead
+              label="Sum"
+              className="op-foot-lead"
+              parts={[
+                shown.length === types.length ? count(types.length, 'produkttype', 'produkttyper') : `${shown.length} av ${count(types.length, 'produkttype', 'produkttyper')}`,
+                lacking.length > 0 && `${lacking.length} mangler oppsett, timene deres er ukjente`,
+              ]}
+            />
             <span className="op-foot-hours">
               <Hours given={sums(shown)} />
             </span>

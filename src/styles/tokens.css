@@ -108,9 +108,16 @@
   --lift:color-mix(in srgb,var(--surface) 60%,transparent);   /* a line or a row under the pointer, on the page */
   --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));   /* the strip of context on a card, and the subtotal rows under it (Behov); made again in the dark palette */
 
+  /* a card on its page (Resultat, Behov, the tabs of tables): the room around it, its corners, how far its rows stand in, and its sum line */
+  --stage-pad:16px 24px;   /* 12px 16px in a narrow window, below */
+  --card-radius:12px;
+  --card-inset:14px;
+  --sum-h:44px;
+
   /* motion: the one curve things move on */
   --ease:cubic-bezier(.4,0,.2,1);
 }
+@media (max-width:1100px){:root{--stage-pad:12px 16px}}
 :root{
   font-family:var(--font-ui);
   font-size:14px;

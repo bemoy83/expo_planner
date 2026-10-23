@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Ban, X } from 'lucide-react'
 import { articleKey, articlesSeen, EMPTY_KPI, excludedLines, withExcludedArticle, withoutExcludedArticle } from '../../domain/kpi'
 import { useWorkspace } from '../../store/workspaceStore'
+import { SumLead } from '../common'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { count } from '../dom'
@@ -44,11 +45,7 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
       head: 'Art.nr',
       text: (article) => article.articleNo,
       cell: (article) => <strong className="op-number">{article.articleNo}</strong>,
-      foot: () => (
-        <span className="sum-lead">
-          <span className="muted">Nå holdes {count(dropped, 'ordrelinje', 'ordrelinjer')} utenfor</span>
-        </span>
-      ),
+      foot: () => <SumLead parts={[`Nå holdes ${count(dropped, 'ordrelinje', 'ordrelinjer')} utenfor`]} />,
       footSpan: 5,
     },
     {

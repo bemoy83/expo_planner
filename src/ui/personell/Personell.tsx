@@ -6,7 +6,7 @@ import { normalDayHours } from '../../domain/staffing/intervals'
 import type { CompetenceKey, Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
-import { ConfirmDialog, MergeReplaceDialog } from '../common'
+import { ConfirmDialog, MergeReplaceDialog, SumLead } from '../common'
 import { count } from '../dom'
 import { download, XLSX_TYPE } from '../files'
 import { TextField } from '../fields'
@@ -163,13 +163,11 @@ export function Personell({ head, notify, show, onOpenSuppliers }: TablePage & {
               )}
             </div>
             <div className="op-row op-foot">
-              <span className="sum-lead op-foot-lead">
-                Faste {persons.length}
-                <span className="muted">
-                  {persons.length} × {hoursText(dayHours)} t = {hoursText(persons.length * dayHours)} t per arbeidsdag
-                  {competence && ` · ${holders(competence)} har ${label(competence)}`}
-                </span>
-              </span>
+              <SumLead
+                label="Faste"
+                className="op-foot-lead"
+                parts={[`${persons.length} × ${hoursText(dayHours)} t = ${hoursText(persons.length * dayHours)} t per arbeidsdag`, !!competence && `${holders(competence)} har ${label(competence)}`]}
+              />
             </div>
           </div>
         ) : (

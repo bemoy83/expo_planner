@@ -44,9 +44,9 @@ input[type='checkbox']{accent-color:var(--accent)}
 .app-header h1{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em}
 .toolbar-gap{flex:1}
 /* a table or a matrix raised off the page as a card (Resultat, Behov, the tabs of tables): white, rounded, a soft shadow and no line around it */
-.card{min-height:0;border-radius:12px;background:var(--surface);box-shadow:var(--card)}
+.card{min-height:0;border-radius:var(--card-radius);background:var(--surface);box-shadow:var(--card)}
 /* the head of a card: its title and its own controls, on one line where they fit, a hairline under it */
-.card-head{flex:none;display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-height:52px;padding:8px 14px;border-bottom:1px solid var(--line-soft)}
+.card-head{flex:none;display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-height:52px;padding:8px var(--card-inset);border-bottom:1px solid var(--line-soft)}
 .tabs{display:flex;gap:2px;margin-left:12px}
 .tabs button{color:var(--muted);font-size:var(--fs-base)}
 .tabs button:not(:hover){background:none}
