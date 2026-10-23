@@ -131,7 +131,7 @@ button.exclude.on{color:var(--text)}
 
 /* the form: a raised card without an outline; the context on a recessed strip at its top */
 .own-form{display:flex;flex-direction:column;gap:12px;padding:0 16px 12px;border-radius:12px;background:var(--surface);box-shadow:var(--card);overflow:visible}
-.own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 -16px;padding:6px 12px;border-radius:12px 12px 0 0;background:color-mix(in oklab,var(--sunken) 45%,var(--surface))}
+.own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 -16px;padding:6px 12px;border-radius:12px 12px 0 0;background:var(--context-tint)}
 .crumbs{display:flex;align-items:center;gap:4px}
 .crumbs .crumb{max-width:260px;height:30px;margin:0;padding:0 8px;font-size:var(--fs-base);font-weight:600}
 .crumbs .quiet-chip.crumb svg{opacity:1}
@@ -184,9 +184,9 @@ table.ledger.own-lines th:nth-child(9){width:60px}
 table.ledger.own-lines tbody:not(:first-of-type) tr.project-row td{border-top:1px solid var(--grid-top)}
 table.ledger.own-lines tr.project-row td{height:44px;font-size:var(--fs-title-sm);font-weight:700}
 table.ledger.own-lines tr.project-row :is(.project-no,.small){font-weight:400}
-table.ledger.own-lines tr.hall-row td{height:32px;background:var(--section)}
-table.ledger.own-lines tr.hall-row td:first-child{border-radius:6px 0 0 6px}
-table.ledger.own-lines tr.hall-row td:last-child{border-radius:0 6px 6px 0}
+/* a hall is a subtotal across the card, on the tint of the form's context, with a rule under it as under a line */
+table.ledger.own-lines tr.hall-row td{height:36px;border-bottom:1px solid var(--grid-row);background:var(--context-tint)}
+table.ledger.own-lines tr.hall-row :is(.hall-name b,.num){font-weight:600}
 .hall-name{margin-right:12px}
 .hall-days{display:inline-flex;align-items:center;gap:4px;font:400 var(--fs-sm) var(--font-num);color:var(--muted)}
 .hall-days .phase-swatch.dismantle{margin-left:8px}

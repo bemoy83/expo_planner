@@ -106,6 +106,7 @@
   --card:0 1px 3px rgb(0 0 0/.08),0 6px 18px -10px rgb(0 0 0/.18);
   --pop:0 12px 32px rgb(0 0 0/.2),0 1px 3px rgb(0 0 0/.1);
   --lift:color-mix(in srgb,var(--surface) 60%,transparent);   /* a line or a row under the pointer, on the page */
+  --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));   /* the strip of context on a card, and the subtotal rows under it (Behov); made again in the dark palette */
 
   /* motion: the one curve things move on */
   --ease:cubic-bezier(.4,0,.2,1);
@@ -201,6 +202,7 @@
   --grid-col:color-mix(in srgb,var(--line-strong) 50%,transparent);
   --grid-row:color-mix(in srgb,var(--line-strong) 38%,transparent);
   --section:color-mix(in oklab,var(--bg) 82%,#000);
+  --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));
 
   /* work phases: dark fills with light numbers */
   --mon:oklch(0.45 0.06 115);
