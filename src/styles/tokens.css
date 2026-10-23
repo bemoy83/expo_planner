@@ -71,6 +71,7 @@
   --pos:#287c42; --pos-bg:#e2efe3;
   --over:#8f5e0a;
   --neg-wash:color-mix(in srgb,var(--neg) 13%,transparent);   /* a day planned above the crew */
+  --holiday-tint:color-mix(in srgb,var(--neg) 7%,transparent);   /* a red day, down the lines of the Kalender */
   --on-neg:#ffffff;        /* text on a strong red tile */
   --warn-bg:#fff6e0; --warn-line:#f0d58a;   /* a line with an issue */
 
@@ -221,6 +222,7 @@
   --pos:#6fd087; --pos-bg:#112618;
   --over:#f2b54f;
   --neg-wash:color-mix(in srgb,var(--neg) 18%,transparent);
+  --holiday-tint:color-mix(in srgb,var(--neg) 12%,transparent);
   --warn-bg:#2b200d; --warn-line:#503b16;
 
   --band:color-mix(in oklab,#f3f2ee 8%,#0f0f0e);

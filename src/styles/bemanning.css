@@ -170,7 +170,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 [data-tool='select'] .bm-block{cursor:grab}
 [data-tool='erase'] .bm-cell{cursor:crosshair}
 [data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
-[data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
+[data-tool='paint'] .bm-cell.blocked:not(.overbooked):hover,.bm-cell.refused{background-image:var(--hatch)}
 /* What a stroke would do is flat: tints and thin edges. A hatch says hours are not there: a person who is away, and the hours the eraser would take. */
 /* where the brush would put time: a tint of its colour, with the hours it gives. It is joined over the days as the run it makes will be, see `.join-prev`. */
 .bm-ghosts{pointer-events:none}

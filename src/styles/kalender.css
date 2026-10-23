@@ -65,11 +65,12 @@
 .grid-canvas[data-hover-day] .day-hover{display:block}
 .group-row.depth-0 .day.today::after{content:'';position:absolute;top:-1px;bottom:0;left:0;z-index:1;width:2px;background:var(--mode-ink)}
 /* red days: a public holiday is a day off like the weekend, with its date in red and a faint red tint down the halls, the staffing lines and the planning rows,
-   and in Bemanning down the project lines, the demand and the people */
-:is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag,:is(.bm-need,.bm-cell).helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 7%,transparent),color-mix(in srgb,var(--neg) 7%,transparent))}
-.dark :is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag,.dark :is(.bm-need,.bm-cell).helligdag{background-image:linear-gradient(color-mix(in srgb,var(--neg) 12%,transparent),color-mix(in srgb,var(--neg) 12%,transparent))}
-/* A day planned above the available crew, when the heat map is off: a red wash over the whole column, on top of whatever the cell shows. */
-.grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(var(--neg-wash),var(--neg-wash))!important;--over-booked:linear-gradient(var(--neg-wash),var(--neg-wash))}
+   and in Bemanning down the project lines, the demand and the people.
+   A shortage on the Avvik line and a selected cell have fills of their own, which the tint does not lie over. */
+:is(.head-row,.hall-row,.cap-row,.sum-row,.group-row,.alloc-row,.bm-project-days) .day.helligdag:not(.neg,.selected),:is(.bm-need,.bm-cell).helligdag{background-image:linear-gradient(var(--holiday-tint),var(--holiday-tint))}
+/* A day planned above the available crew, when the heat map is off: a red wash over the whole column, on top of whatever the cell shows.
+   It comes after the red days, which it lies over, and no later rule of a day's cell sets an image as specific as it. */
+.grid-canvas .day.overbooked:not(.hall){background-image:linear-gradient(var(--neg-wash),var(--neg-wash));--over-booked:linear-gradient(var(--neg-wash),var(--neg-wash))}
 .grid-canvas .day.overbooked.day-head{color:var(--neg);font-weight:600}
 
 /* ---- the date header ---- */
@@ -123,18 +124,18 @@
 /* a click on an event's bar scrolls the planning rows to its project */
 .hall-bar[data-project]{cursor:pointer}
 /* a day two events share */
-.hall-bar.shared{background-image:var(--hatch)!important}
+.hall-bar.shared{background-image:var(--hatch)}
 /* An event's name, anchored to the first day of the arrangement in the hall. */
 /* an event's name, written as the phase letters of the bars: the run is the stretch it may move in, and the name sticks to the left edge of the days inside it */
 .hall-label-run{position:absolute;top:0;bottom:0;z-index:1;display:flex;pointer-events:none}
 .hall-label{position:sticky;padding-left:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;font-family:var(--font-num);font-size:var(--fs-2xs);color:color-mix(in srgb,var(--text) 60%,transparent);pointer-events:none}
 /* Pointing at a project lights its bars and its halls, and a click on its name keeps them lit; the rule that picks the project is written by useProjectHover. */
 .hall-bar,.hall-label,.lbl-hall{transition:opacity .12s}
-.ph-assembly{background:var(--ph-assembly)!important}
-.ph-movingIn{background:var(--ph-movingin)!important}
-.ph-movingOut{background:var(--ph-movingout)!important}
-.ph-event{background:var(--ph-event)!important}
-.ph-dismantle{background:var(--ph-dismantle)!important}
+.ph-assembly{background-color:var(--ph-assembly)}
+.ph-movingIn{background-color:var(--ph-movingin)}
+.ph-movingOut{background-color:var(--ph-movingout)}
+.ph-event{background-color:var(--ph-event)}
+.ph-dismantle{background-color:var(--ph-dismantle)}
 
 /* ---- the staffing ---- */
 /* The lines are read, not typed in: a figure per day that is read across, so each has a rule under it and none between the days, as
@@ -147,7 +148,7 @@
 .cap-cell{color:var(--muted)}
 .sum-cell{font-weight:600}
 /* Avvik as plain figures, with the heat map switched off */
-.dev.neg{background:var(--neg-bg)!important;color:var(--neg);font-weight:600}
+.dev.neg{background-color:var(--neg-bg);color:var(--neg);font-weight:600}
 .dev.pos{color:var(--pos);font-weight:600}
 /* Avvik as a heat map: a tile per day, with a little air between neighbours */
 .heat{position:absolute;inset:3px 2px;border-radius:5px;z-index:0;background:color-mix(in oklab,var(--heat-c) var(--p),var(--bg))}
@@ -376,7 +377,7 @@
 
 /* ---- selection, typing and the tools ---- */
 /* What is selected, and the cell in focus, are marked in the ink of the band: it is read on the colours of the phases, where the accent is not. */
-.cell.selected{background:var(--pick-soft)!important;--over-selected:linear-gradient(var(--pick-soft),var(--pick-soft))}
+.cell.selected{background-color:var(--pick-soft);--over-selected:linear-gradient(var(--pick-soft),var(--pick-soft))}
 .cell.focus{outline:1.5px solid var(--pick);outline-offset:-1.5px;z-index:1}
 /* The field a cell is typed in fills the cell; `input` in the selector puts it above the look fields have elsewhere.
    It has no frame of its own: the ring of the cell in focus is around it, and one ring is enough. */
