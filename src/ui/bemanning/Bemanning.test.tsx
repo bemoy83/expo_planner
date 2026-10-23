@@ -57,6 +57,17 @@ describe('Bemanning', () => {
     expect(blocksOf('p1')).toEqual([])
   })
 
+  it('paints half a day where the brush is pressed with Shift', async () => {
+    const { container } = await renderKalender(workspaceOf(), PREFS)
+    keyDown('1')
+    click(container, 0, '2026-10-06', { shiftKey: true })
+    await settle()
+    const [half] = blocksOf('p1')
+    expect(half.date).toBe('2026-10-06')
+    expect(half.start).toBe(DEFAULT_WORKDAY.dayStart)
+    expect(half.end).toBeLessThan(DEFAULT_WORKDAY.dayEnd)
+  })
+
   it('paints the working days a stroke is drawn across, whole up to the day it ends in', async () => {
     const { container } = await renderKalender(workspaceOf(), PREFS)
     keyDown('b')
@@ -119,6 +130,16 @@ describe('Bemanning', () => {
     letGo()
     await settle()
     expect(blocksOf('p1').map((a) => [a.date, a.start, a.end])).toEqual(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08'].map((date) => [date, DEFAULT_WORKDAY.dayStart, DEFAULT_WORKDAY.dayEnd]))
+  })
+
+  it('pulls the end of a run back, giving up the days it leaves', async () => {
+    const { container } = await renderKalender(workspaceOf({ assignments: [block('p1', '2026-10-05'), block('p1', '2026-10-06'), block('p1', '2026-10-07')] }), PREFS)
+    const end = container.querySelector<HTMLElement>('.bm-person .bm-edge.end')!
+    fireEvent.mouseDown(end, { button: 0, ...pointOf(container, 0, '2026-10-07', 0.99) })
+    moveTo(container, 0, '2026-10-05', 0.99)
+    letGo()
+    await settle()
+    expect(blocksOf('p1').map((a) => a.date)).toEqual(['2026-10-05'])
   })
 
   it('switches to Innleid and back to the permanent staff', async () => {
