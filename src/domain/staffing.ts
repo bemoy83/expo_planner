@@ -807,6 +807,31 @@ export const buildProjectBalance = (ws: Workspace, dates: ISODate[], withHired =
   }
 }
 
+/**
+ * The projects that have a line under a competence, in Bemanning and in Innleid alike: those of `shown` (by `numberKey`, the
+ * projects shown in the Kalender) with demand of it or hours tagged with it in the days, or with orders of it there
+ * (`ordered`, the projects of a day's orders). In the order their work does: by the first of the days they are on, then by name.
+ */
+export const projectsWithWork = (
+  balance: ProjectBalance,
+  competence: CompetenceKey,
+  dates: ISODate[],
+  shown: Set<string>,
+  name: (projectNo: string) => string,
+  ordered: (date: ISODate) => (string | undefined)[] = () => [],
+): string[] => {
+  const found = new Map<string, { projectNo: string; first: ISODate }>()
+  const add = (projectNo: string, date: ISODate) => {
+    const key = projectKey(projectNo)
+    if (shown.has(key) && !found.has(key)) found.set(key, { projectNo: projectNo.trim(), first: date })
+  }
+  for (const date of dates) {
+    for (const p of balance.get(competence, date).projects.values()) if (p.demand > MET || p.tagged > MET) add(p.projectNo, date)
+    for (const projectNo of ordered(date)) if (projectNo?.trim()) add(projectNo, date)
+  }
+  return [...found.values()].sort((a, b) => a.first.localeCompare(b.first) || name(a.projectNo).localeCompare(name(b.projectNo), 'nb')).map((line) => line.projectNo)
+}
+
 /** A project over a period: what the Kalender plans for it, what is staffed, and what remains. */
 export interface ProjectTotal {
   planned: number

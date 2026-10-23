@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ISODate } from '../../domain/dates'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, dayKey, HOURS_NOISE, eraseOrders, fillGroup, groupKey, hireBoard, isWaiting, mergeOrders, orderGroups, ordersByDay, planOrders, rangeSummary, removeOrders, setWaiting, tagOrders, waitingHours, type Coverage, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, dayKey, eraseOrders, fillGroup, groupKey, hireBoard, isWaiting, mergeOrders, orderGroups, ordersByDay, planOrders, rangeSummary, removeOrders, setWaiting, tagOrders, waitingHours, type Coverage, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
-import { numberKey } from '../../domain/projects'
+import { projectsWithWork } from '../../domain/staffing'
 import { sameProject, type CompetenceKey, type CompetenceStyle, type HireOrder, type Interval, type ShiftId, type Supplier } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useBemanning, type Density } from '../bemanning/BemanningScope'
@@ -122,30 +122,17 @@ function useInnleidState(active: boolean) {
   const summary = useMemo<RangeSummary | null>(() => (open ? rangeSummary(openDates.map((date) => board.cover(open.competence, date)), openOrders, wd) : null), [open, openDates, openOrders, board, wd])
   const picked = open?.group ? (groups.find((group) => group.key === open.group) ?? null) : null
 
-  /**
-   * The lines under the competence that is open: a project shown in the Kalender that lacks hours of it after the permanent
-   * staff in the days in view, or has orders of it there. They come in the order their work does.
-   */
+  /** The lines under the competence that is open, as Bemanning has them (`projectsWithWork`): what each lacks after the permanent staff, and its orders. */
   const projectLines = useMemo<HireProjectLine[]>(() => {
     if (!open) return []
     const competence = open.competence
     const view = dates.slice(viewFrom, viewTo + 1)
-    const found = new Map<string, { projectNo: string; first: ISODate }>()
-    const add = (projectNo: string, date: ISODate) => {
-      const key = numberKey(projectNo)
-      if (kalenderProjects.has(key) && !found.has(key)) found.set(key, { projectNo, first: date })
-    }
-    for (const date of view) {
-      for (const p of projectBalance.get(competence, date).projects.values()) if (p.projectNo && p.remaining > HOURS_NOISE) add(p.projectNo, date)
-      for (const order of ordersOn.get(dayKey(competence, date)) ?? []) if (order.projectNo) add(order.projectNo, date)
-    }
-    return [...found.values()]
-      .sort((a, b) => a.first.localeCompare(b.first) || projectName(a.projectNo).localeCompare(projectName(b.projectNo), 'nb'))
-      .map(({ projectNo }) => {
-        const orders = (date: ISODate) => (ordersOn.get(dayKey(competence, date)) ?? NO_ORDERS).filter((order) => sameProject(order, { projectNo }))
-        const cover = (date: ISODate) => coverage(restOf(competence, date, projectNo), orders(date), wd)
-        return { projectNo, name: projectName(projectNo), orders, cover, missing: view.reduce((sum, date) => sum + Math.max(0, cover(date).remaining), 0) }
-      })
+    const ordered = (date: ISODate) => (ordersOn.get(dayKey(competence, date)) ?? NO_ORDERS).map((order) => order.projectNo)
+    return projectsWithWork(projectBalance, competence, view, kalenderProjects, projectName, ordered).map((projectNo) => {
+      const orders = (date: ISODate) => (ordersOn.get(dayKey(competence, date)) ?? NO_ORDERS).filter((order) => sameProject(order, { projectNo }))
+      const cover = (date: ISODate) => coverage(restOf(competence, date, projectNo), orders(date), wd)
+      return { projectNo, name: projectName(projectNo), orders, cover, missing: view.reduce((sum, date) => sum + Math.max(0, cover(date).remaining), 0) }
+    })
   }, [open, dates, viewFrom, viewTo, projectBalance, ordersOn, kalenderProjects, projectName, restOf, wd])
 
   const setOrders = (change: (orders: HireOrder[]) => HireOrder[]) => updateStaffing((w) => ({ ...w, hireOrders: change(w.hireOrders ?? []) }))

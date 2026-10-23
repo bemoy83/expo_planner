@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { buildBalance, buildProjectBalance, cellsToDemand, placeKey, PROJECT_PLACE, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type ProjectBalance, type WeekTotals } from '../../domain/staffing'
-import { numberKey } from '../../domain/projects'
+import { buildBalance, buildProjectBalance, projectsWithWork, cellsToDemand, placeKey, PROJECT_PLACE, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type ProjectBalance, type WeekTotals } from '../../domain/staffing'
+import { numberKey, projectNamer } from '../../domain/projects'
 import { placeName, placeTag } from '../../domain/workPlace'
 import { workTag, type AllocationRow, type Assignment, type CompetenceStyle, type Person, type Unavailability, type VenuePhase, type Work, type Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
@@ -122,11 +122,10 @@ const NO_HOURS = new Map<string, number>()
 /** Where across the days a point of the window is, counted in days from the first: the whole of it is the column, the rest how far into that day. */
 const daysAcross = (el: HTMLElement, x: number, colW: number): number => (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW
 
-/** A project's line under the competence in focus: its number and name, and the hours it lacks in the days in view. */
+/** A project's line under the competence in focus: its number and name. */
 export interface ProjectLine {
   projectNo: string
   name: string
-  remaining: number
 }
 
 /** A place's line under the project in focus: the place as the rows name it (`PROJECT_PLACE` for the project's halls), and the hours it lacks in the days in view. */
@@ -246,33 +245,15 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     return [...styles.values()].filter((style) => held.has(style.key) || remainingOf.has(style.key)).map((style) => ({ style, key: keyOf.get(style.key) ?? 0 }))
   }, [staffed, styles, remainingOf, keyOf])
 
-  /** The names of the projects of the plan, by number. */
-  const projectNames = useMemo(() => {
-    const names = new Map<string, string>()
-    for (const row of ws.allocations) if (row.projectNo.trim() && !names.has(numberKey(row.projectNo))) names.set(numberKey(row.projectNo), row.projectName)
-    return names
-  }, [ws.allocations])
-  const projectName = useCallback((projectNo: string) => projectNames.get(numberKey(projectNo)) ?? projectNo, [projectNames])
+  /** A project's name by its number, from the one source of names (`projectNamer`). */
+  const projectName = useMemo(() => projectNamer(ws), [ws.projects, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
   /** The projects shown in the Kalender, by `numberKey`: those a project's line can be for. */
   const kalenderProjects = useMemo(() => new Set(planned.filter((row) => row.projectNo.trim()).map((row) => numberKey(row.projectNo))), [planned])
-  /**
-   * The lines under the competence in focus: a project shown in the Kalender with hours of it, or tagged with it, in the days in view.
-   * They come in the order their work does.
-   */
-  const projectLines = useMemo<ProjectLine[]>(() => {
-    if (!activeBrush) return []
-    const shown = kalenderProjects
-    const lines = new Map<string, ProjectLine & { first: ISODate }>()
-    for (const date of viewDates) {
-      for (const [key, p] of projectBalance.get(activeBrush, date).projects) {
-        if (!shown.has(key) || (p.demand < EPSILON && p.tagged < EPSILON)) continue
-        const line = lines.get(key) ?? { projectNo: p.projectNo, name: projectName(p.projectNo), remaining: 0, first: date }
-        line.remaining += Math.max(0, p.remaining)
-        lines.set(key, line)
-      }
-    }
-    return [...lines.values()].sort((a, b) => a.first.localeCompare(b.first) || a.name.localeCompare(b.name, 'nb')).map(({ first: _first, ...line }) => line)
-  }, [activeBrush, kalenderProjects, viewDates, projectBalance, projectName])
+  /** The lines under the competence in focus, as Innleid has them (`projectsWithWork`). */
+  const projectLines = useMemo<ProjectLine[]>(
+    () => (activeBrush ? projectsWithWork(projectBalance, activeBrush, viewDates, kalenderProjects, projectName).map((projectNo) => ({ projectNo, name: projectName(projectNo) })) : []),
+    [activeBrush, kalenderProjects, viewDates, projectBalance, projectName],
+  )
   // A project whose line is gone from the demand is no brush any more.
   const activeProject = brushProject && projectLines.some((line) => numberKey(line.projectNo) === numberKey(brushProject)) ? brushProject : null
   /**

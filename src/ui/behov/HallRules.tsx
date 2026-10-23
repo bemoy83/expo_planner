@@ -4,7 +4,7 @@ import { withAreaRenamed } from '../../domain/areas'
 import { todayIso } from '../../domain/dates'
 import { reviewPlacing, type UnplacedText } from '../../domain/hallReview'
 import { diffHallRules, hallChoices, mergeHallRules, NO_HALL_RULES, placeNames, type PlacedBy, PROJECT_HALLS, withChoice, withPlaceRenamed } from '../../domain/locations'
-import { hallsOfProjects } from '../../domain/projects'
+import { hallsOfProjects, projectNamer } from '../../domain/projects'
 import type { HallRules as Rules } from '../../domain/types'
 import { hallNames } from '../../domain/venue'
 import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
@@ -91,7 +91,7 @@ export function HallRules({ head, notify, show }: TablePage) {
   const ws = workspace!
   const halls = useMemo(() => hallNames(ws.venue), [ws.venue])
   const rules = ws.hallRules ?? NO_HALL_RULES
-  const projectName = (projectNo: string) => ws.visma?.find((v) => v.projectNo === projectNo)?.eventName ?? ws.projects.find((ref) => ref.projectNo === projectNo)?.name ?? projectNo
+  const projectName = useMemo(() => projectNamer(ws), [ws.projects, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
   const places = placeNames(halls, rules)
   const choices = hallChoices(rules.choices)
   const areas = rules.areas ?? []

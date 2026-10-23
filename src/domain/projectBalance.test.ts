@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, planOrders, tagOrders } from './hire'
-import { buildBalance, buildProjectBalance, carry, cellsToDemand, clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, NO_PROJECT, paintDays, pasteDays, projectTotals, recolourBlock, removeCarried, resizeBlock, splitBlock } from './staffing'
+import { buildBalance, buildProjectBalance, carry, cellsToDemand, clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, NO_PROJECT, paintDays, pasteDays, projectsWithWork, projectTotals, recolourBlock, removeCarried, resizeBlock, splitBlock } from './staffing'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from './types'
 import { nextInRun } from '../ui/bemanning/runs'
@@ -172,5 +172,21 @@ describe('the project on an order', () => {
     const [group] = orderGroups([order(MON, 2, FIRST)], [supplier])
     expect(fillGroup(group, 'vegger', [MON, TUE], id)).toMatchObject([{ date: TUE, projectNo: FIRST }])
     expect(orderText(supplier, [order(MON, 2, FIRST)], [{ key: 'vegger', label: 'Vegger' }], (no) => `Prosjekt ${no}`)).toContain(`Vegger · Prosjekt ${FIRST}: 2 pers.`)
+  })
+})
+
+describe('the projects with a line under a competence', () => {
+  const both = new Set([FIRST, SECOND].map((no) => no.toLowerCase()))
+  const name = (projectNo: string) => (projectNo === FIRST ? 'B' : 'A')
+  it('lists the projects shown with demand or tagged hours, by their first day and then by name', () => {
+    const balance = buildProjectBalance(staffed(), [MON])
+    expect(projectsWithWork(balance, 'vegger', [MON], both, name)).toEqual([SECOND, FIRST])
+    expect(projectsWithWork(balance, 'vegger', [MON], new Set([FIRST.toLowerCase()]), name)).toEqual([FIRST])
+    expect(projectsWithWork(balance, 'rigg', [MON], both, name)).toEqual([])
+  })
+
+  it('lists a project with orders of the competence, as Innleid has them, though it has no demand of it', () => {
+    const balance = buildProjectBalance(staffed(), [MON])
+    expect(projectsWithWork(balance, 'rigg', [MON], both, name, () => [undefined, FIRST])).toEqual([FIRST])
   })
 })
