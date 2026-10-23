@@ -20,6 +20,10 @@ const HALL_LABEL_MAX_COLS = 10
 const BAR_CHAR_W = 6
 const PHASE_CODE_AIR = 4
 
+/** The heights of the two lines of the date header: week and month, then weekday and date. */
+const HEAD_ROW_H = 20
+const DATE_ROW_H = 30
+
 /** How far each level of the hierarchy is indented in the label column. */
 const INDENT = 14
 
@@ -130,6 +134,7 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
     <>
       <Line
         className="head-row"
+        height={HEAD_ROW_H}
         label={<span className="lbl-title">{zoom === 'compact' ? '' : 'Uke / måned'}</span>}
         cols={cols}
         cells={(date) => {
@@ -144,6 +149,7 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
       />
       <Line
         className="head-row tall"
+        height={DATE_ROW_H}
         label={<span className="lbl-title">Dato</span>}
         cols={cols}
         cells={(date) => (

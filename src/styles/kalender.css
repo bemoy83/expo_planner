@@ -74,17 +74,17 @@
 
 /* ---- the date header ---- */
 /* A day's head, weekday over date, is the same in the Kalender and in Bemanning: today, the day in focus and a red day. */
-.head-row:not(.tall){height:20px!important}
-.head-row.tall{height:30px!important}
 .head-row .grid-label,.head-row .cell{height:100%}
 /* the days are ruled off here, and a month begins with a full line */
 .head-row .cell{border-right:1px solid var(--grid-col)}
 .head-row .day.month-start{border-left:1px solid var(--line)}
 .lbl-title{color:var(--faint);font-family:var(--font-num);font-size:var(--fs-xs)}
-.cell.head{justify-content:flex-start;overflow:visible;color:var(--faint);font-size:var(--fs-xs)}
+.cell.head{overflow:visible;color:var(--faint);font-size:var(--fs-xs)}
 .month-label{position:relative;z-index:1;padding-left:3px;color:var(--muted);text-transform:uppercase;font-weight:500;letter-spacing:.04em}
 .week-label{padding-left:3px}
-.day-head{flex-direction:column;justify-content:center!important;line-height:1.1}
+/* the week and the month read from the start of the day, the weekday and the date stand in its middle */
+.cell.head:not(.day-head){justify-content:flex-start}
+.day-head{flex-direction:column;line-height:1.1}
 .day-head .wd{font-size:var(--fs-2xs);color:var(--faint)}
 .day-head .dn{color:var(--text);font-size:var(--fs-sm);font-weight:500}
 /* today: weekday and date on one badge, the ink of the band with the band's fill as text, as the primary action on the band. It keeps that under the focus and on a red day. */
@@ -232,8 +232,6 @@
 .section-head .phase-legend{margin:0 -10px 0 auto}
 .phase-legend i.mon{background:var(--mon)}
 .phase-legend i.dem{background:var(--dem)}
-/* the hatch itself is set with the cells it stands for; alone on the page it needs a frame to be seen */
-.phase-legend i.outside{box-shadow:inset 0 0 0 1px var(--line-strong)}
 
 /* ---- the planning rows ---- */
 /* The lines of the hierarchy have no rule of their own under them, so cells fill the line to its edge and
@@ -355,7 +353,7 @@
 :is(.alloc-row,.entry-level) .cell.in-window.workday:not(.filled):not(.selected):not(.focus)::before{content:'';width:3px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--text) 28%,transparent)}
 /* FTE placed on a day outside the window: hatched over the colour of its phase, as a hall shared by two events is. The legend's mark is the same. */
 :is(.alloc-row,.entry-level) .cell.outside-window{--over-hatch:var(--hatch)}
-.phase-legend i.outside{background-image:var(--hatch)}
+.phase-legend i.outside{background-image:var(--hatch);box-shadow:inset 0 0 0 1px var(--line-strong)}
 
 /* ---- a stroke in both modes: a box over its days and lines, and a pill on its edge (`StrokeBox`) ---- */
 /* In Bemanning the box is one thin outline in the colour of the competence, red when it erases; a pulled end of a run, and every stroke of
