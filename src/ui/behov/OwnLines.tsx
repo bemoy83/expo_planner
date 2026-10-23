@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { Copy, Plus, Trash2 } from 'lucide-react'
-import { formatFte } from '../../domain/calc'
 import { typeAndRate } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
 import { parseHours, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
 import { TriCheckbox } from '../common'
 import { count } from '../dom'
-import { hoursOrDash, useCompetenceColor } from './format'
+import { useCompetenceColor } from './format'
+import { formatFte, hoursOrDash } from '../format'
 
 const shortDate = (date: string) => `${Number(date.slice(8, 10))}.${Number(date.slice(5, 7))}`
 

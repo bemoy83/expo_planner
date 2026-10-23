@@ -20,9 +20,9 @@ import { describeDiff, useTableFile } from '../useTableFile'
 import { ColumnHead } from '../ColumnHead'
 import { useTable, type Column } from '../useTable'
 import { OrderHandle, useRowOrder } from '../RowOrder'
-import { hours } from './format'
 import { PlacingPanel, type TriedText } from './PlacingPanel'
 import { SplitPick } from './SplitPick'
+import { hours } from '../format'
 
 /** The parts of the page, of which one is shown at a time. */
 type Part = 'unplaced' | 'choices' | 'places' | 'phrases' | 'areas'

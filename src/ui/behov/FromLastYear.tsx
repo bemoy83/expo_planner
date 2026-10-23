@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Copy, History, Plus, X } from 'lucide-react'
 import type { DemandLine } from '../../domain/types'
 import { count } from '../dom'
-import { hoursOrDash, useCompetenceColor } from './format'
+import { useCompetenceColor } from './format'
+import { hoursOrDash } from '../format'
 
 
 interface Props {

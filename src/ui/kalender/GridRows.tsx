@@ -1,5 +1,5 @@
 import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
-import { capacityForDate, formatFte, FTE_NOISE } from '../../domain/calc'
+import { capacityForDate, FTE_NOISE } from '../../domain/calc'
 import { addDays, weekdayShort, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
@@ -7,11 +7,12 @@ import { PHASE_CODES, type HallSegment } from '../../domain/venue'
 import { dayClass, type CellEdit, type Columns, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { daysWide, HALL_COMPACT_H, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
-import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, signed, type HeatKind } from './heat'
+import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, type HeatKind } from './heat'
 import { DIMENSION_LABELS, workPhaseOn, type Dimension, type GroupItem, type RowItem } from './rows'
 import { Twisty } from '../common'
 import { Eraser, Pencil, Plus, TriangleAlert } from 'lucide-react'
 import { count } from '../dom'
+import { formatFte, signed } from '../format'
 
 /** An event's name in the hall calendar may run on past a short event, up to this far, where the hall is free. */
 const HALL_LABEL_MAX_W = 260

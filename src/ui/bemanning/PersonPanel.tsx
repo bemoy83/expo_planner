@@ -9,7 +9,8 @@ import { SidePanel } from '../common'
 import { competenceColor, count } from '../dom'
 import { useBemanning } from './BemanningScope'
 import { AWAY_LABEL } from './dayCell'
-import { clock, EPSILON, hoursText } from './week'
+import { EPSILON } from './week'
+import { clock, hoursText } from '../format'
 
 /** «12:00» as minutes after midnight, or `null`. */
 const minutes = (text: string): number | null => (/^\d{2}:\d{2}$/.test(text) ? Number(text.slice(0, 2)) * 60 + Number(text.slice(3)) : null)

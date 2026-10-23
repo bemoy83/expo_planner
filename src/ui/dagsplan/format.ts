@@ -1,6 +1,6 @@
 import { capitalized, dayOfMonth, monthName, weekdayName, weekdayShort, type ISODate } from '../../domain/dates'
 import type { Minute } from '../../domain/types'
-import { clockText, spanText } from '../bemanning/week'
+import { clockText, spanText } from '../format'
 
 /** How the work plans write dates and times. */
 

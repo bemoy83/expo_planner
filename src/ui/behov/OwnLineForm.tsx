@@ -1,6 +1,5 @@
 import { useRef, type RefObject } from 'react'
 import { ChevronRight, CornerDownLeft, History, X } from 'lucide-react'
-import { formatFte } from '../../domain/calc'
 import { competenceKey, DRAFT_BASIS, OWN_SOURCE, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
 import { productTypeKey, typeAndRate } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
@@ -10,7 +9,8 @@ import { Segmented } from '../common'
 import { PickField, type PickGroup } from '../fields'
 import { SplitPick } from './SplitPick'
 import { EMPTY_DRAFT, NO_HALL, SPLIT_HALLS, type OwnContext, type OwnDraft } from './ownDraft'
-import { hours, kpiTypeItem, useCompetenceColor } from './format'
+import { kpiTypeItem, useCompetenceColor } from './format'
+import { formatFte, hours } from '../format'
 
 
 interface Props {

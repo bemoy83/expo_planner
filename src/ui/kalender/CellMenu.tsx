@@ -1,10 +1,11 @@
 import { useRef } from 'react'
-import { formatFte, FTE_NOISE } from '../../domain/calc'
+import { FTE_NOISE } from '../../domain/calc'
 import { dayText, type ISODate } from '../../domain/dates'
 import type { AllocationRow } from '../../domain/types'
 import { inWindow } from '../dom'
 import { useDismiss } from '../useDismiss'
 import { ArrowRight, Eraser, PanelRight, Pencil, SquarePen, Trash2, X } from 'lucide-react'
+import { formatFte } from '../format'
 
 /** As wide and as tall as the menu gets, for keeping it inside the window. */
 const MENU_W = 280

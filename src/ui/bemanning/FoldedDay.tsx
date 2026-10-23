@@ -5,7 +5,8 @@ import { competenceColor } from '../dom'
 import { AWAY_LABEL, blockLabel, type BlockNames, type DayCell, type Span } from './dayCell'
 import { DAY_INSET, EDGE_W, joinedClass, joinedPlace } from './layout'
 import type { EndShape, RunLink } from './runs'
-import { EPSILON, hoursText } from './week'
+import { EPSILON } from './week'
+import { hoursText } from '../format'
 
 const colorOf = (styles: Map<string, CompetenceStyle>, competence: string) => competenceColor(styles.get(competence))
 

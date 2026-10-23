@@ -18,7 +18,8 @@ import { DemandRows } from './DemandRows'
 import { DayMenu, DemandPopover } from './Popovers'
 import { ProjectLines } from './ProjectLines'
 import type { Tool } from './tools'
-import { EPSILON, hoursText } from './week'
+import { EPSILON } from './week'
+import { hoursText } from '../format'
 
 /** The page header in Bemanning: how far the people cover the demand of the days in view. */
 export function BemanningHead({ places, onDayPlan }: { /** The button «Steder», as in the plan's header. */ places: ReactNode; /** Opens the day plan of the day in focus. */ onDayPlan: () => void }) {

@@ -10,7 +10,8 @@ import { dayClass } from '../kalender/gridTypes'
 import { useBemanning, type PersonLine } from './BemanningScope'
 import { HOUR_PX, unfoldedHeight } from './layout'
 import { TimeTrack } from './TimeTrack'
-import { clock, EPSILON, hoursText } from './week'
+import { EPSILON } from './week'
+import { clock, hoursText } from '../format'
 
 /**
  * The person whose hours are open: one tall line above the others, with every day as a track of time

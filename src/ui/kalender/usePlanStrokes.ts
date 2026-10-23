@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useRef, useState, type RefObject } from 'react'
-import { formatFte, type DemandIndex } from '../../domain/calc'
+import { type DemandIndex } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import type { AllocationRow, Settings } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import { rangeOf, type Pull, type Selection, type Tool } from './selection'
 import { eraserCells, eraserPill, ghostCells, pencilCells, pencilNotice, pencilPill, pencilProgress, pencilStroke, proposal, proposalNotice, pullNotice, pullPill, pullPreview, pullProgress } from './strokes'
+import { formatFte } from '../format'
 
 type PlanStroke = Exclude<Tool, 'select'>
 

@@ -6,7 +6,6 @@ import type { ProjectTotal } from '../../domain/staffing/projectBalance'
 import { readBudsjettWorkbook, writeBudsjettWorkbook } from '../../import/budsjettFile'
 import { visibleVenue } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { hours } from '../behov/format'
 import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
 import { DataTable } from '../DataTable'
 import { count, isTyping } from '../dom'
@@ -15,8 +14,8 @@ import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { useTable, type Column } from '../useTable'
-import { deviationText, percentText, remainingText, shareText } from './format'
 import { ProjectResult } from './ProjectResult'
+import { deviationText, hours, percentText, remainingText, shareText } from '../format'
 
 interface Props {
   /** Opens the settings, where the overhead is set. */

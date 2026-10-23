@@ -2,10 +2,9 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDownUp, Plus
 import { dayOfMonth, dayText, monthShort, weekdayShort, type ISODate } from '../../domain/dates'
 import { groupWaits, HOURS_NOISE, shiftText, type OrderGroup } from '../../domain/hire'
 import type { CompetenceStyle } from '../../domain/types'
-import { hoursShort } from '../bemanning/week'
-import { signedHours } from './hours'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph, Stepper } from './OrderPopovers'
+import { hoursShort, signedHours } from '../format'
 
 /** The days picked, as text: «tor 8. okt», or «tor 8.–man 12. okt». */
 const daysText = (from: ISODate, to: ISODate) => (from === to ? dayText(from) : `${weekdayShort(from)} ${dayOfMonth(from)}.${monthShort(from) === monthShort(to) ? '' : ` ${monthShort(from)}`}–${dayText(to)}`)

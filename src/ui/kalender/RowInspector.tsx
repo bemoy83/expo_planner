@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { capacityForDate, formatFte, FTE_NOISE, type RowTotals } from '../../domain/calc'
+import { capacityForDate, FTE_NOISE, type RowTotals } from '../../domain/calc'
 import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
@@ -8,6 +8,7 @@ import { SidePanel } from '../common'
 import { Pencil } from 'lucide-react'
 import { LastChanged } from '../../sync/LastChanged'
 import { cellId } from '../../store/records'
+import { formatFte } from '../format'
 
 /** The row the panel is about, with what the Kalender knows of it. */
 export interface RowDetails {

@@ -1,9 +1,8 @@
 import { Fragment, useMemo } from 'react'
 import { projectHours, projectStaffing, type PhaseHours, type seasonBalance, type SeasonRow } from '../../domain/result'
 import { useWorkspace } from '../../store/workspaceStore'
-import { hours } from '../behov/format'
 import { SidePanel } from '../common'
-import { deviationText, remainingText, shareText } from './format'
+import { deviationText, hours, remainingText, shareText } from '../format'
 
 const shown = (value: number) => (value ? hours(value) : '')
 

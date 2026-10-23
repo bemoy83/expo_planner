@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { ALL_HALLS, cleanHallFilter, type HallFilter } from '../../domain/areas'
-import { capacityForDate, formatFte, rowTotals, sumValues } from '../../domain/calc'
+import { capacityForDate, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
@@ -45,6 +45,7 @@ import { useStableActions } from './useStableActions'
 import { useStaffingLines } from './useStaffingLines'
 import { useToolKeys } from './useToolKeys'
 import { zoomOf, type DaySpan } from './zoom'
+import { formatFte } from '../format'
 
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.

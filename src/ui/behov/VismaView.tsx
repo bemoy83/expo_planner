@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Check, Minus, X } from 'lucide-react'
-import { formatFte } from '../../domain/calc'
 import { EMPTY_KPI, excludedLines } from '../../domain/kpi'
 import { decimalText } from '../../domain/numbers'
 import { lineRef, NO_PRODUCT_TYPE, orphanedDecisions } from '../../domain/visma'
@@ -16,7 +15,8 @@ import { ProjectRail } from './ProjectRail'
 import { NeedButton, SplitPick } from './SplitPick'
 import { CLEAR, OFFER } from './picks'
 import type { Placing } from './usePlacing'
-import { hours, kpiTypeItem, useCompetenceColor } from './format'
+import { kpiTypeItem, useCompetenceColor } from './format'
+import { formatFte, hours } from '../format'
 
 
 /** The most lines listed at once. */

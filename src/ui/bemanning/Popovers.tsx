@@ -4,7 +4,7 @@ import type { CompetenceStyle } from '../../domain/types'
 import { competenceColor, inWindow } from '../dom'
 import { useDismiss } from '../useDismiss'
 import { CalendarCheck, CalendarOff, ChevronsDownUp, ChevronsUpDown, Eraser, Paintbrush } from 'lucide-react'
-import { hoursText } from './week'
+import { hoursText } from '../format'
 
 interface MenuProps {
   x: number

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2, X } from 'lucide-react'
-import { formatFte } from '../../domain/calc'
 import { competenceStyles } from '../../domain/competences'
 import { todayIso } from '../../domain/dates'
 import { EMPTY_KPI, productTypeKey } from '../../domain/kpi'
@@ -16,7 +15,7 @@ import { FromLastYear } from './FromLastYear'
 import { OwnLines } from './OwnLines'
 import { ProjectRail, type RailSection } from './ProjectRail'
 import type { Placing } from './usePlacing'
-import { hours } from './format'
+import { formatFte, hours } from '../format'
 
 /** How long a line just added stays lit. */
 const FLASH_MS = 1600

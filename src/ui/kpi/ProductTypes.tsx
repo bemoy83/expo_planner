@@ -10,6 +10,7 @@ import { FormDialog, Segmented } from '../common'
 import { NumberField, PickField, TextField, type PickItem } from '../fields'
 import { NeedButton, SplitPick } from '../behov/SplitPick'
 import { useCompetenceColor } from '../behov/format'
+import { wholeHours } from '../format'
 import { CompetenceStrip } from '../personell/CompetenceStrip'
 import { competenceStyles } from '../../domain/competences'
 import { competenceKey, type CompetenceKey } from '../../domain/types'
@@ -41,9 +42,6 @@ interface Edits {
   /** What the type's lines give in a unit: the one in use, unless another is named. */
   given: (type: KpiType, unit?: string) => TypeYield | undefined
 }
-
-/** Hours as the table shows them: whole. */
-const wholeHours = (hours: number) => Math.round(hours).toLocaleString('nb-NO')
 
 /**
  * How each Visma product type is read, and its rates: the unit it is counted in, the competence it belongs to,

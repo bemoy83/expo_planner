@@ -12,7 +12,8 @@ import { AWAY_LABEL, absenceNote } from './dayCell'
 import { HOUR_PX } from './layout'
 import type { Tool } from './tools'
 import { competenceColor } from '../dom'
-import { EPSILON, hoursText, spanText } from './week'
+import { EPSILON } from './week'
+import { hoursText, spanText } from '../format'
 
 /** The pixel heights from which a block has room for its name, its time and its hours. */
 const NAME_FROM_PX = 18

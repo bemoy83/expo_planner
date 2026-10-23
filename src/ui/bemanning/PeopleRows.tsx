@@ -16,7 +16,7 @@ import { endShape, runLink, runOf, type BlocksOn, type EndShape, type Piece, typ
 import { FoldedDay, WeekMeter } from './FoldedDay'
 import { strokeRange } from './tools'
 import { UnfoldedPerson } from './UnfoldedPerson'
-import { hoursText } from './week'
+import { hoursText } from '../format'
 
 const NO_ASSIGNMENTS: Assignment[] = []
 const NO_ABSENCE: Unavailability[] = []

@@ -12,7 +12,8 @@ import { useStableActions } from '../kalender/useStableActions'
 import { useBemanning, type DemandRow } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
 import { DEMAND_COMPACT_H, DEMAND_H } from './layout'
-import { EPSILON, hoursShort, hoursText } from './week'
+import { EPSILON } from './week'
+import { hoursShort, hoursText } from '../format'
 
 const NO_HOURS = new Map<string, number>()
 

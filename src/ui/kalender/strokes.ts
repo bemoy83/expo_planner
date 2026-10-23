@@ -1,4 +1,4 @@
-import { capacityForDate, formatFte, FTE_NOISE, rowTotals, sumValues, type DemandIndex } from '../../domain/calc'
+import { capacityForDate, FTE_NOISE, rowTotals, sumValues, type DemandIndex } from '../../domain/calc'
 import type { ISODate } from '../../domain/dates'
 import { decimalText } from '../../domain/numbers'
 import { dayType } from '../../domain/holidays'
@@ -8,6 +8,7 @@ import type { AllocLane } from './gridTypes'
 import { parseCellInput } from './layout'
 import { rangeOf, type DrawnCell, type Pull, type Selection } from './selection'
 import { count } from '../dom'
+import { formatFte } from '../format'
 
 /** What the grid's tools would write, worked out from the selection and the rows: no state and no storage here. */
 

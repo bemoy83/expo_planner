@@ -4,12 +4,12 @@ import { dayText, type ISODate } from '../../domain/dates'
 import { groupKey, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierTotals } from '../../domain/hire'
 import { SHIFT_IDS, type HireOrder, type Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
-import { hoursText } from '../bemanning/week'
 import { SidePanel } from '../common'
 import { competenceColor, count } from '../dom'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 import { pushTo } from '../../domain/collections'
+import { hoursText } from '../format'
 
 /** How long «Kopiert» stands on the button after the order is copied, in milliseconds. */
 const COPIED_MS = 1600
