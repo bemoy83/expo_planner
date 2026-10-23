@@ -1,5 +1,6 @@
 import { dateRange, daysBetween, type ISODate } from './dates'
 import { VENUE_PHASES, type DateSpan, type VenueBooking, type VenuePhase } from './types'
+import { pushTo } from './collections'
 
 export interface HallDayEntry {
   eventName: string
@@ -189,7 +190,7 @@ export const hallProjects = (bookings: VenueBooking[], projectOf: (booking: Venu
     const start = spans.reduce((min, span) => (span.start < min ? span.start : min), spans[0].start)
     const end = spans.reduce((max, span) => (span.end > max ? span.end : max), spans[0].end)
     const key = `${booking.hall}|${booking.eventName}`
-    index.set(key, [...(index.get(key) ?? []), { start, end, project }])
+    pushTo(index, key, { start, end, project })
   }
   return (hall, eventName, date) => index.get(`${hall}|${eventName}`)?.find((span) => date >= span.start && date <= span.end)?.project
 }

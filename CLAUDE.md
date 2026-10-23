@@ -36,6 +36,7 @@ Sources read from files: the Venyou export, Visma exports, and optionally `Prosj
 
 - `src/domain/` – pure logic, no React and no storage. Start here.
   - `types.ts` – the `Workspace` and its records.
+  - `numbers.ts`, `collections.ts` – small helpers every part shares: a typed decimal, `clamp`, and `pushTo`, which groups into a map of lists (write no `map.set(k, [...(map.get(k) ?? []), v])`, which copies the list on every add).
   - `visma.ts` – Visma booking lines → demand lines. One line per project × Avdeling × work type × hall; hours = quantity ÷ rate × (1 − Effekt). Units `ordre` and `stands` count stands; other units sum `Totalt antall`.
   - `kpi.ts` – the KPI table: product types with their unit in use, competence and rates, what each lacks, and merge/replace for imports.
   - `venue.ts`, `venueImport.ts` – the hall calendar, merging a Venyou export, hidden bookings.

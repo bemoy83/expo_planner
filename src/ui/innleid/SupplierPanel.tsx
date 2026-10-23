@@ -10,6 +10,7 @@ import { competenceColor, count } from '../dom'
 import { fmtDay } from '../kalender/labels'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
+import { pushTo } from '../../domain/collections'
 
 /** How long «Kopiert» stands on the button after the order is copied, in milliseconds. */
 const COPIED_MS = 1600
@@ -27,7 +28,7 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
   const competences = [...styles.values()]
   const own = supplierOrders(supplier, orders, competences)
   const byDay = new Map<ISODate, HireOrder[]>()
-  for (const order of own) byDay.set(order.date, [...(byDay.get(order.date) ?? []), order])
+  for (const order of own) pushTo(byDay, order.date, order)
   const totals = supplierTotals(supplier, orders, wd)
   const offered = competences.filter((style) => supplier.competences.includes(style.key))
   const copy = () => navigator.clipboard.writeText(orderText(supplier, orders, competences, projectName)).then(() => setCopied(true))

@@ -10,6 +10,7 @@ import { okAssignments } from './staffing/time'
 import { competenceKey, PLANNED_BASIS, type CompetenceKey, type Minute, type Workspace } from './types'
 import { PHASE_LABELS } from './venue'
 import { bookedPlaces, dealPlaces, phaseAt, projectPhaseSpans } from './workPlace'
+import { pushTo } from './collections'
 
 /**
  * The day plan (`design_docs/ukeplan/`): one day for print, read-only. A card per project that works that day, then the
@@ -207,8 +208,8 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
     if (a.date !== date) continue
     const at = dealt.get(a.id)
     const block = (projectNo: string, hall: string, set: boolean, uncertain: boolean): DayBlock => ({ competence: a.competence, start: a.start, end: a.end, projectNo, hall, set, uncertain })
-    if (at) blocksOf.set(a.personId, [...(blocksOf.get(a.personId) ?? []), block(at.projectNo, placeOf(at.projectNo, at.hall), at.set, at.uncertain)])
-    else unplacedOf.set(a.personId, [...(unplacedOf.get(a.personId) ?? []), block(NO_PROJECT, '', false, false)])
+    if (at) pushTo(blocksOf, a.personId, block(at.projectNo, placeOf(at.projectNo, at.hall), at.set, at.uncertain))
+    else pushTo(unplacedOf, a.personId, block(NO_PROJECT, '', false, false))
   }
   // A person with blocks of both kinds stands on one row, the blocks of no project among the rest.
   for (const [personId, list] of unplacedOf) {
@@ -318,7 +319,7 @@ const dayGroups = (ws: Workspace, date: ISODate, fitters: DayFitter[], hired: Da
     const parts = new Map<string, number[]>()
     fitter.blocks.forEach((block, i) => {
       const key = `${keyOf(block.projectNo, block.hall)}|${block.competence}`
-      parts.set(key, [...(parts.get(key) ?? []), i])
+      pushTo(parts, key, i)
     })
     for (const here of parts.values()) {
       const first = fitter.blocks[here[0]]

@@ -1,5 +1,6 @@
 import { withSettingsDefaults, type AllocationRow, type ExcludedArticle, type HallRules, type KpiConfig, type Settings, type Workspace } from '../domain/types'
 import { isVismaLine, withVismaDemand } from '../domain/visma'
+import { pushTo } from '../domain/collections'
 
 /**
  * The workspace as records: one per thing a planner edits, as they are stored in the browser and, later, synced. A
@@ -255,7 +256,7 @@ export const applyDeltas = (ws: Workspace, deltas: Delta[], side: 'before' | 'af
     for (const [id, value] of cellValues ?? []) {
       const at = id.lastIndexOf('|')
       const rowId = id.slice(0, at)
-      cells.set(rowId, [...(cells.get(rowId) ?? []), [id.slice(at + 1), value]])
+      pushTo(cells, rowId, [id.slice(at + 1), value])
     }
     for (const rowId of new Set([...(rowValues?.keys() ?? []), ...cells.keys()])) {
       const existing = rows.get(rowId)

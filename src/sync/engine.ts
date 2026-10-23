@@ -1,5 +1,6 @@
 import { confirmSent, databaseName, pendingOutbox, readCursor, takeRemote, type OutboxEntry, type RemoteRecord } from '../store/db'
 import type { Delta, Kind } from '../store/records'
+import { pushTo } from '../domain/collections'
 
 /** Where the shared copy stands, as the page header says it. */
 export type SyncState = 'synced' | 'syncing' | 'offline' | 'paused' | 'error'
@@ -39,7 +40,7 @@ export const wholeBatches = (rows: RemoteRow[], full: boolean): RemoteRow[] => {
 /** The batches waiting to be sent, each with its writes, oldest first. */
 export const batchesOf = (entries: OutboxEntry[]): OutboxEntry[][] => {
   const batches = new Map<string, OutboxEntry[]>()
-  for (const entry of entries) batches.set(entry.batch, [...(batches.get(entry.batch) ?? []), entry])
+  for (const entry of entries) pushTo(batches, entry.batch, entry)
   return [...batches.values()]
 }
 

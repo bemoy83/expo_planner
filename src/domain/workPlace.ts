@@ -7,6 +7,7 @@ import { okAssignments } from './staffing/time'
 import { competenceKey, sameProject, VENUE_PHASES, workTag, type Assignment, type VenueBooking, type VenuePhase, type Workspace } from './types'
 import { hallNames } from './venue'
 import { anchorDate, visibleVenue } from './venueImport'
+import { pushTo } from './collections'
 
 /**
  * Where a block's work is: the place of the project it is for, as the Kalender's rows name it («B», not B1), for the
@@ -150,7 +151,7 @@ export const dealPlaces = (ws: Workspace, dates?: ISODate[]): Map<string, DealtP
     const competence = competenceKey(a.competence)
     if (!competence) continue
     const key = `${competence}|${a.date}`
-    groups.set(key, [...(groups.get(key) ?? []), a])
+    pushTo(groups, key, a)
   }
   for (const [key, list] of groups) {
     const [competence, date] = [key.slice(0, key.lastIndexOf('|')), key.slice(key.lastIndexOf('|') + 1)]

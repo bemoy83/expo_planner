@@ -1,5 +1,6 @@
 import { dayOfMonth, monthShort, weekdayIndex, WEEKDAYS_NB, type ISODate } from './dates'
 import { projectTag, sameProject, SHIFT_IDS, workOf, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type Work, type WorkdaySettings, type Workspace } from './types'
+import { pushTo } from './collections'
 
 /**
  * The rules of Innleid: orders of people from suppliers against the hours of a competence that remain on a day
@@ -328,7 +329,7 @@ export const hireBoard = (competences: CompetenceKey[], dates: ISODate[], restOf
       const cover = coverage(rest, list ?? [], wd)
       covers.set(key, cover)
       active.add(competence)
-      perDay.set(date, [...(perDay.get(date) ?? []), cover])
+      pushTo(perDay, date, cover)
     }
   }
   const deviations = new Map([...perDay].map(([date, list]) => [date, deviation(list)]))

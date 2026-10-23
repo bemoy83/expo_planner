@@ -2,6 +2,7 @@ import type { ISODate } from './dates'
 import { diffBy, type TableDiff } from './tableDiff'
 import { VENUE_PHASES, type AllocationRow, type Assignment, type DemandAdjustment, type DemandLine, type HireOrder, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { anchorDate } from './venueImport'
+import { pushTo } from './collections'
 
 /**
  * A project is known by its number: demand, planning rows and orders point at it. The sources call the same project
@@ -67,7 +68,7 @@ export const projectListIndex = (projects: ProjectRef[]): Map<string, ProjectRef
   for (const project of projects) {
     const name = normalizeName(project.name)
     if (!name || !project.projectNo.trim()) continue
-    index.set(name, [...(index.get(name) ?? []), project])
+    pushTo(index, name, project)
   }
   return index
 }

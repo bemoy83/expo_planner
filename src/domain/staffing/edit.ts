@@ -4,6 +4,7 @@ import { sameTag, workOf, workTag, type Assignment, type CompetenceKey, type Int
 import { clamp } from '../numbers'
 import { freeIntervals, intersect, length, overlap, paidHours, subtract } from './intervals'
 import { absenceOf, blocksOf, dayWindows, editableWindows, isEligible, isWholeDay, keyOf, normalWindows } from './time'
+import { pushTo } from '../collections'
 
 /**
  * Painting and editing assignments in Bemanning: the brush and the eraser (R6), blocks moved, resized, split and recoloured, days moved, copied and pasted (R19, R34, R38). Everything returns new lists; the same list comes back when nothing changed.
@@ -25,7 +26,7 @@ export const mergeAdjacent = (assignments: Assignment[], only?: Set<string>): As
   const byDay = new Map<string, Assignment[]>()
   for (const a of assignments) {
     if (only && !only.has(keyOf(a))) continue
-    byDay.set(keyOf(a), [...(byDay.get(keyOf(a)) ?? []), a])
+    pushTo(byDay, keyOf(a), a)
   }
   const replaced = new Map<string, Assignment | null>()
   for (const blocks of byDay.values()) {
@@ -391,7 +392,7 @@ export const invariantBreaches = (assignments: Assignment[], wd: WorkdaySettings
   const breaches: string[] = []
   const byDay = new Map<string, Assignment[]>()
   for (const a of assignments) {
-    byDay.set(keyOf(a), [...(byDay.get(keyOf(a)) ?? []), a])
+    pushTo(byDay, keyOf(a), a)
     if (a.start % wd.snap || a.end % wd.snap) breaches.push(`${a.id}: off the ${wd.snap} minute grid`)
     if (a.end - a.start < wd.snap) breaches.push(`${a.id}: shorter than ${wd.snap} minutes`)
     if (a.start < wd.overtimeEarliest || a.end > wd.overtimeLatest) breaches.push(`${a.id}: outside the day`)

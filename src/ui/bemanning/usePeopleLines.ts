@@ -4,6 +4,7 @@ import { openUnresolved } from '../../domain/staffing/balance'
 import { okAssignments, overtimeBreaches, personWeek, type PersonWeek } from '../../domain/staffing/time'
 import type { Assignment, Person, Unavailability, Workspace } from '../../domain/types'
 import { weekDates } from './week'
+import { pushTo } from '../../domain/collections'
 
 /** One person's line: who, and what the grid knows about their days. */
 export interface PersonLine {
@@ -21,7 +22,7 @@ const byDay = <T extends { personId: string; date: ISODate }>(list: T[]) => {
   for (const item of list) {
     let days = map.get(item.personId)
     if (!days) map.set(item.personId, (days = new Map()))
-    days.set(item.date, [...(days.get(item.date) ?? []), item])
+    pushTo(days, item.date, item)
   }
   return map
 }

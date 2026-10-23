@@ -1,6 +1,7 @@
 import { buildDemandIndex, dataYear, requiredHours } from './calc'
 import { productTypeKey } from './kpi'
 import { PLANNED_BASIS, type AllocationRow, type DemandLine, type KpiConfig } from './types'
+import { pushTo } from './collections'
 
 /**
  * Demand the planner has taken into the plan («Planlagt») shows in the Kalender by itself: one row per
@@ -32,7 +33,7 @@ const covers = (row: Scope, other: Scope): boolean =>
 
 export const suggestedRows = (demand: DemandLine[], allocations: AllocationRow[]): AllocationRow[] => {
   const existing = new Map<string, AllocationRow[]>()
-  for (const row of allocations) existing.set(wideScope(row), [...(existing.get(wideScope(row)) ?? []), row])
+  for (const row of allocations) pushTo(existing, wideScope(row), row)
   const found = new Map<string, AllocationRow>()
   for (const line of demand) {
     if (norm(line.basis) !== norm(PLANNED_BASIS) || !line.projectNo.trim() || !line.competence.trim()) continue

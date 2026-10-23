@@ -15,6 +15,7 @@ import { clearAll, emptyShared, isShared, loadWorkspace, onOtherWindow, saveWork
 import { clearPrefs } from './prefs'
 import { History, type Step } from './history'
 import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, writesOf, type Delta, type RecordWrite } from './records'
+import { pushTo } from '../domain/collections'
 
 const HISTORY_LIMIT = 200
 /** How long a failed write waits before it is tried again, doubled each time it fails, up to the most. */
@@ -552,7 +553,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // An export can be read before anything is set up; its product types then show up to be filled in.
       const kpi = ws.kpi ?? EMPTY_KPI
       const byProject = new Map<string, VismaRow[]>()
-      for (const row of rows) byProject.set(row.projectNo, [...(byProject.get(row.projectNo) ?? []), row])
+      for (const row of rows) pushTo(byProject, row.projectNo, row)
       const importedAt = new Date().toISOString()
       const imports: VismaImport[] = [...byProject].map(([projectNo, projectRows]) => ({ projectNo, eventName: projectRows[0].eventName, fileName, importedAt, rows: projectRows }))
       const overrides = ws.overrides ?? {}

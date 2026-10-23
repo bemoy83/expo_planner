@@ -1,5 +1,6 @@
 import type { ISODate } from './dates'
 import { VENUE_PHASES, type VenueBooking } from './types'
+import { pushTo } from './collections'
 
 /** Ids of bookings that came from a Venyou export read into the app. */
 export const VENYOU_ID_PREFIX = 'venyou-'
@@ -90,7 +91,7 @@ const signature = (bookings: VenueBooking[]): string =>
 
 const byEvent = (bookings: VenueBooking[]): Map<string, VenueBooking[]> => {
   const map = new Map<string, VenueBooking[]>()
-  for (const booking of bookings) map.set(booking.eventName, [...(map.get(booking.eventName) ?? []), booking])
+  for (const booking of bookings) pushTo(map, booking.eventName, booking)
   return map
 }
 
