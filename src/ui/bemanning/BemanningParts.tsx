@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { ClipboardCopy, Eraser, Printer, Maximize2, MousePointer2, Paintbrush, TriangleAlert, X } from 'lucide-react'
-import { addDays, dayOfMonth, isoWeek, monthShort, weekdayIndex, type ISODate } from '../../domain/dates'
+import { addDays, dayOfMonth, isoWeek, monthShort, weekdayName, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { freeCapacity, removeCarried } from '../../domain/staffing/balance'
 import { paintBlock } from '../../domain/staffing/edit'
@@ -18,7 +18,7 @@ import { DemandRows } from './DemandRows'
 import { DayMenu, DemandPopover } from './Popovers'
 import { ProjectLines } from './ProjectLines'
 import type { Tool } from './tools'
-import { EPSILON, hoursText, WEEKDAYS_LONG } from './week'
+import { EPSILON, hoursText } from './week'
 
 /** The page header in Bemanning: how far the people cover the demand of the days in view. */
 export function BemanningHead({ places, onDayPlan }: { /** The button «Steder», as in the plan's header. */ places: ReactNode; /** Opens the day plan of the day in focus. */ onDayPlan: () => void }) {
@@ -185,7 +185,7 @@ export function BemanningOverlays() {
         (() => {
           const cell = balance.get(demandPop.competence, demandPop.date)
           const next = addDays(demandPop.date, 1)
-          const nextName = WEEKDAYS_LONG[weekdayIndex(next)]
+          const nextName = weekdayName(next)
           return (
             <DemandPopover
               x={demandPop.x}

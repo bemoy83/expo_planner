@@ -11,8 +11,6 @@ export const weekDates = (date: ISODate): ISODate[] => {
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i))
 }
 
-export const WEEKDAYS_LONG = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag']
-
 /** Hours with a decimal comma. Quarter hours keep both decimals: 2,75. */
 export const hoursText = (hours: number): string => formatFte(Math.round(hours * 100) / 100, 2) || '0'
 

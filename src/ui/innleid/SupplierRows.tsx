@@ -1,13 +1,12 @@
 import { memo, useMemo, useState } from 'react'
 import { Paintbrush } from 'lucide-react'
-import type { ISODate } from '../../domain/dates'
+import { dayText, type ISODate } from '../../domain/dates'
 import { isWaiting } from '../../domain/hire'
 import type { CompetenceStyle, Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { competenceColor } from '../dom'
 import { Line, SectionLine } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { fmtDay } from '../kalender/labels'
 import { ROW_H } from '../kalender/layout'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
@@ -64,7 +63,7 @@ const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, w
       cells={(date) => {
         const day = days?.get(date)
         return (
-          <div key={date} className={`${dayClass(cols, date)} cell il-people`} title={day ? `${supplier.name} · ${fmtDay(date)}\n${day.people} pers.${day.waits ? ' · venter på svar' : ''}` : undefined}>
+          <div key={date} className={`${dayClass(cols, date)} cell il-people`} title={day ? `${supplier.name} · ${dayText(date)}\n${day.people} pers.${day.waits ? ' · venter på svar' : ''}` : undefined}>
             {day && (
               <>
                 {day.waits && <AnswerGlyph waits size={12} />}

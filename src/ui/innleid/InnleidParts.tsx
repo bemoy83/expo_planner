@@ -1,6 +1,6 @@
 import { Fragment, memo, type CSSProperties, type ReactNode } from 'react'
 import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
-import type { ISODate } from '../../domain/dates'
+import { dayText, type ISODate } from '../../domain/dates'
 import { coverFigure, coverShares, dayBlock, dayChips, dayKey, HOURS_NOISE, isWaiting, shiftText, type Coverage, type DayBlock, type HireBoard, type OrderChip } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
@@ -13,7 +13,6 @@ import { HeatLegend, Line, SectionLine } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { heatTile, HEAT_LABELS } from '../kalender/heat'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
-import { fmtDay } from '../kalender/labels'
 import { daysWide, HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
 import { PlanBar } from '../kalender/PlanBar'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
@@ -66,7 +65,7 @@ const AvvikLine = memo(function AvvikLine({ cols, board, maxShortage, maxSurplus
         const tile = heatTile(dev.value, maxShortage, maxSurplus, dev.state)
         const waits = dev.pending > HOURS_NOISE
         return (
-          <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} title={`${fmtDay(date)} · ${HEAT_LABELS[tile.kind]} ${signedHours(dev.value) || '0'} t${waits ? `\n${hoursText(dev.pending)} t venter på svar` : ''}`}>
+          <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} title={`${dayText(date)} · ${HEAT_LABELS[tile.kind]} ${signedHours(dev.value) || '0'} t${waits ? `\n${hoursText(dev.pending)} t venter på svar` : ''}`}>
             <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
             {waits && <Clock className="il-waits" size={12} aria-label="Venter på svar" />}
             <span className="heat-value">{signedHours(dev.value)}</span>
@@ -185,9 +184,9 @@ export function InnleidHeading() {
 
 /** What a day of a competence says when it is pointed at: what remains, what is ordered, and what is missing or over. */
 const coverTitle = (label: string, date: ISODate, cover: Coverage): string => {
-  if (cover.state === 'none') return `${label} · ${fmtDay(date)}\nIngen restbehov`
+  if (cover.state === 'none') return `${label} · ${dayText(date)}\nIngen restbehov`
   const figure = coverFigure(cover)
-  return `${label} · ${fmtDay(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` + (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`)
+  return `${label} · ${dayText(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` + (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`)
 }
 
 /** What a chip says when it is pointed at: the supplier, and each of its orders with its time and answer. */

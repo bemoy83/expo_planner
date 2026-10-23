@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, Copy, Paintbrush } from 'lucide-react'
-import type { ISODate } from '../../domain/dates'
+import { dayText, type ISODate } from '../../domain/dates'
 import { groupKey, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierTotals } from '../../domain/hire'
 import { SHIFT_IDS, type HireOrder, type Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { hoursText } from '../bemanning/week'
 import { SidePanel } from '../common'
 import { competenceColor, count } from '../dom'
-import { fmtDay } from '../kalender/labels'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 import { pushTo } from '../../domain/collections'
@@ -93,7 +92,7 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
         )}
         {[...byDay].map(([date, list]) => (
           <div key={date} className="il-order-day">
-            <span className="insp-eyebrow">{fmtDay(date)}</span>
+            <span className="insp-eyebrow">{dayText(date)}</span>
             {list.map((order) => {
               const style = styles.get(order.competence)
               return (

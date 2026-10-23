@@ -1,14 +1,13 @@
 import { Fragment, memo } from 'react'
 import { Check } from 'lucide-react'
 import { defaultShortLabel } from '../../domain/competences'
-import type { ISODate } from '../../domain/dates'
+import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { Balance } from '../../domain/staffing/balance'
 import { Twisty } from '../common'
 import { competenceColor } from '../dom'
 import { Line, SectionLine } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { fmtDay } from '../kalender/labels'
 import { useStableActions } from '../kalender/useStableActions'
 import { useBemanning, type DemandRow } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
@@ -90,7 +89,7 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         const overtime = (Math.min(cell.assigned, cell.demand) / base) * 100 - regular
         const surplus = (Math.max(0, cell.assigned - cell.demand) / base) * 100
         const title =
-          `${style.label}${project ? ` · ${project.name}` : ''}${place ? ` · ${place.name}` : ''} · ${fmtDay(date)}${dayType(date) !== 'arbeidsdag' ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
+          `${style.label}${project ? ` · ${project.name}` : ''}${place ? ` · ${place.name}` : ''} · ${dayText(date)}${dayType(date) !== 'arbeidsdag' ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
           (cell.assignedOT > EPSILON ? ` (herav ${hoursText(cell.assignedOT)} t overtid)` : '') +
           ` · gjenstår ${hoursText(left)} t` +
           (cell.carried > EPSILON ? `\n${hoursText(cell.carried)} t er flyttet hit fra dagen før.` : '') +

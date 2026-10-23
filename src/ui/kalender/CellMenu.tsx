@@ -1,10 +1,9 @@
 import { useRef } from 'react'
 import { formatFte, FTE_NOISE } from '../../domain/calc'
-import type { ISODate } from '../../domain/dates'
+import { dayText, type ISODate } from '../../domain/dates'
 import type { AllocationRow } from '../../domain/types'
 import { inWindow } from '../dom'
 import { useDismiss } from '../useDismiss'
-import { fmtDay } from './labels'
 import { ArrowRight, Eraser, PanelRight, Pencil, SquarePen, Trash2, X } from 'lucide-react'
 
 /** As wide and as tall as the menu gets, for keeping it inside the window. */
@@ -45,7 +44,7 @@ export function CellMenu({ x, y, row, date, remaining, windowEnd, stored, onClos
   return (
     <div className="menu-pop cell-menu" role="menu" ref={ref} style={inWindow(x, y, MENU_W, MENU_H)} onContextMenu={(e) => e.preventDefault()}>
       <span className="menu-group first">
-        {row.competence || 'Rad'} · {fmtDay(date)}
+        {row.competence || 'Rad'} · {dayText(date)}
       </span>
       <button role="menuitem" disabled={!left || !windowEnd} onClick={run(onSpread)}>
         <Pencil size={14} aria-hidden />

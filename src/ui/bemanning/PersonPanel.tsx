@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Plus, X } from 'lucide-react'
-import { addDays, dayOfMonth, isoWeek, monthShort, type ISODate } from '../../domain/dates'
+import { addDays, isoWeek, periodText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { paidHours } from '../../domain/staffing/intervals'
 import { absenceSpans, addAbsence, editAbsence, overtimeByWeek, personWeek, type AbsenceInput, type AbsenceSpan } from '../../domain/staffing/time'
@@ -11,9 +11,6 @@ import { useBemanning } from './BemanningScope'
 import { AWAY_LABEL } from './dayCell'
 import { clock, EPSILON, hoursText } from './week'
 
-/** «21.–23. okt», «30. sep–2. okt», or «21. okt» for one day. */
-const periodText = (from: ISODate, to: ISODate): string =>
-  from === to ? `${dayOfMonth(from)}. ${monthShort(from)}` : monthShort(from) === monthShort(to) && from.slice(0, 4) === to.slice(0, 4) ? `${dayOfMonth(from)}.–${dayOfMonth(to)}. ${monthShort(to)}` : `${dayOfMonth(from)}. ${monthShort(from)}–${dayOfMonth(to)}. ${monthShort(to)}`
 /** «12:00» as minutes after midnight, or `null`. */
 const minutes = (text: string): number | null => (/^\d{2}:\d{2}$/.test(text) ? Number(text.slice(0, 2)) * 60 + Number(text.slice(3)) : null)
 

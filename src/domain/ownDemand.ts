@@ -1,4 +1,4 @@
-import { daysBetween, dateRange, type ISODate } from './dates'
+import { daysBetween, dateRange, periodText, type ISODate } from './dates'
 import { dayType } from './holidays'
 import { decimalText } from './numbers'
 import { eventKey, venueEvents } from './projects'
@@ -77,16 +77,8 @@ const wholeSpan = (halls: Map<string, HallSpans> | undefined, phase: keyof HallS
 /** The working days of a span: neither weekends nor holidays. At least one, as the work is done on some day. */
 export const workdays = (span: DateSpan): number => Math.max(1, dateRange(span.start, span.end).filter((date) => dayType(date) === 'arbeidsdag').length)
 
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des']
-const dm = (date: ISODate) => ({ day: Number(date.slice(8, 10)), month: MONTHS[Number(date.slice(5, 7)) - 1] })
-
 /** «19.–22. okt», «30. sep–2. okt», «4. nov». */
-export const spanText = (span: DateSpan): string => {
-  const a = dm(span.start)
-  const b = dm(span.end)
-  if (span.start === span.end) return `${a.day}. ${a.month}`
-  return a.month === b.month ? `${a.day}.–${b.day}. ${b.month}` : `${a.day}. ${a.month}–${b.day}. ${b.month}`
-}
+export const spanText = (span: DateSpan): string => periodText(span.start, span.end)
 
 /** Where a project stands from today: being built or soon, later, or done. */
 interface ProjectTiming {

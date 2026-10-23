@@ -1,6 +1,6 @@
 import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { capacityForDate, formatFte, FTE_NOISE } from '../../domain/calc'
-import { addDays, WEEKDAYS_NB, weekdayIndex, type ISODate } from '../../domain/dates'
+import { addDays, weekdayShort, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
@@ -160,7 +160,7 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
             onContextMenu={onDayPlan && ((e) => { e.preventDefault(); onDayPlan(date) })}
             title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}${onDayPlan ? '\nHøyreklikk: dagsplan' : ''}`}
           >
-            <span className="wd">{WEEKDAYS_NB[weekdayIndex(date)].slice(0, zoom === 'compact' ? 1 : 3).toLowerCase()}</span>
+            <span className="wd">{weekdayShort(date).slice(0, zoom === 'compact' ? 1 : 3)}</span>
             <span className="dn">{Number(date.slice(8))}</span>
           </div>
         )}

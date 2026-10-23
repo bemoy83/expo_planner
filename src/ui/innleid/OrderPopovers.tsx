@@ -4,7 +4,7 @@ import { groupWaits, hireHours, shiftOf, SHIFT_LABELS, shiftTimes, timesText, ty
 import { SHIFT_IDS, type CompetenceStyle, type Interval, type Supplier, type WorkdaySettings } from '../../domain/types'
 import { clock, clockMinutes, hoursText } from '../bemanning/week'
 import { Segmented } from '../common'
-import { fmtDay } from '../kalender/labels'
+import { dayText } from '../../domain/dates'
 import { useStableActions } from '../kalender/useStableActions'
 
 /** Waiting for an answer is a clock in a ring; confirmed is a solid disc with a check. Ink only: the colours say under, ok and over. */
@@ -229,8 +229,8 @@ export function AnswerPopover({ at, group, supplier, onWaits, onConfirm, onFewer
           <div className="il-sends-list">
             {group.orders.map((order) => (
               <div key={order.id} className="il-sends">
-                <span className="il-sends-day">{fmtDay(order.date)}</span>
-                {sends([order.id], order.fte, asked(order), `Antall de stiller ${fmtDay(order.date)}`)}
+                <span className="il-sends-day">{dayText(order.date)}</span>
+                {sends([order.id], order.fte, asked(order), `Antall de stiller ${dayText(order.date)}`)}
               </div>
             ))}
           </div>

@@ -1,13 +1,11 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { weekdayIndex, type ISODate } from '../../domain/dates'
+import { dayText, weekdayName, type ISODate } from '../../domain/dates'
 import { removeUnresolved } from '../../domain/staffing/balance'
 import { clearDays, copyDays, moveDay, onlyOffDays, paintBlock, paintDays, paintGaps, pasteDays, type Clipboard, type DayCell as Day } from '../../domain/staffing/edit'
 import type { CompetenceStyle, Person, Work, Workspace } from '../../domain/types'
-import { fmtDay } from '../kalender/labels'
 import type { Toast } from '../Toasts'
 import type { DayGrid } from './dayGrid'
 import type { Rect } from './tools'
-import { WEEKDAYS_LONG } from './week'
 import { count } from '../dom'
 
 interface Options {
@@ -37,7 +35,7 @@ export function useStaffingEdits({ ws, updateStaffing, undo, toast, dates, grid,
   const { blocksOn, strokeCells, pasteOnto } = grid
   const nameOf = (personId: string) => persons.find((p) => p.id === personId)?.name ?? ''
   const labelOf = (competence: string) => styles.get(competence)?.label ?? competence
-  const dayName = (date: ISODate) => WEEKDAYS_LONG[weekdayIndex(date)]
+  const dayName = weekdayName
 
   /** Why a day cannot be painted, for the one day a click hit. */
   const blockText = (cell: Day, competence: string): string => {
@@ -87,9 +85,9 @@ export function useStaffingEdits({ ws, updateStaffing, undo, toast, dates, grid,
     const lastDate = dates[dates.length - 1]
     const { pasted, skipped } = pasteDays(ws, clip, anchor, lastDate, onto)
     const skippedText = skipped ? ` · ${skipped} hoppet over` : ''
-    if (!pasted) return toast(`Ingenting ble limt inn fra ${fmtDay(anchor)}: dagene er opptatt, eller personen er borte eller har ikke kompetansen.`)
+    if (!pasted) return toast(`Ingenting ble limt inn fra ${dayText(anchor)}: dagene er opptatt, eller personen er borte eller har ikke kompetansen.`)
     updateStaffing((w) => ({ ...w, assignments: pasteDays(w, clip, anchor, lastDate, onto).assignments }))
-    toast(`Limte inn ${count(pasted, 'blokk', 'blokker')} fra ${fmtDay(anchor)}${skippedText}`, { label: 'Angre', run: undo })
+    toast(`Limte inn ${count(pasted, 'blokk', 'blokker')} fra ${dayText(anchor)}${skippedText}`, { label: 'Angre', run: undo })
   }
 
   return { nameOf, labelOf, dayName, paint, clear, removeOpen, moveBlocks, selectionCells, copySelection, pasteClip }
