@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { buildDemandIndex } from '../../domain/calc'
 import type { VenueEvent } from '../../domain/projects'
 import { DEFAULT_SETTINGS, type AllocationRow } from '../../domain/types'
-import { buildGroups, buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, inWindow, levelSections, pathKeys, projectIndex, shownLevels, foldedTo, workPhaseOn, type Dimension, type GridItem } from './rows'
+import { ROW_H, TOP_ROW_H } from './layout'
+import { buildGroups, buildItems, cleanGrouping, EMPTY_FILTER, filterGroups, filterSummary, groupItems, headOver, inWindow, itemDepth, levelSections, lineAt, lineTops, pathKeys, projectIndex, shownLevels, foldedTo, workPhaseOn, type Dimension, type GridItem } from './rows'
 
 const row = (id: string, overrides: Partial<AllocationRow>): AllocationRow => ({
   id,
@@ -324,5 +325,33 @@ describe('levelSections and projectIndex', () => {
     const byCompetence = groupItems(groups, index, DEFAULT_SETTINGS, new Set(), ['competence'])
     expect(byCompetence[projectIndex(byCompetence, '26100')]).toMatchObject({ kind: 'row', row: { id: 'c' } })
     expect(projectIndex(byProject, 'unknown')).toBe(-1)
+  })
+})
+
+describe('lineTops, lineAt and headOver', () => {
+  const events = [event('VVS 2026', '26970', '2026-10-05', '2026-10-09'), event('Hage 2026', '26100', '2026-04-01', '2026-04-05')]
+  const groups = filterGroups(rows, events, index, DEFAULT_SETTINGS, EMPTY_FILTER, ['project'])
+  const items = groupItems(groups, index, DEFAULT_SETTINGS, new Set(), ['project'])
+  const tops = lineTops(items)
+
+  it('makes a top level taller than the lines under it', () => {
+    expect(tops).toHaveLength(items.length + 1)
+    items.forEach((item, i) => expect(tops[i + 1] - tops[i]).toBe(itemDepth(item) === 0 && item.kind === 'group' ? TOP_ROW_H : ROW_H))
+  })
+
+  it('finds the line that covers a point, and the last line below the end', () => {
+    expect(lineAt(tops, 0)).toBe(0)
+    expect(lineAt(tops, TOP_ROW_H - 1)).toBe(0)
+    expect(lineAt(tops, TOP_ROW_H)).toBe(1)
+    expect(lineAt(tops, tops[3] + 1)).toBe(3)
+    expect(lineAt(tops, tops[items.length] + 500)).toBe(items.length)
+    expect(lineAt([0], 10)).toBe(0)
+  })
+
+  it('counts the stuck line of a top level over the lines under it alone', () => {
+    expect(headOver(items, true, 0)).toBe(0)
+    expect(headOver(items, true, 1)).toBe(TOP_ROW_H)
+    expect(headOver(items, false, 1)).toBe(0)
+    expect(headOver(items, true, items.length)).toBe(0)
   })
 })

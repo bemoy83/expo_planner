@@ -59,6 +59,9 @@ Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: tru
 // Every element lies at the top left of that window, so a point is measured from there.
 HTMLElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1400, bottom: 900, width: 1400, height: 900, x: 0, y: 0, toJSON: () => ({}) })
 
+// The tests ask for reduced motion, so a switch between the modes is one frame and not a zoom that runs on the clock.
+window.matchMedia = ((query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
+
 /** The store as it is after the last render, for the test to read the workspace and undo from. */
 export let store: ReturnType<typeof useWorkspace>
 
