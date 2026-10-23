@@ -9,7 +9,7 @@
   .dp-overlay{position:static;display:block;background:none}
   .dp-bar,.dp-setbar{display:none!important}
   .dp-page{overflow:visible;padding:0}
-  .dp-sheet{box-shadow:none;width:100%;padding:0;font-size:11px}
+  .dp-sheet{box-shadow:none;width:100%;padding:0;font-size:var(--fs-xs)}
   .wp-attn{break-inside:avoid}
   .dp-list thead{display:table-header-group}
   .dp-card,.dp-list tr{break-inside:avoid}

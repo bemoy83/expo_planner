@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { diffProjectList, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectRows, suggestProjectNo, venueEvents, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
+import { diffProjectList, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectNamer, projectRows, suggestProjectNo, venueEvents, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
 import type { AllocationRow, Assignment, DemandAdjustment, DemandLine, HireOrder, ProjectRef, VenueBooking } from './types'
 
 const booking = (eventName: string, hall: string, phases: VenueBooking['phases']): VenueBooking => ({ id: `${eventName}-${hall}`, hall, eventName, status: 'confirmed', phases })
@@ -193,5 +193,18 @@ describe('what an event without a project is offered', () => {
     const taken = withNumberTakingOver(projects, '26971', 'VVS Grupperom', { projectNo: '26970', name: 'VVS Dagene 2026 - Grupperom' })
     expect(taken.renumbered).toBeUndefined()
     expect(taken.projects.map((ref) => [ref.name, ref.projectNo])).toEqual([['VVS DAGENE 2026', '26970'], ['VVS Dagene 2026 - Grupperom', '26971'], ['VVS Grupperom', '26971']])
+  })
+})
+
+describe('projectNamer', () => {
+  it('names a project by Prosjekter first, then by a planning row, else by its number', () => {
+    const name = projectNamer({
+      projects: [
+        { name: 'VVS', projectNo: '26101' },
+        { name: 'VVS-messen', projectNo: '26101' },
+      ],
+      allocations: [{ projectNo: '26101', projectName: 'Fra raden' }, { projectNo: ' 26102 ', projectName: 'Hage' }] as AllocationRow[],
+    })
+    expect([name('26101'), name('26102'), name('26103')]).toEqual(['VVS', 'Hage', '26103'])
   })
 })

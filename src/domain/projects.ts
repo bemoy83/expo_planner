@@ -36,6 +36,15 @@ export const numberKey = (projectNo: string): string => projectNo.trim().toLower
 
 const sameNumber = (a: string, b: string): boolean => numberKey(a) === numberKey(b)
 
+/** A project's name by its number: the name in Prosjekter, else that of a planning row with the number, else the number. */
+export const projectNamer = (ws: Pick<Workspace, 'projects' | 'allocations'>): ((projectNo: string) => string) => {
+  const names = new Map<string, string>()
+  const add = (projectNo: string, name: string) => projectNo.trim() && !names.has(numberKey(projectNo)) && names.set(numberKey(projectNo), name)
+  for (const ref of ws.projects) add(ref.projectNo, ref.name)
+  for (const row of ws.allocations) add(row.projectNo, row.projectName)
+  return (projectNo) => names.get(numberKey(projectNo)) ?? projectNo
+}
+
 export interface VenueEvent {
   key: string
   name: string

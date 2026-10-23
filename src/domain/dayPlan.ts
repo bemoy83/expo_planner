@@ -1,14 +1,13 @@
 import { referenceProjectNo } from './calc'
-import type { ISODate } from './dates'
+import { daysBetween, type ISODate } from './dates'
 import { competenceStyles } from './competences'
 import { dayType } from './holidays'
 import { isWaiting } from './hire'
-import { eventKey, numberKey, venueEvents } from './projects'
+import { numberKey, projectNamer } from './projects'
 import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, okAssignments, paidHours, placeKey } from './staffing'
-import { competenceKey, PLANNED_BASIS, VENUE_PHASES, type CompetenceKey, type Minute, type VenuePhase, type Workspace } from './types'
+import { competenceKey, PLANNED_BASIS, type CompetenceKey, type Minute, type Workspace } from './types'
 import { PHASE_LABELS } from './venue'
-import { anchorDate, visibleVenue } from './venueImport'
-import { bookedPlaces, dealPlaces } from './workPlace'
+import { bookedPlaces, dealPlaces, phaseAt, projectPhaseSpans } from './workPlace'
 
 /**
  * The day plan (`design_docs/ukeplan/`): one day for print, read-only. A card per project that works that day, then the
@@ -148,6 +147,7 @@ export const WORK_SHOWN = 2
 /** A place of a project that day, with its competences; `projectNo` is `NO_PROJECT` for the work of no project. */
 export interface DayPlaceGroup {
   projectNo: string
+  /** The project's name; empty for the work of no project. */
   name: string
   hall: string
   competences: DayCompetenceGroup[]
@@ -171,39 +171,14 @@ export interface DayPlan {
 
 const EPS = 0.01
 
-/** The days each phase takes over the halls of a project's events, as the hall calendar does. */
-export const projectPhaseSpans = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string): Map<VenuePhase, { start: ISODate; end: ISODate }> => {
-  const venue = visibleVenue(ws.venue, ws.hiddenVenue)
-  const keys = new Set(venueEvents(venue, ws.projects).filter((event) => numberKey(event.projectNo) === numberKey(projectNo)).map((event) => event.key))
-  const spans = new Map<VenuePhase, { start: ISODate; end: ISODate }>()
-  for (const booking of venue) {
-    if (!keys.has(eventKey(booking.eventName, anchorDate(booking)))) continue
-    for (const phase of VENUE_PHASES) {
-      const span = booking.phases[phase]
-      if (!span) continue
-      const held = spans.get(phase)
-      spans.set(phase, held ? { start: span.start < held.start ? span.start : held.start, end: span.end > held.end ? span.end : held.end } : { ...span })
-    }
-  }
-  return spans
-}
-
-/** The central phase wins where phases overlap, as in the hall calendar. */
-const PHASE_RANK: Record<VenuePhase, number> = { event: 5, movingIn: 4, movingOut: 4, assembly: 3, dismantle: 3 }
-
-/** The phase a project is in on a day. */
-export const phaseAt = (spans: Map<VenuePhase, { start: ISODate; end: ISODate }>, date: ISODate): VenuePhase | undefined =>
-  [...spans].filter(([, span]) => span.start <= date && date <= span.end).sort((a, b) => PHASE_RANK[b[0]] - PHASE_RANK[a[0]])[0]?.[0]
-
 /** The phase of a project on a day, and where it stands among its days. */
 const phaseOn = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string, date: ISODate): ProjectPhaseDay | undefined => {
   const spans = projectPhaseSpans(ws, projectNo)
   const phase = phaseAt(spans, date)
   if (!phase) return undefined
   const span = spans.get(phase)!
-  const length = (a: ISODate, b: ISODate) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1
   const later = [...spans].filter(([, s]) => s.start > date).sort((a, b) => a[1].start.localeCompare(b[1].start))[0]
-  return { label: PHASE_LABELS[phase], day: length(span.start, date), of: length(span.start, span.end), ...(later && { next: { label: PHASE_LABELS[later[0]], date: later[1].start } }) }
+  return { label: PHASE_LABELS[phase], day: daysBetween(span.start, date) + 1, of: daysBetween(span.start, span.end) + 1, ...(later && { next: { label: PHASE_LABELS[later[0]], date: later[1].start } }) }
 }
 
 /** The day plan of a date. */
@@ -217,6 +192,7 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
   const nameOf = (id: string) => persons.get(id)?.name ?? id
   const suppliers = new Map((ws.suppliers ?? []).map((s) => [s.id, s]))
   const projectKeyOf = (projectNo: string) => numberKey(projectNo)
+  const projectName = projectNamer(ws)
   const placeOf = (projectNo: string, hall: string): string => {
     if (placeKey(hall) !== PROJECT_PLACE) return hall.trim()
     const booked = bookedPlaces(ws, projectNo, date)
@@ -278,9 +254,8 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
       coverage.sort((a, b) => rankOf(a.competence) - rankOf(b.competence))
       const notes: DayNote[] = ws.allocations
         .filter((row) => numberKey(row.projectNo) === projectKeyOf(projectNo) && row.notes?.[date]?.trim())
-        .map((row) => ({ competence: row.competence.trim().toLowerCase(), hall: row.hall?.trim() ?? '', text: row.notes[date].trim() }))
-      const name = ws.projects.find((ref) => numberKey(ref.projectNo) === projectKeyOf(projectNo))?.name ?? ws.allocations.find((row) => numberKey(row.projectNo) === projectKeyOf(projectNo))?.projectName ?? projectNo
-      return { projectNo, name, places: bookedPlaces(ws, projectNo, date), phase: phaseOn(ws, projectNo, date), coverage, notes }
+        .map((row) => ({ competence: competenceKey(row.competence), hall: row.hall?.trim() ?? '', text: row.notes[date].trim() }))
+      return { projectNo, name: projectName(projectNo), places: bookedPlaces(ws, projectNo, date), phase: phaseOn(ws, projectNo, date), coverage, notes }
     })
     .sort((a, b) => a.projectNo.localeCompare(b.projectNo, 'nb', { numeric: true }))
 
@@ -326,7 +301,7 @@ const dayGroups = (ws: Workspace, date: ISODate, fitters: DayFitter[], hired: Da
   const cardOf = (projectNo: string) => cards.find((card) => numberKey(card.projectNo) === numberKey(projectNo))
   const competenceIn = (projectNo: string, hall: string, competence: CompetenceKey) => {
     const key = keyOf(projectNo, hall)
-    if (!places.has(key)) places.set(key, { projectNo, name: projectNo ? (cardOf(projectNo)?.name ?? projectNo) : 'Uten prosjekt', hall, competences: [] })
+    if (!places.has(key)) places.set(key, { projectNo, name: projectNo ? (cardOf(projectNo)?.name ?? projectNo) : '', hall, competences: [] })
     const place = places.get(key)!
     let group = place.competences.find((g) => g.competence === competence)
     if (!group) {

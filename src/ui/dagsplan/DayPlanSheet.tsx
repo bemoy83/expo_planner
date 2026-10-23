@@ -1,16 +1,16 @@
-import { Fragment } from 'react'
+import { Fragment, type CSSProperties } from 'react'
 import { formatFte } from '../../domain/calc'
 import { isoWeek } from '../../domain/dates'
 import { competenceStyles } from '../../domain/competences'
 import type { DayBlock, DayCompetenceGroup, DayPlan, DayWork, ProjectCard } from '../../domain/dayPlan'
-import type { CompetenceKey, CompetenceStyle, Minute, Workspace } from '../../domain/types'
-import { count } from '../dom'
-import { colorOf, hm, longDate, shortDate, span } from './format'
+import type { CompetenceKey, CompetenceStyle, Interval, Minute, Workspace } from '../../domain/types'
+import { competenceColor, count } from '../dom'
+import { hm, longDate, shortDate, span } from './format'
 
-/** The track runs over the day from DAY_FROM to DAY_TO, in minutes. */
-const DAY_FROM = 6 * 60
-const DAY_TO = 21 * 60
-const pct = (minute: Minute) => ((Math.min(DAY_TO, Math.max(DAY_FROM, minute)) - DAY_FROM) / (DAY_TO - DAY_FROM)) * 100
+/** Where a time stands on the track, in per cent of it. */
+const placeOn = (range: Interval, minute: Minute) => ((Math.min(range.end, Math.max(range.start, minute)) - range.start) / (range.end - range.start)) * 100
+/** The left edge and width of a stretch on the track. */
+const stretchOn = (range: Interval, start: Minute, end: Minute): CSSProperties => ({ left: `${placeOn(range, start)}%`, width: `${placeOn(range, end) - placeOn(range, start)}%` })
 
 const COVER_TEXT = { ok: '', short: 'mangler', wait: 'venter' } as const
 const GROUP_STATE = { ok: 'dekket', short: 'mangler', wait: 'venter' } as const
@@ -18,15 +18,15 @@ const GROUP_STATE = { ok: 'dekket', short: 'mangler', wait: 'venter' } as const
 /** People as whole days, with one decimal where they are not: «8 pers», «4,6 pers». */
 const peopleText = (people: number) => `${formatFte(Math.round(people * 10) / 10, 1) || '0'} pers`
 
-function Track({ blocks, styles, names }: { blocks: { block: DayBlock | { competence: CompetenceKey; start: Minute; end: Minute; hall: string; waiting?: boolean; hired?: boolean }; text?: string; ghost?: boolean }[]; styles: Map<CompetenceKey, CompetenceStyle>; names: Map<CompetenceKey, string> }) {
+/** A person's day on a track over `range`, the hours a person can work, overtime included (Innstillinger). */
+function Track({ range, blocks, styles, names }: { range: Interval; blocks: { block: DayBlock | { competence: CompetenceKey; start: Minute; end: Minute; hall: string; waiting?: boolean; hired?: boolean }; text?: string; ghost?: boolean }[]; styles: Map<CompetenceKey, CompetenceStyle>; names: Map<CompetenceKey, string> }) {
   return (
     <div className="dp-track">
       {blocks.map(({ block, text, ghost }, i) => {
-        const left = pct(block.start)
         const hired = 'hired' in block && block.hired
         const waiting = 'waiting' in block && block.waiting
         return (
-          <div key={i} className={`dp-blk${hired ? ' hired' : ''}${waiting ? ' wait' : ''}${ghost ? ' ghost' : ''}`} style={{ left: `${left}%`, width: `${pct(block.end) - left}%`, ['--cc' as string]: colorOf(styles, block.competence) }}>
+          <div key={i} className={`dp-blk${hired ? ' hired' : ''}${waiting ? ' wait' : ''}${ghost ? ' ghost' : ''}`} style={{ ...stretchOn(range, block.start, block.end), ...competenceColor(styles.get(block.competence)) }}>
             {block.hall && <i>{block.hall}</i>}
             {text ?? names.get(block.competence) ?? block.competence}
           </div>
@@ -35,6 +35,13 @@ function Track({ blocks, styles, names }: { blocks: { block: DayBlock | { compet
     </div>
   )
 }
+
+/** The mark of a place that is worked out and could have been another. */
+const Estimated = () => (
+  <span className="dp-est" title="Stedet er regnet ut og kunne vært et annet">
+    ≈
+  </span>
+)
 
 function Card({ card, names, styles }: { card: ProjectCard; names: Map<CompetenceKey, string>; styles: Map<CompetenceKey, CompetenceStyle> }) {
   const { phase } = card
@@ -66,7 +73,7 @@ function Card({ card, names, styles }: { card: ProjectCard; names: Map<Competenc
       <div className="dp-cover">
         {card.coverage.map((c) => (
           <span key={c.competence} className={`dp-cv ${c.state}`}>
-            <i style={{ background: colorOf(styles, c.competence) }} />
+            <i style={competenceColor(styles.get(c.competence))} />
             {names.get(c.competence) ?? c.competence}
             {c.state === 'ok' ? <b aria-label="dekket">✓</b> : <em>{COVER_TEXT[c.state]}{c.waiting.length > 0 && `: ${c.waiting.join(', ')}`}</em>}
           </span>
@@ -106,7 +113,7 @@ function GroupHead({ group, names, styles }: { group: DayCompetenceGroup; names:
   return (
     <tr className="dp-comp">
       <td colSpan={3}>
-        <i style={{ background: colorOf(styles, group.competence) }} />
+        <i style={competenceColor(styles.get(group.competence))} />
         <b>{names.get(group.competence) ?? group.competence}</b>
         <span className="dp-count">
           {peopleText(group.people)}
@@ -124,9 +131,10 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
   const styles = new Map(competenceStyles(ws).map((s) => [s.key, s]))
   const names = new Map([...styles].map(([key, s]) => [key, s.label]))
   const wd = ws.settings.workday
+  const range: Interval = { start: wd.overtimeEarliest, end: wd.overtimeLatest }
   const head = [plan.projects.length ? count(plan.projects.length, 'prosjekt', 'prosjekter') : 'Ingen prosjekter', count(plan.fitters, 'fast', 'faste'), plan.hired ? `${plan.hired} innleide bekreftet` : '', plan.waiting ? `${plan.waiting} venter` : ''].filter(Boolean)
   return (
-    <article className="dp-sheet" aria-label={`Dagsplan ${longDate(plan.date)}`}>
+    <article className="dp-sheet palette-light" aria-label={`Dagsplan ${longDate(plan.date)}`}>
       <header className="dp-head">
         <h1>{longDate(plan.date)}</h1>
         <div>
@@ -149,11 +157,11 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
           ))}
         </div>
       )}
-      <table className="dp-list">
+      <table className="dp-list" style={{ '--hours': (range.end - range.start) / 60 } as CSSProperties}>
         <thead>
           <tr>
             <th>Montør</th>
-            <th>Arbeidsdag 06–21</th>
+            <th>Arbeidsdag {span(range.start, range.end)}</th>
             <th>Tid her</th>
           </tr>
         </thead>
@@ -170,7 +178,7 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
               <tr className="dp-place">
                 <td colSpan={3}>
                   {place.hall && <span className="dp-pl">{place.hall}</span>}
-                  {place.name}
+                  {place.name || 'Uten prosjekt'}
                 </td>
               </tr>
               {place.competences.map((group) => (
@@ -181,10 +189,10 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
                       <tr key={`f:${entry.personId}`} className={entry.later ? 'dp-later' : undefined}>
                         <td className="dp-name">
                           <b>{entry.name}</b>
-                          {entry.here.some((at) => entry.blocks[at].uncertain) && <span className="dp-est" title="Stedet er regnet ut og kunne vært et annet">≈</span>}
+                          {entry.here.some((at) => entry.blocks[at].uncertain) && <Estimated />}
                         </td>
                         <td>
-                          <Track blocks={entry.blocks.map((block, at) => ({ block, ghost: !entry.here.includes(at) }))} styles={styles} names={names} />
+                          <Track range={range} blocks={entry.blocks.map((block, at) => ({ block, ghost: !entry.here.includes(at) }))} styles={styles} names={names} />
                         </td>
                         <td className="dp-time">{entry.here.map((at) => span(entry.blocks[at].start, entry.blocks[at].end)).join(' · ')}</td>
                       </tr>
@@ -194,10 +202,10 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
                           <b>
                             {entry.name} · {count(entry.people, 'pers', 'pers')}
                           </b>
-                          {entry.uncertain && <span className="dp-est" title="Stedet er regnet ut og kunne vært et annet">≈</span>}
+                          {entry.uncertain && <Estimated />}
                         </td>
                         <td>
-                          <Track blocks={[{ block: { competence: entry.competence, start: entry.start, end: entry.end, hall: entry.hall, waiting: entry.waiting, hired: true } }]} styles={styles} names={names} />
+                          <Track range={range} blocks={[{ block: { competence: entry.competence, start: entry.start, end: entry.end, hall: entry.hall, waiting: entry.waiting, hired: true } }]} styles={styles} names={names} />
                         </td>
                         <td className="dp-time">
                           {span(entry.start, entry.end)} · {entry.waiting ? 'venter, teller ikke før svar' : 'bekreftet'}
@@ -220,7 +228,7 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
                 <b>{p.name}</b>
               </td>
               <td>
-                <Track blocks={p.blocks.map((block) => ({ block }))} styles={styles} names={names} />
+                <Track range={range} blocks={p.blocks.map((block) => ({ block }))} styles={styles} names={names} />
               </td>
               <td className="dp-time">{p.blocks.map((b) => span(b.start, b.end)).join(' · ')} · ingen behov for kompetansen i dag</td>
             </tr>
@@ -236,7 +244,7 @@ export function DayPlanSheet({ plan, ws, printedAt, unsetCount, onSetPlaces }: {
                 <b>{a.name}</b>
               </td>
               <td>
-                <div className="dp-track">{a.away && <div className="dp-blk away" style={a.from !== undefined && a.to !== undefined ? { left: `${pct(a.from)}%`, width: `${pct(a.to) - pct(a.from)}%` } : { left: `${pct(wd.dayStart)}%`, width: `${pct(wd.dayEnd) - pct(wd.dayStart)}%` }}>Borte</div>}</div>
+                <div className="dp-track">{a.away && <div className="dp-blk away" style={a.from !== undefined && a.to !== undefined ? stretchOn(range, a.from, a.to) : stretchOn(range, wd.dayStart, wd.dayEnd)}>Borte</div>}</div>
               </td>
               <td className="dp-time">{!a.away ? 'Ingen blokk' : a.from !== undefined && a.to !== undefined ? `Borte ${span(a.from, a.to)}${a.idle ? ', ingen blokk ellers' : ''}` : 'Borte hele dagen'}</td>
             </tr>

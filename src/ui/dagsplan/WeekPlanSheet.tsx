@@ -1,14 +1,15 @@
+import type { CSSProperties } from 'react'
 import { competenceStyles } from '../../domain/competences'
-import { isoWeek, dayOfMonth, weekdayIndex } from '../../domain/dates'
+import { isoWeek, dayOfMonth, monthShort, weekdayIndex } from '../../domain/dates'
 import type { VenuePhase, Workspace } from '../../domain/types'
 import { PHASE_LABELS } from '../../domain/venue'
 import type { WeekBar, WeekPlan } from '../../domain/weekPlan'
-import { count } from '../dom'
-import { colorOf, MONTHS, WEEKDAYS } from './format'
+import { competenceColor, count } from '../dom'
+import { WEEKDAYS } from './format'
 
 const DAY_NAMES = WEEKDAYS.map((d) => d.slice(0, 3))
-/** The class of a phase's stretch, for its colour. */
-const PHASE_CLASS: Record<VenuePhase, string> = { assembly: 'up', movingIn: 'mi', event: 'ev', movingOut: 'mo', dismantle: 'dn' }
+/** The colour of a phase's stretch: the phase's own, as in the hall calendar. */
+const phaseColor = (phase: VenuePhase) => ({ '--ph': `var(--ph-${phase.toLowerCase()})` }) as CSSProperties
 
 /** A flag's days as «tir», «tir–ons» or «tor og fre»: the first and last of a run, else the days one by one. */
 const daysText = (days: number[], names: string[]) => {
@@ -22,12 +23,12 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
   const label = (key: string) => styles.get(key)?.label ?? key
   const first = plan.dates[0]
   const last = plan.dates[6]
-  const range = `${dayOfMonth(first)}. ${MONTHS[Number(first.slice(5, 7)) - 1].slice(0, 3)} – ${dayOfMonth(last)}. ${MONTHS[Number(last.slice(5, 7)) - 1].slice(0, 3)} ${last.slice(0, 4)}`
+  const range = `${dayOfMonth(first)}. ${monthShort(first)} – ${dayOfMonth(last)}. ${monthShort(last)} ${last.slice(0, 4)}`
   const bar = (b: WeekBar, project: string, placed: boolean) => (
     <div className="wp-row" key={`${project}|${b.competence}`}>
       <span className="wp-lbl">{label(b.competence)}</span>
       {b.runs.map((run, i) => (
-        <span key={run.from} className="wp-bar" style={{ gridColumn: `${run.from + 2} / ${run.to + 3}`, ['--cc' as string]: colorOf(styles, b.competence) }}>
+        <span key={run.from} className="wp-bar" style={{ gridColumn: `${run.from + 2} / ${run.to + 3}`, ...competenceColor(styles.get(b.competence)) }}>
           {i === 0 && placed && b.halls.map((hall) => <i key={hall} className="dp-pl">{hall}</i>)}
           {i === 0 && b.avdelinger.join(' · ')}
           {b.flags
@@ -43,7 +44,7 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
   )
   const empty = plan.projects.length === 0 && plan.without.length === 0
   return (
-    <article className="dp-sheet dp-week" aria-label={`Ukeplan uke ${isoWeek(first)}`}>
+    <article className="dp-sheet dp-week palette-light" aria-label={`Ukeplan uke ${isoWeek(first)}`}>
       <header className="dp-head">
         <h1>Uke {isoWeek(first)}</h1>
         <div>
@@ -71,7 +72,7 @@ export function WeekPlanSheet({ plan, ws, printedAt }: { plan: WeekPlan; ws: Wor
                 <div className="wp-row">
                   <span className="wp-lbl wp-fase">Fase</span>
                   {p.phases.map((ph) => (
-                    <span key={`${ph.phase}${ph.from}`} className={`wp-phase ${PHASE_CLASS[ph.phase]}`} style={{ gridColumn: `${ph.from + 2} / ${ph.to + 3}` }}>
+                    <span key={`${ph.phase}${ph.from}`} className="wp-phase" style={{ gridColumn: `${ph.from + 2} / ${ph.to + 3}`, ...phaseColor(ph.phase) }}>
                       {PHASE_LABELS[ph.phase]}
                       {ph.phase === 'event' ? '' : ph.from === ph.to ? ` · dag ${ph.day} av ${ph.of}` : ` · dag ${ph.day}–${Math.min(ph.of, ph.day + ph.to - ph.from)} av ${ph.of}`}
                     </span>

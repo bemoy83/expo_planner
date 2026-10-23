@@ -95,7 +95,7 @@ describe('the day plan', () => {
     expect(plan.unplaced).toEqual([])
     expect(plan.groups.map((g) => [g.projectNo, g.name])).toEqual([
       [FIRST, 'Byggemessen'],
-      ['', 'Uten prosjekt'],
+      ['', ''],
     ])
   })
 

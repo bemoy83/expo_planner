@@ -4,7 +4,9 @@
 @font-face{font-family:'Schibsted Grotesk';font-style:italic;font-weight:400 900;font-display:swap;src:url('/fonts/SchibstedGrotesk-italic-400_900.woff2') format('woff2')}
 @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/JetBrainsMono-normal-400_600.woff2') format('woff2')}
 
-:root{
+/* The light palette. `.palette-light` keeps it for what must look the same whatever the page shows: the work plans, which are printed as they are seen. */
+:root,.palette-light{
+  color-scheme:light;
   /* neutrals: warm paper */
   --bg:#f2f0eb;            /* canvas */
   --surface:#ffffff;
@@ -88,6 +90,8 @@
   --fs-title-sm:16px;/* dialog titles */
   --fs-title:20px;   /* page titles */
   --fs-figure:18px;  /* the three figures of a stats block */
+  --fs-sheet-name:15px;  /* a project's name on a work plan */
+  --fs-sheet-title:22px; /* the date or week a work plan is for */
 
   /* depth, for what is raised without a line around it: a chosen segment or chip, a card, and what floats over the page */
   --raise:0 1px 2px rgb(0 0 0/.12);
@@ -99,7 +103,8 @@
 
   /* motion: the one curve things move on */
   --ease:cubic-bezier(.4,0,.2,1);
-
+}
+:root{
   font-family:var(--font-ui);
   font-size:14px;
   -webkit-font-smoothing:antialiased;   /* as the design is drawn: without it macOS draws every weight a step heavier */

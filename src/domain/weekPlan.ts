@@ -1,11 +1,10 @@
-import { addDays, type ISODate } from './dates'
-import { projectPhaseSpans, phaseAt } from './dayPlan'
+import { addDays, daysBetween, type ISODate } from './dates'
 import { isWaiting } from './hire'
-import { numberKey, venueEvents } from './projects'
-import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, placeKey } from './staffing'
-import type { CompetenceKey, VenuePhase, Workspace } from './types'
+import { numberKey, projectNamer, venueEvents } from './projects'
+import { PROJECT_PLACE, buildProjectBalance, placeKey } from './staffing'
+import { competenceKey, sameProject, type CompetenceKey, type VenuePhase, type Workspace } from './types'
 import { visibleVenue } from './venueImport'
-import { bookedPlaces, dealPlaces } from './workPlace'
+import { bookedPlaces, dealPlaces, phaseAt, projectPhaseSpans } from './workPlace'
 
 /**
  * The shared week plan (`design_docs/ukeplan/`): the whole picture of a week by project and place, with no hours and
@@ -84,13 +83,23 @@ const runsOf = (days: number[]): WeekBar['runs'] =>
     return runs
   }, [])
 
+type HeldBar = WeekBar & { days: number[] }
+
+/** The bar of a competence in `bars`, made where it has none, with the days given added. */
+const barWith = (bars: Map<CompetenceKey, HeldBar>, competence: CompetenceKey, days: number[]): HeldBar => {
+  const held = bars.get(competence) ?? { competence, avdelinger: [], halls: [], runs: [], flags: [], days: [] }
+  held.days = [...new Set([...held.days, ...days])].sort((a, b) => a - b)
+  held.runs = runsOf(held.days)
+  bars.set(competence, held)
+  return held
+}
+
 /** The week plan of the week that holds `date`, Monday to Sunday. */
 export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (c: CompetenceKey) => number = () => 0): WeekPlan => {
   const dates = Array.from({ length: 7 }, (_, i) => addDays(monday, i))
   const balance = buildProjectBalance(ws, dates, true)
   const dealt = dealPlaces(ws, dates)
-  const names = new Map<string, string>()
-  const nameOf = (projectNo: string) => names.get(numberKey(projectNo)) ?? ws.projects.find((ref) => numberKey(ref.projectNo) === numberKey(projectNo))?.name ?? ws.allocations.find((row) => numberKey(row.projectNo) === numberKey(projectNo))?.projectName ?? projectNo
+  const nameOf = projectNamer(ws)
 
   // The projects of the week: planned, staffed or ordered in it, or booked in the halls.
   const numbers = new Map<string, string>()
@@ -103,25 +112,21 @@ export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (
   for (const event of venueEvents(visibleVenue(ws.venue, ws.hiddenVenue), ws.projects)) if (event.projectNo && event.start <= dates[6] && event.end >= dates[0]) note(event.projectNo)
 
   // A line per competence, from the days any of its rows is planned.
-  const barsOf = (rows: Workspace['allocations']): Map<CompetenceKey, WeekBar & { days: number[] }> => {
-    const bars = new Map<CompetenceKey, WeekBar & { days: number[] }>()
+  const barsOf = (rows: Workspace['allocations']): Map<CompetenceKey, HeldBar> => {
+    const bars = new Map<CompetenceKey, HeldBar>()
     for (const row of rows) {
       const days = dates.flatMap((d, i) => (row.fte[d] ? [i] : []))
       if (!days.length) continue
-      const competence = row.competence.trim().toLowerCase()
       const hall = row.hall?.trim() && placeKey(row.hall) !== PROJECT_PLACE ? row.hall.trim() : ''
       const avdeling = row.avdeling?.trim() ?? ''
-      const held = bars.get(competence) ?? { competence, avdelinger: [], halls: [], runs: [], flags: [], days: [] }
+      const held = barWith(bars, competenceKey(row.competence), days)
       if (avdeling && !held.avdelinger.some((x) => x.toLowerCase() === avdeling.toLowerCase())) held.avdelinger.push(avdeling)
       if (hall && !held.halls.some((x) => x.toLowerCase() === hall.toLowerCase())) held.halls.push(hall)
-      held.days = [...new Set([...held.days, ...days])].sort((a, b) => a - b)
-      held.runs = runsOf(held.days)
-      bars.set(competence, held)
     }
     return bars
   }
 
-  const waiting = (projectNo: string, competence: CompetenceKey, date: ISODate) => (ws.hireOrders ?? []).some((o) => o.date === date && isWaiting(o) && o.competence === competence && numberKey(o.projectNo ?? NO_PROJECT) === numberKey(projectNo))
+  const waiting = (projectNo: string, competence: CompetenceKey, date: ISODate) => (ws.hireOrders ?? []).some((o) => o.date === date && isWaiting(o) && o.competence === competence && sameProject(o, { projectNo }))
   const flagsOf = (projectNo: string, bar: { competence: CompetenceKey; days: number[] }): WeekFlag[] => {
     const short: number[] = []
     const wait: number[] = []
@@ -146,8 +151,7 @@ export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (
       if (open && open.phase === phase && open.to === i - 1) open.to = i
       else {
         const span = spans.get(phase)!
-        const length = (a: ISODate, b: ISODate) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1
-        open = { phase, from: i, to: i, day: length(span.start, date), of: length(span.start, span.end) }
+        open = { phase, from: i, to: i, day: daysBetween(span.start, date) + 1, of: daysBetween(span.start, span.end) + 1 }
         phases.push(open)
       }
     })
@@ -169,10 +173,7 @@ export const buildWeekPlan = (ws: Workspace, monday: ISODate, competenceOrder: (
     if (i < 0) continue
     const at = dealt.get(a.id)
     if (at === undefined || (at !== null && at.projectNo)) continue
-    const held = withoutRows.get(a.competence) ?? { competence: a.competence, avdelinger: [], halls: [], runs: [], flags: [], days: [] }
-    held.days = [...new Set([...held.days, i])].sort((x, y) => x - y)
-    held.runs = runsOf(held.days)
-    withoutRows.set(a.competence, held)
+    barWith(withoutRows, a.competence, [i])
   }
   const without = sortBars([...withoutRows.values()].map(({ days: _days, ...bar }) => bar), competenceOrder)
 

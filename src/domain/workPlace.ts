@@ -2,7 +2,7 @@ import type { ISODate } from './dates'
 import { PROJECT_HALLS, collectedIn } from './locations'
 import { eventKey, numberKey, venueEvents } from './projects'
 import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, okAssignments, paidHours, placeKey, type ProjectBalance } from './staffing'
-import { competenceKey, workTag, type Assignment, type Workspace } from './types'
+import { competenceKey, sameProject, VENUE_PHASES, workTag, type Assignment, type VenueBooking, type VenuePhase, type Workspace } from './types'
 import { hallNames } from './venue'
 import { anchorDate, visibleVenue } from './venueImport'
 
@@ -19,6 +19,12 @@ export interface WorkPlace {
   hall: string
   share: number
 }
+
+/** A place as the balance and the work plans hold it: `PROJECT_PLACE` for a row of all the project's halls or «Ufordelt», else its name. */
+export const placeOf = (hall: string): string => (placeKey(hall) === PROJECT_PLACE ? PROJECT_PLACE : hall.trim())
+
+/** A place as it is stored on a block: the project's halls as «Ufordelt», which stands for them. */
+export const placeTag = (hall: string): string => (placeKey(hall) === PROJECT_PLACE ? PROJECT_HALLS : hall.trim())
 
 /** The name a place is shown with: the project's halls, on a row of all of them or «Ufordelt», as such. */
 export const placeName = (hall: string): string => (placeKey(hall) === PROJECT_PLACE ? 'Prosjektets haller' : hall.trim())
@@ -46,11 +52,20 @@ const projectPlaces = (balance: ProjectBalance, a: Pick<Assignment, 'competence'
  */
 export const blockPlaces = (balance: ProjectBalance, a: Pick<Assignment, 'competence' | 'date' | 'projectNo' | 'hall'>): WorkPlace[] => {
   if (a.projectNo?.trim()) {
-    if (a.hall?.trim()) return [{ projectNo: a.projectNo.trim(), hall: placeKey(a.hall) === PROJECT_PLACE ? PROJECT_PLACE : a.hall.trim(), share: 1 }]
+    if (a.hall?.trim()) return [{ projectNo: a.projectNo.trim(), hall: placeOf(a.hall), share: 1 }]
     return projectPlaces(balance, a, a.projectNo.trim())
   }
   const projects = scaled([...balance.get(a.competence, a.date).projects.values()].map((p) => ({ projectNo: p.projectNo, share: p.shared })))
   return projects.flatMap((p) => projectPlaces(balance, a, p.projectNo).map((place) => ({ ...place, share: place.share * p.share })))
+}
+
+/** The bookings of a project in Venyou that the Kalender shows: its events by its number, in every hall. */
+export const projectBookings = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string): VenueBooking[] => {
+  if (projectNo === NO_PROJECT) return []
+  const venue = visibleVenue(ws.venue, ws.hiddenVenue)
+  const key = numberKey(projectNo)
+  const ofProject = new Set(venueEvents(venue, ws.projects).filter((event) => numberKey(event.projectNo) === key).map((event) => event.key))
+  return venue.filter((booking) => ofProject.has(eventKey(booking.eventName, anchorDate(booking))))
 }
 
 /**
@@ -58,20 +73,36 @@ export const blockPlaces = (balance: ProjectBalance, a: Pick<Assignment, 'compet
  * planner collects is that place. What `PROJECT_PLACE` stands for on that day. Bookings left out of the Kalender are left out.
  */
 export const bookedPlaces = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects' | 'hallRules'>, projectNo: string, date: ISODate): string[] => {
-  if (projectNo === NO_PROJECT) return []
-  const venue = visibleVenue(ws.venue, ws.hiddenVenue)
   const halls = hallNames(ws.venue)
-  const key = numberKey(projectNo)
-  const ofProject = new Set(venueEvents(venue, ws.projects).filter((event) => numberKey(event.projectNo) === key).map((event) => event.key))
   const found = new Map<string, string>()
-  for (const booking of venue) {
-    if (!ofProject.has(eventKey(booking.eventName, anchorDate(booking)))) continue
+  for (const booking of projectBookings(ws, projectNo)) {
     if (!Object.values(booking.phases).some((span) => span && span.start <= date && date <= span.end)) continue
     const place = collectedIn(booking.hall, halls, ws.hallRules)
     found.set(placeKey(place), place)
   }
   return [...found.values()].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }))
 }
+
+/** The days each phase takes over the halls of a project's events, as the hall calendar does. */
+export const projectPhaseSpans = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects'>, projectNo: string): Map<VenuePhase, { start: ISODate; end: ISODate }> => {
+  const spans = new Map<VenuePhase, { start: ISODate; end: ISODate }>()
+  for (const booking of projectBookings(ws, projectNo)) {
+    for (const phase of VENUE_PHASES) {
+      const span = booking.phases[phase]
+      if (!span) continue
+      const held = spans.get(phase)
+      spans.set(phase, held ? { start: span.start < held.start ? span.start : held.start, end: span.end > held.end ? span.end : held.end } : { ...span })
+    }
+  }
+  return spans
+}
+
+/** The central phase wins where phases overlap, as in the hall calendar. */
+const PHASE_RANK: Record<VenuePhase, number> = { event: 5, movingIn: 4, movingOut: 4, assembly: 3, dismantle: 3 }
+
+/** The phase a project is in on a day. */
+export const phaseAt = (spans: Map<VenuePhase, { start: ISODate; end: ISODate }>, date: ISODate): VenuePhase | undefined =>
+  [...spans].filter(([, span]) => span.start <= date && date <= span.end).sort((a, b) => PHASE_RANK[b[0]] - PHASE_RANK[a[0]])[0]?.[0]
 
 /** Where a whole block is, for the work plans: one place, and whether it was set or worked out, and whether it could have been another. */
 export interface DealtPlace {
@@ -138,11 +169,11 @@ export const dealPlaces = (ws: Workspace, dates?: ISODate[]): Map<string, DealtP
       const h = hours.get(a.id)!
       if (tagged(a) && a.hall?.trim()) {
         const projectNo = a.projectNo!.trim()
-        dealt.set(a.id, { projectNo, hall: placeKey(a.hall) === PROJECT_PLACE ? PROJECT_PLACE : a.hall.trim(), set: true, uncertain: false })
+        dealt.set(a.id, { projectNo, hall: placeOf(a.hall!), set: true, uncertain: false })
         continue
       }
-      const ofProject = tagged(a) ? a.projectNo!.trim().toLowerCase() : undefined
-      const candidates = recipients.filter((r) => (ofProject === undefined ? true : r.projectNo.trim().toLowerCase() === ofProject))
+      const ofProject = tagged(a) ? a.projectNo : undefined
+      const candidates = recipients.filter((r) => ofProject === undefined || sameProject(r, { projectNo: ofProject }))
       const room = (r: Recipient) => (ofProject === undefined ? Math.min(r.place, projectLeft.get(r.projectNo) ?? 0) : r.place)
       const open = candidates.filter((r) => room(r) > 0)
       const best = open.reduce<Recipient | undefined>((top, r) => (!top || room(r) > room(top) ? r : top), undefined)
@@ -169,7 +200,7 @@ export const withPlacesSet = (ws: Workspace, date: ISODate): Workspace => {
     const at = dealt.get(a.id)
     if (a.date !== date || !at || at.set || !at.projectNo) return a
     changed = true
-    return { ...a, ...workTag({ projectNo: at.projectNo, hall: placeKey(at.hall) === PROJECT_PLACE ? PROJECT_HALLS : at.hall }) }
+    return { ...a, ...workTag({ projectNo: at.projectNo, hall: placeTag(at.hall) }) }
   })
   return changed ? { ...ws, assignments } : ws
 }

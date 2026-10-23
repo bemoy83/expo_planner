@@ -27,8 +27,8 @@ export const clockMinutes = (text: string): Minute => {
   return Number.isInteger(hours) && Number.isInteger(mins) ? hours * 60 + mins : NaN
 }
 
+/** A time of day, «07:00»; short, a whole hour loses its minutes: «07». */
+export const clockText = (minute: Minute, short: boolean): string => (short && minute % 60 === 0 ? String(Math.floor(minute / 60)).padStart(2, '0') : clock(minute))
+
 /** A stretch of time, «07:00–15:00». Short, whole hours lose their minutes: «07–15», «11:30–15». */
-export const spanText = (start: Minute, end: Minute, short: boolean): string => {
-  const part = (minute: Minute) => (short && minute % 60 === 0 ? String(Math.floor(minute / 60)).padStart(2, '0') : clock(minute))
-  return `${part(start)}–${part(end)}`
-}
+export const spanText = (start: Minute, end: Minute, short: boolean): string => `${clockText(start, short)}–${clockText(end, short)}`

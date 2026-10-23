@@ -3,9 +3,8 @@ import { competenceStyles, staffedCompetences } from '../../domain/competences'
 import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { buildBalance, buildProjectBalance, cellsToDemand, placeKey, PROJECT_PLACE, clearDays, copyDays, overtimeBreaches, defaultBrush, deleteBlock, landingGaps, moveDay, pasteDays, pasteTargets, okAssignments, openUnresolved, onlyOffDays, paidHours, paidTotal, paintBlock, paintDays, paintGaps, personWeek, removeUnresolved, uncoverable as uncoverableHours, balanceTotals, type Balance, type Clipboard, type DayCell as Day, type PaintSpan, type PersonWeek, type ProjectBalance, type WeekTotals } from '../../domain/staffing'
-import { PROJECT_HALLS } from '../../domain/locations'
 import { numberKey } from '../../domain/projects'
-import { placeName } from '../../domain/workPlace'
+import { placeName, placeTag } from '../../domain/workPlace'
 import { workTag, type AllocationRow, type Assignment, type CompetenceStyle, type Person, type Unavailability, type VenuePhase, type Work, type Workspace } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -137,9 +136,6 @@ export interface PlaceLine {
   remaining: number
 }
 
-/** What a place's line paints: the place, with the line of the project's halls as «Ufordelt», which stands for them. */
-const placeTag = (hall: string): string => (hall === PROJECT_PLACE ? PROJECT_HALLS : hall)
-
 /** A place's part of a project's competence as the lines of the demand show a day, as `projectDays` shows the project's. */
 const placeDays = (projects: ProjectBalance, projectNo: string, hall: string): Balance => ({
   get: (competence, date) => {
@@ -164,9 +160,11 @@ const projectDays = (projects: ProjectBalance, projectNo: string): Balance => ({
   competences: projects.competences,
 })
 
-/** Per competence: the hours that remain in the days. A day that is over does not make up for one that is short. */
-const remainingIn = (balance: Balance, days: ISODate[]): Map<string, number> =>
-  new Map(balance.competences.map((competence) => [competence, days.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0)]))
+/** The hours of a competence that remain in the days. A day that is over does not make up for one that is short. */
+const leftIn = (balance: Balance, competence: string, days: ISODate[]): number => days.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0)
+
+/** Per competence: the hours that remain in the days. */
+const remainingIn = (balance: Balance, days: ISODate[]): Map<string, number> => new Map(balance.competences.map((competence) => [competence, leftIn(balance, competence, days)]))
 
 function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
   const { workspace, updateStaffing, undo } = useWorkspace()
@@ -255,12 +253,12 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     return names
   }, [ws.allocations])
   const projectName = useCallback((projectNo: string) => projectNames.get(numberKey(projectNo)) ?? projectNo, [projectNames])
+  /** The projects shown in the Kalender, by `numberKey`: those a project's line can be for. */
+  const kalenderProjects = useMemo(() => new Set(planned.filter((row) => row.projectNo.trim()).map((row) => numberKey(row.projectNo))), [planned])
   /**
    * The lines under the competence in focus: a project shown in the Kalender with hours of it, or tagged with it, in the days in view.
    * They come in the order their work does.
    */
-  /** The projects shown in the Kalender, by `numberKey`: those a project's line can be for. */
-  const kalenderProjects = useMemo(() => new Set(planned.filter((row) => row.projectNo.trim()).map((row) => numberKey(row.projectNo))), [planned])
   const projectLines = useMemo<ProjectLine[]>(() => {
     if (!activeBrush) return []
     const shown = kalenderProjects
@@ -599,8 +597,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       new Map(
         projectLines.map((line) => {
           const days = projectDays(shownProjects, line.projectNo)
-          const remaining = activeBrush ? viewDates.reduce((sum, date) => sum + Math.max(0, days.get(activeBrush, date).remaining), 0) : 0
-          return [line.projectNo, { balance: days, remaining }] as const
+          return [line.projectNo, { balance: days, remaining: activeBrush ? leftIn(days, activeBrush, viewDates) : 0 }] as const
         }),
       ),
     [projectLines, shownProjects, activeBrush, viewDates],
@@ -611,8 +608,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
       new Map(
         placeLines.map((line) => {
           const days = placeDays(shownProjects, activeProject ?? '', line.hall)
-          const remaining = activeBrush ? viewDates.reduce((sum, date) => sum + Math.max(0, days.get(activeBrush, date).remaining), 0) : 0
-          return [line.hall, { balance: days, remaining }] as const
+          return [line.hall, { balance: days, remaining: activeBrush ? leftIn(days, activeBrush, viewDates) : 0 }] as const
         }),
       ),
     [placeLines, shownProjects, activeProject, activeBrush, viewDates],
