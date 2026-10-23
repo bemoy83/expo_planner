@@ -102,9 +102,9 @@ function SaveIndicator() {
     )
   }
   return (
-    <span className={`save-state ${saveState}`} title={saveState === 'saved' ? 'Lagret i nettleseren' : undefined}>
+    <span className={`save-state ${saveState}`} title={saveState === 'saved' ? 'Lagret i nettleseren' : saveState === 'error' ? 'Endringene er ikke lagret i nettleseren ennå. Appen prøver igjen av seg selv; lukk ikke fanen før det står «Lagret».' : undefined}>
       <i />
-      {saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet' : 'Lagret'}
+      {saveState === 'saving' ? 'Lagrer …' : saveState === 'error' ? 'Lagring feilet, prøver igjen' : 'Lagret'}
     </span>
   )
 }

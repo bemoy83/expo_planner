@@ -17,6 +17,9 @@ import { History, type Step } from './history'
 import { applyDeltas, diffWorkspace, effective, mergeDeltas, recordKey, writesOf, type Delta, type RecordWrite } from './records'
 
 const HISTORY_LIMIT = 200
+/** How long a failed write waits before it is tried again, doubled each time it fails, up to the most. */
+const RETRY_FIRST = 1000
+const RETRY_MAX = 30_000
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -126,6 +129,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const openStep = useRef<Map<string, Delta> | null>(null)
   /** The records written in the same event, each once as it ended up; they are written together when the event is over. */
   const pendingWrites = useRef<Map<string, RecordWrite> | null>(null)
+  /** Writes that failed and have not been written over since: they go with the next batch, which is tried again on a timer. */
+  const unsaved = useRef(new Map<string, RecordWrite>())
+  /** Per record, the batch that holds its latest write, so a failed batch gives back only what no later batch has. */
+  const latest = useRef(new Map<string, number>())
+  const batches = useRef(0)
+  const retry = useRef({ timer: 0 as ReturnType<typeof setTimeout> | 0, delay: RETRY_FIRST })
   const [historySize, setHistorySize] = useState({ undo: 0, redo: 0 })
 
   useEffect(() => {
@@ -181,20 +190,50 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  /** Notes records to be written; those of one event are written together, each once, in one transaction, when it is over. */
+  /**
+   * Notes records to be written; those of one event are written together, each once, in one transaction, when it is over.
+   * A batch that fails is not lost: what no later batch writes over goes with the next one, tried again on a timer
+   * that waits longer each time, until a write succeeds.
+   */
   const write = useCallback(
-    (writes: RecordWrite[]) => {
+    function write(writes: RecordWrite[]) {
       if (!pendingWrites.current) {
-        const pending = new Map<string, RecordWrite>()
+        const batch = ++batches.current
+        const pending = new Map(unsaved.current)
+        unsaved.current = new Map()
+        for (const key of pending.keys()) latest.current.set(key, batch)
         pendingWrites.current = pending
         track(() =>
-          Promise.resolve().then(() => {
-            pendingWrites.current = null
-            return writeRecords([...pending.values()])
-          }),
+          Promise.resolve()
+            .then(() => {
+              pendingWrites.current = null
+              return writeRecords([...pending.values()])
+            })
+            .then(
+              () => {
+                for (const key of pending.keys()) if (latest.current.get(key) === batch) latest.current.delete(key)
+                retry.current.delay = RETRY_FIRST
+              },
+              (error) => {
+                for (const [key, w] of pending) if (latest.current.get(key) === batch) unsaved.current.set(key, w)
+                if (!retry.current.timer) {
+                  const delay = retry.current.delay
+                  retry.current.delay = Math.min(delay * 2, RETRY_MAX)
+                  retry.current.timer = setTimeout(() => {
+                    retry.current.timer = 0
+                    if (unsaved.current.size) write([])
+                  }, delay)
+                }
+                throw error
+              },
+            ),
         )
       }
-      for (const w of writes) pendingWrites.current.set(recordKey(w.kind, w.id), w)
+      for (const w of writes) {
+        const key = recordKey(w.kind, w.id)
+        pendingWrites.current!.set(key, w)
+        latest.current.set(key, batches.current)
+      }
     },
     [track],
   )
@@ -242,7 +281,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const undo = useCallback(() => stepThroughHistory('undo'), [stepThroughHistory])
   const redo = useCallback(() => stepThroughHistory('redo'), [stepThroughHistory])
 
+  /** Writes that wait to be tried again belong to the data they were made on, which a replace or a reset does away with. */
+  const forgetUnsaved = () => {
+    clearTimeout(retry.current.timer || undefined)
+    retry.current = { timer: 0, delay: RETRY_FIRST }
+    unsaved.current = new Map()
+    latest.current = new Map()
+  }
+
   const replaceWorkspace = useCallback(async (next: Workspace) => {
+    forgetUnsaved()
     setSaveState('saving')
     await saveWorkspace(next)
     current.current = next
@@ -253,6 +301,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [clearHistory])
 
   const resetWorkspace = useCallback(async () => {
+    forgetUnsaved()
     // A shared workspace is emptied for everyone: every record is deleted, and the deletes are sent like any write.
     if (isShared()) await emptyShared()
     else await clearAll()
