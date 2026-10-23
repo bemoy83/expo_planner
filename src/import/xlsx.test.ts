@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { strFromU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import { cell, cellAt, column, dataRows, findHeader, firstSheetWith, readXlsx, writeXlsx } from './xlsx'
