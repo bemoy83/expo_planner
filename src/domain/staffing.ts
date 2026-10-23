@@ -62,8 +62,30 @@ export const overtimeHours = (iv: Interval, dayKind: DayType, wd: WorkdaySetting
 
 const isWholeDay = (u: Unavailability): boolean => u.start === undefined || u.end === undefined
 
-const absenceOf = (unavailability: Unavailability[], personId: string, date: ISODate): Unavailability[] =>
-  unavailability.filter((u) => u.personId === personId && u.date === date)
+const dayKey = (personId: string, date: ISODate) => `${personId}|${date}`
+const keyOf = (a: { personId: string; date: ISODate }) => dayKey(a.personId, a.date)
+
+/**
+ * The records of a list by person and day, in the order of the list, built once per list: a stroke previews its
+ * days and the people lines count their weeks one person and day at a time, over the same lists.
+ */
+const dayIndexes = new WeakMap<readonly { personId: string; date: ISODate }[], Map<string, unknown[]>>()
+const byPersonDay = <T extends { personId: string; date: ISODate }>(list: readonly T[]): Map<string, T[]> => {
+  let index = dayIndexes.get(list) as Map<string, T[]> | undefined
+  if (!index) {
+    index = new Map()
+    for (const item of list) {
+      const day = index.get(keyOf(item))
+      if (day) day.push(item)
+      else index.set(keyOf(item), [item])
+    }
+    dayIndexes.set(list, index)
+  }
+  return index
+}
+const NONE: never[] = []
+
+const absenceOf = (unavailability: Unavailability[], personId: string, date: ISODate): Unavailability[] => byPersonDay(unavailability).get(dayKey(personId, date)) ?? NONE
 
 /** R3: the person's normal time that day: the normal day on a workday, less any absence. */
 export const normalWindows = (personId: string, date: ISODate, unavailability: Unavailability[], wd: WorkdaySettings): Interval[] =>
@@ -121,9 +143,6 @@ export const freeIntervals = (windows: Interval[], assignments: Interval[], snap
 export const freeHours = (windows: Interval[], assignments: Interval[], wd: WorkdaySettings): number =>
   paidTotal(freeIntervals(windows, assignments, wd.snap), wd)
 
-const dayKey = (personId: string, date: ISODate) => `${personId}|${date}`
-const keyOf = (a: { personId: string; date: ISODate }) => dayKey(a.personId, a.date)
-
 /**
  * R9: joins a block to the one before it when they touch and are the same work, of one competence for one project in one place; the earlier block's id is kept.
  * With `only`, just those person-days are looked at.
@@ -153,7 +172,7 @@ export const mergeAdjacent = (assignments: Assignment[], only?: Set<string>): As
 const newId = () => `asg-${crypto.randomUUID()}`
 
 const blocksOf = (assignments: Assignment[], personId: string, date: ISODate): Assignment[] =>
-  assignments.filter((a) => a.personId === personId && a.date === date).sort((a, b) => a.start - b.start)
+  [...(byPersonDay(assignments).get(dayKey(personId, date)) ?? NONE)].sort((a, b) => a.start - b.start)
 
 /** R15: only a person who has the competence can be given work of it. */
 export const isEligible = (person: Person | undefined, competence: CompetenceKey): boolean => !!person && person.competences.includes(competence)
@@ -253,16 +272,21 @@ export const workedParts = (a: Assignment, person: Person | undefined, absence: 
  * The assignments that count, each cut to the time that does: the hours of an unresolved one, and of the
  * part of a block the person is away for, are back in the demand. A block that counts whole is itself.
  */
-export const okAssignments = (ws: Workspace): Assignment[] => {
+export const okAssignments = (ws: Pick<Workspace, 'persons' | 'unavailability' | 'assignments'>): readonly Assignment[] => {
+  const assignments = ws.assignments ?? NONE
+  const cached = okCache.get(assignments)
+  if (cached && cached.persons === ws.persons && cached.unavailability === ws.unavailability) return cached.ok
   const persons = new Map((ws.persons ?? []).map((p) => [p.id, p]))
-  const absence = new Map<string, Unavailability[]>()
-  for (const u of ws.unavailability ?? []) absence.set(keyOf(u), [...(absence.get(keyOf(u)) ?? []), u])
-  return (ws.assignments ?? []).flatMap((a) => {
-    const parts = workedParts(a, persons.get(a.personId), absence.get(keyOf(a)) ?? NO_ABSENCE)
+  const absence = byPersonDay(ws.unavailability ?? NONE)
+  const ok = assignments.flatMap((a) => {
+    const parts = workedParts(a, persons.get(a.personId), absence.get(keyOf(a)) ?? NONE)
     return parts.length === 1 && parts[0].start === a.start && parts[0].end === a.end ? [a] : parts.map((part) => ({ ...a, start: part.start, end: part.end }))
   })
+  okCache.set(assignments, { persons: ws.persons, unavailability: ws.unavailability, ok })
+  return ok
 }
-const NO_ABSENCE: Unavailability[] = []
+/** What counts is worked out once per workspace: Bemanning asks for it once per person, and every balance asks again. */
+const okCache = new WeakMap<readonly Assignment[], { persons: Workspace['persons']; unavailability: Workspace['unavailability']; ok: readonly Assignment[] }>()
 
 /**
  * The overtime drawn in Bemanning, as hours per day and the number of people who work it, for the Kalender's
