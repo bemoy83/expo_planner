@@ -54,7 +54,6 @@ input[type='checkbox']{accent-color:var(--accent)}
 .tabs{display:flex;gap:2px;margin-left:12px}
 .tabs button{color:var(--muted);font-size:var(--fs-base)}
 .tabs button:not(:hover){background:none}
-.tabs button.active{background:var(--surface);color:var(--text);font-weight:600}
 /* the tabs of the planner's tables come after a gap, apart from those the planning is done in */
 .tabs-apart{width:1px;margin:6px 8px;background:var(--line)}
 .save-state{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-md);color:var(--muted);white-space:nowrap}
@@ -83,7 +82,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* the Kalender's header is part of its mode band, which has lines of its own, see kalender.css */
 .page-head:not(.mode-band){border-bottom:1px solid var(--line)}
 .page-head h2{margin:0;font-size:var(--fs-title);font-weight:700;letter-spacing:-.02em}
-.page-head .icon-button.active{background:var(--sunken)}
+.page-head .icon-button[aria-pressed='true']{background:var(--sunken)}
 .page-meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-num);font-size:var(--fs-sm);color:var(--faint)}
 
 .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 24px 10px;background:var(--bg);border-bottom:1px solid var(--line)}
@@ -114,10 +113,14 @@ input[type='checkbox']{accent-color:var(--accent)}
 
 .segmented{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--sunken)}
 .segmented button{background:transparent;padding:4px 10px;border-radius:6px;color:var(--muted);white-space:nowrap}
-.segmented button:hover{background:color-mix(in srgb,var(--surface) 60%,transparent);color:var(--text)}
-.segmented button.active{background:var(--surface);color:var(--text);font-weight:600}
-/* the tool switch of a planning page */
-.tool-switch .segmented button:not(.active):hover{background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text)}
+.segmented button:not([aria-pressed='true']):hover{background:var(--lift);color:var(--text)}
+/* a segmented control in a row of a table or in a bar that floats over one */
+.segmented.small{padding:2px;border-radius:7px}
+.segmented.small button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
+/* a choice that is still to be made: the ring of what needs the planner's eye */
+.segmented.want{box-shadow:0 0 0 1.5px var(--alert-warn)}
+/* what is chosen, the same in the header's tabs and in every segmented control: what it is is in its aria state, which is what the style reads */
+:is(.tabs button[aria-current='page'],.segmented button[aria-pressed='true']){background:var(--chosen);box-shadow:var(--chosen-raise);color:var(--text);font-weight:600}
 /* a bar of tools above a grid, in the Kalender and in Bemanning: its controls are one height */
 .bar-controls button,.bar-controls input[type='date'],.bar-controls .bar-select{height:32px;font-size:var(--fs-md)}
 .bar-controls .bar-select{width:auto;max-width:220px}

@@ -36,7 +36,7 @@
 .op-head>span:has(.menu){display:flex;align-items:center;overflow:visible}   /* a heading with a filter: its menu hangs below it */
 .op-head .num{font:inherit}
 /* the sum row, held at the foot of the card where there is a number to read (Produkttyper, Faste) */
-.op-row.op-foot{flex:none;min-height:var(--sum-h);border-top:1px solid var(--line-strong);border-bottom:0}
+.op-row.op-foot{flex:none;min-height:var(--sum-h);border-bottom:0;box-shadow:0 -1px 0 var(--line-strong)}
 .op-foot-lead{grid-column:1 / -1;min-width:0;overflow:hidden;white-space:nowrap}
 .op-foot-lead .muted{overflow:hidden;text-overflow:ellipsis}
 /* a group: what lacks setup first, then a competence each. The strong line is the start of a group, and nothing else. */
@@ -58,11 +58,7 @@
 .op-tag{flex:none;font-size:var(--fs-xs);color:var(--faint);white-space:nowrap}
 .op-unit{display:flex;align-items:center}
 /* a switch in a row or in the bar of what is selected: smaller than the switches of the bars */
-:is(.op-units,.hl-unplaced,.hl-bulk) .segmented{padding:2px;border-radius:7px}
-:is(.op-units,.hl-unplaced,.hl-bulk) .segmented button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
 .op-units .segmented button{font:500 var(--fs-sm) var(--font-num)}
-.op-units .segmented button.active{box-shadow:var(--raise)}
-.op-units.want .segmented{box-shadow:0 0 0 1.5px var(--alert-warn)}
 .op-competence .quiet-chip{max-width:100%}
 .op-rate{display:inline-flex;align-items:baseline;justify-content:flex-end}
 .op-row:not(:hover) .op-rate input:not(:focus)::placeholder{color:transparent}   /* «ingen» shows on the row under the pointer */
@@ -138,11 +134,6 @@
 .mk-cover-item .count-chip{margin:0}
 .mk-cover-item:hover{background:var(--sunken)}
 .mk-cover-item.on{background:var(--surface);box-shadow:var(--raise)}
-.mk-shifts{display:inline-flex;gap:1px;padding:2px;border-radius:7px;background:var(--sunken)}
-.mk-shifts button{height:24px;padding:0 9px;border-radius:5px;background:none;font-size:var(--fs-sm);font-weight:500;color:var(--faint)}
-.mk-shifts button:hover:not(.on){color:var(--text)}
-.mk-shifts button.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:var(--raise)}
-.mk-shifts.want{box-shadow:0 0 0 1.5px var(--alert-warn)}
 /* Kompetanser: the order, the colour and how a block looks in Bemanning */
 .mk-bar-note{white-space:nowrap}
 .mk-order{display:flex;align-items:center;gap:2px}

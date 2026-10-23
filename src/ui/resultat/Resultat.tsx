@@ -132,7 +132,7 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
           </button>
         </span>
         <span className="toolbar-gap" />
-        <button className={`ghost ${following ? 'active' : ''}`} aria-pressed={following} title="Prosjekter i utvalget som trenger noe av deg: over budsjett, snart i gang uten nok folk, uten plan eller uten budsjett" onClick={() => (setFollowing(!following), setOpen(null))}>
+        <button className="ghost" aria-pressed={following} title="Prosjekter i utvalget som trenger noe av deg: over budsjett, snart i gang uten nok folk, uten plan eller uten budsjett" onClick={() => (setFollowing(!following), setOpen(null))}>
           <TriangleAlert size={14} aria-hidden /> Følg opp {followUpCount(follow) > 0 && <span className="count-chip alert">{followUpCount(follow)}</span>}
         </button>
         <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />

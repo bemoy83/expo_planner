@@ -305,6 +305,7 @@ export function HallRules({ head, notify, show }: TablePage) {
                         <span>
                           {found.text ? (
                             <Segmented
+                              small
                               label={`Hvem valget for ${quoted(found.text)} gjelder`}
                               value={scope}
                               onChange={(next) => setScopes({ ...scopes, [found.key]: next })}
@@ -342,6 +343,7 @@ export function HallRules({ head, notify, show }: TablePage) {
                     <strong>{texts(picked.length)}</strong>
                     <span className="hl-bulk-gap" />
                     <Segmented
+                      small
                       label="Hvem valgene gjelder"
                       value={bulkScope}
                       onChange={setBulkScope}

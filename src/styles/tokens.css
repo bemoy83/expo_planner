@@ -76,7 +76,6 @@
   --res-actual:oklch(0.4 0.11 280);
   --neg-wash:color-mix(in srgb,var(--neg) 13%,transparent);   /* a day planned above the crew */
   --holiday-tint:color-mix(in srgb,var(--neg) 7%,transparent);   /* a red day, down the lines of the Kalender */
-  --on-neg:#ffffff;        /* text on a strong red tile */
   --warn-bg:#fff6e0; --warn-line:#f0d58a;   /* a line with an issue */
 
   /* the band of a project's line, the only tinted level */
@@ -106,6 +105,9 @@
   --card:0 1px 3px rgb(0 0 0/.08),0 6px 18px -10px rgb(0 0 0/.18);
   --pop:0 12px 32px rgb(0 0 0/.2),0 1px 3px rgb(0 0 0/.1);
   --lift:color-mix(in srgb,var(--surface) 60%,transparent);   /* a line or a row under the pointer, on the page */
+  /* what is chosen among a few: the header's tab, a segment of a segmented control. White and raised, never a colour; on a mode's band its shadow is the band's (kalender.css) */
+  --chosen:var(--surface);
+  --chosen-raise:var(--raise);
   --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));   /* the strip of context on a card, and the subtotal rows under it (Behov, the strips of the tabs of tables); made again in the dark palette */
 
   /* a card on its page (Resultat, Behov, the tabs of tables): the room around it, its corners, how far its rows stand in, and its sum line */
@@ -210,6 +212,7 @@
   --grid-row:color-mix(in srgb,var(--line-strong) 38%,transparent);
   --section:color-mix(in oklab,var(--bg) 82%,#000);
   --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));
+  --chosen:color-mix(in oklab,var(--surface) 90%,var(--text));   /* a step above the card: here the track is the card's own tone and a shadow is not seen */
 
   /* work phases: dark fills with light numbers */
   --mon:oklch(0.45 0.06 115);

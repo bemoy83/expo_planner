@@ -186,6 +186,7 @@ table.ledger.own-lines tr.flash td{animation:own-flash 1.6s var(--ease)}
 table.ledger.own-lines tr.draft :is(.own-work-name,.num){color:var(--muted)}
 table.ledger.own-lines td.actions .row-action{visibility:hidden}
 table.ledger.own-lines tr:hover td.actions .row-action{visibility:visible}
+/* the work, its tag and its comment on one line: a flex box inside the cell, since a cell that is itself flex leaves the table and draws its rule apart */
 .own-work-cell{display:flex;align-items:center;gap:10px;min-width:0;height:38px}
 .own-work-name{font-weight:500;white-space:nowrap}
 .replaces-tag{padding:1px 6px;border-radius:5px;background:var(--sunken);font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
@@ -196,7 +197,6 @@ table.ledger.own-lines tr:hover td.actions .row-action{visibility:visible}
 tr:hover .edit-placeholder{visibility:visible}
 .edit-input{width:100%;min-width:60px;height:28px}
 .num .edit-input{width:80px;text-align:right}
-.own-empty{padding:12px 0}
 .bulk-bar .menu-pop{top:auto;bottom:100%;margin:0 0 6px}
 .bulk-bar .menu-pop small{margin-left:8px}
 

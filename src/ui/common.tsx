@@ -76,14 +76,18 @@ interface SegmentedProps<T extends string> {
   value: T
   options: { value: T; label: ReactNode; title?: string }[]
   onChange: (value: T) => void
+  /** Smaller, for a row of a table. */
+  small?: boolean
+  /** Ringed as what needs the planner: no value is chosen yet. */
+  want?: boolean
 }
 
 /** A choice between a few values, shown as buttons in one track. */
-export function Segmented<T extends string>({ label, value, options, onChange }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ label, value, options, onChange, small, want }: SegmentedProps<T>) {
   return (
-    <span className="segmented" role="group" aria-label={label}>
+    <span className={['segmented', small && 'small', want && 'want'].filter(Boolean).join(' ')} role="group" aria-label={label}>
       {options.map((option) => (
-        <button key={option.value} className={option.value === value ? 'active' : ''} aria-pressed={option.value === value} title={option.title} onClick={() => onChange(option.value)}>
+        <button key={option.value} aria-pressed={option.value === value} title={option.title} onClick={() => onChange(option.value)}>
           {option.label}
         </button>
       ))}
@@ -103,22 +107,20 @@ export interface ToolChoice<T extends string> {
 /** The tool switch of a planning page: every tool shows its icon, its name and its key. */
 export function ToolSwitch<T extends string>({ tool, tools, onChange }: { tool: T; tools: ToolChoice<T>[]; onChange: (tool: T) => void }) {
   return (
-    <span className="tool-switch">
-      <Segmented
-        label="Verktøy"
-        value={tool}
-        onChange={onChange}
-        options={tools.map(({ value, icon, name, shortcut, title }) => ({
-          value,
-          title,
-          label: (
-            <>
-              {icon} {name} <kbd>{shortcut}</kbd>
-            </>
-          ),
-        }))}
-      />
-    </span>
+    <Segmented
+      label="Verktøy"
+      value={tool}
+      onChange={onChange}
+      options={tools.map(({ value, icon, name, shortcut, title }) => ({
+        value,
+        title,
+        label: (
+          <>
+            {icon} {name} <kbd>{shortcut}</kbd>
+          </>
+        ),
+      }))}
+    />
   )
 }
 
@@ -208,7 +210,7 @@ export function Twisty({ open, show, hide, onToggle, style }: { open: boolean; s
 /** The button in the page header that slides the details panel in over the grid. `what` names the details: «raddetaljer». */
 export function PanelToggle({ open, what, hint, disabled, onToggle }: { open: boolean; what: string; hint: string; disabled?: boolean; onToggle: () => void }) {
   return (
-    <button className={`ghost icon-button ${open ? 'active' : ''}`} aria-pressed={open} disabled={disabled} aria-label={open ? `Skjul ${what}` : `Vis ${what}`} title={open ? `Skjul ${what}` : `Vis ${what}: ${hint}`} onClick={onToggle}>
+    <button className="ghost icon-button" aria-pressed={open} disabled={disabled} aria-label={open ? `Skjul ${what}` : `Vis ${what}`} title={open ? `Skjul ${what}` : `Vis ${what}: ${hint}`} onClick={onToggle}>
       <PanelRight size={16} aria-hidden />
     </button>
   )

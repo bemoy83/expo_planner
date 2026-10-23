@@ -253,7 +253,7 @@ function Shell() {
             {TABS.map((each, i) => (
               <Fragment key={each.label}>
                 {each.register && !TABS[i - 1].register && <span className="tabs-apart" aria-hidden />}
-                <button className={each === tab ? 'active' : ''} onClick={() => setView(lastPage.current[each.label] ?? each.pages[0].view)}>
+                <button aria-current={each === tab ? 'page' : undefined} onClick={() => setView(lastPage.current[each.label] ?? each.pages[0].view)}>
                   {each.label}
                 </button>
               </Fragment>
@@ -289,7 +289,7 @@ function Shell() {
                 Hjelpetekster {tooltips ? 'på' : 'av'}
               </button>
               <button role="menuitem" aria-pressed={heat} title="Vis avviket mellom tilgjengelig og planlagt bemanning som fargede felt: rødt for underdekning, grønt for ok, oker for over." onClick={() => setHeat(!heat)}>
-                Varmekart for avvik {heat ? 'på' : 'av'}
+                Varmekart for mangler / over {heat ? 'på' : 'av'}
               </button>
               {workspace && (
                 <button

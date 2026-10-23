@@ -133,14 +133,13 @@ export function Leverandorer({ head, notify, show }: TablePage) {
                     onToggle={(key, on) => setSuppliers((list) => toggleSupplierCompetence(list, supplier.id, key), `${supplier.name} ${on ? 'kan nå stille med' : 'stiller ikke lenger med'} ${label(key)}`)}
                   />
                   <span>
-                    <span className={`mk-shifts ${supplier.shifts.length ? '' : 'want'}`} role="group" aria-label={`Skiftene ${supplier.name} stiller på`}>
+                    <span className={`segmented small ${supplier.shifts.length ? '' : 'want'}`} role="group" aria-label={`Skiftene ${supplier.name} stiller på`}>
                       {SHIFT_IDS.map((shift) => {
                         const on = supplier.shifts.includes(shift)
                         const name = SHIFT_LABELS[shift].toLowerCase()
                         return (
                           <button
                             key={shift}
-                            className={on ? 'on' : ''}
                             aria-pressed={on}
                             title={`${supplier.name} stiller ${on ? '' : 'ikke '}på ${name}`}
                             onClick={() => setSuppliers((list) => toggleSupplierShift(list, supplier.id, shift), `${supplier.name}: ${name} ${on ? 'av' : 'på'}`)}

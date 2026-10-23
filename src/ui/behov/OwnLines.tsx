@@ -166,14 +166,16 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                       <td className="pick">
                         <input type="checkbox" aria-label="Velg linjen" checked={selected.has(line.id)} onChange={(e) => toggle([line], e.target.checked)} />
                       </td>
-                      <td className="own-work-cell">
-                        <span className="own-work-name">{line.workType}</span>
-                        {line.replaces && (
-                          <span className="replaces-tag" title="Erstatter en Visma-linje som er utelatt">
-                            erstatter Visma
-                          </span>
-                        )}
-                        <EditCell className="own-comment-cell" value={line.comment} shown={line.comment} placeholder="kommentar" onCommit={(comment) => onUpdate(line, { comment: comment.trim() })} />
+                      <td>
+                        <span className="own-work-cell">
+                          <span className="own-work-name">{line.workType}</span>
+                          {line.replaces && (
+                            <span className="replaces-tag" title="Erstatter en Visma-linje som er utelatt">
+                              erstatter Visma
+                            </span>
+                          )}
+                          <EditCell className="own-comment-cell" value={line.comment} shown={line.comment} placeholder="kommentar" onCommit={(comment) => onUpdate(line, { comment: comment.trim() })} />
+                        </span>
                       </td>
                       <td>
                         <span className="competence">

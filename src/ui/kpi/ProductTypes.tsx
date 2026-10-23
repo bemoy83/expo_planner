@@ -346,8 +346,10 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
               </Want>
             ) : null
           ) : several || !inUse ? (
-            <span className={`op-units ${inUse ? '' : 'want'}`}>
+            <span className="op-units">
               <Segmented
+                small
+                want={!inUse}
                 label={`Enheten ${type.name} regnes i`}
                 value={inUse?.unit ?? ''}
                 onChange={(unit) => unit !== inUse?.unit && edits.useUnit(type, unit)}

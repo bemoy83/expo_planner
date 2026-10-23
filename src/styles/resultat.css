@@ -31,10 +31,10 @@
 .res-row>span:first-child{position:sticky;left:0;z-index:1;align-self:stretch;display:flex;flex-direction:column;justify-content:center;margin-left:calc(-1 * var(--card-inset));padding-left:var(--card-inset);background:inherit}
 .res-row:not(.res-head,.res-sum){cursor:pointer}
 .res-row:not(.res-head,.res-sum):hover{background:var(--panel)}
-.res-row.open{background:color-mix(in oklab,var(--accent) 12%,var(--surface))}
+.res-row.open{background:var(--sunken)}
 .res-head,.res-sum{position:sticky;z-index:2}
 .res-head{top:0;font-size:var(--fs-xs);font-weight:500;color:var(--faint);border-bottom-color:var(--line)}
-.res-sum{bottom:0;margin-top:auto;min-height:var(--sum-h);border-top:1px solid var(--line-strong);border-bottom:0;font-size:var(--fs-md)}
+.res-sum{bottom:0;margin-top:auto;min-height:var(--sum-h);border-bottom:0;box-shadow:0 -1px 0 var(--line-strong);font-size:var(--fs-md)}
 .res-today{display:flex;align-items:center;gap:8px;height:22px;padding:0 var(--card-inset);border-bottom:1px solid var(--line-soft);font-size:var(--fs-xs);font-weight:600;color:var(--accent);background:var(--surface)}
 .res-today::after{content:"";flex:1;height:2px;border-radius:1px;background:var(--accent)}
 .res-num-head{display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:4px 0;line-height:1.2;white-space:nowrap}
