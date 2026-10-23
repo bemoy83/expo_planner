@@ -136,13 +136,13 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                       <span className="hall-days" title={[days.assembly && `Opp ${days.assembly.start} – ${days.assembly.end}`, days.dismantle && `Ned ${days.dismantle.start} – ${days.dismantle.end}`].filter(Boolean).join(' · ')}>
                         {days.assembly && (
                           <>
-                            <i className="phase-swatch assembly" aria-hidden />
+                            <i className="phase-swatch mon" aria-hidden />
                             {shortDate(days.assembly.start)}–{shortDate(days.assembly.end)}
                           </>
                         )}
                         {days.dismantle && (
                           <>
-                            <i className="phase-swatch dismantle" aria-hidden />
+                            <i className="phase-swatch dem" aria-hidden />
                             {shortDate(days.dismantle.start)}–{shortDate(days.dismantle.end)}
                           </>
                         )}

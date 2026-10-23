@@ -369,7 +369,7 @@ function RateCard({ card, active, onFocus, projects }: CardProps) {
       <div className="cause-rates">
         <label>
           <span>
-            <i className="phase-swatch assembly" aria-hidden />
+            <i className="phase-swatch mon" aria-hidden />
             Montering
           </span>
           <input inputMode="decimal" placeholder="–" value={assembly} onChange={(e) => setAssembly(e.target.value)} onKeyDown={onEnter} />
@@ -377,7 +377,7 @@ function RateCard({ card, active, onFocus, projects }: CardProps) {
         </label>
         <label>
           <span>
-            <i className="phase-swatch dismantle" aria-hidden />
+            <i className="phase-swatch dem" aria-hidden />
             Demontering
           </span>
           <input inputMode="decimal" placeholder="–" value={dismantle} onChange={(e) => setDismantle(e.target.value)} onKeyDown={onEnter} />

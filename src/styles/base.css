@@ -43,6 +43,10 @@ input[type='checkbox']{accent-color:var(--accent)}
 .app-header{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 24px;background:var(--bg);border-bottom:1px solid var(--line)}
 .app-header h1{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em}
 .toolbar-gap{flex:1}
+/* montering and demontering as a small square in the colours of the work phases of the plan (Behov, the tabs of tables); the Kalender's legend has its larger .phase-mark */
+.phase-swatch{display:inline-block;width:8px;height:8px;margin-right:4px;border-radius:2px;flex:none}
+.phase-swatch.mon{background:var(--mon)}
+.phase-swatch.dem{background:var(--dem)}
 /* a table or a matrix raised off the page as a card (Resultat, Behov, the tabs of tables): white, rounded, a soft shadow and no line around it */
 .card{min-height:0;border-radius:var(--card-radius);background:var(--surface);box-shadow:var(--card)}
 /* the head of a card: its title and its own controls, on one line where they fit, a hairline under it */

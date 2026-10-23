@@ -69,12 +69,9 @@
 .op-per{margin-left:2px;font-style:normal;font-size:var(--fs-xs);color:var(--faint)}
 .op-actions{display:flex;justify-content:flex-end;gap:2px;opacity:0}
 .op-row:hover .op-actions,.op-actions:focus-within{opacity:1}
-/* the hours a type gives, by the squares of the work phases as the plan of the Kalender colours them */
+/* the hours a type gives, each beside the square of its work phase (.phase-swatch, base.css) */
 .op-hours{display:flex;gap:12px;font:500 var(--fs-sm) var(--font-num)}
-.op-hours>span{display:inline-flex;align-items:center;gap:5px;min-width:44px}
-.op-phase{width:8px;height:8px;border-radius:2px;flex:none}
-.op-phase.mon{background:var(--mon)}
-.op-phase.dem{background:var(--dem)}
+.op-hours>span{display:inline-flex;align-items:center;min-width:44px}
 .op-unknown{font-size:var(--fs-sm);color:var(--faint)}
 /* the units of a type, folded out under it */
 .op-row.unfolded{border-bottom-color:transparent}
@@ -192,7 +189,7 @@
 .hl-halls button.on{background:var(--surface);box-shadow:var(--raise);color:var(--text)}
 .hl-venyou .hl-halls button:not(.on){text-decoration:line-through}
 .hl-days{font-size:var(--fs-sm);white-space:nowrap}
-.op-head .hl-days{display:flex;align-items:center;gap:5px}
+.op-head .hl-days{display:flex;align-items:center}
 .hl-days.event{font-weight:600}
 .hl-hidden>:not(.mk-center):not(:last-child){opacity:.5}
 .hl-now{flex:none;padding:1px 7px;border-radius:4px;background:color-mix(in oklab,var(--accent) 14%,transparent);color:var(--accent);font-size:var(--fs-xs);font-weight:600}

@@ -226,13 +226,13 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
             <>
               {spans.assembly && (
                 <span>
-                  <i className="phase-swatch assembly" aria-hidden />
+                  <i className="phase-swatch mon" aria-hidden />
                   Opp {spanText(spans.assembly)} <small>{workdays(spans.assembly)} d</small>
                 </span>
               )}
               {spans.dismantle && (
                 <span>
-                  <i className="phase-swatch dismantle" aria-hidden />
+                  <i className="phase-swatch dem" aria-hidden />
                   Ned {spanText(spans.dismantle)} <small>{workdays(spans.dismantle)} d</small>
                 </span>
               )}
@@ -271,7 +271,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
         </label>
         <label className="own-field hours">
           <span>
-            <i className="phase-swatch assembly" aria-hidden />
+            <i className="phase-swatch mon" aria-hidden />
             Montering
           </span>
           <span className="own-pair">
@@ -281,7 +281,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
         </label>
         <label className="own-field hours">
           <span>
-            <i className="phase-swatch dismantle" aria-hidden />
+            <i className="phase-swatch dem" aria-hidden />
             Demontering
           </span>
           <span className="own-pair">
@@ -328,7 +328,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
           ) : preview.length > 0 ? (
             preview.map((p) => (
               <span key={p.key} className="own-preview-item">
-                <i className={`phase-swatch ${p.phase === 'Montering' ? 'assembly' : 'dismantle'}`} aria-hidden />
+                <i className={`phase-swatch ${p.phase === 'Montering' ? 'mon' : 'dem'}`} aria-hidden />
                 <b>
                   {p.phase} · {p.place} · {draft.competence}
                   {ctx.avdeling ? ` · avd. ${ctx.avdeling}` : ''}
