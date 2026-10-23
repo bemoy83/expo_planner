@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { isTyping } from '../dom'
 import { useStableActions } from '../kalender/useStableActions'
-import { TOOL_KEYS, type Tool } from './tools'
+import { toolOfKey } from '../toolKeys'
+import type { Tool } from './tools'
 
 /** What the keys of Bemanning do, and what they ask of it. Read anew on every key, see `useStableActions`. */
 interface Keys {
@@ -69,7 +70,7 @@ export function useBemanningKeys(latest: Keys) {
         else if (k.brushOrTool) k.clearBrush()
         else if (k.panel) k.closePanel()
         else k.fold()
-      } else if (TOOL_KEYS[key] && !e.altKey) k.pickTool(TOOL_KEYS[key])
+      } else if (toolOfKey(key) && !e.altKey) k.pickTool(toolOfKey(key)!)
       else if (/^[1-9]$/.test(key) && k.competenceKeys[Number(key) - 1]) k.pickBrush(k.competenceKeys[Number(key) - 1])
       else if (key === 'e' && !e.altKey) k.toggleHours()
       else if ((key === 'arrowup' || key === 'arrowdown') && k.hoursOpen) {

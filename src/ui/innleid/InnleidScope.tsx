@@ -9,6 +9,7 @@ import { useBemanning, type Density } from '../bemanning/BemanningScope'
 import { isTyping } from '../dom'
 import { heatScale } from '../kalender/heat'
 import { useStableActions } from '../kalender/useStableActions'
+import { toolOfKey, type ToolKind } from '../toolKeys'
 
 /** The days picked on a competence, which the editor in its label works on, and the line of the editor that is picked. */
 interface OpenDays {
@@ -31,7 +32,7 @@ interface OrderPop {
 type InnleidPanel = { kind: 'supplier'; id: string } | { kind: 'matrix' } | { kind: 'help' }
 
 /** The tools of Innleid: pick days, order a supplier across days, or remove orders across days. */
-export type HireTool = 'select' | 'paint' | 'erase'
+export type HireTool = ToolKind
 
 /** A stroke across the days of a competence, or of a project's line under it, with the tool it was started with. */
 interface DayDrag {
@@ -323,12 +324,13 @@ function useInnleidState(active: boolean) {
       const key = e.key
       if (!(e.metaKey || e.ctrlKey || e.altKey || pop)) {
         // The tools have their keys whether days are picked or not: V, B and T, and 1 to 9 for the supplier of the brush.
-        const letter = key.toLowerCase()
+        const picked = toolOfKey(key)
         const number = /^[1-9]$/.test(key) ? suppliers[Number(key) - 1] : undefined
-        if (letter === 'v' || letter === 't' || letter === 'b' || number) {
+        if (picked || number) {
           e.preventDefault()
           if (number) return pickBrush(number.id), setTool('paint')
-          return pickTool(letter === 'v' ? 'select' : letter === 't' ? 'erase' : tool === 'paint' ? 'select' : 'paint')
+          // B a second time puts the brush away.
+          return pickTool(picked === 'paint' && tool === 'paint' ? 'select' : picked!)
         }
         if (key === '?') return e.preventDefault(), setPanel(panel?.kind === 'help' ? null : { kind: 'help' })
         // Escape puts the tool away first, then closes the panel, then folds the editor.

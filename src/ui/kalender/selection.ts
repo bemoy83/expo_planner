@@ -1,4 +1,5 @@
 import type { ISODate } from '../../domain/dates'
+import type { ToolKind } from '../toolKeys'
 
 export interface Cell {
   lane: number
@@ -78,5 +79,5 @@ export const followLanes = (sel: Selection, before: LaneKey[], after: LaneKey[])
 }
 
 export type Tool = 'select' | 'pencil' | 'eraser'
-/** The keys that pick a tool, anywhere on the page. */
-export const TOOL_KEYS: Record<string, Tool> = { v: 'select', b: 'pencil', t: 'eraser' }
+/** The tools of Plan, by what they do. */
+export const PLAN_TOOLS: Record<ToolKind, Tool> = { select: 'select', paint: 'pencil', erase: 'eraser' }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { isTyping } from '../dom'
-import { TOOL_KEYS, type Tool } from './selection'
+import { toolOfKey } from '../toolKeys'
+import { PLAN_TOOLS, type Tool } from './selection'
 
 interface Options {
   /** A dialog is open: the keys are its own. */
@@ -24,8 +25,8 @@ export function useToolKeys(options: Options): Exclude<Tool, 'select'> | null {
       const { blocked, onTool, onEscape } = latest.current
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || isTyping(e.target) || blocked) return
       if (e.key === 'Escape') return onEscape()
-      const picked = TOOL_KEYS[e.key.toLowerCase()]
-      if (picked) onTool(picked)
+      const picked = toolOfKey(e.key)
+      if (picked) onTool(PLAN_TOOLS[picked])
     }
     // While Alt is held the planning cells show what a drag would do.
     const onModifier = (e: KeyboardEvent) => setModifier(e.altKey ? 'eraser' : null)
