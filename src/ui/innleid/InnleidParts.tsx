@@ -169,7 +169,7 @@ export function InnleidHeading() {
   const { rows } = useInnleid()
   return (
     <div className="grid-row col-head bm-people-head" style={{ height: ROW_H }}>
-      <div className="grid-label" style={{ width: LEFT_W }}>
+      <div className="grid-label">
         <span className="lbl-desc">Kompetanse</span>
         <span className="bm-label-note">{rows.length} med restbehov</span>
         <span className="bm-label-note bm-label-end">t mangler</span>
@@ -269,7 +269,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
   const label = project ? `${style.label} · ${project.name}` : style.label
   return (
     <div className={`grid-row il-row ${project ? 'il-project' : ''} ${open ? 'open' : ''} ${oneLine ? 'compact' : ''} ${cursor}`} style={{ ...competenceColor(style), ...(oneLine ? { height: DEMAND_H } : { minHeight: DEMAND_H }) }}>
-      <div className="grid-label" style={{ width: LEFT_W }} onClick={open || project ? undefined : () => actions.openFirst(style.key)} title={project ? `Det ${project.name} mangler av ${style.label} etter de faste, og det som er bestilt for prosjektet. Penselen her bestiller for prosjektet.` : open ? undefined : `Bestill ${style.label}`}>
+      <div className="grid-label" onClick={open || project ? undefined : () => actions.openFirst(style.key)} title={project ? `Det ${project.name} mangler av ${style.label} etter de faste, og det som er bestilt for prosjektet. Penselen her bestiller for prosjektet.` : open ? undefined : `Bestill ${style.label}`}>
         {project ? (
           <>
             <span className="lbl-desc il-project-name">{project.name}</span>

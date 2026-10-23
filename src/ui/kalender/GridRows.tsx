@@ -34,7 +34,7 @@ const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling'
 export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, style, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** On a hall's line: its projects, for the hover cue, see `useProjectHover` and `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
   return (
     <div className={`grid-row ${className}`} style={style ? { ...style, height } : { height }} data-projects={projects}>
-      <div className="grid-label" style={{ width: LEFT_W }} onClick={onLabelClick}>
+      <div className="grid-label" onClick={onLabelClick}>
         {label}
       </div>
       <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />

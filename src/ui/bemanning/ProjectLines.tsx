@@ -7,11 +7,8 @@ import { daysWide, LEFT_W } from '../kalender/layout'
 import { PhaseLegend } from '../kalender/TopSections'
 import { useBemanning } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
-import { PHASE_NAME_MIN_W, PROJECT_COMPACT_H, PROJECT_H, PROJECT_MAX_LINES } from './layout'
+import { LEAVE_MS, PHASE_NAME_MIN_W, PROJECT_COMPACT_H, PROJECT_H, PROJECT_MAX_LINES } from './layout'
 import { phaseBars, projectSlots, projectsInView, type ProjectSpan } from './projectsInView'
-
-/** How long a project that leaves the list takes to fade out. */
-const LEAVE_MS = 260
 
 /**
  * The projects in view that have planned FTE, for context: one line per project with its phases as the
@@ -51,7 +48,7 @@ export function ProjectLines() {
 
   const line = (project: ProjectSpan, slot: number, gone: boolean) => (
     <div key={project.key} className={`bm-project-line ${gone ? 'leaving' : ''} ${chosenProject && chosenProject !== project.key ? 'dim' : ''}`} style={{ top: slot * rowH, height: rowH }}>
-      <div className="grid-label" style={{ width: LEFT_W }}>
+      <div className="grid-label">
         <span className="bm-project-name">{project.name}</span>
         <span className="bm-project-halls">{project.halls.join(' · ')}</span>
       </div>

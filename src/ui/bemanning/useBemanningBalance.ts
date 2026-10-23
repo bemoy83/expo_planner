@@ -7,7 +7,7 @@ import { buildProjectBalance, type ProjectBalance } from '../../domain/staffing/
 import type { AllocationRow, Workspace } from '../../domain/types'
 import type { Columns } from '../kalender/gridTypes'
 import { LEFT_W } from '../kalender/layout'
-import { PANEL_W } from './layout'
+import { PANEL_W } from '../cssVars'
 import { remainingIn } from './lineBalances'
 import { EPSILON, weekDates } from './week'
 

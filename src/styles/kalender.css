@@ -47,7 +47,7 @@
    from the four of tokens.css: between the days in the date header and in lines that are typed in, under a line that is typed in,
    above a level. A line is never given a see-through border: it has no fill, so the weekends would show through the gap. */
 .grid-row{display:flex;flex-wrap:nowrap;font-size:var(--fs-md)}
-.grid-label{position:sticky;left:0;z-index:2;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;background:var(--bg);border-right:1px solid var(--line);overflow:hidden;white-space:nowrap}
+.grid-label{position:sticky;left:0;z-index:2;flex:none;width:var(--left-w);display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;background:var(--bg);border-right:1px solid var(--line);overflow:hidden;white-space:nowrap}
 .grid-spacer{flex:none}
 .cell{flex:none;width:var(--col-w);position:relative;display:flex;align-items:center;justify-content:center;font-family:var(--font-num);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
 

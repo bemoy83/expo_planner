@@ -6,7 +6,7 @@ import type { EndShape } from './runs'
 export const PERSON_H = 40
 /** The line between the people who have the competence in focus and those who do not. */
 export const DIVIDER_H = 24
-/** The air beside a folded day's blocks, see `.bm-timeline`. A block that goes on into the next day reaches over it, and over the rule between the days. */
+/** The air beside a folded day's blocks, see `.bm-timeline` (`--day-inset`). A block that goes on into the next day reaches over it, and over the rule between the days. */
 export const DAY_INSET = 5
 /** Where a block of a folded day, or time a stroke would put there, lies in the day's timeline: one that goes on into the day beside it reaches over the air there, and over the rule after the day. */
 export const joinedPlace = (span: Span, shape: EndShape | undefined): { left: string; width: string } => {
@@ -26,8 +26,8 @@ export const PROJECT_COMPACT_H = 12
 export const PROJECT_MAX_LINES = 6
 /** A phase's bar has room for the phase's name from this width; narrower, it shows the letter. */
 export const PHASE_NAME_MIN_W = 84
-/** The width of the panel that slides in over the grid, see `.inspector`. */
-export const PANEL_W = 340
+/** How long a project that leaves the list of project lines takes to fade out, see `.bm-project-line`. */
+export const LEAVE_MS = 260
 /** The pixels per hour of a day's track in a person's open hours, and the air above and below the track. */
 export const HOUR_PX = 20
 const TRACK_MARGIN = 12
