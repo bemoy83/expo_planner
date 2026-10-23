@@ -1,14 +1,12 @@
 import { kpiRows, productTypeKey, productTypeName, type KpiFile } from '../domain/kpi'
 import type { ExcludedArticle, KpiConfig, KpiRate, VismaImport, WorkTypeRule } from '../domain/types'
 import { vismaProductType } from './vismaExport'
-import { dataRows, findHeader, isMarked, num, readXlsx, text, writeXlsx, type CellValue, type Sheet } from './xlsx'
+import { cell, column, dataRows, FileFormatError, firstSheetWith, isMarked, num, readXlsx, text, writeXlsx, type CellValue, type Sheet } from './xlsx'
 
 /**
  * The KPI table as a file: what «Eksporter» on KPI writes and «Importer fra fil» reads. A row per product type and
  * unit, as in the table. The file is the planner's own copy of the setup, to keep or to edit in Excel and read back.
  */
-
-export class KpiFormatError extends Error {}
 
 const HEAD = ['Produkttype', 'Enhet', 'I bruk', 'Kompetanse', 'Montering', 'Demontering']
 /** The sheet of the article numbers left out. It is always written, so that a file read back says the list is empty. */
@@ -49,28 +47,21 @@ export const readKpiWorkbook = (bytes: Uint8Array): KpiFile => {
 }
 
 /** The article numbers left out, from the sheet the app writes them in; undefined where the file has none. */
-const readArticles = (sheets: Sheet[]): ExcludedArticle[] | undefined => {
-  for (const sheet of sheets) {
-    const header = findHeader(sheet, ARTICLE_HEAD.map((name) => name.toLowerCase()))
-    if (!header) continue
-    const get = (row: number, name: string) => text(sheet.rows.get(row)?.get(header.columns.get(name)!) ?? null)
+const readArticles = (sheets: Sheet[]): ExcludedArticle[] | undefined =>
+  firstSheetWith(sheets, ARTICLE_HEAD, (sheet, header) => {
+    const get = (row: number, name: string) => text(cell(sheet, row, column(header, name)))
     return dataRows(sheet, header.row)
       .map((row) => ({ articleNo: get(row, 'art.nr'), note: get(row, 'merknad') }))
       .filter((article) => article.articleNo)
-  }
-  return undefined
-}
+  }) ?? undefined
 
 const readKpiTable = (sheets: Sheet[]): KpiFile => {
-  for (const sheet of sheets) {
-    const header = NAMES.productType.map((name) => findHeader(sheet, [name, 'enhet', 'montering', 'demontering'])).find(Boolean)
-    if (!header) continue
-    const column = (names: string[]) => names.map((name) => header.columns.get(name)).find((col) => col !== undefined)
-    const columns = { productType: column(NAMES.productType)!, unit: header.columns.get('enhet')!, inUse: header.columns.get('i bruk'), competence: column(NAMES.competence), assembly: header.columns.get('montering')!, dismantle: header.columns.get('demontering')! }
+  const found = firstSheetWith(sheets, [NAMES.productType, 'enhet', 'montering', 'demontering'], (sheet, header): KpiFile | null => {
+    const columns = { productType: column(header, NAMES.productType), unit: column(header, 'enhet'), inUse: column(header, 'i bruk'), competence: column(header, NAMES.competence), assembly: column(header, 'montering'), dismantle: column(header, 'demontering') }
     const rates: KpiRate[] = []
     const types = new Map<string, WorkTypeRule & { units: Set<string>; marked: string }>()
     for (const row of dataRows(sheet, header.row)) {
-      const get = (col: number | undefined) => (col === undefined ? null : (sheet.rows.get(row)?.get(col) ?? null))
+      const get = (col: number | undefined) => cell(sheet, row, col)
       const written = text(get(columns.productType))
       // `Kpier.xlsx` names a product type as Visma does, «14 [FOGA-vegger]»; a file the app has written has the name.
       const name = vismaProductType(written) || productTypeName(written)
@@ -86,9 +77,10 @@ const readKpiTable = (sheets: Sheet[]): KpiFile => {
       type.unit ||= unit
       if (isMarked(get(columns.inUse))) type.marked ||= unit
     }
-    if (!types.size) continue
+    if (!types.size) return null
     const workTypes = [...types.values()].map(({ units, marked, ...rule }): WorkTypeRule => ({ ...rule, unit: marked || (units.size > 1 ? '' : rule.unit) }))
     return { workTypes, rates, unitsInUse: columns.inUse !== undefined }
-  }
-  throw new KpiFormatError('Fant ingen KPI-tabell. Filen må ha kolonnene «Produkttype», «Enhet», «Montering» og «Demontering».')
+  })
+  if (!found) throw new FileFormatError('Fant ingen KPI-tabell. Filen må ha kolonnene «Produkttype», «Enhet», «Montering» og «Demontering».')
+  return found
 }

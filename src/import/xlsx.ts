@@ -111,6 +111,9 @@ export const readXlsx = (bytes: Uint8Array): Map<string, Sheet> => {
 
 export const cellAt = (sheet: Sheet, row: number, col: number): CellValue => sheet.rows.get(row)?.get(col) ?? null
 
+/** The value of a row in a column; nothing where the file has not got the column. */
+export const cell = (sheet: Sheet, row: number, col: number | undefined): CellValue => (col === undefined ? null : cellAt(sheet, row, col))
+
 export const text = (value: CellValue): string => (value === null || value === undefined ? '' : String(value).trim())
 
 export const num = (value: CellValue): number | null => {
@@ -122,8 +125,25 @@ export const num = (value: CellValue): number | null => {
   return null
 }
 
-/** Finds the first row that contains all the given headers and maps header name, in lower case, → column. */
-export const findHeader = (sheet: Sheet, required: string[]): { row: number; columns: Map<string, number> } | null => {
+/** The row of a sheet's headings, and its columns by their headings in lower case. */
+export interface Header {
+  row: number
+  columns: Map<string, number>
+}
+
+/** A file of the app's tables that has not got what it must have; the message says what that is. */
+export class FileFormatError extends Error {}
+
+/** A heading, or the ways it may be spelled. */
+type Heading = string | string[]
+
+const spellings = (heading: Heading): string[] => (Array.isArray(heading) ? heading : [heading]).map((name) => name.toLowerCase())
+
+/** The column of a heading: the first of its spellings the file has. */
+export const column = (header: Header, heading: Heading): number | undefined => spellings(heading).map((name) => header.columns.get(name)).find((col) => col !== undefined)
+
+/** Finds the first row that has all the given headings, in any case, and maps each heading in the row, in lower case, to its column. */
+export const findHeader = (sheet: Sheet, required: Heading[]): Header | null => {
   const rows = [...sheet.rows.keys()].sort((a, b) => a - b).slice(0, 20)
   for (const row of rows) {
     const columns = new Map<string, number>()
@@ -131,7 +151,21 @@ export const findHeader = (sheet: Sheet, required: string[]): { row: number; col
       const name = text(value).toLowerCase()
       if (name && !columns.has(name)) columns.set(name, col)
     }
-    if (required.every((name) => columns.has(name))) return { row, columns }
+    if (required.every((heading) => spellings(heading).some((name) => columns.has(name)))) return { row, columns }
+  }
+  return null
+}
+
+/**
+ * What the first sheet with the headings gives: `read` is handed each sheet that has them, with the row of its
+ * headings, and returns `null` to go on to the next. `null` where no sheet gives anything.
+ */
+export const firstSheetWith = <T,>(sheets: Iterable<Sheet>, required: Heading[], read: (sheet: Sheet, header: Header) => T | null): T | null => {
+  for (const sheet of sheets) {
+    const header = findHeader(sheet, required)
+    if (!header) continue
+    const found = read(sheet, header)
+    if (found !== null) return found
   }
   return null
 }

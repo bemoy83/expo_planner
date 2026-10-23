@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { competenceStyles, diffCompetenceStyles, mergeCompetenceStyles, setCompetenceStyle } from '../domain/competences'
 import { DEFAULT_SETTINGS, type Workspace } from '../domain/types'
-import { KompetanserFormatError, readKompetanserWorkbook, writeKompetanserWorkbook } from './kompetanserFile'
-import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
+import { readKompetanserWorkbook, writeKompetanserWorkbook } from './kompetanserFile'
+import { cellAt, dataRows, FileFormatError, readXlsx, writeXlsx } from './xlsx'
 
 const base: Workspace = {
   settings: DEFAULT_SETTINGS,
@@ -40,6 +40,6 @@ describe('the Kompetanser file', () => {
   })
 
   it('refuses a file without the column', () => {
-    expect(() => file(['Navn'], ['Print'])).toThrow(KompetanserFormatError)
+    expect(() => file(['Navn'], ['Print'])).toThrow(FileFormatError)
   })
 })

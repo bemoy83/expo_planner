@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { diffHallRules, mergeHallRules, NO_HALL_RULES, withChoice } from '../domain/locations'
 import type { HallRules } from '../domain/types'
-import { HallreglerFormatError, readHallreglerWorkbook, writeHallreglerWorkbook } from './hallreglerFile'
-import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
+import { readHallreglerWorkbook, writeHallreglerWorkbook } from './hallreglerFile'
+import { cellAt, dataRows, FileFormatError, readXlsx, writeXlsx } from './xlsx'
 
 const setup: HallRules = {
   places: [{ name: 'B', halls: ['B1', 'B2'] }, { name: 'Nordfløy', halls: ['C', 'E'], collects: false }],
@@ -35,7 +35,7 @@ describe('the Hallregler file', () => {
   it('reads a file with one of the sheets, and says what a file must hold when it has none', () => {
     const onlyPlaces = readHallreglerWorkbook(writeXlsx([{ name: 'Ark1', head: ['Sted', 'Står for'], rows: [['Vest', 'D1; D2'], ['', 'C']] }]))
     expect(onlyPlaces).toEqual({ places: [{ name: 'Vest', halls: ['D1', 'D2'] }], phrases: [], choices: {} })
-    expect(() => readHallreglerWorkbook(writeXlsx([{ name: 'Ark1', head: ['Navn', 'Aktiv'], rows: [['Anna', 'Ja']] }]))).toThrow(HallreglerFormatError)
+    expect(() => readHallreglerWorkbook(writeXlsx([{ name: 'Ark1', head: ['Navn', 'Aktiv'], rows: [['Anna', 'Ja']] }]))).toThrow(FileFormatError)
   })
 
   it('merges a file into the setup: the file wins, what only the app has is kept, and the file\'s word rules come first', () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { competenceStyles, diffPersons, mergePersons } from '../domain/competences'
 import { DEFAULT_SETTINGS, type Workspace } from '../domain/types'
-import { PersonellFormatError, readPersonellWorkbook, writePersonellWorkbook } from './personellFile'
-import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
+import { readPersonellWorkbook, writePersonellWorkbook } from './personellFile'
+import { cellAt, dataRows, FileFormatError, readXlsx, writeXlsx } from './xlsx'
 
 const ws: Workspace = {
   settings: DEFAULT_SETTINGS,
@@ -53,8 +53,8 @@ describe('the Personell file', () => {
   })
 
   it('refuses a file without names', () => {
-    expect(() => file(['Fornavn', 'FOGA'], ['Anna', 'x'])).toThrow(PersonellFormatError)
-    expect(() => file(['Navn', 'FOGA'])).toThrow(PersonellFormatError)
+    expect(() => file(['Fornavn', 'FOGA'], ['Anna', 'x'])).toThrow(FileFormatError)
+    expect(() => file(['Navn', 'FOGA'])).toThrow(FileFormatError)
   })
 
   it('refuses a file of suppliers, whose rate and shifts would become competences', () => {

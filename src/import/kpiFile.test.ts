@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { diffKpi, kpiRows, mergeKpi, replaceKpi, setActiveUnit } from '../domain/kpi'
 import type { KpiConfig, VismaImport } from '../domain/types'
-import { KpiFormatError, readKpiWorkbook, writeKpiWorkbook } from './kpiFile'
-import { cellAt, dataRows, readXlsx, writeXlsx } from './xlsx'
+import { readKpiWorkbook, writeKpiWorkbook } from './kpiFile'
+import { cellAt, dataRows, FileFormatError, readXlsx, writeXlsx } from './xlsx'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -99,6 +99,6 @@ describe('the KPI file', () => {
   })
 
   it('refuses a file without the columns', () => {
-    expect(() => file(['Produkttype', 'Enhet'], ['Print', 'ordre'])).toThrow(KpiFormatError)
+    expect(() => file(['Produkttype', 'Enhet'], ['Print', 'ordre'])).toThrow(FileFormatError)
   })
 })
