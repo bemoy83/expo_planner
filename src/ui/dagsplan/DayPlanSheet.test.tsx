@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { buildDayPlan } from '../../domain/dayPlan'
-import { TWO_PROJECTS, withTwoProjects } from '../../domain/staffingFixture'
+import { TWO_PROJECTS, withTwoProjects } from '../../test/staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type Workspace } from '../../domain/types'
 import { DayPlanSheet } from './DayPlanSheet'
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { budgetOf, budgetsRenumbered, diffBudgets, mergeBudgets, projectHours, projectStaffing, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonTotals, withBudget } from './result'
-import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
+import { TWO_PROJECTS, withTwoProjects } from '../test/staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type AllocationRow, type Assignment, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { venueKey } from './venueImport'
 
