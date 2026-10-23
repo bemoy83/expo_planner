@@ -7,7 +7,7 @@ import { paidHours, paidTotal } from '../../domain/staffing/intervals'
 import { buildProjectBalance, cellsToDemand, type ProjectBalance } from '../../domain/staffing/projectBalance'
 import { workTag, type AllocationRow, type Assignment, type Work, type Workspace } from '../../domain/types'
 import type { DayGrid } from './dayGrid'
-import { leftIn, placeDays, projectDays, remainingIn, type PlaceLine, type ProjectLine } from './lineBalances'
+import { hasHours, leftIn, placeDays, projectDays, remainingIn, restDays, type PlaceLine, type ProjectLine } from './lineBalances'
 import { runDays, stretchRun, type BlocksOn, type Piece } from './runs'
 import { strokeRange, type Stroke, type Tool } from './tools'
 import type { PersonLine } from './usePeopleLines'
@@ -277,5 +277,12 @@ export function useStrokePreview({ active, ws, dates, stroke, grid, listed, acti
     [placeLines, shownProjects, activeProject, brush, viewDates],
   )
 
-  return { paintCells, stretch, paintReach, ghost, info, refused, shownBalance, shownRemaining, projectShown, placeShown }
+  /** What of the competence in focus is on none of its project lines, as a line under them where there is some in the days in view. */
+  const restShown = useMemo(() => {
+    if (!brush || !projectLines.length) return null
+    const days = restDays(shownBalance, [...projectShown.values()].map((shown) => shown.balance))
+    return hasHours(days, brush, viewDates) ? { balance: days, remaining: leftIn(days, brush, viewDates) } : null
+  }, [brush, projectLines, shownBalance, projectShown, viewDates])
+
+  return { paintCells, stretch, paintReach, ghost, info, refused, shownBalance, shownRemaining, projectShown, placeShown, restShown }
 }

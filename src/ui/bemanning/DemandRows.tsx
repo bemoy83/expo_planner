@@ -1,6 +1,5 @@
 import { Fragment, memo } from 'react'
 import { Check } from 'lucide-react'
-import { defaultShortLabel } from '../../domain/competences'
 import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { Balance } from '../../domain/staffing/balance'
@@ -38,24 +37,45 @@ interface LineProps {
   onPlace?: (hall: string) => void
   /** The brush is a line under this one, not this line: a project's line under the sum line, or a place's under the project's. */
   projectHeld?: boolean
+  /** The line is open, with lines under it that show its days: as an open level of the plan, it shows no sums of its own. */
+  summed?: boolean
+  /** The line under the projects of what is on none of them: no brush of its own. */
+  rest?: boolean
+  /** Where the line lies in the tree under the competence in focus, drawn as lines down the label column (see `TreeStep`): the competence's line, and the project's. Plain values, so the memo holds. */
+  treeOuter?: TreeStep
+  treeInner?: TreeStep
 }
 
+/**
+ * The tree under the competence in focus, as lines down the label column, as a tree of folders has them: the competence's line runs down
+ * its projects and the line «Uten prosjekt», the project's down its places. `branch` is a line with a stub to its name and more under it,
+ * `end` the last, where the line stops, `pass` a line that goes on past a line that is not its own (the competence's past a place),
+ * and `start` where a line begins, under the project in focus with its places.
+ */
+type TreeStep = 'branch' | 'end' | 'pass' | 'start'
+
 /** One competence's line: its name with what is left in the days in view, and each day's hours. */
-const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance, uncoverable, remaining, compact, brush, onPick, onDay, project, onProject, place, onPlace, projectHeld }: LineProps) {
-  const on = place ? place.on : project ? project.on : style.key === brush
+const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance, uncoverable, remaining, compact, brush, onPick, onDay, project, onProject, place, onPlace, projectHeld, summed, rest, treeOuter, treeInner }: LineProps) {
+  const treeAttrs = { 'data-outer': treeOuter, 'data-inner': treeInner }
+  const on = rest ? false : place ? place.on : project ? project.on : style.key === brush
   const left = <span className="bm-week-left">{remaining > EPSILON ? `${hoursShort(remaining)} t` : <Check size={compact ? 11 : 13} aria-label="Dekket" />}</span>
-  const label = place && project ? (
-    <button className="bm-pick bm-place-pick" aria-pressed={on} title={on ? `Mal for ${project.name} uten sted: velg prosjektlinjen` : `Mal ${style.label} for ${project.name} i ${place.name}. Pil opp og ned bytter linje.`} onClick={() => onPlace?.(place.hall)}>
+  const label = rest ? (
+    <button className="bm-pick bm-project-pick" disabled {...treeAttrs} title={`${style.label} uten prosjekt: behov uten prosjektnummer, timer ingen prosjekt mangler, og prosjekter som ikke er i Kalender. Mal på sumlinjen.`}>
+      <span className="bm-name">Uten prosjekt</span>
+      {left}
+    </button>
+  ) : place && project ? (
+    <button className="bm-pick bm-place-pick" aria-pressed={on} {...treeAttrs} title={on ? `Mal for ${project.name} uten sted: velg prosjektlinjen` : `Mal ${style.label} for ${project.name} i ${place.name}. Pil opp og ned bytter linje.`} onClick={() => onPlace?.(place.hall)}>
       <span className="bm-name">{place.name}</span>
       {left}
     </button>
   ) : project ? (
-    <button className="bm-pick bm-project-pick" aria-pressed={on} title={on ? `Mal uten prosjekt: velg sumlinjen (${style.label})` : `Mal ${style.label} for ${project.name}. Pil opp og ned bytter linje.`} onClick={() => onProject?.(project.projectNo)}>
+    <button className="bm-pick bm-project-pick" aria-pressed={on} {...treeAttrs} title={on ? `Mal uten prosjekt: velg sumlinjen (${style.label})` : `Mal ${style.label} for ${project.name}. Pil opp og ned bytter linje.`} onClick={() => onProject?.(project.projectNo)}>
       <span className="bm-name">{project.name}</span>
       {left}
     </button>
   ) : (
-    <button className="bm-pick" aria-pressed={on} disabled={!key && !on} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
+    <button className="bm-pick" aria-pressed={on} disabled={!key && !on} {...treeAttrs} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
       <i className="swatch" />
       <span className="bm-name">{style.label}</span>
       {key > 0 && !compact && <kbd>{key}</kbd>}
@@ -64,7 +84,7 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
   )
   return (
     <Line
-      className={`bm-demand ${project ? 'bm-demand-project' : ''} ${place ? 'bm-demand-place' : ''} ${compact ? 'compact' : ''} ${on ? 'on' : brush && !project ? 'dim' : ''} ${on && projectHeld ? 'held' : ''}`}
+      className={`bm-demand ${project || rest ? 'bm-demand-project' : ''} ${place ? 'bm-demand-place' : ''} ${compact ? 'compact' : ''} ${on ? 'on' : brush && !project && !rest ? 'dim' : ''} ${on && projectHeld ? 'held' : ''} ${summed ? 'summed' : ''}`}
       height={compact ? DEMAND_COMPACT_H : DEMAND_H}
       label={label}
       cols={cols}
@@ -72,6 +92,18 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         const cell = balance.get(style.key, date)
         const classes = `${dayClass(cols, date)} cell bm-need`
         if (cell.demand < EPSILON && cell.assigned < EPSILON) return <div key={date} className={classes} />
+        const unc = uncoverable.get(`${style.key}|${date}`) ?? 0
+        // An open line leaves its days to the lines under it; what the staff cannot cover is the competence's alone, so it stays here.
+        if (summed)
+          return unc > EPSILON && !compact ? (
+            <button key={date} className={classes} title={`${style.label} · ${dayText(date)}\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.`} onClick={(e) => onDay(style.key, date, e)}>
+              <span className="bm-need-label summed">
+                <i className="uncoverable" style={{ width: '100%' }} />
+              </span>
+            </button>
+          ) : (
+            <div key={date} className={classes} />
+          )
         const left = Math.max(0, cell.remaining)
         const over = cell.remaining < -EPSILON
         const what = over ? `+${hoursText(-cell.remaining)} t over` : left > EPSILON ? `${hoursText(left)} t igjen av ${hoursText(cell.demand)}` : 'dekket'
@@ -83,11 +115,10 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
             </button>
           )
         }
-        const unc = uncoverable.get(`${style.key}|${date}`) ?? 0
         const state = left > EPSILON ? (unc > EPSILON ? 'uncoverable' : '') : over ? 'over' : 'ok'
+        // The label fills from the left as the day is covered, overtime as normal time (the people's lines show it), then what is given beyond the demand.
         const base = Math.max(cell.demand, cell.assigned) || 1
-        const regular = (Math.min(cell.assigned - cell.assignedOT, cell.demand) / base) * 100
-        const overtime = (Math.min(cell.assigned, cell.demand) / base) * 100 - regular
+        const covered = (Math.min(cell.assigned, cell.demand) / base) * 100
         const surplus = (Math.max(0, cell.assigned - cell.demand) / base) * 100
         const title =
           `${style.label}${project ? ` · ${project.name}` : ''}${place ? ` · ${place.name}` : ''} · ${dayText(date)}${dayType(date) !== 'arbeidsdag' ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
@@ -97,24 +128,13 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
           (unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : '')
         return (
           <button key={date} className={classes} title={title} onClick={(e) => onDay(style.key, date, e)}>
-            <span className="bm-need-value">
-              {cell.assigned < EPSILON && cell.demand > EPSILON && (
-                // Nothing is assigned, so the meter is empty: the day says whose it is. The style sheet shows the one the day has room for.
-                <>
-                  <span className="bm-need-code">{style.shortLabel || defaultShortLabel(style.label)}</span>
-                  <i className="bm-need-dot" />
-                </>
-              )}
-              {cell.carried > EPSILON && <span className="bm-carried">+{hoursShort(cell.carried)}</span>}
-              <b className={`bm-number ${state}`}>{state === 'ok' ? <Check size={14} aria-label="Dekket" /> : over ? `+${hoursShort(-cell.remaining)}` : hoursShort(cell.remaining)}</b>
-              {cell.demand > EPSILON && <em>av {hoursShort(cell.demand)}</em>}
-            </span>
-            <span className="bar">
-              <i className="covered" style={{ width: `${regular}%` }} />
-              {overtime > 0 && <i className="overtime" style={{ left: `${regular}%`, width: `${overtime}%` }} />}
-              {surplus > 0 && <i className="surplus" style={{ left: `${regular + overtime}%`, width: `${surplus}%` }} />}
+            <span className={`bm-need-label ${state}`}>
+              <i className="covered" style={{ width: `${covered}%` }} />
+              {surplus > 0 && <i className="surplus" style={{ left: `${covered}%`, width: `${surplus}%` }} />}
               {unc > EPSILON && <i className="uncoverable" style={{ width: `${(unc / base) * 100}%` }} />}
+              {state !== 'ok' && <b>{over ? `+${hoursShort(-cell.remaining)}` : `−${hoursShort(left)}`}</b>}
             </span>
+            {cell.carried > EPSILON && <i className="bm-carried" />}
           </button>
         )
       }}
@@ -131,10 +151,11 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
  * The competence in focus has a line under it for each project with hours of it in view: what the project lacks once its own
  * hours and its share of the hours for no project are counted. The project in focus has a line under it for each of its places,
  * where it has two or more in view. The line in focus is the brush. The other competences shrink to one thin line while it is open.
+ * A line with lines under it shows no sums in its days, as an open level of the plan; what is on none of the projects is a line of its own under them.
  */
 export function DemandRows() {
   const bm = useBemanning()
-  const { demandRows, remainingOf, shownBalance, shownRemaining, uncoverable, cols, brush, brushProject, brushHall, projectLines, projectShown, placeLines, placeShown, demandOpen: open, demandDensity, idleOpen, onFocusDate, pickFromDemand, pickProject, pickPlace, setDemandPop } = bm
+  const { demandRows, remainingOf, shownBalance, shownRemaining, uncoverable, cols, brush, brushProject, brushHall, projectLines, projectShown, restShown, placeLines, placeShown, demandOpen: open, demandDensity, idleOpen, onFocusDate, pickFromDemand, pickProject, pickPlace, setDemandPop } = bm
   const compact = demandDensity === 'compact'
   // A competence with neither demand nor assigned hours in the period is set aside under one line. The one in focus stays.
   const isIdle = (key: string) => key !== brush && !remainingOf.has(key)
@@ -154,14 +175,21 @@ export function DemandRows() {
     onProject: (projectNo: string) => (projectNo === brushProject && brushHall !== null ? pickPlace(null) : pickProject(projectNo === brushProject ? null : projectNo)),
     onPlace: (hall: string) => pickPlace(hall === brushHall ? null : hall),
   })
-  const line = (row: DemandRow) =>
-    !open && row.style.key !== brush ? null : (
+  const line = (row: DemandRow) => {
+    if (!open && row.style.key !== brush) return null
+    const inFocus = row.style.key === brush
+    // The competence in focus with lines under it leaves its days to them, as an open level of the plan.
+    const opened = inFocus && projectLines.length > 0
+    return (
       <Fragment key={row.style.key}>
-        <DemandLine row={row} cols={cols} balance={shownBalance} uncoverable={uncoverable} remaining={shownRemaining.get(row.style.key) ?? 0} compact={compact || (brush !== null && row.style.key !== brush)} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} projectHeld={row.style.key === brush && brushProject !== null} />
-        {row.style.key === brush &&
-          projectLines.map((project) => {
+        <DemandLine row={row} cols={cols} balance={shownBalance} uncoverable={uncoverable} remaining={shownRemaining.get(row.style.key) ?? 0} compact={compact || (brush !== null && !inFocus)} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} projectHeld={inFocus && brushProject !== null} summed={opened} treeOuter={opened ? 'start' : undefined} />
+        {inFocus &&
+          projectLines.map((project, i) => {
             const shown = projectShown.get(project.projectNo)
-            const inFocus = project.projectNo === brushProject
+            const projectInFocus = project.projectNo === brushProject
+            const withPlaces = projectInFocus && placeLines.length > 0
+            // The competence's line stops at its last line: the last project, or «Uten prosjekt» under them.
+            const last = !restShown && i === projectLines.length - 1
             return shown ? (
               <Fragment key={project.projectNo}>
                 <DemandLine
@@ -174,13 +202,17 @@ export function DemandRows() {
                   brush={brush}
                   onPick={handlers.onPick}
                   onDay={handlers.onDay}
-                  project={{ projectNo: project.projectNo, name: project.name, on: inFocus }}
+                  project={{ projectNo: project.projectNo, name: project.name, on: projectInFocus }}
                   onProject={handlers.onProject}
-                  projectHeld={inFocus && brushHall !== null}
+                  projectHeld={projectInFocus && brushHall !== null}
+                  summed={withPlaces}
+                  treeOuter={last ? 'end' : 'branch'}
+                  treeInner={withPlaces ? 'start' : undefined}
                 />
-                {inFocus &&
-                  placeLines.map((place) => {
+                {withPlaces &&
+                  placeLines.map((place, j) => {
                     const at = placeShown.get(place.hall)
+                    const lastPlace = j === placeLines.length - 1
                     return at ? (
                       <DemandLine
                         key={place.hall}
@@ -197,21 +229,27 @@ export function DemandRows() {
                         onProject={handlers.onProject}
                         place={{ hall: place.hall, name: place.name, on: place.hall === brushHall }}
                         onPlace={handlers.onPlace}
+                        treeOuter={last ? undefined : 'pass'}
+                        treeInner={lastPlace ? 'end' : 'branch'}
                       />
                     ) : null
                   })}
               </Fragment>
             ) : null
           })}
+        {inFocus && restShown && (
+          <DemandLine row={row} cols={cols} balance={restShown.balance} uncoverable={NO_HOURS} remaining={restShown.remaining} compact={compact} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} rest treeOuter="end" />
+        )}
       </Fragment>
     )
+  }
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
       <SectionLine>
         <Twisty open={open} show="Vis alle kompetanser" hide="Vis bare kompetansen i fokus" onToggle={() => bm.setDemandOpen(!open)} />
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
-        <span className="section-meta section-meta-end" title={open ? 'Timer som gjenstår i dagene som vises' : undefined}>{open ? 't igjen' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
+        <span className="section-meta section-meta-end" title={open ? 'Timer som gjenstår i dagene som vises' : undefined}>{open ? 'Timer igjen' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
       </SectionLine>
       {busy.map(line)}
       {open && idle.length > 0 && (

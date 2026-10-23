@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ISODate } from '../../domain/dates'
 import type { Balance } from '../../domain/staffing/balance'
 import type { PlaceDay, ProjectBalance, ProjectDay } from '../../domain/staffing/projectBalance'
-import { brushStep, leftIn, placeDays, placeLinesOf, projectDays, remainingIn, type PlaceLine, type ProjectLine } from './lineBalances'
+import { brushStep, hasHours, leftIn, placeDays, placeLinesOf, projectDays, remainingIn, restDays, type PlaceLine, type ProjectLine } from './lineBalances'
 
 const place = (hall: string, demand: number, tagged = 0, shared = 0): PlaceDay => ({ hall, demand, tagged, shared, remaining: demand - tagged - shared })
 const day = (places: PlaceDay[], carried = 0): ProjectDay => {
@@ -33,6 +33,19 @@ describe('the project and place lines of the demand', () => {
   it("shows a place's part of the project, with nothing on a day it has none", () => {
     expect(placeDays(projects, '26970', 'B1').get('foga', '2026-10-05')).toEqual({ demand: 15, carried: 0, assigned: 7.5, assignedOT: 0, remaining: 7.5, covered: 7.5 })
     expect(placeDays(projects, '26970', 'B2').get('foga', '2026-10-07')).toEqual({ demand: 0, carried: 0, assigned: 0, assignedOT: 0, remaining: 0, covered: 0 })
+  })
+
+  it('shows what is on none of the project lines: the sum less the lines', () => {
+    const total: Balance = { get: () => ({ demand: 30, carried: 2, assigned: 20, assignedOT: 4, remaining: 10, covered: 20 }), competences: ['foga'] }
+    const rest = restDays(total, [projectDays(projects, '26970')])
+    // VVS has 22,5 of the demand and 15 assigned on the 5th: 7,5 and 5 are on no project.
+    expect(rest.get('foga', '2026-10-05')).toEqual({ demand: 7.5, carried: 0, assigned: 5, assignedOT: 4, remaining: 2.5, covered: 5 })
+    // On a day VVS has nothing, the rest is the sum.
+    expect(rest.get('foga', '2026-10-09')).toEqual({ demand: 30, carried: 2, assigned: 20, assignedOT: 4, remaining: 10, covered: 20 })
+    expect(hasHours(rest, 'foga', ['2026-10-05'])).toBe(true)
+    // Where the lines hold all of the sum, there is no rest.
+    const same = restDays(projectDays(projects, '26970'), [projectDays(projects, '26970')])
+    expect(hasHours(same, 'foga', ['2026-10-05', '2026-10-06', '2026-10-07'])).toBe(false)
   })
 
   it('counts the hours that remain, a day over making up for none that is short', () => {

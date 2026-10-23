@@ -120,7 +120,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         // A day the brush cannot fill says so under the pointer, and inside a stroke. A weekend or a holiday does not:
         // the brush fills it when it is picked by itself, and passes over it without a mark when it is drawn across.
         const unfilled = painting && !gaps.length && !cell.offDay
-        const blocked = unfilled && (cell.away !== null || dim)
+        const blocked = unfilled && (cell.away || dim)
         const refused = refusedCol === col || (unfilled && inStroke && !erasing)
         return (
           <div

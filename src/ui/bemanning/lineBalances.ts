@@ -44,6 +44,33 @@ export const projectDays = (projects: ProjectBalance, projectNo: string): Balanc
   competences: projects.competences,
 })
 
+/** A share that is rounding noise is none. */
+const net = (hours: number): number => (Math.abs(hours) < EPSILON ? 0 : hours)
+
+/**
+ * What of a competence is on none of the lines under it: the sum less the project lines. Demand that has no project number, hours
+ * no project lacks, and projects that are not in the Kalender. A day's remaining is the sum's less the lines', so a project that is
+ * over does not hide hours that are short here.
+ */
+export const restDays = (total: Balance, parts: Balance[]): Balance => ({
+  get: (competence, date) => {
+    const all = total.get(competence, date)
+    const lines = parts.map((part) => part.get(competence, date))
+    const less = (field: 'demand' | 'carried' | 'assigned' | 'remaining') => net(all[field] - lines.reduce((sum, line) => sum + line[field], 0))
+    const demand = Math.max(0, less('demand'))
+    const assigned = Math.max(0, less('assigned'))
+    return { demand, carried: Math.max(0, less('carried')), assigned, assignedOT: Math.min(all.assignedOT, assigned), remaining: less('remaining'), covered: Math.min(demand, assigned) }
+  },
+  competences: total.competences,
+})
+
+/** Whether a competence has demand or assigned hours on a line in any of the days. */
+export const hasHours = (balance: Balance, competence: string, days: ISODate[]): boolean =>
+  days.some((date) => {
+    const cell = balance.get(competence, date)
+    return cell.demand > EPSILON || cell.assigned > EPSILON
+  })
+
 /** The hours of a competence that remain in the days. A day that is over does not make up for one that is short. */
 export const leftIn = (balance: Balance, competence: string, days: ISODate[]): number => days.reduce((sum, date) => sum + Math.max(0, balance.get(competence, date).remaining), 0)
 

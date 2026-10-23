@@ -101,6 +101,20 @@ describe('Bemanning', () => {
     expect(document.body.textContent).toContain('Ola Nordmann har ikke FOGA.')
   })
 
+  it('marks as blocked only the days of those who lack the competence or are away, not a day beside the one under the pointer', async () => {
+    const { container } = await renderKalender(workspaceOf({ persons: [{ id: 'p1', name: 'Kari Nordmann', order: 0, competences: ['foga'] }, { id: 'p2', name: 'Ola Nordmann', order: 1, competences: ['elektro'] }] }), PREFS)
+    keyDown('1')
+    keyDown('b')
+    moveTo(container, 0, '2026-10-06')
+    await settle()
+    const [kari, ola] = [...container.querySelectorAll('.bm-person')]
+    const blocked = (line: Element) => [...line.querySelectorAll('.bm-cell')].map((cell) => cell.classList.contains('blocked'))
+    // Kari has FOGA: neither the day under the pointer nor the day beside it is blocked, though only the one has a preview.
+    expect(blocked(kari)[colOf('2026-10-07')]).toBe(false)
+    expect(blocked(kari)[colOf('2026-10-06')]).toBe(false)
+    expect(blocked(ola)[colOf('2026-10-07')]).toBe(true)
+  })
+
   it('copies a day and pastes it on another person at the day under the pointer', async () => {
     const { container } = await renderKalender(workspaceOf({ assignments: [block('p1', '2026-10-06')] }), PREFS)
     click(container, 0, '2026-10-06')

@@ -35,40 +35,49 @@
 .bm-pick:disabled{opacity:1;cursor:default}
 .bm-pick:disabled:hover{background:transparent}
 .bm-week-left{display:inline-flex;align-items:center;margin-left:auto;font:600 var(--fs-sm) var(--font-num);white-space:nowrap}
-/* a day is a container, so what its value line holds follows the width of the day without being drawn again; the track of its meter is a tint of the competence */
-.bm-need{flex-direction:column;align-items:stretch;justify-content:center;gap:4px;min-width:0;padding:0 6px;border-radius:0;background-color:transparent;color:var(--text);container-type:inline-size;--bar-track:color-mix(in oklab,var(--cc) 22%,var(--bg))}
+/* a day of a competence's demand, a button that opens the day; what it shows is the label below */
+.bm-need{position:relative;min-width:0;padding:0;border-radius:0;background-color:transparent;color:var(--text)}
 .bm-need.helg,.bm-need.helligdag{background-color:var(--weekend)}
 button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
-.bm-need-value{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0;overflow:hidden;white-space:nowrap}
-.bm-need-value em{font:400 var(--fs-xs) var(--font-num);font-style:normal;color:var(--faint)}
-/* what remains and what it is of are one size, the size of a figure in the grid; the weight and the colour tell them apart */
-.bm-number{display:inline-flex;font:600 var(--fs-xs)/1 var(--font-num)}
-.bm-number.ok{color:var(--pos)}
-.bm-number.over{color:var(--over)}
-.bm-number.uncoverable{color:var(--neg)}
-/* a day with demand and nothing assigned names its competence: the short name, or a dot in a day under 80px, where the short name has no room. Under 100px the short name takes the place of «av». The widths are those of the day less its padding and rule. */
-.bm-need-code{display:none;margin-right:auto;font:600 var(--fs-3xs) var(--font-num);letter-spacing:.04em;color:color-mix(in oklab,var(--cc) 75%,var(--text))}
-.bm-need-dot{align-self:center;flex:none;width:6px;height:6px;margin-right:auto;border-radius:2px;background:var(--cc)}
-@container (min-width:67px){.bm-need-code{display:inline}.bm-need-dot{display:none}}
-@container (max-width:86.9px){.bm-need-code~em{display:none}}
-.bm-carried{margin-right:auto;font:500 var(--fs-2xs) var(--font-num);color:var(--over)}
-.bar .covered{background:var(--cc)}
-/* the stripes of --hatch, 4px and 2px. Overtime is a 2px line of the competence's colour on a light ground; what cannot be covered is red with a 2px gap. */
-.bar .overtime{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 35%,transparent) 0 4px,var(--cc) 4px 6px)}
-.bar .surplus{background:var(--over)}
-.bar .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--neg) 0 4px,transparent 4px 6px)}
-/* a competence in focus: its line and the lines of its projects are lit, the others step back; the line that is the brush has the mark */
+/* A day's demand as a label over the day in a light tint of the competence, filled from the left as it is covered (overtime as normal
+   time: the people's lines show it), with what is given beyond the demand as a tail in the ochre of a warning on the band. On it is
+   what remains, signed, as Mangler / over has it. Where the staff cannot cover it in normal time, those hours are hatched at the end in
+   the colour of a blocking alert; on the hatch and on the tail the figure is in the alerts' ink. A day that is covered is a full label
+   with no figure. What it is of, and the rest, is in the tooltip. */
+.bm-need-label{position:absolute;inset:6px 5px;display:flex;align-items:center;justify-content:flex-end;padding:0 7px;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 18%,transparent)}
+.bm-need-label>i{position:absolute;top:0;bottom:0;left:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
+.bm-need-label .covered{background:color-mix(in oklab,var(--cc) 42%,transparent)}
+.bm-need-label .surplus{background:var(--alert-warn)}
+.bm-need-label .uncoverable{left:auto;right:0;background:repeating-linear-gradient(135deg,var(--alert-block) 0 2px,transparent 2px 6px)}
+.bm-need-label b{position:relative;font:600 var(--fs-xs)/1 var(--font-num)}
+.bm-need-label:is(.uncoverable,.over) b{color:var(--alert-on)}
+/* an open line, whose days are on the lines under it: no label, only the hatch of a day the staff cannot cover, across the day */
+.bm-need-label.summed{background:none}
+/* hours carried here from the day before: a dot in the corner */
+.bm-carried{position:absolute;top:3px;left:3px;width:5px;height:5px;border-radius:50%;background:var(--over)}
+/* a competence in focus: its line and the lines of its projects stay, the others step back; their days are neutral, as an open level's in the plan, and the line that is the brush has the mark at its name */
 .bm-demand.dim{opacity:.5}
 .bm-demand.dim:hover{opacity:.8}
-.bm-demand.on,.bm-demand-project{background:color-mix(in oklab,var(--cc) 7%,var(--bg))}
+/* the line that is the brush: its name, not its days, in a stronger tint with the mark, to say which project and place are chosen */
 .bm-demand.on:not(.held) .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
 /* a project's line under the competence in focus, and a place's under the project in focus: indented under its name, the name in the ink of what is under something */
 .bm-project-pick{--pick-indent:52px}
 .bm-place-pick{--pick-indent:72px}
 .bm-project-pick .bm-name,.bm-place-pick .bm-name{color:var(--muted)}
+/* the tree under the competence in focus, as a tree of folders draws it (TreeStep in DemandRows.tsx): the competence's line from under its
+   swatch, down its projects, and the project's from under its name, down its places; a stub to each name, and a bend at the last */
+.bm-pick:is([data-outer],[data-inner]){position:relative;--tree-c:color-mix(in oklab,var(--cc) 60%,var(--bg))}
+.bm-pick[data-outer]::before,.bm-pick[data-inner]::after{content:'';position:absolute;top:0;bottom:0;border-left:1.5px solid var(--tree-c);pointer-events:none}
+.bm-pick[data-outer]::before{left:40px;width:8px}
+.bm-pick[data-inner]::after{left:56px;width:12px}
+.bm-pick[data-outer='branch']::before,.bm-pick[data-inner='branch']::after{background:linear-gradient(var(--tree-c),var(--tree-c)) no-repeat 0 50%/100% 1.5px}
+.bm-pick[data-outer='end']::before,.bm-pick[data-inner='end']::after{bottom:50%;border-bottom:1.5px solid var(--tree-c);border-bottom-left-radius:4px}
+.bm-pick[data-outer='start']::before,.bm-pick[data-inner='start']::after{top:calc(50% + 8px)}
 .bm-demand-project.on .bm-project-pick .bm-name,.bm-demand-place.on .bm-place-pick .bm-name{color:var(--text)}
-/* Open, a competence's line has a figure per day that is read across, so it has a rule under it, and none between the days. Compact, it is a bar, and bars have no rules. */
-.bm-demand:not(.compact) .cell{border-bottom:1px solid var(--grid-row)}
+/* Open, a competence's line has a figure per day that is read across, so it has a rule under it, and none between the days. Compact, it is a bar, and bars have no rules; a line that leaves its days to the lines under it has no figures, and no rules.
+   A line of figures that follows one that has none has a rule above it too, drawn inside it, so a run of them is framed with single rules. */
+.bm-demand:not(.compact,.summed) .cell{border-bottom:1px solid var(--grid-row)}
+:not(.bm-demand:not(.compact,.summed))+.bm-demand:not(.compact,.summed) .cell{box-shadow:inset 0 1px 0 var(--grid-row)}
 /* compact: one thin line per day, the demand as a tint that fills solid from the left as it is covered */
 .bm-demand.compact .bm-pick{gap:6px}
 .bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
@@ -111,8 +120,9 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-dots i.focused{outline:1.5px solid var(--cc);outline-offset:1.5px}
 .bm-person-week{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
 .bm-person-week b{font-weight:600;color:var(--text)}
-.bm-person-week em{font-style:normal;color:var(--over)}
-.bm-person-week em.over-limit{margin-left:3px;padding:1px 5px;border-radius:999px;background:var(--over);color:var(--bg);font-weight:600}
+/* a week's overtime as a chip in the ochre of an alert, as the hours over a day's demand are; over the limit of the week, the chip of a block */
+.bm-person-week em{margin-left:3px;padding:1px 5px;border-radius:999px;background:var(--alert-warn);color:var(--alert-on);font-style:normal;font-weight:600}
+.bm-person-week em.over-limit{background:var(--alert-block)}
 .bm-person-week>i{display:block;width:52px;height:3px;border-radius:2px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
 .bm-person-week>i>i{display:block;height:100%;background:var(--muted);transition:width 280ms var(--ease)}
 .bm-divider{display:flex;align-items:center;border-top:1px solid var(--grid-top);background:var(--sunken)}
@@ -170,7 +180,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 [data-tool='select'] .bm-block{cursor:grab}
 [data-tool='erase'] .bm-cell{cursor:crosshair}
 [data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
-[data-tool='paint'] .bm-cell.blocked:not(.overbooked):hover,.bm-cell.refused{background-image:var(--hatch)}
+[data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
 /* What a stroke would do is flat: tints and thin edges. A hatch says hours are not there: a person who is away, and the hours the eraser would take. */
 /* where the brush would put time: a tint of its colour, with the hours it gives. It is joined over the days as the run it makes will be, see `.join-prev`. */
 .bm-ghosts{pointer-events:none}
@@ -406,7 +416,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-done:hover{background:var(--muted)}
 /* An order waits for an answer: a clock in ink, never a colour. */
 .il-waits{position:absolute;top:5px;left:5px;z-index:1}
-.heat-cell.under.strong .il-waits{color:var(--on-neg)}
+.heat-cell.under.strong .il-waits{color:var(--text)}
 .bar-controls .il-waiting{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;background:var(--surface);font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
 .bar-controls .il-under{height:30px;padding:0 10px;background:var(--alert-block);color:var(--alert-on);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
 .bar-controls .il-under:hover{filter:brightness(1.06)}
