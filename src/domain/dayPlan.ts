@@ -1,10 +1,11 @@
+import { referenceProjectNo } from './calc'
 import type { ISODate } from './dates'
 import { competenceStyles } from './competences'
 import { dayType } from './holidays'
 import { isWaiting } from './hire'
 import { eventKey, numberKey, venueEvents } from './projects'
 import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, okAssignments, paidHours, placeKey } from './staffing'
-import { VENUE_PHASES, type CompetenceKey, type Minute, type VenuePhase, type Workspace } from './types'
+import { competenceKey, PLANNED_BASIS, VENUE_PHASES, type CompetenceKey, type Minute, type VenuePhase, type Workspace } from './types'
 import { PHASE_LABELS } from './venue'
 import { anchorDate, visibleVenue } from './venueImport'
 import { bookedPlaces, dealPlaces } from './workPlace'
@@ -120,7 +121,29 @@ export interface DayCompetenceGroup {
   waiting: number
   /** How far the project's hours of the competence are covered that day, from its card. */
   state?: CoverageState
+  /** What is to be done in the place, from the demand: none where the day plans no FTE for it. */
+  work?: DayWork
 }
+
+/** A product type of the demand, summed over the phase of the day. */
+export interface WorkItem {
+  productType: string
+  quantity: number | null
+  unit: string
+}
+
+/** The work of a competence in a place: its largest product types in the phase, and the day's share of the phase. */
+export interface DayWork {
+  /** At most `WORK_SHOWN`, by the hours they give. */
+  items: WorkItem[]
+  /** How many more product types there are. */
+  more: number
+  /** The day's planned FTE over the phase's: what of the phase's work the plan puts on the day. */
+  share: number | null
+}
+
+/** The product types a competence group names; the rest are counted. */
+export const WORK_SHOWN = 2
 
 /** A place of a project that day, with its competences; `projectNo` is `NO_PROJECT` for the work of no project. */
 export interface DayPlaceGroup {
@@ -279,7 +302,7 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
   return {
     date,
     projects,
-    groups: dayGroups(ws, [...blocksOf].map(([personId, blocks]) => ({ personId, name: nameOf(personId), blocks })), hiredRows, projects, rankOf),
+    groups: dayGroups(ws, date, [...blocksOf].map(([personId, blocks]) => ({ personId, name: nameOf(personId), blocks })), hiredRows, projects, rankOf),
     unplaced,
     away,
     uncertain: [...blocksOf.values()].reduce((sum, list) => sum + list.filter((b) => b.uncertain).length, 0),
@@ -295,7 +318,7 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
  * then of the places, the competences in the planner's order, and in a competence those who begin their day there first,
  * then the suppliers, then those who come to it later. The work of no project is a group of its own, last.
  */
-const dayGroups = (ws: Workspace, fitters: DayFitter[], hired: DayHired[], cards: ProjectCard[], rankOf: (c: CompetenceKey) => number): DayPlaceGroup[] => {
+const dayGroups = (ws: Workspace, date: ISODate, fitters: DayFitter[], hired: DayHired[], cards: ProjectCard[], rankOf: (c: CompetenceKey) => number): DayPlaceGroup[] => {
   const wd = ws.settings.workday
   const fullDay = paidHours({ start: wd.dayStart, end: wd.dayEnd }, wd) || ws.settings.hoursPerDay
   const places = new Map<string, DayPlaceGroup>()
@@ -308,7 +331,8 @@ const dayGroups = (ws: Workspace, fitters: DayFitter[], hired: DayHired[], cards
     let group = place.competences.find((g) => g.competence === competence)
     if (!group) {
       const state = cardOf(projectNo)?.coverage.find((c) => c.competence === competence)?.state
-      group = { competence, entries: [], people: 0, waiting: 0, ...(state && { state }) }
+      const work = projectNo ? dayWork(ws, date, projectNo, hall, competence) : undefined
+      group = { competence, entries: [], people: 0, waiting: 0, ...(state && { state }), ...(work && { work }) }
       place.competences.push(group)
     }
     return group
@@ -340,4 +364,41 @@ const dayGroups = (ws: Workspace, fitters: DayFitter[], hired: DayHired[], cards
     for (const group of place.competences) group.entries.sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name, 'nb'))
   }
   return [...places.values()].sort((a, b) => cardRank(a.projectNo) - cardRank(b.projectNo) || a.hall.localeCompare(b.hall, 'nb', { numeric: true }))
+}
+
+/**
+ * What a competence is to do in a place of a project on a day, from the demand: the product types of the phase the day
+ * is planned for, summed over the place (all the project's places where the group has none), the largest by hours first,
+ * and the day's share of the phase, its planned FTE over all the FTE planned for the phase. The quantities are of the
+ * whole phase: the demand does not say what is done which day. None where the day plans no FTE for the competence there.
+ */
+export const dayWork = (ws: Pick<Workspace, 'allocations' | 'demand'>, date: ISODate, projectNo: string, hall: string, competence: CompetenceKey): DayWork | undefined => {
+  const inPlace = (place: string | undefined) => !hall || place === undefined || placeKey(place) === placeKey(hall)
+  const rows = ws.allocations.filter((row) => numberKey(row.projectNo) === numberKey(projectNo) && competenceKey(row.competence) === competence && row.phase && inPlace(row.hall))
+  const today = rows.filter((row) => row.fte[date] > 0)
+  if (!today.length) return undefined
+  const phases = new Set(today.map((row) => row.phase))
+  const inPhase = rows.filter((row) => phases.has(row.phase))
+  const total = inPhase.reduce((sum, row) => sum + Object.values(row.fte).reduce((a, b) => a + b, 0), 0)
+  const day = today.reduce((sum, row) => sum + row.fte[date], 0)
+  const refs = new Set(inPhase.map((row) => numberKey(referenceProjectNo(row.projectNo, row.refYear) || row.projectNo)))
+  const items = new Map<string, WorkItem & { hours: number }>()
+  for (const line of ws.demand) {
+    if (line.basis.trim().toLowerCase() !== PLANNED_BASIS.toLowerCase() || !refs.has(numberKey(line.projectNo)) || competenceKey(line.competence) !== competence) continue
+    if (hall && placeKey(line.hall) !== placeKey(hall)) continue
+    const hours = (phases.has('Montering') ? line.assemblyHours : 0) + (phases.has('Demontering') ? line.dismantleHours : 0)
+    if (!(hours > 0)) continue
+    const productType = line.workType.trim() || 'Uten produkttype'
+    const key = `${productType.toLowerCase()}|${line.unit.trim().toLowerCase()}`
+    const item = items.get(key) ?? { productType, quantity: null, unit: line.unit.trim(), hours: 0 }
+    item.hours += hours
+    if (line.quantity !== null) item.quantity = (item.quantity ?? 0) + line.quantity
+    items.set(key, item)
+  }
+  const sorted = [...items.values()].sort((a, b) => b.hours - a.hours || a.productType.localeCompare(b.productType, 'nb'))
+  return {
+    items: sorted.slice(0, WORK_SHOWN).map(({ hours: _hours, ...item }) => item),
+    more: Math.max(0, sorted.length - WORK_SHOWN),
+    share: total > 0 ? day / total : null,
+  }
 }

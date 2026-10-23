@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { formatFte } from '../../domain/calc'
 import { isoWeek } from '../../domain/dates'
 import { competenceStyles } from '../../domain/competences'
-import type { DayBlock, DayCompetenceGroup, DayPlan, ProjectCard } from '../../domain/dayPlan'
+import type { DayBlock, DayCompetenceGroup, DayPlan, DayWork, ProjectCard } from '../../domain/dayPlan'
 import type { CompetenceKey, CompetenceStyle, Minute, Workspace } from '../../domain/types'
 import { count } from '../dom'
 import { colorOf, hm, longDate, shortDate, span } from './format'
@@ -86,6 +86,21 @@ function Card({ card, names, styles }: { card: ProjectCard; names: Map<Competenc
   )
 }
 
+/** Units as they are written on a sheet. */
+const UNIT_TEXT: Record<string, string> = { m2: 'm²', m3: 'm³' }
+
+/** What a competence is to do in a place: «Systemvegg 150 lm · Dragere 14 stk +1 til», and the day's share of the phase. */
+function WorkLine({ work }: { work: DayWork }) {
+  const items = work.items.map((item) => [item.productType, item.quantity === null ? '' : `${formatFte(item.quantity, 1)} ${UNIT_TEXT[item.unit.toLowerCase()] ?? item.unit}`].filter(Boolean).join(' '))
+  return (
+    <span className="dp-work">
+      {items.join(' · ')}
+      {work.more > 0 && <span className="dp-more"> +{work.more} til</span>}
+      {work.share !== null && <span className="dp-share" title="Dagens planlagte FTE av fasens: hvor mye av fasens arbeid planen legger på dagen. Mengdene gjelder hele fasen.">ca. {Math.round(work.share * 100)} % i dag</span>}
+    </span>
+  )
+}
+
 /** A competence's head in a place: its people as whole days, what waits, and how far the project's hours of it are covered. */
 function GroupHead({ group, names, styles }: { group: DayCompetenceGroup; names: Map<CompetenceKey, string>; styles: Map<CompetenceKey, CompetenceStyle> }) {
   return (
@@ -97,6 +112,7 @@ function GroupHead({ group, names, styles }: { group: DayCompetenceGroup; names:
           {peopleText(group.people)}
           {group.waiting > 0 && ` + ${group.waiting} venter`}
         </span>
+        {group.work && <WorkLine work={group.work} />}
         {group.state && <em className={`dp-state ${group.state}`}>{GROUP_STATE[group.state]}</em>}
       </td>
     </tr>

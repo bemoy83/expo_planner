@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildDayPlan } from './dayPlan'
+import { buildDayPlan, dayWork } from './dayPlan'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
-import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type VenueBooking, type Workspace } from './types'
+import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, workTag, type Assignment, type DemandLine, type VenueBooking, type Workspace } from './types'
 
 /** The day plan: the cards of the projects of a day and the people with their blocks, as `workPlace.test.ts` sets the week. */
 
@@ -125,5 +125,23 @@ describe('the day plan', () => {
     const group = plan.groups.flatMap((g) => g.competences).find((c) => c.entries.some((e) => e.kind === 'hired'))!
     expect(group.people).toBe(2)
     expect(group.waiting).toBe(2)
+  })
+
+  it('says what is to be done in a place: the largest product types of the phase, and the share of the phase planned on the day', () => {
+    const line = (workType: string, quantity: number, unit: string, assemblyHours: number, hall = 'B'): DemandLine => ({ id: `${workType}-${hall}`, projectNo: FIRST, projectName: 'Byggemessen', source: '', workType, quantity, unit, stand: '', hall, competence: 'Vegger', basis: 'Planlagt', assemblyHours, dismantleHours: 0, comment: '', origin: 'visma' })
+    const w: Workspace = {
+      ...ws,
+      allocations: [{ ...ws.allocations[0], fte: { [MON]: 1, '2026-10-13': 2, '2026-10-14': 1 } }],
+      demand: [line('Systemvegg', 120, 'lm', 17), line('Systemvegg', 30, 'lm', 4), line('Dragere', 14, 'stk', 6), line('Dører', 3, 'stk', 2), line('Systemvegg', 80, 'lm', 11, 'C2')],
+    }
+    expect(dayWork(w, MON, FIRST, 'B', 'vegger')).toEqual({
+      items: [
+        { productType: 'Systemvegg', quantity: 150, unit: 'lm' },
+        { productType: 'Dragere', quantity: 14, unit: 'stk' },
+      ],
+      more: 1,
+      share: 0.25,
+    })
+    expect(dayWork(w, SUN, FIRST, 'B', 'vegger')).toBeUndefined()
   })
 })
