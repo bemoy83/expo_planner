@@ -79,7 +79,7 @@
 .res-line .over{border-radius:0 3px 3px 0;background:var(--over)}
 .res-line .past{right:-6px;top:-1px;width:0;height:0;border:4px solid transparent;border-left:5px solid var(--over);border-right:0}
 .res-bars .tick{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:1px;background:var(--text)}
-.res-bars-none{position:absolute;inset:0;display:flex;align-items:center;font-size:var(--fs-sm);color:var(--faint)}
+.res-bars-none{align-self:flex-start;padding:1px 6px;border-radius:4px;background:var(--sunken);font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
 .res-bars.big{height:34px;gap:6px;margin:12px 0 8px}
 .res-bars.big .res-line{height:10px;border-radius:5px}
 .res-bars.big .tick{width:3px;top:-3px;bottom:-3px}

@@ -44,12 +44,19 @@ export function BudgetBars({ row, overhead, scale }: { row: Bars; overhead: numb
       </span>
     )
   }
+  // Nothing planned and nothing worked: a badge, not empty bars.
+  if (!row.withOverhead && row.actual === null) {
+    return (
+      <div className={`res-bars ${scale ? 'big' : ''}`} title={barsTitle(row, overhead)}>
+        <span className="res-bars-none">Ingen plan</span>
+      </div>
+    )
+  }
   return (
     <div className={`res-bars ${scale ? 'big' : ''}`} title={barsTitle(row, overhead)}>
       {bar(row.withOverhead, 'plan')}
       {row.actual !== null && bar(row.actual, 'actual')}
       {row.budget !== null && <i className="tick" style={{ left: pct(at(row.budget)) }} />}
-      {!row.withOverhead && row.budget === null && <span className="res-bars-none">Ingen plan</span>}
     </div>
   )
 }
