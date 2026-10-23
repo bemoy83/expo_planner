@@ -3,7 +3,7 @@ import { todayIso } from '../../domain/dates'
 import { reviewPlacing } from '../../domain/hallReview'
 import { VENUE_PHASES } from '../../domain/types'
 import { hallChoices, NO_HALL_RULES } from '../../domain/locations'
-import { hallsOfProjects, projectRows } from '../../domain/projects'
+import { hallsOfProjects, knownNumbers, matchProjects, withProjectCounts } from '../../domain/projects'
 import { hallNames } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
 import { HallRules } from '../behov/HallRules'
@@ -35,7 +35,11 @@ export function HallerTab({ page, pages, onPage, onReadVenyou, venyouTitle, onOp
     const today = todayIso()
     return new Set(ws.venue.filter((booking) => VENUE_PHASES.some((phase) => (booking.phases[phase]?.end ?? '') >= today)).map((booking) => booking.eventName)).size
   }, [ws.venue])
-  const projects = useMemo(() => projectRows(ws), [ws.venue, ws.projects, ws.visma, ws.demand, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The matching of names is worked out again only when Venyou, the table or the numbers known change, not on an edit of the plan.
+  const known = useMemo(() => knownNumbers(ws), [ws.visma, ws.demand, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
+  const knownKey = known.map((number) => `${number.projectNo}\t${number.name}`).join('\n')
+  const matched = useMemo(() => matchProjects(ws.venue, ws.projects, known), [ws.venue, ws.projects, knownKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const projects = useMemo(() => withProjectCounts(matched, ws), [matched, ws.visma, ws.demand, ws.allocations]) // eslint-disable-line react-hooks/exhaustive-deps
   const rules = ws.hallRules ?? NO_HALL_RULES
   const unplaced = useMemo(() => {
     const halls = hallNames(ws.venue)
@@ -63,7 +67,7 @@ export function HallerTab({ page, pages, onPage, onReadVenyou, venyouTitle, onOp
   return (
     <div className="register-page">
       {page === 'haller' && <Haller {...props} onOpenProjects={() => onPage('prosjekter')} onReadVenyou={onReadVenyou} venyouTitle={venyouTitle} />}
-      {page === 'prosjekter' && <Prosjekter {...props} onOpenBehov={onOpenBehov} />}
+      {page === 'prosjekter' && <Prosjekter {...props} rows={projects} onOpenBehov={onOpenBehov} />}
       {page === 'hallregler' && <HallRules {...props} />}
       <Toasts toasts={toasts} onDismiss={dismiss} />
     </div>

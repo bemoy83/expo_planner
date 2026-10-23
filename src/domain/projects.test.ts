@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { diffProjectList, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectNamer, projectRows, suggestProjectNo, venueEvents, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
+import { diffProjectList, knownNumbers, matchProjects, nameLikeness, nameWithin, withNumberTakingOver, mergeProjectList, projectFollowers, projectNamer, projectRows, suggestProjectNo, venueEvents, withProjectName, withProjectNo, withProjectYear, withoutProjectName } from './projects'
 import type { AllocationRow, Assignment, DemandAdjustment, DemandLine, HireOrder, ProjectRef, VenueBooking } from './types'
 
 const booking = (eventName: string, hall: string, phases: VenueBooking['phases']): VenueBooking => ({ id: `${eventName}-${hall}`, hall, eventName, status: 'confirmed', phases })
@@ -133,6 +133,19 @@ describe('the rows of the Prosjekter tab', () => {
     ])
     expect(rows[3]).toMatchObject({ names: ['VVS DAGENE 2026', 'VVS 2026'], rows: 1, events: [{ name: 'VVS DAGENE 2026' }] })
     expect(rows[1]).toMatchObject({ names: ['Hage'], lines: 1 })
+  })
+
+  it('matches by the numbers known and their first names alone, so an edit of the plan leaves the matching as it was', () => {
+    const planned = row('VVS DAGENE 2026', '26970')
+    const before = { visma: [], demand: [line('26HAG', 'manual'), { ...line(' 26hag ', 'manual'), projectName: 'Annet navn' }], allocations: [{ ...planned, projectName: '' }, planned] }
+    expect(knownNumbers(before)).toEqual([
+      { projectNo: '26HAG', name: 'Hage' },
+      { projectNo: '26970', name: 'VVS DAGENE 2026' },
+    ])
+    const typed = { ...before, allocations: [{ ...planned, projectName: '', fte: { '2026-10-08': 2 } }, planned] }
+    expect(knownNumbers(typed)).toEqual(knownNumbers(before))
+    expect(matchProjects(bookings, list.slice(0, 4), knownNumbers(before)).find((r) => r.projectNo === '26HAG')).toMatchObject({ names: ['Hage'], lines: 0 })
+    expect(projectRows({ venue: bookings, projects: list.slice(0, 4), ...before }).find((r) => r.projectNo === '26HAG')).toMatchObject({ lines: 2, rows: 0, orders: false })
   })
 })
 
