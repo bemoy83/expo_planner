@@ -97,7 +97,7 @@ export function HallRules({ head, notify, show }: TablePage) {
   const areas = rules.areas ?? []
   const booked = useMemo(() => hallsOfProjects(ws.venue, ws.projects), [ws.venue, ws.projects])
   const review = useMemo(() => reviewPlacing(ws.demand, halls, booked, rules), [ws.demand, halls, booked, rules])
-  const projects = useMemo(() => [...new Set(ws.demand.map((line) => line.projectNo))].map((no): [string, string] => [no, projectName(no)]).sort((a, b) => a[1].localeCompare(b[1], 'nb')), [ws.demand, ws.visma, ws.projects]) // eslint-disable-line react-hooks/exhaustive-deps
+  const projects = useMemo(() => [...new Set(ws.demand.map((line) => line.projectNo))].map((no): [string, string] => [no, projectName(no)]).sort((a, b) => a[1].localeCompare(b[1], 'nb')), [ws.demand, projectName])
   const [part, setPartPref] = usePref<Part>('rulesPart', 'unplaced', (stored) => (PARTS.includes(stored as Part) ? (stored as Part) : 'unplaced'))
   const [tried, setTried] = useState<TriedText>({ text: '', projectNo: '' })
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())

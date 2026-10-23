@@ -15,7 +15,7 @@ export function ProjectResult({ row, season, budget, overhead, onClose, onOpenBe
   const other = competences.some((entry) => entry.planned.other)
   const sum = (of: (entry: (typeof competences)[number]) => PhaseHours, phase: keyof PhaseHours) => competences.reduce((total, entry) => total + of(entry)[phase], 0)
   const over = row.deviation !== null && row.deviation < -0.05
-  const staffing = useMemo(() => projectStaffing(ws, season, row.projectNo), [season, row.projectNo]) // eslint-disable-line react-hooks/exhaustive-deps
+  const staffing = useMemo(() => projectStaffing(ws, season, row.projectNo), [ws.allocations, season, row.projectNo]) // eslint-disable-line react-hooks/exhaustive-deps
   const staffedOther = staffing.some((entry) => entry.tagged.other || entry.shared.other)
   const staffedSum = (of: (entry: (typeof staffing)[number]) => PhaseHours, phase: keyof PhaseHours) => staffing.reduce((total, entry) => total + of(entry)[phase], 0)
   const staffedTotal = staffing.reduce((total, entry) => total + entry.tagged.Montering + entry.tagged.Demontering + entry.tagged.other + entry.shared.Montering + entry.shared.Demontering + entry.shared.other, 0)
