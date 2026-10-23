@@ -1,7 +1,7 @@
 import { addDays, weekdayIndex, type ISODate } from '../dates'
 import { dayType } from '../holidays'
 import { type Assignment, type CapacityLine, type CompetenceKey, type DayValues, type Interval, type Minute, type Person, type Unavailability, type WorkdaySettings, type Workspace } from '../types'
-import { normalDay, overtimeHours, paidHours, paidTotal, subtract } from './intervals'
+import { normalDay, normalDayHours, overtimeHours, paidHours, paidTotal, subtract } from './intervals'
 
 /**
  * A person's time in Bemanning: when they can work, which blocks count and for how much (R7), absence as days and periods (R35), and overtime per day and week (R13, R36), with the Kalender's staffing lines for absence and overtime.
@@ -59,7 +59,7 @@ export const staffHours = ({ persons, unavailability, settings }: Pick<Workspace
  */
 export const absenceFte = ({ persons, unavailability, settings }: Pick<Workspace, 'persons' | 'unavailability' | 'settings'>): DayValues => {
   const wd = settings.workday
-  const full = paidHours(normalDay(wd), wd)
+  const full = normalDayHours(wd)
   const staff = new Set((persons ?? []).map((person) => person.id))
   const days: DayValues = {}
   const seen = new Set<string>()

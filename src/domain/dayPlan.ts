@@ -4,7 +4,7 @@ import { competenceStyles } from './competences'
 import { dayType } from './holidays'
 import { isWaiting } from './hire'
 import { numberKey, projectNamer } from './projects'
-import { paidHours } from './staffing/intervals'
+import { normalDayHours, paidHours } from './staffing/intervals'
 import { NO_PROJECT, PROJECT_PLACE, buildProjectBalance, placeKey } from './staffing/projectBalance'
 import { okAssignments } from './staffing/time'
 import { competenceKey, PLANNED_BASIS, type CompetenceKey, type Minute, type Workspace } from './types'
@@ -298,7 +298,7 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
  */
 const dayGroups = (ws: Workspace, date: ISODate, fitters: DayFitter[], hired: DayHired[], cards: ProjectCard[], rankOf: (c: CompetenceKey) => number): DayPlaceGroup[] => {
   const wd = ws.settings.workday
-  const fullDay = paidHours({ start: wd.dayStart, end: wd.dayEnd }, wd) || ws.settings.hoursPerDay
+  const fullDay = normalDayHours(wd) || ws.settings.hoursPerDay
   const places = new Map<string, DayPlaceGroup>()
   const keyOf = (projectNo: string, hall: string) => `${numberKey(projectNo)}|${hall.trim().toLowerCase()}`
   const cardOf = (projectNo: string) => cards.find((card) => numberKey(card.projectNo) === numberKey(projectNo))

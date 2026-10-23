@@ -209,8 +209,8 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
           </button>
         </>,
       )}
-      <div className="op">
-        <div className="op-bar">
+      <div className="op card">
+        <div className="card-head">
           <input className="search" type="search" placeholder="Søk arrangement eller hall" value={search} onChange={(e) => setSearch(e.target.value)} />
           <Segmented
             label="Vis"

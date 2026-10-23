@@ -133,8 +133,8 @@ export function Prosjekter({ head, notify, show, rows, onOpenBehov }: TablePage 
           onFile={onFile}
         />,
       )}
-      <div className="op">
-        <div className="op-bar">
+      <div className="op card">
+        <div className="card-head">
           <input className="search" type="search" placeholder="Søk nummer eller navn" value={search} onChange={(e) => setSearch(e.target.value)} />
           <span className="muted small">
             {count(inTable.length, 'prosjekt', 'prosjekter')} · {projects.length} navn

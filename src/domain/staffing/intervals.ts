@@ -36,6 +36,12 @@ export const normalDay = (wd: WorkdaySettings): Interval => ({ start: wd.dayStar
 /** R1: the hours of an interval that are paid, which is all of it but the lunch break. */
 export const paidHours = (iv: Interval, wd: WorkdaySettings): number => (length(iv) - overlap(iv, { start: wd.breakStart, end: wd.breakEnd })) / 60
 
+/**
+ * The paid hours of the normal day: what one of the permanent staff can work on a workday they are not away. The
+ * capacity of the staff on Faste, Resultat's day averages (through `staffHours`) and the work plans count by it.
+ */
+export const normalDayHours = (wd: WorkdaySettings): number => paidHours(normalDay(wd), wd)
+
 /** The paid hours of several stretches of time together. */
 export const paidTotal = (intervals: Interval[], wd: WorkdaySettings): number => intervals.reduce((sum, iv) => sum + paidHours(iv, wd), 0)
 

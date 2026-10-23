@@ -3,7 +3,7 @@ import { loadStaffingFixture, withStaffingFixture } from '../../test/staffingFix
 import { capacityForDate, dailyNeed, planningSettings } from '../calc'
 import { openUnresolved, removeCarried, balanceTotals, buildBalance, dayBalance, defaultBrush, freeCapacity, removeUnresolved, uncoverable, weekTotals } from './balance'
 import { copyDays, moveDay, pasteDays, clearDays, clickBlock, drawBlock, invariantBreaches, mergeAdjacent, moveAssignment, moveBlock, moveTarget, paintBlock, paintDays, recolourBlock, resizeBlock, splitBlock } from './edit'
-import { freeIntervals, overtimeHours, paidHours } from './intervals'
+import { freeIntervals, normalDayHours, overtimeHours, paidHours } from './intervals'
 import { cellsToDemand, carry } from './projectBalance'
 import { ABSENCE_LINE_ID, OVERTIME_LINE_ID, overtimeByDay, overtimeLine, absenceFte, absenceLine, absenceSpans, addAbsence, backFrom, editAbsence, overtimeBreaches, overtimeByWeek, isAway, assignmentStatus, editableWindows, normalWindows, personWeek, unresolvedAssignments } from './time'
 import { competenceKey, DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type Unavailability, type Workspace } from '../types'
@@ -54,6 +54,11 @@ describe('hours and overtime', () => {
     expect(paidHours(iv('11:30', '15:00'), wd)).toBe(3.5)
     expect(paidHours(iv('10:00', '12:00'), wd)).toBe(1.5)
     expect(paidHours(iv('15:00', '18:00'), wd)).toBe(3)
+  })
+
+  it('counts a normal day by its paid hours: what one of the permanent staff can work', () => {
+    expect(normalDayHours(wd)).toBe(7.5)
+    expect(normalDayHours({ ...wd, breakStart: wd.breakEnd })).toBe(8)
   })
 
   it('D2 counts the hours outside the normal day, and all of a weekend, as overtime', () => {

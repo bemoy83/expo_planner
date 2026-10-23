@@ -122,8 +122,8 @@ export function Kompetanser({ head, notify, show }: TablePage) {
           onFile={onFile}
         />,
       )}
-      <div className="op">
-        <div className="op-bar">
+      <div className="op card">
+        <div className="card-head">
           <input className="search" type="search" placeholder="Søk kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
           <span className="muted small mk-bar-note">{movable ? 'Dra en rad for å endre rekkefølgen i Bemanning.' : 'Rekkefølgen kan endres når søket er tomt.'}</span>
           <span className="toolbar-gap" />

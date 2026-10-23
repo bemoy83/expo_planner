@@ -16,6 +16,19 @@ table.ledger .planned{background:var(--pos-bg)}
 /* numbers and dates are set as in the Kalender */
 table.ledger .num,table.ledger .date,table.ledger td.project-no,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
 
+/* a ledger on a card (Behov, Tekstregler, Utelatte artikler): slim rows edited in place, the heading held at the top of the card
+   and the sum line at its foot. The rows' own heights and rules are the table's. */
+table.ledger.card-table{background:none;font-size:var(--fs-md)}
+table.ledger.card-table :is(th,td){border:none;padding:0 6px}
+table.ledger.card-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--surface);font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
+table.ledger.card-table tr>:is(th,td):first-child{padding-left:14px}
+table.ledger.card-table tr>:is(th,td):last-child{padding-right:14px}
+/* the sum line, held at the foot of the card: what counts, of how many, beside the hours */
+table.ledger.card-table tfoot td{position:sticky;bottom:0;z-index:1;height:44px;border-top:1px solid var(--line-strong);background:var(--surface);font-weight:600;text-align:left}
+table.ledger.card-table tfoot td.num{text-align:right}
+.sum-lead{display:flex;align-items:baseline;gap:10px;font-size:var(--fs-md)}
+.sum-lead .muted{font-size:var(--fs-sm);font-weight:400}
+
 /* a column's heading, see ColumnHead.tsx: a click on its name sorts by it, with an arrow for the direction */
 button.col-sort{padding:0;gap:3px;border-radius:4px;background:transparent;font-weight:inherit}
 button.col-sort:hover{background:transparent;color:var(--accent)}

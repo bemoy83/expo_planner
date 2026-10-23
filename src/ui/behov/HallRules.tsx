@@ -202,8 +202,8 @@ export function HallRules({ head, notify, show }: TablePage) {
         />,
       )}
       <div className="hl-rules">
-        <div className="op">
-          <div className="op-bar">
+        <div className="op card">
+          <div className="card-head">
             <Segmented
               label="Del av hallreglene"
               value={part}
@@ -249,7 +249,7 @@ export function HallRules({ head, notify, show }: TablePage) {
               </button>
             )}
           </div>
-          <p className="op-lead hl-lead">{LEAD[part]}</p>
+          <p className="hl-lead">{LEAD[part]}</p>
 
           {part === 'unplaced' &&
             (!ws.demand.length ? (

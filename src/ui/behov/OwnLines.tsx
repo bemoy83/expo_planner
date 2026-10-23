@@ -92,7 +92,7 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
   const inView = lines.filter((l) => shown.some(([no]) => no === l.projectNo))
   const plannedLines = inView.filter((l) => l.basis === PLANNED_BASIS)
   return (
-    <table className="ledger own-lines">
+    <table className="ledger card-table own-lines">
       <thead>
         <tr>
           <th className="pick" />

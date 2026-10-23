@@ -39,7 +39,18 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
   }
   const seenOf = (article: ExcludedArticle) => seen.get(articleKey(article.articleNo))
   const columns: Column<ExcludedArticle>[] = [
-    { key: 'articleNo', head: 'Art.nr', text: (article) => article.articleNo, cell: (article) => <strong className="op-number">{article.articleNo}</strong> },
+    {
+      key: 'articleNo',
+      head: 'Art.nr',
+      text: (article) => article.articleNo,
+      cell: (article) => <strong className="op-number">{article.articleNo}</strong>,
+      foot: () => (
+        <span className="sum-lead">
+          <span className="muted">Nå holdes {count(dropped, 'ordrelinje', 'ordrelinjer')} utenfor</span>
+        </span>
+      ),
+      footSpan: 5,
+    },
     {
       key: 'note',
       head: 'Merknad',
@@ -73,8 +84,8 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
   ]
   const table = useTable(listed, columns)
   return (
-    <div className="op">
-      <div className="op-bar">
+    <div className="op card">
+      <div className="card-head">
         <p className="op-lead">
           Ordrelinjer med disse artikkelnumrene <strong>leses ikke</strong>: ingen linjer, ingen timer, i noe prosjekt. For det som er bestilt, men ikke er arbeid for mannskapet, som frakt og gebyrer.
         </p>
@@ -105,12 +116,9 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
         </button>
         {known ? <span className="op-warn">Artikkelen er allerede utelatt.</span> : typed && <span className="muted small">{count(typed.lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor</span>}
       </form>
-      <div className="op-scroll">
+      <div className="op-body">
         {listed.length ? (
-          <>
-            <DataTable table={table} className="op-excluded" rowKey={(article) => articleKey(article.articleNo)} />
-            <p className="op-sum muted">Nå holdes {count(dropped, 'ordrelinje', 'ordrelinjer')} utenfor.</p>
-          </>
+          <DataTable table={table} className="card-table op-excluded" rowKey={(article) => articleKey(article.articleNo)} />
         ) : (
           <p className="op-empty">Ingen artikler er utelatt. Alle ordrelinjer regnes med.</p>
         )}

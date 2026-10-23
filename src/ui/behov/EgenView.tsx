@@ -241,7 +241,7 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
           />
         )}
         <section className="card behov-card">
-          <div className="behov-chead">
+          <div className="card-head">
             <h2 className="behov-title">
               {projectNo ? projectName : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
             </h2>

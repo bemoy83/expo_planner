@@ -28,7 +28,20 @@ export function TextRules({ notify, onOpenBehov }: { notify: Notify; onOpenBehov
   const competenceOf = (name: string) => types.find((type) => type.productType.toLowerCase() === name.toLowerCase())?.competence ?? ''
 
   const columns: Column<TextRule>[] = [
-    { key: 'text', head: 'Artikkeltekst i Visma', text: (rule) => rule.text, cell: (rule) => <span className="op-quote">«{rule.text}»</span> },
+    {
+      key: 'text',
+      head: 'Artikkeltekst i Visma',
+      text: (rule) => rule.text,
+      cell: (rule) => <span className="op-quote">«{rule.text}»</span>,
+      foot: () => (
+        <span className="sum-lead">
+          <span className="muted">
+            {count(rules.length, 'regel', 'regler')} gir produkttype til {count(rules.reduce((sum, rule) => sum + linesOf(rule), 0), 'ordrelinje', 'ordrelinjer')}
+          </span>
+        </span>
+      ),
+      footSpan: 5,
+    },
     { key: 'arrow', className: 'op-arrow', cell: () => <ArrowRight size={13} aria-hidden /> },
     {
       key: 'type',
@@ -72,26 +85,20 @@ export function TextRules({ notify, onOpenBehov }: { notify: Notify; onOpenBehov
   const table = useTable(rules, columns)
 
   return (
-    <div className="op">
-      <div className="op-bar">
+    <div className="op card">
+      <div className="card-head">
         <p className="op-lead">
           Linjer <strong>uten produkttype</strong> i Visma med en av disse artikkeltekstene regnes som typen, også i neste utskrift. Reglene lages under «Avklar» på Behov.
         </p>
-        <span className="toolbar-gap" />
         {untyped > 0 && (
           <button className="need-button" onClick={onOpenBehov} title="Gi linjene en arbeidstype under «Avklar» på Behov">
             {count(untyped, 'linje', 'linjer')} venter på Behov <ArrowRight size={13} aria-hidden />
           </button>
         )}
       </div>
-      <div className="op-scroll">
+      <div className="op-body">
         {rules.length ? (
-          <>
-            <DataTable table={table} className="op-rules" rowKey={(rule) => rule.text.toLowerCase()} />
-            <p className="op-sum muted">
-              {count(rules.length, 'regel', 'regler')} gir produkttype til {count(rules.reduce((sum, rule) => sum + linesOf(rule), 0), 'ordrelinje', 'ordrelinjer')}.
-            </p>
-          </>
+          <DataTable table={table} className="card-table op-rules" rowKey={(rule) => rule.text.toLowerCase()} />
         ) : (
           <p className="op-empty">Ingen tekstregler ennå. De lages når du gir linjer uten produkttype en arbeidstype under «Avklar» på Behov.</p>
         )}

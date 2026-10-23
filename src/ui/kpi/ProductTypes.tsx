@@ -118,16 +118,23 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
     given: ({ name, inUse }, unit = inUse?.unit) =>
       unit === inUse?.unit ? yields.get(productTypeKey(name)) : unit ? yieldByType(bookings, setActiveUnit(kpi, name, unit)).get(productTypeKey(name)) : undefined,
   }
-  /** The hours the lines of the types give, where each is set up. */
-  const total = (types: KpiType[]) =>
-    types.reduce((sum, type) => {
-      const given = !type.lacking && edits.given(type)
-      return given ? sum + given.assembly + given.dismantle : sum
-    }, 0)
+  /** The hours the lines of the types give, montering and demontering, where each is set up. */
+  const sums = (types: KpiType[]) =>
+    types.reduce(
+      (sum, type) => {
+        const given = !type.lacking && edits.given(type)
+        return given ? { assembly: sum.assembly + given.assembly, dismantle: sum.dismantle + given.dismantle } : sum
+      },
+      { assembly: 0, dismantle: 0 },
+    )
+  const total = (types: KpiType[]) => {
+    const { assembly, dismantle } = sums(types)
+    return assembly + dismantle
+  }
 
   return (
-    <div className="op">
-      <div className="op-bar">
+    <div className="op card">
+      <div className="card-head">
         <input className="search" type="search" placeholder="Søk produkttype, enhet eller kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
         <Segmented
           label="Vis"
@@ -222,6 +229,18 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
             })}
             {!shown.length && <p className="op-empty">Ingen produkttyper passer søket eller filteret.</p>}
           </div>
+          <div className="op-row op-foot">
+            <span className="sum-lead op-foot-lead">
+              Sum
+              <span className="muted">
+                {shown.length === types.length ? count(types.length, 'produkttype', 'produkttyper') : `${shown.length} av ${count(types.length, 'produkttype', 'produkttyper')}`}
+                {lacking.length > 0 && ` · ${lacking.length} mangler oppsett, timene deres er ukjente`}
+              </span>
+            </span>
+            <span className="op-foot-hours">
+              <Hours given={sums(shown)} />
+            </span>
+          </div>
         </div>
       ) : (
         <p className="op-empty">
@@ -253,7 +272,7 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
 }
 
 /** The hours a type's lines give, montering and demontering, each by the square of its phase. */
-function Hours({ given }: { given?: TypeYield }) {
+function Hours({ given }: { given?: Pick<TypeYield, 'assembly' | 'dismantle'> }) {
   if (!given || given.assembly + given.dismantle === 0) return null
   return (
     <span className="op-hours">

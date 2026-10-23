@@ -56,7 +56,7 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
   }
   const at = place ? PLACE_STEPS.indexOf(place.by) : -1
   return (
-    <aside className="hl-side" aria-label="Prøv en tekst">
+    <aside className="hl-side card" aria-label="Prøv en tekst">
       <div className="insp-body">
         <section className="insp-sec rules-try">
           <h3 className="insp-h">Prøv en tekst</h3>

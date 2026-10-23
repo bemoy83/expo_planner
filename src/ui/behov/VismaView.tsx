@@ -373,7 +373,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
           </p>
         )}
         <section className="card behov-card">
-          <div className="behov-chead">
+          <div className="card-head">
             <h2 className="behov-title" title="Linjer med arbeidstype, sats og hall er med av seg selv. Avklar resten, eller utelat det som ikke skal med.">
               {projectNo ? (names.get(projectNo) ?? projectNo) : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
             </h2>
@@ -426,7 +426,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             ) : (
               <DataTable
                 table={table}
-                className="visma-lines"
+                className="card-table visma-lines"
                 limit={LIST_LIMIT}
                 rowKey={(line) => line.key}
                 rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : '', lit ? (lit.has(line.key) ? 'lit' : 'dim') : ''].filter(Boolean).join(' ') || undefined })}

@@ -87,8 +87,8 @@ export function Leverandorer({ head, notify, show }: TablePage) {
           onFile={onFile}
         />,
       )}
-      <div className="op">
-        <div className="op-bar">
+      <div className="op card">
+        <div className="card-head">
           <input className="search" type="search" placeholder="Søk navn, kontakt eller notat" value={search} onChange={(e) => setSearch(e.target.value)} />
           <span className="muted small">Det leies inn til behovet som står igjen etter de faste.</span>
           <span className="toolbar-gap" />

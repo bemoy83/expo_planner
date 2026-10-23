@@ -18,10 +18,9 @@
 .behov-cards>*{flex:none}
 .behov-cards>:is(.orphans,.hint){margin:0}
 .behov-card{flex:0 1 auto;display:flex;flex-direction:column;overflow:hidden}
-.behov-chead{flex:none;display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-height:52px;padding:8px 14px;border-bottom:1px solid var(--line-soft)}
 .behov-title{margin:0 6px 0 0;font-size:var(--fs-title-sm);font-weight:700;letter-spacing:-.015em;white-space:nowrap}
 .behov-title .project-no{font-weight:400}
-.behov-chead .search{width:220px}
+.behov-card>.card-head .search{width:220px}
 .behov-card-body{flex:0 1 auto;min-height:0;overflow:auto}
 .behov-empty,.behov-limit,.own-empty{margin:0;padding:16px 14px}
 .all-clear{display:flex;align-items:center;gap:8px;margin:16px;padding:16px 18px;border-radius:10px;background:var(--sunken);color:var(--muted)}
@@ -46,17 +45,7 @@
 .rail-bar i{display:block;height:100%;background:var(--pos)}
 
 /* the Visma lines: slim rows on one line each, a rule under each, and only the exceptions marked */
-/* the two tables of Behov: slim rows edited in place, a rule under each line, a checkbox that shows under the pointer */
-table.ledger:is(.visma-lines,.own-lines){background:none;font-size:var(--fs-md)}
-table.ledger:is(.visma-lines,.own-lines) :is(th,td){border:none;padding:0 6px}
-table.ledger:is(.visma-lines,.own-lines) th{z-index:2;border-bottom:1px solid var(--line);background:var(--surface);font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
-table.ledger:is(.visma-lines,.own-lines) tr>:is(th,td):first-child{padding-left:14px}
-table.ledger:is(.visma-lines,.own-lines) tr>:is(th,td):last-child{padding-right:14px}
-/* the sum line, held at the foot of the card: what counts, of how many, beside the hours */
-table.ledger:is(.visma-lines,.own-lines) tfoot td{position:sticky;bottom:0;z-index:1;height:44px;border-top:1px solid var(--line-strong);background:var(--surface);font-weight:600;text-align:left}
-table.ledger:is(.visma-lines,.own-lines) tfoot td.num{text-align:right}
-.sum-lead{display:flex;align-items:baseline;gap:10px;font-size:var(--fs-md)}
-.sum-lead .muted{font-size:var(--fs-sm);font-weight:400}
+/* the two tables of Behov, on the card table of tables.css: a checkbox that shows under the pointer */
 table.ledger:is(.visma-lines,.own-lines) tr.selected td{background:var(--accent-soft)}
 table.ledger:is(.visma-lines,.own-lines) td.pick input{opacity:0}
 table.ledger:is(.visma-lines,.own-lines) :is(tr:hover td.pick input,td.pick input:checked,th.pick input,tr.project-row td.pick input){opacity:1}
@@ -114,7 +103,7 @@ button.exclude.on{color:var(--text)}
 @container (max-width:900px){
   table.ledger.visma-lines :is(thead,tbody) .wide{width:0;padding:0;font-size:0}
   table.ledger.visma-lines :is(thead,tbody) .wide>*{display:none}
-  .behov-chead .search{width:160px}
+  .behov-card>.card-head .search{width:160px}
 }
 
 /* ---- Egen registrering ---- */

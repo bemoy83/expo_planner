@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { addPerson, competenceStyles, diffPersons, isNameTaken, mergePersons, removePerson, replacePersons, togglePersonCompetence, updatePerson, type FilePerson } from '../../domain/competences'
 import { todayIso } from '../../domain/dates'
+import { normalDayHours } from '../../domain/staffing/intervals'
 import type { CompetenceKey, Person } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { readPersonellWorkbook, writePersonellWorkbook } from '../../import/personellFile'
@@ -9,6 +10,7 @@ import { ConfirmDialog, MergeReplaceDialog } from '../common'
 import { count } from '../dom'
 import { download, XLSX_TYPE } from '../files'
 import { TextField } from '../fields'
+import { hoursText } from '../format'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { AddDialog } from './AddDialog'
@@ -32,6 +34,8 @@ export function Personell({ head, notify, show, onOpenSuppliers }: TablePage & {
   const persons = useMemo(() => ws.persons ?? [], [ws.persons])
   const styles = useMemo(() => competenceStyles(ws), [ws])
   const label = (key: CompetenceKey) => styles.find((style) => style.key === key)?.label ?? key
+  // What each can work on a normal day: the capacity Resultat sets the plan against.
+  const dayHours = normalDayHours(ws.settings.workday)
   const holders = (key: CompetenceKey) => persons.filter((p) => p.competences.includes(key)).length
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -111,8 +115,8 @@ export function Personell({ head, notify, show, onOpenSuppliers }: TablePage & {
           onFile={onFile}
         />,
       )}
-      <div className="op">
-        <div className="op-bar">
+      <div className="op card">
+        <div className="card-head">
           <input className="search" type="search" placeholder="Søk navn eller notat" value={search} onChange={(e) => setSearch(e.target.value)} />
           <span className="toolbar-gap" />
           <button className="primary" onClick={() => setAdding(true)}>
@@ -157,6 +161,15 @@ export function Personell({ head, notify, show, onOpenSuppliers }: TablePage & {
                   )}
                 </p>
               )}
+            </div>
+            <div className="op-row op-foot">
+              <span className="sum-lead op-foot-lead">
+                Faste {persons.length}
+                <span className="muted">
+                  {persons.length} × {hoursText(dayHours)} t = {hoursText(persons.length * dayHours)} t per arbeidsdag
+                  {competence && ` · ${holders(competence)} har ${label(competence)}`}
+                </span>
+              </span>
             </div>
           </div>
         ) : (

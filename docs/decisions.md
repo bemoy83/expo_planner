@@ -192,6 +192,15 @@ Built 2026-10-23 from the handoff `design_docs/design_handoff_behov_v2/`, which 
 - One rail for both views, as in the handoff (the planner's wish, 2026-10-23): Egen registrering's, by build-up with a search. In Visma it shows the count to resolve or a check, and mutes a project with no export («ingen utskrift»); the bar of how much counts and «N med · N utelatt» are gone from it.
 - Below 900 px the Visma table empties the cells of Avd. and Antall (until then the rule hid Mont. and Antall by position, a mistake since Effekt and Kommentar came).
 
+## The tabs of tables as cards: built, to be tested by the user
+
+Built 2026-10-23 from the handoff `design_docs/design_handoff_samlet/` (its register card; Resultat and Behov v2 were built before), which the planner keeps out of git. Layout only: each page of Haller, Mannskap and Oppsett is a raised card (`.op card`), as tall as its rows up to the foot of the page, as on Behov; its bar is the card's head, and the strips under it (how a line becomes hours, the competences, the lead of Hallregler, the form of Utelatte artikler) lie flat on the panel's tint.
+
+- One head and one table for every card: `.card-head` in `base.css` and `table.ledger.card-table` in `tables.css`, which Behov's two tables and Tekstregler and Utelatte artikler share (the planner's choice, 2026-10-23).
+- A sum row only where there is a number to read: Produkttyper («Sum · n produkttyper · x mangler oppsett», with the hours of montering and demontering of the types shown) and Faste; Tekstregler and Utelatte keep their sentence, now held at the foot.
+- Faste's sum is the people times the paid hours of the normal day (`normalDayHours`, `domain/staffing/intervals.ts`), the day Resultat sets the plan against, not «Timer per dag» (the planner's choice, 2026-10-23). There is no «Aktiv» switch for a person, as the mock-up has: it would be new logic, and the planner left it for now.
+- Hallregler's tester is a card of its own beside the rules.
+
 ## Project tagging, places and work plans: built, to be tested by the user
 
 Blocks, orders and moved hours carry a project, blocks a place, and the shared week plan and the day plan print from them (`design_docs/ukeplan/README.md`, the Claude Doc «Prosjektmerking: byggeplan»). Still open:
