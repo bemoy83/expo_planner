@@ -11,8 +11,8 @@
 .op-lead{flex:1 1 320px;min-width:0;margin:0;font-size:var(--fs-sm);color:var(--muted);text-wrap:pretty}
 .op-lead strong{color:var(--text)}
 .op>.card-head>button{flex:none;white-space:nowrap}
-/* what explains or adds to the table lies flat under the head, on the panel's tint */
-:is(.op-flow,.mk-cover,.hl-lead,.op-add){flex:none;margin:0;padding:7px var(--card-inset);border-radius:0;background:var(--panel);border-bottom:1px solid var(--line-soft)}
+/* what explains or adds to the table lies flat under the head, on the tint of a card's context (as on Egen registrering) */
+:is(.op-flow,.mk-cover,.hl-lead,.op-add){flex:none;margin:0;padding:7px var(--card-inset);border-radius:0;background:var(--context-tint);border-bottom:1px solid var(--line-soft)}
 
 /* Produkttyper: how a line becomes hours, in one strip */
 .op-flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:var(--fs-sm);color:var(--muted)}
@@ -69,13 +69,10 @@
 .op-per{margin-left:2px;font-style:normal;font-size:var(--fs-xs);color:var(--faint)}
 .op-actions{display:flex;justify-content:flex-end;gap:2px;opacity:0}
 .op-row:hover .op-actions,.op-actions:focus-within{opacity:1}
-/* the hours a type gives, by the squares of the phases */
+/* the hours a type gives, by the squares of the work phases as the plan of the Kalender colours them */
 .op-hours{display:flex;gap:12px;font:500 var(--fs-sm) var(--font-num)}
 .op-hours>span{display:inline-flex;align-items:center;gap:5px;min-width:44px}
 .op-phase{width:8px;height:8px;border-radius:2px;flex:none}
-.op-phase.assembly{background:var(--ph-assembly)}
-.op-phase.dismantle{background:var(--ph-dismantle)}
-/* the work phases as the plan of the Kalender colours them, on VenYou */
 .op-phase.mon{background:var(--mon)}
 .op-phase.dem{background:var(--dem)}
 .op-unknown{font-size:var(--fs-sm);color:var(--faint)}

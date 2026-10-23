@@ -278,11 +278,11 @@ function Hours({ given }: { given?: Pick<TypeYield, 'assembly' | 'dismantle'> })
   return (
     <span className="op-hours">
       <span title="Montering">
-        <i className="op-phase assembly" aria-hidden />
+        <i className="op-phase mon" aria-hidden />
         {wholeHours(given.assembly)}
       </span>
       <span title="Demontering">
-        <i className="op-phase dismantle" aria-hidden />
+        <i className="op-phase dem" aria-hidden />
         {given.dismantle ? wholeHours(given.dismantle) : '–'}
       </span>
     </span>
