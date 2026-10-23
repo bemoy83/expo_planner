@@ -57,10 +57,10 @@ export function ResultMatrix({ rows, halls, today, overhead, actuals, open, onOp
   const totals = seasonTotals(rows)
   const columns = [
     'minmax(150px,2.4fr)',
-    'repeat(5,minmax(16px,.3fr))',
+    'repeat(5,24px)',
     '4px',
-    halls.length ? `repeat(${halls.length},minmax(16px,.35fr))` : '',
-    others.length ? 'minmax(30px,.45fr)' : '',
+    halls.length ? `repeat(${halls.length},22px)` : '',
+    others.length ? '28px' : '',
     'minmax(48px,2fr)',
     'minmax(120px,1.6fr)',
     `repeat(${actuals ? 3 : 1},minmax(54px,.9fr))`,

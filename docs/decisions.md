@@ -178,6 +178,7 @@ Where the build differs from the handoff, to reuse what the app has:
 - «Importer» and «Eksporter» stay behind «Fil», with the budget alone, until actual hours can be read in.
 - Hours on the figures and in the matrix are whole; the panels keep a decimal where the app writes one.
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
+- The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
 ## Project tagging, places and work plans: built, to be tested by the user
 
