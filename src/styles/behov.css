@@ -81,7 +81,7 @@ button.exclude.on{color:var(--text)}
 .quiet-chip:hover svg{opacity:1}
 .chosen-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex:none}
 .need-button{background:var(--surface);box-shadow:var(--raise);color:var(--text);font-weight:600}
-.need-button::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 2px color-mix(in oklab,var(--alert-warn) 28%,transparent)}
+.need-button::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 2px var(--attention-ring)}
 .need-button svg{color:var(--faint)}
 .need-button:hover{background:var(--surface);box-shadow:var(--raise-hover)}
 .need-button:hover svg{color:var(--text)}

@@ -13,6 +13,7 @@
   --panel:#faf9f6;
   --sunken:#e7e4dd;
   --text:#171613;          /* ink */
+  --bar-ink:color-mix(in srgb,var(--text) 60%,transparent);   /* the writing on the bars of the hall calendar and the names beside them */
   --muted:#5b5953;         /* ink-muted */
   --faint:#77746c;         /* ink-faint */
   --line:#dcd8cf;          /* border */
@@ -136,6 +137,7 @@
   /* An alert on the band, and the badge of a sick day in Bemanning, is a solid chip with its own ink: 4.5:1 for the text on the chip and 3:1 for the chip on the band, in
      both modes. The light ones are at the limit, so they are not made lighter; check both again if the band changes. */
   --alert-warn:#d1aa6e; --alert-block:#d27f66; --alert-on:#140c05;   /* a light chip with dark ink */
+  --attention-ring:color-mix(in oklab,var(--alert-warn) 28%,transparent);   /* the ring around a dot that asks for the planner's eye; made again where the chip's colour changes */
 }
 .kalender[data-mode='bemanning']{
   --mode-h:195; --mode-c:.07;
@@ -166,6 +168,7 @@
   --mode-field:oklch(0.47 calc(var(--mode-c) * .45) var(--mode-h) / .6);
   --mode-field-hover:oklch(0.52 calc(var(--mode-c) * .45) var(--mode-h) / .8);
   --alert-warn:#856224; --alert-block:#9b462c; --alert-on:#fff;         /* a dark chip with light ink */
+  --attention-ring:color-mix(in oklab,var(--alert-warn) 28%,transparent);
 }
 .dark .kalender[data-mode='bemanning']:not([data-part='innleid']){--mode-band:#344d4d; --mode-line:#112323; --mode-track:#223737; --mode-ink:#dbeceb; --mode-mute:#a4bdbd}
 

@@ -118,7 +118,7 @@
 /* a hall's name sits at the right edge of the label column, next to its bars */
 .lbl-hall{margin-left:auto;font-family:var(--font-num);font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
 .halls.compact .lbl-hall{font-size:var(--fs-xs)}
-.hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:var(--fs-2xs);color:color-mix(in srgb,var(--text) 60%,transparent)}
+.hall-bar{position:absolute;top:3px;height:16px;border-radius:4px;overflow:hidden;text-align:center;line-height:16px;font-family:var(--font-num);font-size:var(--fs-2xs);color:var(--bar-ink)}
 /* compact, in the hall calendar and in the project lines of Bemanning: the bar alone */
 .top-section.compact .hall-bar{height:6px;padding:0;border-radius:3px}
 /* a click on an event's bar scrolls the planning rows to its project */
@@ -128,7 +128,7 @@
 /* An event's name, anchored to the first day of the arrangement in the hall. */
 /* an event's name, written as the phase letters of the bars: the run is the stretch it may move in, and the name sticks to the left edge of the days inside it */
 .hall-label-run{position:absolute;top:0;bottom:0;z-index:1;display:flex;pointer-events:none}
-.hall-label{position:sticky;padding-left:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;font-family:var(--font-num);font-size:var(--fs-2xs);color:color-mix(in srgb,var(--text) 60%,transparent);pointer-events:none}
+.hall-label{position:sticky;padding-left:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;font-family:var(--font-num);font-size:var(--fs-2xs);color:var(--bar-ink);pointer-events:none}
 /* Pointing at a project lights its bars and its halls, and a click on its name keeps them lit; the rule that picks the project is written by useProjectHover. */
 .hall-bar,.hall-label,.lbl-hall{transition:opacity .12s}
 .ph-assembly{background-color:var(--ph-assembly)}
