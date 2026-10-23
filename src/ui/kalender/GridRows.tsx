@@ -334,7 +334,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, waitingHire
           height={HEAT_ROW_H}
           label={
             <>
-              <span className="lbl-cap strong">Avvik</span>
+              <span className="lbl-cap strong">Mangler / over</span>
               <HeatLegend title={`Rødt: underdekning (mørkere = større). Grønt: ok, opptil ${formatFte(OK_UP_TO)} FTE ledig. Oker: over (sterkere = mer).`} />
             </>
           }
@@ -357,7 +357,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, waitingHire
       ) : (
         <Line
           className="sum-row deviation-row"
-          label={<span className="lbl-cap strong">Avvik</span>}
+          label={<span className="lbl-cap strong">Mangler / over</span>}
           cols={cols}
           cells={(date) => {
             const dev = capacityForDate(date, capacity, settings).available - (need.get(date) ?? 0)

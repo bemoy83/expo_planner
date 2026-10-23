@@ -6,7 +6,7 @@
 /* The band has two lines, above the header and under the bar, and none between them. Its colours are in tokens.css; they change
    with the mode, softly, while the switch zooms. What the band holds is drawn in its ink: a track for each segmented control, a
    see-through field for each button that opens a menu. A menu that opens from the band is not part of it. */
-.mode-band{background:var(--mode-band);color:var(--mode-ink)}
+.mode-band{background:var(--mode-band);color:var(--mode-ink);--chosen-raise:0 1px 2px var(--mode-shadow)}
 .mode-band,.mode-band .segmented,.mode-tag{transition:background-color 360ms var(--ease),color 360ms var(--ease)}
 @media (prefers-reduced-motion:reduce){.mode-band,.mode-band .segmented,.mode-tag{transition:none}}
 .page-head.mode-band{border-top:1px solid var(--mode-line)}
@@ -14,14 +14,14 @@
 .mode-tag{display:inline-flex;align-items:center;gap:5px;flex:none;height:22px;padding:0 9px 0 7px;border-radius:999px;background:var(--mode-tag);font:600 var(--fs-sm)/1 var(--font-ui);white-space:nowrap}
 .mode-band .segmented{background:var(--mode-track)}
 .mode-band .segmented button{color:var(--mode-mute)}
-.mode-band .segmented button:not(.active):hover{background:var(--mode-hover);color:var(--mode-ink)}
-.mode-band .segmented button.active{color:var(--mode-ink);box-shadow:0 1px 2px var(--mode-shadow)}
+.mode-band .segmented button:not([aria-pressed='true']):hover{background:var(--mode-hover);color:var(--mode-ink)}
+.mode-band .segmented button[aria-pressed='true']{color:var(--mode-ink)}
 .mode-band kbd{background:var(--mode-key);color:var(--mode-mute)}
 .mode-band :is(.bar-button,.bar-select,.bar-date){background:var(--mode-field);color:var(--mode-ink)}
 .mode-band :is(.bar-button,.bar-select,.bar-date):hover{background:var(--mode-field-hover)}
 .mode-band .bar-button svg{color:var(--mode-mute)}
 .mode-band .bar-zone>.icon-button{background:transparent}
-.mode-band .bar-zone>:is(.ghost,.icon-button):hover:not(:disabled),.page-head.mode-band>.ghost:hover:not(:disabled),.page-head.mode-band .icon-button.active{background:var(--mode-field)}
+.mode-band .bar-zone>:is(.ghost,.icon-button):hover:not(:disabled),.page-head.mode-band>.ghost:hover:not(:disabled),.page-head.mode-band .icon-button[aria-pressed='true']{background:var(--mode-field)}
 /* The primary action on the band is the band's own ink, filled: the accent is not seen on a mode's hue. */
 .page-head.mode-band>.primary{background:var(--mode-ink);color:var(--mode-band)}
 .page-head.mode-band>.primary:hover:not(:disabled){background:var(--mode-mute)}
@@ -157,7 +157,7 @@
 .heat.over{--heat-c:var(--over)}
 .heat-value{position:relative;z-index:1;font-weight:600}
 .heat-cell.under .heat-value{color:var(--neg)}
-.heat-cell.under.strong .heat-value{color:var(--on-neg)}
+.heat-cell.under.strong .heat-value{color:var(--text)}
 .heat-cell.ok .heat-value{color:var(--pos)}
 .heat-cell.over .heat-value{color:var(--text)}
 .heat-legend{display:inline-flex;gap:2px;margin-left:6px;cursor:help}
@@ -176,7 +176,8 @@
 
 /* a button that opens a menu, in the bar and in the page header: an icon, what is chosen, and a chevron. It has the height of the bar's controls wherever it is. */
 .bar-button{height:32px;padding:0 10px;font-weight:400}
-.bar-button.on svg:first-child{color:var(--accent)}
+/* a filter that is on: its icon in the band's ink, where it is otherwise muted */
+.bar-button.on svg:first-child{color:var(--mode-ink)}
 .bar-button-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .bar-count{padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--text);font:600 var(--fs-xs) var(--font-num)}
 

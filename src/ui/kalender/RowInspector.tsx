@@ -163,7 +163,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
                   <th>Dag</th>
                   <th>Raden</th>
                   <th>Behov</th>
-                  <th>Avvik</th>
+                  <th>Mangler / over</th>
                 </tr>
               </thead>
               <tbody>

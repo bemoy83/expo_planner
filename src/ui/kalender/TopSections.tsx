@@ -104,7 +104,7 @@ export function StaffingSection({ open, onOpen, detailsOpen, onDetailsOpen, cols
             {detailsOpen ? 'Skjul detaljer' : 'Vis detaljer'}
           </button>
         ) : (
-          <span className="section-meta">bare avvik vises</span>
+          <span className="section-meta">bare mangler og over vises</span>
         )}
       </SectionLine>
       {open && detailsOpen && (

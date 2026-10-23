@@ -52,7 +52,7 @@ const AvvikLine = memo(function AvvikLine({ cols, board, maxShortage, maxSurplus
       height={HEAT_ROW_H}
       label={
         <>
-          <span className="lbl-cap strong">Avvik</span>
+          <span className="lbl-cap strong">Mangler / over</span>
           <HeatLegend title="Rødt: timer som mangler (mørkere = flere). Grønt: ok, dekket innenfor én person på ett skift. Oker: bestilt over behovet." />
           <span className="il-total">{total > HOURS_NOISE ? `${signedHours(-total)} t` : <Check size={13} aria-label="Dekket" />}</span>
         </>

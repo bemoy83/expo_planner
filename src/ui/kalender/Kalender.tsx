@@ -49,7 +49,7 @@ import { formatFte } from '../format'
 
 /**
  * `hints` is the setting «Hjelpetekster»: with it off, pointing at a project lights nothing.
- * `heat` is the setting «Varmekart for avvik»: the Avvik line as coloured tiles.
+ * `heat` is the setting «Varmekart for mangler / over»: the Avvik line as coloured tiles.
  * `blockNames`, `selectionStyle` and `overtimeLimit` are the settings of Bemanning: what a block says, how what is picked is shown, and the overtime per week that is flagged.
  * `onOpenPersonell` opens the tab where the people are entered, from Bemanning when there are none, and `onOpenSuppliers` the tab of the suppliers, from Innleid.
  */

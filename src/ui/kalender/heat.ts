@@ -13,7 +13,7 @@ interface HeatTile {
   kind: HeatKind
   /** How much of the kind's colour is mixed into the page colour, in per cent. */
   percent: number
-  /** The fill is dark enough to need light text. */
+  /** The fill is strong enough that the figure is written in the page's ink, not the kind's. */
   strong: boolean
 }
 
@@ -34,16 +34,17 @@ export const heatKind = (deviation: number): HeatKind => (deviation < -FTE_NOISE
 /**
  * The tile for a day: red when under, darker the larger the shortage; one flat green when ok, which never says how much
  * is to spare; ochre when over, stronger the more. Over and under are on one scale, and ochre stops below where red goes,
- * so a shortage is always the darker of two the same size. `kind` is given where the line has rules of its own for it.
+ * so a shortage is always the darker of two the same size. The tiles are kept soft, a tint on the page as the other
+ * fills of the app are (2026-10-23): a shortage at most 42 % of its colour, a surplus 30 %. `kind` is given where the line has rules of its own for it.
  */
 export const heatTile = (deviation: number, maxShortage: number, maxSurplus: number, kind: HeatKind = heatKind(deviation)): HeatTile => {
   if (kind === 'under') {
     const share = Math.min(1, -deviation / Math.max(1, maxShortage))
-    return { kind, percent: Math.round(22 + share * 63), strong: share > 0.5 }
+    return { kind, percent: Math.round(14 + share * 28), strong: share > 0.5 }
   }
-  if (kind === 'ok') return { kind, percent: 20, strong: false }
+  if (kind === 'ok') return { kind, percent: 14, strong: false }
   const share = Math.min(1, deviation / Math.max(1, maxShortage, maxSurplus))
-  return { kind, percent: Math.round(18 + share * 37), strong: false }
+  return { kind, percent: Math.round(10 + share * 20), strong: false }
 }
 
 export const HEAT_LABELS: Record<HeatKind, string> = { under: 'Underdekning', ok: 'Ok', over: 'Over' }

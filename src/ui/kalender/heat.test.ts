@@ -13,29 +13,29 @@ describe('heatScale', () => {
 
 describe('heatTile', () => {
   it('colours a shortage red, darker the larger it is', () => {
-    expect(heatTile(-8, 8, 10)).toEqual({ kind: 'under', percent: 85, strong: true })
-    expect(heatTile(-2, 8, 10)).toEqual({ kind: 'under', percent: 38, strong: false })
-    expect(heatTile(-20, 8, 10).percent).toBe(85)
+    expect(heatTile(-8, 8, 10)).toEqual({ kind: 'under', percent: 42, strong: true })
+    expect(heatTile(-2, 8, 10)).toEqual({ kind: 'under', percent: 21, strong: false })
+    expect(heatTile(-20, 8, 10).percent).toBe(42)
   })
 
   it('has one green for ok, from nothing to spare up to one FTE', () => {
-    expect(heatTile(0, 8, 10)).toEqual({ kind: 'ok', percent: 20, strong: false })
-    expect(heatTile(1, 8, 10)).toEqual({ kind: 'ok', percent: 20, strong: false })
+    expect(heatTile(0, 8, 10)).toEqual({ kind: 'ok', percent: 14, strong: false })
+    expect(heatTile(1, 8, 10)).toEqual({ kind: 'ok', percent: 14, strong: false })
     // Rounding noise below zero is not a shortage.
     expect(heatKind(-0.01)).toBe('ok')
     expect(heatKind(1.04)).toBe('ok')
   })
 
   it('colours more than one FTE to spare ochre, stronger the more, on the scale of the larger of the two', () => {
-    expect(heatTile(1.5, 8, 10)).toEqual({ kind: 'over', percent: 24, strong: false })
-    expect(heatTile(10, 8, 10)).toEqual({ kind: 'over', percent: 55, strong: false })
+    expect(heatTile(1.5, 8, 10)).toEqual({ kind: 'over', percent: 13, strong: false })
+    expect(heatTile(10, 8, 10)).toEqual({ kind: 'over', percent: 30, strong: false })
     // A surplus is lighter than a shortage of the same size.
     expect(heatTile(4, 8, 4).percent).toBeLessThan(heatTile(-4, 8, 4).percent)
   })
 
   it('takes the kind from a line with rules of its own', () => {
     expect(heatTile(3.5, 8, 10, 'ok').kind).toBe('ok')
-    expect(heatTile(15, 60, 15, 'over')).toEqual({ kind: 'over', percent: 27, strong: false })
+    expect(heatTile(15, 60, 15, 'over')).toEqual({ kind: 'over', percent: 15, strong: false })
   })
 })
 
