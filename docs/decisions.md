@@ -188,6 +188,7 @@ Built 2026-10-23 from the handoff `design_docs/design_handoff_behov_v2/`, which 
 - The tables stay tables (`DataTable`, `OwnLines`), not the mock-up's grid; a foot cell can span columns (`Column.footSpan`).
 - The card is as tall as its rows, up to the foot of the page, so the sum line follows the last row rather than standing at the foot of an empty card.
 - The sentence under the title of Visma is the heading's tooltip; «N t med» is the sum line.
+- One rail for both views, as in the handoff (the planner's wish, 2026-10-23): Egen registrering's, by build-up with a search. In Visma it shows the count to resolve or a check, and mutes a project with no export («ingen utskrift»); the bar of how much counts and «N med · N utelatt» are gone from it.
 - Below 900 px the Visma table empties the cells of Avd. and Antall (until then the rule hid Mont. and Antall by position, a mistake since Effekt and Kommentar came).
 
 ## Project tagging, places and work plans: built, to be tested by the user

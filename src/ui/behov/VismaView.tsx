@@ -11,7 +11,6 @@ import { Segmented, TriCheckbox, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { NumberField, TextField, type PickItem } from '../fields'
 import { Avklar } from './Avklar'
-import { ProjectRail } from './ProjectRail'
 import { NeedButton, SplitPick } from './SplitPick'
 import { CLEAR, OFFER } from './picks'
 import type { Placing } from './usePlacing'
@@ -62,6 +61,12 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
   }
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // Another project lets go of what is selected.
+  const [selectedIn, setSelectedIn] = useState(projectNo)
+  if (selectedIn !== projectNo) {
+    setSelectedIn(projectNo)
+    setSelected(new Set())
+  }
   // The lines of the card in focus in «Avklar»: lit in the table, the rest dimmed.
   const [lit, setLit] = useState<Set<string> | null>(null)
   const color = useCompetenceColor()
@@ -72,7 +77,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
 
   const projects = useMemo(() => [...review.keys()].sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b, 'nb')), [review, names])
   const project = projectNo ? review.get(projectNo) : undefined
-  // With no project chosen, the lines of every project are in scope, in the order of the rail.
+  // With no project chosen, the lines of every project are in scope, by the names of the projects.
   const scope = useMemo(() => (projectNo ? (review.get(projectNo)?.lines ?? []) : projects.flatMap((no) => review.get(no)!.lines)), [projectNo, review, projects])
   const scopeCount = (status: LineFilter) => (project ? countOf(project, status) : totals[status])
   // Lines resolved while «Trenger avklaring» is shown stay in it, marked as resolved, until the filter or the project changes: the list does not jump.
@@ -338,149 +343,123 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
   // Booking lines of article numbers left out on KPI are not read, so they are in no line here.
   const dropped = useMemo(() => excludedLines((ws.visma ?? []).filter((source) => !projectNo || source.projectNo === projectNo), kpi), [ws.visma, projectNo, kpi])
 
-  const railAside = (p: { need: number }) =>
-    p.need ? (
-      <span className="count-chip alert" title={`${count(p.need, 'linje', 'linjer')} trenger avklaring`}>
-        {p.need}
-      </span>
-    ) : (
-      <Check size={14} className="rail-done" aria-label="Ingenting å avklare" />
-    )
-
   return (
-    <div className="behov-split">
-      <ProjectRail
-        all={{ label: 'Alle prosjekter', aside: railAside(totals) }}
-        projectNo={projectNo}
-        onPick={(no) => (setSelected(new Set()), onProjectChange(no))}
-        sections={[{ heading: 'Visma-utskrifter', items: projects.map((no) => {
-          const p = review.get(no)!
-          return {
-            projectNo: no,
-            name: names.get(no) ?? no,
-            aside: railAside(p),
-            sub: [`${p.counted} med`, p.excluded ? `${p.excluded} utelatt` : ''].filter(Boolean).join(' · '),
-            done: p.lines.length ? p.counted / p.lines.length : 0,
-          }
-        }) }]}
-      />
-      <div className={`behov-main ${avklar ? 'with-panel' : ''}`}>
-        <div className="behov-cards">
-          {orphans.length > 0 && (
-            <div className="orphans" role="alert">
-              <strong>{count(orphans.length, 'linje', 'linjer')} du har endret finnes ikke lenger i Visma-utskriften.</strong> Valgene er tatt vare på og gjelder igjen hvis
-              linjen kommer tilbake. Timene deres teller ikke med nå.
-              <ul>
-                {orphans.map((o) => (
-                  <li key={o.key}>
-                    <span>
-                      {o.workType} · {o.hall} · avd. {o.avdeling}
-                    </span>
-                    <span className="muted">
-                      {[o.override.excluded && 'utelatt', o.override.effekt ? `Effekt ${decimalText(o.override.effekt)}` : '', o.override.workType && `arbeidstype ${o.override.workType}`, o.override.comment && `«${o.override.comment}»`]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </span>
-                    <button className="link" onClick={() => removeLineOverride(projectNo, o.key)}>
-                      Glem valgene
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {dropped > 0 && (
-            <p className="hint">
-              {count(dropped, 'ordrelinje', 'ordrelinjer')} {projectNo ? 'i prosjektet ' : ''}er holdt utenfor etter artikkelnummer.{' '}
-              <button className="link" onClick={onOpenSetup}>
-                Utelatte artikler på KPI
-              </button>
-            </p>
-          )}
-          <section className="card behov-card">
-            <div className="behov-chead">
-              <h2 className="behov-title" title="Linjer med arbeidstype, sats og hall er med av seg selv. Avklar resten, eller utelat det som ikke skal med.">
-                {projectNo ? (names.get(projectNo) ?? projectNo) : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
-              </h2>
-              {totals.all > 0 && (
-                <>
-                  <Segmented
-                    label="Vis linjene"
-                    value={filter}
-                    onChange={(next) => (setFilter(next), setSelected(new Set()))}
-                    options={[
-                      {
-                        value: 'need',
-                        label: (
-                          <>
-                            Trenger avklaring {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>}
-                          </>
-                        ),
-                        title: 'Linjer som mangler arbeidstype, sats eller hall, og som derfor ikke teller',
-                      },
-                      { value: 'counted', label: <>Med <span className="count">{scopeCount('counted')}</span></>, title: 'Linjer som teller i behovet det planlegges med' },
-                      { value: 'excluded', label: <>Utelatt <span className="count">{scopeCount('excluded')}</span></>, title: 'Linjer du har utelatt' },
-                      { value: 'all', label: <>Alle <span className="count">{scopeCount('all')}</span></> },
-                    ]}
-                  />
-                  <input className="search" type="search" placeholder="Søk, også i Visma-tekst" aria-label="Søk i linjene" value={search} onChange={(e) => setSearch(e.target.value)} />
-                  {table.filtered > 0 && (
-                    <button className="ghost" onClick={table.clearFilters} title="Fjerner filtrene i kolonnene">
-                      Nullstill ({table.filtered})
-                    </button>
-                  )}
-                  <span className="toolbar-gap" />
-                  <button className="primary" disabled={avklar} title="Avklar linjene samlet, etter hva de mangler" onClick={() => onAvklar(true)}>
-                    Avklar {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>} ›
+    <div className={`behov-main ${avklar ? 'with-panel' : ''}`}>
+      <div className="behov-cards">
+        {orphans.length > 0 && (
+          <div className="orphans" role="alert">
+            <strong>{count(orphans.length, 'linje', 'linjer')} du har endret finnes ikke lenger i Visma-utskriften.</strong> Valgene er tatt vare på og gjelder igjen hvis
+            linjen kommer tilbake. Timene deres teller ikke med nå.
+            <ul>
+              {orphans.map((o) => (
+                <li key={o.key}>
+                  <span>
+                    {o.workType} · {o.hall} · avd. {o.avdeling}
+                  </span>
+                  <span className="muted">
+                    {[o.override.excluded && 'utelatt', o.override.effekt ? `Effekt ${decimalText(o.override.effekt)}` : '', o.override.workType && `arbeidstype ${o.override.workType}`, o.override.comment && `«${o.override.comment}»`]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </span>
+                  <button className="link" onClick={() => removeLineOverride(projectNo, o.key)}>
+                    Glem valgene
                   </button>
-                  {offerCount > 0 && (
-                    <button className="ghost" title={[...typeOffers.map((line) => `${line.texts.join(' · ') || line.hall}: ${line.suggestedType}`), ...hallOffers.map(({ text, hall }) => `${text.trim() || '(tom)'}: ${hall}`)].join('\n')} onClick={takeOffers}>
-                      <Check size={14} aria-hidden /> Bruk {count(offerCount, 'forslag', 'forslag')}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="behov-card-body">
-              {totals.all === 0 ? (
-                <p className="muted behov-empty">Ingen Visma-utskrift er lest inn. Bruk «Importer Visma-utskrift» øverst.</p>
-              ) : filter === 'need' && matched.length === 0 && !q ? (
-                <p className="all-clear">
-                  <Check size={16} aria-hidden /> Ingenting å avklare{projectNo ? ' i prosjektet' : ''}.
-                </p>
-              ) : (
-                <DataTable
-                  table={table}
-                  className="visma-lines"
-                  limit={LIST_LIMIT}
-                  rowKey={(line) => line.key}
-                  rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : '', lit ? (lit.has(line.key) ? 'lit' : 'dim') : ''].filter(Boolean).join(' ') || undefined })}
-                  empty={q ? 'Ingen linjer passer søket.' : 'Ingen linjer passer filteret.'}
-                />
-              )}
-              {table.rows.length > LIST_LIMIT && <p className="muted behov-limit">Viser de første {LIST_LIMIT} av {table.rows.length} linjer. Bruk filteret eller velg et prosjekt for å se resten.</p>}
-            </div>
-          </section>
-        </div>
-        {picked.length > 0 && (
-          <div className="bulk-bar" role="toolbar" aria-label="Valgte linjer">
-            <span>
-              <b>{picked.length}</b> valgt · {hours(picked.reduce((sum, line) => sum + line.assemblyHours + line.dismantleHours, 0))} t
-            </span>
-            <span className="bulk-sep" />
-            <button className="ghost" onClick={() => (setExcluded(picked, true), setSelected(new Set()))}>
-              Utelat
-            </button>
-            <button className="ghost" onClick={() => (setExcluded(picked, false), setSelected(new Set()))}>
-              Ta med
-            </button>
-            <button className="ghost icon-button" aria-label="Fjern valget" title="Fjern valget (Esc)" onClick={() => setSelected(new Set())}>
-              <X size={14} aria-hidden />
-            </button>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
-        {avklar && <Avklar placing={placing} lines={scope} names={names} onFocusLines={setLit} offerCount={offerCount} onTakeOffers={takeOffers} onClose={() => onAvklar(false)} />}
+        {dropped > 0 && (
+          <p className="hint">
+            {count(dropped, 'ordrelinje', 'ordrelinjer')} {projectNo ? 'i prosjektet ' : ''}er holdt utenfor etter artikkelnummer.{' '}
+            <button className="link" onClick={onOpenSetup}>
+              Utelatte artikler på KPI
+            </button>
+          </p>
+        )}
+        <section className="card behov-card">
+          <div className="behov-chead">
+            <h2 className="behov-title" title="Linjer med arbeidstype, sats og hall er med av seg selv. Avklar resten, eller utelat det som ikke skal med.">
+              {projectNo ? (names.get(projectNo) ?? projectNo) : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
+            </h2>
+            {totals.all > 0 && (
+              <>
+                <Segmented
+                  label="Vis linjene"
+                  value={filter}
+                  onChange={(next) => (setFilter(next), setSelected(new Set()))}
+                  options={[
+                    {
+                      value: 'need',
+                      label: (
+                        <>
+                          Trenger avklaring {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>}
+                        </>
+                      ),
+                      title: 'Linjer som mangler arbeidstype, sats eller hall, og som derfor ikke teller',
+                    },
+                    { value: 'counted', label: <>Med <span className="count">{scopeCount('counted')}</span></>, title: 'Linjer som teller i behovet det planlegges med' },
+                    { value: 'excluded', label: <>Utelatt <span className="count">{scopeCount('excluded')}</span></>, title: 'Linjer du har utelatt' },
+                    { value: 'all', label: <>Alle <span className="count">{scopeCount('all')}</span></> },
+                  ]}
+                />
+                <input className="search" type="search" placeholder="Søk, også i Visma-tekst" aria-label="Søk i linjene" value={search} onChange={(e) => setSearch(e.target.value)} />
+                {table.filtered > 0 && (
+                  <button className="ghost" onClick={table.clearFilters} title="Fjerner filtrene i kolonnene">
+                    Nullstill ({table.filtered})
+                  </button>
+                )}
+                <span className="toolbar-gap" />
+                <button className="primary" disabled={avklar} title="Avklar linjene samlet, etter hva de mangler" onClick={() => onAvklar(true)}>
+                  Avklar {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>} ›
+                </button>
+                {offerCount > 0 && (
+                  <button className="ghost" title={[...typeOffers.map((line) => `${line.texts.join(' · ') || line.hall}: ${line.suggestedType}`), ...hallOffers.map(({ text, hall }) => `${text.trim() || '(tom)'}: ${hall}`)].join('\n')} onClick={takeOffers}>
+                    <Check size={14} aria-hidden /> Bruk {count(offerCount, 'forslag', 'forslag')}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <div className="behov-card-body">
+            {totals.all === 0 ? (
+              <p className="muted behov-empty">Ingen Visma-utskrift er lest inn. Bruk «Importer Visma-utskrift» øverst.</p>
+            ) : filter === 'need' && matched.length === 0 && !q ? (
+              <p className="all-clear">
+                <Check size={16} aria-hidden /> Ingenting å avklare{projectNo ? ' i prosjektet' : ''}.
+              </p>
+            ) : (
+              <DataTable
+                table={table}
+                className="visma-lines"
+                limit={LIST_LIMIT}
+                rowKey={(line) => line.key}
+                rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : '', lit ? (lit.has(line.key) ? 'lit' : 'dim') : ''].filter(Boolean).join(' ') || undefined })}
+                empty={q ? 'Ingen linjer passer søket.' : 'Ingen linjer passer filteret.'}
+              />
+            )}
+            {table.rows.length > LIST_LIMIT && <p className="muted behov-limit">Viser de første {LIST_LIMIT} av {table.rows.length} linjer. Bruk filteret eller velg et prosjekt for å se resten.</p>}
+          </div>
+        </section>
       </div>
+      {picked.length > 0 && (
+        <div className="bulk-bar" role="toolbar" aria-label="Valgte linjer">
+          <span>
+            <b>{picked.length}</b> valgt · {hours(picked.reduce((sum, line) => sum + line.assemblyHours + line.dismantleHours, 0))} t
+          </span>
+          <span className="bulk-sep" />
+          <button className="ghost" onClick={() => (setExcluded(picked, true), setSelected(new Set()))}>
+            Utelat
+          </button>
+          <button className="ghost" onClick={() => (setExcluded(picked, false), setSelected(new Set()))}>
+            Ta med
+          </button>
+          <button className="ghost icon-button" aria-label="Fjern valget" title="Fjern valget (Esc)" onClick={() => setSelected(new Set())}>
+            <X size={14} aria-hidden />
+          </button>
+        </div>
+      )}
+      {avklar && <Avklar placing={placing} lines={scope} names={names} onFocusLines={setLit} offerCount={offerCount} onTakeOffers={takeOffers} onClose={() => onAvklar(false)} />}
     </div>
   )
 }

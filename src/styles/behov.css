@@ -27,7 +27,7 @@
 .all-clear{display:flex;align-items:center;gap:8px;margin:16px;padding:16px 18px;border-radius:10px;background:var(--sunken);color:var(--muted)}
 .all-clear svg{color:var(--pos)}
 
-/* the rail of projects: a raised row for the one that is open, a thin bar of how much counts */
+/* the rail of projects, the same in both views: a raised row for the one that is open, a muted one where the view has nothing of it */
 .rail{width:264px;flex:none;overflow:auto;padding:12px 10px 24px;border-right:1px solid var(--line)}
 @media (max-width:1180px){.rail{width:208px}}
 .rail-heading{margin:14px 10px 6px;font:500 var(--fs-xs) var(--font-num);letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
@@ -39,6 +39,9 @@
 .rail-item>.count{font:500 var(--fs-sm) var(--font-num);color:var(--muted)}
 .rail-done{color:var(--muted)}
 .rail-sub{grid-column:1/-1;font-size:var(--fs-sm);color:var(--muted)}
+.rail-item.off .rail-name{font-weight:400;color:var(--muted)}
+.rail-item.off .rail-sub{color:var(--faint)}
+/* a thin bar of how far something has come: the progress of «Avklar» */
 .rail-bar{grid-column:1/-1;height:3px;margin-top:4px;border-radius:2px;background:var(--sunken);overflow:hidden}
 .rail-bar i{display:block;height:100%;background:var(--pos)}
 

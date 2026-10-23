@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2, X } from 'lucide-react'
 import { competenceStyles } from '../../domain/competences'
-import { todayIso } from '../../domain/dates'
 import { EMPTY_KPI, productTypeKey } from '../../domain/kpi'
-import { fromLastYear, projectTiming, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
+import { fromLastYear, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine } from '../../domain/types'
-import { isVismaLine } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, type Message } from '../common'
 import { count, isTyping } from '../dom'
@@ -13,8 +11,8 @@ import { OwnLineForm } from './OwnLineForm'
 import { EMPTY_DRAFT, SPLIT_HALLS, type OwnContext, type OwnDraft } from './ownDraft'
 import { FromLastYear } from './FromLastYear'
 import { OwnLines } from './OwnLines'
-import { ProjectRail, type RailSection } from './ProjectRail'
 import type { Placing } from './usePlacing'
+import type { ProjectList } from './useProjectList'
 import { formatFte, hours } from '../format'
 
 /** How long a line just added stays lit. */
@@ -36,6 +34,8 @@ export interface ReplaceSeed {
 
 interface Props {
   placing: Placing
+  /** The projects of Behov, in the order of the rail. */
+  projects: ProjectList
   projectNo: string
   onProjectChange: (projectNo: string) => void
   seed: ReplaceSeed | null
@@ -47,65 +47,15 @@ interface Props {
  * Egen registrering: the planner's own demand lines, for work that is not sold through Visma but follows the build-up
  * and tear-down of an event. A form on top where project › hall › avd. stays set, and the lines under it by project and hall.
  */
-export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed, onMessage }: Props) {
+export function EgenView({ placing, projects, projectNo, onProjectChange, seed, onSeedUsed, onMessage }: Props) {
   const { workspace, saveDemandLine, removeDemandLine } = useWorkspace()
   const ws = workspace!
   const kpi = ws.kpi ?? EMPTY_KPI
   const hoursPerDay = ws.settings.hoursPerDay
-  const today = todayIso()
-  const own = useMemo(() => ws.demand.filter((line) => !isVismaLine(line)), [ws.demand])
   const { spans, places, placeOfLine } = placing
   const styles = useMemo(() => competenceStyles(ws), [ws])
 
-  /** Every project a line can be made for: those of the project table, of Visma and of the own lines, by name. */
-  const names = useMemo(() => {
-    const names = new Map<string, string>()
-    for (const p of ws.projects) if (p.projectNo.trim() && !names.has(p.projectNo)) names.set(p.projectNo, p.name)
-    for (const v of ws.visma ?? []) if (!names.has(v.projectNo)) names.set(v.projectNo, v.eventName)
-    for (const l of own) if (!names.has(l.projectNo)) names.set(l.projectNo, l.projectName)
-    return names
-  }, [ws.projects, ws.visma, own])
-  const timing = useMemo(() => new Map([...names.keys()].map((no) => [no, projectTiming(spans.get(no), today)] as const)), [names, spans, today])
-  const ownHours = useMemo(() => {
-    const sums = new Map<string, { lines: number; hours: number }>()
-    for (const l of own) {
-      const sum = sums.get(l.projectNo) ?? { lines: 0, hours: 0 }
-      sums.set(l.projectNo, { lines: sum.lines + 1, hours: sum.hours + l.assemblyHours + l.dismantleHours })
-    }
-    return sums
-  }, [own])
-  // The projects in order of their build-up: what is being built now and in the next three weeks, later, and done.
-  const ordered = useMemo(
-    () =>
-      [...names]
-        .filter(([no]) => timing.get(no) || ownHours.has(no) || (ws.visma ?? []).some((v) => v.projectNo === no))
-        .sort(([a, an], [b, bn]) => (timing.get(a)?.start ?? '9999').localeCompare(timing.get(b)?.start ?? '9999') || an.localeCompare(bn, 'nb')),
-    [names, timing, ownHours, ws.visma],
-  )
-  const sections: RailSection[] = (
-    [
-      ['now', 'Nå og neste 3 uker'],
-      ['later', 'Senere'],
-      ['done', 'Ferdig'],
-      ['', 'Uten hallbooking'],
-    ] as const
-  ).map(([group, heading]) => ({
-    heading,
-    // What is done is listed from the last one back.
-    items: (group === 'done' ? [...ordered].reverse() : ordered)
-      .filter(([no]) => (timing.get(no)?.group ?? '') === group)
-      .map(([no, name]) => {
-        const t = timing.get(no)
-        const sum = ownHours.get(no)
-        return {
-          projectNo: no,
-          name,
-          aside: sum ? <span className="count">{hours(sum.hours)} t</span> : undefined,
-          sub: t && <span className={`timing ${t.tone}`}>{t.text}</span>,
-        }
-      }),
-  }))
-  const projectNote = (no: string) => [no, timing.get(no)?.text].filter(Boolean).join(' · ')
+  const { own, names, timing, ordered, groups, note } = projects
 
   // Where new lines go. A project that is picked starts on the hall last used in it, else its first booked hall, and the department most of its Visma lines have.
   const lastHall = useRef(new Map<string, string>())
@@ -122,6 +72,12 @@ export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed
   const pickProject = (no: string) => {
     onProjectChange(no)
     if (no && no !== ctx.projectNo) setContext(contextFor(no))
+  }
+  // A project opened from the rail is where new lines go.
+  const [contextOf, setContextOf] = useState(projectNo)
+  if (contextOf !== projectNo) {
+    setContextOf(projectNo)
+    if (projectNo && projectNo !== ctx.projectNo) setContext(contextFor(projectNo))
   }
   const [draft, setDraft] = useState<OwnDraft>(EMPTY_DRAFT)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -251,126 +207,123 @@ export function EgenView({ placing, projectNo, onProjectChange, seed, onSeedUsed
   const moveHalls = projectNo ? [...(spans.get(projectNo)?.keys() ?? [])] : places
 
   return (
-    <div className="behov-split">
-      <ProjectRail all={{ label: 'Alle prosjekter', aside: <span className="count">{own.length}</span> }} sections={sections} projectNo={projectNo} onPick={pickProject} search />
-      <div className="behov-main own-main">
-        <div className="behov-cards">
-          <OwnLineForm
-            ctx={ctx}
-            onContext={setContext}
-            draft={draft}
-            onDraft={setDraft}
-            projects={ordered}
-            projectGroups={sections.map((section) => ({ label: section.heading, items: section.items.map((item) => ({ value: item.projectNo, label: item.name, note: projectNote(item.projectNo) })) }))}
-            booked={spans.get(ctx.projectNo) ?? new Map<string, HallSpans>()}
-            places={places}
-            avdelinger={avdelinger}
-            usedBefore={usedBefore}
-            competences={styles.map((style) => style.label)}
-            kpi={kpi}
-            hoursPerDay={hoursPerDay}
-            placeIn={(hall, no) => placeOfLine({ hall, projectNo: no }).hall}
-            workRef={refs.work}
-            assemblyRef={refs.assembly}
-            onAdd={add}
-            onProject={pickProject}
+    <div className="behov-main own-main">
+      <div className="behov-cards">
+        <OwnLineForm
+          ctx={ctx}
+          onContext={setContext}
+          draft={draft}
+          onDraft={setDraft}
+          projects={ordered}
+          projectGroups={groups.map((group) => ({ label: group.heading, items: group.projects.map(([no, name]) => ({ value: no, label: name, note: note(no) })) }))}
+          booked={spans.get(ctx.projectNo) ?? new Map<string, HallSpans>()}
+          places={places}
+          avdelinger={avdelinger}
+          usedBefore={usedBefore}
+          competences={styles.map((style) => style.label)}
+          kpi={kpi}
+          hoursPerDay={hoursPerDay}
+          placeIn={(hall, no) => placeOfLine({ hall, projectNo: no }).hall}
+          workRef={refs.work}
+          assemblyRef={refs.assembly}
+          onAdd={add}
+          onProject={pickProject}
+        />
+        {lastYear && lastYear.missing.length > 0 && (
+          <FromLastYear
+            previousName={names.get(lastYear.previous) ?? lastYear.previous}
+            missing={lastYear.missing}
+            present={lastYear.present}
+            booked={bookedNow}
+            onFetch={fetchLastYear}
+            onAdjust={(line) => fromLine({ ...line, hall: !line.hall || bookedNow.has(line.hall) ? line.hall : ctx.hall }, { from: `Fra i fjor: ${names.get(line.projectNo) ?? line.projectNo}` }, projectNo)}
+            onDismiss={(line) => update(line, { notIn: [...(line.notIn ?? []), projectNo] })}
           />
-          {lastYear && lastYear.missing.length > 0 && (
-            <FromLastYear
-              previousName={names.get(lastYear.previous) ?? lastYear.previous}
-              missing={lastYear.missing}
-              present={lastYear.present}
-              booked={bookedNow}
-              onFetch={fetchLastYear}
-              onAdjust={(line) => fromLine({ ...line, hall: !line.hall || bookedNow.has(line.hall) ? line.hall : ctx.hall }, { from: `Fra i fjor: ${names.get(line.projectNo) ?? line.projectNo}` }, projectNo)}
-              onDismiss={(line) => update(line, { notIn: [...(line.notIn ?? []), projectNo] })}
-            />
-          )}
-          <section className="card behov-card">
-            <div className="behov-chead">
-              <h2 className="behov-title">
-                {projectNo ? projectName : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
-              </h2>
-              {projectNo && <span className="muted">{[timing.get(projectNo)?.text, ...(spans.get(projectNo)?.keys() ?? [])].filter(Boolean).join(' · ')}</span>}
-            </div>
-            <div className="behov-card-body">
-              <OwnLines
-                lines={scoped}
-                projects={shownProjects}
-                spans={spans}
-                single={!!projectNo}
-                selected={selected}
-                onSelect={setSelected}
-                flash={flash}
-                kpi={kpi}
-                hoursPerDay={hoursPerDay}
-                onUpdate={update}
-                onRemove={remove}
-                onAddHere={(no, hall) => {
-                  setContext(no === ctx.projectNo ? { ...ctx, hall } : contextFor(no, hall))
-                  focus(refs.work)
-                }}
-                onTemplate={(line) => fromLine(line, { from: `Mal: ${line.workType}` })}
-              />
-            </div>
-          </section>
-        </div>
-        {picked.length > 0 && (
-          <div className="bulk-bar" role="toolbar" aria-label="Valgte linjer">
-            <span>
-              <b>{picked.length}</b> valgt · {hours(pickedHours)} t
-            </span>
-            <span className="bulk-sep" />
-            <Menu label="Flytt til hall" className="ghost">
-              {(close) => (
-                <>
-                  {[...moveHalls, ''].map((hall) => (
-                    <button key={hall || '-'} onClick={() => (each(() => ({ hall })), close())}>
-                      {hall || 'Uten hall'}
-                    </button>
-                  ))}
-                </>
-              )}
-            </Menu>
-            <Menu label="Avdeling" className="ghost">
-              {(close) => (
-                <>
-                  {avdelinger.map((a) => (
-                    <button key={a.value} onClick={() => (each(() => ({ avdeling: a.value })), close())}>
-                      {a.value}
-                    </button>
-                  ))}
-                </>
-              )}
-            </Menu>
-            <button className="ghost" onClick={() => each(() => ({ basis: PLANNED_BASIS }))}>
-              {PLANNED_BASIS}
-            </button>
-            <button className="ghost" onClick={() => each(() => ({ basis: DRAFT_BASIS }))}>
-              {DRAFT_BASIS}
-            </button>
-            <Menu label="Kopier til" className="ghost">
-              {(close) => (
-                <>
-                  {ordered
-                    .filter(([no]) => !picked.some((line) => line.projectNo === no))
-                    .map(([no, name]) => (
-                      <button key={no} onClick={() => (copyTo(no), close())}>
-                        {name} <small className="muted">{no}</small>
-                      </button>
-                    ))}
-                </>
-              )}
-            </Menu>
-            <button className="ghost" onClick={() => remove(picked)}>
-              <Trash2 size={13} aria-hidden /> Slett
-            </button>
-            <button className="ghost icon-button" aria-label="Fjern valget" title="Fjern valget (Esc)" onClick={() => setSelected(new Set())}>
-              <X size={14} aria-hidden />
-            </button>
-          </div>
         )}
+        <section className="card behov-card">
+          <div className="behov-chead">
+            <h2 className="behov-title">
+              {projectNo ? projectName : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
+            </h2>
+            {projectNo && <span className="muted">{[timing.get(projectNo)?.text, ...(spans.get(projectNo)?.keys() ?? [])].filter(Boolean).join(' · ')}</span>}
+          </div>
+          <div className="behov-card-body">
+            <OwnLines
+              lines={scoped}
+              projects={shownProjects}
+              spans={spans}
+              single={!!projectNo}
+              selected={selected}
+              onSelect={setSelected}
+              flash={flash}
+              kpi={kpi}
+              hoursPerDay={hoursPerDay}
+              onUpdate={update}
+              onRemove={remove}
+              onAddHere={(no, hall) => {
+                setContext(no === ctx.projectNo ? { ...ctx, hall } : contextFor(no, hall))
+                focus(refs.work)
+              }}
+              onTemplate={(line) => fromLine(line, { from: `Mal: ${line.workType}` })}
+            />
+          </div>
+        </section>
       </div>
+      {picked.length > 0 && (
+        <div className="bulk-bar" role="toolbar" aria-label="Valgte linjer">
+          <span>
+            <b>{picked.length}</b> valgt · {hours(pickedHours)} t
+          </span>
+          <span className="bulk-sep" />
+          <Menu label="Flytt til hall" className="ghost">
+            {(close) => (
+              <>
+                {[...moveHalls, ''].map((hall) => (
+                  <button key={hall || '-'} onClick={() => (each(() => ({ hall })), close())}>
+                    {hall || 'Uten hall'}
+                  </button>
+                ))}
+              </>
+            )}
+          </Menu>
+          <Menu label="Avdeling" className="ghost">
+            {(close) => (
+              <>
+                {avdelinger.map((a) => (
+                  <button key={a.value} onClick={() => (each(() => ({ avdeling: a.value })), close())}>
+                    {a.value}
+                  </button>
+                ))}
+              </>
+            )}
+          </Menu>
+          <button className="ghost" onClick={() => each(() => ({ basis: PLANNED_BASIS }))}>
+            {PLANNED_BASIS}
+          </button>
+          <button className="ghost" onClick={() => each(() => ({ basis: DRAFT_BASIS }))}>
+            {DRAFT_BASIS}
+          </button>
+          <Menu label="Kopier til" className="ghost">
+            {(close) => (
+              <>
+                {ordered
+                  .filter(([no]) => !picked.some((line) => line.projectNo === no))
+                  .map(([no, name]) => (
+                    <button key={no} onClick={() => (copyTo(no), close())}>
+                      {name} <small className="muted">{no}</small>
+                    </button>
+                  ))}
+              </>
+            )}
+          </Menu>
+          <button className="ghost" onClick={() => remove(picked)}>
+            <Trash2 size={13} aria-hidden /> Slett
+          </button>
+          <button className="ghost icon-button" aria-label="Fjern valget" title="Fjern valget (Esc)" onClick={() => setSelected(new Set())}>
+            <X size={14} aria-hidden />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
