@@ -49,6 +49,10 @@ export const dayWindows = (personId: string, date: ISODate, unavailability: Unav
   return subtract([normalDay(wd)], absence.map((u) => ({ start: u.start!, end: u.end! })))
 }
 
+/** The hours the permanent staff can work on a day in their normal time: each one's normal day less absence, on workdays. */
+export const staffHours = ({ persons, unavailability, settings }: Pick<Workspace, 'persons' | 'unavailability' | 'settings'>, date: ISODate): number =>
+  (persons ?? []).reduce((sum, person) => sum + paidTotal(normalWindows(person.id, date, unavailability ?? [], settings.workday), settings.workday), 0)
+
 /**
  * The normal time the permanent staff are away, as FTE per day, for the Kalender's «Tilgjengelig»: a whole
  * day away is 1, a part of the day is its share of the normal day. Workdays only; days without absence are left out.

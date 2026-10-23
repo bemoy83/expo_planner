@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetOf, budgetsRenumbered, diffBudgets, mergeBudgets, projectHours, projectStaffing, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonTotals, withBudget } from './result'
+import { budgetOf, budgetsRenumbered, dayAverages, diffBudgets, followUps, mergeBudgets, projectHours, projectStaffing, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonTotals, withBudget } from './result'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type AllocationRow, type Assignment, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { venueKey } from './venueImport'
@@ -27,7 +27,7 @@ const projects: ProjectRef[] = [
   { name: 'VVS 2026', projectNo: '26970' },
   { name: 'Hage 2026', projectNo: '26100' },
 ]
-const ws = (patch: Partial<Workspace> = {}): Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects' | 'allocations' | 'budgets' | 'settings'> => ({
+const ws = (patch: Partial<Workspace> = {}): Pick<Workspace, 'venue' | 'hiddenVenue' | 'projects' | 'allocations' | 'budgets' | 'settings' | 'persons' | 'unavailability'> => ({
   venue,
   hiddenVenue: {},
   projects,
@@ -77,6 +77,68 @@ describe('seasonRows', () => {
     const rows = seasonRows(ws({ allocations: [row('26970', '', { '2026-10-19': 1 }), row('', 'Montering', { '2026-10-19': 3 })] }))
     expect(rows.find((r) => r.projectNo === '26970')!.planned).toEqual({ Montering: 0, Demontering: 0, other: 7.5 })
     expect(rows).toHaveLength(2)
+  })
+})
+
+describe('the days of a project', () => {
+  const moving = [
+    booking('VVS 2026', 'C', { movingIn: { start: '2026-10-18', end: '2026-10-18' }, assembly: { start: '2026-10-19', end: '2026-10-22' }, event: { start: '2026-10-23', end: '2026-10-25' }, movingOut: { start: '2026-10-26', end: '2026-10-26' }, dismantle: { start: '2026-10-27', end: '2026-10-28' } }),
+    booking('VVS 2026', 'D1', { movingIn: { start: '2026-10-18', end: '2026-10-19' }, assembly: { start: '2026-10-20', end: '2026-10-22' } }),
+  ]
+
+  it('counts all five phases of the bookings once over the halls, and keeps the phases of each hall', () => {
+    const vvs = seasonRows(ws({ venue: moving })).find((r) => r.projectNo === '26970')!
+    expect(vvs.days).toEqual({ movingIn: 2, assembly: 4, event: 3, movingOut: 1, dismantle: 2 })
+    expect(vvs).toMatchObject({ first: '2026-10-18', last: '2026-10-28' })
+    expect(vvs.hallPhases.D1).toEqual({ movingIn: { start: '2026-10-18', end: '2026-10-19' }, assembly: { start: '2026-10-20', end: '2026-10-22' } })
+  })
+
+  it('takes the first and last planned day where a project has no bookings', () => {
+    const rows = seasonRows(ws({ venue: [], allocations: [row('26970', 'Montering', { '2026-10-21': 1, '2026-10-19': 1 })] }))
+    expect(rows[0]).toMatchObject({ first: '2026-10-19', last: '2026-10-21' })
+  })
+
+  it('says whether a project is to come, going on or done', () => {
+    const vvs = { first: '2026-10-19', last: '2026-10-27' }
+    expect(seasonStatus(vvs, '2026-10-18')).toBe('next')
+    expect(seasonStatus(vvs, '2026-10-19')).toBe('live')
+    expect(seasonStatus(vvs, '2026-10-27')).toBe('live')
+    expect(seasonStatus(vvs, '2026-10-28')).toBe('done')
+    expect(seasonStatus({ first: '', last: '' }, '2026-10-28')).toBe('next')
+  })
+
+  it('sets the planned hours per day of build-up and tear-down against what the permanent staff can work on those days', () => {
+    const persons = [1, 2].map((n) => ({ id: `p${n}`, name: `P${n}`, order: n, competences: ['vegger'] }))
+    // One of two is away on the first day of build-up: 7,5 + 3 × 15 hours over four days.
+    const vvs = seasonRows(ws({ persons, unavailability: [{ id: 'u', personId: 'p1', date: '2026-10-19' }] })).find((r) => r.projectNo === '26970')!
+    expect(vvs.staff).toEqual({ assembly: 52.5, dismantle: 30 })
+    expect(dayAverages([vvs])).toEqual({ assembly: { planned: 7.5, staff: 13.125 }, dismantle: { planned: 7.5, staff: 15 } })
+  })
+
+  it('averages over the rows that have both plan and days, and has none without them', () => {
+    const rows = seasonRows(ws())
+    expect(dayAverages(rows).assembly.planned).toBe(7.5)
+    expect(dayAverages(rows.filter((r) => r.projectNo === '26100'))).toEqual({ assembly: { planned: null, staff: 0 }, dismantle: { planned: null, staff: null } })
+  })
+})
+
+describe('what to follow up', () => {
+  it('lists the projects over budget, starting soon without staff, with a budget and no plan, and without a budget', () => {
+    const rows = seasonRows(ws({ budgets: { '26970': 40, '26100': 50 } }))
+    const follow = followUps(rows, '2026-10-10', () => 0)
+    expect(follow.over.map((r) => r.projectNo)).toEqual(['26970'])
+    expect(follow.soon.map((r) => r.projectNo)).toEqual(['26970'])
+    expect(follow.noPlan).toEqual([])
+    expect(follow.noBudget).toEqual([])
+    expect(follow.actualOver).toEqual([])
+  })
+
+  it('leaves done projects out of what can still be changed, and counts a project staffed enough as not needing staff', () => {
+    const rows = seasonRows(ws({ budgets: { '26970': 40, '26100': 50 } }))
+    expect(followUps(rows, '2026-10-28', () => 0).over).toEqual([])
+    expect(followUps(rows, '2026-10-10', (r) => r.plannedTotal * 0.9).soon).toEqual([])
+    expect(followUps(rows, '2026-10-01', () => 0).soon).toEqual([])
+    expect(followUps(rows, '2026-03-01', () => 0).noPlan.map((r) => r.projectNo)).toEqual(['26100'])
   })
 })
 
