@@ -1,24 +1,46 @@
-import { Fragment, useMemo } from 'react'
-import { projectHours, projectStaffing, type PhaseHours, type seasonBalance, type SeasonRow } from '../../domain/result'
+import { ChevronRight } from 'lucide-react'
+import { useMemo } from 'react'
+import { dayAverages, NOISE, projectHours, projectStaffing, seasonStatus, type PhaseHours, type seasonBalance, type SeasonRow } from '../../domain/result'
+import { competenceKey, VENUE_PHASES } from '../../domain/types'
+import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { useWorkspace } from '../../store/workspaceStore'
-import { hours } from '../behov/format'
+import { hours, useCompetenceColor } from '../behov/format'
 import { SidePanel } from '../common'
-import { deviationText, remainingText, shareText } from './format'
+import { NumberField } from '../fields'
+import { overShareText, overText, percentText, spanText } from './format'
+import { BudgetBars, StaffBars } from './ResultBars'
 
-const shown = (value: number) => (value ? hours(value) : '')
+const all = (phases: PhaseHours) => phases.Montering + phases.Demontering + phases.other
+const whole = (value: number) => hours(Math.round(value))
 
-/** One project of Resultat: its budget against the plan, its halls, and its hours per competence and phase beside its demand. */
-export function ProjectResult({ row, season, budget, overhead, onClose, onOpenBehov }: { row: SeasonRow; season: ReturnType<typeof seasonBalance>; budget: number | null; overhead: string; onClose: () => void; onOpenBehov: () => void }) {
+interface Props {
+  row: SeasonRow
+  season: ReturnType<typeof seasonBalance>
+  today: string
+  overhead: number
+  /** The hours staffed on the project, as the matrix counts them. */
+  staffed: number
+  onBudget: (hours: number) => void
+  onClose: () => void
+  onOpenBehov: () => void
+}
+
+/**
+ * One project of Resultat: its budget, which is typed here, against the plan and the actual hours; its halls and phase
+ * days with its hours per day against the permanent staff; and per competence its demand, plan and staffing.
+ */
+export function ProjectResult({ row, season, today, overhead, staffed, onBudget, onClose, onOpenBehov }: Props) {
   const { workspace } = useWorkspace()
   const ws = workspace!
+  const colorOf = useCompetenceColor()
   const competences = useMemo(() => projectHours(ws, row.projectNo), [ws.demand, ws.allocations, ws.settings, row.projectNo]) // eslint-disable-line react-hooks/exhaustive-deps
-  const other = competences.some((entry) => entry.planned.other)
-  const sum = (of: (entry: (typeof competences)[number]) => PhaseHours, phase: keyof PhaseHours) => competences.reduce((total, entry) => total + of(entry)[phase], 0)
-  const over = row.deviation !== null && row.deviation < -0.05
   const staffing = useMemo(() => projectStaffing(ws, season, row.projectNo), [ws.allocations, season, row.projectNo]) // eslint-disable-line react-hooks/exhaustive-deps
-  const staffedOther = staffing.some((entry) => entry.tagged.other || entry.shared.other)
-  const staffedSum = (of: (entry: (typeof staffing)[number]) => PhaseHours, phase: keyof PhaseHours) => staffing.reduce((total, entry) => total + of(entry)[phase], 0)
-  const staffedTotal = staffing.reduce((total, entry) => total + entry.tagged.Montering + entry.tagged.Demontering + entry.tagged.other + entry.shared.Montering + entry.shared.Demontering + entry.shared.other, 0)
+  const staffedOf = new Map(staffing.map((entry) => [competenceKey(entry.competence), entry]))
+  const widest = Math.max(1, ...competences.map((entry) => Math.max(all(entry.demand), all(entry.planned))))
+  const over = row.deviation !== null && row.deviation < -NOISE
+  const averages = dayAverages([row])
+  const tagged = staffing.reduce((sum, entry) => sum + all(entry.tagged), 0)
+  const remaining = row.plannedTotal - staffed
 
   return (
     <SidePanel
@@ -30,153 +52,131 @@ export function ProjectResult({ row, season, budget, overhead, onClose, onOpenBe
           <div className="insp-title">{row.name || 'Uten navn'}</div>
           <div className="insp-sub">
             <span className="project-no">{row.projectNo}</span>
-            {row.year && <span>{row.year}</span>}
+            {row.first && <span>· {spanText(row.first, row.last)}</span>}
+            {seasonStatus(row, today) === 'live' && <span className="res-live">Pågår</span>}
           </div>
         </>
       }
     >
       <div className="insp-body">
         <section className="insp-sec">
-          <dl className="insp-dl res-dl">
-            <dt>Budsjett</dt>
-            <dd className="num">{budget === null ? 'Ikke satt' : `${hours(budget)} t`}</dd>
-            <dt>Planlagt</dt>
-            <dd className="num">{hours(row.plannedTotal)} t</dd>
-            <dt>Inkl. {overhead}</dt>
-            <dd className="num">{hours(row.withOverhead)} t</dd>
-            <dt>Avvik</dt>
-            <dd className={`num ${over ? 'res-over' : ''}`}>{row.deviation === null ? '–' : `${deviationText(row.deviation)} t · ${shareText(row.deviationShare)}`}</dd>
-          </dl>
-        </section>
-        <section className="insp-sec res-hours">
-          <h3 className="insp-h">Bemannet</h3>
-          <dl className="insp-dl res-dl">
-            <dt>Bemannet</dt>
-            <dd className="num">{hours(staffedTotal)} t</dd>
-            <dt>Gjenstår</dt>
-            <dd className="num">{remainingText(row.plannedTotal - staffedTotal) || '0'} t</dd>
-          </dl>
-          {staffing.length > 0 && (
-            <table className="ledger summary">
-              <thead>
-                <tr>
-                  <th rowSpan={2}>Kompetanse</th>
-                  <th colSpan={2}>Montering</th>
-                  <th colSpan={2}>Demontering</th>
-                  {staffedOther && <th colSpan={2} title="Bemannet på dager uten rad for prosjektet">Uten fase</th>}
-                  <th rowSpan={2} title="Planlagt minus bemannet">Gjenstår</th>
-                </tr>
-                <tr className="sub">
-                  {[0, 1, ...(staffedOther ? [2] : [])].map((i) => (
-                    <Fragment key={i}>
-                      <th title="Blokker og bekreftede bestillinger merket med prosjektet">Merket</th>
-                      <th title="Prosjektets del av de umerkede timene, etter hva det mangler">Fordelt</th>
-                    </Fragment>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {staffing.map((entry) => (
-                  <tr key={entry.competence.toLowerCase()}>
-                    <td>{entry.competence}</td>
-                    <td className="num">{shown(entry.tagged.Montering)}</td>
-                    <td className="num">{shown(entry.shared.Montering)}</td>
-                    <td className="num">{shown(entry.tagged.Demontering)}</td>
-                    <td className="num">{shown(entry.shared.Demontering)}</td>
-                    {staffedOther && (
-                      <>
-                        <td className="num">{shown(entry.tagged.other)}</td>
-                        <td className="num">{shown(entry.shared.other)}</td>
-                      </>
-                    )}
-                    <td className="num">{remainingText(entry.remaining)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Sum</td>
-                  <td className="num">{shown(staffedSum((entry) => entry.tagged, 'Montering'))}</td>
-                  <td className="num">{shown(staffedSum((entry) => entry.shared, 'Montering'))}</td>
-                  <td className="num">{shown(staffedSum((entry) => entry.tagged, 'Demontering'))}</td>
-                  <td className="num">{shown(staffedSum((entry) => entry.shared, 'Demontering'))}</td>
-                  {staffedOther && (
-                    <>
-                      <td className="num">{shown(staffedSum((entry) => entry.tagged, 'other'))}</td>
-                      <td className="num">{shown(staffedSum((entry) => entry.shared, 'other'))}</td>
-                    </>
-                  )}
-                  <td className="num">{remainingText(staffing.reduce((total, entry) => total + entry.remaining, 0))}</td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-          <p className="insp-note">Faste fra Bemanning og bekreftede bestillinger fra Innleid. Merket er timer satt på prosjektet. Fordelt er prosjektets del av de umerkede timene, etter hva det mangler den dagen.</p>
+          <div className="res-panel-figures">
+            <label className="res-budget" title="Budsjetterte arbeidstimer for prosjektet, med overhead. Tomt eller 0 er uten budsjett.">
+              <span>Budsjett</span>
+              <span className="res-budget-field">
+                <NumberField value={row.budget ?? 0} placeholder="Sett budsjett" ariaLabel={`Budsjett for ${row.name || row.projectNo}`} onCommit={onBudget} />
+                <small>t</small>
+              </span>
+            </label>
+            <div>
+              <span>Planlagt inkl. {percentText(overhead)}</span>
+              <b className="num">{whole(row.withOverhead)} t</b>
+              <small>{whole(row.plannedTotal)} t uten</small>
+            </div>
+            <div>
+              <span>Plan mot budsjett</span>
+              <b className={`num ${over ? 'res-over' : ''}`}>{row.deviation === null ? '–' : `${overText(Math.round(row.deviation))} t`}</b>
+              <small>{row.deviation === null ? 'uten budsjett' : overShareText(row.deviationShare)}</small>
+            </div>
+            <div>
+              <span>Faktisk</span>
+              <b className={`num ${row.actualDeviation !== null && row.actualDeviation < -NOISE ? 'res-over' : ''}`}>{row.actual === null ? '–' : `${whole(row.actual)} t`}</b>
+              <small>{row.actual === null ? 'ikke lest inn' : `${overText(row.actualDeviation === null ? null : Math.round(row.actualDeviation))} t mot budsjett`}</small>
+            </div>
+          </div>
+          <BudgetBars row={row} overhead={overhead} scale={Math.max(row.budget ?? 0, row.withOverhead, row.actual ?? 0) * 1.08 || 1} />
+          <p className="insp-note res-staffed" title={`${hours(tagged)} t merket med prosjektet, ${hours(staffed - tagged)} t fordelt etter hva det mangler. Faste fra Bemanning og bekreftede bestillinger fra Innleid.`}>
+            Bemannet {whole(staffed)} t av {whole(row.plannedTotal)} t planlagt · {remaining > NOISE ? `${whole(remaining)} t gjenstår` : 'fullt bemannet'}
+          </p>
         </section>
         <section className="insp-sec">
           <h3 className="insp-h">Haller</h3>
           {row.halls.length ? (
-            <dl className="insp-dl res-dl">
-              <dt>Haller</dt>
-              <dd>{row.halls.join(', ')}</dd>
-              <dt>Halldager</dt>
-              <dd className="num">
-                {row.days.assembly} mont. · {row.days.event} arr. · {row.days.dismantle} dem.
-              </dd>
-            </dl>
+            <>
+              <div className="res-panel-halls">
+                {row.halls.map((hall) => (
+                  <span key={hall}>
+                    <span className="res-tile" />
+                    <b>{hall}</b>
+                  </span>
+                ))}
+              </div>
+              <div className="res-panel-days">
+                {VENUE_PHASES.map((phase) => (
+                  <span key={phase} title={PHASE_LABELS[phase]}>
+                    <b className={`res-phase-chip ph-${phase}`}>{PHASE_CODES[phase]}</b>
+                    <b className="num">{row.days[phase]}</b>
+                  </span>
+                ))}
+                <small>halldager, talt én gang</small>
+              </div>
+            </>
           ) : (
             <p className="insp-empty">Ingen bookinger i hallkalenderen som vises i Kalender.</p>
           )}
+          <div className="res-panel-days">
+            <span>Snitt per dag mot faste</span>
+            <StaffBars averages={averages} />
+          </div>
         </section>
-        <section className="insp-sec res-hours">
-          <h3 className="insp-h">Timer per kompetanse</h3>
+        <section className="insp-sec">
+          <h3 className="insp-h">Per kompetanse</h3>
           {competences.length ? (
-            <table className="ledger summary">
-              <thead>
-                <tr>
-                  <th rowSpan={2}>Kompetanse</th>
-                  <th colSpan={2}>Montering</th>
-                  <th colSpan={2}>Demontering</th>
-                  {other && <th rowSpan={2} title="Planlagt på rader uten arbeidsfase">Uten fase</th>}
-                </tr>
-                <tr className="sub">
-                  <th title="Behovet under «Planlagt» på Behov">Behov</th>
-                  <th title="Planlagt i Kalender, FTE × normaltid">Plan</th>
-                  <th title="Behovet under «Planlagt» på Behov">Behov</th>
-                  <th title="Planlagt i Kalender, FTE × normaltid">Plan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {competences.map((entry) => (
-                  <tr key={entry.competence.toLowerCase()}>
-                    <td>{entry.competence || '(uten kompetanse)'}</td>
-                    <td className="num">{shown(entry.demand.Montering)}</td>
-                    <td className="num planned">{shown(entry.planned.Montering)}</td>
-                    <td className="num">{shown(entry.demand.Demontering)}</td>
-                    <td className="num planned">{shown(entry.planned.Demontering)}</td>
-                    {other && <td className="num planned">{shown(entry.planned.other)}</td>}
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Sum</td>
-                  <td className="num">{shown(sum((entry) => entry.demand, 'Montering'))}</td>
-                  <td className="num planned">{shown(sum((entry) => entry.planned, 'Montering'))}</td>
-                  <td className="num">{shown(sum((entry) => entry.demand, 'Demontering'))}</td>
-                  <td className="num planned">{shown(sum((entry) => entry.planned, 'Demontering'))}</td>
-                  {other && <td className="num planned">{shown(sum((entry) => entry.planned, 'other'))}</td>}
-                </tr>
-              </tfoot>
-            </table>
+            <div className="res-competences">
+              <div className="res-competence head">
+                <span />
+                <span>Behov mot plan</span>
+                <span className="num">Plan</span>
+                <span className="num">Bemannet</span>
+              </div>
+              {competences.map((entry) => {
+                const demand = all(entry.demand)
+                const planned = all(entry.planned)
+                const staffing = staffedOf.get(competenceKey(entry.competence))
+                const staffedHere = staffing ? all(staffing.tagged) + all(staffing.shared) : 0
+                return (
+                  <div key={entry.competence.toLowerCase()} className="res-competence">
+                    <span className="res-competence-name">
+                      <i style={{ background: colorOf(entry.competence) }} />
+                      {entry.competence || '(uten kompetanse)'}
+                    </span>
+                    <span className="res-competence-bar" title={`Behov ${hours(demand)} t · plan ${hours(planned)} t (mont. ${hours(entry.planned.Montering)} · dem. ${hours(entry.planned.Demontering)})`}>
+                      <i className="demand" style={{ width: `${(demand / widest) * 100}%` }} />
+                      <i className="ph-assembly" style={{ left: 0, width: `${(entry.planned.Montering / widest) * 100}%` }} />
+                      <i className="ph-dismantle" style={{ left: `${(entry.planned.Montering / widest) * 100}%`, width: `${(entry.planned.Demontering / widest) * 100}%` }} />
+                    </span>
+                    <span className={`num ${planned < demand - NOISE ? 'warn-text' : ''}`}>{hours(planned)}</span>
+                    <span className="num muted" title={staffing ? `${hours(all(staffing.tagged))} t merket, ${hours(all(staffing.shared))} t fordelt` : undefined}>
+                      {staffedHere ? hours(staffedHere) : ''}
+                    </span>
+                  </div>
+                )
+              })}
+              <div className="res-competence-keys muted">
+                <span>
+                  <i className="demand" />
+                  Behov
+                </span>
+                <span>
+                  <i className="ph-assembly" />
+                  Plan mont.
+                </span>
+                <span>
+                  <i className="ph-dismantle" />
+                  Plan dem.
+                </span>
+              </div>
+            </div>
           ) : (
             <p className="insp-empty">Prosjektet har verken behov eller planlagte timer.</p>
           )}
           <p className="insp-note">Behov er linjene under «Planlagt» på Behov, som radene i Kalender planlegges mot. Plan er uten overhead.</p>
         </section>
       </div>
-      <div className="insp-foot">
-        <button onClick={onOpenBehov}>Åpne prosjektet i Behov</button>
+      <div className="insp-foot res-panel-foot">
+        <button onClick={onOpenBehov}>
+          Åpne i Behov <ChevronRight size={14} aria-hidden />
+        </button>
       </div>
     </SidePanel>
   )

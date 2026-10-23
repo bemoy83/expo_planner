@@ -160,6 +160,25 @@ Choices made in the build, for the user to confirm
 - The sums at the bottom are of the rows the filters let through. Avvik and Avvik % there are over the projects that have a budget alone.
 - Planning rows without a work phase count in Planlagt and not in montering or demontering; rows without a project number are not counted.
 
+## Resultat redesign: built, to be tested by the user
+
+Built 2026-10-23 from the handoff `design_docs/design_handoff_resultat/`, which the planner keeps out of git. The table of 16 columns is replaced by figures, a matrix and two panels; see [features/resultat.md](features/resultat.md).
+
+The planner's answers to the questions of the handoff (2026-10-23):
+
+- The halls with a column are those ticked under «Steder» in the Kalender, not a choice of the page.
+- The hatch of an option booking is left out: the status of Venyou is free text, and the app has no notion of an option.
+- The permanent staff per day are averaged over each project's own days of build-up and tear-down; the view is per project, not per day, so two projects at the same time both compare with all of them.
+- Actual hours are prepared for in the domain and the page, and not read in until the data is ready.
+
+Where the build differs from the handoff, to reuse what the app has:
+
+- The bar's tooltip is the app's own (`title`, shown by `Tooltips.tsx`), not a tooltip of its own.
+- Over the budget is `--over`, the app's colour for what is over, not a new orange. The hall tiles are `--mon`, the phase chips `.ph-*` and the swatches `.phase-swatch`. New are only `--res-plan` and `--res-actual` for the two bars, in both palettes.
+- «Importer» and «Eksporter» stay behind «Fil», with the budget alone, until actual hours can be read in.
+- Hours on the figures and in the matrix are whole; the panels keep a decimal where the app writes one.
+- The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
+
 ## Project tagging, places and work plans: built, to be tested by the user
 
 Blocks, orders and moved hours carry a project, blocks a place, and the shared week plan and the day plan print from them (`design_docs/ukeplan/README.md`, the Claude Doc «Prosjektmerking: byggeplan»). Still open:

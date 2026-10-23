@@ -1,4 +1,5 @@
 import { hours } from '../behov/format'
+import { dayOfMonth, monthShort } from '../../domain/dates'
 
 /** A share as a percentage: «10 %», «12,5 %». */
 export const percentText = (share: number): string => `${(Math.round(share * 1000) / 10).toLocaleString('nb-NO')} %`
@@ -22,4 +23,20 @@ export const shareText = (share: number | null): string => {
 export const remainingText = (remaining: number): string => {
   const shown = hours(Math.abs(remaining))
   return shown === '0' ? '' : `${remaining < 0 ? '−' : ''}${shown}`
+}
+
+/** A deviation from the budget as the page reads it, against the budget: «+12» is over it, «−9,5» under. The domain keeps budget less used. */
+export const overText = (deviation: number | null): string => (deviation === null ? '' : deviationText(-deviation))
+
+/** The same as a share of the budget: «+8 %» is over it. */
+export const overShareText = (share: number | null): string => (share === null ? '' : shareText(-share))
+
+/** A day as the page writes it: «7. sep». */
+export const dayText = (date: string): string => `${dayOfMonth(date)}. ${monthShort(date)}`
+
+/** The days of a project: «7.–15. sep», «28. sep – 3. okt». */
+export const spanText = (first: string, last: string): string => {
+  if (!first) return ''
+  if (first === last) return dayText(first)
+  return first.slice(0, 7) === last.slice(0, 7) ? `${dayOfMonth(first)}.–${dayText(last)}` : `${dayText(first)} – ${dayText(last)}`
 }

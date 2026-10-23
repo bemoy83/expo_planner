@@ -70,6 +70,9 @@
   --neg:#c53637; --neg-bg:#f9e5e2;
   --pos:#287c42; --pos-bg:#e2efe3;
   --over:#8f5e0a;
+  /* the bars of Resultat: the plan with overhead and the actual hours, set against the budget */
+  --res-plan:oklch(0.8 0.055 285);
+  --res-actual:oklch(0.4 0.11 280);
   --neg-wash:color-mix(in srgb,var(--neg) 13%,transparent);   /* a day planned above the crew */
   --on-neg:#ffffff;        /* text on a strong red tile */
   --warn-bg:#fff6e0; --warn-line:#f0d58a;   /* a line with an issue */
@@ -113,7 +116,7 @@
 }
 
 /* The mode band of the Kalender: its page header and its planning bar are filled with the colour of the mode, olive for Plan and
-   spruce green («Gran») for Bemanning, with fjord blue for its part Innleid. Behov has a band of its own, heather («Lyng»), in its page header, Resultat one of copper («Kobber»), and the tabs of the planner's tables one of sand.
+   spruce green («Gran») for Bemanning, with fjord blue for its part Innleid. Behov has a band of its own, heather («Lyng»), in its page header, Resultat one of indigo, and the tabs of the planner's tables one of sand.
    It is set here alone and is seen in the band alone; the grid, the sections, the tables and the panels stay neutral.
    The two lines that frame the band are darker than its fill in both palettes: they read as a shadow. */
 .kalender,.behov-page,.resultat-page,.register-page{
@@ -142,8 +145,8 @@
 }
 /* Behov: heather, from the formulas of the band. */
 .behov-page{--mode-h:300; --mode-c:.06}
-/* Resultat: copper, from the formulas of the band. */
-.resultat-page{--mode-h:50; --mode-c:.05}
+/* Resultat: indigo, from the formulas of the band. */
+.resultat-page{--mode-h:285; --mode-c:.07}
 /* The tabs of the planner's tables (Haller, Mannskap, Oppsett): sand, from the formulas of the band. */
 .register-page{--mode-h:85; --mode-c:.025}
 /* Innleid, the other part of Bemanning: fjord blue, from the formulas of the band. */
@@ -220,6 +223,8 @@
   --neg:#f97770; --neg-bg:#301615;
   --pos:#6fd087; --pos-bg:#112618;
   --over:#f2b54f;
+  --res-plan:oklch(0.5 0.07 285);
+  --res-actual:oklch(0.78 0.09 280);
   --neg-wash:color-mix(in srgb,var(--neg) 18%,transparent);
   --warn-bg:#2b200d; --warn-line:#503b16;
 

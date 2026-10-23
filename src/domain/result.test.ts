@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetOf, budgetsRenumbered, dayAverages, diffBudgets, followUps, mergeBudgets, projectHours, projectStaffing, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonTotals, withBudget } from './result'
+import { budgetOf, budgetsRenumbered, dayAverages, diffBudgets, followUpCount, followUps, mergeBudgets, projectHours, projectStaffing, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonTotals, staffPerDay, withBudget } from './result'
 import { TWO_PROJECTS, withTwoProjects } from './staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type AllocationRow, type Assignment, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { venueKey } from './venueImport'
@@ -113,6 +113,7 @@ describe('the days of a project', () => {
     const vvs = seasonRows(ws({ persons, unavailability: [{ id: 'u', personId: 'p1', date: '2026-10-19' }] })).find((r) => r.projectNo === '26970')!
     expect(vvs.staff).toEqual({ assembly: 52.5, dismantle: 30 })
     expect(dayAverages([vvs])).toEqual({ assembly: { planned: 7.5, staff: 13.125 }, dismantle: { planned: 7.5, staff: 15 } })
+    expect(staffPerDay([vvs])).toBe(82.5 / 6)
   })
 
   it('averages over the rows that have both plan and days, and has none without them', () => {
@@ -131,6 +132,7 @@ describe('what to follow up', () => {
     expect(follow.noPlan).toEqual([])
     expect(follow.noBudget).toEqual([])
     expect(follow.actualOver).toEqual([])
+    expect(followUpCount(follow)).toBe(1)
   })
 
   it('leaves done projects out of what can still be changed, and counts a project staffed enough as not needing staff', () => {

@@ -1,22 +1,26 @@
+import { TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { areaTree, cleanHallFilter, ALL_HALLS, shownHalls, venueStatuses, type HallFilter } from '../../domain/areas'
 import { todayIso } from '../../domain/dates'
 import { numberKey, venueEvents } from '../../domain/projects'
-import { budgetOf, diffBudgets, mergeBudgets, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonTotals, withBudget, type BudgetEntry, type SeasonRow } from '../../domain/result'
-import type { ProjectTotal } from '../../domain/staffing/projectBalance'
-import { readBudsjettWorkbook, writeBudsjettWorkbook } from '../../import/budsjettFile'
+import { diffBudgets, followUpCount, followUps, mergeBudgets, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonStatus, withBudget, type BudgetEntry, type SeasonRow, type SeasonStatus } from '../../domain/result'
+import { hallNames } from '../../domain/venue'
 import { visibleVenue } from '../../domain/venueImport'
+import { readBudsjettWorkbook, writeBudsjettWorkbook } from '../../import/budsjettFile'
+import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { hours } from '../behov/format'
-import { MergeReplaceDialog, MessageBanner, UndoRedoButtons, type Message } from '../common'
-import { DataTable } from '../DataTable'
+import { MergeReplaceDialog, MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
 import { count, isTyping } from '../dom'
-import { NumberField } from '../fields'
 import { download, XLSX_TYPE } from '../files'
+import { AreaMenu } from '../kalender/AreaMenu'
 import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
-import { useTable, type Column } from '../useTable'
-import { deviationText, percentText, remainingText, shareText } from './format'
+import { percentText } from './format'
+import { FollowUp } from './FollowUp'
 import { ProjectResult } from './ProjectResult'
+import { ResultFigures } from './ResultFigures'
+import { ResultMatrix } from './ResultMatrix'
 
 interface Props {
   /** Opens the settings, where the overhead is set. */
@@ -25,119 +29,70 @@ interface Props {
   onOpenProjects: () => void
 }
 
-/** A deviation below the budget by more than this is shown as over: less is rounding. */
-const NOISE = 0.05
+type View = 'all' | SeasonStatus
 
-const overClass = (deviation: number | null) => (deviation !== null && deviation < -NOISE ? 'num res-over' : 'num')
+const VIEWS: { value: View; label: string; title: string }[] = [
+  { value: 'all', label: 'Alle', title: 'Alle prosjektene i sesongen' },
+  { value: 'next', label: 'Kommende', title: 'Prosjekter som ikke har startet: første dag i hallkalenderen er etter i dag' },
+  { value: 'live', label: 'Pågår', title: 'Prosjekter som har startet og ikke er ferdige' },
+  { value: 'done', label: 'Avsluttet', title: 'Prosjekter der siste dag i hallkalenderen er før i dag' },
+]
+
+const cleanView = (stored: unknown): View => VIEWS.find((view) => view.value === stored)?.value ?? 'all'
 
 /**
- * Resultat: the season, a row per project, with the budget of work hours the planner typed against the hours the
- * Kalender plans, with overhead added. A click on a project slides in its hours per competence and phase.
+ * Resultat: the season as a dashboard, a row per project, with the budget of work hours the planner typed against the
+ * hours the Kalender plans, with overhead added; its halls and phase days; and its hours per day against the permanent
+ * staff. A click on a project slides in its figures; «Følg opp» slides in what needs the planner.
  */
 export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props) {
   const { workspace, setBudgets } = useWorkspace()
   const ws = workspace!
+  const today = todayIso()
   const [message, setMessage] = useState<Message | null>(null)
   const [open, setOpen] = useState<string | null>(null)
-  const rows = useMemo(() => seasonRows(ws), [ws.venue, ws.hiddenVenue, ws.projects, ws.allocations, ws.budgets, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [following, setFollowing] = useState(false)
+  const [view, setView] = usePref<View>('resultatView', 'all', cleanView)
+  // The halls with a column of their own are those ticked under «Steder» in the Kalender, and changed there or here.
+  const [hallFilter, setHallFilter] = usePref<HallFilter>('hallFilter', ALL_HALLS, cleanHallFilter)
+  const rows = useMemo(() => seasonRows(ws), [ws.venue, ws.hiddenVenue, ws.projects, ws.allocations, ws.budgets, ws.settings, ws.persons, ws.unavailability]) // eslint-disable-line react-hooks/exhaustive-deps
   const budgets = ws.budgets ?? {}
   // The staffing of the season, from Bemanning and the confirmed orders of Innleid, shared out on the projects.
   const season = useMemo(() => seasonBalance(ws), [ws.allocations, ws.assignments, ws.persons, ws.unavailability, ws.hireOrders, ws.demandAdjustments, ws.settings]) // eslint-disable-line react-hooks/exhaustive-deps
   const staffing = useMemo(() => seasonStaffing(season), [season])
-  const staffedOf = (row: SeasonRow): ProjectTotal | undefined => staffing.projects.get(numberKey(row.projectNo))
-  const staffedHours = (row: SeasonRow) => (staffedOf(row)?.tagged ?? 0) + (staffedOf(row)?.shared ?? 0)
-  const remainingOf = (row: SeasonRow) => row.plannedTotal - staffedHours(row)
+  const staffedOf = (row: SeasonRow) => {
+    const total = staffing.projects.get(numberKey(row.projectNo))
+    return (total?.tagged ?? 0) + (total?.shared ?? 0)
+  }
   // Events of the hall calendar without a project number have no row: the plan and the budget are kept by number.
   const unnumbered = useMemo(() => venueEvents(visibleVenue(ws.venue, ws.hiddenVenue), ws.projects).filter((event) => !event.projectNo).length, [ws.venue, ws.hiddenVenue, ws.projects])
-  const overhead = percentText(ws.settings.overhead)
+  const hallTree = useMemo(() => areaTree(hallNames(ws.venue), ws.hallRules), [ws.venue, ws.hallRules])
+  const statuses = useMemo(() => venueStatuses(ws.venue), [ws.venue])
+
+  const counts = useMemo(() => {
+    const by: Record<View, number> = { all: rows.length, next: 0, live: 0, done: 0 }
+    for (const row of rows) by[seasonStatus(row, today)]++
+    return by
+  }, [rows, today])
+  const shown = useMemo(() => (view === 'all' ? rows : rows.filter((row) => seasonStatus(row, today) === view)), [rows, view, today])
+  const halls = useMemo(() => {
+    const booked = new Set(shown.flatMap((row) => row.halls))
+    return shownHalls(hallTree, hallFilter).filter((hall) => booked.has(hall))
+  }, [shown, hallTree, hallFilter])
+  const follow = followUpCount(followUps(shown, today, staffedOf))
+  const actuals = rows.some((row) => row.actual !== null)
   const opened = open ? rows.find((row) => row.projectNo === open) : undefined
+  const overhead = ws.settings.overhead
 
   useEffect(() => {
-    if (!opened) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !isTyping(e.target) && setOpen(null)
+    if (!opened && !following) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !isTyping(e.target) && (setOpen(null), setFollowing(false))
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [opened])
+  }, [opened, following])
 
-  const setBudget = (projectNo: string, value: number) => setBudgets(withBudget(budgets, projectNo, value))
-
-  const columns = useMemo<Column<SeasonRow>[]>(() => {
-    const sumOf = (list: SeasonRow[], of: (row: SeasonRow) => number) => list.reduce((sum, row) => sum + of(row), 0)
-    return [
-      { key: 'year', head: 'År', title: 'Året prosjektet holdes, etter den første bookingen', text: (row) => row.year, cell: (row) => row.year, foot: () => 'Sum' },
-      {
-        key: 'project',
-        head: 'Prosjekt',
-        text: (row) => `${row.name} ${row.projectNo}`,
-        sort: (row) => row.name.toLowerCase(),
-        cell: (row) => (
-          <button className="link res-project" title="Vis timene til prosjektet per kompetanse og fase" onClick={() => setOpen(open === row.projectNo ? null : row.projectNo)}>
-            <span className="ellipsis">{row.name || 'Uten navn'}</span> <span className="project-no">{row.projectNo}</span>
-          </button>
-        ),
-        foot: (list) => count(list.length, 'prosjekt', 'prosjekter'),
-      },
-      { key: 'start', head: 'Opp', title: 'Første monteringsdag, ellers første dag i hallkalenderen', className: 'date', sort: (row) => row.start || '9999', cell: (row) => (row.start ? `${Number(row.start.slice(8, 10))}.${Number(row.start.slice(5, 7))}.` : '') },
-      { key: 'assembly', head: 'Mont.', title: 'Monteringsdager i hallkalenderen, talt én gang over prosjektets haller', className: 'num', sort: (row) => row.days.assembly, cell: (row) => row.days.assembly || '' },
-      { key: 'event', head: 'Arr.', title: 'Arrangementsdager i hallkalenderen', className: 'num', sort: (row) => row.days.event, cell: (row) => row.days.event || '' },
-      { key: 'dismantle', head: 'Dem.', title: 'Demonteringsdager i hallkalenderen, talt én gang over prosjektets haller', className: 'num', sort: (row) => row.days.dismantle, cell: (row) => row.days.dismantle || '' },
-      { key: 'halls', head: 'Haller', text: (row) => (row.halls.length ? row.halls : ['(ingen)']), cell: (row) => <span className="ellipsis res-halls" title={row.halls.join(', ')}>{row.halls.join(', ')}</span> },
-      {
-        key: 'budget',
-        head: 'Budsjett',
-        title: 'Budsjetterte arbeidstimer for prosjektet, med overhead. Skriv inn, eller les inn under «Fil». Tomt eller 0 er uten budsjett.',
-        className: 'num res-budget',
-        text: (row) => (row.budget === null ? 'Uten budsjett' : 'Med budsjett'),
-        sort: (row) => row.budget ?? -1,
-        cell: (row) => <NumberField value={row.budget ?? 0} placeholder="–" ariaLabel={`Budsjett for ${row.name || row.projectNo}`} onCommit={(value) => setBudget(row.projectNo, value)} />,
-        foot: (list) => (list.some((row) => row.budget !== null) ? hours(sumOf(list, (row) => row.budget ?? 0)) : ''),
-      },
-      { key: 'planned', head: 'Planlagt', title: 'Planlagt i Kalender: FTE × normaltid, uten overhead', className: 'num', sort: (row) => row.plannedTotal, cell: (row) => (row.plannedTotal ? hours(row.plannedTotal) : ''), foot: (list) => hours(sumOf(list, (row) => row.plannedTotal)) },
-      {
-        key: 'overhead',
-        head: `Inkl. ${overhead} overhead`,
-        title: 'Planlagt med overhead lagt til, som budsjettet har det. Prosenten settes under Innstillinger.',
-        className: 'num',
-        sort: (row) => row.withOverhead,
-        cell: (row) => (row.withOverhead ? hours(row.withOverhead) : ''),
-        foot: (list) => hours(sumOf(list, (row) => row.withOverhead)),
-      },
-      {
-        key: 'deviation',
-        head: 'Avvik',
-        title: 'Budsjett minus planlagt inkl. overhead: det som er igjen av budsjettet, negativt der planen går over. Summen gjelder prosjektene med budsjett.',
-        className: 'num',
-        sort: (row) => row.deviation ?? Number.POSITIVE_INFINITY,
-        cell: (row) => deviationText(row.deviation),
-        cellProps: (row) => ({ className: overClass(row.deviation) }),
-        foot: (list) => <span className={overClass(seasonTotals(list).deviation)}>{deviationText(seasonTotals(list).deviation)}</span>,
-      },
-      {
-        key: 'share',
-        head: 'Avvik %',
-        title: 'Avviket som andel av budsjettet',
-        className: 'num',
-        sort: (row) => row.deviationShare ?? Number.POSITIVE_INFINITY,
-        cell: (row) => shareText(row.deviationShare),
-        cellProps: (row) => ({ className: overClass(row.deviation) }),
-        foot: (list) => <span className={overClass(seasonTotals(list).deviation)}>{shareText(seasonTotals(list).deviationShare)}</span>,
-      },
-      {
-        key: 'staffed',
-        head: 'Bemannet',
-        title: 'Timer bemannet i Bemanning og bekreftet i Innleid: merket med prosjektet, og prosjektets del av de umerkede etter hva det mangler',
-        className: 'num',
-        sort: staffedHours,
-        cell: (row) => (staffedHours(row) ? hours(staffedHours(row)) : ''),
-        cellProps: (row) => ({ className: 'num', title: staffedOf(row) ? `${hours(staffedOf(row)!.tagged)} t merket, ${hours(staffedOf(row)!.shared)} t fordelt` : undefined }),
-        foot: (list) => hours(sumOf(list, staffedHours)),
-      },
-      { key: 'left', head: 'Gjenstår', title: 'Planlagt minus bemannet, uten overhead: det som ikke er bemannet ennå, negativt der mer er bemannet', className: 'num', sort: remainingOf, cell: (row) => remainingText(remainingOf(row)), foot: (list) => remainingText(sumOf(list, remainingOf)) },
-      { key: 'up', head: 'Plan. mont.', title: 'Planlagte timer til montering, uten overhead', className: 'num', sort: (row) => row.planned.Montering, cell: (row) => (row.planned.Montering ? hours(row.planned.Montering) : ''), foot: (list) => hours(sumOf(list, (row) => row.planned.Montering)) },
-      { key: 'down', head: 'Plan. dem.', title: 'Planlagte timer til demontering, uten overhead', className: 'num', sort: (row) => row.planned.Demontering, cell: (row) => (row.planned.Demontering ? hours(row.planned.Demontering) : ''), foot: (list) => hours(sumOf(list, (row) => row.planned.Demontering)) },
-    ]
-  }, [overhead, open, budgets, staffing]) // eslint-disable-line react-hooks/exhaustive-deps
-  const table = useTable(rows, columns)
+  // Opening a project closes «Følg opp», and the other way round.
+  const openProject = (projectNo: string | null) => (setOpen(projectNo), setFollowing(false))
 
   const { pending, onFile, done } = useTableFile<BudgetEntry[]>({
     read: readBudsjettWorkbook,
@@ -164,13 +119,23 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
     <div className="resultat-page">
       <div className="page-head mode-band">
         <h2>Resultat</h2>
+        <Segmented
+          label="Utvalg"
+          value={view}
+          onChange={setView}
+          options={VIEWS.map(({ value, label, title }) => ({ value, title, label: <>{label} <span className="count">{counts[value]}</span></> }))}
+        />
         <span className="res-lead">
-          Budsjett mot planlagt i Kalender, FTE × {hours(ws.settings.hoursPerDay)} t med{' '}
+          FTE × {hours(ws.settings.hoursPerDay)} t +{' '}
           <button className="link" onClick={onOpenSettings} title="Endre overhead under Innstillinger">
-            {overhead} overhead
+            {percentText(overhead)} overhead
           </button>
         </span>
         <span className="toolbar-gap" />
+        <button className={`ghost ${following ? 'active' : ''}`} aria-pressed={following} title="Prosjekter i utvalget som trenger noe av deg: over budsjett, snart i gang uten nok folk, uten plan eller uten budsjett" onClick={() => (setFollowing(!following), setOpen(null))}>
+          <TriangleAlert size={14} aria-hidden /> Følg opp {follow > 0 && <span className="count-chip alert">{follow}</span>}
+        </button>
+        <AreaMenu tree={hallTree} statuses={statuses} filter={hallFilter} onChange={setHallFilter} />
         <UndoRedoButtons />
         <TableFileMenu
           exportTitle="Last ned budsjettene som en Excel-fil: en rad per prosjekt med budsjetterte arbeidstimer."
@@ -182,28 +147,40 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
       </div>
       <MessageBanner message={message} onClose={() => setMessage(null)} />
       <div className="res-stage">
-        <div className="res-scroll">
-          {rows.length ? (
-            <DataTable table={table} className="res-table" rowKey={(row) => row.projectNo.toLowerCase()} rowProps={(row) => ({ className: row.projectNo === open ? 'res-open' : undefined })} />
-          ) : (
-            <p className="res-empty muted">Ingen prosjekter ennå. Les inn hallbookingene fra Venyou og gi prosjektene nummer på Prosjekter, eller les inn budsjettene under «Fil».</p>
-          )}
-          {(staffing.unshared > NOISE || staffing.noProject.tagged + staffing.noProject.shared > NOISE) && (
-            <p className="res-note muted">
-              {staffing.unshared > NOISE && <>Ikke fordelt: {hours(staffing.unshared)} t er bemannet utover det prosjektene mangler. </>}
-              {staffing.noProject.tagged + staffing.noProject.shared > NOISE && <>Uten prosjekt: {hours(staffing.noProject.tagged + staffing.noProject.shared)} t er bemannet på behov uten prosjektnummer.</>}
-            </p>
-          )}
-          {unnumbered > 0 && (
-            <p className="res-note muted">
-              {count(unnumbered, 'arrangement', 'arrangementer')} i hallkalenderen har ikke prosjektnummer og er ikke med.{' '}
-              <button className="link" onClick={onOpenProjects}>
-                Gi dem nummer på Prosjekter
-              </button>
-            </p>
-          )}
-        </div>
-        {opened && <ProjectResult row={opened} season={season} budget={budgetOf(budgets, opened.projectNo)} overhead={overhead} onClose={() => setOpen(null)} onOpenBehov={() => onOpenBehov(opened.projectNo)} />}
+        {rows.length ? (
+          <div className="res-page">
+            <ResultFigures rows={shown} overhead={overhead} staffedOf={staffedOf} />
+            <ResultMatrix rows={shown} halls={halls} today={today} overhead={overhead} actuals={actuals} open={open} onOpen={openProject} />
+          </div>
+        ) : (
+          <p className="res-empty muted">Ingen prosjekter ennå. Les inn hallbookingene fra Venyou og gi prosjektene nummer på Prosjekter, eller les inn budsjettene under «Fil».</p>
+        )}
+        {opened && (
+          <ProjectResult
+            key={opened.projectNo}
+            row={opened}
+            season={season}
+            today={today}
+            overhead={overhead}
+            staffed={staffedOf(opened)}
+            onBudget={(value) => setBudgets(withBudget(budgets, opened.projectNo, value))}
+            onClose={() => setOpen(null)}
+            onOpenBehov={() => onOpenBehov(opened.projectNo)}
+          />
+        )}
+        {following && (
+          <FollowUp
+            rows={shown}
+            today={today}
+            staffedOf={staffedOf}
+            unnumbered={unnumbered}
+            unshared={staffing.unshared}
+            noProject={staffing.noProject.tagged + staffing.noProject.shared}
+            onOpen={(projectNo) => openProject(projectNo)}
+            onOpenProjects={onOpenProjects}
+            onClose={() => setFollowing(false)}
+          />
+        )}
       </div>
       {pending && (
         <MergeReplaceDialog

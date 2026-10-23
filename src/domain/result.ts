@@ -219,6 +219,12 @@ export const dayAverages = (rows: SeasonRow[]): Record<WorkDays, DayAverage> => 
   return { assembly: of('assembly', 'Montering'), dismantle: of('dismantle', 'Demontering') }
 }
 
+/** What the permanent staff can work per day, averaged over the days of build-up and tear-down of the rows. Null without such days. */
+export const staffPerDay = (rows: SeasonRow[]): number | null => {
+  const days = sumOf(rows, (row) => row.days.assembly + row.days.dismantle)
+  return days ? sumOf(rows, (row) => row.staff.assembly + row.staff.dismantle) / days : null
+}
+
 /** The sums of the rows shown. The deviations are over the projects that have a budget alone, which are counted in `budgeted`. */
 interface SeasonTotals {
   projects: number
@@ -294,6 +300,9 @@ export const followUps = (rows: SeasonRow[], today: ISODate, staffedOf: (row: Se
     noBudget: rows.filter((row) => row.budget === null),
   }
 }
+
+/** The number of projects that something is to be followed up for. */
+export const followUpCount = (follow: FollowUps): number => new Set(Object.values(follow).flatMap((rows: SeasonRow[]) => rows.map((row) => numberKey(row.projectNo)))).size
 
 /** One competence of a project: the hours of the demand it plans with, and the hours planned, per work phase. */
 interface CompetenceHours {

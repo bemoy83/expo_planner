@@ -32,6 +32,7 @@ What was built in each part, where the designs and the app disagreed and what wa
 - [Haller and Mannskap redesign: merged](decisions.md#haller-and-mannskap-redesign-merged)
 - [Innleid: built, to be tested by the user](decisions.md#innleid-built-to-be-tested-by-the-user)
 - [Resultatside: agreed design](decisions.md#resultatside-agreed-design)
+- [Resultat redesign: built, to be tested by the user](decisions.md#resultat-redesign-built-to-be-tested-by-the-user)
 - [Project tagging, places and work plans: built, to be tested by the user](decisions.md#project-tagging-places-and-work-plans-built-to-be-tested-by-the-user)
 - [Spans in the plan: their ends are pulled, to be tested by the user](decisions.md#spans-in-the-plan-their-ends-are-pulled-to-be-tested-by-the-user)
 
