@@ -118,6 +118,11 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
     onMessage({ kind: 'ok', text: `${excluded ? 'Utelot' : 'Tok med'} ${count(changed.length, 'linje', 'linjer')}. Kan angres med Ctrl/Cmd+Z.` })
   }
 
+  // The sum line: what counts in the demand, of every line in scope whatever the filter shows, under the hours of the lines that count.
+  const counted = scope.filter((line) => line.status === 'counted')
+  const countedHours = (field: 'assemblyHours' | 'dismantleHours') => hours(counted.reduce((sum, line) => sum + line[field], 0))
+  const sumText = [`${counted.length} av ${count(scope.length, 'linje', 'linjer')}`, scopeCount('excluded') > 0 && `${scopeCount('excluded')} utelatt`, scopeCount('need') > 0 && `${scopeCount('need')} teller ikke før de er avklart`]
+
   const columns: Column<ReviewedLine>[] = [
     {
       key: 'pick',
@@ -129,6 +134,12 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
           partial={matched.some((line) => selected.has(line.key)) && !matched.every((line) => selected.has(line.key))}
           onChange={(on) => setSelected(on ? new Set(matched.map((line) => line.key)) : new Set())}
         />
+      ),
+      foot: () => (
+        <span className="sum-lead">
+          <b>Med i behovet</b>
+          <span className="muted">{sumText.filter(Boolean).join(' · ')}</span>
+        </span>
       ),
       cell: (line) => (
         <input
@@ -275,6 +286,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       title: 'Montering, timer',
       text: (line) => hours(line.assemblyHours),
       sort: (line) => line.assemblyHours,
+      foot: () => countedHours('assemblyHours'),
       cell: (line) => (line.assemblyHours ? hours(line.assemblyHours) : ''),
       cellProps: (line) => ({ title: line.rateAssembly ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateAssembly, 2)}` : '' }),
     },
@@ -285,6 +297,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       title: 'Demontering, timer',
       text: (line) => hours(line.dismantleHours),
       sort: (line) => line.dismantleHours,
+      foot: () => countedHours('dismantleHours'),
       cell: (line) => (line.dismantleHours ? hours(line.dismantleHours) : ''),
       cellProps: (line) => ({ title: line.rateDismantle ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateDismantle, 2)}` : '' }),
     },
@@ -309,26 +322,8 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
         ),
     },
   ]
-  // The sum line: what counts in the demand, of every line in scope whatever the filter shows, under the hours of the lines that count.
-  const counted = scope.filter((line) => line.status === 'counted')
-  const leadSpan = columns.findIndex((column) => column.key === 'assembly')
-  const sumOf = (field: 'assemblyHours' | 'dismantleHours') => hours(counted.reduce((sum, line) => sum + line[field], 0))
-  columns[0] = {
-    ...columns[0],
-    footSpan: leadSpan,
-    foot: () => (
-      <span className="sum-lead">
-        <b>Med i behovet</b>
-        <span className="muted">
-          {[`${counted.length} av ${count(scope.length, 'linje', 'linjer')}`, scopeCount('excluded') > 0 && `${scopeCount('excluded')} utelatt`, scopeCount('need') > 0 && `${scopeCount('need')} teller ikke før de er avklart`].filter(Boolean).join(' · ')}
-        </span>
-      </span>
-    ),
-  }
-  for (const [key, field] of [['assembly', 'assemblyHours'], ['dismantle', 'dismantleHours']] as const) {
-    const at = columns.findIndex((column) => column.key === key)
-    columns[at] = { ...columns[at], foot: () => sumOf(field) }
-  }
+  // The text of the sum line covers the columns before the hours.
+  columns[0].footSpan = columns.findIndex((column) => column.key === 'assembly')
   const table = useTable(matched, columns)
   const picked = scope.filter((line) => selected.has(line.key))
   // Esc lets go of what is selected, unless a field or a menu has the key.

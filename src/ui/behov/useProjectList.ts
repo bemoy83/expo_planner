@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { todayIso } from '../../domain/dates'
 import { projectTiming, type HallSpans } from '../../domain/ownDemand'
+import { projectNamer } from '../../domain/projects'
 import { isVismaLine } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
 
@@ -14,20 +15,27 @@ const GROUPS = [
 
 /**
  * The projects of Behov in the order of their build-up: the rail both views share, and the projects a line of Egen registrering
- * can be made for. Those of the project table, of Visma and of the own lines, by name.
+ * can be made for: those of the project table, of Visma and of the own lines, with their names.
  */
 export function useProjectList(spans: Map<string, Map<string, HallSpans>>) {
   const { workspace } = useWorkspace()
   const ws = workspace!
   const today = todayIso()
   const own = useMemo(() => ws.demand.filter((line) => !isVismaLine(line)), [ws.demand])
+  // The name of the project table or of the planning rows (`projectNamer`), else the event's name in Visma or the name an own line carries.
   const names = useMemo(() => {
+    const named = projectNamer(ws)
     const names = new Map<string, string>()
-    for (const p of ws.projects) if (p.projectNo.trim() && !names.has(p.projectNo)) names.set(p.projectNo, p.name)
-    for (const v of ws.visma ?? []) if (!names.has(v.projectNo)) names.set(v.projectNo, v.eventName)
-    for (const l of own) if (!names.has(l.projectNo)) names.set(l.projectNo, l.projectName)
+    const add = (projectNo: string, otherwise: string) => {
+      if (!projectNo.trim() || names.has(projectNo)) return
+      const name = named(projectNo)
+      names.set(projectNo, name === projectNo ? otherwise : name)
+    }
+    for (const p of ws.projects) add(p.projectNo, p.name)
+    for (const v of ws.visma ?? []) add(v.projectNo, v.eventName)
+    for (const l of own) add(l.projectNo, l.projectName)
     return names
-  }, [ws.projects, ws.visma, own])
+  }, [ws.projects, ws.allocations, ws.visma, own]) // eslint-disable-line react-hooks/exhaustive-deps
   const timing = useMemo(() => new Map([...names.keys()].map((no) => [no, projectTiming(spans.get(no), today)] as const)), [names, spans, today])
   /** The own lines of each project and their hours. */
   const ownHours = useMemo(() => {

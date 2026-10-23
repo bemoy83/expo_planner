@@ -40,25 +40,12 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   const vismaInput = useRef<HTMLInputElement>(null)
   const placing = usePlacing()
   const { halls, rules } = placing
+  const list = useProjectList(placing.spans)
+  const names = list.names
 
-  /** The projects that have demand or planning rows, by name. */
-  const projects = useMemo(() => {
-    const names = new Map<string, string>()
-    for (const p of ws.projects) if (!names.has(p.projectNo)) names.set(p.projectNo, p.name)
-    for (const r of ws.allocations) if (r.projectNo) names.set(r.projectNo, r.projectName)
-    for (const v of ws.visma ?? []) if (!names.has(v.projectNo)) names.set(v.projectNo, v.eventName)
-    const withData = new Set([...ws.demand.map((l) => l.projectNo), ...ws.allocations.map((r) => r.projectNo)])
-    return [...names].filter(([no]) => withData.has(no)).sort((a, b) => a[1].localeCompare(b[1], 'nb'))
-  }, [ws.projects, ws.allocations, ws.visma, ws.demand])
-  const names = useMemo(() => {
-    const names = new Map(projects)
-    for (const v of ws.visma ?? []) if (!names.has(v.projectNo)) names.set(v.projectNo, v.eventName)
-    return names
-  }, [projects, ws.visma])
   // Every project's Visma lines, with where each stands: the rail, the filter and the count in the switch read from this.
   const review = useMemo(() => reviewVisma(ws.visma ?? [], ws.kpi ?? EMPTY_KPI, ws.overrides ?? {}, halls, rules), [ws.visma, ws.kpi, ws.overrides, halls, rules])
   const need = useMemo(() => [...review.values()].reduce((n, project) => n + project.need, 0), [review])
-  const list = useProjectList(placing.spans)
 
   // The projects down the left, the same in both views: in Visma what needs the planner, in Egen registrering the own hours.
   const needMark = (n: number) =>
@@ -148,20 +135,20 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
       </div>
       <MessageBanner message={message} onClose={() => setMessage(null)} />
       <div className="behov-stage">
-      <div className="behov-split">
-      <ProjectRail
-        all={{ label: 'Alle prosjekter', aside: view === 'visma' ? need > 0 || review.size ? needMark(need) : undefined : <span className="count">{list.own.length}</span> }}
-        sections={sections}
-        projectNo={projectNo}
-        onPick={onProjectChange}
-      />
-      {view === 'visma' ? (
-        <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} onReplace={replace} placing={placing} avklar={panel === 'avklar'} onAvklar={(open) => setPanel(open ? 'avklar' : null)} />
-      ) : (
-        <EgenView placing={placing} projects={list} projectNo={projectNo} onProjectChange={onProjectChange} seed={seed} onSeedUsed={() => setSeed(null)} onMessage={setMessage} />
-      )}
-      </div>
-      {panel === 'summary' && projectNo && <HoursSummary projectNo={projectNo} projectName={names.get(projectNo) ?? projectNo} onClose={() => setPanel(null)} />}
+        <div className="behov-split">
+          <ProjectRail
+            all={{ label: 'Alle prosjekter', aside: view === 'visma' ? review.size > 0 && needMark(need) : <span className="count">{list.own.length}</span> }}
+            sections={sections}
+            projectNo={projectNo}
+            onPick={onProjectChange}
+          />
+          {view === 'visma' ? (
+            <VismaView projectNo={projectNo} onProjectChange={onProjectChange} onOpenSetup={onOpenSetup} review={review} names={names} onMessage={setMessage} onReplace={replace} placing={placing} avklar={panel === 'avklar'} onAvklar={(open) => setPanel(open ? 'avklar' : null)} />
+          ) : (
+            <EgenView placing={placing} projects={list} projectNo={projectNo} onProjectChange={onProjectChange} seed={seed} onSeedUsed={() => setSeed(null)} onMessage={setMessage} />
+          )}
+        </div>
+        {panel === 'summary' && projectNo && <HoursSummary projectNo={projectNo} projectName={names.get(projectNo) ?? projectNo} onClose={() => setPanel(null)} />}
       </div>
     </div>
   )
