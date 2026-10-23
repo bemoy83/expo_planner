@@ -1,0 +1,130 @@
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { daysBetween, type ISODate } from '../../domain/dates'
+import type { DateSpan } from '../../domain/types'
+import { loadPref, savePref, usePref } from '../../store/prefs'
+import { LEFT_W, ZOOM_WIDTHS, type Zoom } from './layout'
+import { useModeZoom } from './useModeZoom'
+import { BEMANNING_DAYS, cleanCrewPart, cleanPlanMode, enterSpan, fitWidth, INNLEID_W, spanDays, type CrewPart, type DaySpan, type HeldColumns, type PlanMode, type ZoomPoint } from './zoom'
+
+/**
+ * The modes of the Kalender and their widths of a day. The rows are the demand plan or the people (`planMode`), and `shown` is
+ * what is drawn: on the way into Bemanning the plan zooms in first and the rows change at the end, on the way out they change first.
+ * Bemanning has two parts on the same days, the permanent staff and the people hired for what they leave: the days of Innleid
+ * have one width, those of the permanent staff are as wide as the span they show asks for, and Bemanning has no steps of zoom.
+ */
+export function useModeState(range: DateSpan, focusDate: ISODate | undefined, today: ISODate, zoom: Zoom) {
+  const [planMode, setPlanMode] = usePref<PlanMode>('planMode', 'plan', cleanPlanMode)
+  const [shown, setShown] = useState<PlanMode>(planMode)
+  const [crewPart, setCrewPart] = usePref<CrewPart>('crewPart', 'faste', cleanCrewPart)
+  // A page that opens in Bemanning opens on the days last seen there.
+  const [openSpan] = useState(() => {
+    const inPeriod = (date: ISODate | undefined) => !!date && date >= range.start && date <= range.end
+    return enterSpan({ period: range, stored: loadPref<DaySpan | null>('bemanningRange', null), leftEdge: inPeriod(focusDate) ? focusDate! : inPeriod(today) ? today : range.start })
+  })
+  const [bemanningW, setBemanningW] = useState(() => fitWidth(spanDays(openSpan), window.innerWidth - LEFT_W))
+  // The width the lines are drawn at. While the switch zooms, the width on screen is on its way from
+  // one mode's to the other's (`useModeZoom`), and the days it passes are held drawn.
+  const colW = shown === 'bemanning' ? (crewPart === 'innleid' ? INNLEID_W : bemanningW) : ZOOM_WIDTHS[zoom]
+  const [held, setHeld] = useState<HeldColumns | null>(null)
+  // While the switch between the modes zooms, the days in view are held at those the plan shows at its own
+  // width. The zoom passes through fewer days, and the projects listed would come and go with them,
+  // moving the rows under the planner.
+  const [heldWindow, setHeldWindow] = useState<DaySpan | null>(null)
+  return { planMode, setPlanMode, shown, setShown, crewPart, setCrewPart, openSpan, bemanningW, setBemanningW, colW, held, setHeld, heldWindow, setHeldWindow }
+}
+
+type Modes = ReturnType<typeof useModeState>
+
+interface Options {
+  modes: Modes
+  scrollRef: RefObject<HTMLDivElement | null>
+  dates: ISODate[]
+  range: DateSpan
+  zoom: Zoom
+  viewport: { left: number; width: number }
+  /** From `useGridViewport`: the width and the left edge on screen, a frame of a zoom, the placing of the left edge, and a measure of the heights. */
+  zoomFrom: () => ZoomPoint & { room: number }
+  zoomStep: (left: number, colW: number) => void
+  placeLeft: (left: number, colW: number) => void
+  measure: () => void
+  /** What a switch of the mode lets go of: the selection, the cell menu and the tool of the plan. */
+  onLeave: () => void
+}
+
+/** The switches between the modes and the parts, with the zoom between their widths, and the days of Bemanning remembered. */
+export function useModeSwitch({ modes, scrollRef, dates, range, zoom, viewport, zoomFrom, zoomStep, placeLeft, measure, onLeave }: Options) {
+  const { planMode, setPlanMode, shown, setShown, crewPart, setCrewPart, openSpan, bemanningW, setBemanningW, colW, held, setHeld, setHeldWindow } = modes
+  const zoomTo = useModeZoom(zoomFrom, zoomStep, setHeld, placeLeft)
+  /** The days between the label column and the right edge of the grid, in pixels. */
+  const dayRoom = () => (scrollRef.current?.clientWidth ?? viewport.width) - LEFT_W
+  /** Zooms Bemanning to a span of days: as wide as fills the grid, the first day at the left edge (R18). */
+  const fitBemanning = (span: DaySpan) => {
+    const width = fitWidth(spanDays(span), dayRoom())
+    zoomTo({ colW: width, left: daysBetween(range.start, span.start) }, () => setBemanningW(width))
+  }
+  // The two modes have rows of their own, so each keeps how far down it was scrolled: the plan is found
+  // again where it was left, and the people do not open partway down their list. The plan is put back
+  // once more when the zoom out has ended, should the list have changed on the way. The modes also have
+  // blocks of different heights above the rows; they are measured here and now, or the first frame would
+  // draw the rows of the other mode's place under the other mode's heights.
+  const scrolledTo = useRef<Record<PlanMode, number>>({ plan: 0, bemanning: 0 })
+  const [zoomsEnded, setZoomsEnded] = useState(0)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = scrolledTo.current[shown]
+    measure()
+  }, [shown, zoomsEnded, scrollRef, measure])
+  const switchMode = (next: PlanMode) => {
+    const el = scrollRef.current
+    if (next === planMode || !el) return
+    scrolledTo.current[shown] = el.scrollTop
+    setPlanMode(next)
+    onLeave()
+    // The two modes share the timeline: the day at the left edge of the one is the day at the left edge
+    // of the other. Only the width of a day differs, and Bemanning keeps the width it was last seen in.
+    const left = Math.floor(zoomFrom().left + 0.01)
+    setHeldWindow({ start: dates[left], end: dates[Math.min(dates.length - 1, left + Math.floor(dayRoom() / ZOOM_WIDTHS[zoom]))] })
+    if (next === 'bemanning') {
+      const stored = loadPref<DaySpan | null>('bemanningRange', null)
+      const fitted = fitWidth(stored && stored.start <= stored.end ? spanDays(stored) : BEMANNING_DAYS, dayRoom())
+      zoomTo({ colW: crewPart === 'innleid' ? INNLEID_W : fitted, left }, () => {
+        setBemanningW(fitted)
+        setShown('bemanning')
+        setHeldWindow(null)
+      })
+    } else {
+      setShown('plan')
+      zoomTo({ colW: ZOOM_WIDTHS[zoom], left }, () => {
+        setHeldWindow(null)
+        setZoomsEnded((n) => n + 1)
+      })
+    }
+  }
+  /** Goes to the other part of Bemanning: the day at the left edge stays, and the days zoom to the width of the part. */
+  const switchPart = (next: CrewPart) => {
+    if (next === crewPart) return
+    const width = next === 'innleid' ? INNLEID_W : bemanningW
+    if (width === colW) return setCrewPart(next)
+    zoomTo({ colW: width, left: Math.floor(zoomFrom().left + 0.01) }, () => setCrewPart(next))
+  }
+  // The days seen with the permanent staff are remembered, for the next time Bemanning is opened: their width is theirs alone.
+  // Whole days, so the same days give the same width when they are opened again.
+  const seenFrom = Math.min(dates.length - 1, Math.round(viewport.left / colW))
+  const seenTo = Math.min(dates.length - 1, seenFrom + Math.max(1, Math.round((viewport.width - LEFT_W) / colW)) - 1)
+  const bemanningSpan = shown === 'bemanning' && crewPart === 'faste' && held === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
+  useEffect(() => {
+    if (!bemanningSpan) return
+    const [start, end] = bemanningSpan.split('|')
+    // Not while the grid has no width of its own (a page opened out of sight): the days it seems to show then are not the days seen.
+    const timer = setTimeout(() => {
+      const el = scrollRef.current
+      if (el && el.clientWidth > LEFT_W) savePref('bemanningRange', { start, end })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [bemanningSpan, scrollRef])
+  useLayoutEffect(() => {
+    if (shown === 'bemanning') placeLeft(daysBetween(range.start, openSpan.start), colW)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  return { switchMode, switchPart, fitBemanning }
+}

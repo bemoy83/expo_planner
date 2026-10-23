@@ -58,3 +58,26 @@ export const phaseBars = (days: Map<ISODate, VenuePhase>, origin: ISODate): Phas
   }
   return bars
 }
+
+/**
+ * The projects as Bemanning lists them: their days in the hall calendar, from the first phase to the last, as columns from `start`.
+ * As in the hall calendar, only the projects with a booking in one of the halls it shows; and only those with FTE planned
+ * somewhere in the period, since a project without has nothing to staff.
+ */
+export const projectSpansOf = (
+  groups: { key: string; projectName: string; daily: Map<ISODate, number> }[],
+  phasesOf: Map<string, Map<ISODate, VenuePhase>>,
+  hallsOf: Map<string, Set<string>>,
+  shownHalls: string[],
+  start: ISODate,
+): ProjectSpan[] => {
+  const shown = new Set(shownHalls)
+  return groups.flatMap((group): ProjectSpan[] => {
+    const days = [...(phasesOf.get(group.key) ?? [])].sort((a, b) => a[0].localeCompare(b[0]))
+    if (![...group.daily.values()].some((fte) => fte > 0)) return []
+    if (!days.length || ![...(hallsOf.get(group.key) ?? [])].some((hall) => shown.has(hall))) return []
+    const first = daysBetween(start, days[0][0])
+    const event = days.find(([, phase]) => phase === 'event')
+    return [{ key: group.key, name: group.projectName, halls: [...(hallsOf.get(group.key) ?? [])].sort((a, b) => a.localeCompare(b, 'nb', { numeric: true })), start: first, end: daysBetween(start, days[days.length - 1][0]), eventStart: event ? daysBetween(start, event[0]) : first }]
+  })
+}

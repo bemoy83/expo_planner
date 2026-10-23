@@ -3,6 +3,7 @@ import type { ISODate } from '../../domain/dates'
 import { UNRESOLVED_HALL } from '../../domain/locations'
 import { normalizeName, projectNamesIndex, type VenueEvent } from '../../domain/projects'
 import type { AllocationRow, ProjectRef, Settings, WorkPhase } from '../../domain/types'
+import { ROW_H, TOP_ROW_H } from './layout'
 
 export interface ProjectGroup {
   key: string
@@ -296,6 +297,31 @@ export const levelSections = (items: GridItem[]): LevelSection[] => {
     if (top && item.kind === 'group') list.push({ item, index, end: items.length })
   })
   return list
+}
+
+/** Where each line starts, counted from the top of the planning rows: a top level's line is taller than the rest. One entry more than there are lines, the last being the full height. */
+export const lineTops = (items: GridItem[]): number[] => {
+  const tops = [0]
+  for (const item of items) tops.push(tops[tops.length - 1] + (item.kind === 'group' && item.node.depth === 0 ? TOP_ROW_H : ROW_H))
+  return tops
+}
+
+/** The line that covers `y`, counted from the top of the planning rows, by the starts of `lineTops`. */
+export const lineAt = (tops: number[], y: number): number => {
+  let lo = 0
+  let hi = tops.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (tops[mid + 1] <= y) lo = mid + 1
+    else hi = mid
+  }
+  return lo
+}
+
+/** How much of the rows the line of a top level, stuck at the top while its lines scroll past, covers above the line at `index`: nothing above a top level itself, or where no level sticks. */
+export const headOver = (items: GridItem[], sticks: boolean, index: number): number => {
+  const item = items[index]
+  return item && sticks && itemDepth(item) > 0 ? TOP_ROW_H : 0
 }
 
 /**
