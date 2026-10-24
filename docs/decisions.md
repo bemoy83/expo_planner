@@ -180,7 +180,7 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
-## One control height and the ochre of DESIGN-RULES §8: built, to be tested by the user
+## One control height and the ochre of DESIGN-RULES §8: merged
 
 Built 2026-10-24 from the addendum of the v3 handoffs (`ADDENDUM-signals.md`, which the planner keeps out of git), after measuring what the app had: buttons, fields and segmented tracks were 31px from padding and line height, the band's icon buttons and the Kalender's bar 32, the form of Egen registrering 36, the controls in the rows of tables 24 to 28 and the rows 36 to 38.
 
