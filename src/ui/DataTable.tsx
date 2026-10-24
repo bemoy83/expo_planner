@@ -62,19 +62,6 @@ export function DataTable<T>({ table, rowKey, rowProps, className, empty = 'Inge
           </tr>
         ))}
       </tbody>
-      {columns.some((column) => column.foot) && (
-        <tfoot>
-          <tr>
-            {columns.map((column, index) =>
-              columns.slice(0, index).some((before, at) => at + (before.footSpan ?? 1) > index) ? null : (
-                <td key={column.key} className={column.className} colSpan={column.footSpan}>
-                  {column.foot?.(table.rows)}
-                </td>
-              ),
-            )}
-          </tr>
-        </tfoot>
-      )}
     </table>
   )
 }

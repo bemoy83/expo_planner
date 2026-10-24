@@ -116,7 +116,7 @@
   --chosen-raise:var(--raise);
   --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));   /* the strips of context on a card of the tabs of tables; made again in the dark palette */
 
-  /* a card on its page (the tabs of tables): the room around it, its corners, how far its rows stand in, and its sum line. Behov's rows stand in as far as its page (24px) */
+  /* a card on its page (the tabs of tables): the room around it, its corners, how far its rows stand in, and its sum line. Behov's and Oppsett's rows, on the canvas, stand in as far as the page (24px) */
   --stage-pad:16px 24px;   /* 12px 16px in a narrow window, below */
   --card-radius:12px;
   --card-inset:14px;

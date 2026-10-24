@@ -55,7 +55,7 @@
 .op-head>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .op-head>span:has(.menu){display:flex;align-items:center;overflow:visible}   /* a heading with a filter: its menu hangs below it */
 .op-head .num{font:inherit}
-/* the sum row, held at the foot of the card where there is a number to read (Produkttyper, Faste) */
+/* the sum row, held at the foot of the card where there is a number to read (Faste) */
 .op-row.op-foot{flex:none;min-height:var(--sum-h);border-bottom:0;box-shadow:0 -1px 0 var(--line-strong)}
 .op-foot-lead{grid-column:1 / -1;min-width:0;overflow:hidden;white-space:nowrap}
 .op-foot-lead .muted{overflow:hidden;text-overflow:ellipsis}

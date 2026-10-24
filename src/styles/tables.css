@@ -16,17 +16,13 @@ table.ledger .planned{background:var(--pos-bg)}
 /* numbers and dates are set as in the Kalender */
 table.ledger .num,table.ledger .date,table.ledger td.project-no,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
 
-/* a ledger on a card (Tekstregler, Utelatte artikler) or on the canvas (Behov, which sets --table-bg and --card-inset): slim rows edited in place,
-   the heading held at the top and, on a card, the sum line at its foot. The rows' own heights and rules are the table's. */
+/* a ledger on the canvas (Behov, and Tekstregler and Utelatte artikler on Oppsett, which set --table-bg and --card-inset): slim rows
+   edited in place, the heading held at the top. The rows' own heights and rules are the table's. */
 table.ledger.card-table{background:none;font-size:var(--fs-md)}
 table.ledger.card-table :is(th,td){border:none;padding:0 6px}
 table.ledger.card-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--table-bg,var(--surface));font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
 table.ledger.card-table tr>:is(th,td):first-child{padding-left:var(--card-inset)}
 table.ledger.card-table tr>:is(th,td):last-child{padding-right:var(--card-inset)}
-/* the sum line, held at the foot of the card: what counts, of how many, beside the hours. Its rule is drawn a pixel up, over the
-   rule of the last row, or the two show as a double line where the foot follows the rows (the same for .op-foot and .res-sum) */
-table.ledger.card-table tfoot td{position:sticky;bottom:0;z-index:1;height:var(--sum-h);box-shadow:0 -1px 0 var(--line-strong);background:var(--surface);font-weight:600;text-align:left}
-table.ledger.card-table tfoot td.num{text-align:right}
 .sum-lead{display:flex;align-items:baseline;gap:10px;font-size:var(--fs-md)}
 .sum-lead b{font-weight:600}
 .sum-lead .muted{font-size:var(--fs-sm);font-weight:400}
