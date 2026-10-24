@@ -310,3 +310,10 @@ The designer's answer to the brief «the demand of Innleid as in Faste» (`desig
 - Faste and Innleid share the lines of the demand (`bemanning/NeedLabel.tsx`, `domain/needLabel.ts`); the hours in the label column are signed in both («t mangler»).
 - Not done: the stroke preview shows on the line it is drawn on only, not on the other lines of an open competence.
 
+
+## Egen registrering by keyboard: built, to be tested by the user
+
+- Hall and avd. are the first fields of the line, before Arbeid, and the project stands alone above (the planner, 2026-10-24): the next line starts at its hall, which Tab passes as it is, so a change of hall needs no mouse. They take one of their values only; what is typed searches the list and is dropped when the field is left.
+- Tab picks a value in any list of `PickField` that the arrow keys went to, as Enter does, and the focus moves on. An offer only marked when the list opened is passed by, so that tabbing through does not accept it.
+- Tab from Kompetanse goes to «Legg til»; Grunnlag stays as it is between lines and is reached with Shift+Tab.
+- A quantity can be typed with its unit, «1stk» (`parseQuantity`); on a type of KPI the unit is the type's, and another one keeps the line from being added. Hours can be the quantity at a rate, «10/t» or «80/d» (`parseHours`); they are stored as hours, not worked out again when the quantity changes.

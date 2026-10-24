@@ -119,7 +119,6 @@ button.exclude.on{color:var(--text)}
 .crumbs .quiet-chip.crumb:hover{background:var(--surface);box-shadow:var(--raise)}
 .crumbs .split-field.crumb{width:240px}
 span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
-.crumb-sep{color:var(--faint)}
 .own-window{flex:1;min-width:240px;display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;font-size:var(--fs-sm)}
 .own-window small{margin-left:4px;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
 .own-work{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
@@ -132,10 +131,12 @@ span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
 .own-field.quantity{width:128px}
 .own-field.hours{width:112px}
 .own-field.competence{width:150px}
+.own-field.hall{width:150px}
+.own-field.avdeling{width:90px}
 .own-pair{display:flex;align-items:center;gap:4px;height:var(--ctl-h);padding:0 8px 0 0;border-radius:8px;background:var(--well)}
 .own-pair:focus-within{box-shadow:var(--well-focus)}
 .own-field .own-pair input,.own-field .own-pair input:focus{flex:1;min-width:0;height:auto;border:0;background:none;box-shadow:none;outline:none;font-family:var(--font-num)}
-.own-field .own-pair input.unit{flex:none;width:44px;padding:0;text-align:right;font-size:var(--fs-sm);color:var(--muted)}
+.own-field .own-pair input.unit{flex:none;width:44px;padding:0;border-radius:0;text-align:right;font-size:var(--fs-sm);color:var(--muted)}
 .own-pair em{font:500 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint);white-space:nowrap}
 .own-pair em.bad{color:var(--neg)}
 .own-add{gap:8px}

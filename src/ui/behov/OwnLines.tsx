@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { typeAndRate } from '../../domain/kpi'
-import { parseDecimal } from '../../domain/numbers'
-import { ownTotals, parseHours, type HallSpans } from '../../domain/ownDemand'
+import { ownTotals, parseHours, parseQuantity, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
 import { TriCheckbox } from '../common'
 import { count } from '../dom'
@@ -78,9 +77,16 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
     if (!rate || !quantity) return { quantity }
     return { quantity, assemblyHours: rate.assembly ? quantity / rate.assembly : 0, dismantleHours: rate.dismantle ? quantity / rate.dismantle : 0 }
   }
+  /** A quantity typed in a cell, with its unit or without; a text that cannot be read, or a unit other than its type's on KPI, changes nothing. */
+  const withQuantityText = (line: DemandLine, text: string) => {
+    const { type } = typeAndRate(kpi, line.workType)
+    const typed = parseQuantity(text, type?.unit)
+    if (!typed) onUpdate(line, withQuantity(line, null))
+    else if (!Number.isNaN(typed.quantity) && !typed.wrongUnit) onUpdate(line, { ...withQuantity(line, typed.quantity), ...(typed.unit ? { unit: typed.unit } : {}) })
+  }
   /** Hours typed in a cell, short or not; a text that cannot be read changes nothing, and an empty one is none. */
   const withHours = (line: DemandLine, field: 'assemblyHours' | 'dismantleHours', text: string) => {
-    const typed = parseHours(text, hoursPerDay)
+    const typed = parseHours(text, hoursPerDay, line.quantity)
     if (!typed) onUpdate(line, { [field]: 0 })
     else if (!Number.isNaN(typed.hours)) onUpdate(line, { [field]: typed.hours })
   }
@@ -190,7 +196,7 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                         <EditCell
                           value={line.quantity === null ? '' : formatFte(line.quantity, 3)}
                           shown={line.quantity === null ? '–' : `${formatFte(line.quantity, 1)} ${line.unit}`}
-                          onCommit={(text) => onUpdate(line, withQuantity(line, text.trim() ? (parseDecimal(text) ?? line.quantity) : null))}
+                          onCommit={(text) => withQuantityText(line, text)}
                         />
                       </td>
                       <td className="num">

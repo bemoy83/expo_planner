@@ -1,9 +1,9 @@
-import { useRef, type RefObject } from 'react'
-import { ChevronRight, CornerDownLeft, History, X } from 'lucide-react'
+import { useRef, useState, type Ref, type RefObject } from 'react'
+import { CornerDownLeft, History, X } from 'lucide-react'
 import { competenceKey, DRAFT_BASIS, OWN_SOURCE, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
 import { productTypeKey, typeAndRate } from '../../domain/kpi'
-import { parseDecimal } from '../../domain/numbers'
-import { parseHours, spanText, workdays, type HallSpans } from '../../domain/ownDemand'
+import { decimalText } from '../../domain/numbers'
+import { parseHours, parseQuantity, spanText, workdays, type HallSpans } from '../../domain/ownDemand'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Segmented } from '../common'
 import { PickField, type PickGroup } from '../fields'
@@ -35,7 +35,8 @@ interface Props {
   hoursPerDay: number
   /** The hall or place a Hall/Sted text counts under in a project, as the rules place it. */
   placeIn: (hall: string, projectNo: string) => string
-  /** The fields the page puts the focus in: Arbeid, and Montering. */
+  /** The fields the page puts the focus in: Hall, Arbeid, and Montering. */
+  hallRef: RefObject<HTMLInputElement | null>
   workRef: RefObject<HTMLInputElement | null>
   assemblyRef: RefObject<HTMLInputElement | null>
   onAdd: (lines: DemandLine[]) => void
@@ -44,10 +45,10 @@ interface Props {
 }
 
 /**
- * The form of Egen registrering: the context strip (project › hall › avd.), which stays between lines, the work with
+ * The form of Egen registrering: the project above, the line's hall and avd., which stay between lines, the work with
  * its amount and hours, and what the line does to the Kalender. Enter adds the line from any field, Esc empties it.
  */
-export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectGroups, booked, places, avdelinger, usedBefore, competences, kpi, hoursPerDay, placeIn, workRef, assemblyRef, onAdd, onProject }: Props) {
+export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectGroups, booked, places, avdelinger, usedBefore, competences, kpi, hoursPerDay, placeIn, hallRef, workRef, assemblyRef, onAdd, onProject }: Props) {
   const { locatedDemand } = useWorkspace()
   const competenceColor = useCompetenceColor()
   const projectName = projects.find(([no]) => no === ctx.projectNo)?.[1] ?? ''
@@ -58,14 +59,20 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
   const qtyRef = useRef<HTMLInputElement>(null)
   const compRef = useRef<HTMLInputElement>(null)
   const addRef = useRef<HTMLButtonElement>(null)
+  const avdRef = useRef<HTMLInputElement>(null)
 
   const { type, rate } = typeAndRate(kpi, draft.work)
-  const quantity = parseDecimal(draft.quantity) ?? null
+  // The quantity can be typed with its unit, «1stk»: on a type of KPI the unit is the type's, and another one is an error.
+  const typedQuantity = parseQuantity(draft.quantity, type?.unit)
+  const quantity = typedQuantity?.quantity ?? null
+  const typedUnit = typedQuantity?.unit
+  const wrongUnit = !!typedQuantity?.wrongUnit
+  const unit = type?.unit ?? typedUnit ?? draft.unit.trim()
   const auto = (perHour: number | undefined) => (quantity && perHour ? quantity / perHour : null)
   const autoAssembly = auto(rate?.assembly)
   const autoDismantle = auto(rate?.dismantle)
-  const typedAssembly = parseHours(draft.assembly, hoursPerDay)
-  const typedDismantle = parseHours(draft.dismantle, hoursPerDay)
+  const typedAssembly = parseHours(draft.assembly, hoursPerDay, quantity)
+  const typedDismantle = parseHours(draft.dismantle, hoursPerDay, quantity)
   const assembly = typedAssembly ? typedAssembly.hours : (autoAssembly ?? 0)
   const dismantle = typedDismantle ? typedDismantle.hours : (autoDismantle ?? 0)
 
@@ -73,6 +80,8 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
     !ctx.projectNo && 'prosjekt',
     !draft.work.trim() && 'arbeid',
     !draft.competence.trim() && 'kompetanse',
+    Number.isNaN(quantity) && 'mengde som kan leses',
+    wrongUnit && `mengde i ${type!.unit}`,
     !(assembly > 0) && !(dismantle > 0) && 'timer',
     (Number.isNaN(assembly) || Number.isNaN(dismantle)) && 'timer som kan leses',
   ].filter((what): what is string => !!what)
@@ -91,7 +100,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
         source: OWN_SOURCE,
         workType: draft.work.trim(),
         quantity: quantity === null ? null : quantity / n,
-        unit: type?.unit ?? draft.unit.trim(),
+        unit,
         stand: '',
         hall,
         competence: draft.competence.trim(),
@@ -143,7 +152,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
     }
   }
   const hint = (typed: ReturnType<typeof parseHours>, fromKpi: number | null) =>
-    typed?.read ? (Number.isNaN(typed.hours) ? '?' : `= ${hours(typed.hours)} t`) : !typed && fromKpi !== null ? 'KPI' : ''
+    typed?.read ? (Number.isNaN(typed.hours) ? (typed.noQuantity ? 'mengde?' : '?') : `= ${hours(typed.hours)} t`) : !typed && fromKpi !== null ? 'KPI' : ''
 
   return (
     <section
@@ -170,57 +179,9 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
             groups={projectGroups}
             onPick={(no) => {
               onProject(no)
-              requestAnimationFrame(() => workRef.current?.focus())
+              requestAnimationFrame(() => hallRef.current?.focus())
             }}
           />
-          <ChevronRight size={12} className="crumb-sep" aria-hidden />
-          {ctx.projectNo ? (
-            <SplitPick
-              className="crumb"
-              label="Hall"
-              value={hallShown}
-              missing="Hall"
-              head={`Hall · ${projectName}`}
-              groups={[
-                {
-                  label: bookedHalls.length ? `Booket av ${projectName}` : `${projectName} har ingen booking`,
-                  items: bookedHalls.map((hall) => {
-                    const days = booked.get(hall)!
-                    return { value: hall, note: [days.assembly && `Opp ${spanText(days.assembly)}`, days.dismantle && `Ned ${spanText(days.dismantle)}`].filter(Boolean).join(' · ') }
-                  }),
-                },
-                ...(bookedHalls.length > 1 ? [{ items: [{ value: SPLIT_HALLS, label: `Fordel på ${bookedHalls.join(', ')}`, note: 'deler timene likt' }] }] : []),
-                { label: 'Andre steder', hint: 'ikke booket', items: places.filter((place) => !booked.has(place)).map((place) => ({ value: place })) },
-                { items: [{ value: NO_HALL, label: 'Uten hall', note: 'teller ikke før den har en hall' }] },
-              ]}
-              onPick={(value) => {
-                onContext({ ...ctx, hall: value === NO_HALL ? '' : value })
-                requestAnimationFrame(() => workRef.current?.focus())
-              }}
-            />
-          ) : (
-            <span className="crumb muted">Hall</span>
-          )}
-          <ChevronRight size={12} className="crumb-sep" aria-hidden />
-          {ctx.projectNo ? (
-            <SplitPick
-              className="crumb"
-              label="Avdeling"
-              value={`avd. ${ctx.avdeling || '–'}`}
-              missing="avd."
-              head="Avdeling"
-              groups={[
-                { label: 'Brukt i prosjektets Visma-linjer', items: avdelinger.filter((a) => a.note).map((a) => ({ value: a.value, note: a.note })) },
-                { label: 'Andre', items: avdelinger.filter((a) => !a.note).map((a) => ({ value: a.value })) },
-              ]}
-              onPick={(avdeling) => {
-                onContext({ ...ctx, avdeling })
-                requestAnimationFrame(() => workRef.current?.focus())
-              }}
-            />
-          ) : (
-            <span className="crumb muted">avd.</span>
-          )}
         </div>
         <div className="own-window">
           {spans && (
@@ -246,6 +207,49 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
         </div>
       </div>
       <div className="own-work">
+        <label className="own-field hall">
+          <span>Hall</span>
+          <ChoiceField
+            ref={hallRef}
+            shown={ctx.projectNo ? hallShown : ''}
+            current={split ? SPLIT_HALLS : ctx.hall === '' ? NO_HALL : ctx.hall}
+            disabled={!ctx.projectNo}
+            head={`Hall · ${projectName}`}
+            groups={[
+              {
+                label: bookedHalls.length ? `Booket av ${projectName}` : `${projectName} har ingen booking`,
+                items: bookedHalls.map((hall) => {
+                  const days = booked.get(hall)!
+                  return { value: hall, note: [days.assembly && `Opp ${spanText(days.assembly)}`, days.dismantle && `Ned ${spanText(days.dismantle)}`].filter(Boolean).join(' · ') }
+                }),
+              },
+              ...(bookedHalls.length > 1 ? [{ items: [{ value: SPLIT_HALLS, label: `Fordel på ${bookedHalls.join(', ')}`, note: 'deler timene likt' }] }] : []),
+              { label: 'Andre steder', hint: 'ikke booket', items: places.filter((place) => !booked.has(place)).map((place) => ({ value: place })) },
+              { items: [{ value: NO_HALL, label: 'Uten hall', note: 'teller ikke før den har en hall' }] },
+            ]}
+            onPick={(value) => {
+              onContext({ ...ctx, hall: value === NO_HALL ? '' : value })
+              requestAnimationFrame(() => avdRef.current?.focus())
+            }}
+          />
+        </label>
+        <label className="own-field avdeling">
+          <span>Avd.</span>
+          <ChoiceField
+            ref={avdRef}
+            shown={ctx.avdeling}
+            current={ctx.avdeling}
+            disabled={!ctx.projectNo}
+            groups={[
+              { label: 'Brukt i prosjektets Visma-linjer', items: avdelinger.filter((a) => a.note).map((a) => ({ value: a.value, note: a.note })) },
+              { label: 'Andre', items: avdelinger.filter((a) => !a.note).map((a) => ({ value: a.value })) },
+            ]}
+            onPick={(avdeling) => {
+              onContext({ ...ctx, avdeling })
+              requestAnimationFrame(() => workRef.current?.focus())
+            }}
+          />
+        </label>
         <label className="own-field work">
           <span>Arbeid</span>
           <PickField
@@ -266,8 +270,16 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
         <label className="own-field quantity">
           <span>Mengde</span>
           <span className="own-pair">
-            <input ref={qtyRef} inputMode="decimal" value={draft.quantity} placeholder="–" onChange={(e) => set({ quantity: e.target.value })} />
-            <input className="unit" value={type?.unit ?? draft.unit} placeholder="enh." readOnly={!!type} tabIndex={type ? -1 : 0} aria-label="Enhet" onChange={(e) => set({ unit: e.target.value })} />
+            <input
+              ref={qtyRef}
+              value={draft.quantity}
+              placeholder="–"
+              onChange={(e) => set({ quantity: e.target.value })}
+              // A unit typed after the number goes to its own field once the field is left.
+              onBlur={() => typedUnit && !wrongUnit && !Number.isNaN(quantity) && set({ quantity: decimalText(quantity!), ...(type ? {} : { unit: typedUnit }) })}
+            />
+            {(wrongUnit || Number.isNaN(quantity)) && <em className="bad">{wrongUnit ? type!.unit : '?'}</em>}
+            <input className="unit" value={type?.unit ?? typedUnit ?? draft.unit} placeholder="enh." readOnly={!!type} tabIndex={type ? -1 : 0} aria-label="Enhet" onChange={(e) => set({ unit: e.target.value })} />
           </span>
         </label>
         <label className="own-field hours">
@@ -298,6 +310,12 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
             onChange={(competence) => set({ competence })}
             // A competence picked from the list is the last of the line: the focus goes to «Legg til», so Enter saves it.
             onPick={(competence) => (set({ competence }), requestAnimationFrame(() => addRef.current?.focus()))}
+            // So does Tab, with a competence picked or already there: Grunnlag stays as it is between lines, and is reached with Shift+Tab.
+            onKeyDown={(e) => {
+              if (e.key !== 'Tab' || e.shiftKey) return
+              e.preventDefault()
+              addRef.current?.focus()
+            }}
             options={competences}
             placeholder="–"
           />
@@ -351,11 +369,43 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
             ))
           ) : (
             <span className="muted">
-              Timer kan skrives som <code>12</code> <code>3p 2d</code> <code>2p 6t</code> <code>4d</code>
+              Timer kan skrives som <code>12</code> <code>3p 2d</code> <code>2p 6t</code> <code>4d</code> <code>10/t</code>
             </span>
           )}
         </div>
       </div>
     </section>
+  )
+}
+
+interface ChoiceProps {
+  /** What the field shows while nothing is typed in it. */
+  shown: string
+  /** The value in bold in the list. */
+  current: string
+  groups: PickGroup[]
+  head?: string
+  disabled?: boolean
+  onPick: (value: string) => void
+  ref?: Ref<HTMLInputElement>
+}
+
+/** A field of the line that takes one of its values only: what is typed searches the list, and is dropped when the field is left. */
+function ChoiceField({ shown, current, groups, head, disabled, onPick, ref }: ChoiceProps) {
+  const [text, setText] = useState<string | null>(null)
+  return (
+    <PickField
+      ref={ref}
+      value={text ?? shown}
+      current={current}
+      onChange={setText}
+      onPick={(value) => (setText(null), onPick(value))}
+      onBlur={() => setText(null)}
+      onCancel={() => setText(null)}
+      groups={groups}
+      head={head}
+      disabled={disabled}
+      placeholder="–"
+    />
   )
 }

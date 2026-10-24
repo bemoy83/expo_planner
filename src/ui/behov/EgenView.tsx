@@ -85,7 +85,7 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
   // The timer that puts out the lines just added; it is stopped if the page closes first.
   const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(flashTimer.current), [])
-  const refs = { work: useRef<HTMLInputElement>(null), assembly: useRef<HTMLInputElement>(null) }
+  const refs = { hall: useRef<HTMLInputElement>(null), work: useRef<HTMLInputElement>(null), assembly: useRef<HTMLInputElement>(null) }
   const focus = (ref: { current: HTMLInputElement | null }) => requestAnimationFrame(() => ref.current?.focus())
 
   /** A line in the form from one that exists: its work, amount, hours and competence, in its project, hall and avd. */
@@ -132,7 +132,8 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
     setFlash(new Set(lines.map((line) => line.id)))
     clearTimeout(flashTimer.current)
     flashTimer.current = setTimeout(() => setFlash(new Set()), FLASH_MS)
-    focus(refs.work)
+    // The next line starts at its hall, which Tab passes as it is.
+    focus(refs.hall)
   }
   const update = (line: DemandLine, patch: Partial<DemandLine>) => saveDemandLine({ ...line, ...patch })
   const remove = (lines: DemandLine[]) => {
@@ -171,7 +172,7 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'n' || e.key === '/') {
         e.preventDefault()
-        refs.work.current?.focus()
+        refs.hall.current?.focus()
       } else if (e.key === 'Escape') setSelected(new Set())
       else if ((e.key === 'Delete' || e.key === 'Backspace') && keys.current.picked.length) keys.current.remove(keys.current.picked)
     }
@@ -224,6 +225,7 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
           kpi={kpi}
           hoursPerDay={hoursPerDay}
           placeIn={(hall, no) => placeOfLine({ hall, projectNo: no }).hall}
+          hallRef={refs.hall}
           workRef={refs.work}
           assemblyRef={refs.assembly}
           onAdd={add}

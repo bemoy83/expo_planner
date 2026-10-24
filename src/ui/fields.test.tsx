@@ -58,6 +58,30 @@ describe('TextField with values to pick from', () => {
     expect(onCommit.mock.calls).toEqual([['lm']])
   })
 
+  it('picks with Tab a value the arrow keys went to, and lets the focus move on', () => {
+    const onCommit = vi.fn()
+    render(<TextField value="stk" options={UNITS} onCommit={onCommit} />)
+    const field = screen.getByRole('combobox')
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: 'm' } })
+    expect(fireEvent.keyDown(field, { key: 'Tab' })).toBe(true) // nothing marked: Tab only leaves
+    expect(onCommit).not.toHaveBeenCalled()
+    fireEvent.keyDown(field, { key: 'ArrowDown' })
+    fireEvent.keyDown(field, { key: 'ArrowDown' })
+    expect(fireEvent.keyDown(field, { key: 'Tab' })).toBe(true)
+    expect(onCommit.mock.calls).toEqual([['m²']])
+  })
+
+  it('passes by with Tab an offer that was only marked when the list opened', () => {
+    const onPick = vi.fn()
+    render(<PickField value="" onChange={() => {}} onPick={onPick} options={UNITS} marked="ordre" />)
+    const field = screen.getByRole('combobox')
+    fireEvent.focus(field)
+    expect(screen.getByRole('option', { name: 'ordre' }).getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(field, { key: 'Tab' })
+    expect(onPick).not.toHaveBeenCalled()
+  })
+
   it('still saves text that is not among them, and drops it on Escape', () => {
     const onCommit = vi.fn()
     render(<TextField value="stk" options={UNITS} onCommit={onCommit} />)

@@ -1,6 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { fromLastYear, ownTotals, parseHours, previousProjectNo, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
+import { fromLastYear, ownTotals, parseHours, parseQuantity, previousProjectNo, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
 import type { DemandLine, VenueBooking } from './types'
+
+describe('parseQuantity', () => {
+  it('reads a number with a comma or a point, and a unit after it with a space or without', () => {
+    expect(parseQuantity('12')).toEqual({ quantity: 12 })
+    expect(parseQuantity('12,5')).toEqual({ quantity: 12.5 })
+    expect(parseQuantity('1stk')).toEqual({ quantity: 1, unit: 'stk' })
+    expect(parseQuantity(' 40  lm ')).toEqual({ quantity: 40, unit: 'lm' })
+    expect(parseQuantity('6,5 m²')).toEqual({ quantity: 6.5, unit: 'm²' })
+    expect(parseQuantity('  ')).toBeNull()
+  })
+
+  it('takes the unit of the work type, in any case, and says another one is wrong', () => {
+    expect(parseQuantity('40', 'lm')).toEqual({ quantity: 40 })
+    expect(parseQuantity('40 LM', 'lm')).toEqual({ quantity: 40, unit: 'lm' })
+    expect(parseQuantity('40 stk', 'lm')).toEqual({ quantity: 40, unit: 'stk', wrongUnit: true })
+  })
+
+  it('says it cannot read a text that does not begin with a number', () => {
+    expect(parseQuantity('stk')!.quantity).toBeNaN()
+    expect(parseQuantity('1,2,3')!.quantity).toBeNaN()
+  })
+})
 
 describe('parseHours', () => {
   it('reads plain hours with a comma or a point', () => {
@@ -19,6 +41,14 @@ describe('parseHours', () => {
   it('reads a product and days of work', () => {
     expect(parseHours('3x7,5', 7.5)).toEqual({ hours: 22.5, read: '3 × 7,5' })
     expect(parseHours('4d', 7.5)).toEqual({ hours: 30, read: '4 dagsverk' })
+  })
+
+  it('reads the quantity at a rate an hour or a day', () => {
+    expect(parseHours('10/t', 7.5, 28)).toEqual({ hours: 2.8, read: '28 ÷ 10/t' })
+    expect(parseHours('10 per time', 7.5, 30)).toEqual({ hours: 3, read: '30 ÷ 10/t' })
+    expect(parseHours('75/d', 7.5, 150)).toEqual({ hours: 15, read: '150 ÷ 75/dag' })
+    expect(parseHours('10/t', 7.5, null)).toEqual({ hours: NaN, read: '10/t mangler mengde', noQuantity: true })
+    expect(parseHours('0/t', 7.5, 5)!.hours).toBeNaN()
   })
 
   it('says it cannot read anything else', () => {

@@ -11,10 +11,14 @@ import { anchorDate } from './venueImport'
  * where a project stands in time.
  */
 
-/** Hours as typed: the hours, and how they were read where it was more than a number («3 pers × 2 dager»). Hours are NaN for a text that cannot be read. */
+/**
+ * Hours as typed: the hours, and how they were read where it was more than a number («3 pers × 2 dager»). Hours are NaN
+ * for a text that cannot be read, and for a rate typed without a quantity to take it of (`noQuantity`).
+ */
 interface TypedHours {
   hours: number
   read?: string
+  noQuantity?: true
 }
 
 const num = (text: string) => Number(text)
@@ -22,9 +26,10 @@ const shown = (n: number) => decimalText(Math.round(n * 100) / 100)
 
 /**
  * Hours typed in short: «12» or «12,5» hours; «3p 2d» three people two days; «2p 6t» two people six hours; «3x7,5»
- * three times seven and a half; «4d» four days' work. A day is `hoursPerDay`. Null for an empty text.
+ * three times seven and a half; «4d» four days' work; «10/t» the quantity at ten an hour, «80/d» at eighty a day. A day is
+ * `hoursPerDay`. Null for an empty text.
  */
-export const parseHours = (text: string, hoursPerDay: number): TypedHours | null => {
+export const parseHours = (text: string, hoursPerDay: number, quantity?: number | null): TypedHours | null => {
   const t = text.trim().toLowerCase().replace(/,/g, '.').replace(/\s+/g, ' ')
   if (!t) return null
   const n = '(\\d+(?:\\.\\d+)?)'
@@ -35,10 +40,44 @@ export const parseHours = (text: string, hoursPerDay: number): TypedHours | null
     const inHours = !!m[3] && /^[th]/.test(m[3])
     return { hours: inHours ? people * count : people * count * hoursPerDay, read: `${shown(people)} pers × ${shown(count)} ${inHours ? 't' : count === 1 ? 'dag' : 'dager'}` }
   }
+  if ((m = t.match(new RegExp(`^${n} ?(?:/|per) ?(t|time|timen|h|d|dag|dagen)$`)))) {
+    const anHour = /^[th]/.test(m[2])
+    const perHour = anHour ? num(m[1]) : num(m[1]) / hoursPerDay
+    const rate = `${shown(num(m[1]))}/${anHour ? 't' : 'dag'}`
+    if (!perHour) return { hours: NaN, read: 'forstår ikke' }
+    if (!quantity) return { hours: NaN, read: `${rate} mangler mengde`, noQuantity: true }
+    return { hours: quantity / perHour, read: `${shown(quantity)} ÷ ${rate}` }
+  }
   if ((m = t.match(new RegExp(`^${n} ?[x×*] ?${n}$`)))) return { hours: num(m[1]) * num(m[2]), read: `${shown(num(m[1]))} × ${shown(num(m[2]))}` }
   if ((m = t.match(new RegExp(`^${n} ?(?:d|dag|dager)$`)))) return { hours: num(m[1]) * hoursPerDay, read: `${shown(num(m[1]))} dagsverk` }
   if ((m = t.match(new RegExp(`^${n} ?(?:t|timer|h)?$`)))) return { hours: num(m[1]) }
   return { hours: NaN, read: 'forstår ikke' }
+}
+
+/**
+ * A quantity as typed: the number, and the unit written after it, if any. The quantity is NaN for a text that cannot be
+ * read; `wrongUnit` is a unit other than the one the work type has.
+ */
+interface TypedQuantity {
+  quantity: number
+  unit?: string
+  wrongUnit?: true
+}
+
+/**
+ * A quantity typed with its unit or without: «12», «12,5», «1stk», «40 lm», «6 m²». Where the work type has a unit
+ * (`fixedUnit`, on KPI), that is the unit, and another one typed is wrong. Null for an empty text.
+ */
+export const parseQuantity = (text: string, fixedUnit?: string): TypedQuantity | null => {
+  const t = text.trim().replace(/\s+/g, ' ')
+  if (!t) return null
+  const m = t.match(/^(\d+(?:[.,]\d+)?) ?([^\d\s.,].*)?$/)
+  if (!m) return { quantity: NaN }
+  const quantity = Number(m[1].replace(',', '.'))
+  const unit = m[2]?.trim()
+  if (!unit) return { quantity }
+  if (!fixedUnit) return { quantity, unit }
+  return unit.toLowerCase() === fixedUnit.toLowerCase() ? { quantity, unit: fixedUnit } : { quantity, unit, wrongUnit: true }
 }
 
 /** The build-up and tear-down days of a project in one hall, from the hall calendar. */

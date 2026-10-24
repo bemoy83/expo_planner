@@ -1,4 +1,4 @@
-import { useCallback, useId, useLayoutEffect, useState, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type Ref } from 'react'
+import { useCallback, useId, useRef, useLayoutEffect, useState, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import { decimalText, parseDecimal } from '../domain/numbers'
 
@@ -119,7 +119,8 @@ function useFloat(field: HTMLInputElement | null, list: HTMLElement | null, on: 
 
 /**
  * A text field with values to pick from, listed under it while it has the focus: all of them until
- * something is typed, then those that hold the text. Arrow keys and Enter pick, as a click does.
+ * something is typed, then those that hold the text. Arrow keys and Enter pick, as a click does, and so does Tab
+ * on a value the arrow keys went to, before the focus moves on.
  * The values can stand in groups under headings, with a line above them all.
  */
 export function PickField({ value, onChange, options = [], groups, head, onPick = onChange, current = value, note, onCancel, onBlur, onKeyDown, marked, floating, ref, ...rest }: PickFieldProps) {
@@ -127,6 +128,8 @@ export function PickField({ value, onChange, options = [], groups, head, onPick 
   // The text the field holds when it is entered is not a search.
   const [typed, setTyped] = useState(false)
   const [active, setActive] = useState(-1)
+  // The marked value was reached with the arrow keys, not marked as an offer when the list opened: Tab takes it.
+  const steered = useRef(false)
   const listId = useId()
   const [field, setField] = useState<HTMLInputElement | null>(null)
   const [list, setList] = useState<HTMLElement | null>(null)
@@ -151,6 +154,7 @@ export function PickField({ value, onChange, options = [], groups, head, onPick 
     setOpen(false)
     setTyped(false)
     setActive(-1)
+    steered.current = false
   }
   const pick = (option: string) => {
     onPick(option)
@@ -221,6 +225,7 @@ export function PickField({ value, onChange, options = [], groups, head, onPick 
           onChange(e.target.value)
           setTyped(true)
           setActive(-1)
+          steered.current = false
           show()
         }}
         onFocus={show}
@@ -236,13 +241,18 @@ export function PickField({ value, onChange, options = [], groups, head, onPick 
             pick(listed[active].value)
             return
           }
+          // Tab leaves the field as it would, with the value picked; an offer that was only marked is passed by.
+          if (e.key === 'Tab' && !e.shiftKey && steered.current && listed[active] !== undefined) pick(listed[active].value)
           if (e.key === 'Escape' && open) {
             close()
             onCancel?.()
           } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault()
             if (!open) show()
-            else if (listed.length) setActive((at) => (e.key === 'ArrowDown' ? (at + 1) % listed.length : (at <= 0 ? listed.length : at) - 1))
+            else if (listed.length) {
+              steered.current = true
+              setActive((at) => (e.key === 'ArrowDown' ? (at + 1) % listed.length : (at <= 0 ? listed.length : at) - 1))
+            }
           }
           onKeyDown?.(e)
         }}
