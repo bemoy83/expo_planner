@@ -122,8 +122,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .segmented button{height:calc(var(--ctl-h) - 2 * var(--ctl-in));padding:0 10px;border-radius:6px;background:transparent;color:var(--muted);white-space:nowrap}
 .segmented button:not([aria-pressed='true']):hover{background:var(--lift);color:var(--text)}
 /* a segmented control in a row of a table or in a bar that floats over one */
-.segmented.small{padding:2px;border-radius:7px}
-.segmented.small button{height:24px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm)}
+.segmented.small button{padding:0 8px;font-size:var(--fs-sm)}
 /* a choice that is still to be made: the ring of what needs the planner's eye */
 .segmented.want{box-shadow:0 0 0 1.5px var(--alert-warn)}
 /* what is chosen, the same in the header's tabs and in every segmented control: what it is is in its aria state, which is what the style reads */

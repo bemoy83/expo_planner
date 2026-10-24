@@ -34,7 +34,7 @@
 .op-types{--cols:24px minmax(180px,1.4fr) 168px minmax(130px,1fr) 92px 104px 52px 116px 56px}
 .op-body{flex:0 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
 .op-body>*{flex:none}
-.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 var(--row-inset);border-bottom:1px solid var(--line-soft)}
+.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:40px;padding:0 var(--row-inset);border-bottom:1px solid var(--line-soft)}
 .op-row>*{min-width:0}
 .op-row input.inline:not(.num){min-width:0}
 .op-row:not(.op-head):hover{background:var(--panel)}
@@ -54,7 +54,7 @@
 .op-group.lacking{background:color-mix(in oklab,var(--bg) 86%,var(--alert-warn))}
 .op-attention{width:8px;height:8px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 3px var(--attention-ring)}
 .op-fold{display:grid;place-items:center}
-.op-table .icon-button{min-width:24px;width:24px;height:24px;padding:0;display:inline-grid;place-items:center;border-radius:6px;color:var(--faint)}
+.op-table .icon-button{min-width:var(--ctl-h);width:var(--ctl-h);height:var(--ctl-h);padding:0;display:inline-grid;place-items:center;border-radius:6px;color:var(--faint)}
 /* the name, and beside it what the type lacks: the pair wraps, so the name is never cut */
 .op-name{display:flex;align-items:center;flex-wrap:wrap;gap:0 10px;padding:3px 0}
 .op-name strong{font-weight:600}
@@ -84,7 +84,7 @@
 /* Tekstregler */
 .op-quote{font-weight:500}
 /* the ledgers of Tekstregler and Utelatte artikler: the rows of the grid tables beside them */
-.op table.canvas-table td{height:38px;border-bottom:1px solid var(--line-soft)}
+.op table.canvas-table td{height:40px;border-bottom:1px solid var(--line-soft)}
 .op table.canvas-table th{height:30px}
 .op table.canvas-table tbody tr:hover td{background:var(--panel)}
 .op table.canvas-table tbody tr:last-child td{border-bottom:0}
@@ -114,24 +114,24 @@
 .mk-center{display:flex;justify-content:center;text-align:center}
 .mk-name input{font-weight:600}
 .mk-note input{color:var(--muted)}
-.mk-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:5px 0}
+.mk-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:3px 0}
 .mk-chip{gap:6px;height:24px;padding:0 8px;border-radius:6px;font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
 .mk-chip svg{width:0;margin-left:-6px;color:var(--muted);transition:width .12s,margin .12s}
 .mk-chip:hover svg{width:11px;margin-left:0}
 .mk-chip.outline{background:none;box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--muted)}
 .mk-chip.outline.on{background:var(--text);box-shadow:none;color:var(--bg)}
-.mk-add{gap:4px;height:24px;min-width:24px;padding:0 5px;border-radius:6px;background:none;color:var(--faint);font-size:var(--fs-sm);font-weight:500;opacity:0}
+.mk-add{gap:4px;height:var(--ctl-h);min-width:var(--ctl-h);padding:0 5px;border-radius:6px;background:none;color:var(--faint);font-size:var(--fs-sm);font-weight:500;opacity:0}
 .op-row:hover .mk-add,.mk-add:focus-visible,.mk-add.want{opacity:1}
 .mk-add:hover{background:var(--sunken);color:var(--text)}
 .mk-add.want{padding:0 8px 0 6px;background:var(--surface);box-shadow:var(--raise);color:var(--text)}
 .mk-add.want::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--alert-warn)}
 .mk-pick{display:inline-flex;width:180px}
-.mk-pick input{height:24px;width:100%;padding:0 8px;font-size:var(--fs-sm)}
+.mk-pick input{height:var(--ctl-h);width:100%;padding:0 8px;font-size:var(--fs-sm)}
 .mk-pickall{padding:0}
 /* how many rows have each competence, to filter by */
 .mk-cover{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px}
 .mk-cover-label{margin:0 6px 0 0;font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
-.mk-cover-item{gap:6px;height:26px;padding:0 8px;border-radius:6px;background:none;font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
+.mk-cover-item{gap:6px;height:var(--ctl-h);padding:0 8px;border-radius:6px;background:none;font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
 .mk-cover-item b{font:600 var(--fs-xs) var(--font-num);color:var(--muted)}
 .mk-cover-item:hover{background:var(--well)}
 .mk-cover-item.on{background:var(--surface);box-shadow:var(--raise)}
@@ -150,7 +150,7 @@
 .op-row:hover .mk-arrows,.mk-arrows:focus-within{opacity:1}
 .mk-dragged{opacity:.4}
 .mk-over{box-shadow:inset 0 2px 0 var(--accent)}
-.menu-button.mk-color{gap:4px;height:26px;padding:0 6px 0 4px;border-radius:6px;background:none;color:var(--faint)}
+.menu-button.mk-color{gap:4px;height:var(--ctl-h);padding:0 6px 0 4px;border-radius:6px;background:none;color:var(--faint)}
 .menu-button.mk-color:hover,.menu-button.mk-color[aria-expanded='true']{background:var(--sunken)}
 .mk-swatch{width:18px;height:18px;border-radius:5px;background:var(--cc)}
 .mk-colors{width:236px;padding:4px}
@@ -181,7 +181,7 @@
 .hl-check:hover{background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--muted)}
 .hl-check:is(.on,.part),.hl-check:is(.on,.part):hover{background:var(--text);box-shadow:none}
 .hl-halls{display:flex;flex-wrap:wrap;gap:3px;padding:4px 0}
-.hl-halls button{height:22px;min-width:28px;padding:0 6px;border-radius:5px;background:none;font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
+.hl-halls button{height:24px;min-width:28px;padding:0 6px;border-radius:5px;background:none;font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 .hl-halls button.on{background:var(--surface);box-shadow:var(--raise);color:var(--text)}
 .hl-venyou .hl-halls button:not(.on){text-decoration:line-through}
 .hl-days{font-size:var(--fs-sm);white-space:nowrap}
@@ -198,8 +198,8 @@
 
 /* Prosjekter: the events without a project first, with what each is offered */
 .hl-projects{--cols:minmax(170px,auto) 48px minmax(220px,2fr) 96px minmax(150px,1fr) 64px}
-.hl-offer{display:flex;align-items:center;gap:4px;padding:4px 0}
-:is(.hl-offer button.small,.hl-all,.hl-add button){height:26px;padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
+.hl-offer{display:flex;align-items:center;gap:4px;padding:3px 0}
+:is(.hl-offer button.small,.hl-all,.hl-add button){height:var(--ctl-h);padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
 .hl-all{margin-left:12px;font-weight:500}
 .hl-number input{font-weight:600}
 .hl-add{display:flex;justify-content:flex-end;gap:4px}
