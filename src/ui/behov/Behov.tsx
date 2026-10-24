@@ -8,7 +8,7 @@ import { reviewTotals, reviewVisma, type ReviewedLine } from '../../domain/visma
 import { readVismaExport } from '../../import/vismaExport'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
-import { MessageBanner, PanelToggle, Segmented, UndoRedoButtons, type Message } from '../common'
+import { AlertCount, MessageBanner, PanelToggle, Segmented, UndoRedoButtons, type Message } from '../common'
 import { BandFigures, Figure } from '../BandFigures'
 import { count } from '../dom'
 import { hours } from '../format'
@@ -68,9 +68,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   // The projects down the left, the same in both views: in Visma what needs the planner, in Egen registrering the own hours.
   const needMark = (n: number) =>
     n ? (
-      <span className="count-chip alert" title={`${count(n, 'linje', 'linjer')} trenger avklaring`}>
-        {n}
-      </span>
+      <AlertCount n={n} title={`${count(n, 'linje', 'linjer')} trenger avklaring`} />
     ) : (
       <Check size={14} className="rail-done" aria-label="Ingenting å avklare" />
     )
@@ -132,7 +130,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
           options={[
             {
               value: 'visma',
-              label: <>Visma · gjennomgang {need > 0 && <span className="count-chip ink" title={`${count(need, 'linje', 'linjer')} trenger avklaring`}>{need}</span>}</>,
+              label: <>Visma · gjennomgang {need > 0 && <AlertCount n={need} title={`${count(need, 'linje', 'linjer')} trenger avklaring`} />}</>,
               title: 'Behovet regnet fra ordrelinjene i Visma: avklar det som mangler, eller utelat linjer',
             },
             { value: 'egen', label: <>Egen registrering <span className="count">{list.own.length}</span></>, title: 'Arbeid som ikke er solgt gjennom Visma' },

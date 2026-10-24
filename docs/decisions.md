@@ -180,6 +180,13 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
+## Alert counts as the mark of attention and a figure in ink: built, to be tested by the user
+
+Built 2026-10-24 from §3 of the addendum of the v3 handoffs. What needs the planner is counted as the mark of attention and the figure in ink, with no fill (`AlertCount` in `common.tsx`, `.alert-count` in `base.css`); a count of what is there stays a plain muted figure (`.count`). The chips of counts (`.count-chip` alert, ink and solid) are gone: the page pickers of the tabs of tables and of Behov, the filters «Trenger avklaring», «Mangler», «Mangler prosjekt» and «Uplassert», «Avklar» and its parts, the rail of Behov and «Følg opp» on Resultat. On a band the figure is the band's ink, and on a primary button the button's own.
+
+- One mark of attention for the whole app: an ochre circle of 7px with a halo of 2px (DESIGN-RULES §8), the same rule for the alert counts, the group heads (`.op-attention`), the asks for what is missing (`.need-button`, `.mk-add.want`) and the dot of a Visma line (`.need-dot`). Before, they were 6 and 8px with halos of 2 and 3px, and the dot of a line had none.
+- Not changed: the overtime of a person's week in Bemanning (`.bm-person-week em`), which is a figure of hours on the ochre, not a count of what needs the planner.
+
 ## One control height and the ochre of DESIGN-RULES §8: merged
 
 Built 2026-10-24 from the addendum of the v3 handoffs (`ADDENDUM-signals.md`, which the planner keeps out of git), after measuring what the app had: buttons, fields and segmented tracks were 31px from padding and line height, the band's icon buttons and the Kalender's bar 32, the form of Egen registrering 36, the controls in the rows of tables 24 to 28 and the rows 36 to 38.
@@ -187,7 +194,7 @@ Built 2026-10-24 from the addendum of the v3 handoffs (`ADDENDUM-signals.md`, wh
 - `--ctl-h` (32px) in `tokens.css` is the height of every control: a button, an icon button, a field, a picker, a segmented track, also in a row of a table; a segment is the track less `--ctl-in` (3px) on each side. A button of text takes the height from its padding around one line of `--ctl-line` (18px), so a button that sets a height of its own (a chip of a competence, a switch, a link) keeps it. The heights written per place are the token now.
 - The rows of the tabs of tables and of Behov that hold a control are 40px (the planner's recommended answer, 2026-10-24), and the actions at the end of such a row (`.row-action` in a `canvas-table`) are 32px too. The chips of the competences someone has stay 24px: they are content, not controls; so do the hall buttons of VenYou and Steder (24px) and the Kalender's grid.
 - What needs the planner is the ochre of §8, `oklch(0.8 0.13 80)` with the ink on it (9.6:1), and in the dark palette the same hue darker, `oklch(0.52 0.13 80)` with white (5.6:1), which the design does not give. It is `--alert-warn`, so the chips on the bands, the marks of attention and the wash of «Mangler» follow it.
-- Not built: the alert count as an ochre mark beside a figure in ink (§3). The counts stay chips (`.count-chip`).
+- The alert count as an ochre mark beside a figure in ink (§3) was built after it, below.
 
 ## Mannskap and Haller v3, flat on the canvas: merged
 

@@ -6,7 +6,7 @@ import { parseDecimal } from '../../domain/numbers'
 import { lineRef } from '../../domain/visma'
 import { articleSamples, causeGroups, type CauseGroup, type ReviewedLine } from '../../domain/vismaReview'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Segmented, SidePanel } from '../common'
+import { AlertCount, Segmented, SidePanel } from '../common'
 import { count, isTyping } from '../dom'
 import type { PickGroup } from '../fields'
 import { kpiTypeItem, useCompetenceColor } from './format'
@@ -115,7 +115,7 @@ export function Avklar({ placing, lines, names, onFocusLines, offerCount, onTake
               label="Hva som mangler"
               value={shown![0]}
               onChange={(next) => (setTab(next), setActive(null))}
-              options={tabs.map(([key, label, found]) => ({ value: key, label: <>{label} <span className="count-chip alert">{found.length}</span></> }))}
+              options={tabs.map(([key, label, found]) => ({ value: key, label: <>{label} <AlertCount n={found.length} /></> }))}
             />
           </div>
           <div className="insp-body avklar-list">

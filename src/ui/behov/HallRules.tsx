@@ -10,7 +10,7 @@ import { hallNames } from '../../domain/venue'
 import { readHallreglerWorkbook, writeHallreglerWorkbook } from '../../import/hallreglerFile'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
-import { MergeReplaceDialog, Segmented, Switch } from '../common'
+import { AlertCount, MergeReplaceDialog, Segmented, Switch } from '../common'
 import { count } from '../dom'
 import { download, XLSX_TYPE } from '../files'
 import { TextField, type PickGroup } from '../fields'
@@ -186,7 +186,7 @@ export function HallRules({ head, notify, show }: TablePage) {
 
   const partLabel = (label: string, n: number, issue = false) => (
     <>
-      {label} {issue && n ? <span className="count-chip solid">{n}</span> : <span className="count">{n}</span>}
+      {label} {issue && n ? <AlertCount n={n} /> : <span className="count">{n}</span>}
     </>
   )
 

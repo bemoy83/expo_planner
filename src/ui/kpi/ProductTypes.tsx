@@ -6,7 +6,7 @@ import { countsStands, setupHours, yieldByType, type TypeYield } from '../../dom
 import { useWorkspace } from '../../store/workspaceStore'
 import { usePref } from '../../store/prefs'
 import { count } from '../dom'
-import { FormDialog, Segmented } from '../common'
+import { AlertCount, FormDialog, Segmented } from '../common'
 import { NumberField, PickField, TextField, type PickItem } from '../fields'
 import { NeedButton, SplitPick } from '../behov/SplitPick'
 import { useCompetenceColor } from '../behov/format'
@@ -132,7 +132,7 @@ export function ProductTypes({ rows, types, yields, notify }: { rows: KpiRow[]; 
             onChange={setFilter}
             options={[
               { value: 'alle', label: <>Alle <span className="count">{types.length}</span></> },
-              { value: 'mangler', label: <>Mangler {unfinished ? <span className="count-chip solid">{unfinished}</span> : <span className="count">0</span>}</>, title: 'Produkttyper som ikke er ferdig satt opp' },
+              { value: 'mangler', label: <>Mangler {unfinished ? <AlertCount n={unfinished} /> : <span className="count">0</span>}</>, title: 'Produkttyper som ikke er ferdig satt opp' },
               { value: 'ferdig', label: <>Satt opp <span className="count">{types.length - unfinished}</span></> },
             ]}
           />

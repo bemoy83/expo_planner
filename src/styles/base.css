@@ -123,6 +123,16 @@ input[type='checkbox']{accent-color:var(--accent)}
 .segmented button:not([aria-pressed='true']):hover{background:var(--lift);color:var(--text)}
 /* a segmented control in a row of a table or in a bar that floats over one */
 .segmented.small button{padding:0 8px;font-size:var(--fs-sm)}
+/* a count of what is there: a plain figure, muted, with no container; on a band, in the band's muted ink */
+.segmented .count{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
+.mode-band .segmented .count{color:var(--mode-mute)}
+/* how many need the planner (AlertCount, common.tsx): the mark of attention and the figure in ink, with no fill */
+.alert-count{display:inline-flex;align-items:center;gap:5px;margin-left:4px;font:600 var(--fs-sm)/1 var(--font-num);color:var(--text)}
+.mode-band .alert-count{color:var(--mode-ink)}
+button.primary .alert-count{color:inherit}   /* on the ink of a primary button, the button's own */
+/* the one mark of attention (DESIGN-RULES §8): an ochre circle with a halo, on the count, the group, the row or the cell that needs the
+   planner. A circle beside a competence's circle is not told apart from it; there the element takes a wash of the ochre instead. */
+:is(.alert-count,.need-button,.mk-add.want)::before,.op-attention,.need-dot{content:"";display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 2px var(--attention-ring)}
 /* a choice that is still to be made: the ring of what needs the planner's eye */
 .segmented.want{box-shadow:0 0 0 1.5px var(--alert-warn)}
 /* what is chosen, the same in the header's tabs and in every segmented control: what it is is in its aria state, which is what the style reads */

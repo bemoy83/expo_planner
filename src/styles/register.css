@@ -52,7 +52,6 @@
 .op-group-count{font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 .op-group-note{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--muted)}
 .op-group.lacking{background:color-mix(in oklab,var(--bg) 86%,var(--alert-warn))}
-.op-attention{width:8px;height:8px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 3px var(--attention-ring)}
 .op-fold{display:grid;place-items:center}
 .op-table .icon-button{width:var(--ctl-h);display:inline-grid;place-items:center;border-radius:6px;color:var(--faint)}
 /* the name, and beside it what the type lacks: the pair wraps, so the name is never cut */
@@ -124,7 +123,6 @@
 .op-row:hover .mk-add,.mk-add:focus-visible,.mk-add.want{opacity:1}
 .mk-add:hover{background:var(--sunken);color:var(--text)}
 .mk-add.want{padding:0 8px 0 6px;background:var(--surface);box-shadow:var(--raise);color:var(--text)}
-.mk-add.want::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--alert-warn)}
 .mk-pick{display:inline-flex;width:180px}
 .mk-pick input{width:100%;padding:0 8px;font-size:var(--fs-sm)}
 .mk-pickall{padding:0}

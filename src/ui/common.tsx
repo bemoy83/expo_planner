@@ -268,6 +268,15 @@ export function Switch({ on, label, onChange }: { on: boolean; label: string; on
   )
 }
 
+/** How many need the planner: the mark of attention and the figure in ink, with no fill (DESIGN-RULES §8). A count of what is there is a plain `.count`. */
+export function AlertCount({ n, title }: { n: number; title?: string }) {
+  return (
+    <span className="alert-count" title={title}>
+      {n}
+    </span>
+  )
+}
+
 /** Asks before a change that cannot be got back by undoing it alone, and offers the safer way where there is one. */
 export function ConfirmDialog({ title, children, onCancel, actions }: { title: string; children: ReactNode; onCancel: () => void; actions: ReactNode }) {
   return (

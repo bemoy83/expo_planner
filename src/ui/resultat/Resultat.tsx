@@ -7,7 +7,7 @@ import { visibleVenue } from '../../domain/venueImport'
 import { readBudsjettWorkbook, writeBudsjettWorkbook } from '../../import/budsjettFile'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
-import { MergeReplaceDialog, MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
+import { AlertCount, MergeReplaceDialog, MessageBanner, Segmented, UndoRedoButtons, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
@@ -123,7 +123,7 @@ export function Resultat({ onOpenSettings, onOpenBehov, onOpenProjects }: Props)
         </span>
         <span className="toolbar-gap" />
         <button className="ghost" aria-pressed={following} title="Prosjekter i utvalget som trenger noe av deg: over budsjett, snart i gang uten nok folk, uten plan eller uten budsjett" onClick={() => (setFollowing(!following), setOpen(null))}>
-          <TriangleAlert size={14} aria-hidden /> Følg opp {followUpCount(follow) > 0 && <span className="count-chip ink">{followUpCount(follow)}</span>}
+          <TriangleAlert size={14} aria-hidden /> Følg opp {followUpCount(follow) > 0 && <AlertCount n={followUpCount(follow)} />}
         </button>
         <UndoRedoButtons />
         <TableFileMenu

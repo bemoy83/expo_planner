@@ -7,7 +7,7 @@ import { countOf, missingText, type LineFilter, type LineStatus, type ProjectRev
 import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
-import { Segmented, TriCheckbox, type Message } from '../common'
+import { AlertCount, Segmented, TriCheckbox, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { NumberField, TextField, type PickItem } from '../fields'
 import { Avklar } from './Avklar'
@@ -372,7 +372,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
                     value: 'need',
                     label: (
                       <>
-                        Trenger avklaring {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>}
+                        Trenger avklaring {scopeCount('need') > 0 && <AlertCount n={scopeCount('need')} />}
                       </>
                     ),
                     title: 'Linjer som mangler arbeidstype, sats eller hall, og som derfor ikke teller',
@@ -390,7 +390,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
               )}
               <span className="toolbar-gap" />
               <button className="primary" disabled={avklar} title="Avklar linjene samlet, etter hva de mangler" onClick={() => onAvklar(true)}>
-                Avklar {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>} ›
+                Avklar {scopeCount('need') > 0 && <AlertCount n={scopeCount('need')} />} ›
               </button>
               {offerCount > 0 && (
                 <button title={[...typeOffers.map((line) => `${line.texts.join(' · ') || line.hall}: ${line.suggestedType}`), ...hallOffers.map(({ text, hall }) => `${text.trim() || '(tom)'}: ${hall}`)].join('\n')} onClick={takeOffers}>

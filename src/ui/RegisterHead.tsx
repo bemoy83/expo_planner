@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Segmented, UndoRedoButtons } from './common'
+import { AlertCount, Segmented, UndoRedoButtons } from './common'
 import type { Notify } from './Toasts'
 
 export interface RegisterPage<P extends string> {
@@ -46,9 +46,7 @@ export function RegisterHead<P extends string>({ title, pages, page, counts, onP
               <>
                 {label}{' '}
                 {issues ? (
-                  <span className="count-chip ink" title={issueText?.(issues)}>
-                    {issues}
-                  </span>
+                  <AlertCount n={issues} title={issueText?.(issues)} />
                 ) : (
                   <span className="count">{rows}</span>
                 )}

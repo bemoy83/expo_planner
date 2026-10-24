@@ -6,7 +6,7 @@ import { eventKey, venueEvents, type VenueEvent } from '../../domain/projects'
 import { phaseSpans } from '../../domain/venue'
 import { anchorDate, venueKey } from '../../domain/venueImport'
 import { useWorkspace } from '../../store/workspaceStore'
-import { Segmented, Switch } from '../common'
+import { AlertCount, Segmented, Switch } from '../common'
 import { NeedButton } from '../behov/SplitPick'
 import type { TablePage } from '../RegisterHead'
 
@@ -220,7 +220,7 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
               options={[
                 { value: 'alle', label: <>Alle <span className="count">{groups.length}</span></> },
                 { value: 'kalender', label: <>I Kalender <span className="count">{inKalender}</span></>, title: 'Arrangementene med minst én hall som vises i Kalender' },
-                { value: 'mangler', label: <>Mangler prosjekt {missing ? <span className="count-chip solid">{missing}</span> : <span className="count">0</span>}</> },
+                { value: 'mangler', label: <>Mangler prosjekt {missing ? <AlertCount n={missing} /> : <span className="count">0</span>}</> },
                 { value: 'skjult', label: <>Skjult i Kalender <span className="count">{someHidden}</span></> },
               ]}
             />

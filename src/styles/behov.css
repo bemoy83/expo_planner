@@ -2,14 +2,6 @@
    The band is the page header alone; the rail, the tables and the bar of what is selected stay neutral. */
 
 :is(.behov-page,.resultat-page,.register-page)>.page-head{border-bottom:1px solid var(--mode-line)}
-.segmented .count{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
-.mode-band .segmented .count{color:var(--mode-mute)}
-/* a count of what needs the planner: a solid chip with its own ink, as an alert on the band */
-.count-chip{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:4px;padding:0 5px;border-radius:4px;font:600 var(--fs-xs)/1 var(--font-num);vertical-align:1px}
-.count-chip.alert{background:var(--alert-warn);color:var(--alert-on)}
-.count-chip.ink{background:var(--mode-ink);color:var(--mode-band)}
-/* the same off the band, as in a filter on a strip: a count is ink, never the colour of the alert */
-.count-chip.solid{background:var(--text);color:var(--bg)}
 
 /* the page: the projects down the left, and the view beside them */
 .behov-split{flex:1;min-height:0;display:flex}
@@ -69,7 +61,6 @@ table.ledger.visma-lines :is(th,td):is(.pick,.status){width:24px;padding:0 2px;t
 .visma-lines .faint{color:var(--faint);font-size:var(--fs-sm)}
 .visma-lines .unit{color:var(--faint)}
 .competence-dot{width:8px;height:8px;border-radius:50%;flex:none}
-.need-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--alert-warn)}
 /* leaving a line out: a recessed minus that shows under the pointer, and stays on a line that is left out */
 button.exclude{width:20px;height:20px;padding:0;border-radius:5px;background:none;color:var(--muted);opacity:0}
 tr:hover button.exclude,button.exclude:focus-visible,button.exclude.on{opacity:1;background:var(--sunken)}
@@ -86,7 +77,6 @@ button.exclude.on{color:var(--text)}
 .quiet-chip:hover svg{opacity:1}
 .chosen-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex:none}
 .need-button{background:var(--surface);box-shadow:var(--raise);color:var(--text);font-weight:600}
-.need-button::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 2px var(--attention-ring)}
 .need-button svg{color:var(--faint)}
 .need-button:hover{background:var(--surface);box-shadow:var(--raise-hover)}
 .need-button:hover svg{color:var(--text)}
