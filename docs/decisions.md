@@ -180,6 +180,18 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
+## Mannskap and Haller v3, flat on the canvas: built, to be tested by the user
+
+Built 2026-10-24 from the handoff `design_docs/design_handoff_mannskap_haller_v3/`, which the planner keeps out of git, on Oppsett v3's layer; the last of the redesigns of 2026-10-23 rolled back. What «The tabs of tables as cards» below says of the cards, the band of sand and the sum row of Faste no longer holds.
+
+- The three tabs of tables are one kind of page (`.register-page`): the band is copper on all of them, and each page lies on the canvas with the strip (`.op-zone`) and the table under it. The cards, their head, the sum line (`SumLead`) and the tokens that served them (`--card-radius`, `--context-tint`, `--sum-h`, `--stage-pad`) are gone.
+- Faste's sum row is the band's lower half: «Faste» and «Faste per dag» with «N × 7,5 t» under it. The handoff's «Aktive N av M» is not built, since there is no «Aktiv» (the planner, 2026-10-15).
+- A competence no faste or supplier has is an ochre wash on its button in the coverage strip, its count ink (the addendum's §5), not a chip of «0».
+- The tester of Hallregler is a column on the strip's tint with a line between it and the rules, not a card. «Mangler hall» in its chain is in ink when lines fall to it; its count was already the alert's ochre text (`--over`).
+- Counts on the strip are ink (`.count-chip.solid`), as on Oppsett: «Mangler prosjekt» on VenYou and «Uplassert» on Hallregler. «Pågår» and a selected text are the ink's wash (`--accent-soft`).
+- The ▲▼ of Kompetanser are one control of 32 px, 16 each.
+- Not built, left for a round over the whole app: the addendum's alert count as an ochre mark beside a figure in ink (§3), its ochre, and the one control height of 32 px. The shift picker of Innleid was already the app's segmented control.
+
 ## Oppsett v3, flat on the canvas: merged
 
 Built 2026-10-24 from the handoff `design_docs/design_handoff_oppsett_v3/`, which the planner keeps out of git, in Behov v3's vocabulary; see [features/oppsett.md](features/oppsett.md). Haller and Mannskap keep their cards and the band of sand until their own turn.

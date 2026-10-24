@@ -11,7 +11,7 @@ interface Props {
   onPick: (key: CompetenceKey | null) => void
   /** The tooltip of a competence, by how many have it. */
   title: (style: CompetenceStyle, n: number) => string
-  /** A count of 0 asks for attention, as a competence nobody can be assigned to. */
+  /** A competence no row has asks for attention, as one nobody can be assigned to: a wash of the alert on its button, the count still ink. */
   alertZero?: boolean
 }
 
@@ -22,11 +22,12 @@ export function CompetenceStrip({ label, styles, count, picked, onPick, title, a
       <span className="mk-cover-label">{label}</span>
       {styles.map((style) => {
         const n = count(style.key)
+        const lacking = !n && alertZero
         return (
-          <button key={style.key} className={`mk-cover-item ${picked === style.key ? 'on' : ''}`} aria-pressed={picked === style.key} title={title(style, n)} onClick={() => onPick(picked === style.key ? null : style.key)}>
+          <button key={style.key} className={`mk-cover-item ${picked === style.key ? 'on' : ''} ${lacking ? 'lacking' : ''}`} aria-pressed={picked === style.key} title={title(style, n)} onClick={() => onPick(picked === style.key ? null : style.key)}>
             <i className="swatch" style={competenceColor(style)} />
             {style.label}
-            {!n && alertZero ? <span className="count-chip alert">0</span> : <b>{n}</b>}
+            <b>{n}</b>
           </button>
         )
       })}

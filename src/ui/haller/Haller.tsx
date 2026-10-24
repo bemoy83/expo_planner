@@ -209,33 +209,35 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
           </button>
         </>,
       )}
-      <div className="op card">
-        <div className="card-head">
-          <input className="search" type="search" placeholder="Søk arrangement eller hall" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Segmented
-            label="Vis"
-            value={filter}
-            onChange={setFilter}
-            options={[
-              { value: 'alle', label: <>Alle <span className="count">{groups.length}</span></> },
-              { value: 'kalender', label: <>I Kalender <span className="count">{inKalender}</span></>, title: 'Arrangementene med minst én hall som vises i Kalender' },
-              { value: 'mangler', label: <>Mangler prosjekt {missing ? <span className="count-chip alert">{missing}</span> : <span className="count">0</span>}</> },
-              { value: 'skjult', label: <>Skjult i Kalender <span className="count">{someHidden}</span></> },
-            ]}
-          />
-          <label className="hl-past">
-            <Switch on={includePast} label="Ta med tidligere" onChange={setIncludePast} />
-            Ta med tidligere
-          </label>
+      <div className="op">
+        <div className="op-zone">
+          <div className="op-strip">
+            <input className="search" type="search" placeholder="Søk arrangement eller hall" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Segmented
+              label="Vis"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'alle', label: <>Alle <span className="count">{groups.length}</span></> },
+                { value: 'kalender', label: <>I Kalender <span className="count">{inKalender}</span></>, title: 'Arrangementene med minst én hall som vises i Kalender' },
+                { value: 'mangler', label: <>Mangler prosjekt {missing ? <span className="count-chip solid">{missing}</span> : <span className="count">0</span>}</> },
+                { value: 'skjult', label: <>Skjult i Kalender <span className="count">{someHidden}</span></> },
+              ]}
+            />
+            <label className="hl-past">
+              <Switch on={includePast} label="Ta med tidligere" onChange={setIncludePast} />
+              Ta med tidligere
+            </label>
+          </div>
+          <p className="op-flow">
+            <span>
+              Hvert arrangement er et <strong>prosjekt</strong> i Kalender; nummeret hentes fra Prosjekter.
+            </span>
+            <span>
+              Haken og hallknappene styrer hva som <strong>vises</strong> i Kalender, også etter ny innlesing.
+            </span>
+          </p>
         </div>
-        <p className="op-flow">
-          <span>
-            Hvert arrangement er et <strong>prosjekt</strong> i Kalender; nummeret hentes fra Prosjekter.
-          </span>
-          <span>
-            Haken og hallknappene styrer hva som <strong>vises</strong> i Kalender, også etter ny innlesing.
-          </span>
-        </p>
 
         {ws.venue.length ? (
           <div className="op-table hl-venyou">

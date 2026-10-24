@@ -104,7 +104,7 @@
   --fs-sheet-name:15px;  /* a project's name on a work plan */
   --fs-sheet-title:22px; /* the date or week a work plan is for */
 
-  /* depth, for what is raised without a line around it: a chosen segment or chip, a card, and what floats over the page */
+  /* depth, for what is raised without a line around it: a chosen segment or chip, a sheet of a work plan, and what floats over the page */
   --raise:0 1px 2px rgb(0 0 0/.12);
   --raise-hover:0 1px 3px rgb(0 0 0/.16),0 0 0 1px rgb(0 0 0/.02);
   --field-focus:0 1px 3px rgb(0 0 0/.14);
@@ -114,18 +114,13 @@
   /* what is chosen among a few: the header's tab, a segment of a segmented control. White and raised, never a colour; on a mode's band its shadow is the band's (kalender.css) */
   --chosen:var(--surface);
   --chosen-raise:var(--raise);
-  --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));   /* the strips of context on a card of the tabs of tables; made again in the dark palette */
 
-  /* a card on its page (the tabs of tables): the room around it, its corners, how far its rows stand in, and its sum line. Behov's and Oppsett's rows, on the canvas, stand in as far as the page (24px) */
-  --stage-pad:16px 24px;   /* 12px 16px in a narrow window, below */
-  --card-radius:12px;
+  /* how far the rows of a ledger stand in; on the canvas (Behov, the tabs of tables) as far as the page's band, 24px */
   --card-inset:14px;
-  --sum-h:44px;
 
   /* motion: the one curve things move on */
   --ease:cubic-bezier(.4,0,.2,1);
 }
-@media (max-width:1100px){:root{--stage-pad:12px 16px}}
 :root{
   font-family:var(--font-ui);
   font-size:14px;
@@ -135,10 +130,10 @@
 }
 
 /* The mode band of the Kalender: its page header and its planning bar are filled with the colour of the mode, olive for Plan and
-   spruce green («Gran») for Bemanning, with fjord blue for its part Innleid. Behov has a band of its own, heather («Lyng»), in its page header, Resultat one of indigo, Oppsett one of copper («Kobber»), and the other tabs of the planner's tables one of sand.
+   spruce green («Gran») for Bemanning, with fjord blue for its part Innleid. Behov has a band of its own, heather («Lyng»), in its page header, Resultat one of indigo, and the tabs of the planner's tables (Haller, Mannskap, Oppsett) one of copper («Kobber»).
    It is set here alone and is seen in the band alone; the grid, the sections, the tables and the panels stay neutral.
    The two lines that frame the band are darker than its fill in both palettes: they read as a shadow. */
-.kalender,.behov-page,.resultat-page,.register-page,.oppsett-page{
+.kalender,.behov-page,.resultat-page,.register-page{
   --mode-h:115; --mode-c:.09;
   --mode-band:oklch(0.86 calc(var(--mode-c) * .6) var(--mode-h));
   --mode-line:oklch(0.7 calc(var(--mode-c) * .85) var(--mode-h));      /* the two lines that frame the band */
@@ -167,10 +162,9 @@
 .behov-page{--mode-h:350; --mode-c:.06}
 /* Resultat: indigo, from the formulas of the band. */
 .resultat-page{--mode-h:285; --mode-c:.07}
-/* The tabs of the planner's tables on cards (Haller, Mannskap): sand, from the formulas of the band. */
-.register-page{--mode-h:85; --mode-c:.025}
-/* Oppsett: copper, its own, with the chroma of Behov's heather so that it reads as a mode and not as a warning. */
-.oppsett-page{--mode-h:50; --mode-c:.06}
+/* The tabs of the planner's tables (Haller, Mannskap, Oppsett): copper, theirs alone, with the chroma of Behov's heather so that it
+   reads as a mode and not as a warning. */
+.register-page{--mode-h:50; --mode-c:.06}
 /* Innleid, the other part of Bemanning: fjord blue, from the formulas of the band. */
 .kalender[data-mode='bemanning'][data-part='innleid']{
   --mode-h:235; --mode-c:.065;
@@ -180,7 +174,7 @@
   --mode-ink:oklch(0.3 calc(var(--mode-c) * .55) var(--mode-h));
   --mode-mute:oklch(0.42 calc(var(--mode-c) * .6) var(--mode-h));
 }
-.dark :is(.kalender,.behov-page,.resultat-page,.register-page,.oppsett-page){
+.dark :is(.kalender,.behov-page,.resultat-page,.register-page){
   --mode-band:oklch(0.4 calc(var(--mode-c) * .5) var(--mode-h));
   --mode-line:oklch(0.25 calc(var(--mode-c) * .4) var(--mode-h));
   --mode-track:oklch(0.32 calc(var(--mode-c) * .45) var(--mode-h));
@@ -218,8 +212,7 @@
   --grid-col:color-mix(in srgb,var(--line-strong) 50%,transparent);
   --grid-row:color-mix(in srgb,var(--line-strong) 38%,transparent);
   --section:color-mix(in oklab,var(--bg) 82%,#000);
-  --context-tint:color-mix(in oklab,var(--sunken) 45%,var(--surface));
-  --chosen:color-mix(in oklab,var(--surface) 90%,var(--text));   /* a step above the card: here the track is the card's own tone and a shadow is not seen */
+  --chosen:color-mix(in oklab,var(--surface) 90%,var(--text));   /* a step above the track: a shadow is not seen on near black */
 
   /* work phases: dark fills with light numbers */
   --mon:oklch(0.45 0.06 115);

@@ -56,7 +56,7 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
   }
   const at = place ? PLACE_STEPS.indexOf(place.by) : -1
   return (
-    <aside className="hl-side card" aria-label="Prøv en tekst">
+    <aside className="hl-side" aria-label="Prøv en tekst">
       <div className="insp-body">
         <section className="insp-sec rules-try">
           <h3 className="insp-h">Prøv en tekst</h3>
@@ -84,7 +84,7 @@ export function PlacingPanel({ halls, rules, booked, review, projects, tried, on
           <ol className="rules-chain">
             {PLACE_STEPS.map((step, index) => (
               <li key={step}>
-                <button className={`${index === at ? 'hit' : index < at ? 'past' : ''} ${part && PART_STEPS[part].includes(step) ? 'current' : ''}`} aria-current={index === at ? 'step' : undefined} title={`Vis ${step === 'none' ? 'tekstene som mangler hall' : 'reglene for dette steget'}`} onClick={() => onStep(step)}>
+                <button className={`${index === at ? 'hit' : index < at ? 'past' : ''} ${step === 'none' && review.steps.none ? 'miss' : ''} ${part && PART_STEPS[part].includes(step) ? 'current' : ''}`} aria-current={index === at ? 'step' : undefined} title={`Vis ${step === 'none' ? 'tekstene som mangler hall' : 'reglene for dette steget'}`} onClick={() => onStep(step)}>
                   <span className="nr">{index + 1}</span>
                   <span className="label">{STEP_TEXT[step].label}</span>
                   <span className={`count ${step === 'none' && review.steps.none ? 'issue' : 'muted'}`}>

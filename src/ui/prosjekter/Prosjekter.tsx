@@ -133,26 +133,28 @@ export function Prosjekter({ head, notify, show, rows, onOpenBehov }: TablePage 
           onFile={onFile}
         />,
       )}
-      <div className="op card">
-        <div className="card-head">
-          <input className="search" type="search" placeholder="Søk nummer eller navn" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <span className="muted small">
-            {count(inTable.length, 'prosjekt', 'prosjekter')} · {projects.length} navn
-          </span>
-          <span className="toolbar-gap" />
-          <button className="primary" onClick={() => setAdding(true)}>
-            <Plus size={14} aria-hidden /> Nytt prosjekt
-          </button>
+      <div className="op">
+        <div className="op-zone">
+          <div className="op-strip">
+            <input className="search" type="search" placeholder="Søk nummer eller navn" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <span className="muted small">
+              {count(inTable.length, 'prosjekt', 'prosjekter')} · {projects.length} navn
+            </span>
+            <span className="toolbar-gap" />
+            <button className="primary" onClick={() => setAdding(true)}>
+              <Plus size={14} aria-hidden /> Nytt prosjekt
+            </button>
+          </div>
+          <p className="op-flow">
+            <span>
+              Et prosjekt er <strong>nummeret</strong> behov, ordre og planlagte rader peker på.
+            </span>
+            <span>
+              Kildene kaller det ulike ting, så det har alle <strong>navnene</strong> det går under.
+            </span>
+            <span className="op-flow-aside">Et arrangement i Venyou får nummeret til prosjektet med samme navn i samme år.</span>
+          </p>
         </div>
-        <p className="op-flow">
-          <span>
-            Et prosjekt er <strong>nummeret</strong> behov, ordre og planlagte rader peker på.
-          </span>
-          <span>
-            Kildene kaller det ulike ting, så det har alle <strong>navnene</strong> det går under.
-          </span>
-          <span className="op-flow-aside">Et arrangement i Venyou får nummeret til prosjektet med samme navn i samme år.</span>
-        </p>
 
         {rows.length ? (
           <div className="op-table hl-projects">

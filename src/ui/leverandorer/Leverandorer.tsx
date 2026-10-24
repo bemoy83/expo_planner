@@ -87,27 +87,29 @@ export function Leverandorer({ head, notify, show }: TablePage) {
           onFile={onFile}
         />,
       )}
-      <div className="op card">
-        <div className="card-head">
-          <input className="search" type="search" placeholder="Søk navn, kontakt eller notat" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <span className="muted small">Det leies inn til behovet som står igjen etter de faste.</span>
-          <span className="toolbar-gap" />
-          <button className="primary" onClick={() => setAdding(true)}>
-            <Plus size={14} aria-hidden /> Ny leverandør
-          </button>
-        </div>
+      <div className="op">
+        <div className="op-zone">
+          <div className="op-strip">
+            <input className="search" type="search" placeholder="Søk navn, kontakt eller notat" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <span className="muted small">Det leies inn til behovet som står igjen etter de faste.</span>
+            <span className="toolbar-gap" />
+            <button className="primary" onClick={() => setAdding(true)}>
+              <Plus size={14} aria-hidden /> Ny leverandør
+            </button>
+          </div>
 
-        {styles.length > 0 && suppliers.length > 0 && (
-          <CompetenceStrip
-            label="Leverandører med kompetansen"
-            styles={styles}
-            count={(key) => suppliers.filter((s) => s.competences.includes(key)).length}
-            picked={competence}
-            onPick={setCompetence}
-            alertZero
-            title={(style, n) => (n ? `Vis de som stiller med ${style.label}` : `Ingen leverandør stiller med ${style.label}`)}
-          />
-        )}
+          {styles.length > 0 && suppliers.length > 0 && (
+            <CompetenceStrip
+              label="Leverandører med kompetansen"
+              styles={styles}
+              count={(key) => suppliers.filter((s) => s.competences.includes(key)).length}
+              picked={competence}
+              onPick={setCompetence}
+              alertZero
+              title={(style, n) => (n ? `Vis de som stiller med ${style.label}` : `Ingen leverandør stiller med ${style.label}`)}
+            />
+          )}
+        </div>
 
         {suppliers.length ? (
           <div className="op-table mk-suppliers">

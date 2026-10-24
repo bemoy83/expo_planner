@@ -122,26 +122,28 @@ export function Kompetanser({ head, notify, show }: TablePage) {
           onFile={onFile}
         />,
       )}
-      <div className="op card">
-        <div className="card-head">
-          <input className="search" type="search" placeholder="Søk kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <span className="muted small mk-bar-note">{movable ? 'Dra en rad for å endre rekkefølgen i Bemanning.' : 'Rekkefølgen kan endres når søket er tomt.'}</span>
-          <span className="toolbar-gap" />
-          <button className="primary" onClick={() => setAdding(true)}>
-            <Plus size={14} aria-hidden /> Ny kompetanse
-          </button>
+      <div className="op">
+        <div className="op-zone">
+          <div className="op-strip">
+            <input className="search" type="search" placeholder="Søk kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <span className="muted small mk-bar-note">{movable ? 'Dra en rad for å endre rekkefølgen i Bemanning.' : 'Rekkefølgen kan endres når søket er tomt.'}</span>
+            <span className="toolbar-gap" />
+            <button className="primary" onClick={() => setAdding(true)}>
+              <Plus size={14} aria-hidden /> Ny kompetanse
+            </button>
+          </div>
+          <p className="op-flow">
+            <span>
+              Én kompetanse har <strong>ett navn</strong>: endres det her, endres det overalt.
+            </span>
+            <span>
+              <strong>Kort</strong> (opptil 4 tegn) og <strong>farge</strong> brukes i Bemanning.
+            </span>
+            <span className="op-flow-aside">
+              Tastene <kbd>1</kbd>–<kbd>9</kbd> velger de ni første som noen faste har.
+            </span>
+          </p>
         </div>
-        <p className="op-flow">
-          <span>
-            Én kompetanse har <strong>ett navn</strong>: endres det her, endres det overalt.
-          </span>
-          <span>
-            <strong>Kort</strong> (opptil 4 tegn) og <strong>farge</strong> brukes i Bemanning.
-          </span>
-          <span className="op-flow-aside">
-            Tastene <kbd>1</kbd>–<kbd>9</kbd> velger de ni første som noen faste har.
-          </span>
-        </p>
 
         {styles.length ? (
           <div className="op-table mk-competences">

@@ -186,7 +186,7 @@ export function HallRules({ head, notify, show }: TablePage) {
 
   const partLabel = (label: string, n: number, issue = false) => (
     <>
-      {label} {issue && n ? <span className="count-chip alert">{n}</span> : <span className="count">{n}</span>}
+      {label} {issue && n ? <span className="count-chip solid">{n}</span> : <span className="count">{n}</span>}
     </>
   )
 
@@ -202,54 +202,56 @@ export function HallRules({ head, notify, show }: TablePage) {
         />,
       )}
       <div className="hl-rules">
-        <div className="op card">
-          <div className="card-head">
-            <Segmented
-              label="Del av hallreglene"
-              value={part}
-              onChange={setPart}
-              options={[
-                { value: 'unplaced', label: partLabel('Uplassert', unplaced.length, true), title: 'Hall/sted-tekster i behovet som ingen regel plasserer' },
-                { value: 'choices', label: partLabel('Valg for tekster', choices.length), title: 'Stedene du har valgt for enkelte tekster' },
-                { value: 'places', label: partLabel('Steder', rules.places.length), title: 'Steder som står for flere haller' },
-                { value: 'phrases', label: partLabel('Ordregler', rules.phrases.length), title: 'Ord som betyr et sted' },
-              ]}
-            />
-            <span className="rules-apart" aria-hidden />
-            <Segmented
-              label="Det som bare bestemmer hva som vises"
-              value={part}
-              onChange={setPart}
-              options={[{ value: 'areas', label: partLabel('Områder', areas.length), title: 'Områdene hallene er samlet i. De bestemmer bare hva som vises i Kalender, ikke hvor behovet teller.' }]}
-            />
-            <span className="toolbar-gap" />
-            {part === 'unplaced' && offered.length > 0 && (
-              <button title={offered.map((found) => `${quoted(found.text)}: ${[...new Set(found.offers.map((offer) => offer.hall))].join(', ')}`).join('\n')} onClick={() => takeOffers(offered)}>
-                Bruk forslagene ({offered.length})
-              </button>
-            )}
-            {part === 'choices' && unused.length > 0 && (
-              <button title="Valg som ingen linje i behovet bruker nå" onClick={() => save(unused.reduce((next, choice) => withChoice(next, choice.text, undefined, choice.projectNo), rules), `Fjernet ${count(unused.length, 'ubrukt valg', 'ubrukte valg')}`)}>
-                <Trash2 size={13} aria-hidden /> Fjern ubrukte ({unused.length})
-              </button>
-            )}
-            {part === 'places' && (
-              <button className="primary" onClick={() => setPlaces([...rules.places, { name: freeName('Nytt sted', taken), halls: [] }], 'La til et sted')}>
-                <Plus size={14} aria-hidden /> Nytt sted
-              </button>
-            )}
-            {part === 'phrases' && (
-              <button className="primary" onClick={() => setPhrases([...rules.phrases, { text: '', hall: '' }], 'La til en ordregel')}>
-                <Plus size={14} aria-hidden /> Ny ordregel
-              </button>
-            )}
-            {part === 'areas' && (
-              <button className="primary" onClick={() => setAreas([...areas, { name: freeName('Nytt område', (name) => areas.some((area) => area.name.toLowerCase() === name.toLowerCase())), halls: [] }], 'La til et område')}>
-                <Plus size={14} aria-hidden /> Nytt område
-              </button>
-            )}
+        <div className="op">
+          <div className="op-zone">
+            <div className="op-strip">
+              <Segmented
+                label="Del av hallreglene"
+                value={part}
+                onChange={setPart}
+                options={[
+                  { value: 'unplaced', label: partLabel('Uplassert', unplaced.length, true), title: 'Hall/sted-tekster i behovet som ingen regel plasserer' },
+                  { value: 'choices', label: partLabel('Valg for tekster', choices.length), title: 'Stedene du har valgt for enkelte tekster' },
+                  { value: 'places', label: partLabel('Steder', rules.places.length), title: 'Steder som står for flere haller' },
+                  { value: 'phrases', label: partLabel('Ordregler', rules.phrases.length), title: 'Ord som betyr et sted' },
+                ]}
+              />
+              <span className="rules-apart" aria-hidden />
+              <Segmented
+                label="Det som bare bestemmer hva som vises"
+                value={part}
+                onChange={setPart}
+                options={[{ value: 'areas', label: partLabel('Områder', areas.length), title: 'Områdene hallene er samlet i. De bestemmer bare hva som vises i Kalender, ikke hvor behovet teller.' }]}
+              />
+              <span className="toolbar-gap" />
+              {part === 'unplaced' && offered.length > 0 && (
+                <button title={offered.map((found) => `${quoted(found.text)}: ${[...new Set(found.offers.map((offer) => offer.hall))].join(', ')}`).join('\n')} onClick={() => takeOffers(offered)}>
+                  Bruk forslagene ({offered.length})
+                </button>
+              )}
+              {part === 'choices' && unused.length > 0 && (
+                <button title="Valg som ingen linje i behovet bruker nå" onClick={() => save(unused.reduce((next, choice) => withChoice(next, choice.text, undefined, choice.projectNo), rules), `Fjernet ${count(unused.length, 'ubrukt valg', 'ubrukte valg')}`)}>
+                  <Trash2 size={13} aria-hidden /> Fjern ubrukte ({unused.length})
+                </button>
+              )}
+              {part === 'places' && (
+                <button className="primary" onClick={() => setPlaces([...rules.places, { name: freeName('Nytt sted', taken), halls: [] }], 'La til et sted')}>
+                  <Plus size={14} aria-hidden /> Nytt sted
+                </button>
+              )}
+              {part === 'phrases' && (
+                <button className="primary" onClick={() => setPhrases([...rules.phrases, { text: '', hall: '' }], 'La til en ordregel')}>
+                  <Plus size={14} aria-hidden /> Ny ordregel
+                </button>
+              )}
+              {part === 'areas' && (
+                <button className="primary" onClick={() => setAreas([...areas, { name: freeName('Nytt område', (name) => areas.some((area) => area.name.toLowerCase() === name.toLowerCase())), halls: [] }], 'La til et område')}>
+                  <Plus size={14} aria-hidden /> Nytt område
+                </button>
+              )}
+            </div>
+            <p className="hl-lead">{LEAD[part]}</p>
           </div>
-          <p className="hl-lead">{LEAD[part]}</p>
 
           {part === 'unplaced' &&
             (!ws.demand.length ? (

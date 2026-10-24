@@ -105,7 +105,7 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
   })()
 
   return (
-    <div className="oppsett-page">
+    <div className="register-page">
       <RegisterHead title="Oppsett" pages={pages} page={page} counts={counts} onPage={onPage}>
         <TableFileMenu
           exportTitle="Last ned oppsettet som en Excel-fil: produkttypene med enheter, enhet i bruk, kompetanse og satser, og de utelatte artiklene."

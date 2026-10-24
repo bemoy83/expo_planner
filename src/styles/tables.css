@@ -23,9 +23,6 @@ table.ledger.card-table :is(th,td){border:none;padding:0 6px}
 table.ledger.card-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--table-bg,var(--surface));font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
 table.ledger.card-table tr>:is(th,td):first-child{padding-left:var(--card-inset)}
 table.ledger.card-table tr>:is(th,td):last-child{padding-right:var(--card-inset)}
-.sum-lead{display:flex;align-items:baseline;gap:10px;font-size:var(--fs-md)}
-.sum-lead b{font-weight:600}
-.sum-lead .muted{font-size:var(--fs-sm);font-weight:400}
 
 /* a column's heading, see ColumnHead.tsx: a click on its name sorts by it, with an arrow for the direction */
 button.col-sort{padding:0;gap:3px;border-radius:4px;background:transparent;font-weight:inherit}
@@ -94,6 +91,7 @@ input.inline.short-label{min-width:0;width:64px;font-family:var(--font-num);font
 .rules-chain button.past{opacity:.45}
 .rules-chain .nr,.rules-chain .count{font-family:var(--font-num);font-size:var(--fs-sm)}
 .rules-chain .nr{color:var(--faint)}
+.rules-chain button.miss .nr{color:var(--text);font-weight:700}   /* the lines no rule places: the step in ink, its count in the ochre of the alert's text */
 .rules-chain .label{font-weight:500}
 .rules-chain button.current .label{font-weight:700}
 .rules-chain .detail{grid-column:2 / -1;font-size:var(--fs-sm);color:var(--muted)}

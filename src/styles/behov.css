@@ -1,7 +1,7 @@
 /* Behov: the Visma lines to go through and the planner's own lines, a view each behind the switch in the page header (ui/behov/).
    The band is the page header alone; the rail, the tables and the bar of what is selected stay neutral. */
 
-:is(.behov-page,.resultat-page,.register-page,.oppsett-page)>.page-head{border-bottom:1px solid var(--mode-line)}
+:is(.behov-page,.resultat-page,.register-page)>.page-head{border-bottom:1px solid var(--mode-line)}
 .segmented .count{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
 .mode-band .segmented .count{color:var(--mode-mute)}
 /* a count of what needs the planner: a solid chip with its own ink, as an alert on the band */
@@ -65,7 +65,7 @@ table.ledger.visma-lines tr.resolved td{background:color-mix(in oklab,var(--pos-
 table.ledger.visma-lines tr.excluded td:not(.pick,.status){opacity:.45}
 table.ledger.visma-lines :is(th,td):is(.pick,.status){width:24px;padding:0 2px;text-align:center}
 .visma-lines .cell-line{display:flex;align-items:center;gap:8px;min-width:0}
-:is(.behov-page,.resultat-page,.register-page,.oppsett-page) .ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:is(.behov-page,.resultat-page,.register-page) .ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .visma-lines .cell-line>.faint{max-width:200px}
 .visma-lines .faint{color:var(--faint);font-size:var(--fs-sm)}
 .visma-lines .unit{color:var(--faint)}

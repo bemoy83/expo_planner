@@ -58,10 +58,6 @@ input[type='checkbox']{accent-color:var(--accent)}
 .band-figure-sub{font-size:var(--fs-sm);color:var(--mode-ink);text-wrap:pretty}
 /* montering and demontering: the square of the work phase before the figure */
 .band-figure-value .phase-swatch{width:10px;height:10px;margin-right:7px;border-radius:3px;vertical-align:2px}
-/* a table raised off the page as a card (the tabs of tables): white, rounded, a soft shadow and no line around it */
-.card{min-height:0;border-radius:var(--card-radius);background:var(--surface);box-shadow:var(--card)}
-/* the head of a card: its title and its own controls, on one line where they fit, a hairline under it */
-.card-head{flex:none;display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-height:52px;padding:8px var(--card-inset);border-bottom:1px solid var(--line-soft)}
 .tabs{display:flex;gap:2px;margin-left:12px}
 .tabs button{color:var(--muted);font-size:var(--fs-base)}
 .tabs button:not(:hover){background:none}
