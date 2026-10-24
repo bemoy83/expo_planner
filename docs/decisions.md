@@ -180,7 +180,7 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
-## Mannskap and Haller v3, flat on the canvas: built, to be tested by the user
+## Mannskap and Haller v3, flat on the canvas: merged
 
 Built 2026-10-24 from the handoff `design_docs/design_handoff_mannskap_haller_v3/`, which the planner keeps out of git, on Oppsett v3's layer; the last of the redesigns of 2026-10-23 rolled back. What «The tabs of tables as cards» below says of the cards, the band of sand and the sum row of Faste no longer holds.
 
