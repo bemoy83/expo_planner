@@ -1,4 +1,5 @@
 import { FTE_NOISE } from '../../domain/calc'
+import type { ReviewGrade } from '../../domain/result'
 import { ZOOM_WIDTHS } from './layout'
 import { formatFte, signed } from '../format'
 
@@ -45,6 +46,17 @@ export const heatTile = (deviation: number, maxShortage: number, maxSurplus: num
   if (kind === 'ok') return { kind, percent: 14, strong: false }
   const share = Math.min(1, deviation / Math.max(1, maxShortage, maxSurplus))
   return { kind, percent: Math.round(10 + share * 20), strong: false }
+}
+
+/**
+ * The tile of a result read after the fact (Resultat), by its grade (`reviewGrade`): the flat green of ok within 3 %,
+ * ochre a step stronger within 10 % and within 25 %, red beyond. Nothing warns, and over and under are graded the same.
+ */
+export const GRADE_TILES: Record<ReviewGrade, HeatTile> = {
+  0: { kind: 'ok', percent: 14, strong: false },
+  1: { kind: 'over', percent: 16, strong: false },
+  2: { kind: 'over', percent: 30, strong: false },
+  3: { kind: 'under', percent: 28, strong: false },
 }
 
 export const HEAT_LABELS: Record<HeatKind, string> = { under: 'Underdekning', ok: 'Ok', over: 'Over' }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetOf, budgetsRenumbered, dayAverages, diffBudgets, followUpCount, followUps, mergeBudgets, projectHours, projectStaffing, replaceBudgets, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonTotals, staffPerDay, withBudget } from './result'
+import { budgetOf, budgetsRenumbered, dayAverages, diffBudgets, followUpCount, followUps, mergeBudgets, projectHours, projectStaffing, replaceBudgets, reviewGrade, seasonDays, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonTotals, staffPerDay, withBudget } from './result'
 import { TWO_PROJECTS, withTwoProjects } from '../test/staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type AllocationRow, type Assignment, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { venueKey } from './venueImport'
@@ -232,5 +232,28 @@ describe('the staffing of the season', () => {
     expect(projectStaffing(extra, seasonBalance(extra), FIRST)).toEqual([
       { competence: 'Vegger', tagged: { Montering: 7.5, Demontering: 0, other: 7.5 }, shared: { Montering: 20, Demontering: 0, other: 0 }, remaining: -5 },
     ])
+  })
+})
+
+describe('the season by day', () => {
+  it('keeps the planned hours of a project per day', () => {
+    const vvs = seasonRows(ws()).find((r) => r.projectNo === '26970')!
+    expect(vvs.plannedByDay).toEqual({ '2026-10-19': 15, '2026-10-20': 15, '2026-10-26': 15 })
+  })
+
+  it('sums the projects on a day and runs from the first planned day to the last, with the staff of each', () => {
+    const rows = seasonRows(ws({ allocations: [row('26970', 'Montering', { '2026-10-19': 2, '2026-10-21': 1 }), row('26100', 'Montering', { '2026-10-19': 1 })] }))
+    const days = seasonDays({ persons: [], unavailability: [], settings: DEFAULT_SETTINGS }, rows)
+    expect(days.map((d) => [d.date, d.planned, d.staff])).toEqual([
+      ['2026-10-19', 22.5, 0],
+      ['2026-10-20', 0, 0],
+      ['2026-10-21', 7.5, 0],
+    ])
+  })
+})
+
+describe('reviewGrade', () => {
+  it('grades a share by its distance from nought, the same over and under', () => {
+    expect([0, 0.029, -0.029, 0.03, -0.099, 0.1, 0.249, -0.25, 1].map(reviewGrade)).toEqual([0, 0, 0, 1, 1, 2, 2, 3, 3])
   })
 })

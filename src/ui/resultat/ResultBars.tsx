@@ -44,7 +44,7 @@ export function BudgetBars({ row, overhead, scale }: { row: Bars; overhead: numb
   if (!row.withOverhead && row.actual === null) {
     return (
       <div className={`res-bars ${scale ? 'big' : ''}`} title={barsTitle(row, overhead)}>
-        <span className="res-bars-none">Ingen plan</span>
+        <span className="res-badge">Ingen plan</span>
       </div>
     )
   }
@@ -94,7 +94,7 @@ export function StaffBars({ averages }: { averages: ReturnType<typeof dayAverage
             <i className="res-diverge">
               <i className={up ? 'up' : 'down'} style={style} />
             </i>
-            <span className={`num ${up ? 'res-over' : ''}`}>{hours(Math.round(planned))}</span>
+            <span className="num">{hours(Math.round(planned))}</span>
           </span>
         )
       })}

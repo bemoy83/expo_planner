@@ -9,6 +9,7 @@ import { useCompetenceColor } from '../behov/format'
 import { SidePanel } from '../common'
 import { NumberField } from '../fields'
 import { hours, overHours, overShareText, percentText, wholeHours as whole } from '../format'
+import { Graded } from './Graded'
 import { BudgetBars, StaffBars } from './ResultBars'
 
 const all = (phases: PhaseHours) => phases.Montering + phases.Demontering + phases.other
@@ -37,7 +38,6 @@ export function ProjectResult({ row, season, today, overhead, staffed, onBudget,
   const staffing = useMemo(() => projectStaffing(ws, season, row.projectNo), [ws.allocations, season, row.projectNo]) // eslint-disable-line react-hooks/exhaustive-deps
   const staffedOf = new Map(staffing.map((entry) => [competenceKey(entry.competence), entry]))
   const widest = Math.max(1, ...competences.map((entry) => Math.max(all(entry.demand), all(entry.planned))))
-  const over = row.deviation !== null && row.deviation < -NOISE
   const averages = dayAverages([row])
   const tagged = staffing.reduce((sum, entry) => sum + all(entry.tagged), 0)
   const remaining = row.plannedTotal - staffed
@@ -75,12 +75,12 @@ export function ProjectResult({ row, season, today, overhead, staffed, onBudget,
             </div>
             <div>
               <span>Plan mot budsjett</span>
-              <b className={`num ${over ? 'res-over' : ''}`}>{row.deviation === null ? '–' : `${overHours(row.deviation)} t`}</b>
+              <b className="num">{row.deviation === null ? '–' : <Graded share={row.deviationShare}>{overHours(row.deviation)} t</Graded>}</b>
               <small>{row.deviation === null ? 'uten budsjett' : overShareText(row.deviationShare)}</small>
             </div>
             <div>
               <span>Faktisk</span>
-              <b className={`num ${row.actualDeviation !== null && row.actualDeviation < -NOISE ? 'res-over' : ''}`}>{row.actual === null ? '–' : `${whole(row.actual)} t`}</b>
+              <b className="num">{row.actual === null ? '–' : <Graded share={row.actualDeviation === null || !row.budget ? null : row.actualDeviation / row.budget}>{whole(row.actual)} t</Graded>}</b>
               <small>{row.actual === null ? 'ikke lest inn' : `${overHours(row.actualDeviation)} t mot budsjett`}</small>
             </div>
           </div>

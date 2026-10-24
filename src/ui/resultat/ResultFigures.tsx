@@ -2,16 +2,19 @@ import type { ReactNode } from 'react'
 import { NOISE, type seasonSummary, type SeasonRow } from '../../domain/result'
 import { count } from '../dom'
 import { overHours, overShareText, percentText, wholeOrDash as whole } from '../format'
+import { Graded } from './Graded'
 
-function Figure({ label, value, unit = 't', sub, over, children }: { label: string; value: ReactNode; unit?: string; sub?: ReactNode; over?: boolean; children?: ReactNode }) {
+function Figure({ label, value, unit = 't', sub, children }: { label: string; value: ReactNode; unit?: string; sub?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="res-figure card">
+    <div className="res-figure">
       <span className="res-figure-label">{label}</span>
-      <b className={over ? 'res-over' : undefined}>
-        {value}
-        {unit && <small>{unit}</small>}
-      </b>
-      {children}
+      <span className="res-figure-value">
+        <b>
+          {value}
+          {unit && <small>{unit}</small>}
+        </b>
+        {children}
+      </span>
       {sub && <span className="res-figure-sub">{sub}</span>}
     </div>
   )
@@ -24,7 +27,10 @@ const Meter = ({ share, over, title }: { share: number; over?: boolean; title?: 
   </div>
 )
 
-/** The six figures over the matrix, for the projects shown: budget, plan, plan against budget, hours per day, staffed and actual. */
+/**
+ * The six figures for the projects shown, as the lower half of the band, a step darker: budget, plan, plan against
+ * budget, staffed, hours per day and actual. The deviations are on the tiles of the heat map, graded by their share.
+ */
 export function ResultFigures({ rows, summary, overhead, staffedOf }: { rows: SeasonRow[]; summary: ReturnType<typeof seasonSummary>; overhead: number; staffedOf: (row: SeasonRow) => number }) {
   const { totals, averages, staff } = summary
   const staffed = rows.reduce((sum, row) => sum + staffedOf(row), 0)
@@ -35,9 +41,16 @@ export function ResultFigures({ rows, summary, overhead, staffedOf }: { rows: Se
       <Figure label={`Planlagt inkl. ${percentText(overhead)}`} value={whole(totals.withOverhead)} sub={`${whole(totals.plannedTotal)} t uten overhead`}>
         {totals.budget > 0 && <Meter share={totals.budgetedWithOverhead / totals.budget} over={over} title="Planlagt inkl. overhead mot budsjett, for prosjektene med budsjett" />}
       </Figure>
-      <Figure label="Plan mot budsjett" value={totals.deviation === null ? '–' : overHours(totals.deviation)} over={over} sub={totals.deviation === null ? 'Ingen budsjetter' : overShareText(totals.deviationShare)} />
       <Figure
-        label="Snitt per halldag"
+        label="Plan mot budsjett"
+        value={totals.deviation === null ? '–' : <Graded share={totals.deviationShare}>{overHours(totals.deviation)}</Graded>}
+        sub={totals.deviation === null ? 'Ingen budsjetter' : `${overShareText(totals.deviationShare)} av budsjettet`}
+      />
+      <Figure label="Bemannet" value={whole(staffed)} sub={`${whole(Math.max(0, totals.plannedTotal - staffed))} t gjenstår av planen`}>
+        {totals.plannedTotal > 0 && <Meter share={staffed / totals.plannedTotal} title="Bemannet mot planlagt, uten overhead" />}
+      </Figure>
+      <Figure
+        label="Per halldag · montering / demontering"
         unit=""
         value={
           <span className="res-figure-pair">
@@ -51,23 +64,16 @@ export function ResultFigures({ rows, summary, overhead, staffedOf }: { rows: Se
             </span>
           </span>
         }
-        sub={staff === null ? 'Ingen monterings- eller demonteringsdager' : `Faste kan ${whole(staff)} t per dag`}
+        sub={staff === null ? 'Ingen monterings- eller demonteringsdager' : `Faste dekker ${whole(staff)} t per dag`}
       />
-      <Figure label="Bemannet" value={whole(staffed)} sub={`${whole(Math.max(0, totals.plannedTotal - staffed))} t gjenstår av planen`}>
-        {totals.plannedTotal > 0 && <Meter share={staffed / totals.plannedTotal} title="Bemannet mot planlagt, uten overhead" />}
-      </Figure>
       {totals.actuals ? (
         <Figure
           label={`Faktisk · ${count(totals.actuals, 'prosjekt', 'prosjekter')}`}
-          value={whole(totals.actual)}
-          over={totals.actualDeviation !== null && totals.actualDeviation < -NOISE}
+          value={<Graded share={totals.actualDeviation === null || !totals.actualBudget ? null : totals.actualDeviation / totals.actualBudget}>{whole(totals.actual)}</Graded>}
           sub={`${overHours(totals.actualDeviation)} t mot budsjett`}
         />
       ) : (
-        <div className="res-figure card empty">
-          <span className="res-figure-label">Faktisk</span>
-          <span className="res-figure-sub">Ingen faktiske timer lest inn.</span>
-        </div>
+        <Figure label="Faktisk" value="" unit="" sub="Ingen faktiske timer lest inn." />
       )}
     </div>
   )

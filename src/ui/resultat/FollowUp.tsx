@@ -23,8 +23,8 @@ interface Props {
 /** «Følg opp»: the projects of those shown that need the planner, by what they need. A click opens the project. */
 export function FollowUp({ follow, staffedOf, unnumbered, unshared, noProject, onOpen, onOpenProjects, onClose }: Props) {
   const groups: [string, SeasonRow[], (row: SeasonRow) => ReactNode][] = [
-    ['Planen går over budsjett', follow.over, (row) => <span className="num res-over">{overHours(row.deviation)} t</span>],
-    ['Faktisk over budsjett', follow.actualOver, (row) => <span className="num res-over">{overHours(row.actualDeviation)} t</span>],
+    ['Planen går over budsjett', follow.over, (row) => <span className="num">{overHours(row.deviation)} t</span>],
+    ['Faktisk over budsjett', follow.actualOver, (row) => <span className="num">{overHours(row.actualDeviation)} t</span>],
     ['Starter snart, ikke fullt bemannet', follow.soon, (row) => <span className="num">{wholeHours(row.plannedTotal - staffedOf(row))} t igjen</span>],
     ['Har budsjett, ingen plan', follow.noPlan, (row) => <span className="num">{hours(row.budget ?? 0)} t budsjett</span>],
     ['Uten budsjett', follow.noBudget, () => <span className="res-act">Sett budsjett</span>],

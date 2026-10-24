@@ -1,4 +1,4 @@
-/* Resultat: six figures over a matrix of the season, a row per project, and the panels of one project and of «Følg opp».
+/* Resultat: six figures in the band over a ledger of the season, a row per project, and the panels of one project and of «Følg opp».
    Only the body of the matrix scrolls; the band, the figures, its heading, its sums and its legend stay in view. */
 
 .resultat-page{display:flex;flex-direction:column;flex:1;min-height:0}
@@ -9,60 +9,85 @@
 .res-empty{max-width:640px;margin:0;padding:24px}
 .res-over{color:var(--over)}
 
-/* the figures */
-.res-figures{flex:none;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
-.res-figure{display:flex;flex-direction:column;gap:4px;min-width:0;padding:9px 12px 10px}
-.res-figure.empty{background:var(--panel);box-shadow:inset 0 0 0 1px var(--line)}
-.res-figure-label{font-size:var(--fs-sm);font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.res-figure>b{font:600 var(--fs-kpi)/1.05 var(--font-num);letter-spacing:-.03em}
-.res-figure>b small{margin-left:4px;font:500 var(--fs-md) var(--font-num);letter-spacing:0;color:var(--faint)}
-.res-figure-sub{font-size:var(--fs-sm);color:var(--muted);text-wrap:pretty}
+/* the figures: the lower half of the band, its toolbar, a step toward the band's line (darker in both palettes) and set in by a shade where a line would be */
+.res-figures{flex:none;display:grid;grid-template-columns:repeat(6,minmax(0,auto));justify-content:start;gap:8px 40px;padding:12px 24px 14px;border-bottom:1px solid var(--mode-line);background:color-mix(in oklab,var(--mode-band) 70%,var(--mode-line));box-shadow:inset 0 3px 4px -2px color-mix(in oklab,var(--mode-line) 70%,transparent)}
+@media (max-width:1280px){.res-figures{grid-template-columns:repeat(3,minmax(0,auto));gap:10px 40px}}
+.res-figure{display:flex;flex-direction:column;gap:3px;min-width:0}
+.res-figure-label{font:500 10.5px var(--font-num);letter-spacing:.06em;text-transform:uppercase;color:var(--mode-mute);white-space:nowrap}
+.res-figure-value{display:flex;align-items:center;gap:10px;min-height:28px}
+.res-figure-value>b{font:600 21px/1.1 var(--font-num);letter-spacing:-.02em;color:var(--mode-ink);white-space:nowrap}
+.res-figure-value>b small{margin-left:3px;font:500 var(--fs-md) var(--font-num);letter-spacing:0;color:var(--mode-mute)}
+.res-figure-sub{font-size:var(--fs-sm);color:var(--mode-ink);text-wrap:pretty}
 .res-figure-pair{display:inline-flex;gap:14px}
 .res-figure-pair>span{display:inline-flex;align-items:center;gap:5px}
-.res-figure .bar{--bar-track:var(--sunken)}
-.res-figure .bar:not(.over) .share{background:var(--muted)}
+.res-figure .bar{width:56px;--bar-track:color-mix(in oklab,var(--mode-ink) 14%,transparent)}
+.res-figure .bar:not(.over) .share{background:var(--mode-ink)}
+/* a figure on the tile of the heat map for how far it is from what it is set against */
+.res-graded{position:relative;display:inline-block}
+.res-graded.heat-cell{padding:3px 7px}
 
-/* the matrix: one template of columns (--res-cols, set by ResultMatrix) for the heading, the rows and the sums */
-.res-matrix{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.res-matrix-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
-.res-matrix-body>*{flex:none}
-.res-row{display:grid;grid-template-columns:var(--res-cols);align-items:center;gap:0 2px;min-height:40px;padding:0 var(--card-inset);border-bottom:1px solid var(--line-soft);background:var(--surface)}
-.res-row>span{min-width:0}
-.res-row>span:first-child{position:sticky;left:0;z-index:1;align-self:stretch;display:flex;flex-direction:column;justify-content:center;margin-left:calc(-1 * var(--card-inset));padding-left:var(--card-inset);background:inherit}
-.res-row:not(.res-head,.res-sum){cursor:pointer}
-.res-row:not(.res-head,.res-sum):hover{background:var(--panel)}
-.res-row.open{background:var(--sunken)}
-.res-head,.res-sum{position:sticky;z-index:2}
-.res-head{top:0;font-size:var(--fs-xs);font-weight:500;color:var(--faint);border-bottom-color:var(--line)}
-.res-sum{bottom:0;margin-top:auto;min-height:var(--sum-h);border-bottom:0;box-shadow:0 -1px 0 var(--line-strong);font-size:var(--fs-md)}
-.res-today{display:flex;align-items:center;gap:8px;height:22px;padding:0 var(--card-inset);border-bottom:1px solid var(--line-soft);font-size:var(--fs-xs);font-weight:600;color:var(--accent);background:var(--surface)}
-.res-today::after{content:"";flex:1;height:2px;border-radius:1px;background:var(--accent)}
-.res-num-head{display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:4px 0;line-height:1.2;white-space:nowrap}
-.res-num-head>span{color:var(--muted)}
-.res-num-head small{font-size:var(--fs-2xs);text-align:right}
-.res-num-head.left{align-items:flex-start;padding-left:10px}
-.res-num-head.staff{align-items:stretch;padding-left:8px}
-.res-num-head.staff>span{display:flex;align-items:baseline;justify-content:space-between;gap:4px;font-size:var(--fs-2xs)}
-.res-num-head.staff>span>span{display:inline-flex;align-items:center;gap:5px}
+/* the ledger: on the canvas, the rows a grid of one template (--res-cols, set by ResultLedger). The project's column is held to the
+   left and the figures to the right, opaque; only the timeline moves sideways, and only the code moves it (useFollowScroll).
+   As in the Kalender's grid, a line is only where figures are read across: under the heading and the sum row, and between the
+   rows of figures. Sections are set apart by their tint, with no line and no months through them. */
+.res-ledger{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.res-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;overscroll-behavior-x:none}
+.res-grid{position:relative;width:max-content;min-width:100%}
+.res-row{display:grid;grid-template-columns:var(--res-cols);min-height:46px;background:var(--bg)}
+.res-row>*{min-width:0;display:flex;align-items:center;background:inherit}
+.res-label{position:sticky;left:0;z-index:5;flex-direction:column;align-items:stretch;justify-content:center;gap:2px;padding:0 16px 0 24px}
+.res-label>b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-meta{display:flex;gap:10px;font:400 11.5px var(--font-num);color:var(--muted);white-space:nowrap;overflow:hidden}
+.res-meta>span+span{overflow:hidden;text-overflow:ellipsis;color:var(--faint)}
+.res-eyebrow{font:500 10.5px/1.2 var(--font-num);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.res-timeline{position:relative;align-self:stretch}
+.res-track{position:absolute;inset:0 14px}
+.res-month-fill{position:absolute;top:0;bottom:0;background:var(--weekend)}
+.res-numbers{position:sticky;right:0;z-index:4;display:grid;grid-template-columns:subgrid;grid-column:3/-1;align-self:stretch;align-items:center}
+.res-numbers>*{min-width:0}
+.res-row.project+.res-row.project .res-numbers{box-shadow:inset 0 1px 0 var(--grid-row)}
+/* the heading and the sum row stay in view */
+.res-row.head{position:sticky;top:0;z-index:7;height:54px;min-height:0}
+.res-month{position:absolute;top:0;bottom:0;padding:8px 0 0 6px;border-left:1px solid var(--grid-col);font:600 10.5px var(--font-num);letter-spacing:.07em;color:var(--muted)}
+.res-week{position:absolute;bottom:7px;padding-left:4px;font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
+.res-week.near{visibility:hidden}
+.res-today-chip{position:absolute;bottom:4px;z-index:1;padding:1px 6px;border-radius:4px;background:var(--today);font:600 10.5px var(--font-num);color:var(--bg);white-space:nowrap}
+.res-today-chip::before{content:"";position:absolute;left:-1px;top:100%;width:2px;height:4px;background:var(--today)}
+.res-num-head{flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;padding:0 12px 0 4px;line-height:1.15;white-space:nowrap;display:flex}
+.res-num-head>span{font-size:11.5px;font-weight:500;color:var(--muted)}
+.res-num-head small{font-size:10.5px;color:var(--faint)}
+.res-num-head.left{align-items:flex-start;padding-left:14px}
+.res-row.sum{position:sticky;top:54px;z-index:6;height:76px;min-height:0;box-shadow:0 1px 0 var(--line)}
+.res-row.sum .res-label>b{font-weight:700}
+.res-row.head{box-shadow:0 1px 0 var(--line)}
+/* the sum row's timeline: the planned hours per day, grey up to what the permanent staff can work, the rest in the colour of what is over; their hours dashed */
+.res-load{top:10px;bottom:10px}
+.res-load-day{position:absolute;top:0;bottom:0;width:12px}
+.res-load-day>i{position:absolute;left:0;right:1px;bottom:0;background:var(--res-plan)}
+.res-load-day>i.over{background:var(--res-over)}
+.res-load-day>i.staff{height:0;background:none;border-top:1px dashed var(--muted)}
+.res-load-day:hover>i:not(.over,.staff){background:var(--muted)}
+/* today: one line down the rows, under the held columns and the sections */
+.res-today-line{position:absolute;top:-10px;bottom:-10px;z-index:1;width:2px;margin-left:-1px;background:var(--today);pointer-events:none}
+.res-today-line.body{top:130px;bottom:0;z-index:2}
+/* a section: the projects done, going on and to come, with their sums */
+.res-row.section{position:relative;z-index:3;min-height:30px;background:var(--section)}
+.res-section-label{display:flex;align-items:baseline;gap:10px}
+.res-count{font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 /* a project */
-.res-project{gap:1px;padding:4px 8px 4px 0}
-.res-project>b{font-size:var(--fs-base);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.res-project-meta{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--muted);white-space:nowrap}
-.res-project-meta .project-no{margin:0;font-size:var(--fs-xs)}
-/* the hall days per phase, the phase colours of the hall calendar */
-.res-phase-head{display:grid;place-items:center}
-.res-phase-head b{display:grid;place-items:center;min-width:16px;height:18px;padding:0 1px;border-radius:4px;font:600 var(--fs-3xs) var(--font-num);letter-spacing:-.03em;color:var(--text)}
-.res-phase-days{text-align:center;font-size:var(--fs-sm);color:var(--muted)}
-.res-phase-days.sum{font-weight:600;color:var(--text)}
-/* the halls: a tile in the colour of the plan where the project is booked */
-.res-hall-head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;align-self:stretch;border-radius:6px 6px 0 0}
-.res-hall-head b{max-width:100%;overflow:hidden;text-overflow:ellipsis;font:600 var(--fs-2xs) var(--font-num);letter-spacing:-.02em;color:var(--text);white-space:nowrap}
-.res-hall-head small{min-height:13px;font-size:var(--fs-2xs)}
-.res-hall{display:grid;place-items:center;align-self:stretch}
-.res-hall-head.lit,.res-hall.lit{background:var(--wash)}
-.res-dot{width:3px;height:3px;border-radius:50%;background:var(--line-strong)}
-.res-tile{display:block;width:14px;height:14px;border-radius:3px;background:var(--res-plan)}
-.res-tile.more{display:grid;place-items:center;width:18px;height:16px;background:var(--sunken);font-size:var(--fs-2xs);font-weight:600;color:var(--muted)}
+.res-row.project{cursor:pointer}
+.res-row.project:hover{background:var(--wash-bg)}
+.res-row.project.open{background:var(--sunken)}
+.res-event{position:absolute;top:50%;height:14px;margin-top:-7px;border-radius:4px;overflow:hidden}
+.res-event>i{position:absolute;top:0;bottom:0}
+.res-event-days{position:absolute;top:50%;transform:translateY(-50%);font:400 var(--fs-xs) var(--font-num);color:var(--muted);white-space:nowrap;pointer-events:none}
+.res-tail{height:calc(75vh - 260px)}
+/* a figure against what it is set against, with its share */
+.res-num{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:1px;padding-right:12px;font:400 var(--fs-md) var(--font-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.res-num b{font-weight:600}
+.res-num small{font-size:var(--fs-xs);color:var(--faint)}
+.res-num.muted b{font-weight:500;color:var(--muted)}
+.res-numbers>:last-child{padding-right:24px}
 /* plan and actual hours against the budget: in the list each bar is scaled to its project's own budget */
 .res-bars-cell{padding:0 10px}
 .res-bars{position:relative;display:flex;flex-direction:column;justify-content:center;gap:4px;height:22px}
@@ -72,10 +97,12 @@
 .res-line.plan .fill{background:var(--res-plan)}
 .res-line.actual .fill{background:var(--res-actual)}
 .res-line .fill:has(+.over){border-radius:3px 0 0 3px}
-.res-line .over{border-radius:0 3px 3px 0;background:var(--over)}
-.res-line .past{right:-6px;top:-1px;width:0;height:0;border:4px solid transparent;border-left:5px solid var(--over);border-right:0}
+.res-line .over{border-radius:0 3px 3px 0;background:var(--res-over)}
+.res-line .past{right:-6px;top:-1px;width:0;height:0;border:4px solid transparent;border-left:5px solid var(--res-over);border-right:0}
 .res-bars .tick{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:1px;background:var(--text)}
-.res-bars-none{align-self:flex-start;padding:1px 6px;border-radius:4px;background:var(--sunken);font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
+.res-bars .res-badge{align-self:flex-start}
+/* a label where there is nothing to draw: «Ingen plan», «Uten budsjett» */
+.res-badge{padding:1px 6px;border-radius:4px;background:var(--sunken);font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
 .res-bars.big{height:34px;gap:6px;margin:12px 0 8px}
 .res-bars.big .res-line{height:10px;border-radius:5px}
 .res-bars.big .tick{width:3px;top:-3px;bottom:-3px}
@@ -86,30 +113,28 @@
 .res-diverge{position:relative;display:block;height:8px}
 .res-diverge::after{content:"";position:absolute;left:50%;top:-1px;bottom:-1px;width:1px;background:var(--faint)}
 .res-diverge>i{position:absolute;top:1px;height:6px}
-.res-diverge .up{background:var(--over);border-radius:0 2px 2px 0}
+.res-diverge .up{background:var(--res-over);border-radius:0 2px 2px 0}
 .res-diverge .down{background:var(--res-plan);border-radius:2px 0 0 2px}
 /* the deviations */
-.res-dev{display:flex;flex-direction:column;align-items:flex-end;gap:1px;padding-left:4px;font-size:var(--fs-md);white-space:nowrap}
-.res-dev b{font-weight:600}
-.res-dev small{font-size:var(--fs-xs);color:var(--faint)}
-.res-dev.res-over small{color:var(--over)}
-.res-no-budget{display:flex;justify-content:flex-end;white-space:nowrap;font-size:var(--fs-sm);color:var(--faint)}
+.res-no-budget{display:flex;justify-content:flex-end;padding-right:12px;white-space:nowrap}
 /* the legend */
-.res-legend{flex:none;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;padding:8px var(--card-inset);border-top:1px solid var(--line-soft);font-size:var(--fs-xs)}
+.res-legend{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px 24px;padding:9px 24px 11px;border-top:1px solid var(--line);font-size:11.5px}
 .res-legend-keys{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted)}
 .res-legend-keys>span{display:inline-flex;align-items:center;gap:5px}
-.res-legend-keys i{width:14px;height:5px;border-radius:3px}
+.res-legend-keys i{width:12px;height:8px;border-radius:2px}
+.res-legend-note{margin-left:auto;color:var(--faint)}
 .res-legend-keys .plan{background:var(--res-plan)}
 .res-legend-keys .actual{background:var(--res-actual)}
-.res-legend-keys .over{background:var(--over)}
+.res-legend-keys .over{background:var(--res-over)}
 .res-legend-keys .tick{width:2px;height:12px;border-radius:1px;background:var(--text)}
 
 /* the panel of one project, and «Følg opp» */
+.inspector:is(.res-panel,.res-rail){background:var(--bg)}
 .inspector.res-panel{width:420px}
 .inspector.res-rail{width:360px}
 .res-panel .insp-sub .project-no{margin:0}
-.res-panel-figures{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.res-panel-figures>*{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border-radius:10px;background:var(--surface);box-shadow:var(--raise)}
+.res-panel-figures{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.res-panel-figures>*{display:flex;flex-direction:column;gap:2px}
 .res-panel-figures span{font-size:var(--fs-sm);font-weight:500;color:var(--muted)}
 .res-panel-figures b{font:600 var(--fs-figure) var(--font-num);letter-spacing:-.02em}
 .res-panel-figures small{font-size:var(--fs-sm);color:var(--faint)}
@@ -120,6 +145,7 @@
 .res-panel-halls{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:var(--fs-sm)}
 .res-panel-halls>span{display:flex;align-items:center;gap:6px}
 .res-panel-halls b{font:600 var(--fs-sm) var(--font-num)}
+.res-tile{display:block;width:14px;height:14px;border-radius:3px;background:var(--res-plan)}
 .res-panel-days{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:12px;font-size:var(--fs-sm);color:var(--muted)}
 .res-panel-days>span{display:inline-flex;align-items:center;gap:5px}
 .res-panel-days b.num{color:var(--text)}
@@ -146,7 +172,7 @@
 .res-rail-body section{padding:6px 0 4px}
 .res-rail-body h3{margin:0;padding:6px 8px 4px;font-size:var(--fs-xs);font-weight:500;color:var(--faint)}
 .res-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:7px 8px;border-radius:8px;background:none;text-align:left}
-.res-item:hover{background:var(--surface)}
+.res-item:hover{background:var(--section)}
 .res-item>span:first-child{display:flex;flex-direction:column;min-width:0}
 .res-item b{font-size:var(--fs-md);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .res-item small{font-size:var(--fs-sm);color:var(--muted)}
@@ -156,15 +182,5 @@
 .res-rail-foot p{margin:0;text-wrap:pretty}
 
 /* narrower */
-@container (max-width:1240px){
-  .res-figures{gap:8px}
-  .res-figure{padding:7px 10px 8px;gap:3px}
-  .res-figure>b{font-size:var(--fs-figure)}
-  .res-figure-sub{display:none}
-}
-@container (max-width:1000px){
-  .res-row{padding:0 10px}
-  .res-project-meta .project-no{display:none}
-}
 @media (max-width:1240px){.resultat-page .segmented .count{display:none}}
 @media (max-width:1180px){.res-lead{display:none}}

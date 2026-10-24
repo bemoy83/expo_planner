@@ -88,6 +88,8 @@ export interface SeasonRow {
   /** FTE × the hours of an FTE-day, per work phase. */
   planned: PhaseHours
   plannedTotal: number
+  /** The planned hours per day, FTE × the hours of an FTE-day over all its rows, without overhead. */
+  plannedByDay: Record<ISODate, number>
   /** The plan with overhead added, as the budget holds it. */
   withOverhead: number
   /** Budget less the plan with overhead: what is left of the budget, negative where the plan is over it. Null without a budget. */
@@ -126,7 +128,7 @@ export const seasonRows = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projec
     const key = numberKey(projectNo)
     let row = rows.get(key)
     if (!row) {
-      row = { projectNo: projectNo.trim(), name, year: '', booked: '', dates: emptyDays(), plannedDates: [], halls: [], hallPhases: {}, budget: null, planned: emptyPhases(), plannedTotal: 0, withOverhead: 0 }
+      row = { projectNo: projectNo.trim(), name, year: '', booked: '', dates: emptyDays(), plannedDates: [], halls: [], hallPhases: {}, budget: null, planned: emptyPhases(), plannedTotal: 0, plannedByDay: {}, withOverhead: 0 }
       rows.set(key, row)
     }
     if (!row.name) row.name = name
@@ -157,6 +159,7 @@ export const seasonRows = (ws: Pick<Workspace, 'venue' | 'hiddenVenue' | 'projec
     if (!dates.length) continue
     const row = rowOf(allocation.projectNo, allocation.projectName)
     row.planned[phaseOf(allocation.phase)] += sumOf(dates, (date) => allocation.fte[date]) * hoursPerDay
+    for (const date of dates) row.plannedByDay[date] = (row.plannedByDay[date] ?? 0) + allocation.fte[date] * hoursPerDay
     row.plannedDates.push(...dates)
   }
 
@@ -274,6 +277,35 @@ export const seasonTotals = (rows: SeasonRow[]): SeasonTotals => {
 
 /** The sums of the rows, their hours per day against the permanent staff, and what the staff can work per day: what the figures and the sums of the matrix show. */
 export const seasonSummary = (rows: SeasonRow[]) => ({ totals: seasonTotals(rows), averages: dayAverages(rows), staff: staffPerDay(rows) })
+
+/** One day of the season: the planned hours of the rows on it, summed where projects overlap, and what the permanent staff can work. */
+export interface SeasonDay {
+  date: ISODate
+  planned: number
+  staff: number
+}
+
+/** The days from the first to the last planned day of the rows, each with its planned hours and the hours of the permanent staff. */
+export const seasonDays = (ws: Pick<Workspace, 'persons' | 'unavailability' | 'settings'>, rows: SeasonRow[]): SeasonDay[] => {
+  const planned = new Map<ISODate, number>()
+  for (const row of rows) for (const [date, hours] of Object.entries(row.plannedByDay)) planned.set(date, (planned.get(date) ?? 0) + hours)
+  if (!planned.size) return []
+  const dates = [...planned.keys()].sort()
+  return dateRange(dates[0], dates.at(-1)!).map((date) => ({ date, planned: planned.get(date) ?? 0, staff: staffHours(ws, date) }))
+}
+
+/**
+ * How far a result is from what it is set against, read after the fact, as a share either way: 0 within 3 %, 1 within
+ * 10 %, 2 within 25 %, 3 beyond. Missing the estimate by as much is as bad over as under; the sign says which.
+ */
+export type ReviewGrade = 0 | 1 | 2 | 3
+
+const REVIEW_STEPS = [0.03, 0.1, 0.25]
+
+export const reviewGrade = (share: number): ReviewGrade => {
+  const step = REVIEW_STEPS.findIndex((limit) => Math.abs(share) < limit)
+  return (step === -1 ? 3 : step) as ReviewGrade
+}
 
 /** How far the hours worked may pass the plan with overhead before it is said that the plan missed: a tenth. */
 export const PLAN_MARGIN = 0.1

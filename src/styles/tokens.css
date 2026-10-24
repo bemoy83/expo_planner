@@ -72,8 +72,9 @@
   --pos:#287c42; --pos-bg:#e2efe3;
   --over:#8f5e0a;
   /* the bars of Resultat: the plan with overhead and the actual hours, set against the budget */
-  --res-plan:oklch(0.8 0.055 285);
-  --res-actual:oklch(0.4 0.11 280);
+  --res-plan:oklch(0.79 0.012 90);    /* Resultat: the plan with overhead, neutral grey */
+  --res-actual:oklch(0.36 0.01 280);  /* the hours worked, graphite */
+  --res-over:var(--neg);              /* the hours over the budget, and over the permanent staff in the sum row */
   --neg-wash:color-mix(in srgb,var(--neg) 13%,transparent);   /* a day planned above the crew */
   --holiday-tint:color-mix(in srgb,var(--neg) 7%,transparent);   /* a red day, down the lines of the Kalender */
   --warn-bg:#fff6e0; --warn-line:#f0d58a;   /* a line with an issue */
@@ -240,8 +241,9 @@
   --neg:#f97770; --neg-bg:#301615;
   --pos:#6fd087; --pos-bg:#112618;
   --over:#f2b54f;
-  --res-plan:oklch(0.5 0.07 285);
-  --res-actual:oklch(0.78 0.09 280);
+  --res-plan:oklch(0.5 0.012 90);
+  --res-actual:oklch(0.8 0.01 280);
+  --res-over:var(--neg);
   --neg-wash:color-mix(in srgb,var(--neg) 18%,transparent);
   --holiday-tint:color-mix(in srgb,var(--neg) 12%,transparent);
   --warn-bg:#2b200d; --warn-line:#503b16;

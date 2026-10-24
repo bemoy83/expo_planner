@@ -7,6 +7,7 @@
 /* a count of what needs the planner: a solid chip with its own ink, as an alert on the band */
 .count-chip{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:4px;padding:0 5px;border-radius:4px;font:600 var(--fs-xs)/1 var(--font-num);vertical-align:1px}
 .count-chip.alert{background:var(--alert-warn);color:var(--alert-on)}
+.count-chip.ink{background:var(--mode-ink);color:var(--mode-band)}
 
 /* the page: the projects down the left, and the view beside them */
 .behov-split{flex:1;min-height:0;display:flex}
