@@ -180,6 +180,18 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
+## Behov v3, flat on the canvas: built, to be tested by the user
+
+Built 2026-10-24 from the handoff `design_docs/design_handoff_behov_v3/`, which the planner keeps out of git. The cards of v2 had drifted from the app's look, as Resultat's had; v3 puts both views on the canvas in Resultat v2's vocabulary; see [features/behov.md](features/behov.md). What v2 below says of the card, its sum line and the hall row on the context tint no longer holds.
+
+- The sum lines are gone. Their figures are the lower half of the band, through the same component as Resultat's (`BandFigures.tsx`, `.band-figures` in `base.css`), worked out in the domain (`reviewTotals`, `ownTotals`). The half is not drawn where the view has no lines.
+- The strip is `--section`, the tint of a Kalender section, which is the handoff's mix. Its fields, tracks and secondary buttons are `--well`, a step darker, and their focus is a ring (`--well-focus`). These are the only new tokens. The segmented controls keep the app's own geometry, which the page picker shares.
+- A project's row in Egen registrering is shown under «Alle prosjekter» only. With one project, its lines are picked all at once in the heading.
+- «Legg til» is ink even when the line is incomplete, and a competence picked from the list hands the focus to it.
+- Brent oransje is retired app-wide, in a commit of its own: `--accent` is the ink, and a selection is an 8 % wash of it (12 % in the dark palette).
+- Not built: the handoff's Opprigg and Nedrigg names, and its ochre with white text for what needs the planner. The app keeps `--alert-warn`. The count on «Visma · gjennomgang» in the band is ink, as on Resultat.
+- «Fra i fjor», which the handoff takes for unbuilt, is kept, on the strip under the form.
+
 ## Resultat v2, a flat ledger: merged
 
 Built and merged 2026-10-24 from the handoff `design_docs/design_handoff_resultat_v2/`, which the planner keeps out of git. The card dashboard of 2026-10-23 had drifted from the app's look, and v2 brings the page back to the Kalender's: the figures are the lower half of the band, and the matrix is a ledger on the canvas with the season's timeline; see [features/resultat.md](features/resultat.md). What the redesign above says of the hall columns, the matrix and `--over` no longer holds.
