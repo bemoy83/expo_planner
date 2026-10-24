@@ -180,7 +180,7 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
-## Alert counts as the mark of attention and a figure in ink: built, to be tested by the user
+## Alert counts as the mark of attention and a figure in ink: merged
 
 Built 2026-10-24 from §3 of the addendum of the v3 handoffs. What needs the planner is counted as the mark of attention and the figure in ink, with no fill (`AlertCount` in `common.tsx`, `.alert-count` in `base.css`); a count of what is there stays a plain muted figure (`.count`). The chips of counts (`.count-chip` alert, ink and solid) are gone: the page pickers of the tabs of tables and of Behov, the filters «Trenger avklaring», «Mangler», «Mangler prosjekt» and «Uplassert», «Avklar» and its parts, the rail of Behov and «Følg opp» on Resultat. On a band the figure is the band's ink, and on a primary button the button's own.
 
