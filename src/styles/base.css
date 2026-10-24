@@ -16,7 +16,7 @@ kbd{font:500 var(--fs-2xs)/14px var(--font-num);padding:0 4px;border-radius:4px;
 .section-head,.col-head .grid-label,.menu-group,.insp-eyebrow,.insp-h{font-family:var(--font-num);font-size:var(--fs-xs);font-weight:400;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
 
 /* ---- buttons ---- */
-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;background:var(--sunken);padding:7px 12px;cursor:pointer;transition:background .12s}
+button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;background:var(--sunken);padding:calc((var(--ctl-h) - var(--ctl-line)) / 2) 12px;line-height:var(--ctl-line);cursor:pointer;transition:background .12s}
 /* The ring of what the keyboard stands on: ink, and in the Kalender the ink of the mode's band (`--pick`). Set here, or the browser draws it in the colour of the system. */
 :focus-visible{outline:1.5px solid var(--pick,var(--text));outline-offset:1.5px}
 button svg{flex:none}
@@ -25,17 +25,17 @@ button:disabled{opacity:.45;cursor:default}
 button.primary{background:var(--text);color:var(--bg);font-weight:600}
 button.primary:hover:not(:disabled){background:var(--muted)}
 button.primary:disabled{opacity:.5}
-button.link{background:none;color:var(--text);padding:0 4px;text-decoration:underline;text-decoration-color:var(--line-strong)}
+button.link{background:none;color:var(--text);padding:0 4px;line-height:inherit;text-decoration:underline;text-decoration-color:var(--line-strong)}
 button.link:hover{background:none;color:var(--accent)}
 button.danger{background:var(--neg-bg);color:var(--neg)}
 button.ghost{background:transparent;color:var(--text)}
 button.ghost:hover{background:var(--sunken)}
 /* a button that is an icon alone: square, named in its tooltip */
-button.icon-button{padding:7px;min-width:32px;height:32px}
+button.icon-button{padding:0;min-width:var(--ctl-h);height:var(--ctl-h)}
 
 /* ---- fields ---- */
 /* a field edited in place in a table is bare, see tables.css */
-select,input[type='date'],input[type='time'],input[type='search'],input:not([type]):not(.inline),input[type='text']:not(.inline){border:none;border-radius:8px;background:var(--sunken);padding:7px 10px}
+select,input[type='date'],input[type='time'],input[type='search'],input:not([type]):not(.inline),input[type='text']:not(.inline){box-sizing:border-box;height:var(--ctl-h);border:none;border-radius:8px;background:var(--sunken);padding:0 10px}
 input[type='checkbox']{accent-color:var(--accent)}
 
 /* ---- shell: the header with the tabs, and what a tab opens with ---- */
@@ -118,8 +118,8 @@ input[type='checkbox']{accent-color:var(--accent)}
 .menu-number{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-num)}
 .menu-number input{width:64px;text-align:right;font:500 var(--fs-md) var(--font-num)}
 
-.segmented{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--sunken)}
-.segmented button{background:transparent;padding:4px 10px;border-radius:6px;color:var(--muted);white-space:nowrap}
+.segmented{display:inline-flex;align-items:center;gap:2px;padding:var(--ctl-in);border-radius:8px;background:var(--sunken)}
+.segmented button{height:calc(var(--ctl-h) - 2 * var(--ctl-in));padding:0 10px;border-radius:6px;background:transparent;color:var(--muted);white-space:nowrap}
 .segmented button:not([aria-pressed='true']):hover{background:var(--lift);color:var(--text)}
 /* a segmented control in a row of a table or in a bar that floats over one */
 .segmented.small{padding:2px;border-radius:7px}
@@ -129,10 +129,8 @@ input[type='checkbox']{accent-color:var(--accent)}
 /* what is chosen, the same in the header's tabs and in every segmented control: what it is is in its aria state, which is what the style reads */
 :is(.tabs button[aria-current='page'],.segmented button[aria-pressed='true']){background:var(--chosen);box-shadow:var(--chosen-raise);color:var(--text);font-weight:600}
 /* a bar of tools above a grid, in the Kalender and in Bemanning: its controls are one height */
-.bar-controls button,.bar-controls input[type='date'],.bar-controls .bar-select{height:32px;font-size:var(--fs-md)}
+.bar-controls button,.bar-controls input[type='date'],.bar-controls .bar-select{font-size:var(--fs-md)}
 .bar-controls .bar-select{width:auto;max-width:220px}
-.bar-controls .segmented{height:32px}
-.bar-controls .segmented button{height:26px}
 
 /* the mark of a competence, in the colour handed over as --cc (see competenceColor) */
 .swatch{flex:none;width:10px;height:10px;border-radius:3px;background:var(--cc)}

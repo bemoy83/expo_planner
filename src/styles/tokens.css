@@ -115,6 +115,13 @@
   --chosen:var(--surface);
   --chosen-raise:var(--raise);
 
+  /* one height for every control: a button, an icon button, a field, a picker and a segmented track. A segment is the track less its
+     inset on each side, and a button of text has the height from its padding around one line of text, so a button that sets a height
+     of its own keeps it. A row of a table that holds a control is at least 40px. */
+  --ctl-h:32px;
+  --ctl-in:3px;
+  --ctl-line:18px;
+
   /* how far the rows of a ledger on the canvas (Behov, the tabs of tables) stand in: as far as the page's band */
   --row-inset:24px;
 
@@ -149,9 +156,10 @@
   --today:var(--mode-ink);                                             /* the today line down the grid */
   --pick:var(--mode-ink);                                              /* the ring of the cell in focus, of what is selected, and of what the keyboard stands on */
   --pick-soft:color-mix(in oklab,var(--mode-ink) 14%,transparent);      /* the tint of what is selected */
-  /* An alert on the band, and the badge of a sick day in Bemanning, is a solid chip with its own ink: 4.5:1 for the text on the chip and 3:1 for the chip on the band, in
-     both modes. The light ones are at the limit, so they are not made lighter; check both again if the band changes. */
-  --alert-warn:#d1aa6e; --alert-block:#d27f66; --alert-on:#140c05;   /* a light chip with dark ink */
+  /* An alert on the band, and the badge of a sick day in Bemanning, is a solid chip with its own ink, at least 4.5:1 for the text on
+     the chip in both modes. What needs the planner is ochre (DESIGN-RULES §8): a clear yellow ochre with the ink on it here, 9.6:1, and the
+     same hue darker with white on it in the dark palette, 5.6:1. It is told from a band by its hue, not by being darker or lighter. */
+  --alert-warn:oklch(0.8 0.13 80); --alert-block:#d27f66; --alert-on:var(--text);   /* a light chip with the ink */
   --attention-ring:color-mix(in oklab,var(--alert-warn) 28%,transparent);   /* the ring around a dot that asks for the planner's eye; made again where the chip's colour changes */
 }
 .kalender[data-mode='bemanning']{
@@ -183,7 +191,7 @@
   --today:var(--mode-mute);                                            /* the band's ink is near white here, the brightest thing on the page: a step down */
   --mode-field:oklch(0.47 calc(var(--mode-c) * .45) var(--mode-h) / .6);
   --mode-field-hover:oklch(0.52 calc(var(--mode-c) * .45) var(--mode-h) / .8);
-  --alert-warn:#856224; --alert-block:#9b462c; --alert-on:#fff;         /* a dark chip with light ink */
+  --alert-warn:oklch(0.52 0.13 80); --alert-block:#9b462c; --alert-on:#fff;   /* a dark chip with white on it */
   --attention-ring:color-mix(in oklab,var(--alert-warn) 28%,transparent);
 }
 .dark .kalender[data-mode='bemanning']:not([data-part='innleid']){--mode-band:#344d4d; --mode-line:#112323; --mode-track:#223737; --mode-ink:#dbeceb; --mode-mute:#a4bdbd}
