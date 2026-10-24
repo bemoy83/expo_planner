@@ -32,6 +32,17 @@ describe('runs of days', () => {
     expect(runOf(on(fri, block(SAT, 'vegger'), block(NEXT_MON, 'vegger')), FRI, fri, wd)).toMatchObject({ from: FRI, to: SAT, days: 2 })
   })
 
+  it('takes a run over a weekend the person has nothing on where its ends are pulled, and over none that has other work', () => {
+    const fri = block(FRI, 'vegger')
+    const mon = block(NEXT_MON, 'vegger')
+    expect(runLink(on(fri, mon), FRI, fri, wd, true)).toEqual({ prev: false, next: true })
+    expect(runLink(on(fri, mon), NEXT_MON, mon, wd, true)).toEqual({ prev: true, next: false })
+    expect(runDays(on(block(THU, 'vegger'), fri, mon), NEXT_MON, mon, wd, true).map((day) => day.date)).toEqual([THU, FRI, NEXT_MON])
+    expect(runLink(on(fri, block(SAT, 'tepper'), mon), FRI, fri, wd, true).next).toBe(false)
+    // An empty working day ends it still.
+    expect(runLink(on(block(MON, 'vegger'), block(WED, 'vegger')), MON, block(MON, 'vegger'), wd, true).next).toBe(false)
+  })
+
   it('ends a run at another competence and at an empty day', () => {
     const mon = block(MON, 'vegger')
     expect(runLink(on(mon, block(TUE, 'tepper')), MON, mon, wd).next).toBe(false)

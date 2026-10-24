@@ -23,8 +23,8 @@ const DRAG_FROM = 4
 const daysAcross = (el: HTMLElement, x: number, colW: number): number => (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW
 
 /**
- * The stroke under way, kept beside the state too, so the button let go right after it went down still ends it; and Shift held,
- * which the brush over a day reads as half days, and a stroke under way beside the state, so it answers the key at once.
+ * The stroke under way, kept beside the state too, so the button let go right after it went down still ends it;
+ * and whether Shift is held, which takes a stroke no further than where the demand is met, read by a stroke under way at once.
  */
 export function useStrokeState() {
   const [stroke, setStrokeState] = useState<Stroke | null>(null)
@@ -33,13 +33,11 @@ export function useStrokeState() {
     strokeRef.current = next
     setStrokeState(next)
   }
-  const [shift, setShiftState] = useState(false)
   const shiftHeld = useRef(false)
   const setShift = (down: boolean) => {
     shiftHeld.current = down
-    setShiftState(down)
   }
-  return { stroke, strokeRef, setStroke, shift, setShift, shiftHeld }
+  return { stroke, strokeRef, setStroke, setShift, shiftHeld }
 }
 
 interface Options {
@@ -67,7 +65,7 @@ interface Options {
   /** What a stroke ends in, see `useStrokePreview` and `useStaffingEdits`. */
   stretch: StretchPlan | null
   paintCells: (s: Stroke) => Day[]
-  paint: (cells: Day[], competence: string, half: boolean) => void
+  paint: (cells: Day[], competence: string) => void
   clear: (cells: Day[]) => void
   moveBlocks: (from: Day, to: Day, copy: boolean) => void
 }
@@ -116,7 +114,7 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
       updateStaffing((w) => ({ ...w, assignments: stretched(w, stretch) }))
     } else if (s.mode === 'erase') clear(grid.strokeCells(s))
     else if (s.mode === 'paint') {
-      if (brush) paint(paintCells(s), brush, s.half)
+      if (brush) paint(paintCells(s), brush)
     } else if (!dragged) {
       // A press that goes nowhere is a click: it selects the day, and lets go of it when it was the one selected.
       const same = selection !== null && selection.row0 === s.row0 && selection.col0 === s.col0 && selection.row1 === s.row0 && selection.col1 === s.col0
@@ -140,7 +138,7 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
         const time = stops ? stretchStop(share, s.stretch.edge, wd) : share < 0.5 ? wd.dayStart : wd.dayEnd
         const toDemand = shiftHeld.current
         if (s.col1 !== at.col || s.stretch.at !== time || !s.toDemand !== !toDemand) setStroke({ ...s, col1: at.col, toDemand, stretch: { ...s.stretch, at: time } })
-      } else if (s.mode === 'paint' && !s.half && stops) {
+      } else if (s.mode === 'paint' && stops) {
         // The brush is drawn to a stop of the day under the pointer too, once the pointer has left where it was pressed.
         const moved = s.at !== undefined || at.row !== s.row0 || at.col !== s.col0 || Math.abs(x - pressedAt.current) > DRAG_FROM
         const stop = moved ? stretchStop(share, at.col < s.col0 ? 'start' : 'end', wd) : undefined
@@ -148,7 +146,7 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
         const short = stop !== undefined && (at.col > s.col0 ? stop <= wd.dayStart : at.col < s.col0 && stop >= wd.dayEnd)
         const col = short ? at.col + (at.col > s.col0 ? -1 : 1) : at.col
         const time = short ? (at.col > s.col0 ? wd.dayEnd : wd.dayStart) : stop
-        const toDemand = moved && shiftHeld.current
+        const toDemand = shiftHeld.current
         if (s.row1 !== at.row || s.col1 !== col || s.at !== time || !s.toDemand !== !toDemand) setStroke({ ...s, row1: at.row, col1: col, at: time, toDemand })
       } else if (s.row1 !== at.row || s.col1 !== at.col) setStroke({ ...s, row1: at.row, col1: at.col })
     },
@@ -200,7 +198,7 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
     if (mode === 'paint' || mode === 'erase') setSelection(null)
     pointer.current = { x: event.clientX, y: event.clientY }
     pressedAt.current = event.clientX
-    setStroke({ mode, half: mode === 'paint' && event.shiftKey, row0: at.row, col0: at.col, row1: at.row, col1: at.col, stretch: edge ? { edge: edge.dataset.edge === 'start' ? 'start' : 'end', blockId: edge.dataset.block ?? '' } : undefined })
+    setStroke({ mode, toDemand: mode === 'paint' && event.shiftKey, row0: at.row, col0: at.col, row1: at.row, col1: at.col, stretch: edge ? { edge: edge.dataset.edge === 'start' ? 'start' : 'end', blockId: edge.dataset.block ?? '' } : undefined })
     followStroke()
   }
 

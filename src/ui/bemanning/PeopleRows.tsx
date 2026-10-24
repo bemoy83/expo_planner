@@ -107,10 +107,13 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         const gaps = ghost?.get(date) ?? NO_PREVIEW
         // A block is joined to its run, which has the name; it is drawn joined to what a stroke would put beside it too, see `endShape`.
         const links = new Map<string, RunLink>()
+        // An end is taken hold of where the run ends, over a weekend the person has nothing on, see `runLink`.
+        const grips = new Map<string, RunLink>()
         const shapes = new Map<string, EndShape>()
         for (const block of blocks) {
           const link = runLink(blocksOn, date, block, workday)
           if (link.prev || link.next) links.set(block.id, link)
+          grips.set(block.id, runLink(blocksOn, date, block, workday, true))
           shapes.set(block.id, endShape(block, date, gaps, blocksOn, previewsOn, workday))
         }
         // What a stroke would put down is drawn as it will lie, joined in the same way.
@@ -130,7 +133,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
             onContextMenu={(e) => actions.cellMenu(person.id, date, e)}
             onDoubleClick={() => actions.unfold(person.id)}
           >
-            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} shapes={shapes} cut={cut?.col === col ? cut : undefined} projectName={projectName} />
+            <FoldedDay cell={cell} styles={styles} brush={brush} width={cols.colW} names={names} links={links} grips={grips} shapes={shapes} cut={cut?.col === col ? cut : undefined} projectName={projectName} />
             {previews.length > 0 && (
               <span className="bm-timeline bm-ghosts">
                 {previews.map(({ gap, shape }) => (
@@ -175,7 +178,7 @@ export function PeopleHeading() {
 /** The people, one line each, with what a stroke under way covers laid over them. */
 export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void }) {
   const bm = useBemanning()
-  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, stretch, paintReach, selection, clip, refused, ghost, info, actions, bodyRef, dates, shift } = bm
+  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, stretch, paintReach, selection, clip, refused, ghost, info, actions, bodyRef, dates } = bm
   const gap = listedAble < listed.length && brush ? DIVIDER_H : 0
   const topOf = (row: number) => row * PERSON_H + (row >= listedAble ? gap : 0)
   // A stroke that moves a day's blocks has no outline: the blocks show where they would land. A pulled end of a run has the pill of one over the days it changes, without the outline.
@@ -183,7 +186,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
   const range =
     !stroke || stroke.mode === 'move' ? null : stroke.mode === 'stretch' ? stretch && { rowFrom: stretch.row, rowTo: stretch.row, colFrom: stretch.colFrom, colTo: stretch.colTo } : paintReach === null ? null : { ...strokeRange(stroke), ...paintReach }
   const erasing = stroke?.mode === 'erase' || (stroke?.mode === 'stretch' && stretch?.erase === true)
-  const chosen = !stroke && selection ? strokeRange({ mode: 'select', half: false, ...selection }) : null
+  const chosen = !stroke && selection ? strokeRange({ mode: 'select', ...selection }) : null
   const refusedCol = refused ? dates.indexOf(refused.date) : -1
   /** Of a block a pulled end is cut back into, where the time that goes lies in what is drawn of it: what the block has now and will not have. */
   const cutOf = (trim: NonNullable<StretchPlan['trim']>) => {
@@ -204,7 +207,6 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
       className="bm-people"
       ref={bodyRef}
       data-tool={tool}
-      data-half={tool === 'paint' && (stroke ? stroke.half : shift) ? '' : undefined}
       style={pillStyle}
       onMouseMove={actions.bodyMove}
       onMouseLeave={actions.bodyLeave}
@@ -271,7 +273,6 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
                   {hoursText(info.hours)} t{info.mode === 'paint' ? ` · ${info.people} pers.` : ''}
                 </span>
               )}
-              {info.half && <span>halv dag</span>}
               {info.toDemand && <span>til behovet er dekket</span>}
               {info.skipped > 0 && <span>{info.skipped} hoppes over</span>}
             </>

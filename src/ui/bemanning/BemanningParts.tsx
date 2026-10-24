@@ -94,7 +94,7 @@ export function BemanningToolbar({ width, mode, onMode, onPart, projects, projec
         'Pensel'
       ),
       shortcut: 'B',
-      title: 'Mal dager med en kompetanse: klikk for hel dag, Shift for halv dag, dra over flere. Bare ledig tid fylles. Velg et prosjekt under kompetansen i behovet for å male for det (B).',
+      title: 'Mal dager med en kompetanse: klikk for hel dag, dra over flere, kort innenfor en dag for en del av den, Shift for å stoppe der behovet er dekket. Bare ledig tid fylles. Velg et prosjekt under kompetansen i behovet for å male for det (B).',
     },
     { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
   ]
@@ -177,7 +177,7 @@ export function BemanningOverlays() {
           onBack={() => updateStaffing((w) => ({ ...w, unavailability: backFrom(w.unavailability ?? [], menu.cell.personId, menu.cell.date) }))}
           onAbsence={() => bm.setPanel({ personId: menu.cell.personId, draft: { from: menu.cell.date, to: menu.cell.date } })}
           onClose={() => bm.setMenu(null)}
-          onPaint={(competence) => bm.paint([menu.cell], competence, false)}
+          onPaint={(competence) => bm.paint([menu.cell], competence)}
           onClear={() => bm.clear([menu.cell])}
         />
       )}

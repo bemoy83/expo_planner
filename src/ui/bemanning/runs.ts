@@ -1,4 +1,5 @@
 import { addDays, daysBetween, type ISODate } from '../../domain/dates'
+import { dayType } from '../../domain/holidays'
 import { sameTag, workTag, type Assignment, type Interval, type Minute, type WorkdaySettings } from '../../domain/types'
 import { clamp } from '../../domain/numbers'
 
@@ -10,25 +11,33 @@ export type BlocksOn = (date: ISODate) => Assignment[] | undefined
  * day when it lasts to the end of the normal day and a block of its competence begins the next day
  * from its start. Another competence, another project or time left empty ends a run, so a weekend does when it is not worked,
  * and a run goes on through one that is. What happens to the person (sickness, absence, overtime) does not
- * end it: the blocks are still there.
+ * end it: the blocks are still there. Pulled by its ends, a run is the work over a weekend or holiday the person has
+ * nothing on as well (`overOffDays`), so that only a working day left empty ends it; it is still drawn in pieces.
  */
 const reachesEnd = (iv: Interval, wd: WorkdaySettings) => iv.end >= wd.dayEnd && iv.start < wd.dayEnd
 const fromStart = (iv: Interval, wd: WorkdaySettings) => iv.start <= wd.dayStart && iv.end > wd.dayStart
 const sameWork = (a: Piece, b: Piece) => a.competence === b.competence && sameTag(a, b)
 
-/** The block the run of `block` goes on with the day after, if any. */
-export const nextInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
-  const next = addDays(date, 1)
-  if (!reachesEnd(block, wd)) return undefined
-  return blocks(next)?.find((a) => sameWork(a, block) && fromStart(a, wd))
+/** The longest stretch of weekends and holidays a run is taken over, as at Christmas. */
+const OFF_DAYS_AT_MOST = 14
+
+/** The day after `date`, or before it, where a run would go on: the next day, or with `overOffDays` the next that is a working day or has blocks. */
+const besideDay = (blocks: BlocksOn, date: ISODate, by: 1 | -1, overOffDays: boolean): ISODate => {
+  let day = addDays(date, by)
+  for (let n = 0; overOffDays && n < OFF_DAYS_AT_MOST && dayType(day) !== 'arbeidsdag' && !blocks(day)?.length; n++) day = addDays(day, by)
+  return day
 }
 
-/** The block the run of `block` comes from the day before, if any. */
-const prevInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => {
-  const prev = addDays(date, -1)
-  if (!fromStart(block, wd)) return undefined
-  return blocks(prev)?.find((a) => sameWork(a, block) && reachesEnd(a, wd))
+/** The day and the block the run of `block` goes on with after it, or comes from before it, if any. */
+const besideInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings, by: 1 | -1, overOffDays = false): RunDay | undefined => {
+  if (!(by > 0 ? reachesEnd : fromStart)(block, wd)) return undefined
+  const day = besideDay(blocks, date, by, overOffDays)
+  const found = blocks(day)?.find((a) => sameWork(a, block) && (by > 0 ? fromStart : reachesEnd)(a, wd))
+  return found && { date: day, block: found }
 }
+
+/** The block the run of `block` goes on with the day after, if any. */
+export const nextInRun = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): Assignment | undefined => besideInRun(blocks, date, block, wd, 1)?.block
 
 /** Which of its neighbours a block is joined to. */
 export interface RunLink {
@@ -62,9 +71,9 @@ export const endShape = (piece: Piece, date: ISODate, beside: Piece[], blocks: P
   }
 }
 
-export const runLink = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): RunLink => ({
-  prev: prevInRun(blocks, date, block, wd) !== undefined,
-  next: nextInRun(blocks, date, block, wd) !== undefined,
+export const runLink = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings, overOffDays = false): RunLink => ({
+  prev: besideInRun(blocks, date, block, wd, -1, overOffDays) !== undefined,
+  next: besideInRun(blocks, date, block, wd, 1, overOffDays) !== undefined,
 })
 
 interface Run {
@@ -87,11 +96,8 @@ interface RunDay {
 }
 
 /** The days of the run a block is a part of, in order. A block that is joined to nothing is a run of one day. */
-export const runDays = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings): RunDay[] => {
-  const step = (from: RunDay, by: 1 | -1): RunDay | undefined => {
-    const beside = (by > 0 ? nextInRun : prevInRun)(blocks, from.date, from.block, wd)
-    return beside && { date: addDays(from.date, by), block: beside }
-  }
+export const runDays = (blocks: BlocksOn, date: ISODate, block: Assignment, wd: WorkdaySettings, overOffDays = false): RunDay[] => {
+  const step = (from: RunDay, by: 1 | -1): RunDay | undefined => besideInRun(blocks, from.date, from.block, wd, by, overOffDays)
   const days: RunDay[] = [{ date, block }]
   for (let day = step(days[0], -1); day; day = step(day, -1)) days.unshift(day)
   for (let day = step(days[days.length - 1], 1); day; day = step(day, 1)) days.push(day)

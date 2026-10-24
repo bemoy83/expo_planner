@@ -43,14 +43,14 @@ describe('dayGrid', () => {
   })
 
   it('gives the days a stroke covers, either way it is drawn, and only on lines that are there', () => {
-    const cells = grid.strokeCells({ mode: 'select', half: false, row0: 1, col0: 1, row1: 0, col1: 0 })
+    const cells = grid.strokeCells({ mode: 'select', row0: 1, col0: 1, row1: 0, col1: 0 })
     expect(cells).toEqual([
       { personId: 'kari', date: '2026-10-05' },
       { personId: 'kari', date: '2026-10-06' },
       { personId: 'ola', date: '2026-10-05' },
       { personId: 'ola', date: '2026-10-06' },
     ])
-    expect(grid.strokeCells({ mode: 'select', half: false, row0: 1, col0: 0, row1: 5, col1: 0 })).toHaveLength(1)
+    expect(grid.strokeCells({ mode: 'select', row0: 1, col0: 0, row1: 5, col1: 0 })).toHaveLength(1)
   })
 
   it('gives the blocks of a day, the columns of days, and the people a paste lands on', () => {

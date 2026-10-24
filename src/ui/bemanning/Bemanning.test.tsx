@@ -57,15 +57,30 @@ describe('Bemanning', () => {
     expect(blocksOf('p1')).toEqual([])
   })
 
-  it('paints half a day where the brush is pressed with Shift', async () => {
+  it('paints part of a day where the brush is drawn within it to a stop', async () => {
     const { container } = await renderKalender(workspaceOf(), PREFS)
+    keyDown('1')
+    press(container, 0, '2026-10-06', pointOf(container, 0, '2026-10-06', 0.05))
+    moveTo(container, 0, '2026-10-06', 0.45)
+    letGo()
+    await settle()
+    const [part] = blocksOf('p1')
+    expect(part.date).toBe('2026-10-06')
+    expect(part.start).toBe(DEFAULT_WORKDAY.dayStart)
+    expect(part.end).toBeLessThan(DEFAULT_WORKDAY.dayEnd)
+  })
+
+  it('fills a day no further than where the demand is met on a click with Shift', async () => {
+    // The day needs 2 FTE, 15 hours; Ola works 11,5 of them, so Kari is given what is left.
+    const long = { ...block('p2', '2026-10-06'), end: DEFAULT_WORKDAY.dayEnd + 240 }
+    const { container } = await renderKalender(workspaceOf({ assignments: [long] }), PREFS)
     keyDown('1')
     click(container, 0, '2026-10-06', { shiftKey: true })
     await settle()
-    const [half] = blocksOf('p1')
-    expect(half.date).toBe('2026-10-06')
-    expect(half.start).toBe(DEFAULT_WORKDAY.dayStart)
-    expect(half.end).toBeLessThan(DEFAULT_WORKDAY.dayEnd)
+    const [rest] = blocksOf('p1')
+    expect(rest.start).toBe(DEFAULT_WORKDAY.dayStart)
+    expect(rest.end).toBeGreaterThan(DEFAULT_WORKDAY.dayStart)
+    expect(rest.end).toBeLessThan(DEFAULT_WORKDAY.dayEnd)
   })
 
   it('paints the working days a stroke is drawn across, whole up to the day it ends in', async () => {
@@ -76,6 +91,15 @@ describe('Bemanning', () => {
     letGo()
     await settle()
     expect(blocksOf('p1').map((a) => [a.date, a.start, a.end])).toEqual(['2026-10-05', '2026-10-06', '2026-10-07'].map((date) => [date, DEFAULT_WORKDAY.dayStart, DEFAULT_WORKDAY.dayEnd]))
+  })
+
+  it('takes hold of a run by its ends over a weekend the person has nothing on', async () => {
+    const days = ['2026-10-08', '2026-10-09', '2026-10-12'].map((date) => block('p1', date))
+    const { container } = await renderKalender(workspaceOf({ assignments: days }), { ...PREFS, bemanningRange: { start: '2026-10-05', end: '2026-10-14' } })
+    const edges = (id: string) => [...container.querySelectorAll<HTMLElement>(`.bm-edge[data-block="${id}"]`)].map((edge) => edge.dataset.edge)
+    expect(edges('p1-2026-10-08')).toEqual(['start'])
+    expect(edges('p1-2026-10-09')).toEqual([])
+    expect(edges('p1-2026-10-12')).toEqual(['end'])
   })
 
   it('erases the blocks of the days with the eraser, and with Alt held under the brush', async () => {

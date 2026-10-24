@@ -15,7 +15,6 @@ import type { PersonLine } from './usePeopleLines'
 /** What a stroke, or the brush over a day, would do: shown before the button is let go. */
 export interface StrokeInfo {
   mode: 'paint' | 'erase' | 'select'
-  half: boolean
   /** Person-days that get time, or lose their blocks. */
   days: number
   hours: number
@@ -77,9 +76,8 @@ interface Options {
   planned: AllocationRow[]
   viewDates: ISODate[]
   remainingOf: Map<string, number>
-  /** The day under the pointer, where the brush or a paste would put time; Shift held, for half days; and what was copied. */
+  /** The day under the pointer, where the brush or a paste would put time; and what was copied. */
   hover: { row: number; col: number } | null
-  shift: boolean
   clip: Clipboard | null
 }
 
@@ -88,7 +86,7 @@ interface Options {
  * what a pulled end of a run does, the time it would give each day as a preview and the count of it, and the demand as it would be
  * after it, so a stroke can be stopped where the demand is met.
  */
-export function useStrokePreview({ active, ws, dates, stroke, grid, listed, activeTool, brush, brushWork, activeProject, projectLines, placeLines, balance, projectBalance, planned, viewDates, remainingOf, hover, shift, clip }: Options) {
+export function useStrokePreview({ active, ws, dates, stroke, grid, listed, activeTool, brush, brushWork, activeProject, projectLines, placeLines, balance, projectBalance, planned, viewDates, remainingOf, hover, clip }: Options) {
   const wd = ws.settings.workday
   const { dayAt, strokeCells, blocksOn, colsOf, pasteOnto } = grid
 
@@ -126,7 +124,7 @@ export function useStrokePreview({ active, ws, dates, stroke, grid, listed, acti
     const block = line.assignments?.get(from)?.find((a) => a.id === stroke.stretch!.blockId)
     if (!block) return null
     const days: BlocksOn = (date) => line.assignments?.get(date)
-    const plan = stretchRun(runDays(days, from, block, wd), stroke.stretch.edge, dates[stroke.col1], stroke.stretch.at, wd)
+    const plan = stretchRun(runDays(days, from, block, wd, true), stroke.stretch.edge, dates[stroke.col1], stroke.stretch.at, wd)
     const erase = plan.remove.length > 0 || plan.trim !== undefined
     const drawn: Day[] = erase ? plan.remove.map((day) => ({ personId: line.person.id, date: day.date })) : plan.add.map((day) => ({ personId: line.person.id, date: day.date, within: day.within }))
     // With Shift held, an end pulled outward goes no further than where the demand is met (R47).
@@ -179,19 +177,19 @@ export function useStrokePreview({ active, ws, dates, stroke, grid, listed, acti
         const gone = stretch.cells.flatMap(blocksOn).filter((a) => stretch.blockIds.includes(a.id))
         const cut = stretch.trim && blocksOn({ personId: listed[stretch.row].person.id, date: stretch.trim.date }).find((a) => a.id === stretch.trim!.blockId)
         const cutHours = cut && stretch.trim ? paidHours(cut, wd) - paidHours(stretch.trim, wd) : 0
-        return { ...none, info: { mode: 'erase', half: false, days: gone.length + (cut ? 1 : 0), hours: paidTotal(gone, wd) + cutHours, people: 1, skipped: 0 } }
+        return { ...none, info: { mode: 'erase', days: gone.length + (cut ? 1 : 0), hours: paidTotal(gone, wd) + cutHours, people: 1, skipped: 0 } }
       }
       // The days the run is to go on over get what the brush would give them.
       const count = brushed(stretch.cells, stretch.competence, 'full', stretch.own, stretch)
-      return { ghost: found, info: { mode: 'paint', half: false, people: 1, competence: stretch.competence, toDemand: stroke.toDemand, ...count }, refused: null }
+      return { ghost: found, info: { mode: 'paint', people: 1, competence: stretch.competence, toDemand: stroke.toDemand, ...count }, refused: null }
     }
     if (stroke?.mode === 'erase') {
       const blocks = strokeCells(stroke).flatMap(blocksOn)
-      return { ...none, info: { mode: 'erase', half: false, days: new Set(blocks.map((a) => `${a.personId}|${a.date}`)).size, hours: paidTotal(blocks, wd), people: new Set(blocks.map((a) => a.personId)).size, skipped: 0 } }
+      return { ...none, info: { mode: 'erase', days: new Set(blocks.map((a) => `${a.personId}|${a.date}`)).size, hours: paidTotal(blocks, wd), people: new Set(blocks.map((a) => a.personId)).size, skipped: 0 } }
     }
     if (stroke?.mode === 'select') {
       const { rowFrom, rowTo, colFrom, colTo } = strokeRange(stroke)
-      return { ...none, info: { mode: 'select', half: false, days: colTo - colFrom + 1, hours: 0, people: rowTo - rowFrom + 1, skipped: 0 } }
+      return { ...none, info: { mode: 'select', days: colTo - colFrom + 1, hours: 0, people: rowTo - rowFrom + 1, skipped: 0 } }
     }
     if (stroke?.mode === 'move') {
       // The day's blocks on their way to another day or person: where they would land, or that they cannot.
@@ -212,11 +210,10 @@ export function useStrokePreview({ active, ws, dates, stroke, grid, listed, acti
     if (activeTool !== 'paint' || !brush) return none
     const cells = stroke ? (painted ?? []) : hover && hover.row < listed.length ? [dayAt(hover.row, hover.col)] : []
     if (!cells.length) return none
-    const half = stroke ? stroke.half : shift
-    const count = brushed(cells, brush, half ? 'half' : 'full', undefined, brushWork ?? undefined)
-    return { ghost: found, info: stroke ? { mode: 'paint', half, people: found.size, toDemand: stroke.toDemand, ...count } : null, refused: null }
+    const count = brushed(cells, brush, 'full', undefined, brushWork ?? undefined)
+    return { ghost: found, info: stroke ? { mode: 'paint', people: found.size, toDemand: stroke.toDemand, ...count } : null, refused: null }
     // The grid's helpers read the lines and `dates`.
-  }, [active, ws, grid, listed, dates, activeTool, brush, brushWork, stroke, stretch, painted, hover, shift, clip]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, ws, grid, listed, dates, activeTool, brush, brushWork, stroke, stretch, painted, hover, clip]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- the demand as it would be after the stroke under way ---------------------------------------------
   // What remains is counted while a stroke is drawn, so it can be stopped where the demand is met. The stroke is worked out as
@@ -230,7 +227,7 @@ export function useStrokePreview({ active, ws, dates, stroke, grid, listed, acti
       return { assignments: stretched(ws, stretch), dates: dates.slice(stretch.colFrom, stretch.colTo + 1) }
     }
     if (stroke.mode === 'erase') return { assignments: clearDays(all, strokeCells(stroke)), dates: between }
-    if (stroke.mode === 'paint') return brushWork && painted ? { assignments: paintDays(ws, painted, brushWork, stroke.half ? 'half' : 'full'), dates: between } : null
+    if (stroke.mode === 'paint') return brushWork && painted ? { assignments: paintDays(ws, painted, brushWork, 'full'), dates: between } : null
     const from = dayAt(stroke.row0, stroke.col0)
     const to = dayAt(stroke.row1, stroke.col1)
     const moved = moveDay(ws, { from, to, blockIds: blocksOn(from).map((a) => a.id) })

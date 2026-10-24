@@ -102,8 +102,8 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const { persons, lines, listed, listedAble, divided, lineOf } = people
   const grid = useMemo(() => dayGrid(listed, dates, lineOf), [listed, dates, lineOf])
   const strokeState = useStrokeState()
-  const { stroke, shift } = strokeState
-  const preview = useStrokePreview({ active, ws, dates, stroke, grid, listed, activeTool, brush: activeBrush, brushWork, activeProject, projectLines, placeLines, balance, projectBalance, planned, viewDates, remainingOf, hover, shift, clip })
+  const { stroke } = strokeState
+  const preview = useStrokePreview({ active, ws, dates, stroke, grid, listed, activeTool, brush: activeBrush, brushWork, activeProject, projectLines, placeLines, balance, projectBalance, planned, viewDates, remainingOf, hover, clip })
   const edits = useStaffingEdits({ ws, updateStaffing, undo, toast, dates, grid, persons, styles, brush: activeBrush, brushWork, selection, clip, setClip, hover })
   const input = useStrokeInput({ ws, wd: ws.settings.workday, scrollRef, bodyRef, colW: cols.colW, dates, grid, listedCount: listed.length, listedAble, divided, strokeState, activeTool, brush: activeBrush, panelOpen, selection, setSelection, onFocusDate, updateStaffing, stretch: preview.stretch, paintCells: preview.paintCells, paint: edits.paint, clear: edits.clear, moveBlocks: edits.moveBlocks })
   const { cancelStroke } = input
@@ -205,7 +205,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   return {
     ws, dates, cols, room: view.room, viewFrom: view.viewFrom, viewTo: view.viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf: view.keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
-    tool: activeTool, brush: activeBrush, brushProject: activeProject, brushHall: activeHall, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand: brush.pickFromDemand, pickProject: brush.pickProject, pickPlace: brush.pickPlace, shift,
+    tool: activeTool, brush: activeBrush, brushProject: activeProject, brushHall: activeHall, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand: brush.pickFromDemand, pickProject: brush.pickProject, pickPlace: brush.pickPlace,
     balance, shownBalance: preview.shownBalance, shownRemaining: preview.shownRemaining, totals: view.totals, remainingOf, demandRows: view.demandRows, uncoverable: view.uncoverable, projectLines, projectShown: preview.projectShown, restShown: preview.restShown, placeLines, placeShown: preview.placeShown, projectName: brush.projectName, projectBalance, kalenderProjects: brush.kalenderProjects,
     lines, listed, listedAble, able: people.able, week, isOk: people.isOk, isOpen: people.isOpen, ghost: preview.ghost, info: preview.info, refused: preview.refused, stroke, stretch: preview.stretch, paintReach: preview.paintReach, selected, selection, clip, setClip,
     unfolded, setUnfolded, toggleUnfolded, stepUnfolded, cross, setCross, takeCross, selectedBlock, setSelectedBlock, dateAtX: input.dateAtX,

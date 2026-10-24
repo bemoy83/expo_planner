@@ -47,13 +47,12 @@ export function useStaffingEdits({ ws, updateStaffing, undo, toast, dates, grid,
   }
 
   /** Paints the free time of the days (R6). A paint never replaces what is there. */
-  const paint = (cells: Day[], competence: string, half: boolean) => {
-    const span = half ? 'half' : 'full'
-    if (cells.every((cell) => !paintGaps(ws, cell, competence, span, onlyOffDays(cells)).length)) {
+  const paint = (cells: Day[], competence: string) => {
+    if (cells.every((cell) => !paintGaps(ws, cell, competence, 'full', onlyOffDays(cells)).length)) {
       if (cells.length === 1) toast(blockText(cells[0], competence))
       return
     }
-    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence === brush && brushWork ? brushWork : competence, span) }))
+    updateStaffing((w) => ({ ...w, assignments: paintDays(w, cells, competence === brush && brushWork ? brushWork : competence, 'full') }))
   }
   const clear = (cells: Day[]) => updateStaffing((w) => ({ ...w, assignments: clearDays(w.assignments ?? [], cells) }))
   const removeOpen = () => updateStaffing((w) => ({ ...w, assignments: removeUnresolved(w, dates) }))
@@ -70,7 +69,7 @@ export function useStaffingEdits({ ws, updateStaffing, undo, toast, dates, grid,
       return typeof moved === 'string' ? w : { ...w, assignments: moved }
     })
   }
-  const selectionCells = (): Day[] => (selection ? strokeCells({ mode: 'select', half: false, ...selection }) : [])
+  const selectionCells = (): Day[] => (selection ? strokeCells({ mode: 'select', ...selection }) : [])
   const copySelection = () => {
     const copied = copyDays(ws, selectionCells())
     if (!copied) return toast(selection ? 'Ingen blokker å kopiere i det som er valgt.' : 'Velg dager med «Velg» for å kopiere dem.')

@@ -35,6 +35,8 @@ interface Props {
   names: BlockNames
   /** The blocks that are joined to the day before or after, see `runs.ts`. Their run has the name, and its ends are the ends to take hold of. */
   links: Map<string, RunLink>
+  /** Where a block's run goes on before and after it, over weekends the person has nothing on: its ends are taken hold of where it does not. */
+  grips: Map<string, RunLink>
   /** How the blocks are drawn at their ends: joined as their run has them, and to what a stroke would put beside them. */
   shapes: Map<string, EndShape>
   /** A block of the day that a pulled end of a run is cut back into, and where in the block the time that goes lies: hatched as hours that go are. */
@@ -44,7 +46,7 @@ interface Props {
 }
 
 /** What a person's day shows when it is folded: a small timeline of the normal day. */
-export function FoldedDay({ cell, styles, brush, width, names, links, shapes, cut, projectName }: Props) {
+export function FoldedDay({ cell, styles, brush, width, names, links, grips, shapes, cut, projectName }: Props) {
   const other = (competence: string) => (brush && brush !== competence ? 'other' : '')
   const overtime = cell.overtime > EPSILON ? <span className="bm-ot-tag" title={`${hoursText(cell.overtime)} t overtid`}>+{hoursText(cell.overtime)}</span> : null
   // A weekend or a holiday with nothing on it is left empty, whatever absence covers it.
@@ -65,7 +67,8 @@ export function FoldedDay({ cell, styles, brush, width, names, links, shapes, cu
         const label = link ? 'none' : blockLabel((blockW * (100 - lead)) / 100, name, style?.shortLabel ?? '', names, hoursText(block.hours))
         // An end of a run, or of a single day: the first block of the day where nothing comes before it, the last where nothing follows.
         // It is taken hold of only where the block has room for it and for a part to take the block itself by.
-        const ends = block.unresolved ? [false, false] : [i === 0 && !link?.prev, i === cell.blocks.length - 1 && !link?.next]
+        const grip = grips.get(block.id)
+        const ends = block.unresolved ? [false, false] : [i === 0 && !grip?.prev, i === cell.blocks.length - 1 && !grip?.next]
         const roomy = blockW >= (ends.filter(Boolean).length + 1) * EDGE_W
         const [atStart, atEnd] = roomy ? ends : [false, false]
         const shape = shapes.get(block.id)
