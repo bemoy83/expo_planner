@@ -25,8 +25,8 @@ export interface Pull {
   /** The end that was gripped. A span of one day has both in its one cell, and the way it is pulled says which. */
   end: 'start' | 'end'
   toCol: number
-  /** Shift stops the end where the demand is met; Alt keeps the sum of the span. */
-  mode: 'carry' | 'demand' | 'sum'
+  /** Shift held: the end stops where the demand is met, or, where the line covers its demand already, the sum is shared again (`pullPreview`). */
+  mode: 'carry' | 'shift'
 }
 /**
  * A press on a cell that selects nothing yet. Let go, it is a click on the cell; dragged on to another cell it is a range or a stroke

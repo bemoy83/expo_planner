@@ -64,9 +64,12 @@ describe('sharing demand over drawn days', () => {
     expect(shareOverDays(7, 5)).toEqual([2, 2, 1, 1, 1])
   })
 
-  it('keeps the decimals for the last day', () => {
-    expect(shareOverDays(7.7, 5)).toEqual([2, 2, 1, 1, 1.7])
-    expect(shareOverDays(6.5, 3)).toEqual([2, 2, 2.5])
+  it('counts the decimals as the last person, so the days never rise', () => {
+    expect(shareOverDays(4.6, 3)).toEqual([2, 2, 0.6])
+    expect(shareOverDays(4.6, 2)).toEqual([3, 1.6])
+    expect(shareOverDays(5, 3)).toEqual([2, 2, 1])
+    expect(shareOverDays(7.7, 5)).toEqual([2, 2, 2, 1, 0.7])
+    expect(shareOverDays(6.5, 3)).toEqual([3, 2, 1.5])
     expect(shareOverDays(3.1, 2)).toEqual([2, 1.1])
   })
 
@@ -78,9 +81,11 @@ describe('sharing demand over drawn days', () => {
     expect(shareOverDays(2.5, 1)).toEqual([2.5])
   })
 
-  it('rounds the total up to one decimal so the demand is covered', () => {
-    expect(shareOverDays(1.23, 2)).toEqual([1, 0.3])
-    expect(shareOverDays(0.01, 2)).toEqual([0.1, 0])
+  it('shares the total to the tenth as it is written, neither more nor less', () => {
+    expect(shareOverDays(4.53, 3)).toEqual([2, 2, 0.5])
+    expect(shareOverDays(4.55, 1)).toEqual([4.6])
+    expect(shareOverDays(1.23, 2)).toEqual([1, 0.2])
+    expect(shareOverDays(0.04, 2)).toEqual([])
     expect(shareOverDays(2.9999999999, 2)).toEqual([2, 1])
     const parts = shareOverDays(43.47, 8)
     expect(Math.round(parts.reduce((a, b) => a + b, 0) * 10) / 10).toBe(43.5)
@@ -143,11 +148,21 @@ describe('pulling an end of a span', () => {
   })
 
   it('stops where the demand is met, with what is left on the last day', () => {
-    expect(pull([2, _, _, _, _], { from: 0, to: 0, end: 'end', at: 4, mode: 'demand', lacking: 4.53 })).toEqual({ cells: { 1: 2, 2: 2, 3: 0.6 }, blocked: false, met: true })
+    expect(pull([2, _, _, _, _], { from: 0, to: 0, end: 'end', at: 4, mode: 'demand', lacking: 4.53 })).toEqual({ cells: { 1: 2, 2: 2, 3: 0.5 }, blocked: false, met: true })
     expect(pull([2, _, _], { from: 0, to: 0, end: 'end', at: 2, mode: 'demand', lacking: 9 })).toEqual({ cells: { 1: 2, 2: 2 }, blocked: false, met: false })
     // The day that held the decimals is lifted first, and counts.
     expect(pull([2, 0.5, _, _], { from: 0, to: 1, end: 'end', at: 3, mode: 'demand', lacking: 2 }).cells).toEqual({ 1: 2, 2: 0.5 })
     expect(pull([2, 0.5, _, _], { from: 0, to: 1, end: 'end', at: 3, mode: 'demand', lacking: 1 }).cells).toEqual({ 1: 1.5 })
+  })
+
+  it('passes over a weekend without FTE inside the span', () => {
+    // Thursday to Tuesday, the weekend empty: pulled in to Thursday, only the days with FTE are cleared.
+    const span = [2, 2, _, _, 2, 2.5, _]
+    const inward = stretchSpan({ values: span, workdays: [true, true, false, false, true, true, true], from: 0, to: 5, end: 'end', at: 0, mode: 'carry' })
+    expect(Object.fromEntries(inward.cells)).toEqual({ 1: null, 4: null, 5: null })
+    // A Monday with decimals at the end takes its crew from the Friday before the weekend.
+    const outward = stretchSpan({ values: [2, _, _, 0.5, _], workdays: [true, false, false, true, true], from: 0, to: 3, end: 'end', at: 4, mode: 'carry' })
+    expect(Object.fromEntries(outward.cells)).toEqual({ 3: 2, 4: 2 })
   })
 
   it('writes nothing where the demand is met already', () => {

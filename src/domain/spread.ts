@@ -39,22 +39,25 @@ export const spreadOpen = (total: number, weights: number[], open: boolean[]): n
   return out
 }
 
+/** FTE-days to the tenth, as the Kalender writes them: what reads «4,5» is shared as 4,5. */
+const toTenths = (value: number): number => Math.round(value * 10 + 1e-9)
+
 /**
  * Shares FTE-days over a number of days in whole people, for demand drawn across days in the Kalender.
- * The whole FTE-days are shared evenly, with the ones that do not divide on the first days. The decimals
- * are kept for the last day of the work: the last day drawn, or, where there are fewer whole FTE-days
- * than days, the day after the last one that got a person. The total is rounded up to one decimal so
- * the demand is covered. Nothing to share gives no days.
+ * The total, to the tenth as it is written, is counted in people, the last one a part of a person where it
+ * has decimals, and the people are shared evenly with the ones that do not divide on the first days. The
+ * part is the last person given, so the days never rise and the decimals end the work: 4,6 over three days
+ * is 2, 2 and 0,6. Nothing to share gives no days.
  */
 export const shareOverDays = (total: number, days: number): number[] => {
-  if (days <= 0 || !(total > 1e-9)) return []
-  const tenths = Math.ceil(total * 10 - 1e-9)
-  const whole = Math.floor(tenths / 10)
-  const rest = (tenths % 10) / 10
-  const base = Math.floor(whole / days)
-  const extra = whole % days
+  const tenths = toTenths(total)
+  if (days <= 0 || tenths <= 0) return []
+  const people = Math.ceil(tenths / 10)
+  const base = Math.floor(people / days)
+  const extra = people % days
   const parts = Array.from({ length: days }, (_, i) => base + (i < extra ? 1 : 0))
-  if (rest) parts[base > 0 ? days - 1 : Math.min(extra, days - 1)] += rest
+  const last = base > 0 ? days - 1 : extra - 1
+  parts[last] = (parts[last] * 10 - (people * 10 - tenths)) / 10
   return parts
 }
 
@@ -63,7 +66,7 @@ export interface SpanInput {
   values: (number | undefined)[]
   /** Whether each of those days is a working day. */
   workdays: boolean[]
-  /** The span: its first and its last day. Every day between them has FTE. */
+  /** The span: its first and its last day. Every working day between them has FTE; a weekend or holiday may have none. */
   from: number
   to: number
   /** The end that is pulled, and the day it is pulled to. */
@@ -87,13 +90,13 @@ interface SpanStretch {
 const hundredths = (value: number) => Math.round(value * 100) / 100
 
 /**
- * What pulling an end of a span along the days does to its line. A span is the days in a row that have FTE.
+ * What pulling an end of a span along the days does to its line. A span is the days in a row that have FTE, over weekends and holidays without it: only an empty working day ends one.
  *
  * Outward, the new working days get the crew of the span: what its end day has, or what the day inside it
  * has where the end day holds the decimals that were left over (a figure that is no whole number and lower
  * than its neighbour's); that day is then lifted to the crew too. Weekends and holidays are passed over,
  * unless the span has no working day itself. With `demand` the days are filled only until the row lacks
- * nothing: the last day gets what is left, rounded up to one decimal. The end never reaches into the next
+ * nothing: the last day gets what is left, to the tenth as it is written. The end never reaches into the next
  * span: it stops on the day before the next planned day.
  *
  * Inward, the days let go of are cleared. The day at the other end always stays.
@@ -136,7 +139,7 @@ export const stretchSpan = ({ values, workdays, from, to, end, at, mode, lacking
   }
 
   if (!outward) {
-    for (let i = reach + step; i !== tip + step; i += step) cells.set(i, null)
+    for (let i = reach + step; i !== tip + step; i += step) if (values[i]) cells.set(i, null)
     return result()
   }
 
@@ -145,10 +148,12 @@ export const stretchSpan = ({ values, workdays, from, to, end, at, mode, lacking
   const fresh: number[] = []
   for (let i = tip + step; i !== reach + step; i += step) if (!ownWorkday || workdays[i]) fresh.push(i)
   const stops = mode === 'demand' && lacking !== null
-  let left = stops ? Math.max(0, Math.ceil(lacking * 10 - 1e-9) / 10) : Infinity
+  let left = stops ? Math.max(0, toTenths(lacking) / 10) : Infinity
   if (!fresh.length) return result(stops && left <= 1e-9)
   const tipValue = values[tip] ?? 0
-  const inside = tip === hold ? 0 : (values[tip - step] ?? 0)
+  // The day before the end inside the span: a weekend without FTE between them is passed over.
+  let inside = 0
+  for (let i = tip - step; i !== hold - step && !inside; i -= step) inside = values[i] ?? 0
   const crew = !Number.isInteger(tipValue) && inside > tipValue ? inside : tipValue
   const give = (day: number, has: number) => {
     const more = Math.min(crew - has, left)

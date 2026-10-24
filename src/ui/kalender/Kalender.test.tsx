@@ -53,6 +53,28 @@ describe('the planning grid', () => {
     expect(focused(container)).toBe(colOf('2026-10-05'))
   })
 
+  it('picks a day by a click on its date, and lets go of the cells', async () => {
+    const { container } = await renderKalender()
+    const dateHead = (date: ISODate) => container.querySelectorAll<HTMLElement>('.grid-head .day-head')[colOf(date)]
+    click(container, '2026-10-06')
+    expect(dateHead('2026-10-06').classList.contains('active')).toBe(true)
+    fireEvent.click(dateHead('2026-10-09'))
+    expect(focused(container)).toBe(-1)
+    expect(dateHead('2026-10-09').classList.contains('active')).toBe(true)
+    expect(dateHead('2026-10-06').classList.contains('active')).toBe(false)
+  })
+
+  it('shows the day in focus in the date field, and picks the day typed there', async () => {
+    const { container } = await renderKalender()
+    const field = container.querySelector<HTMLInputElement>('.bar-date')!
+    click(container, '2026-10-06')
+    expect(field.value).toBe('2026-10-06')
+    fireEvent.change(field, { target: { value: '2026-10-12' } })
+    expect(focused(container)).toBe(-1)
+    expect(field.value).toBe('2026-10-12')
+    expect(container.querySelector('.grid-head .day-head.active')?.getAttribute('title')).toMatch(/^man 12\.10\.2026/)
+  })
+
   it('stores a number typed in a cell, and moves on with Tab', async () => {
     const { container } = await renderKalender()
     click(container, '2026-10-07')

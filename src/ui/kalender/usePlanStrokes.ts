@@ -97,7 +97,7 @@ export function usePlanStrokes({ dates, allocLanes, demandIndex, settings, windo
     if (!done || !view) return
     for (const cell of view.cells) setValue(cell.lane, cell.date, cell.value)
     // A pull selects nothing, as a pulled end of a run does not in Bemanning: what was selected is selected still.
-    setNotice(pullNotice(done, view))
+    setNotice(pullNotice(view))
   }
 
   // What the stroke or the pull in progress would write, and from it what the cells of each line would hold if it ended now, keyed by lane.
@@ -107,7 +107,7 @@ export function usePlanStrokes({ dates, allocLanes, demandIndex, settings, windo
   // What the stroke or the pull in progress would do, for the status bar.
   const progress = pull && pullView ? pullProgress(pull, pullView) : preview ? pencilProgress(preview) : null
   // What the stroke or the drag in progress would do, on one pill over the days and the lines it changes.
-  const pill = pull && pullView ? pullPill(pull, pullView, getValue) : preview ? pencilPill(preview, getValue) : stroke === 'eraser' && selection ? eraserPill(selection, dates, getValue) : null
+  const pill = pull && pullView ? pullPill(pullView, getValue) : preview ? pencilPill(preview, getValue) : stroke === 'eraser' && selection ? eraserPill(selection, dates, getValue) : null
 
   return { stroke, setStroke, strokeRef, pull, setPull, pullRef, pullView, startPull, commitPull, drawDemand, proposePlan, eraseDrawn, written, ghost, progress, pill }
 }

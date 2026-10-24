@@ -17,7 +17,10 @@
 .mode-band .segmented button:not([aria-pressed='true']):hover{background:var(--mode-hover);color:var(--mode-ink)}
 .mode-band .segmented button[aria-pressed='true']{color:var(--mode-ink)}
 .mode-band kbd{background:var(--mode-key);color:var(--mode-mute)}
-.mode-band :is(.bar-button,.bar-select,.bar-date){background:var(--mode-field);color:var(--mode-ink)}
+.mode-band :is(.bar-button,.bar-select,.bar-date){background:var(--mode-field)}
+.mode-band :is(.bar-button,.bar-select){color:var(--mode-ink)}
+/* a date is typed in, as in any field: the text's own ink, not the band's */
+.mode-band .bar-date{color:var(--text)}
 .mode-band :is(.bar-button,.bar-select,.bar-date):hover{background:var(--mode-field-hover)}
 .mode-band .bar-button svg{color:var(--mode-mute)}
 .mode-band .bar-zone>.icon-button{background:transparent}
@@ -85,7 +88,7 @@
 .week-label{padding-left:3px}
 /* the week and the month read from the start of the day, the weekday and the date stand in its middle */
 .cell.head:not(.day-head){justify-content:flex-start}
-.day-head{flex-direction:column;line-height:1.1}
+.day-head{flex-direction:column;line-height:1.1;cursor:pointer}
 .day-head .wd{font-size:var(--fs-2xs);color:var(--faint)}
 .day-head .dn{color:var(--text);font-size:var(--fs-sm);font-weight:500}
 /* today: weekday and date on one badge, the ink of the band with the band's fill as text, as the primary action on the band. It keeps that under the focus and on a red day. */

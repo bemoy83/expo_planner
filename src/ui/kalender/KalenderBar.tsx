@@ -94,13 +94,15 @@ interface Props {
   start: ISODate
   end: ISODate
   onToday: () => void
+  /** The day in focus, or today: what the date field shows. */
+  date: ISODate
   onDate: (date: ISODate) => void
   zoom: Zoom
   onZoom: (zoom: Zoom) => void
 }
 
 /** The planning bar right above the rows: undo, the tools, what is shown and how, and where in the period. */
-export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, grouping, onGrouping, levels, onLevels, start, end, onToday, onDate, zoom, onZoom }: Props) {
+export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, onFilter, projects, competences, onlyInView, onOnlyInView, grouping, onGrouping, levels, onLevels, start, end, onToday, date, onDate, zoom, onZoom }: Props) {
   const fit = filterSummary(filter, projects)
   return (
     <PlanBar width={width} fitKey={`${grouping.join()}|${fit.label}|${fit.others}|${hints}|${tool}`}>
@@ -117,7 +119,7 @@ export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, 
         </div>
         <div className="bar-zone bar-zone-end">
           {hints && (
-            <span className="bar-hint" title="Hold Alt og dra for å tømme. Shift og dra en ende av et spenn stopper der behovet er dekket. Høyreklikk en celle for flere valg.">
+            <span className="bar-hint" title="Hold Alt og dra for å tømme. Shift og dra en ende av et spenn stopper der behovet er dekket, eller fordeler summen på nytt når det er dekket fra før. Høyreklikk en celle for flere valg.">
               <Info size={14} aria-hidden />
               <span className="bar-hint-text">
                 <b>Alt</b>-dra · <b>høyreklikk</b>
@@ -127,7 +129,7 @@ export function KalenderBar({ width, hints, mode, onMode, tool, onTool, filter, 
           <button className="ghost" onClick={onToday}>
             I dag
           </button>
-          <input className="bar-date" type="date" aria-label="Gå til dato" title="Gå til dato" min={start} max={end} onChange={(e) => e.target.value && onDate(e.target.value)} />
+          <input className="bar-date" type="date" aria-label="Gå til dato" title="Gå til dato" min={start} max={end} value={date} onChange={(e) => e.target.value && onDate(e.target.value)} />
           <Segmented
             label="Kolonnebredde"
             value={zoom}

@@ -225,6 +225,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const [workPlan, setWorkPlan] = useState<OpenPlan | null>(null)
   const openDayPlan = useCallback((date: ISODate) => setWorkPlan({ view: 'day', date }), [setWorkPlan])
   const focusDay = useCallback((date: ISODate) => setPlanningFocus({ date }), [setPlanningFocus])
+  // A click on a date picks the day in focus, the same in every mode. In Plan it lets go of the cells, whose day would be the focus.
+  const pickDay = useCallback((date: ISODate) => {
+    setSelection(null)
+    setPlanningFocus({ date })
+  }, [setPlanningFocus])
   const showDate = useCallback((date: ISODate) => scrollToDate(date, 1), [scrollToDate])
 
   // ---- tools: keys and modifiers --------------------------------------------------------------
@@ -278,7 +283,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           {/* The date header is always pinned. The block under it stays pinned too, like Excel's frozen rows. Where it leaves the rows no room it moves up by what does not fit, and the hall calendar stays where it is, over the staffing lines. */}
           <div className="grid-head" ref={headRef} {...hoverProps}>
             {dayHover}
-            <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={bemanning ? focusDay : undefined} onDayPlan={bemanning ? openDayPlan : undefined} />
+            <HeadRows cols={cols} zoom={zoomOf(colW)} overbooked={overbooked} activeDate={activeDate} onDate={pickDay} onDayPlan={bemanning ? openDayPlan : undefined} />
           </div>
           {/* A click on an event's bar is caught here, so the lines of the hall calendar are given no handler and are not drawn again for it. */}
           <div
@@ -364,7 +369,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
               start={range.start}
               end={range.end}
               onToday={() => scrollToDate(today)}
-              onDate={(date) => scrollToDate(date, 2)}
+              date={activeDate ?? today}
+              onDate={(date) => {
+                pickDay(date)
+                scrollToDate(date, 2)
+              }}
               zoom={zoom}
               onZoom={setZoom}
             />

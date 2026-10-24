@@ -2,7 +2,7 @@ import { capacityForDate, FTE_NOISE, rowTotals, sumValues, type DemandIndex } fr
 import type { ISODate } from '../../domain/dates'
 import { decimalText } from '../../domain/numbers'
 import { dayType } from '../../domain/holidays'
-import { shareOverDays, stretchSpan } from '../../domain/spread'
+import { shareOverDays, stretchSpan, type SpanInput } from '../../domain/spread'
 import type { AllocationRow, CapacityLine, Settings } from '../../domain/types'
 import type { AllocLane } from './gridTypes'
 import { parseCellInput } from './layout'
@@ -129,18 +129,29 @@ export const proposalNotice = ({ done, hadPlan, noWindow, noDemand }: Proposal):
     .join(' · ')
 }
 
-/** The span a line has an end of on a day: the days in a row with FTE around it. Null where the day is empty or inside a span. */
+/**
+ * The span a line has an end of on a day: the days with FTE around it, over weekends and holidays without FTE, so
+ * that only an empty working day ends a span. Null where the day is empty or inside a span.
+ */
 export const spanEndAt = (lane: Partial<AllocLane>, dates: ISODate[], col: number): { from: number; to: number } | null => {
   const on = (at: number) => !!laneValue(lane, dates[at])
   if (!on(col)) return null
-  let from = col
-  let to = col
-  while (from > 0 && on(from - 1)) from -= 1
-  while (to < dates.length - 1 && on(to + 1)) to += 1
+  const reach = (step: number) => {
+    let end = col
+    for (let at = col + step; at >= 0 && at < dates.length; at += step) {
+      if (on(at)) end = at
+      else if (dayType(dates[at]) === 'arbeidsdag') break
+    }
+    return end
+  }
+  const from = reach(-1)
+  const to = reach(1)
   return col === from || col === to ? { from, to } : null
 }
 
 interface PullPreview {
+  /** What Shift does on this line: stop where the demand is met, or share the sum again where it is met already. */
+  mode: SpanInput['mode']
   cells: DrawnCell[]
   /** The days that get FTE they did not have, the days that are cleared, and the most a day ends up with. */
   added: number
@@ -158,6 +169,8 @@ interface PullPreview {
 /**
  * What pulling an end of a span would do to its line, see `stretchSpan`. On a level in entry the span is that of
  * the sums of its rows, and what the pull gives a day is shared out over them as a number typed there is.
+ * With Shift the end stops where the demand is met; where the line covers its demand before the pull, the sum
+ * is shared again over the new length instead. A line whose demand is not known is pulled as without Shift.
  */
 export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: AllocLane[], demandIndex: DemandIndex, settings: Settings): PullPreview | null => {
   const lane = pull && allocLanes[pull.lane]
@@ -165,6 +178,7 @@ export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: All
   const required = lane.node ? lane.node.totals.requiredFte : rowTotals(demandIndex, lane.row!, settings).requiredFte
   const before = lane.node ? lane.node.totals.plannedFte : sumValues(lane.row!.fte)
   const known = required !== null && required > FTE_NOISE
+  const mode: SpanInput['mode'] = pull.mode === 'carry' ? 'carry' : known && required - before <= FTE_NOISE ? 'sum' : 'demand'
   // A span of one day is pulled by the end the pointer is on the side of.
   const end = pull.from === pull.to ? (pull.toCol < pull.from ? 'start' : 'end') : pull.end
   const { cells: changes, blocked, met } = stretchSpan({
@@ -174,12 +188,13 @@ export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: All
     to: pull.to,
     end,
     at: pull.toCol,
-    mode: pull.mode,
+    mode,
     lacking: known ? required - before : null,
   })
   const cells = [...changes].sort((a, b) => a[0] - b[0]).map(([col, value]): DrawnCell => ({ lane: pull.lane, date: dates[col], value }))
   const planned = cells.reduce((sum, cell) => sum + (cell.value ?? 0) - (laneValue(lane, cell.date) ?? 0), before)
   return {
+    mode,
     cells,
     added: cells.filter((cell) => cell.value !== null && !laneValue(lane, cell.date)).length,
     cleared: cells.filter((cell) => cell.value === null).length,
@@ -188,14 +203,14 @@ export const pullPreview = (pull: Pull | null, dates: ISODate[], allocLanes: All
     lacking: required === null ? null : required - planned,
     blocked,
     met,
-    noDemand: pull.mode === 'demand' && !known,
+    noDemand: pull.mode === 'shift' && !known,
   }
 }
 
-const pullTail = (pull: Pull, { blocked, met, noDemand, lacking }: PullPreview): string =>
+const pullTail = ({ mode, blocked, met, noDemand, lacking }: PullPreview): string =>
   [
     noDemand ? 'raden har ikke noe kjent behov å stoppe ved' : '',
-    pull.mode === 'demand' && !noDemand ? (met ? 'behovet er dekket' : lacking !== null && lacking > FTE_NOISE ? `${formatFte(lacking, 1)} FTE-dager igjen av behovet` : '') : '',
+    mode === 'demand' && !noDemand ? (met ? 'behovet er dekket' : lacking !== null && lacking > FTE_NOISE ? `${formatFte(lacking, 1)} FTE-dager igjen av behovet` : '') : '',
     blocked ? 'stopper før neste planlagte dag' : '',
   ]
     .filter(Boolean)
@@ -253,29 +268,29 @@ export const eraserCells = (sel: Selection | null, dates: ISODate[]): DrawnCell[
 
 export const pencilPill = (preview: PencilStroke, getValue: GetValue): StrokePill | null => strokePill({ gain: 'Fordel', lose: 'Tøm' }, pencilCells(preview), getValue)
 export const eraserPill = (sel: Selection, dates: ISODate[], getValue: GetValue): StrokePill | null => strokePill({ gain: 'Tøm', lose: 'Tøm' }, eraserCells(sel, dates), getValue)
-export const pullPill = (pull: Pull, { cells, blocked, met, noDemand }: PullPreview, getValue: GetValue): StrokePill | null =>
-  strokePill(pull.mode === 'sum' ? { sameSum: 'Strekk' } : { gain: 'Forleng', lose: 'Kort inn' }, cells, getValue, [
-    pull.mode === 'demand' && met ? 'til behovet er dekket' : '',
+export const pullPill = ({ mode, cells, blocked, met, noDemand }: PullPreview, getValue: GetValue): StrokePill | null =>
+  strokePill(mode === 'sum' ? { sameSum: 'Strekk' } : { gain: 'Forleng', lose: 'Kort inn' }, cells, getValue, [
+    mode === 'demand' && !noDemand ? (met ? 'til behovet er dekket' : 'stopper når behovet er dekket') : '',
     noDemand ? 'ikke noe kjent behov' : '',
     blocked ? 'stopper før neste planlagte dag' : '',
   ])
 
 /** What the status bar says while an end of a span is pulled. */
 export const pullProgress = (pull: Pull, preview: PullPreview): string => {
-  const { added, cleared, perDay, cells } = preview
-  const tail = pullTail(pull, preview)
-  if (pull.mode === 'sum') return cells.length ? `Strekker: opptil ${formatFte(perDay, 1)} FTE per dag, samme sum${tail}` : `Strekker: dra enden for å fordele summen på nytt${tail}`
-  if (added) return `Forlenger ${days(added)} med ${formatFte(perDay, 1)} FTE${tail}${pull.mode === 'carry' ? ' · Shift stopper når behovet er dekket, Alt beholder summen' : ''}`
+  const { mode, added, cleared, perDay, cells } = preview
+  const tail = pullTail(preview)
+  if (mode === 'sum') return cells.length ? `Strekker: opptil ${formatFte(perDay, 1)} FTE per dag, samme sum${tail}` : `Strekker: dra enden for å fordele summen på nytt${tail}`
+  if (added) return `Forlenger ${days(added)} med ${formatFte(perDay, 1)} FTE${tail}${pull.mode === 'carry' ? ' · Shift stopper når behovet er dekket, og fordeler summen på nytt når det er dekket fra før' : ''}`
   if (cleared) return `Korter inn ${days(cleared)}${tail}`
-  return cells.length ? `Løfter siste dag til ${formatFte(perDay, 1)} FTE${tail}` : `Dra enden sidelengs for å forlenge eller korte inn${tail || ' · Shift stopper når behovet er dekket, Alt beholder summen'}`
+  return cells.length ? `Løfter siste dag til ${formatFte(perDay, 1)} FTE${tail}` : `Dra enden sidelengs for å forlenge eller korte inn${tail || ' · Shift stopper når behovet er dekket, og fordeler summen på nytt når det er dekket fra før'}`
 }
 
 /** What the status bar says once the end is let go. */
-export const pullNotice = (pull: Pull, preview: PullPreview): string | null => {
-  const { added, cleared, cells } = preview
-  const tail = pullTail(pull, preview)
+export const pullNotice = (preview: PullPreview): string | null => {
+  const { mode, added, cleared, cells } = preview
+  const tail = pullTail(preview)
   if (!cells.length) return tail ? `Ingenting endret${tail}` : null
-  if (pull.mode === 'sum') return `Strakk summen over ${days(cells.filter((cell) => cell.value !== null).length)}${tail}`
+  if (mode === 'sum') return `Strakk summen over ${days(cells.filter((cell) => cell.value !== null).length)}${tail}`
   return `${added ? `Forlenget med ${days(added)}` : cleared ? `Kortet inn ${days(cleared)}` : 'Løftet siste dag'}${tail}`
 }
 

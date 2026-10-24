@@ -130,7 +130,7 @@ function OutsideWindow({ dates, window, where }: { dates: ISODate[]; window: Set
 }
 
 /** The two header lines: week and month, then weekday and date. `activeDate` is the day of the focused cell. */
-export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeDate, onDate, onDayPlan }: { cols: Columns; zoom: Zoom; overbooked: Map<ISODate, { need: number; available: number }>; activeDate: ISODate | undefined; /** A click on a date, where it picks the day in focus. Must keep its identity. */ onDate?: (date: ISODate) => void; /** A right-click on a date opens its day plan. Must keep its identity. */ onDayPlan?: (date: ISODate) => void }) {
+export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeDate, onDate, onDayPlan }: { cols: Columns; zoom: Zoom; overbooked: Map<ISODate, { need: number; available: number }>; activeDate: ISODate | undefined; /** A click on a date picks the day in focus. Must keep its identity. */ onDate: (date: ISODate) => void; /** A right-click on a date opens its day plan. Must keep its identity. */ onDayPlan?: (date: ISODate) => void }) {
   return (
     <>
       <Line
@@ -156,10 +156,10 @@ export const HeadRows = memo(function HeadRows({ cols, zoom, overbooked, activeD
         cells={(date) => (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell head day-head ${date === activeDate ? 'active' : ''} ${onDate ? 'pickable' : ''}`}
-            onClick={onDate && (() => onDate(date))}
+            className={`${dayClass(cols, date)} cell head day-head ${date === activeDate ? 'active' : ''}`}
+            onClick={() => onDate(date)}
             onContextMenu={onDayPlan && ((e) => { e.preventDefault(); onDayPlan(date) })}
-            title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}${onDayPlan ? '\nHøyreklikk: dagsplan' : ''}`}
+            title={`${fmtDate(date)}${holidayName(date) ? ` – ${holidayName(date)}` : ''}${overbooked.has(date) ? `\nOverbooket: planlagt ${formatFte(overbooked.get(date)!.need)} FTE, tilgjengelig ${formatFte(overbooked.get(date)!.available)}` : ''}\nKlikk: velg dagen${onDayPlan ? '\nHøyreklikk: dagsplan' : ''}`}
           >
             <span className="wd">{weekdayShort(date).slice(0, zoom === 'compact' ? 1 : 3)}</span>
             <span className="dn">{Number(date.slice(8))}</span>

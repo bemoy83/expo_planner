@@ -7,7 +7,7 @@ type Stroke = Exclude<Tool, 'select'>
 /** How far the mouse moves from a press on an end of a span before it says what the press is. */
 const GRIP_SLOP = 4
 
-const pullMode = (e: MouseEvent | KeyboardEvent): Pull['mode'] => (e.altKey ? 'sum' : e.shiftKey ? 'demand' : 'carry')
+const pullMode = (e: MouseEvent | KeyboardEvent): Pull['mode'] => (e.shiftKey ? 'shift' : 'carry')
 
 interface Options {
   scrollRef: RefObject<HTMLDivElement | null>
@@ -99,9 +99,9 @@ export function useGridDrag({ scrollRef, dragging, strokeRef, press, pullRef, be
       // The timer runs only while something is being dragged.
       if (mouseX !== null && timer === undefined) timer = setInterval(follow, 60)
     }
-    // Alt and Shift can be pressed or let go while the mouse rests.
+    // Shift can be pressed or let go while the mouse rests.
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key === 'Alt' || e.key === 'Shift') && pullRef.current) {
+      if (e.key === 'Shift' && pullRef.current) {
         e.preventDefault()
         pullTo(pullRef.current.toCol, pullMode(e))
       }
