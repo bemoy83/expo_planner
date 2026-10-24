@@ -23,6 +23,7 @@ table.ledger.canvas-table :is(th,td){border:none;padding:0 6px}
 table.ledger.canvas-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--table-bg,var(--surface));font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
 table.ledger.canvas-table tr>:is(th,td):first-child{padding-left:var(--row-inset)}
 table.ledger.canvas-table tr>:is(th,td):last-child{padding-right:var(--row-inset)}
+table.ledger.canvas-table .row-action{width:var(--ctl-h);height:var(--ctl-h)}   /* a control in a row is as tall as any other */
 
 /* a column's heading, see ColumnHead.tsx: a click on its name sorts by it, with an arrow for the direction */
 button.col-sort{padding:0;line-height:inherit;gap:3px;border-radius:4px;background:transparent;font-weight:inherit}

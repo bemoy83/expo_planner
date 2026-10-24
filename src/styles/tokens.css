@@ -116,8 +116,9 @@
   --chosen-raise:var(--raise);
 
   /* one height for every control: a button, an icon button, a field, a picker and a segmented track. A segment is the track less its
-     inset on each side, and a button of text has the height from its padding around one line of text, so a button that sets a height
-     of its own keeps it. A row of a table that holds a control is at least 40px. */
+     inset on each side. A button of text has the height from its padding around one line of text, so a button that sets a height of
+     its own keeps it; a button of an icon alone has no line and is given the height (.icon-button). A row of a table that holds a
+     control is at least 40px. */
   --ctl-h:32px;
   --ctl-in:3px;
   --ctl-line:18px;

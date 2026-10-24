@@ -98,7 +98,7 @@ button.exclude.on{color:var(--text)}
 .split button:hover{background:var(--panel)}
 .split button svg{flex:none;color:var(--pos)}
 .split-field{display:inline-flex;width:180px}
-.split-field input{width:100%;height:26px}
+.split-field input{width:100%}
 
 /* what is selected, and what can be done to it: a bar that floats over the foot of the view */
 .bulk-bar{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--surface);box-shadow:var(--pop);white-space:nowrap;font-size:var(--fs-md)}
@@ -124,7 +124,7 @@ button.exclude.on{color:var(--text)}
 .own-form{display:flex;flex-direction:column;gap:12px;padding:8px 24px 12px}
 .own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;min-height:40px;margin-left:-8px}
 .crumbs{display:flex;align-items:center;gap:4px}
-.crumbs .crumb{max-width:260px;height:var(--ctl-h);margin:0;padding:0 8px;font-size:var(--fs-base);font-weight:600}
+.crumbs .crumb{max-width:260px;margin:0;padding:0 8px;font-size:var(--fs-base);font-weight:600}
 .crumbs .quiet-chip.crumb svg{opacity:1}
 .crumbs .quiet-chip.crumb:hover{background:var(--surface);box-shadow:var(--raise)}
 .crumbs .split-field.crumb{width:240px}
@@ -150,7 +150,7 @@ span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
 .own-pair em.bad{color:var(--neg)}
 .own-add{gap:8px}
 .own-foot{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
-.own-comment{width:260px;height:var(--ctl-h);border:0;border-radius:7px;background:var(--well);font-size:var(--fs-md)}
+.own-comment{width:260px;border:0;border-radius:7px;background:var(--well);font-size:var(--fs-md)}
 .own-comment:focus{box-shadow:var(--well-focus)}
 .own-preview{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;font-size:var(--fs-sm)}
 .own-preview code{padding:1px 5px;border-radius:4px;background:var(--sunken);font:500 var(--fs-xs) var(--font-num)}

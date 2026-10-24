@@ -178,7 +178,7 @@
 .plan-bar-in .menu-pop{white-space:normal}
 
 /* a button that opens a menu, in the bar and in the page header: an icon, what is chosen, and a chevron. It has the height of the bar's controls wherever it is. */
-.bar-button{height:var(--ctl-h);padding:0 10px;font-weight:400}
+.bar-button{padding-inline:10px;font-weight:400}
 /* a filter that is on: its icon in the band's ink, where it is otherwise muted */
 .bar-button.on svg:first-child{color:var(--mode-ink)}
 .bar-button-label{min-width:0;overflow:hidden;text-overflow:ellipsis}

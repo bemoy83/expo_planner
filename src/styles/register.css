@@ -54,7 +54,7 @@
 .op-group.lacking{background:color-mix(in oklab,var(--bg) 86%,var(--alert-warn))}
 .op-attention{width:8px;height:8px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 3px var(--attention-ring)}
 .op-fold{display:grid;place-items:center}
-.op-table .icon-button{min-width:var(--ctl-h);width:var(--ctl-h);height:var(--ctl-h);padding:0;display:inline-grid;place-items:center;border-radius:6px;color:var(--faint)}
+.op-table .icon-button{width:var(--ctl-h);display:inline-grid;place-items:center;border-radius:6px;color:var(--faint)}
 /* the name, and beside it what the type lacks: the pair wraps, so the name is never cut */
 .op-name{display:flex;align-items:center;flex-wrap:wrap;gap:0 10px;padding:3px 0}
 .op-name strong{font-weight:600}
@@ -126,12 +126,12 @@
 .mk-add.want{padding:0 8px 0 6px;background:var(--surface);box-shadow:var(--raise);color:var(--text)}
 .mk-add.want::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--alert-warn)}
 .mk-pick{display:inline-flex;width:180px}
-.mk-pick input{height:var(--ctl-h);width:100%;padding:0 8px;font-size:var(--fs-sm)}
+.mk-pick input{width:100%;padding:0 8px;font-size:var(--fs-sm)}
 .mk-pickall{padding:0}
 /* how many rows have each competence, to filter by */
 .mk-cover{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px}
 .mk-cover-label{margin:0 6px 0 0;font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
-.mk-cover-item{gap:6px;height:var(--ctl-h);padding:0 8px;border-radius:6px;background:none;font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
+.mk-cover-item{gap:6px;padding-inline:8px;border-radius:6px;background:none;font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
 .mk-cover-item b{font:600 var(--fs-xs) var(--font-num);color:var(--muted)}
 .mk-cover-item:hover{background:var(--well)}
 .mk-cover-item.on{background:var(--surface);box-shadow:var(--raise)}
@@ -199,7 +199,7 @@
 /* Prosjekter: the events without a project first, with what each is offered */
 .hl-projects{--cols:minmax(170px,auto) 48px minmax(220px,2fr) 96px minmax(150px,1fr) 64px}
 .hl-offer{display:flex;align-items:center;gap:4px;padding:3px 0}
-:is(.hl-offer button.small,.hl-all,.hl-add button){height:var(--ctl-h);padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
+:is(.hl-offer button.small,.hl-all,.hl-add button){padding-inline:10px;font-size:var(--fs-sm);white-space:nowrap}
 .hl-all{margin-left:12px;font-weight:500}
 .hl-number input{font-weight:600}
 .hl-add{display:flex;justify-content:flex-end;gap:4px}
