@@ -76,7 +76,7 @@ Kalender
 - Demand whose Hall/Sted names no hall or place is gathered under «Mangler hall» until the planner picks a place under Plassering on Behov, or makes a rule on Hallregler. A choice is for the text in every project, or for one project; there is none for a single line.
 - If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. «Rader uten behov» under Filter lists such rows, in the whole period; they are moved or deleted by hand, one at a time. Rows made for several texts that are now all «Mangler hall» each show the whole unresolved demand.
 - Selecting by dragging follows the mouse past the left and right edges but not up or down.
-- The pencil («Fordel behov») shares in whole people, evenly, with what does not divide on the first days and the decimals on the last day. A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.
+- The pencil («Fordel behov») shares what is left, to the tenth as it is written, in whole people, evenly, with what does not divide on the first days; the decimals are the last person, so the days never rise (4,6 over three days is 2, 2 and 0,6; 2026-10-24, `shareOverDays`). A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.
 - A row's window is the build-up (A) or tear-down (D) days of its project in its hall; moving in and out are not counted as work days. A folded level shows the window of its rows together (`levelWindows`), and a row for all halls or for «Mangler hall» gets the days of all the project's halls together.
 - «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row. Small rows therefore get one day with a decimal each (0,2 here, 0,6 there) instead of being gathered into whole people across rows. It does not look at the available crew.
 - Notes can be written on planning cells; the staffing lines have none.
@@ -100,6 +100,17 @@ General
 - The selected project on Behov is not remembered across a reload.
 - Not signed in, data lives in one browser on one computer. Signed in, a shared workspace is kept in a database of its own in the browser and synced with Supabase; there is no server of our own and no automatic backup beyond the weekly reminder.
 - The app is published to GitHub Pages on each push to main (`.github/workflows/pages.yml`, 2026-10-11), with a relative base. Each browser that opens it has its own empty workspace until it is signed in.
+
+## Next: the demand of Innleid as in Faste (2026-10-24)
+
+Faste shows a competence's day as a label that fills as it is covered (2026-10-23). Innleid still shows what remains as a red negative figure under a thin line of coverage, which says little, and a competence that is open shows the same figure as the project line under it. The planner wants Innleid to have the same overhaul; it is to be worked out in a thread of its own. The difficulty is that Innleid mixes demand and coverage in one grid: the supplier chips sit on the competence's line, so a day that lacks hours is hard to tell from a day that is covered. The thinking so far, not yet agreed:
+
+1. Coverage is the fill of the demand, not a thing of its own: the label of Faste, in the competence's tint, filled from the left by the hours ordered, with what remains signed on it. Confirmed orders fill solid, waiting ones hatched. An empty label is demand, a full one is covered, an ochre tail is too much. A demand cell and a covered cell are then one cell, filled more or less.
+2. The supplier chips leave the competence's line: folded («Kompakt») it shows the label alone, and who covers it is on the project lines when the competence is open, in the editor, and on the supplier rows under the competences.
+3. An open level shows no sums, as in Faste: an open competence's figures are on its project lines and «Uten prosjekt».
+4. A hatch means the hours are not there yet: absence in Faste, an order waiting for an answer in Innleid.
+
+Open question for the planner: do the supplier chips leave the folded competence's line altogether (recommended: cleaner, and 116 px is narrow for a figure and a name), or stay as small text inside the label?
 
 ## Technical debt
 
