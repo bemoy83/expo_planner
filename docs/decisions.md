@@ -294,3 +294,19 @@ An end of a span (the days in a row a planning row has FTE) is pulled along the 
 - Not done: moving a whole span.
 - A folded level draws, previews and pulls as a row does (2026-10-12; a level in entry until 2026-10-17, when the switch went). What a pull, a stroke or a typed number gives a day there is shared by required hours over the rows whose window holds the day (a row with no window counts as open), and over all the rows where no window holds it; only then can a row get FTE outside its own window. A project's line only sums, on its hall-phase strip (2026-10-17).
 - The fill handle of the selection is removed (2026-10-12): pulling an end of a span does what it did, and copying a block over other days is copy and paste.
+
+## Innleid v8, the demand as in Faste: merged
+
+The designer's answer to the brief «the demand of Innleid as in Faste» (`design_docs/design_handoff_innleid_v8/`, 2026-10-24), built on the recommended answers in the thread. What the page does is in [features/innleid.md](features/innleid.md). Checked in the browser on an invented workspace: the labels in Detaljert and Kompakt, the open competence with its project lines and «Uten prosjekt», a pick on a project's line, the brush shared out on the projects, and the ⋯ menu.
+
+- A day of a competence is Faste's label, filled by what is ordered; the chips are gone from the competence's line. Who covers is on the project lines (Detaljert), in the open competence's days and in the editor; a folded competence names nobody but in the tooltip.
+- «Uten prosjekt» is a line under the projects of the open competence, as in Faste: what remains less what the projects lack, and the orders for none of the project lines.
+- The editor is slim: no day picker, no sum, no project picker and no day dots. The time of an order is in small type where it is not «Dag», and is changed under ⋯ («Skift eller egen tid …»), as is the supplier («Bytt leverandør …») and the line («Flytt til …»). The answer button opens the answer popover as before, so a short answer is kept. The arrows to the previous and next competence and short day are gone: ← → move the days, and «N dager udekket» finds the next.
+- The brush on the competence's own line shares out what lacks on its projects and «Uten prosjekt», each order tagged (`planAcross`). Where no day of a stroke lacks anything, it gives one person a day, as the design has it, in place of nothing (A11).
+- Picking a supplier is not painting (the planner, 2026-10-24): «+ Leverandør» in the editor became the picker of the brush's supplier, from those that offer the competence, and orders nothing. The supplier list of the bar has those that offer the open competence first, and the others greyed. Tøm has a supplier of its own, all until one is picked.
+- The hatch is the sign of an order that waits everywhere in Innleid, in place of the clock: in Mangler / over, the bar, the supplier rows and the panel.
+- Faste's compact line has the ochre tail for what is given over the demand, in place of the red hatch: red means under.
+- The slide-over panel is the control of the suppliers (the planner, 2026-10-24): the orders of every supplier to look over and confirm, what waits first. It replaces the matrix of what every supplier offers, which is on Mannskap › Leverandører.
+- Faste and Innleid share the lines of the demand (`bemanning/NeedLabel.tsx`, `domain/needLabel.ts`); the hours in the label column are signed in both («t mangler»).
+- Not done: the stroke preview shows on the line it is drawn on only, not on the other lines of an open competence.
+

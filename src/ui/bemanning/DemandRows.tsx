@@ -1,5 +1,4 @@
 import { Fragment, memo } from 'react'
-import { Check } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { Balance } from '../../domain/staffing/balance'
@@ -12,9 +11,14 @@ import { useBemanning, type DemandRow } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
 import { DEMAND_COMPACT_H, DEMAND_H } from './layout'
 import { EPSILON } from './week'
-import { hoursShort, hoursText } from '../format'
+import { hoursText } from '../format'
+import { staffedLabel, type NeedLabelParts } from '../../domain/needLabel'
+import { LinePick, NeedLabel, NeedLine } from './NeedLabel'
 
 const NO_HOURS = new Map<string, number>()
+
+/** An open line's day the staff cannot cover in normal time: the hatch across it, and no figure. */
+const UNCOVERABLE_DAY: NeedLabelParts = { segs: [{ kind: 'uncoverable', from: 0, width: 1 }], rules: [], figure: null, alert: false }
 
 interface LineProps {
   row: DemandRow
@@ -56,31 +60,26 @@ type TreeStep = 'branch' | 'end' | 'pass' | 'start'
 
 /** One competence's line: its name with what is left in the days in view, and each day's hours. */
 const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance, uncoverable, remaining, compact, brush, onPick, onDay, project, onProject, place, onPlace, projectHeld, summed, rest, treeOuter, treeInner }: LineProps) {
-  const treeAttrs = { 'data-outer': treeOuter, 'data-inner': treeInner }
   const on = rest ? false : place ? place.on : project ? project.on : style.key === brush
-  const left = <span className="bm-week-left">{remaining > EPSILON ? `${hoursShort(remaining)} t` : <Check size={compact ? 11 : 13} aria-label="Dekket" />}</span>
   const label = rest ? (
-    <button className="bm-pick bm-project-pick" disabled {...treeAttrs} title={`${style.label} uten prosjekt: behov uten prosjektnummer, timer ingen prosjekt mangler, og prosjekter som ikke er i Kalender. Mal på sumlinjen.`}>
-      <span className="bm-name">Uten prosjekt</span>
-      {left}
-    </button>
+    <LinePick kind="project" name="Uten prosjekt" hours={remaining} compact={compact} disabled outer={treeOuter} inner={treeInner} title={`${style.label} uten prosjekt: behov uten prosjektnummer, timer ingen prosjekt mangler, og prosjekter som ikke er i Kalender. Mal på sumlinjen.`} />
   ) : place && project ? (
-    <button className="bm-pick bm-place-pick" aria-pressed={on} {...treeAttrs} title={on ? `Mal for ${project.name} uten sted: velg prosjektlinjen` : `Mal ${style.label} for ${project.name} i ${place.name}. Pil opp og ned bytter linje.`} onClick={() => onPlace?.(place.hall)}>
-      <span className="bm-name">{place.name}</span>
-      {left}
-    </button>
+    <LinePick kind="place" name={place.name} hours={remaining} compact={compact} pressed={on} outer={treeOuter} inner={treeInner} title={on ? `Mal for ${project.name} uten sted: velg prosjektlinjen` : `Mal ${style.label} for ${project.name} i ${place.name}. Pil opp og ned bytter linje.`} onClick={() => onPlace?.(place.hall)} />
   ) : project ? (
-    <button className="bm-pick bm-project-pick" aria-pressed={on} {...treeAttrs} title={on ? `Mal uten prosjekt: velg sumlinjen (${style.label})` : `Mal ${style.label} for ${project.name}. Pil opp og ned bytter linje.`} onClick={() => onProject?.(project.projectNo)}>
-      <span className="bm-name">{project.name}</span>
-      {left}
-    </button>
+    <LinePick kind="project" name={project.name} hours={remaining} compact={compact} pressed={on} outer={treeOuter} inner={treeInner} title={on ? `Mal uten prosjekt: velg sumlinjen (${style.label})` : `Mal ${style.label} for ${project.name}. Pil opp og ned bytter linje.`} onClick={() => onProject?.(project.projectNo)} />
   ) : (
-    <button className="bm-pick" aria-pressed={on} disabled={!key && !on} {...treeAttrs} title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`} onClick={() => onPick(style.key)}>
-      <i className="swatch" />
-      <span className="bm-name">{style.label}</span>
-      {key > 0 && !compact && <kbd>{key}</kbd>}
-      {left}
-    </button>
+    <LinePick
+      name={style.label}
+      hours={remaining}
+      compact={compact}
+      kbd={key > 0 && !compact && <kbd>{key}</kbd>}
+      pressed={on}
+      disabled={!key && !on}
+      outer={treeOuter}
+      inner={treeInner}
+      title={on ? 'Slå av fokus og pensel (Esc)' : key ? `Fokuser på ${style.label} og mal med den (${key})` : `Ingen av de faste har ${style.label}`}
+      onClick={() => onPick(style.key)}
+    />
   )
   return (
     <Line
@@ -97,9 +96,7 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         if (summed)
           return unc > EPSILON && !compact ? (
             <button key={date} className={classes} title={`${style.label} · ${dayText(date)}\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.`} onClick={(e) => onDay(style.key, date, e)}>
-              <span className="bm-need-label summed">
-                <i className="uncoverable" style={{ width: '100%' }} />
-              </span>
+              <NeedLabel parts={UNCOVERABLE_DAY} className="summed" />
             </button>
           ) : (
             <div key={date} className={classes} />
@@ -107,19 +104,13 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         const left = Math.max(0, cell.remaining)
         const over = cell.remaining < -EPSILON
         const what = over ? `+${hoursText(-cell.remaining)} t over` : left > EPSILON ? `${hoursText(left)} t igjen av ${hoursText(cell.demand)}` : 'dekket'
-        if (compact) {
-          // One line: the demand as a tint, filled solid from the left as it is covered.
+        if (compact)
+          // One line: the demand as a tint, filled solid from the left as it is covered, and what is given beyond it as the ochre tail.
           return (
             <button key={date} className={classes} title={`${style.label} · ${what}`} onClick={(e) => onDay(style.key, date, e)}>
-              {cell.demand > EPSILON || over ? <i className={`bm-need-line ${over ? 'over' : ''}`}>{cell.assigned > EPSILON && cell.demand > EPSILON && <i style={{ width: `${Math.min(1, cell.assigned / cell.demand) * 100}%` }} />}</i> : null}
+              {(cell.demand > EPSILON || over) && <NeedLine parts={staffedLabel(cell, 0, EPSILON)} />}
             </button>
           )
-        }
-        const state = left > EPSILON ? (unc > EPSILON ? 'uncoverable' : '') : over ? 'over' : 'ok'
-        // The label fills from the left as the day is covered, overtime as normal time (the people's lines show it), then what is given beyond the demand.
-        const base = Math.max(cell.demand, cell.assigned) || 1
-        const covered = (Math.min(cell.assigned, cell.demand) / base) * 100
-        const surplus = (Math.max(0, cell.assigned - cell.demand) / base) * 100
         const title =
           `${style.label}${project ? ` · ${project.name}` : ''}${place ? ` · ${place.name}` : ''} · ${dayText(date)}${dayType(date) !== 'arbeidsdag' ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
           (cell.assignedOT > EPSILON ? ` (herav ${hoursText(cell.assignedOT)} t overtid)` : '') +
@@ -128,12 +119,7 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
           (unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : '')
         return (
           <button key={date} className={classes} title={title} onClick={(e) => onDay(style.key, date, e)}>
-            <span className={`bm-need-label ${state}`}>
-              <i className="covered" style={{ width: `${covered}%` }} />
-              {surplus > 0 && <i className="surplus" style={{ left: `${covered}%`, width: `${surplus}%` }} />}
-              {unc > EPSILON && <i className="uncoverable" style={{ width: `${(unc / base) * 100}%` }} />}
-              {state !== 'ok' && <b>{over ? `+${hoursShort(-cell.remaining)}` : `−${hoursShort(left)}`}</b>}
-            </span>
+            <NeedLabel parts={staffedLabel(cell, unc, EPSILON)} />
             {cell.carried > EPSILON && <i className="bm-carried" />}
           </button>
         )
@@ -249,7 +235,7 @@ export function DemandRows() {
         <Twisty open={open} show="Vis alle kompetanser" hide="Vis bare kompetansen i fokus" onToggle={() => bm.setDemandOpen(!open)} />
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
-        <span className="section-meta section-meta-end" title={open ? 'Timer som gjenstår i dagene som vises' : undefined}>{open ? 'Timer igjen' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
+        <span className="section-meta section-meta-end" title={open ? 'Timer som mangler i dagene som vises' : undefined}>{open ? 't mangler' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
       </SectionLine>
       {busy.map(line)}
       {open && idle.length > 0 && (

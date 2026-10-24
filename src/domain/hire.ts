@@ -1,6 +1,7 @@
 import { dayText, type ISODate } from './dates'
 import { projectTag, sameProject, SHIFT_IDS, workOf, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type Work, type WorkdaySettings, type Workspace } from './types'
 import { pushTo } from './collections'
+import type { NeedLabelParts, NeedSegment } from './needLabel'
 
 /**
  * The rules of Innleid: orders of people from suppliers against the hours of a competence that remain on a day
@@ -85,15 +86,95 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
   return { rest: need, planned, confirmed, remaining, state }
 }
 
-/** I1: how much of what remains is confirmed, and how much waits for an answer, as shares of it that together are at most the whole. */
-export const coverShares = (cover: Coverage): { confirmed: number; waiting: number } => {
-  if (!(cover.rest > 0)) return { confirmed: 0, waiting: 0 }
-  const confirmed = Math.min(1, cover.confirmed / cover.rest)
-  return { confirmed, waiting: Math.min(1 - confirmed, (cover.planned - cover.confirmed) / cover.rest) }
-}
-
 /** The figure a cover is shown with: the hours missing as a negative number, the hours over as a positive one, `null` where neither. */
 export const coverFigure = (cover: Coverage): number | null => (Math.abs(cover.remaining) > HOURS_NOISE ? -cover.remaining : null)
+
+/** A rule between two orders is dropped where any order is this thin a share of the label: it would hide it. */
+const THIN_SHARE = 0.04
+
+/**
+ * Innleid's label (`needLabel.ts`): the pieces it is filled with from the left, the rules between its orders, and
+ * the figure. The label is what remains or what is ordered, whichever is more. Confirmed orders come first and
+ * those that wait after them, whenever they were made, each supplier in the suppliers' order; what passes what
+ * remains is the tail of over, and the figure is then on it.
+ */
+export const orderedLabel = (cover: Coverage, orders: HireOrder[], wd: WorkdaySettings, suppliers: Supplier[] = []): NeedLabelParts => {
+  const place = (id: string) => suppliers.findIndex((supplier) => supplier.id === id)
+  const sorted = [...orders].sort((a, b) => Number(isWaiting(a)) - Number(isWaiting(b)) || place(a.supplierId) - place(b.supplierId))
+  const hours = sorted.map((order) => order.fte * hireHours(order, wd))
+  const base = Math.max(cover.rest, cover.planned) || 1
+  const thin = sorted.length > 1 && Math.min(...hours) / base < THIN_SHARE
+  const segs: NeedSegment[] = []
+  const rules: number[] = []
+  let at = 0
+  sorted.forEach((order, i) => {
+    const end = at + hours[i]
+    const waits = isWaiting(order)
+    const within = Math.min(end, cover.rest)
+    if (within > at) segs.push({ kind: waits ? 'waiting' : 'covered', from: at / base, width: (within - at) / base })
+    if (end > cover.rest + HOURS_NOISE) {
+      const start = Math.max(at, cover.rest)
+      segs.push({ kind: waits ? 'surplusWaiting' : 'surplus', from: start / base, width: (end - start) / base })
+    }
+    at = end
+    if (i < sorted.length - 1 && !thin) rules.push(at / base)
+  })
+  const figure = coverFigure(cover)
+  return { segs, rules, figure, alert: figure !== null && figure > 0 }
+}
+
+/** Who covers a day, for a project's line: the supplier with the most people confirmed, or with the most where none is, and how many others there are. */
+export interface CoveredBy {
+  supplierId: string
+  /** The people of the supplier that day, answered or not. */
+  people: number
+  /** None of them is confirmed. */
+  waits: boolean
+  /** The other suppliers, and whether one of them has an order that waits. */
+  more: number
+  moreWaits: boolean
+}
+
+export const coveredBy = (orders: HireOrder[]): CoveredBy | null => {
+  const bySupplier = new Map<string, { supplierId: string; people: number; confirmed: number; waiting: number }>()
+  for (const order of orders) {
+    const one = bySupplier.get(order.supplierId) ?? { supplierId: order.supplierId, people: 0, confirmed: 0, waiting: 0 }
+    one.people += order.fte
+    if (isWaiting(order)) one.waiting += order.fte
+    else one.confirmed += order.fte
+    bySupplier.set(order.supplierId, one)
+  }
+  const list = [...bySupplier.values()]
+  if (!list.length) return null
+  const confirmed = list.filter((one) => one.confirmed > 0).sort((a, b) => b.confirmed - a.confirmed)
+  const top = confirmed[0] ?? [...list].sort((a, b) => b.people - a.people)[0]
+  const others = list.filter((one) => one !== top)
+  return { supplierId: top.supplierId, people: top.people, waits: top.confirmed === 0, more: others.length, moreWaits: others.some((one) => one.waiting > 0) }
+}
+
+/** A line of an open competence's day: a supplier's people for a project, or for none. */
+export interface CoverLine {
+  key: string
+  supplierId: string
+  projectNo?: string
+  people: number
+  waits: boolean
+}
+
+/** An open competence's day, as its editor lists the orders: a line per supplier and project, the confirmed first, then by supplier and by the project's name. */
+export const coverLines = (orders: HireOrder[], suppliers: Supplier[], projectName: (projectNo: string) => string = (projectNo) => projectNo): CoverLine[] => {
+  const lines = new Map<string, CoverLine>()
+  for (const order of orders) {
+    const key = `${order.supplierId}|${(order.projectNo ?? '').trim().toLowerCase()}`
+    const line = lines.get(key) ?? { key, supplierId: order.supplierId, ...projectTag(order), people: 0, waits: false }
+    line.people += order.fte
+    line.waits ||= isWaiting(order)
+    lines.set(key, line)
+  }
+  const place = (id: string) => suppliers.findIndex((supplier) => supplier.id === id)
+  const named = (line: CoverLine) => (line.projectNo ? projectName(line.projectNo) : '')
+  return [...lines.values()].sort((a, b) => Number(a.waits) - Number(b.waits) || place(a.supplierId) - place(b.supplierId) || named(a).localeCompare(named(b), 'nb'))
+}
 
 type DeviationState = 'none' | 'under' | 'ok' | 'over'
 
@@ -157,6 +238,33 @@ export const planOrders = (orders: HireOrder[], supplier: Supplier, work: Compet
   return days.map((date) => ({ id: makeId(), supplierId: supplier.id, competence, ...projectTag(tagged), date, fte: Math.max(1, Math.ceil(Math.max(0, missing.get(date)!.remaining) / hours - 1e-6)), ...times, conf: null }))
 }
 
+/** A line of a competence that orders are made for: a project, or with no project the hours that are on none of the project lines. */
+export interface HireLine {
+  projectNo?: string
+  /** The hours of the competence that remain on the line on a day after the permanent staff. */
+  restOf: (date: ISODate) => number
+  /** Whether an order of the competence covers the line. */
+  holds: (order: HireOrder) => boolean
+}
+
+/**
+ * I3 over several lines: what each line lacks on the days is ordered from the supplier for it, tagged with its project,
+ * in the order of the lines. Where no line lacks anything on any of the days, each day gets one person, for the
+ * first line with hours that remain that day, else the last: a supplier added on top.
+ */
+export const planAcross = (orders: HireOrder[], supplier: Supplier, competence: CompetenceKey, lines: HireLine[], dates: ISODate[], wd: WorkdaySettings, makeId: () => string = newId): HireOrder[] => {
+  const added: HireOrder[] = []
+  const own = (line: HireLine) => [...orders, ...added].filter((order) => order.competence === competence && line.holds(order))
+  const work = (line: HireLine): Work => ({ competence, ...(line.projectNo && { projectNo: line.projectNo }) })
+  for (const line of lines) added.push(...planOrders(own(line), supplier, work(line), dates, line.restOf, wd, true, makeId))
+  if (added.length || !lines.length || !supplier.competences.includes(competence)) return added
+  for (const date of dates) {
+    const line = lines.find((one) => one.restOf(date) > HOURS_NOISE) ?? lines[lines.length - 1]
+    added.push(...planOrders(own(line), supplier, work(line), [date], line.restOf, wd, false, makeId))
+  }
+  return added
+}
+
 /** The orders with `change` made to those with the ids, merged again where two have become the same. */
 const patch = (orders: HireOrder[], ids: string[], change: (order: HireOrder) => HireOrder): HireOrder[] => {
   const picked = new Set(ids)
@@ -210,10 +318,10 @@ export const removeOrders = (orders: HireOrder[], ids: string[]): HireOrder[] =>
   return orders.some((order) => picked.has(order.id)) ? orders.filter((order) => !picked.has(order.id)) : orders
 }
 
-/** I4: the orders without those of a competence on some days: of every supplier, or of the one given; of every project, or of the one given. */
-export const eraseOrders = (orders: HireOrder[], competence: CompetenceKey, dates: ISODate[], supplierId?: string, projectNo?: string): HireOrder[] => {
+/** I4: the orders without those of a competence on some days: of every supplier, or of the one given; on every line, or on the one whose orders `holds` (`HireLine`). */
+export const eraseOrders = (orders: HireOrder[], competence: CompetenceKey, dates: ISODate[], supplierId?: string, holds: (order: HireOrder) => boolean = () => true): HireOrder[] => {
   const days = new Set(dates)
-  const gone = (order: HireOrder) => order.competence === competence && days.has(order.date) && (supplierId === undefined || order.supplierId === supplierId) && (!projectNo || sameProject(order, { projectNo }))
+  const gone = (order: HireOrder) => order.competence === competence && days.has(order.date) && (supplierId === undefined || order.supplierId === supplierId) && holds(order)
   return orders.some(gone) ? orders.filter((order) => !gone(order)) : orders
 }
 
@@ -279,6 +387,28 @@ export const orderText = (supplier: Supplier, orders: HireOrder[], competences: 
   return lines.join('\n')
 }
 
+/** A supplier as the control panel of Innleid lists it: its orders, those that wait among them, and the first day one of them waits. */
+export interface SupplierReview {
+  supplier: Supplier
+  orders: HireOrder[]
+  waiting: HireOrder[]
+  firstWaiting: ISODate | null
+}
+
+/**
+ * The suppliers to look over and confirm, each with its orders in order (`supplierOrders`): those with orders that wait first,
+ * the one that waits soonest at the top, then those that are all confirmed, in the suppliers' order. Suppliers with no orders are left out.
+ */
+export const supplierReview = (suppliers: Supplier[], orders: HireOrder[], competences: { key: CompetenceKey }[]): SupplierReview[] =>
+  suppliers
+    .map((supplier) => {
+      const own = supplierOrders(supplier, orders, competences)
+      const waiting = own.filter(isWaiting)
+      return { supplier, orders: own, waiting, firstWaiting: waiting[0]?.date ?? null }
+    })
+    .filter((review) => review.orders.length)
+    .sort((a, b) => (a.firstWaiting && b.firstWaiting ? a.firstWaiting.localeCompare(b.firstWaiting) : a.firstWaiting ? -1 : b.firstWaiting ? 1 : 0))
+
 /** I10: the hours ordered that wait for an answer. */
 export const waitingHours = (orders: HireOrder[], wd: WorkdaySettings): number => orders.reduce((sum, order) => sum + (isWaiting(order) ? order.fte * hireHours(order, wd) : 0), 0)
 
@@ -338,67 +468,6 @@ export const hireBoard = (competences: CompetenceKey[], dates: ISODate[], restOf
     cover: (competence, date) => covers.get(dayKey(competence, date)) ?? NO_COVER,
     deviations,
     underDays: dates.filter((date) => deviations.get(date)?.state === 'under'),
-  }
-}
-
-/** What a day of a competence shows of its orders: a chip per supplier, or per supplier and time. */
-export interface OrderChip {
-  key: string
-  supplierId: string
-  /** The people of the chip's orders together. */
-  fte: number
-  waits: boolean
-  orders: HireOrder[]
-}
-
-/**
- * The chips of one competence on one day, in the suppliers' order: a supplier's times merged into one chip, with
- * its people summed, or with `perTime` a chip per time, as the lines of the editor are.
- */
-export const dayChips = (orders: HireOrder[], suppliers: Supplier[], perTime = false): OrderChip[] =>
-  orderGroups(orders, suppliers).reduce<OrderChip[]>((chips, group) => {
-    const last = chips[chips.length - 1]
-    const fte = group.orders.reduce((sum, order) => sum + order.fte, 0)
-    if (!perTime && last?.supplierId === group.supplierId) chips[chips.length - 1] = { ...last, fte: last.fte + fte, waits: last.waits || groupWaits(group), orders: [...last.orders, ...group.orders] }
-    else chips.push({ key: perTime ? group.key : group.supplierId, supplierId: group.supplierId, fte, waits: groupWaits(group), orders: group.orders })
-    return chips
-  }, [])
-
-/**
- * What a folded day shows in the compact line, on one line whatever it has of orders: nothing, the chip of its one
- * supplier, or one stacked chip for several, with their people together. It waits if any of them does.
- */
-export type DayBlock = { kind: 'one'; chip: OrderChip } | { kind: 'stack'; fte: number; waits: boolean; chips: OrderChip[] }
-
-export const dayBlock = (chips: OrderChip[]): DayBlock | null => {
-  if (!chips.length) return null
-  if (chips.length === 1) return { kind: 'one', chip: chips[0] }
-  return { kind: 'stack', fte: chips.reduce((sum, chip) => sum + chip.fte, 0), waits: chips.some((chip) => chip.waits), chips }
-}
-
-/** The days picked on a competence, together: what remains, what is ordered, and what is still missing or over. */
-export interface RangeSummary {
-  rest: number
-  planned: number
-  /** The hours missing on the days that are short. */
-  short: number
-  /** The hours ordered over what remains, where no day is short. */
-  over: number
-  /** The people ordered, a person counted once per day. */
-  people: number
-  /** The people on a day shift that would cover what is missing. */
-  peopleShort: number
-}
-
-export const rangeSummary = (covers: Coverage[], orders: HireOrder[], wd: WorkdaySettings): RangeSummary => {
-  const short = covers.reduce((sum, cover) => sum + Math.max(0, cover.remaining), 0)
-  return {
-    rest: covers.reduce((sum, cover) => sum + cover.rest, 0),
-    planned: covers.reduce((sum, cover) => sum + cover.planned, 0),
-    short,
-    over: short > HOURS_NOISE ? 0 : covers.reduce((sum, cover) => sum + Math.max(0, -cover.remaining), 0),
-    people: orders.reduce((sum, order) => sum + order.fte, 0),
-    peopleShort: Math.max(0, Math.ceil(short / hireHours(shiftTimes('dag', wd), wd) - 1e-6)),
   }
 }
 

@@ -31,9 +31,10 @@ const INDENT = 14
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
 /** One line of the grid: the label column, then a cell per drawn day. */
-export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, style, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** On a hall's line: its projects, for the hover cue, see `useProjectHover` and `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
+export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, minHeight, style, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** A line whose height follows what is in it, at least this; `height` is then not used. */ minHeight?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** On a hall's line: its projects, for the hover cue, see `useProjectHover` and `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
+  const size = minHeight === undefined ? { height } : { minHeight }
   return (
-    <div className={`grid-row ${className}`} style={style ? { ...style, height } : { height }} data-projects={projects}>
+    <div className={`grid-row ${className}`} style={{ ...style, ...size }} data-projects={projects}>
       <div className="grid-label" onClick={onLabelClick}>
         {label}
       </div>

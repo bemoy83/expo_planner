@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, Minus, Plus } from 'lucide-react'
 import { groupWaits, hireHours, shiftOf, SHIFT_LABELS, shiftTimes, timesText, type OrderGroup } from '../../domain/hire'
 import { SHIFT_IDS, type CompetenceStyle, type Interval, type Supplier, type WorkdaySettings } from '../../domain/types'
@@ -8,21 +8,13 @@ import { dayText } from '../../domain/dates'
 import { useStableActions } from '../kalender/useStableActions'
 import { clock, hoursText } from '../format'
 
-/** Waiting for an answer is a clock in a ring; confirmed is a solid disc with a check. Ink only: the colours say under, ok and over. */
+/** Waiting for an answer is a hatch, as hours that are not there yet are hatched in the labels; confirmed is a solid disc with a check. Ink only: the colours say under, ok and over. */
 export function AnswerGlyph({ waits, size = 14 }: { waits: boolean; size?: number }) {
+  if (waits) return <i className="il-glyph il-hatch" aria-hidden />
   return (
     <svg className="il-glyph" width={size} height={size} viewBox="0 0 16 16" aria-hidden>
-      {waits ? (
-        <>
-          <circle cx="8" cy="8" r="6.5" fill="var(--bg)" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M8 4.6V8l2.3 1.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      ) : (
-        <>
-          <circle cx="8" cy="8" r="7.25" fill="currentColor" />
-          <path d="M4.9 8.2l2.1 2.1 4.1-4.4" fill="none" stroke="var(--bg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      )}
+      <circle cx="8" cy="8" r="7.25" fill="currentColor" />
+      <path d="M4.9 8.2l2.1 2.1 4.1-4.4" fill="none" stroke="var(--bg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -94,6 +86,30 @@ function Popover({ at, width, className = '', onClose, onEnter, children }: { at
     <div ref={ref} className={`il-pop ${className}`} role="dialog" style={{ width, left, ...(above ? { bottom: window.innerHeight - at.top + 6 } : { top: at.bottom + 6 }) }}>
       {children}
     </div>
+  )
+}
+
+/** A choice of the menu of an editor's line: what it does, set apart from those above it where `rule` is given, in the ink of danger where it removes. */
+export interface MenuItem {
+  label: string
+  onPick: () => void
+  rule?: boolean
+  danger?: boolean
+}
+
+/** The menu behind ⋯ on a line of the editor. */
+export function LineMenu({ at, items, onClose }: { at: DOMRect; items: MenuItem[]; onClose: () => void }) {
+  return (
+    <Popover at={at} width={230} className="il-menu" onClose={onClose}>
+      {items.map((item) => (
+        <Fragment key={item.label}>
+          {item.rule && <span className="menu-rule" />}
+          <button role="menuitem" className={item.danger ? 'il-remove' : undefined} onClick={item.onPick}>
+            <span className="il-menu-name">{item.label}</span>
+          </button>
+        </Fragment>
+      ))}
+    </Popover>
   )
 }
 

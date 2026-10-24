@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, coverShares, dayBlock, dayChips, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planOrders, rangeSummary, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierTotals, timesText, waitingHours } from './hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coveredBy, coverFigure, coverLines, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planAcross, planOrders, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -66,17 +66,56 @@ describe('coverage of a competence on a day (I1)', () => {
     expect(coverFigure(within)).toBe(3.5)
   })
 
-  it('shares what remains in what is confirmed and what waits, never more than the whole', () => {
-    const cover = coverage(30, [order('a', 'k1', 'vegger', 'd', 2, 2), order('b', 'k5', 'vegger', 'd', 1, null)], wd)
-    expect(coverShares(cover)).toEqual({ confirmed: 0.5, waiting: 0.25 })
-    expect(coverShares(coverage(7.5, [order('a', 'k1', 'vegger', 'd', 1, 1), order('b', 'k5', 'vegger', 'd', 3, null)], wd))).toEqual({ confirmed: 1, waiting: 0 })
-    expect(coverShares(coverage(0, [order('a', 'k1', 'vegger', 'd', 1, 1)], wd))).toEqual({ confirmed: 0, waiting: 0 })
-  })
-
   it('lacks the hours of the people a supplier could not send (A7)', () => {
     const fewer = confirmFewer([order('b2', 'k1', 'vegger', '2026-10-08', 4, 4)], ['b2'], 3)
     expect(fewer).toEqual([{ ...order('b2', 'k1', 'vegger', '2026-10-08', 3, 3), asked: 4 }])
     expect(coverFigure(coverage(30, fewer, wd))).toBe(-7.5)
+  })
+})
+
+describe('the label of a day', () => {
+  const day = (id: string, supplierId: string, fte: number, conf: number | null) => order(id, supplierId, 'vegger', 'd', fte, conf)
+
+  it('fills what remains from the left, the confirmed first and those that wait after, with a rule between the orders', () => {
+    const orders = [day('w', 'k1', 1, null), day('c', 'k5', 2, 2)]
+    const { segs, rules } = orderedLabel(coverage(30, orders, wd), orders, wd, [manpower, standbygg])
+    expect(segs).toEqual([
+      { kind: 'covered', from: 0, width: 0.5 },
+      { kind: 'waiting', from: 0.5, width: 0.25 },
+    ])
+    expect(rules).toEqual([0.5])
+  })
+
+  it('has what is ordered past what remains as the tail of over, which waits where its order does', () => {
+    const orders = [day('c', 'k1', 1, 1), day('w', 'k5', 2, null)]
+    const { segs } = orderedLabel(coverage(15, orders, wd), orders, wd, [manpower, standbygg])
+    expect(segs).toEqual([
+      { kind: 'covered', from: 0, width: 1 / 3 },
+      { kind: 'waiting', from: 1 / 3, width: 1 / 3 },
+      { kind: 'surplusWaiting', from: 2 / 3, width: 1 / 3 },
+    ])
+  })
+
+  it('is all over where nothing remains, and drops the rules where an order is too thin to see', () => {
+    const none = [day('c', 'k1', 1, 1)]
+    expect(orderedLabel(coverage(0, none, wd), none, wd).segs).toEqual([{ kind: 'surplus', from: 0, width: 1 }])
+    const thin = [day('a', 'k1', 30, 30), day('b', 'k5', 1, 1)]
+    expect(orderedLabel(coverage(232.5, thin, wd), thin, wd).rules).toEqual([])
+  })
+
+  it('names the supplier with the most confirmed for a project, and counts the others', () => {
+    expect(coveredBy([])).toBeNull()
+    expect(coveredBy([day('a', 'k1', 1, 1), day('b', 'k5', 3, null), day('c', 'k3', 1, 1), day('d', 'k3', 1, 1)])).toEqual({ supplierId: 'k3', people: 2, waits: false, more: 2, moreWaits: true })
+    expect(coveredBy([day('a', 'k1', 1, null), day('b', 'k5', 3, null)])).toEqual({ supplierId: 'k5', people: 3, waits: true, more: 1, moreWaits: true })
+  })
+
+  it('lists an open day per supplier and project, the confirmed first', () => {
+    const lines = coverLines([{ ...day('a', 'k5', 1, null), projectNo: '2026-1' }, { ...day('b', 'k1', 2, 2), projectNo: '2026-2' }, { ...day('c', 'k1', 1, 1), projectNo: '2026-1' }, { ...day('d', 'k1', 1, 1), projectNo: '2026-1' }], [manpower, standbygg], (no) => (no === '2026-1' ? 'Hage' : 'VVS'))
+    expect(lines.map(({ supplierId, projectNo, people, waits }) => [supplierId, projectNo, people, waits])).toEqual([
+      ['k1', '2026-1', 2, false],
+      ['k1', '2026-2', 2, false],
+      ['k5', '2026-1', 1, true],
+    ])
   })
 })
 
@@ -120,6 +159,34 @@ describe('ordering (I3, I4)', () => {
       ['d2', 1],
       ['d3', 1],
     ])
+  })
+
+  it('orders what each project lacks for it, and what is on no project line without one (I3 over lines)', () => {
+    seq = 0
+    const lines = [
+      { projectNo: '2026-1', restOf: rest({ d1: 15, d2: 0 }), holds: (o: HireOrder) => o.projectNo === '2026-1' },
+      { restOf: rest({ d1: 7.5, d2: 7.5 }), holds: (o: HireOrder) => !o.projectNo },
+    ]
+    const orders = [{ ...order('a', 'k3', 'vegger', 'd1', 1, 1), projectNo: '2026-1' }]
+    expect(planAcross(orders, manpower, 'vegger', lines, ['d1', 'd2'], wd, makeId).map((o) => [o.date, o.projectNo, o.fte])).toEqual([
+      ['d1', '2026-1', 1],
+      ['d1', undefined, 1],
+      ['d2', undefined, 1],
+    ])
+  })
+
+  it('gives one person a day to the first line with hours where none lacks anything', () => {
+    const lines = [
+      { projectNo: '2026-1', restOf: rest({ d2: 7.5 }), holds: (o: HireOrder) => o.projectNo === '2026-1' },
+      { projectNo: '2026-2', restOf: rest({ d1: 7.5 }), holds: (o: HireOrder) => o.projectNo === '2026-2' },
+    ]
+    const orders = [{ ...order('a', 'k3', 'vegger', 'd1', 1, 1), projectNo: '2026-2' }, { ...order('b', 'k3', 'vegger', 'd2', 1, 1), projectNo: '2026-1' }]
+    expect(planAcross(orders, manpower, 'vegger', lines, ['d1', 'd2', 'd3'], wd, makeId).map((o) => [o.date, o.projectNo, o.fte])).toEqual([
+      ['d1', '2026-2', 1],
+      ['d2', '2026-1', 1],
+      ['d3', '2026-2', 1],
+    ])
+    expect(planAcross(orders, manpower, 'elektro', lines, ['d1'], wd, makeId)).toEqual([])
   })
 
   it('takes the first shift the supplier is not ordered for on the days', () => {
@@ -229,6 +296,16 @@ describe('the order to send and what waits (I9, I10)', () => {
     ])
   })
 
+  it('lists the suppliers to confirm: those that wait soonest first, then the confirmed, and none without orders', () => {
+    const orders = [order('a', 'k1', 'vegger', '2026-10-09', 1, 1), order('b', 'k3', 'vegger', '2026-10-10', 1, null), order('c', 'k5', 'vegger', '2026-10-08', 2, null), order('d', 'k5', 'vegger', '2026-10-07', 1, 1)]
+    const review = supplierReview([manpower, nordic, standbygg, supplier('k9', 'Tom', ['vegger'])], orders, [{ key: 'vegger' }])
+    expect(review.map((r) => [r.supplier.id, r.orders.map((o) => o.id), r.waiting.map((o) => o.id), r.firstWaiting])).toEqual([
+      ['k5', ['d', 'c'], ['c'], '2026-10-08'],
+      ['k3', ['b'], ['b'], '2026-10-10'],
+      ['k1', ['a'], [], null],
+    ])
+  })
+
   it('sums the hours of the orders that wait', () => {
     expect(waitingHours(orders, wd)).toBe(11 * 7.5)
   })
@@ -256,36 +333,6 @@ describe('the board of Innleid', () => {
     expect(board.deviations.get('d2')).toEqual({ state: 'under', value: -15, pending: 0 })
     expect(board.deviations.get('d3')).toEqual({ state: 'over', value: 7.5, pending: 0 })
     expect(board.underDays).toEqual(['d2'])
-  })
-})
-
-describe('the chips of a day and the sum of a range', () => {
-  const orders = [order('a', 'k3', 'vegger', 'd1', 1, 1), order('b', 'k1', 'vegger', 'd1', 2, null, KVELD), order('c', 'k1', 'vegger', 'd1', 4, 4)]
-
-  it('has one chip per supplier with its times summed, or one per time (A13)', () => {
-    expect(dayChips(orders, [manpower, nordic]).map((chip) => [chip.key, chip.fte, chip.waits])).toEqual([
-      ['k1', 6, true],
-      ['k3', 1, false],
-    ])
-    expect(dayChips(orders, [manpower, nordic], true).map((chip) => [chip.supplierId, chip.fte, chip.waits])).toEqual([
-      ['k1', 4, false],
-      ['k1', 2, true],
-      ['k3', 1, false],
-    ])
-  })
-
-  it('shows a folded day in the compact line as nothing, the chip of one supplier, or a stack of several', () => {
-    expect(dayBlock([])).toBeNull()
-    const chips = dayChips(orders, [manpower, nordic])
-    expect(dayBlock(chips.slice(1))).toEqual({ kind: 'one', chip: chips[1] })
-    expect(dayBlock(chips)).toEqual({ kind: 'stack', fte: 7, waits: true, chips })
-    expect(dayBlock(chips.slice(1).concat(chips.slice(1)))).toMatchObject({ kind: 'stack', fte: 2, waits: false })
-  })
-
-  it('sums the days picked: what is missing, and the people on a day shift that would cover it', () => {
-    const covers = [coverage(60, orders, wd), coverage(22, [], wd)]
-    expect(rangeSummary(covers, orders, wd)).toEqual({ rest: 82, planned: 52.5, short: 29.5, over: 0, people: 7, peopleShort: 4 })
-    expect(rangeSummary([coverage(45, orders, wd)], orders, wd)).toMatchObject({ short: 0, over: 7.5, peopleShort: 0 })
   })
 })
 

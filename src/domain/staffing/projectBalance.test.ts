@@ -4,7 +4,7 @@ import { buildBalance, removeCarried } from './balance'
 import { clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, paintDays, pasteDays, recolourBlock, resizeBlock, splitBlock } from './edit'
 import { buildProjectBalance, carry, cellsToDemand, NO_PROJECT, projectsWithWork, projectTotals } from './projectBalance'
 import { TWO_PROJECTS, withTwoProjects } from '../../test/staffingFixture'
-import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from '../types'
+import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, sameProject, type Assignment, type HireOrder, type Supplier, type Workspace } from '../types'
 import { nextInRun } from '../../ui/bemanning/runs'
 
 /** The project balance of `staffing.ts`: the hours of a competence on a day shared out on its projects. */
@@ -166,7 +166,7 @@ describe('the project on an order', () => {
 
   it('is erased for one project, or for all', () => {
     const both = [order(MON, 2, FIRST), order(MON, 1, SECOND)]
-    expect(eraseOrders(both, 'vegger', [MON], undefined, FIRST).map((o) => o.projectNo)).toEqual([SECOND])
+    expect(eraseOrders(both, 'vegger', [MON], undefined, (o) => sameProject(o, { projectNo: FIRST })).map((o) => o.projectNo)).toEqual([SECOND])
     expect(eraseOrders(both, 'vegger', [MON])).toEqual([])
   })
 

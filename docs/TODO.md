@@ -37,6 +37,7 @@ What was built in each part, where the designs and the app disagreed and what wa
 - [Behov v2, the table as a card: built, to be tested by the user](decisions.md#behov-v2-the-table-as-a-card-built-to-be-tested-by-the-user)
 - [Project tagging, places and work plans: built, to be tested by the user](decisions.md#project-tagging-places-and-work-plans-built-to-be-tested-by-the-user)
 - [Spans in the plan: their ends are pulled, to be tested by the user](decisions.md#spans-in-the-plan-their-ends-are-pulled-to-be-tested-by-the-user)
+- [Innleid v8, the demand as in Faste: merged](decisions.md#innleid-v8-the-demand-as-in-faste-merged)
 
 ## Staffing lines: begun
 
@@ -101,17 +102,6 @@ General
 - The selected project on Behov is not remembered across a reload.
 - Not signed in, data lives in one browser on one computer. Signed in, a shared workspace is kept in a database of its own in the browser and synced with Supabase; there is no server of our own and no automatic backup beyond the weekly reminder.
 - The app is published to GitHub Pages on each push to main (`.github/workflows/pages.yml`, 2026-10-11), with a relative base. Each browser that opens it has its own empty workspace until it is signed in.
-
-## Next: the demand of Innleid as in Faste (2026-10-24)
-
-Faste shows a competence's day as a label that fills as it is covered (2026-10-23). Innleid still shows what remains as a red negative figure under a thin line of coverage, which says little, and a competence that is open shows the same figure as the project line under it. The planner wants Innleid to have the same overhaul; it is to be worked out in a thread of its own. The difficulty is that Innleid mixes demand and coverage in one grid: the supplier chips sit on the competence's line, so a day that lacks hours is hard to tell from a day that is covered. The thinking so far, not yet agreed:
-
-1. Coverage is the fill of the demand, not a thing of its own: the label of Faste, in the competence's tint, filled from the left by the hours ordered, with what remains signed on it. Confirmed orders fill solid, waiting ones hatched. An empty label is demand, a full one is covered, an ochre tail is too much. A demand cell and a covered cell are then one cell, filled more or less.
-2. The supplier chips leave the competence's line: folded («Kompakt») it shows the label alone, and who covers it is on the project lines when the competence is open, in the editor, and on the supplier rows under the competences.
-3. An open level shows no sums, as in Faste: an open competence's figures are on its project lines and «Uten prosjekt».
-4. A hatch means the hours are not there yet: absence in Faste, an order waiting for an answer in Innleid.
-
-Open question for the planner: do the supplier chips leave the folded competence's line altogether (recommended: cleaner, and 116 px is narrow for a figure and a name), or stay as small text inside the label?
 
 ## Technical debt
 

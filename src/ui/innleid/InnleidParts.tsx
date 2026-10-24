@@ -1,25 +1,26 @@
 import { Fragment, memo, type CSSProperties, type ReactNode } from 'react'
-import { Check, ChevronsUpDown, CircleHelp, Clock, Eraser, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
+import { ChevronsUpDown, CircleHelp, Eraser, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { coverFigure, coverShares, dayBlock, dayChips, dayKey, HOURS_NOISE, isWaiting, shiftText, type Coverage, type DayBlock, type HireBoard, type OrderChip } from '../../domain/hire'
+import { coverage, coveredBy, coverFigure, coverLines, dayKey, HOURS_NOISE, isWaiting, orderedLabel, shiftText, type Coverage, type HireBoard, type OrderGroup } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor, count } from '../dom'
 import { useBemanning, type Density } from '../bemanning/BemanningScope'
-import { DEMAND_H } from '../bemanning/layout'
 import { ProjectLines } from '../bemanning/ProjectLines'
 import { HeatLegend, Line, SectionLine } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { heatTile, HEAT_LABELS } from '../kalender/heat'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
-import { daysWide, HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
+import { HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
+import { HIRE_COMPACT_H, HIRE_H, HIRE_PROJECT_H } from '../bemanning/layout'
+import { HoursLeft, LinePick, NeedLabel, NeedLine } from '../bemanning/NeedLabel'
 import { PlanBar } from '../kalender/PlanBar'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
 import { numberKey } from '../../domain/projects'
-import { useInnleid, type HireProjectLine, type HireTool, type InnleidActions } from './InnleidScope'
+import { useInnleid, type HireProjectLine, type HireTool, type InnleidActions, type StrokePreview } from './InnleidScope'
 import { OrderEditor } from './OrderEditor'
 import { SupplierRows } from './SupplierRows'
-import { AnswerGlyph, AnswerPopover, ShiftMenu, SupplierMenu, TimePopover } from './OrderPopovers'
+import { AnswerGlyph, AnswerPopover, LineMenu, ShiftMenu, SupplierMenu, TimePopover, type MenuItem } from './OrderPopovers'
 import { hoursText, signedHours } from '../format'
 
 const days = (n: number) => count(n, 'dag', 'dager')
@@ -27,7 +28,7 @@ const days = (n: number) => count(n, 'dag', 'dager')
 /** The page header in Innleid: how much of what the permanent staff leave is still missing. */
 export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPlan: () => void }) {
   const { ws } = useBemanning()
-  const { board, rows, panel, setPanel, brush } = useInnleid()
+  const { board, rows, panel, setPanel } = useInnleid()
   const suppliers = ws.suppliers?.length ?? 0
   const meta = [count(suppliers, 'leverandør', 'leverandører'), `${count(rows.length, 'kompetanse', 'kompetanser')} med restbehov`, board.underDays.length ? `${days(board.underDays.length)} udekket` : 'Alt dekket']
   return (
@@ -39,7 +40,7 @@ export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPla
       <button className="ghost" onClick={onDayPlan} title="Arbeidsplan til utskrift: dagsplanen for dagen du står på, og ukeplanen.">
         <Printer size={14} aria-hidden /> Arbeidsplan
       </button>
-      <PanelToggle open={!!panel} what="leverandører" hint="bestillingen til en leverandør, og hva hver av dem tilbyr" onToggle={() => setPanel(panel ? null : brush ? { kind: 'supplier', id: brush.id } : { kind: 'matrix' })} />
+      <PanelToggle open={!!panel} what="leverandørkontroll" hint="se over og bekreft bestillingene til leverandørene" onToggle={() => setPanel(panel ? null : { kind: 'control' })} />
     </div>
   )
 }
@@ -53,8 +54,8 @@ const AvvikLine = memo(function AvvikLine({ cols, board, maxShortage, maxSurplus
       label={
         <>
           <span className="lbl-cap strong">Mangler / over</span>
-          <HeatLegend title="Rødt: timer som mangler (mørkere = flere). Grønt: ok, dekket innenfor én person på ett skift. Oker: bestilt over behovet." />
-          <span className="il-total">{total > HOURS_NOISE ? `${signedHours(-total)} t` : <Check size={13} aria-label="Dekket" />}</span>
+          <HeatLegend title="Rødt: timer som mangler (mørkere = flere). Grønt: ok, dekket innenfor én person på ett skift. Oker: bestilt over behovet. Skravert: noe venter på svar." />
+          <HoursLeft hours={total} />
         </>
       }
       cols={cols}
@@ -66,7 +67,7 @@ const AvvikLine = memo(function AvvikLine({ cols, board, maxShortage, maxSurplus
         return (
           <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind}`} title={`${dayText(date)} · ${HEAT_LABELS[tile.kind]} ${signedHours(dev.value) || '0'} t${waits ? `\n${hoursText(dev.pending)} t venter på svar` : ''}`}>
             <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
-            {waits && <Clock className="il-waits" size={12} aria-label="Venter på svar" />}
+            {waits && <span className="il-waits" aria-label="Venter på svar"><AnswerGlyph waits /></span>}
             <span className="heat-value">{signedHours(dev.value)}</span>
           </div>
         )
@@ -97,8 +98,19 @@ export function InnleidTop() {
 
 /** The planning bar in Innleid: the mode and the part, undo, the tools with the supplier they work with, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
-  const { board, waiting, openNextUnder, openFirstWaiting, tool, pickTool, brush, pickBrush, suppliers, panel, setPanel, density, setDensity } = useInnleid()
+  const { styles } = useBemanning()
+  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, pickBrush, eraseFrom, pickErase, suppliers, open, panel, setPanel, density, setDensity } = useInnleid()
   const under = board.underDays.length
+  // With a competence open, the suppliers that offer it are listed first, and those that do not cannot be picked.
+  const focus = open ? styles.get(open.competence) : undefined
+  const option = (supplier: Supplier, disabled = false) => (
+    <option key={supplier.id} value={supplier.id} disabled={disabled}>
+      {suppliers.indexOf(supplier) < 9 ? `${suppliers.indexOf(supplier) + 1} · ` : ''}
+      {supplier.name}
+    </option>
+  )
+  const offers = focus ? suppliers.filter((supplier) => supplier.competences.includes(focus.key)) : suppliers
+  const others = focus ? suppliers.filter((supplier) => !supplier.competences.includes(focus.key)) : []
   const tools: ToolChoice<HireTool>[] = [
     { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager på en kompetanse: klikk en dag, dra over flere, eller Shift+klikk for å utvide (V).' },
     { value: 'paint', icon: <Paintbrush size={14} aria-hidden />, name: 'Pensel', shortcut: 'B', title: 'Bestill en leverandør: dra over dager på en kompetanse, så bestilles det som mangler på hver av dem (B, eller 1–9 for leverandøren).' },
@@ -116,16 +128,18 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             className="bar-select"
             aria-label="Leverandør"
             title={tool === 'paint' ? 'Leverandøren penselen bestiller fra' : 'Leverandøren som tømmes, eller alle'}
-            value={brush?.id ?? ''}
-            onChange={(e) => pickBrush(e.target.value || null)}
+            value={(tool === 'erase' ? eraseFrom : brush?.id) ?? ''}
+            onChange={(e) => (tool === 'erase' ? pickErase(e.target.value || null) : pickBrush(e.target.value || null))}
           >
             {tool === 'erase' && <option value="">Alle leverandører</option>}
-            {suppliers.map((supplier, index) => (
-              <option key={supplier.id} value={supplier.id}>
-                {index < 9 ? `${index + 1} · ` : ''}
-                {supplier.name}
-              </option>
-            ))}
+            {focus ? (
+              <>
+                <optgroup label={`Tilbyr ${focus.label}`}>{offers.map((supplier) => option(supplier))}</optgroup>
+                {others.length > 0 && <optgroup label={`Tilbyr ikke ${focus.label}`}>{others.map((supplier) => option(supplier, true))}</optgroup>}
+              </>
+            ) : (
+              suppliers.map((supplier) => option(supplier))
+            )}
           </select>
         )}
         {tool === 'paint' && !suppliers.length && <span className="bm-hints">Ingen leverandører ennå</span>}
@@ -133,8 +147,8 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
       <div className="bar-view">
         <div className="bar-zone bar-zone-end">
           {waiting > HOURS_NOISE && (
-            <button className="il-waiting" title="Timer som er bestilt, men ikke bekreftet. Klikk for leverandøren til den første som venter." onClick={openFirstWaiting}>
-              <Clock size={14} aria-hidden /> {hoursText(waiting)} t venter på svar
+            <button className="il-waiting" title="Timer som er bestilt, men ikke bekreftet. Klikk for å se over og bekrefte bestillingene." onClick={openControl}>
+              <AnswerGlyph waits /> {hoursText(waiting)} t venter på svar
             </button>
           )}
           {under > 0 && (
@@ -148,8 +162,8 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             value={density}
             onChange={setDensity}
             options={[
-              { value: 'compact', label: 'Kompakt', title: 'Kompakt: hver kompetanse på én linje, med én blokk per dag' },
-              { value: 'detail', label: 'Detaljert', title: 'Detaljert: en brikke per leverandør under dagens linje' },
+              { value: 'compact', label: 'Kompakt', title: 'Kompakt: hver linje som en tynn strek med tallet ved siden av' },
+              { value: 'detail', label: 'Detaljert', title: 'Detaljert: dagens etikett med tallet på, og hvem som dekker på prosjektlinjene' },
             ]}
           />
           <button className="ghost" onClick={onToday}>
@@ -175,53 +189,65 @@ export function InnleidHeading() {
         <span className="bm-label-note bm-label-end">t mangler</span>
       </div>
       <span className="phase-legend" style={{ left: LEFT_W }}>
-        <span>Klikk en dag for å bestille, eller dra over flere · Shift+klikk utvider · med Pensel bestiller draget · Alt+dra tømmer</span>
+        <span>Klikk en dag for å bestille, eller dra over flere · ← → flytter dagene · med Pensel bestiller draget · Alt+dra tømmer</span>
       </span>
     </div>
   )
 }
 
-/** What a day of a competence says when it is pointed at: what remains, what is ordered, and what is missing or over. */
-const coverTitle = (label: string, date: ISODate, cover: Coverage): string => {
+/** What a day of a line says when it is pointed at: what remains, what is ordered, what is missing or over, and each order. */
+const coverTitle = (label: string, date: ISODate, cover: Coverage, orders: HireOrder[], nameOf: (id: string) => string, projectName: (projectNo: string) => string, wd: WorkdaySettings): string => {
   if (cover.state === 'none') return `${label} · ${dayText(date)}\nIngen restbehov`
   const figure = coverFigure(cover)
-  return `${label} · ${dayText(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` + (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`)
+  return (
+    `${label} · ${dayText(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` +
+    (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`) +
+    orders.map((order) => `\n${order.fte} pers. ${nameOf(order.supplierId)} · ${order.projectNo ? projectName(order.projectNo) : 'Uten prosjekt'} · ${shiftText(order, wd)}${isWaiting(order) ? ' · venter på svar' : order.asked ? `, ${order.fte} av ${order.asked}` : ''}`).join('')
+  )
 }
 
-/** What a chip says when it is pointed at: the supplier, and each of its orders with its time and answer. */
-const chipTitle = (name: string, chip: OrderChip, wd: WorkdaySettings): string =>
-  `${name}\n${chip.orders.map((order) => `${order.fte} pers. ${shiftText(order, wd)} · ${isWaiting(order) ? 'venter på svar' : order.asked ? `bekreftet, ${order.fte} av ${order.asked}` : 'bekreftet'}`).join('\n')}`
-
-/** What a stack says when it is pointed at: the people of each supplier, and which of them wait for an answer. */
-const stackTitle = (chips: OrderChip[], nameOf: (id: string) => string): string => chips.map((chip) => `${chip.fte} · ${nameOf(chip.supplierId)}${chip.waits ? ' (venter)' : ''}`).join('\n')
-
-/** An order chip: the people on a badge and what it is for, pale with the clock while it waits. `state` is how a stroke or the editor marks it. */
-function Chip({ people, label, waits = false, state = '', title }: { people: number; label: string; waits?: boolean; state?: '' | 'on' | 'gone' | 'ghost'; title?: string }) {
+/** A supplier and its people, hatched where none of them is confirmed: the name gives way, the figure never. */
+function SupplierPeople({ name, people, waits }: { name: string; people: number; waits: boolean }) {
   return (
-    <span className={`il-chip ${waits ? 'waits' : ''} ${state}`} title={title}>
-      {waits && <AnswerGlyph waits size={12} />}
-      <b>{people}</b>
-      <span>{label}</span>
+    <span className="il-who-top">
+      {waits && <AnswerGlyph waits />}
+      <span>{name}</span>
+      <em>{people}</em>
     </span>
   )
 }
 
-/** A folded day in the compact line: the chip of its one supplier, or one chip for several with cards behind it. */
-function BlockChip({ block, nameOf, wd, gone }: { block: DayBlock; nameOf: (id: string) => string; wd: WorkdaySettings; gone: boolean }) {
-  const state = gone ? 'gone' : ''
-  if (block.kind === 'one') {
-    const { chip } = block
-    return <Chip people={chip.fte} label={nameOf(chip.supplierId)} waits={chip.waits} state={state} title={chipTitle(nameOf(chip.supplierId), chip, wd)} />
-  }
+/** Who covers a project's day, under its label: the supplier with the most confirmed by name, and one «+N» for the others, hatched where one waits. */
+function Who({ orders, nameOf }: { orders: HireOrder[]; nameOf: (id: string) => string }) {
+  const who = coveredBy(orders)
+  if (!who) return null
   return (
-    <span className={`il-stk ${block.chips.length > 2 ? 'three' : ''} ${block.waits ? 'waits' : ''} ${state}`} title={stackTitle(block.chips, nameOf)}>
-      <Chip people={block.fte} label={`${block.chips.length} lev.`} waits={block.waits} state={state} />
+    <span className="il-who">
+      <SupplierPeople name={nameOf(who.supplierId)} people={who.people} waits={who.waits} />
+      {who.more > 0 && (
+        <span className="il-who-more">
+          {who.moreWaits && <AnswerGlyph waits />}+{who.more}
+        </span>
+      )}
     </span>
   )
 }
 
-/** A day shows at most this many chips; where there are more, one fewer and the count of the rest. */
-const CHIPS_MAX = 3
+/** The days of the competence that is open: a line per supplier and project, as the editor's lines are, the project in small type, what waits hatched and dimmed. */
+function CoverList({ orders, suppliers, nameOf, projectName }: { orders: HireOrder[]; suppliers: Supplier[]; nameOf: (id: string) => string; projectName: (projectNo: string) => string }) {
+  const lines = coverLines(orders, suppliers, projectName)
+  if (!lines.length) return null
+  return (
+    <span className="il-cover-list">
+      {lines.map((line) => (
+        <span key={line.key} className={line.waits ? 'waits' : ''}>
+          <SupplierPeople name={nameOf(line.supplierId)} people={line.people} waits={line.waits} />
+          <small>{line.projectNo ? projectName(line.projectNo) : 'Uten prosjekt'}</small>
+        </span>
+      ))}
+    </span>
+  )
+}
 
 interface RowProps {
   style: CompetenceStyle
@@ -231,84 +257,86 @@ interface RowProps {
   ordersOn: Map<string, HireOrder[]>
   suppliers: Supplier[]
   wd: WorkdaySettings
+  projectName: (projectNo: string) => string
   /** The hours missing in the days in view. */
   missing: number
-  /** The days picked on this competence, whose editor is its label; `null` on the others. */
+  /** The competence is open: its label is the editor of the days picked, and its days list who covers them. */
+  open: boolean
+  /** The days picked on this line. */
   pickedFrom: ISODate | null
   pickedTo: ISODate | null
-  /** The line of the editor that is picked. */
-  pickedGroup: string | null
-  /** The days a drag has reached on this competence. */
+  /** The days a drag has reached on this line. */
   dragFrom: ISODate | null
   dragTo: ISODate | null
-  /** What a stroke on this competence would do: the days it covers, and with the brush the people each would get. */
-  strokeFrom: ISODate | null
-  strokeTo: ISODate | null
-  strokePeople: Map<ISODate, number> | null
-  /** The supplier the stroke orders, or the one whose orders it removes; none where it removes every supplier's. */
-  strokeSupplier: string | undefined
+  /** What a stroke on this line would do, shown as what its days would be after it. */
+  stroke: StrokePreview | null
   /** How the pointer shows what a press would do here: the brush, a brush whose supplier does not offer the competence, or the eraser. */
   cursor: '' | 'brush' | 'nobrush' | 'erase'
-  /** Compact: a folded competence is one line high, with one block per day. */
+  /** Compact: one line high, with the label as a thin line. */
   compact: boolean
   actions: InnleidActions
-  /** A project's line under the competence that is open: its orders and its cover, in place of the competence's. */
+  /** A line under the competence that is open, a project or «Uten prosjekt»: its orders and its cover, in place of the competence's. */
   project?: HireProjectLine
+  /** The line is the one the days are picked on. */
+  lineOn?: boolean
+  /** Another competence is open: this one steps back. */
+  dim?: boolean
+  /** The last line under the competence, where the tree bends. */
+  last?: boolean
 }
 
 /**
- * One competence: its name with what is missing in the days in view, and per day a line of how far it is covered,
- * the hours missing or over, and a chip per supplier ordered. With days picked, its label is the editor of their orders.
+ * One competence, or a line under the open one: its name with what is missing in the days in view, and per day its
+ * label. With days picked, the competence's label is the editor of their orders, and its days list who covers them.
  */
-const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, missing, pickedFrom, pickedTo, pickedGroup, dragFrom, dragTo, strokeFrom, strokeTo, strokePeople, strokeSupplier, cursor, compact, actions, project }: RowProps) {
-  const open = pickedFrom !== null && pickedTo !== null
-  const oneLine = compact && !open
+const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, projectName, missing, open, pickedFrom, pickedTo, dragFrom, dragTo, stroke, cursor, compact, actions, project, lineOn = false, dim = false, last = false }: RowProps) {
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
   const coverOf = (date: ISODate) => (project ? project.cover(date) : board.cover(style.key, date))
   const ordersOf = (date: ISODate) => (project ? project.orders(date) : (ordersOn.get(dayKey(style.key, date)) ?? []))
   const label = project ? `${style.label} · ${project.name}` : style.label
+  const height = project ? (compact ? HIRE_COMPACT_H : HIRE_PROJECT_H) : compact ? HIRE_COMPACT_H : HIRE_H
   return (
-    <div className={`grid-row il-row ${project ? 'il-project' : ''} ${open ? 'open' : ''} ${oneLine ? 'compact' : ''} ${cursor}`} style={{ ...competenceColor(style), ...(oneLine ? { height: DEMAND_H } : { minHeight: DEMAND_H }) }}>
-      <div className="grid-label" onClick={open || project ? undefined : () => actions.openFirst(style.key)} title={project ? `Det ${project.name} mangler av ${style.label} etter de faste, og det som er bestilt for prosjektet. Penselen her bestiller for prosjektet.` : open ? undefined : `Bestill ${style.label}`}>
-        {project ? (
-          <>
-            <span className="lbl-desc il-project-name">{project.name}</span>
-            <span className="il-total">{missing > HOURS_NOISE ? `${signedHours(-missing)} t` : <Check size={13} aria-label="Dekket" />}</span>
-          </>
+    <Line
+      className={`il-row ${project ? 'il-project' : ''} ${open ? 'open' : ''} ${compact && !open ? 'compact' : ''} ${lineOn ? 'on' : ''} ${dim ? 'dim' : ''} ${cursor}`}
+      height={height}
+      minHeight={open ? HIRE_H : undefined}
+      style={competenceColor(style)}
+      label={
+        project ? (
+          <LinePick
+            kind="project"
+            name={project.name}
+            hours={missing}
+            pressed={lineOn}
+            outer={last ? 'end' : 'branch'}
+            title={project.rest ? `${style.label} uten prosjekt: det ingen av prosjektlinjene har. Penselen her bestiller uten prosjekt.` : `Det ${project.name} mangler av ${style.label} etter de faste, og det som er bestilt for prosjektet. Penselen her bestiller for prosjektet.`}
+            onClick={() => actions.openLine(project.projectNo)}
+          />
         ) : open ? (
           <OrderEditor style={style} />
         ) : (
-          <>
-            <ChevronsUpDown className="il-unfold" size={13} aria-hidden />
-            <i className="swatch" />
-            <span className="lbl-desc">{style.label}</span>
-            <span className="il-total">{missing > HOURS_NOISE ? `${signedHours(-missing)} t` : <Check size={13} aria-label="Dekket" />}</span>
-          </>
-        )}
-      </div>
-      <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />
-      {cols.dates.map((date) => {
-        const cover = coverOf(date)
-        const picked = open && date >= pickedFrom && date <= pickedTo
+          <LinePick name={style.label} hours={missing} glyph={<ChevronsUpDown className="il-unfold" size={13} aria-hidden />} title={`Åpne ${style.label}`} onClick={() => actions.openCompetence(style.key)} />
+        )
+      }
+      cols={cols}
+      cells={(date) => {
+        const picked = pickedFrom !== null && pickedTo !== null && date >= pickedFrom && date <= pickedTo
         const dragged = dragFrom !== null && dragTo !== null && date >= dragFrom && date <= dragTo
-        const stroked = strokeFrom !== null && strokeTo !== null && date >= strokeFrom && date <= strokeTo
-        // The stroke is the eraser where it has no people to give.
-        const erasing = stroked && strokePeople === null
-        const ghost = stroked ? strokePeople?.get(date) : undefined
-        const figure = coverFigure(cover)
-        const { confirmed, waiting } = coverShares(cover)
-        const chips = dayChips(ordersOf(date), suppliers, open)
-        const shown = chips.length > CHIPS_MAX && !open ? chips.slice(0, CHIPS_MAX - 1) : chips
-        const erased = (chip: OrderChip) => erasing && (strokeSupplier === undefined || chip.supplierId === strokeSupplier)
-        // Compact: the block is what the eraser would leave, or drawn as gone where it would leave nothing.
-        const left = oneLine ? chips.filter((chip) => !erased(chip)) : []
-        const gone = oneLine && chips.length > 0 && left.length === 0
-        const block = oneLine ? dayBlock(gone ? chips : left) : null
+        const stroked = stroke !== null && date >= stroke.from && date <= stroke.to
+        let orders = ordersOf(date)
+        let cover = coverOf(date)
+        // A stroke shows what the day would be after it: the orders it would add, or without those it would remove.
+        if (stroked) {
+          const holds = project ? project.holds : () => true
+          orders = stroke.mode === 'erase' ? orders.filter((order) => stroke.supplierId !== undefined && order.supplierId !== stroke.supplierId) : [...orders, ...stroke.added.filter((order) => order.date === date && holds(order))]
+          cover = coverage(cover.rest, orders, wd)
+        }
+        const parts = cover.state === 'none' ? null : orderedLabel(cover, orders, wd, suppliers)
         return (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell il-day ${cover.state} ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''} ${erasing ? 'erasing' : ''}`}
-            title={coverTitle(label, date, cover)}
+            className={`${dayClass(cols, date)} cell bm-need il-day ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''} ${stroked ? `stroked-${stroke.mode}` : ''}`}
+            title={coverTitle(label, date, cover, orders, nameOf, projectName, wd)}
             onMouseDown={(e) => {
               if (e.button !== 0) return
               e.preventDefault()
@@ -316,52 +344,23 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
             }}
             onMouseEnter={() => actions.dayEnter(style.key, date, project?.projectNo)}
           >
-            <span className="il-cover">
-              {/* Compact: one block for the day's orders, the people of a supplier the eraser would leave, or what would go. */}
-              {oneLine && block && <BlockChip block={block} nameOf={nameOf} wd={wd} gone={gone} />}
-              {/* What the brush would order here. On a folded competence it is on the day's own line, so the line keeps its height under the pointer. */}
-              {ghost !== undefined && !open && <i className="il-ghost">{ghost}</i>}
-              {/* How far the day is covered; compact, the figure alone. A press on it folds an open competence. */}
-              {cover.rest > 0 && !oneLine && (
-                <span
-                  className="il-bar-hit"
-                  title={open ? 'Fold sammen' : undefined}
-                  onMouseDown={(e) => {
-                    if (!open || e.button !== 0) return
-                    e.preventDefault()
-                    e.stopPropagation()
-                    actions.fold()
-                  }}
-                >
-                  <span className="il-bar">
-                    <i className="confirmed" style={{ width: `${confirmed * 100}%` }} />
-                    {waiting > 0 && <i className="waiting" style={{ left: `${confirmed * 100}%`, width: `${waiting * 100}%` }} />}
-                  </span>
-                </span>
-              )}
-              {figure !== null && <b className={figure < 0 ? 'short' : 'over'}>{signedHours(figure)}</b>}
-            </span>
-            {!oneLine && (chips.length > 0 || (ghost !== undefined && open)) && (
-              <span className="il-chips">
-                {shown.map((chip) => (
-                  <Chip
-                    key={chip.key}
-                    people={chip.fte}
-                    label={nameOf(chip.supplierId)}
-                    waits={chip.waits}
-                    state={erased(chip) ? 'gone' : picked && chip.key === pickedGroup ? 'on' : ''}
-                    title={chipTitle(nameOf(chip.supplierId), chip, wd)}
-                  />
-                ))}
-                {shown.length < chips.length && <span className="il-more">+{chips.length - shown.length} til</span>}
-                {/* Unfolded, the line has the room of its editor: the preview is the chip the order would be, with the supplier's name. */}
-                {ghost !== undefined && open && strokeSupplier && <Chip people={ghost} label={nameOf(strokeSupplier)} state="ghost" />}
-              </span>
+            {open ? (
+              <>
+                {parts && <NeedLabel parts={parts} className="il-need-open" />}
+                <CoverList orders={orders} suppliers={suppliers} nameOf={nameOf} projectName={projectName} />
+              </>
+            ) : compact ? (
+              parts && <NeedLine parts={parts} figure />
+            ) : (
+              <>
+                {parts && <NeedLabel parts={parts} className={project ? 'il-need-small' : ''} />}
+                {project && <Who orders={orders} nameOf={nameOf} />}
+              </>
             )}
           </div>
         )
-      })}
-    </div>
+      }}
+    />
   )
 })
 
@@ -369,19 +368,40 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
 export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, dates, viewFrom, viewTo, styles } = useBemanning()
   const il = useInnleid()
-  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions, tool, brush, preview, density, projectLines } = il
+  const { board, rows, suppliers, ordersOn, wd, open, dragOn, groups, pop, setPop, edits, actions, tool, brush, preview, density, projectLines, projectName } = il
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
   const popGroup = pop?.group ? groups.find((group) => group.key === pop.group) : undefined
   const popSupplier = popGroup && suppliers.find((supplier) => supplier.id === popGroup.supplierId)
   const openStyle = open ? styles.get(open.competence) : undefined
   const close = () => setPop(null)
+  const compact = density === 'compact'
+  const onLine = (projectNo: string | undefined, line: string | undefined) => projectNo === line || (!!projectNo && !!line && numberKey(projectNo) === numberKey(line))
+  /** The menu behind ⋯ on a line of the editor: fill the days it lacks, another supplier or shift, another line, or remove it. */
+  const menu = (group: OrderGroup, at: DOMRect): MenuItem[] => {
+    const days = new Set(group.orders.map((order) => order.date)).size
+    const lacking = il.openDates.length - days
+    // The lines it is not on; «Uten prosjekt» too where the line is not shown, for an order with a project.
+    const elsewhere = projectLines.filter((line) => !line.holds(group.orders[0])).map((line) => ({ name: line.name, projectNo: line.rest ? null : line.projectNo }))
+    if (group.projectNo && !projectLines.some((line) => line.rest)) elsewhere.push({ name: 'Uten prosjekt', projectNo: null })
+    return [
+      ...(lacking > 0 ? [{ label: `Fyll ${count(lacking, 'dag', 'dager')} som mangler`, onPick: () => (close(), edits.fill(group)) }] : []),
+      { label: 'Bytt leverandør …', onPick: () => setPop({ kind: 'supplier', group: group.key, at }), rule: lacking > 0 },
+      { label: 'Skift eller egen tid …', onPick: () => setPop({ kind: 'shift', group: group.key, at }) },
+      ...elsewhere.map((line, i) => ({ label: `Flytt til ${line.name}`, onPick: () => (close(), edits.project(group, line.projectNo)), rule: i === 0 })),
+      { label: 'Fjern bestillingen', onPick: () => edits.remove(group), rule: true, danger: true },
+    ]
+  }
   return (
     <div className="bm-people il-rows" onMouseLeave={actions.rowsLeave}>
       {rows.map((style) => {
         const mine = open?.competence === style.key
-        const dragged = dragOn?.competence === style.key && !dragOn.projectNo
-        const stroked = preview?.competence === style.key && !preview.projectNo ? preview : null
+        const lineOf = (projectNo: string | undefined) => ({
+          picked: mine && onLine(open.projectNo, projectNo),
+          dragged: dragOn?.competence === style.key && onLine(dragOn.projectNo, projectNo) ? dragOn : null,
+          stroke: preview?.competence === style.key && onLine(preview.projectNo, projectNo) ? preview : null,
+        })
+        const own = lineOf(undefined)
         const cursor = tool === 'erase' ? 'erase' : tool === 'paint' ? (brush?.competences.includes(style.key) ? 'brush' : 'nobrush') : ''
         return (
           <Fragment key={style.key}>
@@ -392,48 +412,47 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
               ordersOn={ordersOn}
               suppliers={suppliers}
               wd={wd}
+              projectName={projectName}
               missing={missing(style.key)}
-              pickedFrom={mine ? open.from : null}
-              pickedTo={mine ? open.to : null}
-              pickedGroup={mine ? open.group : null}
-              dragFrom={dragged ? dragOn.from : null}
-              dragTo={dragged ? dragOn.to : null}
-              strokeFrom={stroked ? stroked.from : null}
-              strokeTo={stroked ? stroked.to : null}
-              strokePeople={stroked?.mode === 'paint' ? stroked.people : null}
-              strokeSupplier={stroked?.supplierId}
+              open={mine}
+              pickedFrom={own.picked ? open!.from : null}
+              pickedTo={own.picked ? open!.to : null}
+              dragFrom={own.dragged ? own.dragged.from : null}
+              dragTo={own.dragged ? own.dragged.to : null}
+              stroke={own.stroke}
               cursor={cursor}
-              compact={density === 'compact'}
+              // As in Faste, the other competences shrink to their thin line while one is open.
+              compact={compact || (!!open && !mine)}
               actions={actions}
+              lineOn={own.picked}
+              dim={!!open && !mine}
             />
             {mine &&
-              projectLines.map((project) => {
-                const on = (projectNo?: string) => projectNo !== undefined && numberKey(projectNo) === numberKey(project.projectNo)
-                const draggedHere = dragOn?.competence === style.key && on(dragOn.projectNo)
-                const strokedHere = preview?.competence === style.key && on(preview.projectNo) ? preview : null
+              projectLines.map((project, i) => {
+                const line = lineOf(project.projectNo)
                 return (
                   <CompetenceRow
-                    key={project.projectNo}
+                    key={project.projectNo || 'rest'}
                     style={style}
                     cols={cols}
                     board={board}
                     ordersOn={ordersOn}
                     suppliers={suppliers}
                     wd={wd}
+                    projectName={projectName}
                     missing={project.missing}
-                    pickedFrom={null}
-                    pickedTo={null}
-                    pickedGroup={null}
-                    dragFrom={draggedHere ? dragOn.from : null}
-                    dragTo={draggedHere ? dragOn.to : null}
-                    strokeFrom={strokedHere ? strokedHere.from : null}
-                    strokeTo={strokedHere ? strokedHere.to : null}
-                    strokePeople={strokedHere?.mode === 'paint' ? strokedHere.people : null}
-                    strokeSupplier={strokedHere?.supplierId}
+                    open={false}
+                    pickedFrom={line.picked ? open.from : null}
+                    pickedTo={line.picked ? open.to : null}
+                    dragFrom={line.dragged ? line.dragged.from : null}
+                    dragTo={line.dragged ? line.dragged.to : null}
+                    stroke={line.stroke}
                     cursor={cursor}
-                    compact
+                    compact={compact}
                     actions={actions}
                     project={project}
+                    lineOn={line.picked}
+                    last={i === projectLines.length - 1}
                   />
                 )
               })}
@@ -451,7 +470,8 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
           for å kunne bestille.
         </p>
       )}
-      {pop?.kind === 'add' && openStyle && <SupplierMenu at={pop.at} competence={openStyle} suppliers={suppliers} onPick={edits.addSupplier} onClose={close} />}
+      {pop?.kind === 'brush' && openStyle && <SupplierMenu at={pop.at} competence={openStyle} suppliers={suppliers} current={tool === 'paint' ? brush?.id : undefined} onPick={(supplier) => il.brushWith(supplier.id)} onClose={close} />}
+      {pop?.kind === 'more' && popGroup && <LineMenu at={pop.at} items={menu(popGroup, pop.at)} onClose={close} />}
       {pop?.kind === 'supplier' && popGroup && openStyle && <SupplierMenu at={pop.at} competence={openStyle} suppliers={suppliers} current={popGroup.supplierId} onPick={(supplier) => edits.supplier(popGroup, supplier.id)} onClose={close} />}
       {pop?.kind === 'shift' && popGroup && <ShiftMenu at={pop.at} group={popGroup} supplier={popSupplier} wd={wd} onPick={(times) => edits.times(popGroup, times)} onOwn={() => setPop({ ...pop, kind: 'time' })} onClose={close} />}
       {pop?.kind === 'time' && popGroup && <TimePopover at={pop.at} group={popGroup} wd={wd} onTimes={(times) => edits.times(popGroup, times)} onClose={close} />}

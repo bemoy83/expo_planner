@@ -1,58 +1,61 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ISODate } from '../../domain/dates'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, dayKey, eraseOrders, fillGroup, groupKey, hireBoard, isWaiting, mergeOrders, orderGroups, ordersByDay, planOrders, rangeSummary, removeOrders, setWaiting, tagOrders, waitingHours, type Coverage, type HireBoard, type OrderGroup, type RangeSummary } from '../../domain/hire'
+import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, dayKey, fillGroup, groupKey, hireBoard, isWaiting, mergeOrders, orderGroups, ordersByDay, planAcross, eraseOrders, removeOrders, setWaiting, tagOrders, waitingHours, type Coverage, type HireBoard, type HireLine, type OrderGroup } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
-import { projectsWithWork } from '../../domain/staffing/projectBalance'
+import { NO_PROJECT, projectsWithWork } from '../../domain/staffing/projectBalance'
 import { sameProject, type CompetenceKey, type CompetenceStyle, type HireOrder, type Interval, type ShiftId, type Supplier } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useBemanning, type Density } from '../bemanning/BemanningScope'
+import { projectDays, restDays } from '../bemanning/lineBalances'
 import { isTyping } from '../dom'
 import { heatScale } from '../kalender/heat'
 import { useStableActions } from '../kalender/useStableActions'
 import { toolOfKey, type ToolKind } from '../toolKeys'
 
-/** The days picked on a competence, which the editor in its label works on, and the line of the editor that is picked. */
+/** The competence that is open, the days picked on it that the editor in its label works on (none where it is opened by its name), and the line of the editor that is picked. */
 interface OpenDays {
   competence: CompetenceKey
-  from: ISODate
-  to: ISODate
+  /** The line under the competence the days were picked on: a project, or `NO_PROJECT` for «Uten prosjekt»; none on the competence's own. */
+  projectNo?: string
+  from: ISODate | null
+  to: ISODate | null
   /** The key of an `OrderGroup`. */
   group: string | null
 }
 
 /** What a popover of the editor is about, and the button it opens under. */
 interface OrderPop {
-  kind: 'add' | 'supplier' | 'shift' | 'time' | 'answer'
-  /** The line of the editor it belongs to; none for «+ Leverandør». */
+  kind: 'brush' | 'more' | 'supplier' | 'shift' | 'time' | 'answer'
+  /** The line of the editor it belongs to; none for the supplier of the brush. */
   group: string | null
   at: DOMRect
 }
 
-/** What the side panel of Innleid shows: a supplier's order, what every supplier offers, or the help. */
-type InnleidPanel = { kind: 'supplier'; id: string } | { kind: 'matrix' } | { kind: 'help' }
+/** What the side panel of Innleid shows: the suppliers' orders to look over and confirm, one supplier's order, or the help. */
+type InnleidPanel = { kind: 'control' } | { kind: 'supplier'; id: string } | { kind: 'help' }
 
 /** The tools of Innleid: pick days, order a supplier across days, or remove orders across days. */
 export type HireTool = ToolKind
 
-/** A stroke across the days of a competence, or of a project's line under it, with the tool it was started with. */
+/** A stroke across the days of a competence, or of a line under it, with the tool it was started with. */
 interface DayDrag {
   competence: CompetenceKey
-  /** The project of the line the stroke is on; none on the competence's own. */
+  /** The line under the competence the stroke is on (see `OpenDays`); none on the competence's own. */
   projectNo?: string
   mode: HireTool
   anchor: ISODate
   focus: ISODate
 }
 
-/** What a stroke would do, or the brush where the pointer is: the people a day would get, or the days whose orders would go. */
-interface StrokePreview {
+/** What a stroke would do, or the brush where the pointer is: the orders it would add, or the days whose orders would go. */
+export interface StrokePreview {
   competence: CompetenceKey
   projectNo?: string
   mode: 'paint' | 'erase'
   from: ISODate
   to: ISODate
-  /** With the brush: the people ordered per day. */
-  people: Map<ISODate, number>
+  /** With the brush: the orders it would add. */
+  added: HireOrder[]
   /** The supplier ordered, or the one whose orders go; none where every supplier's go. */
   supplierId: string | undefined
 }
@@ -63,12 +66,19 @@ const cleanDensity = (stored: unknown): Density => (stored === 'detail' ? 'detai
 const NO_ORDERS: HireOrder[] = []
 const NO_SUPPLIERS: Supplier[] = []
 
-/** A project's line under the competence that is open: its days covered by the orders for it, against what the project lacks after the permanent staff. */
+/**
+ * A line under the competence that is open, as Faste has them: a project, with its days covered by the orders for it against
+ * what the project lacks after the permanent staff, and under the projects «Uten prosjekt», what is on none of them.
+ */
 export interface HireProjectLine {
+  /** `NO_PROJECT` for «Uten prosjekt». */
   projectNo: string
   name: string
+  /** The line of what is on none of the projects. */
+  rest: boolean
   cover: (date: ISODate) => Coverage
   orders: (date: ISODate) => HireOrder[]
+  holds: (order: HireOrder) => boolean
   /** The hours missing in the days in view. */
   missing: number
 }
@@ -83,12 +93,37 @@ function useInnleidState(active: boolean) {
     (competence: CompetenceKey, date: ISODate, projectNo?: string) => Math.max(0, projectNo ? projectBalance.of(competence, date, projectNo).remaining : balance.get(competence, date).remaining),
     [balance, projectBalance],
   )
+  /** The orders per competence and day. */
+  const ordersOn = useMemo(() => ordersByDay(orders), [orders])
+  /**
+   * The lines of a competence that orders are made for: its projects with work in the days in view, as Bemanning has them
+   * (`projectsWithWork`), and what is on none of them, worked out as Faste does (`restDays`).
+   */
+  const linesOf = useCallback(
+    (competence: CompetenceKey): HireLine[] => {
+      const view = dates.slice(viewFrom, viewTo + 1)
+      const ordered = (date: ISODate) => (ordersOn.get(dayKey(competence, date)) ?? NO_ORDERS).map((order) => order.projectNo)
+      const projects = projectsWithWork(projectBalance, competence, view, kalenderProjects, projectName, ordered)
+      const lines: HireLine[] = projects.map((projectNo) => ({ projectNo, restOf: (date) => restOf(competence, date, projectNo), holds: (order) => sameProject(order, { projectNo }) }))
+      // What is on none of the projects, as Faste's line «Uten prosjekt» has it (`restDays`).
+      const rest = restDays(balance, projects.map((projectNo) => projectDays(projectBalance, projectNo)))
+      lines.push({
+        restOf: (date) => Math.max(0, rest.get(competence, date).remaining),
+        holds: (order) => !projects.some((projectNo) => sameProject(order, { projectNo })),
+      })
+      return lines
+    },
+    [dates, viewFrom, viewTo, ordersOn, balance, projectBalance, kalenderProjects, projectName, restOf],
+  )
+  /** The lines a stroke works on: on the competence's own line all of them, on a line under it that one. */
+  const linesFor = (competence: CompetenceKey, projectNo?: string): HireLine[] => {
+    const lines = linesOf(competence)
+    return projectNo === undefined ? lines : lines.filter((line) => (line.projectNo ?? NO_PROJECT) === projectNo)
+  }
   const board = useMemo<HireBoard>(() => hireBoard(active ? [...styles.keys()] : [], dates, restOf, orders, wd), [active, styles, dates, restOf, orders, wd])
   const rows = useMemo<CompetenceStyle[]>(() => board.competences.map((key) => styles.get(key)!), [board, styles])
   const scale = useMemo(() => heatScale([...board.deviations.values()].map((dev) => dev.value)), [board])
   const waiting = useMemo(() => waitingHours(orders, wd), [orders, wd])
-  /** The orders per competence and day. */
-  const ordersOn = useMemo(() => ordersByDay(orders), [orders])
 
   const [density, setDensity] = usePref<Density>('innleidDensity', 'compact', cleanDensity)
   const [stored, setOpen] = useState<OpenDays | null>(null)
@@ -98,12 +133,15 @@ function useInnleidState(active: boolean) {
   const panel = !active || (storedPanel?.kind === 'supplier' && !suppliers.some((supplier) => supplier.id === storedPanel.id)) ? null : storedPanel
   // The days a drag across a competence's line has reached, until the mouse is let go.
   const [drag, setDrag] = useState<DayDrag | null>(null)
-  // The tool, and the supplier it works with: the one the brush orders, or the one whose orders «Tøm» removes (none: every supplier's).
+  // The tool, and the supplier the brush orders from.
   const [tool, setTool] = useState<HireTool>('select')
   const [brushId, setBrushId] = useState<string | null>(null)
+  // The supplier whose orders «Tøm» removes, apart from the brush's: every supplier's until one is picked for it.
+  const [eraseId, setEraseId] = useState<string | null>(null)
   // The day under the pointer while the brush is held, to show what a click there would order.
   const [hover, setHover] = useState<{ competence: CompetenceKey; date: ISODate; projectNo?: string } | null>(null)
   const brush = suppliers.find((supplier) => supplier.id === brushId) ?? null
+  const eraseFrom = suppliers.some((supplier) => supplier.id === eraseId) ? (eraseId ?? undefined) : undefined
   const pickTool = (next: HireTool) => {
     setTool(next)
     setHover(null)
@@ -114,27 +152,36 @@ function useInnleidState(active: boolean) {
     setBrushId(id)
     if (id && tool === 'select') setTool('paint')
   }
+  /** The supplier picked in the editor is the brush, whatever tool is held: picking orders nothing, a stroke does. */
+  const brushWith = (id: string) => {
+    setBrushId(id)
+    setTool('paint')
+    setHover(null)
+  }
   // A competence that has left the board, or days outside the period, are not open.
-  const open = active && stored && rows.some((style) => style.key === stored.competence) && dates.includes(stored.from) && dates.includes(stored.to) ? stored : null
+  const open = active && stored && rows.some((style) => style.key === stored.competence) && (stored.from === null || dates.includes(stored.from)) && (stored.to === null || dates.includes(stored.to)) ? stored : null
 
-  const openDates = useMemo(() => (open ? dates.slice(dates.indexOf(open.from), dates.indexOf(open.to) + 1) : []), [open, dates])
-  const openOrders = useMemo(() => (open ? openDates.flatMap((date) => ordersOn.get(dayKey(open.competence, date)) ?? []) : []), [open, openDates, ordersOn])
-  const groups = useMemo<OrderGroup[]>(() => orderGroups(openOrders, suppliers), [openOrders, suppliers])
-  const summary = useMemo<RangeSummary | null>(() => (open ? rangeSummary(openDates.map((date) => board.cover(open.competence, date)), openOrders, wd) : null), [open, openDates, openOrders, board, wd])
-  const picked = open?.group ? (groups.find((group) => group.key === open.group) ?? null) : null
-
-  /** The lines under the competence that is open, as Bemanning has them (`projectsWithWork`): what each lacks after the permanent staff, and its orders. */
+  const openDates = useMemo(() => (open?.from && open.to ? dates.slice(dates.indexOf(open.from), dates.indexOf(open.to) + 1) : []), [open, dates])
+  /** The lines under the competence that is open: what each lacks after the permanent staff, and its orders. «Uten prosjekt» is there where it has hours or orders in view, and there are projects above it. */
+  const openCompetence = open?.competence
   const projectLines = useMemo<HireProjectLine[]>(() => {
-    if (!open) return []
-    const competence = open.competence
+    if (!openCompetence) return []
     const view = dates.slice(viewFrom, viewTo + 1)
-    const ordered = (date: ISODate) => (ordersOn.get(dayKey(competence, date)) ?? NO_ORDERS).map((order) => order.projectNo)
-    return projectsWithWork(projectBalance, competence, view, kalenderProjects, projectName, ordered).map((projectNo) => {
-      const orders = (date: ISODate) => (ordersOn.get(dayKey(competence, date)) ?? NO_ORDERS).filter((order) => sameProject(order, { projectNo }))
-      const cover = (date: ISODate) => coverage(restOf(competence, date, projectNo), orders(date), wd)
-      return { projectNo, name: projectName(projectNo), orders, cover, missing: view.reduce((sum, date) => sum + Math.max(0, cover(date).remaining), 0) }
+    const lines = linesOf(openCompetence).map((line) => {
+      const orders = (date: ISODate) => (ordersOn.get(dayKey(openCompetence, date)) ?? NO_ORDERS).filter(line.holds)
+      const cover = (date: ISODate) => coverage(line.restOf(date), orders(date), wd)
+      const rest = line.projectNo === undefined
+      return { projectNo: line.projectNo ?? NO_PROJECT, name: rest ? 'Uten prosjekt' : projectName(line.projectNo!), rest, orders, cover, holds: line.holds, missing: view.reduce((sum, date) => sum + Math.max(0, cover(date).remaining), 0) }
     })
-  }, [open, dates, viewFrom, viewTo, projectBalance, ordersOn, kalenderProjects, projectName, restOf, wd])
+    const projects = lines.filter((line) => !line.rest)
+    const rest = lines.find((line) => line.rest)!
+    return projects.length && view.some((date) => rest.cover(date).state !== 'none') ? lines : projects
+  }, [openCompetence, linesOf, dates, viewFrom, viewTo, ordersOn, projectName, wd])
+  /** The line the days are picked on, whose orders the editor lists; none where they are picked on the competence's own. */
+  const openLine = open?.projectNo === undefined ? undefined : projectLines.find((line) => line.projectNo === open.projectNo)
+  const openOrders = useMemo(() => (open ? openDates.flatMap((date) => ordersOn.get(dayKey(open.competence, date)) ?? []).filter((order) => !openLine || openLine.holds(order)) : []), [open, openDates, ordersOn, openLine])
+  const groups = useMemo<OrderGroup[]>(() => orderGroups(openOrders, suppliers), [openOrders, suppliers])
+  const picked = open?.group ? (groups.find((group) => group.key === open.group) ?? null) : null
 
   const setOrders = (change: (orders: HireOrder[]) => HireOrder[]) => updateStaffing((w) => ({ ...w, hireOrders: change(w.hireOrders ?? []) }))
   const idsOf = (group: OrderGroup) => group.orders.map((order) => order.id)
@@ -146,9 +193,9 @@ function useInnleidState(active: boolean) {
   }
 
   const span = (a: ISODate, b: ISODate) => (a <= b ? { from: a, to: b } : { from: b, to: a })
-  const openOn = (competence: CompetenceKey, from: ISODate, to: ISODate = from) => {
+  const openOn = (competence: CompetenceKey, from: ISODate, to: ISODate = from, projectNo?: string) => {
     setPop(null)
-    setOpen({ competence, ...span(from, to), group: null })
+    setOpen({ competence, ...(projectNo !== undefined && { projectNo }), ...span(from, to), group: null })
   }
   const fold = () => {
     setPop(null)
@@ -161,30 +208,12 @@ function useInnleidState(active: boolean) {
   }
   /** Moves the days picked by a day, or with `extend` their end alone. */
   const stepDays = (by: number, extend: boolean) => {
-    if (!open) return
+    if (!open?.from || !open.to) return
     const from = dates.indexOf(open.from) + (extend ? 0 : by)
     const to = dates.indexOf(open.to) + by
     if (from < 0 || to >= dates.length || from > to) return
     setOpen({ ...open, from: dates[from], to: dates[to] })
     reveal(dates[by < 0 ? from : to])
-  }
-  /** The nearest day before or after the days picked where hours of the competence are missing. */
-  const shortDay = (by: -1 | 1): ISODate | undefined => {
-    if (!open) return undefined
-    for (let at = dates.indexOf(by < 0 ? open.from : open.to) + by; at >= 0 && at < dates.length; at += by) if (board.cover(open.competence, dates[at]).state === 'short') return dates[at]
-    return undefined
-  }
-  /** Goes to the previous or the next day that is short, and picks it alone. */
-  const stepShort = (by: -1 | 1) => {
-    const date = shortDay(by)
-    if (!open || !date) return
-    openOn(open.competence, date)
-    reveal(date)
-  }
-  const stepCompetence = (by: number) => {
-    if (!open) return
-    const next = rows[(rows.findIndex((style) => style.key === open.competence) + by + rows.length) % rows.length]
-    setOpen({ ...open, competence: next.key, group: null })
   }
 
   // The drag is also kept where the next event reads it at once: a press and its release can come before the press is drawn.
@@ -197,49 +226,52 @@ function useInnleidState(active: boolean) {
     const { from, to } = span(stroke.anchor, stroke.focus)
     return dates.slice(dates.indexOf(from), dates.indexOf(to) + 1)
   }
-  /** I4: what the brush would order on the days: the supplier's people on those that are short, and nothing where none is. On a project's line, for the project. */
-  const brushed = (competence: CompetenceKey, days: ISODate[], projectNo?: string) =>
-    brush ? planOrders(orders, brush, { competence, ...(projectNo && { projectNo }) }, days, (date) => restOf(competence, date, projectNo), wd, true) : []
+  /**
+   * I4: what the brush would order on the days: on each that is short the supplier's people for each line that lacks hours, tagged with its
+   * project; one person a day where none is, as a supplier added on top. On a line under the competence, for that line alone.
+   */
+  const brushed = (competence: CompetenceKey, days: ISODate[], projectNo?: string) => (brush ? planAcross(orders, brush, competence, linesFor(competence, projectNo), days, wd) : [])
   const actions = useStableActions({
     /** A press on a day of a competence. Alt is the eraser for the stroke; with Velg and Shift the days picked reach to the day; else a stroke starts there. */
     dayDown: (competence: CompetenceKey, date: ISODate, shift: boolean, alt: boolean, projectNo?: string) => {
       const mode: HireTool = alt ? 'erase' : tool
-      if (mode === 'select' && shift && open?.competence === competence) return openOn(competence, date <= open.from ? open.to : open.from, date)
+      if (mode === 'select' && shift && open?.competence === competence && open.projectNo === projectNo && open.from && open.to) return openOn(competence, date <= open.from ? open.to : open.from, date, projectNo)
       // A supplier that does not offer the competence orders nothing.
       if (mode === 'paint' && !brush?.competences.includes(competence)) return
       setPop(null)
-      dragTo({ competence, ...(projectNo && { projectNo }), mode, anchor: date, focus: date })
+      dragTo({ competence, ...(projectNo !== undefined && { projectNo }), mode, anchor: date, focus: date })
     },
     dayEnter: (competence: CompetenceKey, date: ISODate, projectNo?: string) => {
       const now = dragNow.current
       if (now?.competence === competence && now.projectNo === projectNo && now.focus !== date) dragTo({ ...now, focus: date })
-      if (!now && tool === 'paint') setHover({ competence, date, ...(projectNo && { projectNo }) })
+      if (!now && tool === 'paint') setHover({ competence, date, ...(projectNo !== undefined && { projectNo }) })
     },
     rowsLeave: () => setHover(null),
-    /** A press on the line of how far a day is covered, on a competence that is open, folds it. */
-    fold,
     /** The mouse is let go: the days the stroke reached are picked, ordered or emptied. */
     dayUp: () => {
       const now = dragNow.current
       if (!now) return
       dragTo(null)
       const days = daysOf(now)
-      if (now.mode === 'select') return openOn(now.competence, now.anchor, now.focus)
-      if (now.mode === 'erase') return setOrders((list) => eraseOrders(list, now.competence, days, tool === 'erase' ? (brush?.id ?? undefined) : undefined, now.projectNo))
+      if (now.mode === 'select') return openOn(now.competence, now.anchor, now.focus, now.projectNo)
+      // The eraser removes the orders of the line it is drawn on, of the supplier picked for «Tøm», or of all.
+      if (now.mode === 'erase') return setOrders((list) => eraseOrders(list, now.competence, days, tool === 'erase' ? eraseFrom : undefined, now.projectNo === undefined ? undefined : linesFor(now.competence, now.projectNo)[0]?.holds))
       const added = brushed(now.competence, days, now.projectNo)
       if (!added.length || !brush) return
       setOrders((list) => mergeOrders([...list, ...added]))
       // The days open with what was ordered picked, to adjust it.
-      setOpen({ competence: now.competence, ...span(now.anchor, now.focus), group: groupKey(brush.id, added[0]) })
+      setOpen({ competence: now.competence, ...(now.projectNo !== undefined && { projectNo: now.projectNo }), ...span(now.anchor, now.focus), group: groupKey(brush.id, added[0]) })
     },
-    /**
-     * A click on a competence's label opens it on a day that is in view, and moves nothing: the first of them that is
-     * short, else the first with hours that remain or orders, else the first.
-     */
-    openFirst: (competence: CompetenceKey) => {
-      const view = dates.slice(viewFrom, viewTo + 1)
-      const first = view.find((date) => board.cover(competence, date).state === 'short') ?? view.find((date) => board.cover(competence, date).state !== 'none') ?? view[0]
-      if (first) openOn(competence, first)
+    /** A click on a competence's label opens it with no days picked, and moves nothing: the days are picked in the grid (the planner's word, 2026-10-24). */
+    openCompetence: (competence: CompetenceKey) => {
+      setPop(null)
+      setOpen({ competence, from: null, to: null, group: null })
+    },
+    /** A click on the name of a line under the open competence picks its days as they are, on that line, or back on the competence's own if it is the line picked. */
+    openLine: (projectNo: string) => {
+      if (!open) return
+      setPop(null)
+      setOpen({ competence: open.competence, ...(open.projectNo !== projectNo && { projectNo }), from: open.from, to: open.to, group: null })
     },
   })
   useEffect(() => {
@@ -247,16 +279,7 @@ function useInnleidState(active: boolean) {
     return () => window.removeEventListener('mouseup', actions.dayUp)
   }, [actions])
 
-  /** «+ Leverandør»: the supplier is ordered for the days picked that are short, with the people that cover them. */
-  const addSupplier = (supplier: Supplier) => {
-    if (!open) return
-    const added = planOrders(orders, supplier, open.competence, openDates, (date) => restOf(open.competence, date), wd)
-    if (!added.length) return
-    setOrders((list) => mergeOrders([...list, ...added]))
-    pick(groupKey(supplier.id, added[0]))
-  }
   const edits = {
-    addSupplier,
     count: (group: OrderGroup, by: number) => setOrders((list) => changeCount(list, idsOf(group), by)),
     supplier: (group: OrderGroup, supplierId: string) => {
       setOrders((list) => changeOrders(list, idsOf(group), { supplierId }))
@@ -294,11 +317,8 @@ function useInnleidState(active: boolean) {
     setPanel({ kind: 'supplier', id })
     pickBrush(id)
   }
-  /** The panel of the supplier of the first order that waits. */
-  const openFirstWaiting = () => {
-    const first = [...orders].sort((a, b) => a.date.localeCompare(b.date)).find(isWaiting)
-    if (first) setPanel({ kind: 'supplier', id: first.supplierId })
-  }
+  /** The control panel, where the orders are looked over and confirmed. */
+  const openControl = () => setPanel({ kind: 'control' })
 
   /** Opens the next day that is short, on its first competence that is: the first from the days in view on, else the first of the period. */
   const openNextUnder = () => {
@@ -314,9 +334,8 @@ function useInnleidState(active: boolean) {
     if (!at) return null
     const days = daysOf(at)
     const mode = at.mode === 'erase' ? 'erase' : 'paint'
-    const people = new Map(mode === 'paint' ? brushed(at.competence, days, at.projectNo).map((order) => [order.date, order.fte]) : [])
-    return { competence: at.competence, ...(at.projectNo && { projectNo: at.projectNo }), mode, from: days[0], to: days[days.length - 1], people, supplierId: mode === 'paint' ? brush?.id : tool === 'erase' ? brush?.id : undefined }
-  }, [drag, hover, tool, brush, orders, dates, restOf, wd]) // eslint-disable-line react-hooks/exhaustive-deps
+    return { competence: at.competence, ...(at.projectNo !== undefined && { projectNo: at.projectNo }), mode, from: days[0], to: days[days.length - 1], added: mode === 'paint' ? brushed(at.competence, days, at.projectNo) : [], supplierId: mode === 'paint' ? brush?.id : tool === 'erase' ? eraseFrom : undefined }
+  }, [drag, hover, tool, brush, eraseFrom, orders, dates, linesOf, wd]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const keys = useStableActions({
     down: (e: KeyboardEvent) => {
@@ -368,9 +387,9 @@ function useInnleidState(active: boolean) {
   const dragDays = drag?.mode === 'select' ? span(drag.anchor, drag.focus) : null
   return {
     board, rows, scale, waiting, suppliers, orders, ordersOn, wd,
-    tool, pickTool, brush, pickBrush, preview, density, setDensity,
-    panel, setPanel, openSupplier, openFirstWaiting,
-    open, openDates, groups, picked, summary, projectLines, projectName, pick, openOn, fold, stepDays, stepShort, shortBefore: shortDay(-1), shortAfter: shortDay(1), stepCompetence, openNextUnder,
+    tool, pickTool, brush, pickBrush, brushWith, eraseFrom, pickErase: setEraseId, preview, density, setDensity,
+    panel, setPanel, openSupplier, openControl,
+    open, openDates, openLine, groups, picked, projectLines, projectName, pick, openOn, fold, stepDays, openNextUnder,
     pop, setPop, edits, actions,
     /** The days a drag has reached on a competence. */
     dragOn: drag && dragDays ? { competence: drag.competence, projectNo: drag.projectNo, ...dragDays } : null,

@@ -11,10 +11,10 @@ import { ROW_H } from '../kalender/layout'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 
-/** The people a supplier is ordered for on a day, over the competences, and whether an order of them waits. */
+/** The people a supplier is ordered for on a day, over the competences: confirmed, and waiting for an answer. */
 interface DayPeople {
   people: number
-  waits: boolean
+  waiting: number
 }
 
 interface LineProps {
@@ -36,7 +36,7 @@ interface LineProps {
   onOpen: (id: string) => void
 }
 
-/** One supplier: its name with what it offers and its people-days in view, and the people it is ordered for per day. */
+/** One supplier: its name with what it offers and its people-days in view, and the people it is ordered for per day, those that wait for an answer hatched. */
 const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, waits, competences, brushed, faint, onBrush, onOpen }: LineProps) {
   return (
     <Line
@@ -56,20 +56,16 @@ const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, w
               <i key={style.key} className={supplier.competences.includes(style.key) ? 'on' : ''} style={competenceColor(style)} />
             ))}
           </span>
-          <span className="il-total">{total || ''}</span>
+          <span className="bm-week-left">{total || ''}</span>
         </>
       }
       cols={cols}
       cells={(date) => {
         const day = days?.get(date)
         return (
-          <div key={date} className={`${dayClass(cols, date)} cell il-people`} title={day ? `${supplier.name} · ${dayText(date)}\n${day.people} pers.${day.waits ? ' · venter på svar' : ''}` : undefined}>
-            {day && (
-              <>
-                {day.waits && <AnswerGlyph waits size={12} />}
-                {day.people}
-              </>
-            )}
+          <div key={date} className={`${dayClass(cols, date)} cell il-people`} title={day ? `${supplier.name} · ${dayText(date)}\n${day.people} pers.${day.waiting ? `, ${day.waiting} venter på svar` : ''}` : undefined}>
+            {day && day.people > day.waiting && <span>{day.people - day.waiting}</span>}
+            {day && day.waiting > 0 && <span className="waits">{day.waiting}</span>}
           </div>
         )
       }}
@@ -90,7 +86,7 @@ export function SupplierRows() {
     for (const order of orders) {
       const days = map.get(order.supplierId) ?? new Map<ISODate, DayPeople>()
       const day = days.get(order.date)
-      days.set(order.date, { people: (day?.people ?? 0) + order.fte, waits: (day?.waits ?? false) || isWaiting(order) })
+      days.set(order.date, { people: (day?.people ?? 0) + order.fte, waiting: (day?.waiting ?? 0) + (isWaiting(order) ? order.fte : 0) })
       map.set(order.supplierId, days)
     }
     return map
@@ -123,7 +119,7 @@ export function SupplierRows() {
             cols={cols}
             days={days}
             total={view.reduce((sum, date) => sum + (days?.get(date)?.people ?? 0), 0)}
-            waits={!!days && [...days.values()].some((day) => day.waits)}
+            waits={!!days && [...days.values()].some((day) => day.waiting > 0)}
             competences={rows}
             brushed={tool === 'paint' && brush?.id === supplier.id}
             faint={!!focus && !supplier.competences.includes(focus.key)}
