@@ -72,8 +72,8 @@
   --on-line-soft:rgba(20,12,5,.16);
   --on-line-rule:rgba(20,12,5,.35);
 
-  /* status */
-  --neg:#c53637; --neg-bg:#f9e5e2;
+  /* status. A colour stands in one place: on a status's tint (`-bg`) the text is ink, and the hue in the text is for a neutral ground */
+  --neg:#c53637; --neg-bg:#f9e5e2; --on-neg:#fff;   /* --on-neg: the text of a button that deletes, on the red itself */
   --pos:#287c42; --pos-bg:#e2efe3;
   --over:#8f5e0a;
   /* the bars of Resultat: the plan with overhead and the actual hours, set against the budget */
@@ -246,7 +246,7 @@
   --on-line-soft:rgba(255,255,255,.22);
   --on-line-rule:rgba(255,255,255,.45);
 
-  --neg:#f97770; --neg-bg:#301615;
+  --neg:#f97770; --neg-bg:#301615; --on-neg:var(--bg);
   --pos:#6fd087; --pos-bg:#112618;
   --over:#f2b54f;
   --res-plan:oklch(0.5 0.012 90);

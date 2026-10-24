@@ -153,7 +153,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* The badge keeps clear of the two ends of its run, where the grip of an end shows on the block under it. */
 .bm-run-name{position:sticky;margin:0 8px;padding-left:4px;white-space:nowrap}
 /* A dimmed block is see-through with its name and badge, so they are their colours mixed into the ground by as much. The run's name lies over its blocks and is given those colours outright. */
-.bm-run-name.other{background:color-mix(in srgb,var(--cc) 28%,var(--bg));color:color-mix(in srgb,var(--on-line) 28%,var(--bg))}
+.bm-run-name.other{background:color-mix(in srgb,var(--cc) 28%,var(--bg));color:var(--muted)}
 /* a block whose hours are back in the demand: hatched in its colour, with no outline, so a run it is a part of stays one piece. The same in the folded day and in the open hours. */
 .bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other{opacity:.28}
@@ -258,7 +258,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .pp-weeks tr:hover td{background:var(--wash)}
 .pp-weeks td span{margin-left:6px;color:var(--faint)}
 .pp-weeks tr.over td{color:var(--over);font-weight:600}
-.pp-weeks tr.lit td{background:color-mix(in srgb,var(--over) 10%,transparent)}
+.pp-weeks tr.lit td{background:var(--trace)}
 .pp-periods{display:flex;flex-direction:column;gap:2px;margin:0 -6px;padding:0;list-style:none}
 .pp-periods li{display:flex;align-items:center;gap:2px}
 .pp-period{flex:1;min-width:0;justify-content:flex-start;gap:8px;padding:5px 6px;border-radius:6px;background:transparent;font-size:var(--fs-md)}
@@ -414,8 +414,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-done{margin-left:auto;border-radius:8px;background:var(--text);color:var(--mode-band);font-size:var(--fs-sm);font-weight:600}
 .il-done:hover{background:var(--muted)}
 /* An order waits for an answer: a clock in ink, never a colour. */
-.il-waits{position:absolute;top:5px;left:5px;z-index:1}
-.heat-cell.under.strong .il-waits{color:var(--text)}
+.il-waits{position:absolute;top:5px;left:5px;z-index:1;color:var(--text)}
 .bar-controls .il-waiting{display:inline-flex;align-items:center;gap:6px;height:var(--ctl-h);padding:0 10px;border-radius:8px;background:var(--surface);font-size:var(--fs-sm);font-weight:500;white-space:nowrap}
 .bar-controls .il-under{padding-inline:10px;background:var(--alert-block);color:var(--alert-on);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
 .bar-controls .il-under:hover{filter:brightness(1.06)}

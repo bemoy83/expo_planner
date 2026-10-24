@@ -27,7 +27,8 @@ button.primary:hover:not(:disabled){background:var(--muted)}
 button.primary:disabled{opacity:.5}
 button.link{background:none;color:var(--text);padding:0 4px;line-height:inherit;text-decoration:underline;text-decoration-color:var(--line-strong)}
 button.link:hover{background:none;color:var(--accent)}
-button.danger{background:var(--neg-bg);color:var(--neg)}
+button.danger{background:var(--neg);color:var(--on-neg);font-weight:600}
+button.danger:hover:not(:disabled){background:color-mix(in oklab,var(--neg) 88%,var(--text))}
 button.ghost{background:transparent;color:var(--text)}
 button.ghost:hover{background:var(--sunken)}
 /* a button that is an icon alone: square, named in its tooltip */
@@ -79,7 +80,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .members-add{display:flex;gap:8px;margin-top:8px}
 .members-add input{flex:1}
 .busy{color:var(--muted)}
-.error-banner{background:var(--neg-bg);color:var(--neg);padding:8px 16px}
+.error-banner{background:var(--neg-bg);color:var(--text);box-shadow:inset 3px 0 0 var(--neg);padding:8px 16px}
 .notice,.info-banner{background:color-mix(in oklab,var(--accent) 10%,var(--surface));padding:8px 16px;border-radius:6px}
 .info-banner{border-radius:0}
 .empty-state{max-width:560px;margin:64px auto;padding:0 16px;line-height:1.5}
@@ -180,9 +181,10 @@ button.primary .alert-count{color:inherit}   /* on the ink of a primary button, 
 .bar.over .share{background:var(--over)}
 .bar.done .share{background:var(--pos)}
 
-/* ---- pills: a short status on a line, grey or, with `ok`, green: «I bruk» on Produkttyper, «Pågår» on Resultat; `button` is the size of one that is clicked, as the basis of an own line on Behov ---- */
+/* ---- pills: a short status on a line, grey or, with `ok`, a green tint and dot with the text in ink: «I bruk» on Produkttyper, «Pågår» on Resultat; `button` is the size of one that is clicked, as the basis of an own line on Behov ---- */
 .pill{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;background:var(--sunken);color:var(--muted);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
-.pill.ok{background:var(--pos-bg);color:var(--pos)}
+.pill.ok{gap:5px;background:var(--pos-bg);color:var(--text)}
+.pill.ok::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--pos)}
 .pill.button{height:22px;padding:0 8px;border-radius:5px;font-size:var(--fs-sm);font-weight:500}
 
 /* ---- toasts: short messages in the corner, see Toasts.tsx ---- */

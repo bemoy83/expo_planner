@@ -92,6 +92,6 @@
 .wp-flag{font-style:normal;font-size:var(--fs-2xs);font-weight:700;padding:0 5px;border-radius:2px;line-height:16px;background:var(--surface);box-shadow:inset 0 0 0 1px currentColor}
 .wp-flag.short,.wp-attn b.short,.wp-short{color:var(--neg)}
 .wp-flag.wait,.wp-attn b.wait,.wp-wait{color:var(--over)}
-.wp-attn{display:grid;gap:3px;border-left:3px solid var(--neg);padding:6px 12px;background:color-mix(in srgb,var(--neg) 7%,transparent)}
+.wp-attn{display:grid;gap:3px;border-left:3px solid var(--neg);padding:6px 12px}
 .wp-attn p{margin:0;display:flex;flex-wrap:wrap;gap:2px 14px}
 .wp-attn b{margin-right:2px}

@@ -151,18 +151,14 @@
 .cap-cell{color:var(--muted)}
 .sum-cell{font-weight:600}
 /* Avvik as plain figures, with the heat map switched off */
-.dev.neg{background-color:var(--neg-bg);color:var(--neg);font-weight:600}
+.dev.neg{background-color:var(--neg-bg);color:var(--text);font-weight:600}
 .dev.pos{color:var(--pos);font-weight:600}
 /* Avvik as a heat map: a tile per day, with a little air between neighbours */
 .heat{position:absolute;inset:3px 2px;border-radius:5px;z-index:0;background:color-mix(in oklab,var(--heat-c) var(--p),var(--bg))}
 .heat.under{--heat-c:var(--neg)}
 .heat.ok{--heat-c:var(--pos)}
 .heat.over{--heat-c:var(--over)}
-.heat-value{position:relative;z-index:1;font-weight:600}
-.heat-cell.under .heat-value{color:var(--neg)}
-.heat-cell.under.strong .heat-value{color:var(--text)}
-.heat-cell.ok .heat-value{color:var(--pos)}
-.heat-cell.over .heat-value{color:var(--text)}
+.heat-value{position:relative;z-index:1;font-weight:600;color:var(--text)}
 .heat-legend{display:inline-flex;gap:2px;margin-left:6px;cursor:help}
 .heat-legend .heat{position:static;width:10px;height:10px;border-radius:2px}
 

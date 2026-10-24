@@ -68,10 +68,6 @@ input.inline:focus{background:var(--surface);box-shadow:inset 0 0 0 1px var(--li
 /* A dropdown in a table is bare too, with the same wash under the pointer. */
 table.ledger select{padding:0 2px;background-color:transparent}
 table.ledger select:hover{background-color:var(--wash)}
-/* Where a demand line counts in the Kalender. */
-table.ledger select.location{color:var(--muted)}
-table.ledger select.location.chosen{color:var(--text);font-weight:600}
-table.ledger select.location.unresolved{background-color:color-mix(in srgb,var(--over) 14%,transparent);color:var(--over)}
 
 /* ---- Fields of the tables of Haller and Mannskap ---- */
 input.inline.project-no-input{width:90px;min-width:0}

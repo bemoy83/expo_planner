@@ -9,13 +9,11 @@ export const OK_UP_TO = 1
 /** The three answers of an Avvik line: too few, as it should be, too many. */
 export type HeatKind = 'under' | 'ok' | 'over'
 
-/** How one day of an Avvik line is coloured in the heat map. */
+/** How one day of an Avvik line is coloured in the heat map. Its figure is always in the page's ink. */
 interface HeatTile {
   kind: HeatKind
   /** How much of the kind's colour is mixed into the page colour, in per cent. */
   percent: number
-  /** The fill is strong enough that the figure is written in the page's ink, not the kind's. */
-  strong: boolean
 }
 
 /** The largest shortage and the largest surplus among the deviations, each at least 1, for scaling the tiles. */
@@ -41,11 +39,11 @@ export const heatKind = (deviation: number): HeatKind => (deviation < -FTE_NOISE
 export const heatTile = (deviation: number, maxShortage: number, maxSurplus: number, kind: HeatKind = heatKind(deviation)): HeatTile => {
   if (kind === 'under') {
     const share = Math.min(1, -deviation / Math.max(1, maxShortage))
-    return { kind, percent: Math.round(14 + share * 28), strong: share > 0.5 }
+    return { kind, percent: Math.round(14 + share * 28) }
   }
-  if (kind === 'ok') return { kind, percent: 14, strong: false }
+  if (kind === 'ok') return { kind, percent: 14 }
   const share = Math.min(1, deviation / Math.max(1, maxShortage, maxSurplus))
-  return { kind, percent: Math.round(10 + share * 20), strong: false }
+  return { kind, percent: Math.round(10 + share * 20) }
 }
 
 /**
@@ -53,10 +51,10 @@ export const heatTile = (deviation: number, maxShortage: number, maxSurplus: num
  * ochre a step stronger within 10 % and within 25 %, red beyond. Nothing warns, and over and under are graded the same.
  */
 export const GRADE_TILES: Record<ReviewGrade, HeatTile> = {
-  0: { kind: 'ok', percent: 14, strong: false },
-  1: { kind: 'over', percent: 16, strong: false },
-  2: { kind: 'over', percent: 30, strong: false },
-  3: { kind: 'under', percent: 28, strong: false },
+  0: { kind: 'ok', percent: 14 },
+  1: { kind: 'over', percent: 16 },
+  2: { kind: 'over', percent: 30 },
+  3: { kind: 'under', percent: 28 },
 }
 
 export const HEAT_LABELS: Record<HeatKind, string> = { under: 'Underdekning', ok: 'Ok', over: 'Over' }

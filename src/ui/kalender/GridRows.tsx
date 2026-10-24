@@ -347,7 +347,7 @@ export const SumRows = memo(function SumRows({ cols, need, capacity, waitingHire
             const dev = available - n
             const tile = heatTile(dev, maxShortage, maxSurplus)
             return (
-              <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} title={`${HEAT_LABELS[tile.kind]} ${signed(formatFte(dev)) || '0'} FTE`}>
+              <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind}`} title={`${HEAT_LABELS[tile.kind]} ${signed(formatFte(dev)) || '0'} FTE`}>
                 <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
                 <span className="heat-value">{heatFigure(dev, cols.colW)}</span>
               </div>

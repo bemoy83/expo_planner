@@ -64,7 +64,7 @@ const AvvikLine = memo(function AvvikLine({ cols, board, maxShortage, maxSurplus
         const tile = heatTile(dev.value, maxShortage, maxSurplus, dev.state)
         const waits = dev.pending > HOURS_NOISE
         return (
-          <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind} ${tile.strong ? 'strong' : ''}`} title={`${dayText(date)} · ${HEAT_LABELS[tile.kind]} ${signedHours(dev.value) || '0'} t${waits ? `\n${hoursText(dev.pending)} t venter på svar` : ''}`}>
+          <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind}`} title={`${dayText(date)} · ${HEAT_LABELS[tile.kind]} ${signedHours(dev.value) || '0'} t${waits ? `\n${hoursText(dev.pending)} t venter på svar` : ''}`}>
             <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
             {waits && <Clock className="il-waits" size={12} aria-label="Venter på svar" />}
             <span className="heat-value">{signedHours(dev.value)}</span>

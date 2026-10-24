@@ -530,7 +530,7 @@ export function HallRules({ head, notify, show }: TablePage) {
                         <span className={`num ${use.lines ? '' : 'muted'}`}>{use.lines}</span>
                         <span>
                           {!phrase.text || !phrase.hall ? null : !use.lines && use.matches ? (
-                            <span className="op-lacking" title={`Alle tekster med ${quoted(phrase.text)} blir plassert av reglene over før de når denne`}>
+                            <span className="op-warn" title={`Alle tekster med ${quoted(phrase.text)} blir plassert av reglene over før de når denne`}>
                               Skygget av reglene over
                             </span>
                           ) : !use.matches ? (

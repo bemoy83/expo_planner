@@ -57,7 +57,7 @@
 /* the name, and beside it what the type lacks: the pair wraps, so the name is never cut */
 .op-name{display:flex;align-items:center;flex-wrap:wrap;gap:0 10px;padding:3px 0}
 .op-name strong{font-weight:600}
-.op-lacking{flex:none;font-size:var(--fs-xs);font-weight:500;color:var(--over);white-space:nowrap}
+.op-lacking{flex:none;font-size:var(--fs-xs);font-weight:500;white-space:nowrap}
 .op-tag{flex:none;font-size:var(--fs-xs);color:var(--faint);white-space:nowrap}
 .op-unit{display:flex;align-items:center}
 /* a switch in a row or in the bar of what is selected: smaller than the switches of the bars */
@@ -222,9 +222,9 @@
 .hl-collects{display:inline-flex;align-items:center;gap:8px}
 .hl-fixed{background:color-mix(in oklab,var(--sunken) 60%,transparent)}
 .hl-words.want input{background:var(--surface);box-shadow:var(--raise)}
-.hl-done{display:flex;align-items:center;gap:12px;margin:8px 0;padding:14px 16px;border-radius:10px;background:var(--pos-bg);color:var(--pos)}
+.hl-done{display:flex;align-items:center;gap:12px;margin:8px 0;padding:14px 16px;border-radius:10px;background:var(--pos-bg);color:var(--text)}
+.hl-done>svg{color:var(--pos)}
 .hl-done div{display:flex;flex-direction:column;gap:2px}
-.hl-done strong{color:var(--text)}
 /* what is selected of the texts, as a bar that floats over the bottom of the rules */
 .hl-bulk{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border-radius:12px;background:var(--panel);box-shadow:var(--pop);font-size:var(--fs-sm);white-space:nowrap}
 .hl-bulk-gap{width:1px;height:18px;background:var(--line-strong)}
