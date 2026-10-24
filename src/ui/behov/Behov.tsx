@@ -53,29 +53,17 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   // The view's key figures, on the band: what its lines in view give the demand, the project's or every project's, whatever the filter shows.
   const visma = useMemo(() => reviewTotals(projectNo ? (review.get(projectNo)?.lines ?? []) : [...review.values()].flatMap((project) => project.lines)), [review, projectNo])
   const own = useMemo(() => ownTotals(projectNo ? list.own.filter((line) => line.projectNo === projectNo) : list.own), [list.own, projectNo])
-  const phaseFigures = (assembly: number, dismantle: number) => [
-    <Figure key="mon" label="Montering" value={<><i className="phase-swatch mon" aria-hidden />{hours(assembly)}</>} />,
-    <Figure key="dem" label="Demontering" value={<><i className="phase-swatch dem" aria-hidden />{hours(dismantle)}</>} />,
-  ]
-  const figures =
+  const shown =
     view === 'visma'
-      ? visma.lines > 0 && (
-          <BandFigures>
-            <Figure
-              label="Med i behovet"
-              value={visma.counted}
-              unit={`av ${count(visma.lines, 'linje', 'linjer')}`}
-              sub={[visma.excluded > 0 && `${visma.excluded} utelatt`, visma.need > 0 && `${visma.need} teller ikke før de er avklart`].filter(Boolean).join(' · ') || 'Alle linjer er avklart'}
-            />
-            {phaseFigures(visma.assembly, visma.dismantle)}
-          </BandFigures>
-        )
-      : own.lines > 0 && (
-          <BandFigures>
-            <Figure label={PLANNED_BASIS} value={own.planned} unit={`av ${count(own.lines, 'linje', 'linjer')}`} sub={own.lines > own.planned ? `${count(own.lines - own.planned, 'utkast', 'utkast')} teller ikke` : 'Alle linjer teller'} />
-            {phaseFigures(own.assembly, own.dismantle)}
-          </BandFigures>
-        )
+      ? { ...visma, label: 'Med i behovet', counting: visma.counted, sub: [visma.excluded > 0 && `${visma.excluded} utelatt`, visma.need > 0 && `${visma.need} teller ikke før de er avklart`].filter(Boolean).join(' · ') || 'Alle linjer er avklart' }
+      : { ...own, label: PLANNED_BASIS, counting: own.planned, sub: own.lines > own.planned ? `${count(own.lines - own.planned, 'utkast', 'utkast')} teller ikke` : 'Alle linjer teller' }
+  const figures = shown.lines > 0 && (
+    <BandFigures>
+      <Figure label={shown.label} value={shown.counting} unit={`av ${count(shown.lines, 'linje', 'linjer')}`} sub={shown.sub} />
+      <Figure label="Montering" value={<><i className="phase-swatch mon" aria-hidden />{hours(shown.assembly)}</>} />
+      <Figure label="Demontering" value={<><i className="phase-swatch dem" aria-hidden />{hours(shown.dismantle)}</>} />
+    </BandFigures>
+  )
 
   // The projects down the left, the same in both views: in Visma what needs the planner, in Egen registrering the own hours.
   const needMark = (n: number) =>

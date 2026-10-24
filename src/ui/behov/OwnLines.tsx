@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { typeAndRate } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
-import { parseHours, type HallSpans } from '../../domain/ownDemand'
+import { ownTotals, parseHours, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
 import { TriCheckbox } from '../common'
 import { count } from '../dom'
@@ -66,7 +66,6 @@ interface Props {
 /** The planner's own lines, grouped by project and hall, edited in place. Totals count the lines that are planned with. */
 export function OwnLines({ lines, projects, spans, single, selected, onSelect, flash, kpi, hoursPerDay, onUpdate, onRemove, onAddHere, onTemplate }: Props) {
   const competenceColor = useCompetenceColor()
-  const planned = (ls: DemandLine[], field: 'assemblyHours' | 'dismantleHours') => ls.filter((l) => l.basis === PLANNED_BASIS).reduce((sum, l) => sum + l[field], 0)
   const toggle = (ls: DemandLine[], on: boolean) => {
     const next = new Set(selected)
     for (const l of ls) if (on) next.add(l.id)
@@ -86,6 +85,7 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
     else if (!Number.isNaN(typed.hours)) onUpdate(line, { [field]: typed.hours })
   }
 
+  const allPicked = lines.every((l) => selected.has(l.id))
   const shown = projects.filter(([no]) => lines.some((l) => l.projectNo === no) || single)
   if (!shown.length) return <p className="muted own-empty">Ingen egne linjer ennå.</p>
   return (
@@ -94,7 +94,7 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
         <tr>
           <th className="pick">
             {/* One project has no row of its own: its lines are picked all at once in the heading. */}
-            {single && lines.length > 0 && <TriCheckbox label="Velg prosjektets linjer" checked={lines.every((l) => selected.has(l.id))} partial={!lines.every((l) => selected.has(l.id)) && lines.some((l) => selected.has(l.id))} onChange={(on) => toggle(lines, on)} />}
+            {single && lines.length > 0 && <TriCheckbox label="Velg prosjektets linjer" checked={allPicked} partial={!allPicked && lines.some((l) => selected.has(l.id))} onChange={(on) => toggle(lines, on)} />}
           </th>
           <th>Arbeid</th>
           <th>Kompetanse</th>
@@ -121,8 +121,8 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                   {name} <span className="project-no">{no}</span> <span className="muted small">{count(mine.length, 'linje', 'linjer')}</span>
                 </td>
                 <td />
-                <td className="num">{hoursOrDash(planned(mine, 'assemblyHours'))}</td>
-                <td className="num">{hoursOrDash(planned(mine, 'dismantleHours'))}</td>
+                <td className="num">{hoursOrDash(ownTotals(mine).assembly)}</td>
+                <td className="num">{hoursOrDash(ownTotals(mine).dismantle)}</td>
                 <td colSpan={2} />
               </tr>
             )}
@@ -153,8 +153,8 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                       hall && <span className="warn-text small">ikke booket av prosjektet</span>
                     )}
                   </td>
-                  <td className="num">{here.length > 0 && hoursOrDash(planned(here, 'assemblyHours'))}</td>
-                  <td className="num">{here.length > 0 && hoursOrDash(planned(here, 'dismantleHours'))}</td>
+                  <td className="num">{here.length > 0 && hoursOrDash(ownTotals(here).assembly)}</td>
+                  <td className="num">{here.length > 0 && hoursOrDash(ownTotals(here).dismantle)}</td>
                   <td colSpan={2} className="hall-add">
                     <button className="link" onClick={() => onAddHere(no, hall)}>
                       <Plus size={13} aria-hidden /> Linje i {hall || 'prosjektet'}
