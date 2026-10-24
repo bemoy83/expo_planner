@@ -160,7 +160,7 @@ Choices made in the build, for the user to confirm
 - The sums at the bottom are of the rows the filters let through. Avvik and Avvik % there are over the projects that have a budget alone.
 - Planning rows without a work phase count in Planlagt and not in montering or demontering; rows without a project number are not counted.
 
-## Resultat redesign: built, to be tested by the user
+## Resultat redesign: superseded by Resultat v2
 
 Built 2026-10-23 from the handoff `design_docs/design_handoff_resultat/`, which the planner keeps out of git. The table of 16 columns is replaced by figures, a matrix and two panels; see [features/resultat.md](features/resultat.md).
 
@@ -210,7 +210,7 @@ Built 2026-10-24 from the handoff `design_docs/design_handoff_mannskap_haller_v3
 - The tester of Hallregler is a column on the strip's tint with a line between it and the rules, not a card. «Mangler hall» in its chain is in ink when lines fall to it; its count was already the alert's ochre text (`--over`).
 - Counts on the strip are ink (`.count-chip.solid`), as on Oppsett: «Mangler prosjekt» on VenYou and «Uplassert» on Hallregler. «Pågår» and a selected text are the ink's wash (`--accent-soft`).
 - The ▲▼ of Kompetanser are one control of 32 px, 16 each.
-- Not built, left for a round over the whole app: the addendum's alert count as an ochre mark beside a figure in ink (§3), its ochre, and the one control height of 32 px. The shift picker of Innleid was already the app's segmented control.
+- Not built in this round, left for one over the whole app: the addendum's alert count as an ochre mark beside a figure in ink (§3), its ochre, and the one control height of 32 px; all three were built the same day (the sections above). The shift picker of Innleid was already the app's segmented control.
 
 ## Oppsett v3, flat on the canvas: merged
 
@@ -219,7 +219,7 @@ Built 2026-10-24 from the handoff `design_docs/design_handoff_oppsett_v3/`, whic
 - The band is copper (`.oppsett-page`, hue 50, chroma .06, Behov's chroma), Oppsett's alone. Its lower half is `BandFigures`, with the hours of the setup worked out in the domain (`setupHours`), as the product types' group notes are.
 - The cards are gone, and so are the sum lines. The strip (`.op-zone`: the lead or the search and filters, the competences, the flow of a line, the form that adds) is `--section` with its fields in `--well`; the table's heading is on the same tint, and its rows run edge to edge. «Mangler oppsett» is a wash of 86 % canvas and `--alert-warn`.
 - Counts are ink, never the colour of the alert: the page picker's on every tab of tables (`.count-chip.ink`, so Haller's and Mannskap's too), and «Mangler» in the filter (`.count-chip.solid`). «Utelat» is ink also when nothing is typed.
-- Not built, as on Behov: the handoff's cleaner ochre (the app keeps `--alert-warn`, checked against the Kalender's band) and the one control height of 32 px of DESIGN-RULES §8, which touches every page and is left for a round of its own.
+- Not built, as on Behov: the handoff's cleaner ochre (the app keeps `--alert-warn`, checked against the Kalender's band) and the one control height of 32 px of DESIGN-RULES §8, which touches every page and was built in a round of its own the same day (above).
 
 ## Behov v3, flat on the canvas: built, to be tested by the user
 
@@ -252,7 +252,7 @@ Where the build differs from the handoff, to reuse what the app has:
 - The recessed half of the band mixes the band with its line, which is darker in both palettes, not with the ink.
 - The planner widened the project's column to 296 px and the figures' columns (180, 172, 112 px), and «Uten budsjett» is a badge as «Ingen plan» is.
 
-## Behov v2, the table as a card: built, to be tested by the user
+## Behov v2, the table as a card: superseded by Behov v3
 
 Built 2026-10-23 from the handoff `design_docs/design_handoff_behov_v2/`, which the planner keeps out of git. Layout only, as on Resultat: each view's table is a raised card (`.card` in `base.css`, shared with Resultat's matrix), with the project and the controls in its heading, the column heads held at the top and a sum line held at the foot, while only the rows scroll. Visma: «Med i behovet · n av m linjer · x utelatt · y teller ikke før de er avklart» over the lines in scope, whatever the filter shows, beside the hours of the lines that count. Egen registrering: the form and «Fra i fjor» above the card; the heading holds the project's timing and booked halls; the sum line is «Planlagt · n av m linjer · x utkast teller ikke».
 
@@ -264,7 +264,7 @@ Built 2026-10-23 from the handoff `design_docs/design_handoff_behov_v2/`, which 
 - One rail for both views, as in the handoff (the planner's wish, 2026-10-23): Egen registrering's, by build-up with a search. In Visma it shows the count to resolve or a check, and mutes a project with no export («ingen utskrift»); the bar of how much counts and «N med · N utelatt» are gone from it.
 - Below 900 px the Visma table empties the cells of Avd. and Antall (until then the rule hid Mont. and Antall by position, a mistake since Effekt and Kommentar came).
 
-## The tabs of tables as cards: built, to be tested by the user
+## The tabs of tables as cards: superseded by the v3 of Oppsett, Mannskap and Haller
 
 Built 2026-10-23 from the handoff `design_docs/design_handoff_samlet/` (its register card; Resultat and Behov v2 were built before), which the planner keeps out of git. Layout only: each page of Haller, Mannskap and Oppsett is a raised card (`.op card`), as tall as its rows up to the foot of the page, as on Behov; its bar is the card's head, and the strips under it (how a line becomes hours, the competences, the lead of Hallregler, the form of Utelatte artikler) lie flat on the panel's tint.
 
@@ -310,6 +310,17 @@ The designer's answer to the brief «the demand of Innleid as in Faste» (`desig
 - Faste and Innleid share the lines of the demand (`bemanning/NeedLabel.tsx`, `domain/needLabel.ts`); the hours in the label column are signed in both («t mangler»).
 - Not done: the stroke preview shows on the line it is drawn on only, not on the other lines of an open competence.
 
+
+## Kalender and Bemanning, smaller rounds of 2026-10-23 and 24: merged
+
+What each mode does now is in [features/plan.md](features/plan.md), [features/bemanning.md](features/bemanning.md) and [features/innleid.md](features/innleid.md).
+
+- **One way to pick a day** (2026-10-24). A click on a date in the header picks the day in focus in every mode, and the date field of the planning bar shows that day, or today, in the text's ink, and picks the day typed in it.
+- **The pencil and the spans of Plan** (2026-10-24). The pencil shares the demand to the tenth as it is written, the decimals as the last person, so the days never rise (`shareOverDays`). Shift on a pulled end stops where the demand is met, or shares the sum again where the row covered its demand before the pull; Alt is the eraser alone. A span goes over weekends and holidays without FTE: only an empty working day ends it.
+- **Shift in Bemanning** (2026-10-24) fills a day no further than the demand, and stops a stroke where it is met; it no longer gives half days. A run pulled by its ends goes over a weekend or holiday the person has nothing on.
+- **The demand of Bemanning as labels** (2026-10-23): a competence's day is a label filled from the left by the hours assigned, with what remains signed on it, a surplus as a tail in the ochre of the warning, and hours that cannot be covered in normal time hatched in the blocking alert's colour. An open competence or project line shows no sums; what is on no project is «Uten prosjekt». A week's overtime is a chip, over the limit the blocking one.
+- **«Mangler / over»** (2026-10-23) is the name of the Avvik line in Plan, Innleid and the row details; the heat map's tiles are a softer tint, and a chosen segment, a filter that is on and a pressed toggle on the band take the band's colours, not the accent. The chosen state of tabs, segmented controls and toggles is one (`--chosen`, `--chosen-raise`), styled from `aria-current` and `aria-pressed`.
+- **The demo season** (2026-10-24) has 20 staff shared on the competences by their share of the season's hours, six fairs whose build-up needs more than the staff can work, and a budget for every project with orders but one, so Resultat shows every grade.
 
 ## Egen registrering by keyboard: built, to be tested by the user
 

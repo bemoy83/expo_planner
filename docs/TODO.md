@@ -1,12 +1,12 @@
 # Open items
 
-Status as of 2026-10-23. The app covers the Kalender with its two modes, Plan and Bemanning (with its parts Faste and Innleid) and the work plans, the demand (Behov, with Visma · gjennomgang and Egen registrering), and the planner's tables in three tabs: Haller (VenYou, Prosjekter, Hallregler), Mannskap (Personell, Leverandører, Kompetanser) and Oppsett (Produkttyper, Tekstregler, Utelatte artikler), and Resultat. It has undo, backup, a shared workspace synced with Supabase, and a clean start from the source files, and is published to GitHub Pages from main (`.github/workflows/pages.yml`).
+Status as of 2026-10-24. The app covers the Kalender with its two modes, Plan and Bemanning (with its parts Faste and Innleid) and the work plans, the demand (Behov, with Visma · gjennomgang and Egen registrering), and the planner's tables in three tabs: Haller (VenYou, Prosjekter, Hallregler), Mannskap (Personell, Leverandører, Kompetanser) and Oppsett (Produkttyper, Tekstregler, Utelatte artikler), and Resultat. It has undo, backup, a shared workspace synced with Supabase, and a clean start from the source files, and is published to GitHub Pages from main (`.github/workflows/pages.yml`).
 
 ## Toward a first version
 
 Agreed with the user 2026-10-18. The app is feature complete for a first version when the planner can plan one real season from a clean start on the Venyou, Visma and KPI files alone, get the figures of the workbook's Resultatside without opening Excel, read in an updated Venyou export without losing work, and keep the data safe on the published app. What stands in the way, most of it listed again further down:
 
-- **Reports and budget.** Resultatside is built (2026-10-18), to be tested by the user; see «Resultatside: agreed design» in [decisions.md](decisions.md).
+- **Reports and budget.** Resultatside is built (2026-10-18) and redrawn as a flat ledger (2026-10-24), to be tested by the user; see «Resultatside: agreed design» and «Resultat v2» in [decisions.md](decisions.md).
 - **An event that Venyou renames or moves.** Nothing says so when a new export renames or moves an event that has choices or FTE. Renamed, the event finds no project by its name and has no rows until it is linked again on Prosjekter, where the old project is offered when the names are alike; the rows, demand and budget are kept by number. A tick «Skjult i Kalender» is stored by hall, name and start (`venueKey`), so it is lost on a rename or a new start. Moved, the windows follow the booking while the planned FTE, stored per date on the rows, stays on the old days outside them, to be moved by hand. Wanted: a notice of what an export changed, and planned FTE that moves with its window (inferred from the code, not tried).
 - **Data that lasts.** Signed in, the workspace is shared and synced with Supabase (`docs/supabase-sync-plan.md`, phases 1 to 4 built 2026-10-21), and the app reminds the planner to download a backup a week after the last. Still open: the free plan keeps no backup of its own, the undo history is lost on reload, and the questions of data protection and the company's Microsoft tenant are the user's.
 - **One season end to end.** Much that is built is marked «to be tested by the user» or checked by tests only: Bemanning, Behov, Oppsett, Innleid, the levels of detail of Plan, competences that follow a product type. A walk through a real season on the real files, in the order of a clean start, has not been done.
@@ -26,18 +26,26 @@ The app starts from an empty workspace and the source files. It does not read th
 
 What was built in each part, where the designs and the app disagreed and what was chosen, is in [decisions.md](decisions.md) (moved there 2026-10-23). The open points of each stay below.
 
+Superseded by a later round and kept there for the record: the first Resultat redesign (by Resultat v2), Behov v2 (by Behov v3) and the tabs of tables as cards (by the v3 of Oppsett, Mannskap and Haller, 2026-10-24).
+
 - [Bemanning: a mode of the Kalender, to be tested by the user](decisions.md#bemanning-a-mode-of-the-kalender-to-be-tested-by-the-user)
 - [Behov redesign: built, to be tested by the user](decisions.md#behov-redesign-built-to-be-tested-by-the-user)
 - [Oppsett redesign: built, to be tested by the user](decisions.md#oppsett-redesign-built-to-be-tested-by-the-user)
 - [Haller and Mannskap redesign: merged](decisions.md#haller-and-mannskap-redesign-merged)
 - [Innleid: built, to be tested by the user](decisions.md#innleid-built-to-be-tested-by-the-user)
 - [Resultatside: agreed design](decisions.md#resultatside-agreed-design)
-- [Resultat redesign: built, to be tested by the user](decisions.md#resultat-redesign-built-to-be-tested-by-the-user)
+- [Ink on tint: a colour stands in one place: merged](decisions.md#ink-on-tint-a-colour-stands-in-one-place-merged)
+- [Alert counts as the mark of attention and a figure in ink: merged](decisions.md#alert-counts-as-the-mark-of-attention-and-a-figure-in-ink-merged)
+- [One control height and the ochre of DESIGN-RULES §8: merged](decisions.md#one-control-height-and-the-ochre-of-design-rules-8-merged)
+- [Mannskap and Haller v3, flat on the canvas: merged](decisions.md#mannskap-and-haller-v3-flat-on-the-canvas-merged)
+- [Oppsett v3, flat on the canvas: merged](decisions.md#oppsett-v3-flat-on-the-canvas-merged)
+- [Behov v3, flat on the canvas: built, to be tested by the user](decisions.md#behov-v3-flat-on-the-canvas-built-to-be-tested-by-the-user)
 - [Resultat v2, a flat ledger: merged](decisions.md#resultat-v2-a-flat-ledger-merged)
-- [Behov v2, the table as a card: built, to be tested by the user](decisions.md#behov-v2-the-table-as-a-card-built-to-be-tested-by-the-user)
 - [Project tagging, places and work plans: built, to be tested by the user](decisions.md#project-tagging-places-and-work-plans-built-to-be-tested-by-the-user)
 - [Spans in the plan: their ends are pulled, to be tested by the user](decisions.md#spans-in-the-plan-their-ends-are-pulled-to-be-tested-by-the-user)
 - [Innleid v8, the demand as in Faste: merged](decisions.md#innleid-v8-the-demand-as-in-faste-merged)
+- [Kalender and Bemanning, smaller rounds of 2026-10-23 and 24: merged](decisions.md#kalender-and-bemanning-smaller-rounds-of-2026-10-23-and-24-merged)
+- [Egen registrering by keyboard: built, to be tested by the user](decisions.md#egen-registrering-by-keyboard-built-to-be-tested-by-the-user)
 
 ## Staffing lines: begun
 
@@ -78,7 +86,7 @@ Kalender
 - Demand whose Hall/Sted names no hall or place is gathered under «Mangler hall» until the planner picks a place under Plassering on Behov, or makes a rule on Hallregler. A choice is for the text in every project, or for one project; there is none for a single line.
 - If Visma moves a line to another hall, a row already planned for the old hall stays there with no demand behind it. «Rader uten behov» under Filter lists such rows, in the whole period; they are moved or deleted by hand, one at a time. Rows made for several texts that are now all «Mangler hall» each show the whole unresolved demand.
 - Selecting by dragging follows the mouse past the left and right edges but not up or down.
-- The pencil («Fordel behov») shares what is left, to the tenth as it is written, in whole people, evenly, with what does not divide on the first days; the decimals are the last person, so the days never rise (4,6 over three days is 2, 2 and 0,6; 2026-10-24, `shareOverDays`). A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day.
+- The pencil («Fordel behov») shares what is left, to the tenth as it is written, in whole people, evenly, with what does not divide on the first days; the decimals are the last person, so the days never rise (4,6 over three days is 2, 2 and 0,6; 2026-10-24, `shareOverDays`). A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day, as the planner wants (checked by him, 2026-10-24).
 - A row's window is the build-up (A) or tear-down (D) days of its project in its hall; moving in and out are not counted as work days. A folded level shows the window of its rows together (`levelWindows`), and a row for all halls or for «Mangler hall» gets the days of all the project's halls together.
 - «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row. Small rows therefore get one day with a decimal each (0,2 here, 0,6 there) instead of being gathered into whole people across rows. It does not look at the available crew.
 - Notes can be written on planning cells; the staffing lines have none.
