@@ -6,7 +6,7 @@
 .dp-page{flex:1;overflow:auto;padding:24px 16px}
 
 .dp-sheet{
-  box-sizing:border-box;width:min(860px,100%);margin:0 auto;padding:28px 32px;background:var(--surface);color:var(--text);display:grid;gap:16px;font-size:var(--fs-md);line-height:1.4;box-shadow:var(--card)}
+  box-sizing:border-box;width:min(860px,100%);margin:0 auto;padding:28px 32px;background:var(--surface);color:var(--text);display:grid;gap:16px;font-size:var(--fs-md);line-height:1.4;box-shadow:var(--sheet)}
 .dp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid var(--text);padding-bottom:10px}
 .dp-head h1{margin:0;font-size:var(--fs-sheet-title);line-height:1.1}
 .dp-head div{text-align:right;display:grid;font-size:var(--fs-sm);color:var(--muted)}

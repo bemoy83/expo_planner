@@ -89,7 +89,7 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
   const shown = projects.filter(([no]) => lines.some((l) => l.projectNo === no) || single)
   if (!shown.length) return <p className="muted own-empty">Ingen egne linjer ennå.</p>
   return (
-    <table className="ledger card-table own-lines">
+    <table className="ledger canvas-table own-lines">
       <thead>
         <tr>
           <th className="pick">

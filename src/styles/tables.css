@@ -16,13 +16,13 @@ table.ledger .planned{background:var(--pos-bg)}
 /* numbers and dates are set as in the Kalender */
 table.ledger .num,table.ledger .date,table.ledger td.project-no,input.inline.num,input.inline.project-no-input{font-family:var(--font-num);font-size:var(--fs-sm)}
 
-/* a ledger on the canvas (Behov, and Tekstregler and Utelatte artikler on Oppsett, which set --table-bg and --card-inset): slim rows
+/* a ledger on the canvas (Behov, and Tekstregler and Utelatte artikler on Oppsett, which set --table-bg and --row-inset): slim rows
    edited in place, the heading held at the top. The rows' own heights and rules are the table's. */
-table.ledger.card-table{background:none;font-size:var(--fs-md)}
-table.ledger.card-table :is(th,td){border:none;padding:0 6px}
-table.ledger.card-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--table-bg,var(--surface));font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
-table.ledger.card-table tr>:is(th,td):first-child{padding-left:var(--card-inset)}
-table.ledger.card-table tr>:is(th,td):last-child{padding-right:var(--card-inset)}
+table.ledger.canvas-table{background:none;font-size:var(--fs-md)}
+table.ledger.canvas-table :is(th,td){border:none;padding:0 6px}
+table.ledger.canvas-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--table-bg,var(--surface));font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
+table.ledger.canvas-table tr>:is(th,td):first-child{padding-left:var(--row-inset)}
+table.ledger.canvas-table tr>:is(th,td):last-child{padding-right:var(--row-inset)}
 
 /* a column's heading, see ColumnHead.tsx: a click on its name sorts by it, with an arrow for the direction */
 button.col-sort{padding:0;gap:3px;border-radius:4px;background:transparent;font-weight:inherit}

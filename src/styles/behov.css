@@ -18,7 +18,6 @@
 /* the view on the canvas, as Resultat: what is worked in (the title with its controls, and the form of Egen registrering) on one neutral strip,
    the tint of a section, with its fields, tracks and buttons a step darker (--well); under it the table, its rows edge to edge and its heading
    held while they scroll. The strip has no lines of its own: it ends on the table's heading. The band's hue stays in the band. */
-.behov-main{--card-inset:24px}   /* the table's rows stand in as far as the page's band */
 .behov-zone{flex:none;display:flex;flex-direction:column;background:var(--section)}
 .behov-zone>:is(.orphans,.hint){margin:12px 24px 0}
 .behov-head{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;min-height:56px;padding:10px 24px}
@@ -28,7 +27,7 @@
 .behov-zone .segmented,.behov-head .search,.behov-head>button:not(.primary){background:var(--well)}
 .behov-head>button:not(.primary):hover:not(:disabled){background:var(--well-hover)}
 .behov-body{flex:1;min-height:0;overflow:auto;--table-bg:var(--bg)}
-.behov-empty,.behov-limit,.own-empty{margin:0;padding:16px var(--card-inset)}
+.behov-empty,.behov-limit,.own-empty{margin:0;padding:16px var(--row-inset)}
 .all-clear{display:flex;align-items:center;gap:8px;margin:16px 24px;padding:16px 18px;border-radius:10px;background:var(--sunken);color:var(--muted)}
 .all-clear svg{color:var(--pos)}
 
@@ -51,7 +50,7 @@
 .rail-bar i{display:block;height:100%;background:var(--pos)}
 
 /* the Visma lines: slim rows on one line each, a rule under each, and only the exceptions marked */
-/* the two tables of Behov, on the card table of tables.css: a checkbox that shows under the pointer */
+/* the two tables of Behov, on the canvas table of tables.css: a checkbox that shows under the pointer */
 table.ledger:is(.visma-lines,.own-lines) tr.selected td{background:var(--accent-soft)}
 table.ledger:is(.visma-lines,.own-lines) td.pick input{opacity:0}
 table.ledger:is(.visma-lines,.own-lines) :is(tr:hover td.pick input,td.pick input:checked,th.pick input,tr.project-row td.pick input){opacity:1}

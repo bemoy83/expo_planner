@@ -411,7 +411,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
           ) : (
             <DataTable
               table={table}
-              className="card-table visma-lines"
+              className="canvas-table visma-lines"
               limit={LIST_LIMIT}
               rowKey={(line) => line.key}
               rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : '', lit ? (lit.has(line.key) ? 'lit' : 'dim') : ''].filter(Boolean).join(' ') || undefined })}

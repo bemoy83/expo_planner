@@ -90,7 +90,7 @@ export function TextRules({ notify, onOpenBehov }: { notify: Notify; onOpenBehov
       </div>
       <div className="op-body">
         {rules.length ? (
-          <DataTable table={table} className="card-table op-rules" rowKey={(rule) => rule.text.toLowerCase()} />
+          <DataTable table={table} className="canvas-table op-rules" rowKey={(rule) => rule.text.toLowerCase()} />
         ) : (
           <p className="op-empty">Ingen tekstregler ennå. De lages når du gir linjer uten produkttype en arbeidstype under «Avklar» på Behov.</p>
         )}

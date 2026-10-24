@@ -113,7 +113,7 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
       </div>
       <div className="op-body">
         {listed.length ? (
-          <DataTable table={table} className="card-table op-excluded" rowKey={(article) => articleKey(article.articleNo)} />
+          <DataTable table={table} className="canvas-table op-excluded" rowKey={(article) => articleKey(article.articleNo)} />
         ) : (
           <p className="op-empty">Ingen artikler er utelatt. Alle ordrelinjer regnes med.</p>
         )}

@@ -5,13 +5,13 @@
    held while they scroll. The strip has no lines of its own: it ends on the table's heading. The band's hue stays in the band.
    First what they share, then what each page has of its own. */
 
-.register-page{--card-inset:24px;--table-bg:var(--section);display:flex;flex-direction:column;flex:1;min-height:0}
+.register-page{--table-bg:var(--section);display:flex;flex-direction:column;flex:1;min-height:0}
 .op{display:flex;flex-direction:column;flex:1;min-height:0;container-type:inline-size}
 /* a lead in the strip is short and muted, and gives way; the buttons beside it never wrap */
 .op-lead{flex:1 1 320px;min-width:0;margin:0;font-size:var(--fs-sm);color:var(--muted);text-wrap:pretty}
 .op-lead strong{color:var(--text)}
 .op-zone{flex:none;display:flex;flex-direction:column;background:var(--section)}
-.op-zone>*{margin:0;padding:6px var(--card-inset)}
+.op-zone>*{margin:0;padding:6px var(--row-inset)}
 .op-zone>:first-child{padding-top:12px}
 .op-zone>:last-child{padding-bottom:12px}
 .op-strip{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;min-height:56px}
@@ -21,7 +21,7 @@
 .op-zone :is(.search,.op-add input):focus{box-shadow:var(--well-focus)}
 .op-strip>button:not(.primary,.need-button):hover:not(:disabled){background:var(--well-hover)}
 .register-page .op-head{background:var(--section)}
-@media (max-width:1100px){.register-page{--card-inset:16px}}
+@media (max-width:1100px){.register-page{--row-inset:16px}}
 
 /* Produkttyper: how a line becomes hours, in one strip */
 .op-flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:var(--fs-sm);color:var(--muted)}
@@ -34,7 +34,7 @@
 .op-types{--cols:24px minmax(180px,1.4fr) 168px minmax(130px,1fr) 92px 104px 52px 116px 56px}
 .op-body{flex:0 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
 .op-body>*{flex:none}
-.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 var(--card-inset);border-bottom:1px solid var(--line-soft)}
+.op-row{display:grid;grid-template-columns:var(--cols);align-items:center;gap:0 12px;min-height:38px;padding:0 var(--row-inset);border-bottom:1px solid var(--line-soft)}
 .op-row>*{min-width:0}
 .op-row input.inline:not(.num){min-width:0}
 .op-row:not(.op-head):hover{background:var(--panel)}
@@ -47,7 +47,7 @@
 .op-group+.op-group .op-group-head{border-top:1px solid var(--line-strong)}
 /* one line between groups: the strong one that starts the next, none under the last row above it */
 .op-group>:last-child,.op-body>.op-row:last-child{border-bottom:0}
-.op-group-head{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px var(--card-inset) 0;font-weight:600;border-bottom:1px solid var(--line-soft)}
+.op-group-head{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px var(--row-inset) 0;font-weight:600;border-bottom:1px solid var(--line-soft)}
 .op-group-head .field-dot{margin:0}
 .op-group-count{font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 .op-group-note{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--muted)}
@@ -76,7 +76,7 @@
 /* the units of a type, folded out under it */
 .op-row.unfolded{border-bottom-color:transparent}
 .op-sub{min-height:34px;font-size:var(--fs-sm);background:color-mix(in oklab,var(--sunken) 50%,transparent)}
-.op-empty{margin:0;padding:16px var(--card-inset);color:var(--muted)}
+.op-empty{margin:0;padding:16px var(--row-inset);color:var(--muted)}
 .register-page .faint{color:var(--faint)}
 @container (max-width:1080px){.op-types{--cols:24px minmax(150px,1.3fr) 150px minmax(110px,1fr) 84px 96px 44px 56px}.op-types .op-row>:nth-child(8){display:none}.op-flow-aside{display:none}}
 @container (max-width:820px){.op-types{--cols:20px minmax(130px,1fr) 128px 104px 80px 88px 48px}.op-types .op-row>:is(:nth-child(7),:nth-child(8)){display:none}.op-tag{display:none}}
@@ -84,10 +84,10 @@
 /* Tekstregler */
 .op-quote{font-weight:500}
 /* the ledgers of Tekstregler and Utelatte artikler: the rows of the grid tables beside them */
-.op table.card-table td{height:38px;border-bottom:1px solid var(--line-soft)}
-.op table.card-table th{height:30px}
-.op table.card-table tbody tr:hover td{background:var(--panel)}
-.op table.card-table tbody tr:last-child td{border-bottom:0}
+.op table.canvas-table td{height:38px;border-bottom:1px solid var(--line-soft)}
+.op table.canvas-table th{height:30px}
+.op table.canvas-table tbody tr:hover td{background:var(--panel)}
+.op table.canvas-table tbody tr:last-child td{border-bottom:0}
 .op-rules .op-arrow{width:20px;color:var(--faint)}
 
 /* Utelatte artikler: the bar that adds one, on the strip */
