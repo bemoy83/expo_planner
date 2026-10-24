@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetOf, budgetsRenumbered, dayAverages, diffBudgets, followUpCount, followUps, mergeBudgets, projectHours, projectStaffing, replaceBudgets, reviewGrade, seasonDays, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonTotals, staffPerDay, withBudget } from './result'
+import { bookedPhases, budgetOf, budgetsRenumbered, dayAverages, diffBudgets, followUpCount, followUps, mergeBudgets, projectHours, projectStaffing, replaceBudgets, reviewGrade, seasonDays, seasonBalance, seasonRows, seasonStaffing, seasonStatus, seasonTotals, staffPerDay, withBudget } from './result'
 import { TWO_PROJECTS, withTwoProjects } from '../test/staffingFixture'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type AllocationRow, type Assignment, type DemandLine, type ProjectRef, type VenueBooking, type Workspace } from './types'
 import { venueKey } from './venueImport'
@@ -248,6 +248,17 @@ describe('the season by day', () => {
       ['2026-10-19', 22.5, 0],
       ['2026-10-20', 0, 0],
       ['2026-10-21', 7.5, 0],
+    ])
+  })
+})
+
+describe('bookedPhases', () => {
+  it('spans each phase over all the halls, in the order of the phases', () => {
+    const vvs = seasonRows(ws()).find((r) => r.projectNo === '26970')!
+    expect(bookedPhases(vvs)).toEqual([
+      { phase: 'assembly', start: '2026-10-19', end: '2026-10-22' },
+      { phase: 'event', start: '2026-10-23', end: '2026-10-25' },
+      { phase: 'dismantle', start: '2026-10-26', end: '2026-10-27' },
     ])
   })
 })

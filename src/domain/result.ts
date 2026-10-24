@@ -278,6 +278,14 @@ export const seasonTotals = (rows: SeasonRow[]): SeasonTotals => {
 /** The sums of the rows, their hours per day against the permanent staff, and what the staff can work per day: what the figures and the sums of the matrix show. */
 export const seasonSummary = (rows: SeasonRow[]) => ({ totals: seasonTotals(rows), averages: dayAverages(rows), staff: staffPerDay(rows) })
 
+/** A project's booked phases over all its halls, each from its first day in any hall to its last, in the order of the phases. */
+export const bookedPhases = (row: Pick<SeasonRow, 'hallPhases'>): ({ phase: VenuePhase } & DateSpan)[] =>
+  VENUE_PHASES.flatMap((phase) => {
+    const spans = Object.values(row.hallPhases).flatMap((phases) => phases[phase] ?? [])
+    if (!spans.length) return []
+    return [{ phase, start: spans.map((span) => span.start).sort()[0], end: spans.map((span) => span.end).sort().at(-1)! }]
+  })
+
 /** One day of the season: the planned hours of the rows on it, summed where projects overlap, and what the permanent staff can work. */
 export interface SeasonDay {
   date: ISODate

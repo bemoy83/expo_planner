@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
-import { addDays, dateRange, daysBetween, isoWeek, monthShort, periodText, type ISODate } from '../../domain/dates'
-import { dayAverages, seasonStatus, seasonTotals, type SeasonDay, type seasonSummary, type SeasonRow, type SeasonStatus } from '../../domain/result'
-import { VENUE_PHASES, type VenuePhase } from '../../domain/types'
+import { addDays, dateRange, daysBetween, isoWeek, monthShort, periodText, weekdayIndex, type ISODate } from '../../domain/dates'
+import { bookedPhases, dayAverages, seasonStatus, seasonTotals, type SeasonDay, type seasonSummary, type SeasonRow, type SeasonStatus } from '../../domain/result'
+import { VENUE_PHASES } from '../../domain/types'
 import { PHASE_LABELS } from '../../domain/venue'
 import { count } from '../dom'
 import { deviationText, hours, overHours, shareText, wholeHours } from '../format'
@@ -19,14 +19,6 @@ const SECTIONS: { status: SeasonStatus; label: string }[] = [
   { status: 'live', label: 'Pågår' },
   { status: 'next', label: 'Kommende' },
 ]
-
-/** The phases of a project over all its halls, each from its first day in any hall to its last, in the order of the phases. */
-const phaseSpans = (row: SeasonRow): { phase: VenuePhase; start: ISODate; end: ISODate }[] =>
-  VENUE_PHASES.flatMap((phase) => {
-    const spans = Object.values(row.hallPhases).flatMap((phases) => (phases[phase] ? [phases[phase]!] : []))
-    if (!spans.length) return []
-    return [{ phase, start: spans.map((span) => span.start).sort()[0], end: spans.map((span) => span.end).sort().at(-1)! }]
-  })
 
 /** A figure against what it is set against, on the tile of its grade, with its share under it. Muted, without a tile, for the sums of a section. */
 function NumberCell({ value, share, title, muted }: { value: string | null; share: number | null; title?: string; muted?: boolean }) {
@@ -83,7 +75,7 @@ export function ResultLedger({ rows, summary, days, today, overhead, actuals, op
 
   const { months, weeks } = useMemo(() => {
     const all = dateRange(range.start, range.end)
-    return { months: all.filter((date, i) => i === 0 || date.endsWith('-01')), weeks: all.filter((date) => new Date(`${date}T00:00:00Z`).getUTCDay() === 1) }
+    return { months: all.filter((date, i) => i === 0 || date.endsWith('-01')), weeks: all.filter((date) => weekdayIndex(date) === 0) }
   }, [range])
   // Every other month a step darker, as the weekends of the Kalender are.
   const shaded = months.flatMap((start, i) => (i % 2 ? [{ start, days: daysBetween(start, months[i + 1] ?? addDays(range.end, 1)) }] : []))
@@ -114,9 +106,9 @@ export function ResultLedger({ rows, summary, days, today, overhead, actuals, op
   const numbers = (cells: ReactNode) => <span className="res-numbers">{cells}</span>
 
   const projectRow = (row: SeasonRow) => {
-    const spans = phaseSpans(row)
-    const first = spans.length ? spans.map((span) => span.start).sort()[0] : row.first
-    const last = spans.length ? spans.map((span) => span.end).sort().at(-1)! : row.last
+    const spans = bookedPhases(row)
+    // Its first and last booked day, or without bookings its planned days, which are only written.
+    const { first, last } = row
     const tip = [`${row.name || 'Uten navn'} · ${first ? periodText(first, last) : 'ingen dager'}`, ...spans.map(({ phase, start, end }) => `${PHASE_LABELS[phase]}: ${periodText(start, end)}`)].join('\n')
     const labelRight = first && left(last) + DAY_W < (range.days * DAY_W + 2 * TRACK_INSET) * 0.82
     return (
@@ -176,7 +168,7 @@ export function ResultLedger({ rows, summary, days, today, overhead, actuals, op
   return (
     <div className="res-ledger">
       <div className="res-scroll" ref={scroller}>
-        <div className="res-grid" style={{ '--res-cols': columns } as CSSProperties}>
+        <div className="res-grid" style={{ '--res-cols': columns, '--res-day': `${DAY_W}px`, '--res-inset': `${TRACK_INSET}px` } as CSSProperties}>
           <div className="res-row head">
             <span className="res-label">
               <span className="res-eyebrow">Prosjekt</span>

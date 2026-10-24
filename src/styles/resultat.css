@@ -5,9 +5,7 @@
 .res-lead{color:var(--mode-mute);font-size:var(--fs-md);white-space:nowrap}
 .res-lead button.link{color:var(--mode-ink);font-size:inherit;padding:0}
 .res-stage{position:relative;flex:1;min-height:0;display:flex}
-.res-page{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px;padding:var(--stage-pad);container-type:inline-size}
 .res-empty{max-width:640px;margin:0;padding:24px}
-.res-over{color:var(--over)}
 
 /* the figures: the lower half of the band, its toolbar, a step toward the band's line (darker in both palettes) and set in by a shade where a line would be */
 .res-figures{flex:none;display:grid;grid-template-columns:repeat(6,minmax(0,auto));justify-content:start;gap:8px 40px;padding:12px 24px 14px;border-bottom:1px solid var(--mode-line);background:color-mix(in oklab,var(--mode-band) 70%,var(--mode-line));box-shadow:inset 0 3px 4px -2px color-mix(in oklab,var(--mode-line) 70%,transparent)}
@@ -21,55 +19,55 @@
 .res-figure-pair{display:inline-flex;gap:14px}
 .res-figure-pair>span{display:inline-flex;align-items:center;gap:5px}
 .res-figure .bar{width:56px;--bar-track:color-mix(in oklab,var(--mode-ink) 14%,transparent)}
-.res-figure .bar:not(.over) .share{background:var(--mode-ink)}
+.res-figure .bar .share{background:var(--mode-ink)}
+.res-figure .bar.over .share{background:var(--res-over)}
 /* a figure on the tile of the heat map for how far it is from what it is set against */
 .res-graded{position:relative;display:inline-block}
 .res-graded.heat-cell{padding:3px 7px}
 
-/* the ledger: on the canvas, the rows a grid of one template (--res-cols, set by ResultLedger). The project's column is held to the
+/* the ledger: on the canvas, the rows a grid of one template (--res-cols, with the day's width --res-day and the timeline's inset --res-inset, set by ResultLedger). The project's column is held to the
    left and the figures to the right, opaque; only the timeline moves sideways, and only the code moves it (useFollowScroll).
    As in the Kalender's grid, a line is only where figures are read across: under the heading and the sum row, and between the
    rows of figures. Sections are set apart by their tint, with no line and no months through them. */
 .res-ledger{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
 .res-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;overscroll-behavior-x:none}
-.res-grid{position:relative;width:max-content;min-width:100%}
+.res-grid{--res-head-h:54px;--res-sum-h:76px;position:relative;width:max-content;min-width:100%}
 .res-row{display:grid;grid-template-columns:var(--res-cols);min-height:46px;background:var(--bg)}
-.res-row>*{min-width:0;display:flex;align-items:center;background:inherit}
-.res-label{position:sticky;left:0;z-index:5;flex-direction:column;align-items:stretch;justify-content:center;gap:2px;padding:0 16px 0 24px}
+.res-row>*{min-width:0;background:inherit}
+.res-label{position:sticky;left:0;z-index:5;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 16px 0 24px}
 .res-label>b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .res-meta{display:flex;gap:10px;font:400 11.5px var(--font-num);color:var(--muted);white-space:nowrap;overflow:hidden}
 .res-meta>span+span{overflow:hidden;text-overflow:ellipsis;color:var(--faint)}
 .res-eyebrow{font:500 10.5px/1.2 var(--font-num);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .res-timeline{position:relative;align-self:stretch}
-.res-track{position:absolute;inset:0 14px}
+.res-track{position:absolute;inset:0 var(--res-inset)}
 .res-month-fill{position:absolute;top:0;bottom:0;background:var(--weekend)}
 .res-numbers{position:sticky;right:0;z-index:4;display:grid;grid-template-columns:subgrid;grid-column:3/-1;align-self:stretch;align-items:center}
 .res-numbers>*{min-width:0}
 .res-row.project+.res-row.project .res-numbers{box-shadow:inset 0 1px 0 var(--grid-row)}
 /* the heading and the sum row stay in view */
-.res-row.head{position:sticky;top:0;z-index:7;height:54px;min-height:0}
+.res-row.head{position:sticky;top:0;z-index:7;height:var(--res-head-h);min-height:0;box-shadow:0 1px 0 var(--line)}
 .res-month{position:absolute;top:0;bottom:0;padding:8px 0 0 6px;border-left:1px solid var(--grid-col);font:600 10.5px var(--font-num);letter-spacing:.07em;color:var(--muted)}
 .res-week{position:absolute;bottom:7px;padding-left:4px;font:400 var(--fs-2xs) var(--font-num);color:var(--faint)}
 .res-week.near{visibility:hidden}
 .res-today-chip{position:absolute;bottom:4px;z-index:1;padding:1px 6px;border-radius:4px;background:var(--today);font:600 10.5px var(--font-num);color:var(--bg);white-space:nowrap}
 .res-today-chip::before{content:"";position:absolute;left:-1px;top:100%;width:2px;height:4px;background:var(--today)}
-.res-num-head{flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;padding:0 12px 0 4px;line-height:1.15;white-space:nowrap;display:flex}
+.res-num-head{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;padding:0 12px 0 4px;line-height:1.15;white-space:nowrap}
 .res-num-head>span{font-size:11.5px;font-weight:500;color:var(--muted)}
 .res-num-head small{font-size:10.5px;color:var(--faint)}
 .res-num-head.left{align-items:flex-start;padding-left:14px}
-.res-row.sum{position:sticky;top:54px;z-index:6;height:76px;min-height:0;box-shadow:0 1px 0 var(--line)}
+.res-row.sum{position:sticky;top:var(--res-head-h);z-index:6;height:var(--res-sum-h);min-height:0;box-shadow:0 1px 0 var(--line)}
 .res-row.sum .res-label>b{font-weight:700}
-.res-row.head{box-shadow:0 1px 0 var(--line)}
 /* the sum row's timeline: the planned hours per day, grey up to what the permanent staff can work, the rest in the colour of what is over; their hours dashed */
 .res-load{top:10px;bottom:10px}
-.res-load-day{position:absolute;top:0;bottom:0;width:12px}
+.res-load-day{position:absolute;top:0;bottom:0;width:var(--res-day)}
 .res-load-day>i{position:absolute;left:0;right:1px;bottom:0;background:var(--res-plan)}
 .res-load-day>i.over{background:var(--res-over)}
 .res-load-day>i.staff{height:0;background:none;border-top:1px dashed var(--muted)}
 .res-load-day:hover>i:not(.over,.staff){background:var(--muted)}
 /* today: one line down the rows, under the held columns and the sections */
 .res-today-line{position:absolute;top:-10px;bottom:-10px;z-index:1;width:2px;margin-left:-1px;background:var(--today);pointer-events:none}
-.res-today-line.body{top:130px;bottom:0;z-index:2}
+.res-today-line.body{top:calc(var(--res-head-h) + var(--res-sum-h));bottom:0;z-index:2}
 /* a section: the projects done, going on and to come, with their sums */
 .res-row.section{position:relative;z-index:3;min-height:30px;background:var(--section)}
 .res-section-label{display:flex;align-items:baseline;gap:10px}

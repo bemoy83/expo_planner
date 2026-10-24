@@ -180,6 +180,25 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
+## Resultat v2, a flat ledger: merged
+
+Built and merged 2026-10-24 from the handoff `design_docs/design_handoff_resultat_v2/`, which the planner keeps out of git. The card dashboard of 2026-10-23 had drifted from the app's look, and v2 brings the page back to the Kalender's: the figures are the lower half of the band, and the matrix is a ledger on the canvas with the season's timeline; see [features/resultat.md](features/resultat.md). What the redesign above says of the hall columns, the matrix and `--over` no longer holds.
+
+The planner's answers (2026-10-24), the recommended ones:
+
+- The sum row's demand per day is the plan's FTE per day (`plannedByDay`, `seasonDays`), the only demand the app has by day; Behov holds totals.
+- Over the budget, and over the staff in the sum row, is `--res-over`, which is `--neg`; the plan is a neutral grey and the actual hours graphite (`--res-plan`, `--res-actual`).
+- Montering and Demontering keep their names; the handoff's Opprigg and Nedrigg are for the whole app to decide.
+- «Steder» is gone from Resultat: it chose the hall columns, which are gone.
+
+Where the build differs from the handoff, to reuse what the app has:
+
+- The deviations are on the tiles of the Kalender's heat map (`.heat`), graded by `reviewGrade` and `GRADE_TILES`; the only new code is the grade.
+- The bar's tooltip is the app's `title`, with no graded chips; option bookings are not hatched, as the app has no notion of an option.
+- Alternate months are `--weekend`, and sections have none, as the Kalender's sections have no weekends. Hover is `--wash-bg` and an open row `--sunken`. Today is `--today`.
+- The recessed half of the band mixes the band with its line, which is darker in both palettes, not with the ink.
+- The planner widened the project's column to 296 px and the figures' columns (180, 172, 112 px), and «Uten budsjett» is a badge as «Ingen plan» is.
+
 ## Behov v2, the table as a card: built, to be tested by the user
 
 Built 2026-10-23 from the handoff `design_docs/design_handoff_behov_v2/`, which the planner keeps out of git. Layout only, as on Resultat: each view's table is a raised card (`.card` in `base.css`, shared with Resultat's matrix), with the project and the controls in its heading, the column heads held at the top and a sum line held at the foot, while only the rows scroll. Visma: «Med i behovet · n av m linjer · x utelatt · y teller ikke før de er avklart» over the lines in scope, whatever the filter shows, beside the hours of the lines that count. Egen registrering: the form and «Fra i fjor» above the card; the heading holds the project's timing and booked halls; the sum line is «Planlagt · n av m linjer · x utkast teller ikke».

@@ -47,7 +47,7 @@ input[type='checkbox']{accent-color:var(--accent)}
 .phase-swatch{display:inline-block;width:8px;height:8px;margin-right:4px;border-radius:2px;flex:none}
 .phase-swatch.mon{background:var(--mon)}
 .phase-swatch.dem{background:var(--dem)}
-/* a table or a matrix raised off the page as a card (Resultat, Behov, the tabs of tables): white, rounded, a soft shadow and no line around it */
+/* a table raised off the page as a card (Behov, the tabs of tables): white, rounded, a soft shadow and no line around it */
 .card{min-height:0;border-radius:var(--card-radius);background:var(--surface);box-shadow:var(--card)}
 /* the head of a card: its title and its own controls, on one line where they fit, a hairline under it */
 .card-head{flex:none;display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-height:52px;padding:8px var(--card-inset);border-bottom:1px solid var(--line-soft)}
