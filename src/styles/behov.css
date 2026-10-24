@@ -13,16 +13,19 @@
 .behov-split{flex:1;min-height:0;display:flex}
 .behov-main{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;container-type:inline-size}
 .project-no{margin-left:4px;font:500 var(--fs-sm) var(--font-num);color:var(--faint)}
-/* the view: what is above the table, and the table as a card whose heading and sum line stay while its rows scroll (as on Resultat).
-   The card is as tall as its rows, up to the foot of the page. */
-.behov-cards{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:var(--stage-pad)}
-.behov-cards>*{flex:none}
-.behov-cards>:is(.orphans,.hint){margin:0}
-.behov-card{flex:0 1 auto;display:flex;flex-direction:column;overflow:hidden}
+/* the view on the canvas, as Resultat: what is worked in (the title with its controls, and the form of Egen registrering) on one neutral strip,
+   the tint of a section, with its fields, tracks and buttons a step darker (--well); under it the table, its rows edge to edge and its heading
+   held while they scroll. The strip has no lines of its own: it ends on the table's heading. The band's hue stays in the band. */
+.behov-main{--card-inset:24px}
+.behov-zone{flex:none;display:flex;flex-direction:column;background:var(--section)}
+.behov-zone>:is(.orphans,.hint){margin:12px 24px 0}
+.behov-head{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;min-height:56px;padding:10px 24px}
 .behov-title{margin:0 6px 0 0;font-size:var(--fs-title-sm);font-weight:700;letter-spacing:-.015em;white-space:nowrap}
 .behov-title .project-no{font-weight:400}
-.behov-card>.card-head .search{width:220px}
-.behov-card-body{flex:0 1 auto;min-height:0;overflow:auto}
+.behov-head .search{width:220px}
+.behov-zone .segmented,.behov-head .search,.behov-head>button:not(.primary){background:var(--well)}
+.behov-head>button:not(.primary):hover:not(:disabled){background:var(--well-hover)}
+.behov-body{flex:1;min-height:0;overflow:auto;--table-bg:var(--bg)}
 .behov-empty,.behov-limit,.own-empty{margin:0;padding:16px var(--card-inset)}
 .all-clear{display:flex;align-items:center;gap:8px;margin:16px;padding:16px 18px;border-radius:10px;background:var(--sunken);color:var(--muted)}
 .all-clear svg{color:var(--pos)}
@@ -55,7 +58,7 @@ table.ledger:is(.visma-lines,.own-lines) :is(tr:hover td.pick input,td.pick inpu
 /* the Visma lines: only the exceptions marked */
 table.ledger.visma-lines td{height:36px;border-bottom:1px solid var(--grid-row)}
 table.ledger.visma-lines th{height:32px}
-table.ledger.visma-lines tbody tr:hover td{background:var(--panel)}
+table.ledger.visma-lines tbody tr:hover td{background:var(--wash-bg)}
 table.ledger.visma-lines tr.resolved td{background:color-mix(in oklab,var(--pos-bg) 60%,transparent)}
 table.ledger.visma-lines tr.excluded td:not(.pick,.status){opacity:.45}
 table.ledger.visma-lines :is(th,td):is(.pick,.status){width:24px;padding:0 2px;text-align:center}
@@ -97,14 +100,14 @@ button.exclude.on{color:var(--text)}
 .split-field input{width:100%;height:26px}
 
 /* what is selected, and what can be done to it: a bar that floats over the foot of the view */
-.bulk-bar{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--surface);box-shadow:var(--pop);white-space:nowrap;font-size:var(--fs-md)}
+.bulk-bar{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--surface);box-shadow:var(--pop);white-space:nowrap;font-size:var(--fs-md)}
 .bulk-sep{width:1px;height:20px;margin:0 4px;background:var(--line)}
 
 /* a narrow view leaves out Avd. and Antall: their cells are emptied to nothing, so the text of the sum line still spans to the hours */
 @container (max-width:900px){
   table.ledger.visma-lines :is(thead,tbody) .wide{width:0;padding:0;font-size:0}
   table.ledger.visma-lines :is(thead,tbody) .wide>*{display:none}
-  .behov-card>.card-head .search{width:160px}
+  .behov-head .search{width:160px}
 }
 
 /* ---- Egen registrering ---- */
@@ -116,9 +119,9 @@ button.exclude.on{color:var(--text)}
 .timing.near::before{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .warn-text{color:var(--over)}
 
-/* the form: a raised card without an outline; the context on a recessed strip at its top */
-.own-form{display:flex;flex-direction:column;gap:12px;padding:0 16px 12px;overflow:visible}
-.own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 -16px;padding:6px 12px;border-radius:var(--card-radius) var(--card-radius) 0 0;background:var(--context-tint)}
+/* the form, on the strip: the context a plain row at its top, its crumbs set out so that their text lines up with the fields */
+.own-form{display:flex;flex-direction:column;gap:12px;padding:8px 24px 12px}
+.own-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;min-height:40px;margin-left:-8px}
 .crumbs{display:flex;align-items:center;gap:4px}
 .crumbs .crumb{max-width:260px;height:30px;margin:0;padding:0 8px;font-size:var(--fs-base);font-weight:600}
 .crumbs .quiet-chip.crumb svg{opacity:1}
@@ -132,24 +135,24 @@ span.crumb.muted{display:inline-flex;align-items:center;font-weight:500}
 .own-field{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);color:var(--muted)}
 .own-field>span:first-child{display:flex;align-items:center;padding-left:2px;font-weight:500}
 .own-field input{height:36px;font-size:var(--fs-base)}
+.own-field .field input,.crumbs .split-field input{background:var(--well)}
 .own-field .field input{width:100%;min-width:0}
 .own-field.work{flex:2 1 240px}
 .own-field.quantity{width:128px}
 .own-field.hours{width:112px}
 .own-field.competence{width:150px}
-.own-pair{display:flex;align-items:center;gap:4px;height:36px;padding:0 8px 0 0;border-radius:8px;background:var(--sunken)}
-.own-pair:focus-within{background:var(--surface);box-shadow:var(--field-focus)}
-.own-pair input,.own-pair input:focus{flex:1;min-width:0;border:0;background:none;box-shadow:none;outline:none;font-family:var(--font-num)}
-.own-pair input.unit{flex:none;width:44px;padding:0;text-align:right;font-size:var(--fs-sm);color:var(--muted)}
+.own-pair{display:flex;align-items:center;gap:4px;height:36px;padding:0 8px 0 0;border-radius:8px;background:var(--well)}
+.own-pair:focus-within{box-shadow:var(--well-focus)}
+.own-field .own-pair input,.own-field .own-pair input:focus{flex:1;min-width:0;border:0;background:none;box-shadow:none;outline:none;font-family:var(--font-num)}
+.own-field .own-pair input.unit{flex:none;width:44px;padding:0;text-align:right;font-size:var(--fs-sm);color:var(--muted)}
 .own-pair em{font:500 var(--fs-2xs) var(--font-num);font-style:normal;color:var(--faint);white-space:nowrap}
 .own-pair em.bad{color:var(--neg)}
 .own-field.basis .segmented{height:36px;align-items:center}
 .own-field.basis .segmented button{height:30px}
 .own-add{height:36px;gap:8px}
-.own-add.off{background:var(--sunken);color:var(--muted)}
 .own-foot{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
-.own-comment{width:260px;height:30px;border:0;border-radius:7px;background:color-mix(in oklab,var(--sunken) 60%,transparent);font-size:var(--fs-md)}
-.own-comment:focus{background:var(--surface);box-shadow:var(--field-focus)}
+.own-comment{width:260px;height:30px;border:0;border-radius:7px;background:var(--well);font-size:var(--fs-md)}
+.own-comment:focus{box-shadow:var(--well-focus)}
 .own-preview{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;font-size:var(--fs-sm)}
 .own-preview code{padding:1px 5px;border-radius:4px;background:var(--sunken);font:500 var(--fs-xs) var(--font-num)}
 .own-preview-item{display:inline-flex;align-items:center;gap:7px}
@@ -168,20 +171,19 @@ table.ledger.own-lines th:nth-child(5){width:96px}
 table.ledger.own-lines th:is(:nth-child(6),:nth-child(7)){width:78px}
 table.ledger.own-lines th:nth-child(8){width:86px}
 table.ledger.own-lines th:nth-child(9){width:60px}
-table.ledger.own-lines tbody:not(:first-of-type) tr.project-row td{border-top:1px solid var(--grid-top)}
-table.ledger.own-lines tr.project-row td{height:44px;font-size:var(--fs-title-sm);font-weight:700}
+table.ledger.own-lines tr.project-row td{height:36px;background:var(--section);font-size:var(--fs-base);font-weight:600}
 table.ledger.own-lines tr.project-row :is(.project-no,.small){font-weight:400}
-/* a hall is a subtotal across the card, on the tint of the form's context, with a rule under it as under a line */
-table.ledger.own-lines tr.hall-row td{height:36px;border-bottom:1px solid var(--grid-row);background:var(--context-tint)}
+/* a hall is a subtotal under the project, with no fill and no line: the lines under it have a rule between them */
+table.ledger.own-lines tr.hall-row td{height:34px}
 table.ledger.own-lines tr.hall-row :is(.hall-name b,.num){font-weight:600}
 .hall-name{margin-right:12px}
 .hall-days{display:inline-flex;align-items:center;gap:4px;font:400 var(--fs-sm) var(--font-num);color:var(--muted)}
-.hall-days .phase-swatch.dismantle{margin-left:8px}
+.hall-days .phase-swatch.dem{margin-left:8px}
 .hall-add{text-align:right}
 .hall-add .link{visibility:hidden;display:inline-flex;align-items:center;gap:4px}
 tr.hall-row:hover .hall-add .link,.hall-add .link:focus-visible{visibility:visible}
-table.ledger.own-lines tbody tr:not(.project-row,.hall-row) td{border-bottom:1px solid var(--grid-row)}
-table.ledger.own-lines tbody tr:not(.project-row,.hall-row):hover td{background:var(--panel)}
+table.ledger.own-lines tbody tr:not(.project-row,.hall-row):not(.hall-row+tr) td{border-top:1px solid var(--grid-row)}
+table.ledger.own-lines tbody tr:not(.project-row,.hall-row):hover td{background:var(--wash-bg)}
 table.ledger.own-lines tr.flash td{animation:own-flash 1.6s var(--ease)}
 @keyframes own-flash{from{background:color-mix(in oklab,var(--accent) 22%,transparent)}to{background:transparent}}
 table.ledger.own-lines tr.draft :is(.own-work-name,.num){color:var(--muted)}
@@ -206,7 +208,7 @@ tr:hover .edit-placeholder{visibility:visible}
 .inspector.avklar{width:380px}
 .inspector.hours-summary{width:420px}
 .hours-summary table.ledger.summary{width:100%;background:none}
-@container (min-width:1100px){.behov-main.with-panel .behov-cards{padding-right:408px}}
+@container (min-width:1100px){.behov-main.with-panel>:is(.behov-zone,.behov-body){padding-right:408px}}
 .avklar-progress{display:block;margin-top:10px}
 .avklar-tabs{padding:12px 16px 4px}
 .avklar-list{display:flex;flex-direction:column;gap:6px;padding:8px 12px 16px}
@@ -249,7 +251,7 @@ table.ledger.visma-lines tr.dim td{opacity:.4}
 .hours-summary .insp-sec{overflow-x:auto}
 
 /* «Fra i fjor»: a recessed card, folded until it is opened */
-.last-year{border-radius:10px;background:color-mix(in oklab,var(--sunken) 55%,transparent)}
+.last-year{margin:0 24px 12px;border-radius:10px;background:color-mix(in oklab,var(--sunken) 55%,transparent)}
 .last-year-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px 10px 14px;font-size:var(--fs-md)}
 .last-year-list{margin:0;padding:0 12px 10px 14px;list-style:none}
 .last-year-list li{display:grid;grid-template-columns:12px minmax(0,1fr) 160px 56px 56px auto;align-items:center;gap:10px;min-height:34px;border-top:1px solid var(--grid-row);font-size:var(--fs-md)}

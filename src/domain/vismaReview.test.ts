@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { locateDemand, withChoice } from './locations'
 import { PLANNED_BASIS, VISMA_BASIS, type KpiConfig, type VismaImport, type VismaRow } from './types'
 import { buildVismaLines, vismaDemandLines, vismaLineKey } from './visma'
-import { articleSamples, causeGroups, countOf, missingText, reviewVisma, suggestWorkType } from './vismaReview'
+import { articleSamples, causeGroups, countOf, missingText, reviewTotals, reviewVisma, suggestWorkType } from './vismaReview'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -70,6 +70,12 @@ describe('reviewVisma', () => {
     const project = reviewVisma(visma, kpi, leftOut, halls).get('26970')!
     for (const filter of ['need', 'counted', 'excluded'] as const) expect(project.lines.filter((line) => line.status === filter)).toHaveLength(countOf(project, filter))
     expect(countOf(project, 'all')).toBe(5)
+  })
+
+  it('sums the hours of the lines that count, and counts the rest', () => {
+    const project = reviewVisma(visma, kpi, leftOut, halls).get('26100')!
+    expect(reviewTotals(project.lines)).toEqual({ lines: 1, counted: 1, excluded: 0, need: 0, assembly: 5 / 7, dismantle: 5 / 14 })
+    expect(reviewTotals(reviewVisma(visma, kpi, leftOut, halls).get('26970')!.lines)).toMatchObject({ lines: 5, counted: 2, excluded: 1, need: 2 })
   })
 })
 

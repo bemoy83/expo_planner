@@ -208,7 +208,7 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
 
   return (
     <div className="behov-main own-main">
-      <div className="behov-cards">
+      <div className="behov-zone">
         <OwnLineForm
           ctx={ctx}
           onContext={setContext}
@@ -240,34 +240,32 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
             onDismiss={(line) => update(line, { notIn: [...(line.notIn ?? []), projectNo] })}
           />
         )}
-        <section className="card behov-card">
-          <div className="card-head">
-            <h2 className="behov-title">
-              {projectNo ? projectName : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
-            </h2>
-            {projectNo && <span className="muted">{[timing.get(projectNo)?.text, ...(spans.get(projectNo)?.keys() ?? [])].filter(Boolean).join(' · ')}</span>}
-          </div>
-          <div className="behov-card-body">
-            <OwnLines
-              lines={scoped}
-              projects={shownProjects}
-              spans={spans}
-              single={!!projectNo}
-              selected={selected}
-              onSelect={setSelected}
-              flash={flash}
-              kpi={kpi}
-              hoursPerDay={hoursPerDay}
-              onUpdate={update}
-              onRemove={remove}
-              onAddHere={(no, hall) => {
-                setContext(no === ctx.projectNo ? { ...ctx, hall } : contextFor(no, hall))
-                focus(refs.work)
-              }}
-              onTemplate={(line) => fromLine(line, { from: `Mal: ${line.workType}` })}
-            />
-          </div>
-        </section>
+        <div className="behov-head">
+          <h2 className="behov-title">
+            {projectNo ? projectName : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
+          </h2>
+          {projectNo && <span className="muted">{[timing.get(projectNo)?.text, ...(spans.get(projectNo)?.keys() ?? [])].filter(Boolean).join(' · ')}</span>}
+        </div>
+      </div>
+      <div className="behov-body">
+        <OwnLines
+          lines={scoped}
+          projects={shownProjects}
+          spans={spans}
+          single={!!projectNo}
+          selected={selected}
+          onSelect={setSelected}
+          flash={flash}
+          kpi={kpi}
+          hoursPerDay={hoursPerDay}
+          onUpdate={update}
+          onRemove={remove}
+          onAddHere={(no, hall) => {
+            setContext(no === ctx.projectNo ? { ...ctx, hall } : contextFor(no, hall))
+            focus(refs.work)
+          }}
+          onTemplate={(line) => fromLine(line, { from: `Mal: ${line.workType}` })}
+        />
       </div>
       {picked.length > 0 && (
         <div className="bulk-bar" role="toolbar" aria-label="Valgte linjer">

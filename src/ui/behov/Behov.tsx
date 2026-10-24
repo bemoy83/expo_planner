@@ -1,12 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import { EMPTY_KPI } from '../../domain/kpi'
+import { PLANNED_BASIS } from '../../domain/types'
 import { lineRef } from '../../domain/visma'
-import { reviewVisma, type ReviewedLine } from '../../domain/vismaReview'
+import { ownTotals } from '../../domain/ownDemand'
+import { reviewTotals, reviewVisma, type ReviewedLine } from '../../domain/vismaReview'
 import { readVismaExport } from '../../import/vismaExport'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import { MessageBanner, PanelToggle, Segmented, UndoRedoButtons, type Message } from '../common'
+import { BandFigures, Figure } from '../BandFigures'
 import { count } from '../dom'
 import { hours } from '../format'
 import { errorText, takeFiles } from '../files'
@@ -46,6 +49,33 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
   // Every project's Visma lines, with where each stands: the rail, the filter and the count in the switch read from this.
   const review = useMemo(() => reviewVisma(ws.visma ?? [], ws.kpi ?? EMPTY_KPI, ws.overrides ?? {}, halls, rules), [ws.visma, ws.kpi, ws.overrides, halls, rules])
   const need = useMemo(() => [...review.values()].reduce((n, project) => n + project.need, 0), [review])
+
+  // The view's key figures, on the band: what its lines in view give the demand, the project's or every project's, whatever the filter shows.
+  const visma = useMemo(() => reviewTotals(projectNo ? (review.get(projectNo)?.lines ?? []) : [...review.values()].flatMap((project) => project.lines)), [review, projectNo])
+  const own = useMemo(() => ownTotals(projectNo ? list.own.filter((line) => line.projectNo === projectNo) : list.own), [list.own, projectNo])
+  const phaseFigures = (assembly: number, dismantle: number) => [
+    <Figure key="mon" label="Montering" value={<><i className="phase-swatch mon" aria-hidden />{hours(assembly)}</>} />,
+    <Figure key="dem" label="Demontering" value={<><i className="phase-swatch dem" aria-hidden />{hours(dismantle)}</>} />,
+  ]
+  const figures =
+    view === 'visma'
+      ? visma.lines > 0 && (
+          <BandFigures>
+            <Figure
+              label="Med i behovet"
+              value={visma.counted}
+              unit={`av ${count(visma.lines, 'linje', 'linjer')}`}
+              sub={[visma.excluded > 0 && `${visma.excluded} utelatt`, visma.need > 0 && `${visma.need} teller ikke før de er avklart`].filter(Boolean).join(' · ') || 'Alle linjer er avklart'}
+            />
+            {phaseFigures(visma.assembly, visma.dismantle)}
+          </BandFigures>
+        )
+      : own.lines > 0 && (
+          <BandFigures>
+            <Figure label={PLANNED_BASIS} value={own.planned} unit={`av ${count(own.lines, 'linje', 'linjer')}`} sub={own.lines > own.planned ? `${count(own.lines - own.planned, 'utkast', 'utkast')} teller ikke` : 'Alle linjer teller'} />
+            {phaseFigures(own.assembly, own.dismantle)}
+          </BandFigures>
+        )
 
   // The projects down the left, the same in both views: in Visma what needs the planner, in Egen registrering the own hours.
   const needMark = (n: number) =>
@@ -114,7 +144,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
           options={[
             {
               value: 'visma',
-              label: <>Visma · gjennomgang {need > 0 && <span className="count-chip alert">{need}</span>}</>,
+              label: <>Visma · gjennomgang {need > 0 && <span className="count-chip ink" title={`${count(need, 'linje', 'linjer')} trenger avklaring`}>{need}</span>}</>,
               title: 'Behovet regnet fra ordrelinjene i Visma: avklar det som mangler, eller utelat linjer',
             },
             { value: 'egen', label: <>Egen registrering <span className="count">{list.own.length}</span></>, title: 'Arbeid som ikke er solgt gjennom Visma' },
@@ -133,6 +163,7 @@ export function Behov({ projectNo, onProjectChange, onOpenSetup, onOpenRules }: 
         )}
         <input ref={vismaInput} type="file" accept=".xlsx" hidden onChange={(e) => takeFiles(e, onVismaFiles)} />
       </div>
+      {figures}
       <MessageBanner message={message} onClose={() => setMessage(null)} />
       <div className="behov-stage">
         <div className="behov-split">

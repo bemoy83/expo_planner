@@ -4,7 +4,7 @@ import { typeAndRate } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
 import { parseHours, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
-import { SumLead, TriCheckbox } from '../common'
+import { TriCheckbox } from '../common'
 import { count } from '../dom'
 import { useCompetenceColor } from './format'
 import { formatFte, hoursOrDash } from '../format'
@@ -88,14 +88,14 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
 
   const shown = projects.filter(([no]) => lines.some((l) => l.projectNo === no) || single)
   if (!shown.length) return <p className="muted own-empty">Ingen egne linjer ennå.</p>
-  // The sum line: the lines of the projects shown, of which those planned with count.
-  const inView = lines.filter((l) => shown.some(([no]) => no === l.projectNo))
-  const plannedLines = inView.filter((l) => l.basis === PLANNED_BASIS)
   return (
     <table className="ledger card-table own-lines">
       <thead>
         <tr>
-          <th className="pick" />
+          <th className="pick">
+            {/* One project has no row of its own: its lines are picked all at once in the heading. */}
+            {single && lines.length > 0 && <TriCheckbox label="Velg prosjektets linjer" checked={lines.every((l) => selected.has(l.id))} partial={!lines.every((l) => selected.has(l.id)) && lines.some((l) => selected.has(l.id))} onChange={(on) => toggle(lines, on)} />}
+          </th>
           <th>Arbeid</th>
           <th>Kompetanse</th>
           <th className="num">Avd.</th>
@@ -114,16 +114,18 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
         const all = mine.length > 0 && mine.every((l) => selected.has(l.id))
         return (
           <tbody key={no} className="own-project">
-            <tr className="project-row">
-              <td className="pick">{mine.length > 0 && <TriCheckbox label="Velg prosjektets linjer" checked={all} partial={!all && mine.some((l) => selected.has(l.id))} onChange={(on) => toggle(mine, on)} />}</td>
-              <td colSpan={3}>
-                {name} <span className="project-no">{no}</span> <span className="muted small">{count(mine.length, 'linje', 'linjer')}</span>
-              </td>
-              <td />
-              <td className="num">{hoursOrDash(planned(mine, 'assemblyHours'))}</td>
-              <td className="num">{hoursOrDash(planned(mine, 'dismantleHours'))}</td>
-              <td colSpan={2} />
-            </tr>
+            {!single && (
+              <tr className="project-row">
+                <td className="pick">{mine.length > 0 && <TriCheckbox label="Velg prosjektets linjer" checked={all} partial={!all && mine.some((l) => selected.has(l.id))} onChange={(on) => toggle(mine, on)} />}</td>
+                <td colSpan={3}>
+                  {name} <span className="project-no">{no}</span> <span className="muted small">{count(mine.length, 'linje', 'linjer')}</span>
+                </td>
+                <td />
+                <td className="num">{hoursOrDash(planned(mine, 'assemblyHours'))}</td>
+                <td className="num">{hoursOrDash(planned(mine, 'dismantleHours'))}</td>
+                <td colSpan={2} />
+              </tr>
+            )}
             {halls.map((hall) => {
               const here = mine.filter((l) => l.hall === hall)
               const days = booked.get(hall)
@@ -222,19 +224,6 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
           </tbody>
         )
       })}
-      <tfoot>
-        <tr>
-          <td colSpan={5}>
-            <SumLead
-              label={PLANNED_BASIS}
-              parts={[`${plannedLines.length} av ${count(inView.length, 'linje', 'linjer')}`, inView.length > plannedLines.length && `${count(inView.length - plannedLines.length, 'utkast', 'utkast')} teller ikke`]}
-            />
-          </td>
-          <td className="num">{hoursOrDash(planned(inView, 'assemblyHours'))}</td>
-          <td className="num">{hoursOrDash(planned(inView, 'dismantleHours'))}</td>
-          <td colSpan={2} />
-        </tr>
-      </tfoot>
     </table>
   )
 }

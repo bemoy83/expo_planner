@@ -42,6 +42,10 @@
   --grid-top:var(--line-strong);                                 /* above a top level */
   /* the heading of a section of the Kalender: a neutral tint, never the hue of a mode */
   --section:color-mix(in oklab,var(--bg) 96%,var(--text));
+  /* a field, a track or a button on a section's tint, as Behov's strip: a step darker, recessed and never raised; its hover a step more, and its focus a ring */
+  --well:color-mix(in oklab,var(--section) 93%,var(--text));
+  --well-hover:color-mix(in oklab,var(--section) 88%,var(--text));
+  --well-focus:0 0 0 1.5px color-mix(in srgb,var(--text) 50%,transparent);
 
   /* work phases: light fills with dark numbers */
   --mon:oklch(0.8 0.065 115);

@@ -57,6 +57,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
   const set = (patch: Partial<OwnDraft>) => onDraft({ ...draft, ...patch })
   const qtyRef = useRef<HTMLInputElement>(null)
   const compRef = useRef<HTMLInputElement>(null)
+  const addRef = useRef<HTMLButtonElement>(null)
 
   const { type, rate } = typeAndRate(kpi, draft.work)
   const quantity = parseDecimal(draft.quantity) ?? null
@@ -146,7 +147,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
 
   return (
     <section
-      className="own-form card"
+      className="own-form"
       aria-label="Ny linje"
       onKeyDown={(e) => {
         const target = e.target as HTMLElement
@@ -291,7 +292,15 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
         </label>
         <label className="own-field competence">
           <span>Kompetanse</span>
-          <PickField ref={compRef} value={draft.competence} onChange={(competence) => set({ competence })} options={competences} placeholder="–" />
+          <PickField
+            ref={compRef}
+            value={draft.competence}
+            onChange={(competence) => set({ competence })}
+            // A competence picked from the list is the last of the line: the focus goes to «Legg til», so Enter saves it.
+            onPick={(competence) => (set({ competence }), requestAnimationFrame(() => addRef.current?.focus()))}
+            options={competences}
+            placeholder="–"
+          />
         </label>
         <span className="own-field basis">
           <span>Grunnlag</span>
@@ -305,7 +314,7 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
             ]}
           />
         </span>
-        <button className={`primary own-add ${missing.length ? 'off' : ''}`} title={missing.length ? `Mangler ${missing.join(', ')}` : 'Legg til (Enter)'} onClick={add}>
+        <button ref={addRef} className="primary own-add" title={missing.length ? `Mangler ${missing.join(', ')}` : 'Legg til (Enter)'} onClick={add}>
           {split && bookedHalls.length > 1 ? `Legg til ${bookedHalls.length}` : 'Legg til'} <CornerDownLeft size={13} aria-hidden />
         </button>
       </div>

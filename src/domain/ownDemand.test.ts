@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fromLastYear, parseHours, previousProjectNo, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
+import { fromLastYear, ownTotals, parseHours, previousProjectNo, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
 import type { DemandLine, VenueBooking } from './types'
 
 describe('parseHours', () => {
@@ -88,5 +88,14 @@ describe('fromLastYear', () => {
     expect(found.previous).toBe('25231')
     expect(found.missing.map((l) => l.id)).toEqual(['b'])
     expect(found.present).toBe(1)
+  })
+})
+
+describe('ownTotals', () => {
+  it('counts the hours of the lines planned with, and not of the drafts', () => {
+    const line = (basis: string, assemblyHours: number): DemandLine => ({
+      id: basis + assemblyHours, projectNo: '26231', projectName: '', source: 'Egen registrering', workType: 'Rigg', quantity: null, unit: '', stand: '', hall: 'C', competence: 'Rigg', basis, assemblyHours, dismantleHours: 2, comment: '', origin: 'manual',
+    })
+    expect(ownTotals([line('Planlagt', 8), line('Planlagt', 4), line('Utkast', 6)])).toEqual({ lines: 3, planned: 2, assembly: 12, dismantle: 4 })
   })
 })

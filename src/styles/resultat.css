@@ -7,20 +7,11 @@
 .res-stage{position:relative;flex:1;min-height:0;display:flex}
 .res-empty{max-width:640px;margin:0;padding:24px}
 
-/* the figures: the lower half of the band, its toolbar, a step toward the band's line (darker in both palettes) and set in by a shade where a line would be */
-.res-figures{flex:none;display:grid;grid-template-columns:repeat(6,minmax(0,auto));justify-content:start;gap:8px 40px;padding:12px 24px 14px;border-bottom:1px solid var(--mode-line);background:color-mix(in oklab,var(--mode-band) 70%,var(--mode-line));box-shadow:inset 0 3px 4px -2px color-mix(in oklab,var(--mode-line) 70%,transparent)}
-@media (max-width:1280px){.res-figures{grid-template-columns:repeat(3,minmax(0,auto));gap:10px 40px}}
-.res-figure{display:flex;flex-direction:column;gap:3px;min-width:0}
-.res-figure-label{font:500 10.5px var(--font-num);letter-spacing:.06em;text-transform:uppercase;color:var(--mode-mute);white-space:nowrap}
-.res-figure-value{display:flex;align-items:center;gap:10px;min-height:28px}
-.res-figure-value>b{font:600 21px/1.1 var(--font-num);letter-spacing:-.02em;color:var(--mode-ink);white-space:nowrap}
-.res-figure-value>b small{margin-left:3px;font:500 var(--fs-md) var(--font-num);letter-spacing:0;color:var(--mode-mute)}
-.res-figure-sub{font-size:var(--fs-sm);color:var(--mode-ink);text-wrap:pretty}
 .res-figure-pair{display:inline-flex;gap:14px}
 .res-figure-pair>span{display:inline-flex;align-items:center;gap:5px}
-.res-figure .bar{width:56px;--bar-track:color-mix(in oklab,var(--mode-ink) 14%,transparent)}
-.res-figure .bar .share{background:var(--mode-ink)}
-.res-figure .bar.over .share{background:var(--res-over)}
+.band-figure .bar{width:56px;--bar-track:color-mix(in oklab,var(--mode-ink) 14%,transparent)}
+.band-figure .bar .share{background:var(--mode-ink)}
+.band-figure .bar.over .share{background:var(--res-over)}
 /* a figure on the tile of the heat map for how far it is from what it is set against */
 .res-graded{position:relative;display:inline-block}
 .res-graded.heat-cell{padding:3px 7px}

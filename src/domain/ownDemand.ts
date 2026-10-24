@@ -2,7 +2,7 @@ import { daysBetween, dateRange, periodText, type ISODate } from './dates'
 import { dayType } from './holidays'
 import { decimalText } from './numbers'
 import { eventKey, venueEvents } from './projects'
-import type { DateSpan, DemandLine, ProjectRef, VenueBooking, VismaRow } from './types'
+import { PLANNED_BASIS, type DateSpan, type DemandLine, type ProjectRef, type VenueBooking, type VismaRow } from './types'
 import { anchorDate } from './venueImport'
 
 /**
@@ -133,4 +133,15 @@ export const fromLastYear = (own: DemandLine[], projectNo: string): { previous: 
   const then = own.filter((line) => line.projectNo === previous)
   const missing = then.filter((line) => !now.some((other) => sameWork(line, other)))
   return { previous, missing: missing.filter((line) => !line.notIn?.includes(projectNo)), present: then.length - missing.length }
+}
+
+/** The own lines in view: how many there are, how many are planned with, and the hours of those. A draft counts nowhere. */
+export const ownTotals = (lines: DemandLine[]) => {
+  const planned = lines.filter((line) => line.basis === PLANNED_BASIS)
+  return {
+    lines: lines.length,
+    planned: planned.length,
+    assembly: planned.reduce((sum, line) => sum + line.assemblyHours, 0),
+    dismantle: planned.reduce((sum, line) => sum + line.dismantleHours, 0),
+  }
 }

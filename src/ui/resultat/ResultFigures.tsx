@@ -1,24 +1,8 @@
-import type { ReactNode } from 'react'
 import { NOISE, type seasonSummary, type SeasonRow } from '../../domain/result'
 import { count } from '../dom'
 import { overHours, overShareText, percentText, wholeOrDash as whole } from '../format'
 import { Graded } from './Graded'
-
-function Figure({ label, value, unit = 't', sub, children }: { label: string; value: ReactNode; unit?: string; sub?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="res-figure">
-      <span className="res-figure-label">{label}</span>
-      <span className="res-figure-value">
-        <b>
-          {value}
-          {unit && <small>{unit}</small>}
-        </b>
-        {children}
-      </span>
-      {sub && <span className="res-figure-sub">{sub}</span>}
-    </div>
-  )
-}
+import { BandFigures, Figure } from '../BandFigures'
 
 /** A share as a thin bar, in the colour of what is over where it is. */
 const Meter = ({ share, over, title }: { share: number; over?: boolean; title?: string }) => (
@@ -36,7 +20,7 @@ export function ResultFigures({ rows, summary, overhead, staffedOf }: { rows: Se
   const staffed = rows.reduce((sum, row) => sum + staffedOf(row), 0)
   const over = totals.deviation !== null && totals.deviation < -NOISE
   return (
-    <div className="res-figures">
+    <BandFigures>
       <Figure label="Budsjett" value={whole(totals.budget)} sub={`${totals.budgeted} av ${count(totals.projects, 'prosjekt', 'prosjekter')} har budsjett`} />
       <Figure label={`Planlagt inkl. ${percentText(overhead)}`} value={whole(totals.withOverhead)} sub={`${whole(totals.plannedTotal)} t uten overhead`}>
         {totals.budget > 0 && <Meter share={totals.budgetedWithOverhead / totals.budget} over={over} title="Planlagt inkl. overhead mot budsjett, for prosjektene med budsjett" />}
@@ -75,6 +59,6 @@ export function ResultFigures({ rows, summary, overhead, staffedOf }: { rows: Se
       ) : (
         <Figure label="Faktisk" value="" unit="" sub="Ingen faktiske timer lest inn." />
       )}
-    </div>
+    </BandFigures>
   )
 }

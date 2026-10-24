@@ -7,7 +7,7 @@ import { countOf, missingText, type LineFilter, type LineStatus, type ProjectRev
 import { useWorkspace } from '../../store/workspaceStore'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
-import { Segmented, SumLead, TriCheckbox, type Message } from '../common'
+import { Segmented, TriCheckbox, type Message } from '../common'
 import { count, isTyping } from '../dom'
 import { NumberField, TextField, type PickItem } from '../fields'
 import { Avklar } from './Avklar'
@@ -118,11 +118,6 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
     onMessage({ kind: 'ok', text: `${excluded ? 'Utelot' : 'Tok med'} ${count(changed.length, 'linje', 'linjer')}. Kan angres med Ctrl/Cmd+Z.` })
   }
 
-  // The sum line: what counts in the demand, of every line in scope whatever the filter shows, under the hours of the lines that count.
-  const counted = scope.filter((line) => line.status === 'counted')
-  const countedHours = (field: 'assemblyHours' | 'dismantleHours') => hours(counted.reduce((sum, line) => sum + line[field], 0))
-  const sumText = [`${counted.length} av ${count(scope.length, 'linje', 'linjer')}`, scopeCount('excluded') > 0 && `${scopeCount('excluded')} utelatt`, scopeCount('need') > 0 && `${scopeCount('need')} teller ikke før de er avklart`]
-
   const columns: Column<ReviewedLine>[] = [
     {
       key: 'pick',
@@ -134,9 +129,6 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
           partial={matched.some((line) => selected.has(line.key)) && !matched.every((line) => selected.has(line.key))}
           onChange={(on) => setSelected(on ? new Set(matched.map((line) => line.key)) : new Set())}
         />
-      ),
-      foot: () => (
-        <SumLead label="Med i behovet" parts={sumText} />
       ),
       cell: (line) => (
         <input
@@ -283,7 +275,6 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       title: 'Montering, timer',
       text: (line) => hours(line.assemblyHours),
       sort: (line) => line.assemblyHours,
-      foot: () => countedHours('assemblyHours'),
       cell: (line) => (line.assemblyHours ? hours(line.assemblyHours) : ''),
       cellProps: (line) => ({ title: line.rateAssembly ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateAssembly, 2)}` : '' }),
     },
@@ -294,7 +285,6 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
       title: 'Demontering, timer',
       text: (line) => hours(line.dismantleHours),
       sort: (line) => line.dismantleHours,
-      foot: () => countedHours('dismantleHours'),
       cell: (line) => (line.dismantleHours ? hours(line.dismantleHours) : ''),
       cellProps: (line) => ({ title: line.rateDismantle ? `${formatFte(line.quantity, 1)} ÷ ${formatFte(line.rateDismantle, 2)}` : '' }),
     },
@@ -319,8 +309,6 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
         ),
     },
   ]
-  // The text of the sum line covers the columns before the hours.
-  columns[0].footSpan = columns.findIndex((column) => column.key === 'assembly')
   const table = useTable(matched, columns)
   const picked = scope.filter((line) => selected.has(line.key))
   // Esc lets go of what is selected, unless a field or a menu has the key.
@@ -337,7 +325,7 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
 
   return (
     <div className={`behov-main ${avklar ? 'with-panel' : ''}`}>
-      <div className="behov-cards">
+      <div className="behov-zone">
         {orphans.length > 0 && (
           <div className="orphans" role="alert">
             <strong>{count(orphans.length, 'linje', 'linjer')} du har endret finnes ikke lenger i Visma-utskriften.</strong> Valgene er tatt vare på og gjelder igjen hvis
@@ -369,70 +357,68 @@ export function VismaView({ projectNo, onProjectChange, onOpenSetup, review, nam
             </button>
           </p>
         )}
-        <section className="card behov-card">
-          <div className="card-head">
-            <h2 className="behov-title" title="Linjer med arbeidstype, sats og hall er med av seg selv. Avklar resten, eller utelat det som ikke skal med.">
-              {projectNo ? (names.get(projectNo) ?? projectNo) : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
-            </h2>
-            {totals.all > 0 && (
-              <>
-                <Segmented
-                  label="Vis linjene"
-                  value={filter}
-                  onChange={(next) => (setFilter(next), setSelected(new Set()))}
-                  options={[
-                    {
-                      value: 'need',
-                      label: (
-                        <>
-                          Trenger avklaring {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>}
-                        </>
-                      ),
-                      title: 'Linjer som mangler arbeidstype, sats eller hall, og som derfor ikke teller',
-                    },
-                    { value: 'counted', label: <>Med <span className="count">{scopeCount('counted')}</span></>, title: 'Linjer som teller i behovet det planlegges med' },
-                    { value: 'excluded', label: <>Utelatt <span className="count">{scopeCount('excluded')}</span></>, title: 'Linjer du har utelatt' },
-                    { value: 'all', label: <>Alle <span className="count">{scopeCount('all')}</span></> },
-                  ]}
-                />
-                <input className="search" type="search" placeholder="Søk, også i Visma-tekst" aria-label="Søk i linjene" value={search} onChange={(e) => setSearch(e.target.value)} />
-                {table.filtered > 0 && (
-                  <button className="ghost" onClick={table.clearFilters} title="Fjerner filtrene i kolonnene">
-                    Nullstill ({table.filtered})
-                  </button>
-                )}
-                <span className="toolbar-gap" />
-                <button className="primary" disabled={avklar} title="Avklar linjene samlet, etter hva de mangler" onClick={() => onAvklar(true)}>
-                  Avklar {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>} ›
-                </button>
-                {offerCount > 0 && (
-                  <button className="ghost" title={[...typeOffers.map((line) => `${line.texts.join(' · ') || line.hall}: ${line.suggestedType}`), ...hallOffers.map(({ text, hall }) => `${text.trim() || '(tom)'}: ${hall}`)].join('\n')} onClick={takeOffers}>
-                    <Check size={14} aria-hidden /> Bruk {count(offerCount, 'forslag', 'forslag')}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-          <div className="behov-card-body">
-            {totals.all === 0 ? (
-              <p className="muted behov-empty">Ingen Visma-utskrift er lest inn. Bruk «Importer Visma-utskrift» øverst.</p>
-            ) : filter === 'need' && matched.length === 0 && !q ? (
-              <p className="all-clear">
-                <Check size={16} aria-hidden /> Ingenting å avklare{projectNo ? ' i prosjektet' : ''}.
-              </p>
-            ) : (
-              <DataTable
-                table={table}
-                className="card-table visma-lines"
-                limit={LIST_LIMIT}
-                rowKey={(line) => line.key}
-                rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : '', lit ? (lit.has(line.key) ? 'lit' : 'dim') : ''].filter(Boolean).join(' ') || undefined })}
-                empty={q ? 'Ingen linjer passer søket.' : 'Ingen linjer passer filteret.'}
+        <div className="behov-head">
+          <h2 className="behov-title" title="Linjer med arbeidstype, sats og hall er med av seg selv. Avklar resten, eller utelat det som ikke skal med.">
+            {projectNo ? (names.get(projectNo) ?? projectNo) : 'Alle prosjekter'} {projectNo && <span className="project-no">{projectNo}</span>}
+          </h2>
+          {totals.all > 0 && (
+            <>
+              <Segmented
+                label="Vis linjene"
+                value={filter}
+                onChange={(next) => (setFilter(next), setSelected(new Set()))}
+                options={[
+                  {
+                    value: 'need',
+                    label: (
+                      <>
+                        Trenger avklaring {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>}
+                      </>
+                    ),
+                    title: 'Linjer som mangler arbeidstype, sats eller hall, og som derfor ikke teller',
+                  },
+                  { value: 'counted', label: <>Med <span className="count">{scopeCount('counted')}</span></>, title: 'Linjer som teller i behovet det planlegges med' },
+                  { value: 'excluded', label: <>Utelatt <span className="count">{scopeCount('excluded')}</span></>, title: 'Linjer du har utelatt' },
+                  { value: 'all', label: <>Alle <span className="count">{scopeCount('all')}</span></> },
+                ]}
               />
-            )}
-            {table.rows.length > LIST_LIMIT && <p className="muted behov-limit">Viser de første {LIST_LIMIT} av {table.rows.length} linjer. Bruk filteret eller velg et prosjekt for å se resten.</p>}
-          </div>
-        </section>
+              <input className="search" type="search" placeholder="Søk, også i Visma-tekst" aria-label="Søk i linjene" value={search} onChange={(e) => setSearch(e.target.value)} />
+              {table.filtered > 0 && (
+                <button onClick={table.clearFilters} title="Fjerner filtrene i kolonnene">
+                  Nullstill ({table.filtered})
+                </button>
+              )}
+              <span className="toolbar-gap" />
+              <button className="primary" disabled={avklar} title="Avklar linjene samlet, etter hva de mangler" onClick={() => onAvklar(true)}>
+                Avklar {scopeCount('need') > 0 && <span className="count-chip alert">{scopeCount('need')}</span>} ›
+              </button>
+              {offerCount > 0 && (
+                <button title={[...typeOffers.map((line) => `${line.texts.join(' · ') || line.hall}: ${line.suggestedType}`), ...hallOffers.map(({ text, hall }) => `${text.trim() || '(tom)'}: ${hall}`)].join('\n')} onClick={takeOffers}>
+                  <Check size={14} aria-hidden /> Bruk {count(offerCount, 'forslag', 'forslag')}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      <div className="behov-body">
+        {totals.all === 0 ? (
+            <p className="muted behov-empty">Ingen Visma-utskrift er lest inn. Bruk «Importer Visma-utskrift» øverst.</p>
+          ) : filter === 'need' && matched.length === 0 && !q ? (
+            <p className="all-clear">
+              <Check size={16} aria-hidden /> Ingenting å avklare{projectNo ? ' i prosjektet' : ''}.
+            </p>
+          ) : (
+            <DataTable
+              table={table}
+              className="card-table visma-lines"
+              limit={LIST_LIMIT}
+              rowKey={(line) => line.key}
+              rowProps={(line) => ({ className: [line.excluded ? 'excluded' : '', resolvedNow(line) ? 'resolved' : '', selected.has(line.key) ? 'selected' : '', lit ? (lit.has(line.key) ? 'lit' : 'dim') : ''].filter(Boolean).join(' ') || undefined })}
+              empty={q ? 'Ingen linjer passer søket.' : 'Ingen linjer passer filteret.'}
+            />
+          )}
+        {table.rows.length > LIST_LIMIT && <p className="muted behov-limit">Viser de første {LIST_LIMIT} av {table.rows.length} linjer. Bruk filteret eller velg et prosjekt for å se resten.</p>}
       </div>
       {picked.length > 0 && (
         <div className="bulk-bar" role="toolbar" aria-label="Valgte linjer">

@@ -115,6 +115,19 @@ export const reviewVisma = (visma: VismaImport[], kpi: KpiConfig, overrides: Rec
   return review
 }
 
+/** What Visma gives the demand of the lines in view, whatever the filter shows: how many count, are left out or need the planner, and the hours of those that count. */
+export const reviewTotals = (lines: ReviewedLine[]) => {
+  const counted = lines.filter((line) => line.status === 'counted')
+  return {
+    lines: lines.length,
+    counted: counted.length,
+    excluded: lines.filter((line) => line.status === 'excluded').length,
+    need: lines.filter((line) => line.status === 'need').length,
+    assembly: counted.reduce((sum, line) => sum + line.assemblyHours, 0),
+    dismantle: counted.reduce((sum, line) => sum + line.dismantleHours, 0),
+  }
+}
+
 /** How many lines match the filter in a project. */
 export const countOf = (project: ProjectReview, filter: LineFilter): number => (filter === 'all' ? project.lines.length : project[filter])
 

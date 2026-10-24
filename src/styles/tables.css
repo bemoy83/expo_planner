@@ -20,7 +20,7 @@ table.ledger .num,table.ledger .date,table.ledger td.project-no,input.inline.num
    and the sum line at its foot. The rows' own heights and rules are the table's. */
 table.ledger.card-table{background:none;font-size:var(--fs-md)}
 table.ledger.card-table :is(th,td){border:none;padding:0 6px}
-table.ledger.card-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--surface);font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
+table.ledger.card-table th{z-index:2;border-bottom:1px solid var(--line);background:var(--table-bg,var(--surface));font-size:var(--fs-sm);font-weight:500;color:var(--faint);top:0}
 table.ledger.card-table tr>:is(th,td):first-child{padding-left:var(--card-inset)}
 table.ledger.card-table tr>:is(th,td):last-child{padding-right:var(--card-inset)}
 /* the sum line, held at the foot of the card: what counts, of how many, beside the hours. Its rule is drawn a pixel up, over the
