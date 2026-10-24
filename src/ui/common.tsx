@@ -268,10 +268,13 @@ export function Switch({ on, label, onChange }: { on: boolean; label: string; on
   )
 }
 
-/** How many need the planner: the mark of attention and the figure in ink, with no fill (DESIGN-RULES §8). A count of what is there is a plain `.count`. */
+/**
+ * How many need the planner: the mark of attention and the figure in ink, with no fill (DESIGN-RULES §8). None is a plain count,
+ * as a count of what is there (`.count`).
+ */
 export function AlertCount({ n, title }: { n: number; title?: string }) {
   return (
-    <span className="alert-count" title={title}>
+    <span className={n ? 'alert-count' : 'count'} title={title}>
       {n}
     </span>
   )

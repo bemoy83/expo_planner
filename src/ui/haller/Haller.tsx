@@ -220,7 +220,7 @@ export function Haller({ head, notify, onOpenProjects, onReadVenyou, venyouTitle
               options={[
                 { value: 'alle', label: <>Alle <span className="count">{groups.length}</span></> },
                 { value: 'kalender', label: <>I Kalender <span className="count">{inKalender}</span></>, title: 'Arrangementene med minst én hall som vises i Kalender' },
-                { value: 'mangler', label: <>Mangler prosjekt {missing ? <AlertCount n={missing} /> : <span className="count">0</span>}</> },
+                { value: 'mangler', label: <>Mangler prosjekt <AlertCount n={missing} /></> },
                 { value: 'skjult', label: <>Skjult i Kalender <span className="count">{someHidden}</span></> },
               ]}
             />

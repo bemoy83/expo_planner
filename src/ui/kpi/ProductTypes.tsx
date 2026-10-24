@@ -132,7 +132,7 @@ export function ProductTypes({ rows, types, yields, notify }: { rows: KpiRow[]; 
             onChange={setFilter}
             options={[
               { value: 'alle', label: <>Alle <span className="count">{types.length}</span></> },
-              { value: 'mangler', label: <>Mangler {unfinished ? <AlertCount n={unfinished} /> : <span className="count">0</span>}</>, title: 'Produkttyper som ikke er ferdig satt opp' },
+              { value: 'mangler', label: <>Mangler <AlertCount n={unfinished} /></>, title: 'Produkttyper som ikke er ferdig satt opp' },
               { value: 'ferdig', label: <>Satt opp <span className="count">{types.length - unfinished}</span></> },
             ]}
           />

@@ -186,7 +186,7 @@ export function HallRules({ head, notify, show }: TablePage) {
 
   const partLabel = (label: string, n: number, issue = false) => (
     <>
-      {label} {issue && n ? <AlertCount n={n} /> : <span className="count">{n}</span>}
+      {label} {issue ? <AlertCount n={n} /> : <span className="count">{n}</span>}
     </>
   )
 
