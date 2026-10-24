@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Ban, X } from 'lucide-react'
-import { articleKey, articlesSeen, EMPTY_KPI, excludedLines, withExcludedArticle, withoutExcludedArticle } from '../../domain/kpi'
+import { articleKey, articlesSeen, EMPTY_KPI, withExcludedArticle, withoutExcludedArticle } from '../../domain/kpi'
 import { useWorkspace } from '../../store/workspaceStore'
-import { SumLead } from '../common'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { count } from '../dom'
@@ -25,7 +24,6 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
   const listed = kpi.excludedArticles ?? []
   const out = new Set(listed.map((article) => articleKey(article.articleNo)))
   const offered = [...seen.values()].filter((article) => !out.has(articleKey(article.articleNo)))
-  const dropped = useMemo(() => excludedLines(visma ?? [], kpi), [visma, kpi])
   const known = out.has(articleKey(number))
   /** The article typed, as the exports have it. */
   const typed = seen.get(articleKey(number))
@@ -45,8 +43,6 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
       head: 'Art.nr',
       text: (article) => article.articleNo,
       cell: (article) => <strong className="op-number">{article.articleNo}</strong>,
-      foot: () => <SumLead parts={[`Nå holdes ${count(dropped, 'ordrelinje', 'ordrelinjer')} utenfor`]} />,
-      footSpan: 5,
     },
     {
       key: 'note',
@@ -81,38 +77,40 @@ export function ExcludedArticles({ notify }: { notify: Notify }) {
   ]
   const table = useTable(listed, columns)
   return (
-    <div className="op card">
-      <div className="card-head">
-        <p className="op-lead">
-          Ordrelinjer med disse artikkelnumrene <strong>leses ikke</strong>: ingen linjer, ingen timer, i noe prosjekt. For det som er bestilt, men ikke er arbeid for mannskapet, som frakt og gebyrer.
-        </p>
-      </div>
-      <form
-        className="op-add"
-        onSubmit={(e) => {
-          e.preventDefault()
-          add()
-        }}
-      >
-        <PickField
-          value={number}
-          onChange={setNumber}
-          floating
-          options={offered.map((article) => article.articleNo)}
-          note={(option) => {
-            const article = seen.get(articleKey(option))
-            return article ? `${article.texts.slice(0, 2).join(' · ')} · ${count(article.lines, 'linje', 'linjer')}` : undefined
+    <div className="op">
+      <div className="op-zone">
+        <div className="op-strip">
+          <p className="op-lead">
+            Ordrelinjer med disse artikkelnumrene <strong>leses ikke</strong>: ingen linjer, ingen timer, i noe prosjekt. For det som er bestilt, men ikke er arbeid for mannskapet, som frakt og gebyrer.
+          </p>
+        </div>
+        <form
+          className="op-add"
+          onSubmit={(e) => {
+            e.preventDefault()
+            add()
           }}
-          placeholder="Art.nr"
-          aria-label="Artikkelnummer som skal utelates"
-          className="op-add-no"
-        />
-        <input className="op-add-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={typed?.texts[0] ? `Merknad (blir «${typed.texts[0]}»)` : 'Merknad (valgfri)'} aria-label="Merknad" />
-        <button type="submit" className="primary" disabled={!number.trim() || known}>
-          <Ban size={14} aria-hidden /> Utelat
-        </button>
-        {known ? <span className="op-warn">Artikkelen er allerede utelatt.</span> : typed && <span className="muted small">{count(typed.lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor</span>}
-      </form>
+        >
+          <PickField
+            value={number}
+            onChange={setNumber}
+            floating
+            options={offered.map((article) => article.articleNo)}
+            note={(option) => {
+              const article = seen.get(articleKey(option))
+              return article ? `${article.texts.slice(0, 2).join(' · ')} · ${count(article.lines, 'linje', 'linjer')}` : undefined
+            }}
+            placeholder="Art.nr"
+            aria-label="Artikkelnummer som skal utelates"
+            className="op-add-no"
+          />
+          <input className="op-add-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={typed?.texts[0] ? `Merknad (blir «${typed.texts[0]}»)` : 'Merknad (valgfri)'} aria-label="Merknad" />
+          <button type="submit" className="primary">
+            <Ban size={14} aria-hidden /> Utelat
+          </button>
+          {known ? <span className="op-warn">Artikkelen er allerede utelatt.</span> : typed && <span className="muted small">{count(typed.lines, 'ordrelinje', 'ordrelinjer')} holdes utenfor</span>}
+        </form>
+      </div>
       <div className="op-body">
         {listed.length ? (
           <DataTable table={table} className="card-table op-excluded" rowKey={(article) => articleKey(article.articleNo)} />

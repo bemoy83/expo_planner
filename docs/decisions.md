@@ -180,6 +180,15 @@ Where the build differs from the handoff, to reuse what the app has:
 - The column of hours per day is at least 120 px, not 136, so the matrix fits at 924 px with twelve halls.
 - The columns of the halls (22 px) and of the phase days (24 px) have a fixed width, and a hall's tile is a square of 14 px, so the matrix stays tight on a wide screen (the planner's wish, 2026-10-23). The rest of the width goes to the project, the bars and the figures.
 
+## Oppsett v3, flat on the canvas: built, to be tested by the user
+
+Built 2026-10-24 from the handoff `design_docs/design_handoff_oppsett_v3/`, which the planner keeps out of git, in Behov v3's vocabulary; see [features/oppsett.md](features/oppsett.md). Haller and Mannskap keep their cards and the band of sand until their own turn.
+
+- The band is copper (`.oppsett-page`, hue 50, chroma .06, Behov's chroma), Oppsett's alone. Its lower half is `BandFigures`, with the hours of the setup worked out in the domain (`setupHours`), as the product types' group notes are.
+- The cards are gone, and so are the sum lines. The strip (`.op-zone`: the lead or the search and filters, the competences, the flow of a line, the form that adds) is `--section` with its fields in `--well`; the table's heading is on the same tint, and its rows run edge to edge. «Mangler oppsett» is a wash of 86 % canvas and `--alert-warn`.
+- Counts are ink, never the colour of the alert: the page picker's on every tab of tables (`.count-chip.ink`, so Haller's and Mannskap's too), and «Mangler» in the filter (`.count-chip.solid`). «Utelat» is ink also when nothing is typed.
+- Not built, as on Behov: the handoff's cleaner ochre (the app keeps `--alert-warn`, checked against the Kalender's band) and the one control height of 32 px of DESIGN-RULES §8, which touches every page and is left for a round of its own.
+
 ## Behov v3, flat on the canvas: built, to be tested by the user
 
 Built 2026-10-24 from the handoff `design_docs/design_handoff_behov_v3/`, which the planner keeps out of git. The cards of v2 had drifted from the app's look, as Resultat's had; v3 puts both views on the canvas in Resultat v2's vocabulary; see [features/behov.md](features/behov.md). What v2 below says of the card, its sum line and the hall row on the context tint no longer holds.

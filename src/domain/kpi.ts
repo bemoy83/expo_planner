@@ -112,9 +112,6 @@ export const kpiTypes = (rows: KpiRow[]): KpiType[] => {
   return [...types.values()]
 }
 
-/** How many product types lack something the planner has to act on. */
-export const unfinishedTypes = (rows: KpiRow[]): number => kpiTypes(rows).filter((type) => type.unfinished).length
-
 const ruleFor = (productType: string, unit: string, competence: string): WorkTypeRule => ({ productType: productTypeName(productType), unit: unit.trim(), competence: competence.trim() })
 
 /** Sets the rates for a work type and unit, adding the row if it is new. */

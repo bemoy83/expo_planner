@@ -1,9 +1,9 @@
-/* The tabs of the planner's tables, Haller, Mannskap and Oppsett: a page each, switched in a band of sand that is the page header
-   alone (ui/RegisterHead.tsx). A page is a card (.card, base.css), as tall as its rows up to the foot of the page: its head
-   (.card-head), the strips under it and the table's heading stay, and only the rows scroll. First what they share, then what
-   each page has of its own. */
+/* The tabs of the planner's tables, Haller, Mannskap and Oppsett: a page each, switched in the band of the page header
+   (ui/RegisterHead.tsx). On Haller and Mannskap the band is sand and a page is a card (.card, base.css), as tall as its rows up to
+   the foot of the page: its head (.card-head), the strips under it and the table's heading stay, and only the rows scroll.
+   Oppsett lies on the canvas under a band of copper, as Behov does (below). First what they share, then what each page has of its own. */
 
-.register-page{display:flex;flex-direction:column;flex:1;min-height:0}
+:is(.register-page,.oppsett-page){display:flex;flex-direction:column;flex:1;min-height:0}
 .op{display:flex;flex-direction:column;container-type:inline-size}
 .register-page>.op{flex:0 1 auto;margin:var(--stage-pad)}
 .op>.card-head .search{width:300px}
@@ -12,7 +12,27 @@
 .op-lead strong{color:var(--text)}
 .op>.card-head>button{flex:none;white-space:nowrap}
 /* what explains or adds to the table lies flat under the head, on the tint of a card's context (as on Egen registrering) */
-:is(.op-flow,.mk-cover,.hl-lead,.op-add){flex:none;margin:0;padding:7px var(--card-inset);border-radius:0;background:var(--context-tint);border-bottom:1px solid var(--line-soft)}
+.register-page :is(.mk-cover,.hl-lead){flex:none;margin:0;padding:7px var(--card-inset);border-radius:0;background:var(--context-tint);border-bottom:1px solid var(--line-soft)}
+
+/* Oppsett on the canvas, as Behov: what is worked in (the lead, the search and the filters, the competences, how a line becomes
+   hours, the form that adds) on one neutral strip, the tint of a section, with its fields, tracks and buttons a step darker (--well);
+   under it the table, its rows edge to edge and its heading on the strip's tint, held while they scroll. The strip has no lines of its
+   own: it ends on the table's heading. The band's hue stays in the band. */
+.oppsett-page{--card-inset:24px;--table-bg:var(--section)}
+.oppsett-page>.op{flex:1;min-height:0}
+.op-zone{flex:none;display:flex;flex-direction:column;background:var(--section)}
+.op-zone>*{margin:0;padding:6px var(--card-inset)}
+.op-zone>:first-child{padding-top:12px}
+.op-zone>:last-child{padding-bottom:12px}
+.op-strip{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;min-height:56px}
+.op-strip .search{width:300px}
+.op-strip>button{flex:none;white-space:nowrap}
+.op-zone :is(.segmented,.search,.op-add input),.op-strip>button:not(.primary,.need-button){background:var(--well)}
+.op-zone :is(.search,.op-add input):focus{box-shadow:var(--well-focus)}
+.op-strip>button:not(.primary,.need-button):hover:not(:disabled){background:var(--well-hover)}
+.oppsett-page .op-head{background:var(--section)}
+.oppsett-page .op-group.lacking{background:color-mix(in oklab,var(--bg) 86%,var(--alert-warn))}
+@media (max-width:1100px){.oppsett-page{--card-inset:16px}}
 
 /* Produkttyper: how a line becomes hours, in one strip */
 .op-flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:var(--fs-sm);color:var(--muted)}
@@ -47,7 +67,7 @@
 .op-group-head .field-dot{margin:0}
 .op-group-count{font:500 var(--fs-xs) var(--font-num);color:var(--faint)}
 .op-group-note{margin-left:auto;font-weight:400;font-size:var(--fs-sm);color:var(--muted)}
-.op-group.lacking{background:color-mix(in oklab,var(--surface) 90%,var(--alert-warn))}
+.register-page .op-group.lacking{background:color-mix(in oklab,var(--surface) 90%,var(--alert-warn))}
 .op-attention{width:8px;height:8px;border-radius:50%;background:var(--alert-warn);box-shadow:0 0 0 3px var(--attention-ring)}
 .op-fold{display:grid;place-items:center}
 .op-table .icon-button{min-width:24px;width:24px;height:24px;padding:0;display:inline-grid;place-items:center;border-radius:6px;color:var(--faint)}
@@ -73,10 +93,8 @@
 .op-row.unfolded{border-bottom-color:transparent}
 .op-sub{min-height:34px;font-size:var(--fs-sm);background:color-mix(in oklab,var(--sunken) 50%,transparent)}
 .op-empty{margin:0;padding:16px var(--card-inset);color:var(--muted)}
-.register-page .faint{color:var(--faint)}
-.op-types .op-foot-lead{grid-column:2 / 8}
-.op-types .op-foot-hours{grid-column:8}
-@container (max-width:1080px){.op-types .op-foot-lead{grid-column:2 / -1}.op-types .op-foot-hours{display:none}.op-types{--cols:24px minmax(150px,1.3fr) 150px minmax(110px,1fr) 84px 96px 44px 56px}.op-types .op-row>:nth-child(8){display:none}.op-flow-aside{display:none}}
+:is(.register-page,.oppsett-page) .faint{color:var(--faint)}
+@container (max-width:1080px){.op-types{--cols:24px minmax(150px,1.3fr) 150px minmax(110px,1fr) 84px 96px 44px 56px}.op-types .op-row>:nth-child(8){display:none}.op-flow-aside{display:none}}
 @container (max-width:820px){.op-types{--cols:20px minmax(130px,1fr) 128px 104px 80px 88px 48px}.op-types .op-row>:is(:nth-child(7),:nth-child(8)){display:none}.op-tag{display:none}}
 
 /* Tekstregler */

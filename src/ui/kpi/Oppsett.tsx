@@ -1,9 +1,12 @@
 import { useMemo } from 'react'
-import { diffKpi, EMPTY_KPI, kpiRows, mergeKpi, replaceKpi, unfinishedTypes, type KpiFile } from '../../domain/kpi'
+import { diffKpi, EMPTY_KPI, excludedLines, kpiRows, kpiTypes, linesByText, mergeKpi, replaceKpi, type KpiFile } from '../../domain/kpi'
+import { setupHours, yieldByType } from '../../domain/visma'
 import { readKpiWorkbook, writeKpiWorkbook } from '../../import/kpiFile'
 import { todayIso } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
 import { count } from '../dom'
+import { wholeHours } from '../format'
+import { BandFigures, Figure } from '../BandFigures'
 import { MergeReplaceDialog } from '../common'
 import { download, XLSX_TYPE } from '../files'
 import { TableFileMenu } from '../TableFile'
@@ -35,8 +38,9 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
   const { toasts, show, dismiss, notify } = useUndoToasts()
 
   const rows = useMemo(() => kpiRows(kpi, ws.visma ?? []), [kpi, ws.visma])
-  const unfinished = useMemo(() => unfinishedTypes(rows), [rows])
-  const types = useMemo(() => new Set(rows.map((row) => row.name)).size, [rows])
+  const types = useMemo(() => kpiTypes(rows), [rows])
+  const unfinished = types.filter((type) => type.unfinished).length
+  const yields = useMemo(() => yieldByType((ws.visma ?? []).flatMap((source) => source.rows), kpi), [ws.visma, kpi])
 
   const { pending, onFile, done } = useTableFile<KpiFile>({
     read: readKpiWorkbook,
@@ -59,13 +63,49 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
   const diff = pending ? diffKpi(kpi, pending.incoming) : null
 
   const counts: Record<OppsettPage, PageCount> = {
-    kpi: { rows: types, issues: unfinished, issueText: (n) => `${count(n, 'produkttype', 'produkttyper')} er ikke ferdig satt opp` },
+    kpi: { rows: types.length, issues: unfinished, issueText: (n) => `${count(n, 'produkttype', 'produkttyper')} er ikke ferdig satt opp` },
     tekstregler: { rows: kpi.byText?.length ?? 0 },
     utelatte: { rows: kpi.excludedArticles?.length ?? 0 },
   }
 
+  // The page's key figures, on the band; none where its list is empty.
+  const lines = (n: number) => (n === 1 ? 'ordrelinje' : 'ordrelinjer')
+  const figures = (() => {
+    if (page === 'kpi') {
+      if (!types.length) return null
+      const { assembly, dismantle } = setupHours(types, yields)
+      return (
+        <BandFigures>
+          <Figure label="Produkttyper" value={types.length} unit="" sub={unfinished ? `${unfinished} mangler oppsett` : 'Alle er satt opp'} />
+          <Figure label="Montering" value={<><i className="phase-swatch mon" aria-hidden />{wholeHours(assembly)}</>} sub={unfinished ? 'Uten typene som mangler' : undefined} />
+          <Figure label="Demontering" value={<><i className="phase-swatch dem" aria-hidden />{wholeHours(dismantle)}</>} />
+        </BandFigures>
+      )
+    }
+    if (page === 'tekstregler') {
+      const rules = kpi.byText ?? []
+      if (!rules.length) return null
+      const given = [...linesByText(ws.visma ?? [], kpi).values()].reduce((sum, n) => sum + n, 0)
+      return (
+        <BandFigures>
+          <Figure label="Tekstregler" value={rules.length} unit="" />
+          <Figure label="Gir produkttype til" value={given} unit={lines(given)} />
+        </BandFigures>
+      )
+    }
+    const excluded = kpi.excludedArticles ?? []
+    if (!excluded.length) return null
+    const out = excludedLines(ws.visma ?? [], kpi)
+    return (
+      <BandFigures>
+        <Figure label="Utelatte artikler" value={excluded.length} unit="" />
+        <Figure label="Holdes utenfor" value={out} unit={lines(out)} />
+      </BandFigures>
+    )
+  })()
+
   return (
-    <div className="register-page">
+    <div className="oppsett-page">
       <RegisterHead title="Oppsett" pages={pages} page={page} counts={counts} onPage={onPage}>
         <TableFileMenu
           exportTitle="Last ned oppsettet som en Excel-fil: produkttypene med enheter, enhet i bruk, kompetanse og satser, og de utelatte artiklene."
@@ -75,8 +115,9 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
           onFile={onFile}
         />
       </RegisterHead>
+      {figures}
 
-      {page === 'kpi' && <ProductTypes rows={rows} notify={notify} />}
+      {page === 'kpi' && <ProductTypes rows={rows} types={types} yields={yields} notify={notify} />}
       {page === 'tekstregler' && <TextRules notify={notify} onOpenBehov={onOpenBehov} />}
       {page === 'utelatte' && <ExcludedArticles notify={notify} />}
 

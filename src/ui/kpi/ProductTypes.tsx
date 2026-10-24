@@ -1,12 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowRight, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
-import { addKpiRow, EMPTY_KPI, kpiTypes, productTypeKey, removeKpiRow, renameUnit, setActiveUnit, setCompetence, setRate, type KpiRow, type KpiType, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, EMPTY_KPI, productTypeKey, removeKpiRow, renameUnit, setActiveUnit, setCompetence, setRate, type KpiRow, type KpiType, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
-import { countsStands, yieldByType, type TypeYield } from '../../domain/visma'
+import { countsStands, setupHours, yieldByType, type TypeYield } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
 import { usePref } from '../../store/prefs'
 import { count } from '../dom'
-import { FormDialog, Segmented, SumLead } from '../common'
+import { FormDialog, Segmented } from '../common'
 import { NumberField, PickField, TextField, type PickItem } from '../fields'
 import { NeedButton, SplitPick } from '../behov/SplitPick'
 import { useCompetenceColor } from '../behov/format'
@@ -49,12 +49,11 @@ interface Edits {
  * its competence; its other units fold out under it. The table fills itself with the product types found in the
  * Visma exports, so nothing has to be imported to get started.
  */
-export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify }) {
+export function ProductTypes({ rows, types, yields, notify }: { rows: KpiRow[]; types: KpiType[]; yields: Map<string, TypeYield>; notify: Notify }) {
   const { workspace, setKpi } = useWorkspace()
   const kpi = workspace!.kpi ?? EMPTY_KPI
   const visma = workspace!.visma
   const bookings = useMemo(() => (visma ?? []).flatMap((source) => source.rows), [visma])
-  const yields = useMemo(() => yieldByType(bookings, kpi), [bookings, kpi])
   const color = useCompetenceColor()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = usePref<Filter>('oppsettFilter', 'alle', (stored) => (stored === 'mangler' || stored === 'ferdig' ? stored : 'alle'))
@@ -63,7 +62,6 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
   const styles = useMemo(() => competenceStyles(workspace!), [workspace])
   const [adding, setAdding] = useState<Partial<NewKpiRow> | null>(null)
 
-  const types = useMemo(() => kpiTypes(rows), [rows])
   const typeNames = useMemo(() => types.map((type) => type.name), [types])
   const competenceNames = useMemo(() => [...new Set(kpi.workTypes.map((rule) => rule.competence).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi.workTypes])
   const units = useMemo(() => [...new Set([...kpi.workTypes.map((rule) => rule.unit), ...kpi.rates.map((rate) => rate.unit)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb')), [kpi])
@@ -118,67 +116,60 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
     given: ({ name, inUse }, unit = inUse?.unit) =>
       unit === inUse?.unit ? yields.get(productTypeKey(name)) : unit ? yieldByType(bookings, setActiveUnit(kpi, name, unit)).get(productTypeKey(name)) : undefined,
   }
-  /** The hours the lines of the types give, montering and demontering, where each is set up. */
-  const sums = (types: KpiType[]) =>
-    types.reduce(
-      (sum, type) => {
-        const given = !type.lacking && edits.given(type)
-        return given ? { assembly: sum.assembly + given.assembly, dismantle: sum.dismantle + given.dismantle } : sum
-      },
-      { assembly: 0, dismantle: 0 },
-    )
   const total = (types: KpiType[]) => {
-    const { assembly, dismantle } = sums(types)
+    const { assembly, dismantle } = setupHours(types, yields)
     return assembly + dismantle
   }
 
   return (
-    <div className="op card">
-      <div className="card-head">
-        <input className="search" type="search" placeholder="Søk produkttype, enhet eller kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <Segmented
-          label="Vis"
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: 'alle', label: <>Alle <span className="count">{types.length}</span></> },
-            { value: 'mangler', label: <>Mangler {unfinished ? <span className="count-chip alert">{unfinished}</span> : <span className="count">0</span>}</>, title: 'Produkttyper som ikke er ferdig satt opp' },
-            { value: 'ferdig', label: <>Satt opp <span className="count">{types.length - unfinished}</span></> },
-          ]}
-        />
-        <span className="toolbar-gap" />
-        <button className="primary" onClick={() => setAdding({})}>
-          <Plus size={14} aria-hidden /> Ny produkttype
-        </button>
+    <div className="op">
+      <div className="op-zone">
+        <div className="op-strip">
+          <input className="search" type="search" placeholder="Søk produkttype, enhet eller kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Segmented
+            label="Vis"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'alle', label: <>Alle <span className="count">{types.length}</span></> },
+              { value: 'mangler', label: <>Mangler {unfinished ? <span className="count-chip solid">{unfinished}</span> : <span className="count">0</span>}</>, title: 'Produkttyper som ikke er ferdig satt opp' },
+              { value: 'ferdig', label: <>Satt opp <span className="count">{types.length - unfinished}</span></> },
+            ]}
+          />
+          <span className="toolbar-gap" />
+          <button className="primary" onClick={() => setAdding({})}>
+            <Plus size={14} aria-hidden /> Ny produkttype
+          </button>
+        </div>
+        {named.length > 0 && (
+          <CompetenceStrip
+            label="Produkttyper per kompetanse"
+            styles={named}
+            count={byCompetence}
+            picked={picked}
+            onPick={setPicked}
+            title={(style) => `Vis produkttypene under ${style.label}`}
+          />
+        )}
+        <p className="op-flow" title="Endringer her regner om Visma-linjene med én gang">
+          <span>Ordrelinje</span>
+          <ArrowRight size={12} aria-hidden />
+          <strong>Produkttype</strong>
+          <ArrowRight size={12} aria-hidden />
+          <span>
+            <strong>enhet i bruk</strong> gir antall
+          </span>
+          <span className="op-flow-aside">(ordre og stands teller stands, andre summerer «Totalt antall»)</span>
+          <ArrowRight size={12} aria-hidden />
+          <span>
+            antall ÷ <strong>sats</strong> = timer
+          </span>
+          <ArrowRight size={12} aria-hidden />
+          <span>
+            under <strong>kompetanse</strong>
+          </span>
+        </p>
       </div>
-      {named.length > 0 && (
-        <CompetenceStrip
-          label="Produkttyper per kompetanse"
-          styles={named}
-          count={byCompetence}
-          picked={picked}
-          onPick={setPicked}
-          title={(style) => `Vis produkttypene under ${style.label}`}
-        />
-      )}
-      <p className="op-flow" title="Endringer her regner om Visma-linjene med én gang">
-        <span>Ordrelinje</span>
-        <ArrowRight size={12} aria-hidden />
-        <strong>Produkttype</strong>
-        <ArrowRight size={12} aria-hidden />
-        <span>
-          <strong>enhet i bruk</strong> gir antall
-        </span>
-        <span className="op-flow-aside">(ordre og stands teller stands, andre summerer «Totalt antall»)</span>
-        <ArrowRight size={12} aria-hidden />
-        <span>
-          antall ÷ <strong>sats</strong> = timer
-        </span>
-        <ArrowRight size={12} aria-hidden />
-        <span>
-          under <strong>kompetanse</strong>
-        </span>
-      </p>
 
       {types.length ? (
         <div className="op-table op-types">
@@ -228,19 +219,6 @@ export function ProductTypes({ rows, notify }: { rows: KpiRow[]; notify: Notify 
               )
             })}
             {!shown.length && <p className="op-empty">Ingen produkttyper passer søket eller filteret.</p>}
-          </div>
-          <div className="op-row op-foot">
-            <SumLead
-              label="Sum"
-              className="op-foot-lead"
-              parts={[
-                shown.length === types.length ? count(types.length, 'produkttype', 'produkttyper') : `${shown.length} av ${count(types.length, 'produkttype', 'produkttyper')}`,
-                lacking.length > 0 && `${lacking.length} mangler oppsett, timene deres er ukjente`,
-              ]}
-            />
-            <span className="op-foot-hours">
-              <Hours given={sums(shown)} />
-            </span>
           </div>
         </div>
       ) : (

@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { ArrowRight, X } from 'lucide-react'
 import { EMPTY_KPI, linesByText, linesWithoutProductType, withTextType } from '../../domain/kpi'
 import { useWorkspace } from '../../store/workspaceStore'
-import { SumLead } from '../common'
 import { DataTable } from '../DataTable'
 import { useTable, type Column } from '../useTable'
 import { count } from '../dom'
@@ -34,8 +33,6 @@ export function TextRules({ notify, onOpenBehov }: { notify: Notify; onOpenBehov
       head: 'Artikkeltekst i Visma',
       text: (rule) => rule.text,
       cell: (rule) => <span className="op-quote">«{rule.text}»</span>,
-      foot: () => <SumLead parts={[`${count(rules.length, 'regel', 'regler')} gir produkttype til ${count(rules.reduce((sum, rule) => sum + linesOf(rule), 0), 'ordrelinje', 'ordrelinjer')}`]} />,
-      footSpan: 5,
     },
     { key: 'arrow', className: 'op-arrow', cell: () => <ArrowRight size={13} aria-hidden /> },
     {
@@ -80,8 +77,8 @@ export function TextRules({ notify, onOpenBehov }: { notify: Notify; onOpenBehov
   const table = useTable(rules, columns)
 
   return (
-    <div className="op card">
-      <div className="card-head">
+    <div className="op">
+      <div className="op-zone op-strip">
         <p className="op-lead">
           Linjer <strong>uten produkttype</strong> i Visma med en av disse artikkeltekstene regnes som typen, også i neste utskrift. Reglene lages under «Avklar» på Behov.
         </p>

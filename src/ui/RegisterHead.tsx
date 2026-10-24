@@ -46,7 +46,7 @@ export function RegisterHead<P extends string>({ title, pages, page, counts, onP
               <>
                 {label}{' '}
                 {issues ? (
-                  <span className="count-chip alert" title={issueText?.(issues)}>
+                  <span className="count-chip ink" title={issueText?.(issues)}>
                     {issues}
                   </span>
                 ) : (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, kpiTypes, linesByText, withTextType, unfinishedTypes, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
+import { addKpiRow, kpiTypes, linesByText, withTextType, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
@@ -179,7 +179,7 @@ describe('product types with their units', () => {
     expect(types[0]).toMatchObject({ lacking: 'new', unfinished: true, lines: 1 })
     expect(types[0].inUse).toBeUndefined()
     // Skilt lacks a rate; Teppe is new in the export.
-    expect(unfinishedTypes(kpiRows(kpi, visma))).toBe(2)
+    expect(kpiTypes(kpiRows(kpi, visma)).filter((type) => type.unfinished)).toHaveLength(2)
   })
 })
 

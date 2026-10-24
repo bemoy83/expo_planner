@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { KpiConfig, VismaRow } from './types'
 import { vismaHall } from '../import/vismaExport'
-import { setActiveUnit, setRate, withExcludedArticle, withTextType } from './kpi'
-import { buildVismaLines, lineRef, yieldByType, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
+import { setActiveUnit, setRate, withExcludedArticle, withTextType, type KpiType } from './kpi'
+import { buildVismaLines, lineRef, setupHours, yieldByType, orphanedDecisions, vismaDemandLines, vismaLineKey, withProjectNames } from './visma'
 
 const kpi: KpiConfig = {
   workTypes: [
@@ -101,6 +101,15 @@ describe('what a product type gives', () => {
     expect(given.has('01_ingen produkttype')).toBe(false)
     const inStands = setActiveUnit(setRate(kpi, 'FOGA-vegger', 'stands', { assembly: 0.5 }), 'FOGA-vegger', 'stands')
     expect(yieldByType(rows, inStands).get('foga-vegger')).toEqual({ quantity: 3, assembly: 6, dismantle: 0 })
+  })
+})
+
+describe('the hours of the setup', () => {
+  it('sums what the types give, and leaves out a type that lacks setup', () => {
+    const yields = yieldByType(rows, kpi)
+    const type = (name: string, lacking: KpiType['lacking'] = null): KpiType => ({ name, competence: '', units: [], lines: 1, configured: true, lacking, unfinished: !!lacking })
+    expect(setupHours([type('FOGA-vegger'), type('Print')], yields)).toEqual({ assembly: 31 / 7 + 2, dismantle: 31 / 14 })
+    expect(setupHours([type('FOGA-vegger'), type('Print', 'competence')], yields)).toEqual({ assembly: 31 / 7, dismantle: 31 / 14 })
   })
 })
 

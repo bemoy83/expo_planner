@@ -9,7 +9,7 @@ import {
   type VismaRow,
   type Workspace,
 } from './types'
-import { EMPTY_KPI, isCounted, productTypeKey } from './kpi'
+import { EMPTY_KPI, isCounted, productTypeKey, type KpiType } from './kpi'
 
 /**
  * Turns Visma booking lines into demand lines the way the planner's «Nøkkeltall Visma» workbook does:
@@ -183,6 +183,16 @@ export const yieldByType = (rows: VismaRow[], kpi: KpiConfig): Map<string, TypeY
   }
   return byType
 }
+
+/** The hours the lines of the types give, montering and demontering, before Effekt: a type that lacks setup gives none, as its hours are unknown. */
+export const setupHours = (types: KpiType[], yields: Map<string, TypeYield>): { assembly: number; dismantle: number } =>
+  types.reduce(
+    (sum, type) => {
+      const given = !type.lacking && yields.get(productTypeKey(type.name))
+      return given ? { assembly: sum.assembly + given.assembly, dismantle: sum.dismantle + given.dismantle } : sum
+    },
+    { assembly: 0, dismantle: 0 },
+  )
 
 /** The line as it reads now, kept with a decision so it can be shown after the line has left the export. */
 export const lineRef = (line: VismaLine): NonNullable<LineOverride['ref']> => ({
