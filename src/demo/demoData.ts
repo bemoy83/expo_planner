@@ -9,7 +9,7 @@ import { writeXlsx, type CellValue } from '../import/xlsx.ts'
  * The data is fixed, not random, so tests can count on it. It is built to touch what the app has to handle: product
  * types with several units, one missing from the KPI table, lines without a product type, a free-text place, a place
  * of several halls, a project booked in several halls, events that overlap, events with and without demand, two
- * statuses, and a season that runs over the new year. The crew is 40 people over eight competences and ten suppliers.
+ * statuses, a season that runs over the new year, and six big fairs whose build-up needs more than the 20 permanent staff can work, whose competences follow the demand. The crew is 20 people over eight competences and ten suppliers.
  */
 
 /** The file names, as the app reads the period of a Venyou export and the date of a Visma export from them. */
@@ -52,23 +52,23 @@ const CONFIRMED = 'Confirmed'
 const PRELIMINARY = 'Preliminary'
 
 export const DEMO_EVENTS: DemoEvent[] = [
-  { projectNo: '26101', name: 'Byggemessen 2026', start: '2026-10-14', days: 3, halls: ['C', 'D'], status: CONFIRMED, assembly: 6, dismantle: 3, stands: 24 },
+  { projectNo: '26101', name: 'Byggemessen 2026', start: '2026-10-14', days: 3, halls: ['C', 'D'], status: CONFIRMED, assembly: 6, dismantle: 3, stands: 150 },
   { projectNo: '26105', name: 'Fagdag Elektro 2026', start: '2026-10-22', days: 1, halls: ['STUDIO1'], status: CONFIRMED, assembly: 1, dismantle: 1, stands: 6 },
   { projectNo: '26102', name: 'Spillfestivalen 2026', start: '2026-10-30', days: 3, halls: ['B1', 'B2', 'B3', 'B4'], status: CONFIRMED, assembly: 4, dismantle: 2, stands: 18 },
-  { projectNo: '26104', name: 'Bil og Fritid 2026', start: '2026-11-12', days: 4, halls: ['C', 'D', 'E'], status: CONFIRMED, assembly: 7, dismantle: 4, stands: 30 },
+  { projectNo: '26104', name: 'Bil og Fritid 2026', start: '2026-11-12', days: 4, halls: ['C', 'D', 'E'], status: CONFIRMED, assembly: 7, dismantle: 4, stands: 190 },
   { projectNo: '26106', name: 'Seniormessen 2026', start: '2026-11-13', days: 2, halls: ['A1', 'A2'], status: CONFIRMED, assembly: 3, dismantle: 1, stands: 14 },
   { projectNo: '26103', name: 'Julemarkedet 2026', start: '2026-11-26', days: 4, halls: ['A1', 'A2', 'G'], status: CONFIRMED, assembly: 3, dismantle: 2, stands: 20 },
-  { projectNo: '26107', name: 'Gaming Expo 2026', start: '2026-12-04', days: 3, halls: ['B1', 'B2', 'B3', 'B4', 'C'], status: CONFIRMED, assembly: 5, dismantle: 3, stands: 26 },
+  { projectNo: '26107', name: 'Gaming Expo 2026', start: '2026-12-04', days: 3, halls: ['B1', 'B2', 'B3', 'B4', 'C'], status: CONFIRMED, assembly: 5, dismantle: 3, stands: 170 },
   { projectNo: '27101', name: 'Reiselivsmessen 2027', start: '2027-01-14', days: 3, halls: ['B1', 'B2'], status: CONFIRMED, assembly: 4, dismantle: 2, stands: 22 },
   { projectNo: '27109', name: 'Utdanningsmessen 2027', start: '2027-01-21', days: 2, halls: ['C', 'D'], status: CONFIRMED, assembly: 3, dismantle: 2, stands: 20 },
-  { projectNo: '27102', name: 'Båtmessen 2027', start: '2027-02-04', days: 5, halls: ['C', 'D', 'E', 'F'], status: CONFIRMED, assembly: 8, dismantle: 4, stands: 30 },
+  { projectNo: '27102', name: 'Båtmessen 2027', start: '2027-02-04', days: 5, halls: ['C', 'D', 'E', 'F'], status: CONFIRMED, assembly: 8, dismantle: 4, stands: 200 },
   { projectNo: '27110', name: 'Vinterlekene 2027', start: '2027-02-05', days: 3, halls: ['A1', 'A2', 'G'], status: CONFIRMED, assembly: 4, dismantle: 2, stands: 12 },
   { projectNo: '27103', name: 'Bryllupsmessen 2027', start: '2027-02-27', days: 2, halls: ['A1'], status: CONFIRMED, assembly: 2, dismantle: 1, stands: 10 },
   { projectNo: '27111', name: 'Næringslivsdagen 2027', start: '2027-03-04', days: 1, halls: ['STUDIO1'], status: CONFIRMED, assembly: 1, dismantle: 1, stands: 8 },
   { projectNo: '27104', name: 'Matfestivalen 2027', start: '2027-03-18', days: 3, halls: ['B3', 'B4', 'C'], status: CONFIRMED, assembly: 4, dismantle: 2, stands: 24 },
   { projectNo: '27112', name: 'Sykkelmessen 2027', start: '2027-03-19', days: 3, halls: ['E', 'F'], status: CONFIRMED, assembly: 4, dismantle: 2, stands: 16 },
-  { projectNo: '27113', name: 'Energimessen 2027', start: '2027-04-07', days: 3, halls: ['C', 'D', 'E'], status: CONFIRMED, assembly: 6, dismantle: 3, stands: 28 },
-  { projectNo: '27105', name: 'Hage 2027', start: '2027-04-15', days: 4, halls: ['C', 'D'], status: CONFIRMED, assembly: 5, dismantle: 3, stands: 22 },
+  { projectNo: '27113', name: 'Energimessen 2027', start: '2027-04-07', days: 3, halls: ['C', 'D', 'E'], status: CONFIRMED, assembly: 6, dismantle: 3, stands: 170 },
+  { projectNo: '27105', name: 'Hage 2027', start: '2027-04-15', days: 4, halls: ['C', 'D'], status: CONFIRMED, assembly: 5, dismantle: 3, stands: 140 },
   { projectNo: '27114', name: 'Hundeutstillingen 2027', start: '2027-04-24', days: 2, halls: ['A1', 'A2', 'B1', 'B2'], status: CONFIRMED, assembly: 2, dismantle: 1, stands: 12 },
   { projectNo: '27106', name: 'Helse og Velvære 2027', start: '2027-05-06', days: 3, halls: ['E', 'F'], status: PRELIMINARY, assembly: 3, dismantle: 2, stands: 16 },
   { projectNo: '27115', name: 'Anleggsdagene 2027', start: '2027-05-12', days: 3, halls: ['C', 'D', 'G'], status: PRELIMINARY, assembly: 6, dismantle: 3, stands: 24 },
@@ -174,7 +174,10 @@ const sequence = (seed: number) => {
   }
 }
 
-const vismaRows = (): CellValue[][] => {
+const vismaRows = (): CellValue[][] => (madeRows ??= makeVismaRows())
+let madeRows: CellValue[][] | undefined
+
+const makeVismaRows = (): CellValue[][] => {
   const next = sequence(26)
   const pick = <T,>(list: T[]): T => list[Math.floor(next() * list.length)]
   const between = ([low, high]: [number, number]) => low + Math.round(next() * (high - low))
@@ -231,23 +234,55 @@ const FIRST_NAMES = ['Anders', 'Kari', 'Ola', 'Ingrid', 'Per', 'Siri', 'Jonas', 
 const FAMILY_NAMES = ['Berg', 'Nordli', 'Strand', 'Haug', 'Lunde', 'Moen', 'Bakke', 'Lie', 'Dahl', 'Vik', 'Holm', 'Aas', 'Sand', 'Fjeld', 'Brekke', 'Solberg', 'Myhre', 'Eide', 'Rønning', 'Tangen']
 
 /**
- * Made-up permanent staff: a common first name and a common family name put together, 40 in all. Most have one or two
- * competences, some three, and the walls, carpets and furniture have the most people, as the demand is largest there.
+ * The hours of build-up and tear-down a Visma line comes to by the rates of the KPI table, in the unit in use, roughly as
+ * the app works them out, with its competence: a line in a unit that counts stands is one stand. Types without a rate count nothing.
+ */
+const lineHours = (row: CellValue[]): { competence: string; hours: number } | null => {
+  const type = DEMO_PRODUCT_TYPES.find((each) => String(row[9]).endsWith(`[${each.name}]`))
+  const unit = type && (type.units.length === 1 ? type.units[0] : type.units.find((each) => each.inUse))
+  if (!type || !unit) return null
+  const quantity = unit.unit === 'stands' || unit.unit === 'ordre' ? 1 : Number(row[7])
+  return { competence: type.competence, hours: quantity / unit.assembly + (unit.dismantle ? quantity / unit.dismantle : 0) }
+}
+
+/** The hours of a project's Visma lines. */
+const demandHours = (projectNo: string): number => vismaRows().filter((row) => row[0] === projectNo).reduce((sum, row) => sum + (lineHours(row)?.hours ?? 0), 0)
+
+/** The hours of the whole season's Visma lines per competence. */
+const hoursByCompetence = (): Map<string, number> => {
+  const by = new Map<string, number>(DEMO_COMPETENCES.map((competence) => [competence, 0]))
+  for (const row of vismaRows()) {
+    const line = lineHours(row)
+    if (line) by.set(line.competence, by.get(line.competence)! + line.hours)
+  }
+  return by
+}
+
+/**
+ * Made-up permanent staff: a common first name and a common family name put together, 20 in all. Their competences
+ * follow the demand: each person has a main competence, shared out on the competences by their share of the season's
+ * hours (every competence at least one), and every other person a second one, by the same shares.
  */
 export const DEMO_PEOPLE: [string, string[]][] = (() => {
   const next = sequence(7)
-  const weights: [string, number][] = [['Vegger', 5], ['Tepper', 4], ['Møbler', 4], ['Grafikk', 2], ['Elektro', 2], ['Rigg', 2], ['Snekker', 2], ['Lager', 1]]
-  const total = weights.reduce((sum, [, w]) => sum + w, 0)
-  const pick = () => {
-    let at = next() * total
-    for (const [name, w] of weights) if ((at -= w) < 0) return name
-    return weights[0][0]
+  const COUNT = 20
+  const weights = [...hoursByCompetence()]
+  const total = weights.reduce((sum, [, hours]) => sum + hours, 0)
+  // Largest remainder over the people left after one each.
+  const seats = weights.map(([competence, hours]) => ({ competence, exact: (hours / total) * (COUNT - weights.length), seats: 1 }))
+  for (const seat of seats) seat.seats += Math.floor(seat.exact)
+  const byRemainder = [...seats].sort((x, y) => (y.exact % 1) - (x.exact % 1))
+  for (let left = COUNT - seats.reduce((sum, seat) => sum + seat.seats, 0), i = 0; left > 0; left--, i++) byRemainder[i].seats++
+  const main = seats.flatMap((seat) => Array.from({ length: seat.seats }, () => seat.competence))
+  const pick = (not: string) => {
+    let at = next() * (total - (weights.find(([competence]) => competence === not)?.[1] ?? 0))
+    for (const [competence, hours] of weights) if (competence !== not && (at -= hours) < 0) return competence
+    return weights.find(([competence]) => competence !== not)![0]
   }
-  return FIRST_NAMES.map((first, i): [string, string[]] => {
-    const count = next() < 0.45 ? 1 : next() < 0.8 ? 2 : 3
-    const has = new Set<string>()
-    while (has.size < count) has.add(pick())
-    return [`${first} ${FAMILY_NAMES[(i * 7) % FAMILY_NAMES.length]}`, DEMO_COMPETENCES.filter((c) => has.has(c))]
+  return main.map((competence, i): [string, string[]] => {
+    const has = new Set([competence])
+    if (i % 2) has.add(pick(competence))
+    return [`${FIRST_NAMES[i]} ${FAMILY_NAMES[(i * 7) % FAMILY_NAMES.length]}`, DEMO_COMPETENCES.filter((c) => has.has(c))]
   })
 })()
 
@@ -278,15 +313,24 @@ const leverandorerFile = () =>
     },
   ])
 
-/** Budgets for most of the ordered projects, some without, and one for a project with no demand yet. */
-const budsjettFile = () =>
-  writeXlsx([
+/** The project with orders left without a budget, for «Uten budsjett». */
+const UNBUDGETED = '26103'
+
+/**
+ * Budgets for every project with orders but one: its demand with the overhead of 10 %, set off by a fixed factor of −25 %
+ * to +35 %, so that a plan of the whole demand lands in every grade of Resultat, over and under. The projects without
+ * orders have none: their numbers are the planner's to give on Prosjekter, so a budget would not find them.
+ */
+const budsjettFile = () => {
+  const next = sequence(11)
+  return writeXlsx([
     {
       name: 'Budsjett',
       head: ['Prosjektnr.', 'Prosjekt', 'Budsjett arbeidstimer totalt'],
-      rows: [...ORDERED.filter((_, index) => index % 6 !== 5), DEMO_EVENTS.find((event) => !event.stands)!].map((event): CellValue[] => [event.projectNo, event.name, Math.round(event.stands * event.halls.length * 9 + event.assembly * 20)]),
+      rows: ORDERED.filter((event) => event.projectNo !== UNBUDGETED).map((event): CellValue[] => [event.projectNo, event.name, Math.round(demandHours(event.projectNo) * 1.1 * (0.75 + next() * 0.6))]),
     },
   ])
+}
 
 /** The competences as Kompetanser exports them, in the planner's order, with a short name and a colour. */
 const kompetanserFile = () => writeXlsx([{ name: 'Kompetanser', head: ['Kompetanse', 'Kort', 'Farge'], rows: DEMO_COMPETENCE_STYLES }])

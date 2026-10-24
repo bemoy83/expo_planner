@@ -64,13 +64,17 @@ describe('the invented season', () => {
     expect(readKompetanserWorkbook(bytes('kompetanser')).map((c) => c.label)).toEqual(DEMO_COMPETENCES)
     const people = readPersonellWorkbook(bytes('personell'))
     expect(people.map((p) => p.name)).toEqual(DEMO_PEOPLE.map(([name]) => name))
-    expect(new Set(people.map((p) => p.name)).size).toBe(40)
+    expect(new Set(people.map((p) => p.name)).size).toBe(20)
     // Every competence has people, and everyone has at least one.
     for (const competence of DEMO_COMPETENCES) expect(people.some((p) => p.competences[competence])).toBe(true)
     expect(people.every((p) => Object.values(p.competences).some(Boolean))).toBe(true)
+    // The staff follows the demand: the walls and carpets, which take the most hours, have more people than the furniture.
+    const many = (competence: string) => people.filter((p) => p.competences[competence]).length
+    expect(many('Vegger')).toBeGreaterThan(many('Møbler'))
+    expect(many('Tepper')).toBeGreaterThan(many('Møbler'))
     const suppliers = readLeverandorerWorkbook(bytes('leverandorer'))
     expect(suppliers).toHaveLength(DEMO_SUPPLIERS.length)
     expect(suppliers.every((s) => !s.contact)).toBe(true)
-    expect(readBudsjettWorkbook(bytes('budsjett')).length).toBeGreaterThan(12)
+    expect(readBudsjettWorkbook(bytes('budsjett')).length).toBe(DEMO_EVENTS.filter((event) => event.stands).length - 1)
   })
 })
