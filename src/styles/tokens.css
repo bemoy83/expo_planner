@@ -28,9 +28,10 @@
   --hatch:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--text) 10%,transparent) 4px 6px);   /* the one hatch, laid over a fill: a hall day two events share, FTE outside a row's window, time away in Bemanning */
   --tip-bg:#4a4642; --tip-text:#f5f2ec;                           /* the tooltip */
 
-  /* accent: burnt orange (selection, focus, today, active tab): where the planner is and what is picked. Never the mark of a mode, and not the fill of a button: the primary action is ink. */
-  --accent:#d46c2c;
-  --accent-soft:color-mix(in oklab,var(--accent) 15%,transparent);
+  /* accent: where the planner is and what is picked (selection, a filter in use, a mark). The ink itself since Behov v3 (2026-10-24), which retired the burnt orange:
+     never the mark of a mode, and a selection is a light wash of it */
+  --accent:var(--text);
+  --accent-soft:color-mix(in oklab,var(--accent) 8%,transparent);
 
   /* days off: one step darker than what the line itself is filled with, and never see-through */
   --weekend:color-mix(in srgb,#e7e4dd 50%,#f2f0eb);
@@ -207,8 +208,7 @@
   --scrim:rgba(0,0,0,.6);
   --tip-bg:#3a3935; --tip-text:#f3f2ee;
 
-  --accent:#e88c54;
-  --accent-soft:color-mix(in oklab,var(--accent) 18%,transparent);
+  --accent-soft:color-mix(in oklab,var(--accent) 12%,transparent);
 
   --weekend:color-mix(in srgb,#f3f2ee 4%,#0f0f0e);
   /* the rules between the days and under a typed-in line: drawn from the strong border here, since a step of light on near black
