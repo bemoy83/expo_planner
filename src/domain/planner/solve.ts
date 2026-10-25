@@ -32,6 +32,9 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  *    shared out over it, not that what was left over is moved). Those days are listed for Venyou (`outside`). Those days are listed for Venyou (`outside`). What is left stays in the plan, uncovered, for Bemanning
  *    and Innleid to show.
  *
+ * 5. Each day's blocks of a competence are shared out again on the same people, so each has as few pieces as can be
+ *    (`consolidate`): whole people on the biggest pieces of work, and the one who had a piece the day before keeps it.
+ *
  * Only normal time is planned: overtime and hire are the planner's (R6). Blocks the planner painted stay, and those
  * the engine painted before are planned again. Whether the FTE the planner typed stays is his choice (`keepTyped`).
  * Nothing is random: the same workspace gives the same plan.
@@ -55,6 +58,8 @@ export interface SolveInput {
 const NOISE = 0.05
 /** Hours less than this are not worth a block. */
 const SMALLEST = 0.25
+/** Hours nearer than this are the same. */
+const EPS = 0.01
 
 const tenth = (value: number) => Math.round(value * 10) / 10
 
@@ -180,7 +185,17 @@ const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf
 const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: number, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, makeId: () => string): number => {
   const wd = ws.settings.workday
   let left = hours
-  for (const { person, free } of candidates(ws, staff, job, date, nextOf)) {
+  const done = new Set<string>()
+  while (left >= SMALLEST) {
+    // Among those as good for continuity, the one whose free time fits what is left best: who can take it all with the
+    // least to spare, else who has the most, so the work goes to as few people as can be and leaves no scraps.
+    const fit = (free: number) => (free >= left - EPS ? free - left : 1000 - free)
+    const pick = candidates(ws, staff, job, date, nextOf)
+      .filter((c) => !done.has(c.person.id))
+      .sort((a, b) => a.rank - b.rank || fit(paidTotal(a.free, wd)) - fit(paidTotal(b.free, wd)) || a.person.competences.length - b.person.competences.length || a.person.order - b.person.order)[0]
+    if (!pick) break
+    const { person, free } = pick
+    done.add(person.id)
     for (const iv of free) {
       if (left < SMALLEST) break
       const piece = cut(iv, left, wd.snap, wd)
@@ -198,7 +213,6 @@ const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: n
       })
       left -= paid
     }
-    if (left < SMALLEST) break
   }
   return Math.max(0, left)
 }
@@ -215,6 +229,81 @@ const ownCover = (kept: readonly Assignment[], job: Job, date: ISODate, wd: Work
         (!a.hall || hallKey(a.hall) === hallKey(job.row.hall)),
     )
     .reduce((sum, a) => sum + paidHours(a, wd), 0)
+
+/** What a block is work of, as far as moving between pieces of it changes nothing: competence, project and place. */
+const workKey = (a: Pick<Assignment, 'competence' | 'projectNo' | 'hall'>) => `${a.competence}|${numberKey(a.projectNo ?? '')}|${hallKey(a.hall)}`
+
+/**
+ * The engine's blocks of a day shared out again, competence by competence, so that each person has as few pieces of
+ * work as can be: the hours of each piece of work and the time each person gives the competence stay as they were, but
+ * the biggest pieces get whole people first, the one who did a piece the day before keeps it, and what is left of a
+ * piece goes to the person it fits best. Pieces of a person that meet are one block.
+ */
+export const consolidate = (painted: Assignment[], wd: Workspace['settings']['workday'], makeId: () => string): Assignment[] => {
+  const byDay = new Map<string, Assignment[]>()
+  for (const a of painted) pushTo(byDay, `${a.date}|${a.competence}`, a)
+  const lastWork = new Map<string, string>()
+  const out: Assignment[] = []
+  for (const key of [...byDay.keys()].sort()) {
+    const blocks = byDay.get(key)!
+    const slots = new Map<string, Interval[]>()
+    const need = new Map<string, { hours: number; sample: Assignment }>()
+    for (const a of blocks) {
+      pushTo(slots, a.personId, { start: a.start, end: a.end })
+      const work = need.get(workKey(a)) ?? { hours: 0, sample: a }
+      work.hours += paidHours(a, wd)
+      need.set(workKey(a), work)
+    }
+    const room = new Map([...slots].map(([personId, ivs]) => [personId, paidTotal(ivs, wd)]))
+    const given = new Map<string, { work: string; hours: number }[]>()
+    const give = (personId: string, work: string, hours: number) => {
+      pushTo(given, personId, { work, hours })
+      room.set(personId, room.get(personId)! - hours)
+    }
+    for (const [work, { hours }] of [...need].sort(([, a], [, b]) => b.hours - a.hours)) {
+      let left = hours
+      while (left > EPS) {
+        const open = [...room].filter(([, r]) => r > EPS)
+        if (!open.length) break
+        const kept = (personId: string) => (lastWork.get(personId) === work ? 0 : 1)
+        // Whole people first, the one who had the work the day before before the others, then the one with the most room.
+        const whole = open.filter(([, r]) => r <= left + EPS).sort(([a, ra], [b, rb]) => kept(a) - kept(b) || rb - ra)
+        if (whole.length) {
+          const [personId, r] = whole[0]
+          give(personId, work, r)
+          left -= r
+          continue
+        }
+        // What is left goes to the one it fits best: the least room that takes it all.
+        const [personId] = open.sort(([a, ra], [b, rb]) => kept(a) - kept(b) || ra - rb)[0]
+        give(personId, work, left)
+        left = 0
+      }
+    }
+    for (const [personId, pieces] of given) {
+      // Yesterday's work first, so the day goes on from where it ended.
+      pieces.sort((a, b) => (lastWork.get(personId) === b.work ? 1 : 0) - (lastWork.get(personId) === a.work ? 1 : 0))
+      const free = [...slots.get(personId)!].sort((a, b) => a.start - b.start)
+      let at = 0
+      pieces.forEach((piece, index) => {
+        let hours = piece.hours
+        const sample = need.get(piece.work)!.sample
+        while (at < free.length && (hours > EPS || index === pieces.length - 1)) {
+          const slot = free[at]
+          const part = index === pieces.length - 1 ? slot : cut(slot, hours, wd.snap, wd)
+          const previous = out.at(-1)
+          if (previous && previous.personId === personId && previous.date === sample.date && workKey(previous) === piece.work && previous.end === part.start) previous.end = part.end
+          else out.push({ ...sample, id: makeId(), personId, start: part.start, end: part.end })
+          hours -= paidHours(part, wd)
+          if (part.end >= slot.end) at++
+          else free[at] = { start: part.end, end: slot.end }
+        }
+      })
+      lastWork.set(personId, pieces.at(-1)!.work)
+    }
+  }
+  return out
+}
 
 export interface Solution {
   /** The workspace with the engine's plan for every project. */
@@ -426,7 +515,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
         outside.set(`${numberKey(job.row.projectNo)}|${hallKey(hall)}|${date}`, { projectNo: job.row.projectNo, projectName: job.row.projectName, hall, date })
       }
   }
-  const painted = [...staff.blocks.values()].flat().filter((a) => a.source === 'suggested')
+  const painted = consolidate([...staff.blocks.values()].flat().filter((a) => a.source === 'suggested'), wd, makeId)
   const assignments = [...(ws.assignments ?? []).filter((a) => a.source !== 'suggested'), ...painted]
   return { workspace: { ...ws, allocations, assignments }, projects: [...projects], rows: rows.map((row) => became.get(row.id) ?? solvedRows.get(row.id) ?? row), outside: [...outside.values()].sort((a, b) => a.hall.localeCompare(b.hall, 'nb') || a.date.localeCompare(b.date)) }
 }

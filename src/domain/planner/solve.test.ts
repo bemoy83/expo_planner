@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { setCompetenceStyle } from '../competences'
 import { DEFAULT_SETTINGS, type AllocationRow, type Assignment, type CompetenceStyle, type Person, type Workspace } from '../types'
 import { scorePlan } from './score'
-import { solve, takeProjects } from './solve'
+import { consolidate, solve, takeProjects } from './solve'
 import { ownChanged } from '../staffing/edit'
 
 /** The planning engine on small invented plans. */
@@ -195,5 +195,29 @@ describe('blocks the engine painted', () => {
     const after = ownChanged(before, [{ ...painted, end: 780 }, other])!
     expect(after.map((a) => a.source)).toEqual(['manual', 'suggested'])
     expect(ownChanged(before, [other])).toEqual([other])
+  })
+})
+
+describe('a day shared out again on the same people', () => {
+  const wd = DEFAULT_SETTINGS.workday
+  const piece = (personId: string, projectNo: string, from: number, to: number, date = MON): Assignment => ({ id: `${personId}-${projectNo}-${from}`, personId, date, competence: 'foga', start: from, end: to, source: 'suggested', projectNo, hall: 'B1' })
+  // Half a day of A, a day of B and half a day of C, as the day is filled job by job: each person ends with two pieces.
+  const filled = [piece('per', 'A', 420, 645), piece('per', 'B', 645, 900), piece('pål', 'B', 420, 645), piece('pål', 'C', 645, 900)]
+
+  it('gives the biggest piece of work a whole person, and the rest to the other, so there are fewer pieces', () => {
+    const out = consolidate(filled, wd, makeId)
+    const pairs = new Set(out.map((a) => `${a.personId}|${a.projectNo}`))
+    expect(pairs.size).toBe(3)
+    expect(out.filter((a) => a.projectNo === 'B')).toHaveLength(1)
+    // The hours of each piece of work are as they were.
+    const hoursOf = (list: Assignment[], projectNo: string) => list.filter((a) => a.projectNo === projectNo).reduce((sum, a) => sum + (a.end - a.start), 0)
+    for (const project of ['A', 'B', 'C']) expect(hoursOf(out, project)).toBe(hoursOf(filled, project))
+  })
+
+  it('lets the one who had a piece of work the day before keep it', () => {
+    const yesterday = [piece('pål', 'A', 420, 900, '2026-10-11'), piece('per', 'B', 420, 900, '2026-10-11')]
+    const today = [piece('per', 'A', 420, 900), piece('pål', 'B', 420, 900)]
+    const out = consolidate([...yesterday, ...today], wd, makeId).filter((a) => a.date === MON)
+    expect(out.map((a) => `${a.personId}|${a.projectNo}`).sort()).toEqual(['per|B', 'pål|A'])
   })
 })
