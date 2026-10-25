@@ -10,6 +10,7 @@ import { competenceStyles, renameCompetence as withCompetenceRenamed, replaceCom
 import { hallNames } from '../domain/venue'
 import { projectFollowers } from '../domain/projects'
 import { budgetsRenumbered } from '../domain/result'
+import { ownChanged } from '../domain/staffing/edit'
 import { withVismaDemand } from '../domain/visma'
 import { clearAll, emptyShared, isShared, loadWorkspace, onOtherWindow, saveWorkspace, writeRecords } from './db'
 import { clearPrefs } from './prefs'
@@ -373,7 +374,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   )
 
   const setAllocationFte = useCallback(
-    (rowId: string, date: ISODate, value: number | null) => updateRow(rowId, (row) => (sameDay(row.fte, date, value) ? row : { ...row, fte: withDay(row.fte, date, value) })),
+    (rowId: string, date: ISODate, value: number | null) =>
+      // A day the engine wrote is the planner's once he types into it.
+      updateRow(rowId, (row) => (sameDay(row.fte, date, value) ? row : { ...row, fte: withDay(row.fte, date, value), ...(row.engine?.includes(date) ? { engine: row.engine.filter((d) => d !== date) } : {}) })),
     [updateRow],
   )
 
@@ -611,7 +614,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (change) => {
       const ws = current.current
       if (!ws) return
-      commit(change(ws))
+      const next = change(ws)
+      commit(next.assignments === ws.assignments ? next : { ...next, assignments: ownChanged(ws.assignments, next.assignments) })
     },
     [commit],
   )

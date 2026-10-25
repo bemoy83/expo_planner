@@ -150,6 +150,8 @@ export interface AllocationRow {
   avdeling?: string
   fte: DayValues
   notes: Record<ISODate, string>
+  /** The days whose FTE the planning engine wrote, in order. A day the planner types into is his own from then on. */
+  engine?: ISODate[]
 }
 
 type CapacityGroup = 'added' | 'overtime' | 'unavailable'

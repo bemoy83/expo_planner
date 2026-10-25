@@ -343,3 +343,11 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 - The weights were set from six pairs of plans the planner ranked: a scarce competence is freed by hiring an easier one; a short switch is not worth it when the two competences are as easy to hire; a little overtime beats a call-out of three hours, a day's worth does not (overtime is to be avoided as a rule); an earlier start beats both hire and overtime; a switch of hall that saves nothing is not made. Each is a test, with the margins checked.
 - Orders that wait count as cover in the score, as the plan's intent; elsewhere they count nowhere, as before.
 - The score is shown for the project of the row in focus in the row details. It is worked out over the whole period while the panel is open.
+
+## Planning engine, step 3: the engine, to be tested by the user
+
+- One function, `solve`, plans every project of the period at once and hands back the next workspace; the planner takes it project by project (`takeProjects`) in the dialog of «✦ Foreslå plan», where each project shows its score now and with the plan. Projects whose score the plan lowers are picked to start with.
+- A row's demand is a job, placed in its window where its stage puts it: the stages of a hall share the window in overlapping parts; running and extra competences have it all, extra from the end. A competence with a fewest per hall gets that many a day on fewer days. The jobs are staffed hardest competence first, then the tightest window, in normal time only, with whoever did the same work the day before first. What nobody can take on a day is moved to a day of the window where someone can; what is left stays in the plan, uncovered.
+- Marked so a run can be done again: the days the engine wrote (`AllocationRow.engine`) and its blocks (`source: 'suggested'`). Typing into a day or changing a block makes it the planner's (`setAllocationFte`, `ownChanged` in `updateStaffing`).
+- Nothing is random, so the same workspace gives the same plan; a fixed seed is not needed. The demo season is planned and scored in about 0,3 s, so no Web Worker yet.
+- Left for later, as listed in TODO: teams of people × days, moving in for extra work, marking out made by itself, a preview in the grid, person swaps.

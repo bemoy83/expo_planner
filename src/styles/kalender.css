@@ -397,3 +397,9 @@ input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;
 .status-title{font-weight:600}
 .status-notice{color:var(--text);font-weight:600}
 .note-input{flex:1;max-width:420px}
+
+/* «Foreslå plan»: the engine's plan per project */
+.engine-dialog.wide{width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 64px)}
+.engine-choice{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
+.engine-scroll{max-height:50vh;overflow:auto}
+.engine-scroll .ledger{width:100%}

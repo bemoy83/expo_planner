@@ -403,3 +403,20 @@ export const invariantBreaches = (assignments: Assignment[], wd: WorkdaySettings
   }
   return breaches
 }
+
+/**
+ * Blocks the planning engine painted become the planner's own once he changes them, so that the next run of the engine
+ * leaves them where he put them. `after` is the list as an edit leaves it; the list itself where no such block changed.
+ */
+export const ownChanged = (before: Assignment[] | undefined, after: Assignment[] | undefined): Assignment[] | undefined => {
+  if (!before || !after || before === after) return after
+  const was = new Map(before.map((a) => [a.id, a]))
+  let changed = false
+  const next = after.map((a) => {
+    const old = was.get(a.id)
+    if (a.source !== 'suggested' || !old || old === a) return a
+    changed = true
+    return { ...a, source: 'manual' as const }
+  })
+  return changed ? next : after
+}

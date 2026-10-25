@@ -7,6 +7,7 @@ import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dat
 import { dayType } from '../../domain/holidays'
 import { isSuggestedRow } from '../../domain/plannedRows'
 import { projectScore, scorePlan } from '../../domain/planner/score'
+import { takeProjects } from '../../domain/planner/solve'
 import type { AllocationRow } from '../../domain/types'
 import { usePref, usePrefSet } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -24,6 +25,8 @@ import { InnleidScope } from '../innleid/InnleidScope'
 import { InnleidSidePanel } from '../innleid/SupplierPanel'
 import { AreaMenu } from './AreaMenu'
 import { CellMenu } from './CellMenu'
+import { EngineDialog } from './EngineDialog'
+import { count } from '../dom'
 import { HeadRows } from './GridRows'
 import type { Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
@@ -56,7 +59,7 @@ import { formatFte } from '../format'
  * `onOpenPersonell` opens the tab where the people are entered, from Bemanning when there are none, and `onOpenSuppliers` the tab of the suppliers, from Innleid.
  */
 export function Kalender({ hints = true, heat = true, blockNames = 'full', overtimeLimit = 10, onOpenPersonell, onOpenSuppliers }: { hints?: boolean; heat?: boolean; blockNames?: BlockNames; overtimeLimit?: number; onOpenPersonell: () => void; onOpenSuppliers: () => void }) {
-  const { workspace, demandIndex, locatedDemand, setAllocationNote, removeAllocation } = useWorkspace()
+  const { workspace, demandIndex, locatedDemand, setAllocationNote, removeAllocation, updateStaffing } = useWorkspace()
   const ws = workspace!
   // The staffing lines come from Bemanning: absence, overtime and the people hired, which are worked out.
   const { settings, capacity, fromBemanning, waitingHired } = useStaffingLines(ws)
@@ -80,6 +83,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // The row the details panel shows: the last planning row that had the focus.
   const [detailId, setDetailId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ row?: AllocationRow; projectName?: string; projectNo?: string } | null>(null)
+  const [engineOpen, setEngineOpen] = useState(false)
 
   // The period follows the hall bookings, see `calendarRange`.
   const range = useMemo(() => calendarRange({ venue: ws.venue, allocations: ws.allocations }, todayIso()), [ws.venue, ws.allocations])
@@ -233,6 +237,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     const names = new Map((ws.persons ?? []).map((person) => [person.id, person.name]))
     return (id: string) => names.get(id) ?? id
   }, [ws.persons])
+  const engineRows = useMemo(() => (engineOpen ? allGroups.flatMap((group) => group.rows) : []), [engineOpen, allGroups])
+  const requiredFte = useCallback((row: AllocationRow) => rowTotals(demandIndex, row, settings).requiredFte ?? 0, [demandIndex, settings])
   const projectSpans = useMemo(() => (bemanning ? projectSpansOf(allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start) : []), [bemanning, allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start])
   // The work plans: a day or a week to read and print, opened from the page header or a right-click on a date in Bemanning.
   const [workPlan, setWorkPlan] = useState<OpenPlan | null>(null)
@@ -287,7 +293,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
         inspectorOpen={inspectorOpen}
         onInspector={setInspectorOpen}
         onNewRow={() => setDialog(allGroups.filter((g) => g.key === filter.project).map((g) => ({ projectName: g.projectName, projectNo: g.projectNo }))[0] ?? {})}
-        onPropose={() => proposePlan(shownGroups.flatMap((group) => group.rows), false)}
+        onPropose={() => setEngineOpen(true)}
       />}
 
       <div className="kal-work">
@@ -464,6 +470,21 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       {bemanning && !innleid && <BemanningOverlays />}
       {!bemanning && <StatusBar focus={grid.focusInfo} selectionSum={grid.selectionSum} notice={notice} progress={grid.progress} onSaveNote={setAllocationNote} />}
 
+      {engineOpen && (
+        <EngineDialog
+          ws={ws}
+          rows={engineRows}
+          required={requiredFte}
+          windowOf={windowOf}
+          dates={dates}
+          onClose={() => setEngineOpen(false)}
+          onApply={(solution, projectNos) => {
+            updateStaffing((w) => takeProjects(w, solution, projectNos))
+            setNotice(`Motorens plan er brukt for ${count(projectNos.length, 'prosjekt', 'prosjekter')}. Kan angres med Ctrl/Cmd+Z.`)
+            setEngineOpen(false)
+          }}
+        />
+      )}
       {dialog && (
         <AllocationDialog
           row={dialog.row}
