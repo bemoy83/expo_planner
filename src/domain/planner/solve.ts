@@ -1,12 +1,13 @@
 import { competenceStyles } from '../competences'
 import { pushTo } from '../collections'
-import { daysBetween, type ISODate } from '../dates'
+import { addDays, type ISODate } from '../dates'
 import { dayType } from '../holidays'
 import { isSuggestedRow } from '../plannedRows'
 import { numberKey } from '../projects'
 import { shareOverDays } from '../spread'
 import { freeIntervals, paidHours } from '../staffing/intervals'
 import { normalWindows, okAssignments } from '../staffing/time'
+import { WEIGHTS } from './score'
 import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Interval, type Stage, type Workspace } from '../types'
 
 /**
@@ -22,11 +23,12 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  * 2. The jobs are staffed hardest competence first (R7), then the tightest window: on each day the people who have
  *    the competence and free normal time, those who did the same work the day before first, then those who did the
  *    same competence or the one before it in its chain, and those with the fewest competences, so the others stay free (R3, R5).
- * 3. What nobody could take on a day is moved to a day of the window where someone can, and then to a day before the
- *    build-up or after the tear-down that the hall stands free (`nearby`, R6): the planner starts earlier before he
- *    hires in. The order of the stages holds when work is moved (the planner, 2026-10-25): a stage goes no earlier
- *    than the stage before it has, and no later than the stage after it ends, so an earlier start is open to the first
- *    stage, and to the next once the first has gone there; a tear-down the other way round. Those days are listed for Venyou (`outside`). What is left stays in the plan, uncovered, for Bemanning
+ * 3. What nobody could take on a day is moved to a day of the window where someone can, as far as the order of the
+ *    stages allows: a stage goes no earlier than the stage before it has, and no later than the stage after it ends.
+ * 4. Where that leaves hours over, the window of the project's hall and phase is widened onto the days before the
+ *    build-up or after the tear-down that the hall stands free (`nearby`, R6), and all its work is planned again over
+ *    the widened span by the same rules (the planner, 2026-10-25: the point of a longer span is that everything is
+ *    shared out over it, not that what was left over is moved). Those days are listed for Venyou (`outside`). Those days are listed for Venyou (`outside`). What is left stays in the plan, uncovered, for Bemanning
  *    and Innleid to show.
  *
  * Only normal time is planned: overtime and hire are the planner's (R6). Blocks the planner painted stay, and those
@@ -61,7 +63,9 @@ const tenth = (value: number) => Math.round(value * 10) / 10
 interface Job {
   row: AllocationRow
   competence: CompetenceKey
-  /** The days it may be done on, in the order they come. */
+  /** The working days of its window as the hall calendar gives it. */
+  window: Set<ISODate>
+  /** The days it may be done on, in the order they come: its window, widened where the engine starts earlier. */
   days: ISODate[]
   /** The days its stage puts it on, a part of `days`. */
   run: ISODate[]
@@ -121,10 +125,13 @@ const dayKey = (personId: string, date: ISODate) => `${personId}|${date}`
 const staffOf = (ws: Workspace, kept: readonly Assignment[]): Staff => {
   const wd = ws.settings.workday
   const blocks = new Map<string, Assignment[]>()
-  const byPerson = new Map<string, Assignment[]>()
+  // The last block of each person's day, so the day before is found without going through the season.
+  const last = new Map<string, Assignment>()
   const add = (a: Assignment) => {
-    pushTo(blocks, dayKey(a.personId, a.date), a)
-    pushTo(byPerson, a.personId, a)
+    const key = dayKey(a.personId, a.date)
+    pushTo(blocks, key, a)
+    const was = last.get(key)
+    if (!was || a.end > was.end) last.set(key, a)
   }
   kept.forEach(add)
   return {
@@ -132,13 +139,11 @@ const staffOf = (ws: Workspace, kept: readonly Assignment[]): Staff => {
     add,
     free: (personId, date) => freeIntervals(normalWindows(personId, date, ws.unavailability ?? [], wd), blocks.get(dayKey(personId, date)) ?? [], wd.snap),
     before: (personId, date) => {
-      let found: Assignment | undefined
-      for (const a of byPerson.get(personId) ?? []) {
-        const gap = daysBetween(a.date, date)
-        if (gap <= 0 || gap > 3) continue
-        if (!found || a.date > found.date || (a.date === found.date && a.end > found.end)) found = a
+      for (let gap = 1; gap <= 3; gap++) {
+        const found = last.get(dayKey(personId, addDays(date, -gap)))
+        if (found) return found
       }
-      return found
+      return undefined
     },
   }
 }
@@ -246,90 +251,133 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     return Object.fromEntries(Object.entries(row.fte).filter(([date, fte]) => fte && !engine.has(date)))
   }
 
-  // 1. The jobs, placed where their stages put them.
-  const jobs: Job[] = []
-  const byPlace = new Map<string, Job[]>()
-  for (const row of rows) {
-    const window = windowOf(row)
-    const competence = competenceKey(row.competence)
-    if (!window?.size || !competence || !row.phase) continue
-    const fixed = fixedOf(row)
-    const need = tenth(required(row) - Object.values(fixed).reduce((sum, v) => sum + v, 0))
-    const style = styleOf.get(competence)
-    const place = `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${row.phase}`
-    const job: Job = { row, competence, days: workdaysOf(window), run: [], near: nearby(row), place, stage: -1, need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
-    jobs.push(job)
-    pushTo(byPlace, place, job)
-  }
-  for (const group of byPlace.values()) {
-    const tearDown = group[0].row.phase === 'Demontering'
-    const order = tearDown ? [...ORDERED].reverse() : ORDERED
-    const present = order.filter((stage) => group.some((job) => styleOf.get(job.competence)?.stage === stage))
-    for (const job of group) {
-      const stage = styleOf.get(job.competence)?.stage
-      const index = stage ? present.indexOf(stage) : -1
-      job.stage = index
-      job.run = index < 0 ? job.days : stagePart(job.days, index, present.length)
-      if (job.need > NOISE) placeOnRun(job, stage === 'ekstra')
+  /**
+   * One plan of every job: steps 1 to 3 with each project, hall and phase given the free days `extra` next to its window
+   * as days of the window, so that its stages share the whole of the widened span. Hands back the jobs, the people and
+   * the hours nobody took, by project, hall and phase.
+   */
+  const planWith = (extra: Map<string, ISODate[]>) => {
+    // 1. The jobs, placed where their stages put them.
+    const jobs: Job[] = []
+    const byPlace = new Map<string, Job[]>()
+    for (const row of rows) {
+      const window = windowOf(row)
+      const competence = competenceKey(row.competence)
+      if (!window?.size || !competence || !row.phase) continue
+      const fixed = fixedOf(row)
+      const need = tenth(required(row) - Object.values(fixed).reduce((sum, v) => sum + v, 0))
+      const style = styleOf.get(competence)
+      const place = `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${row.phase}`
+      const own = workdaysOf(window)
+      const days = [...new Set([...own, ...(extra.get(place) ?? [])])].sort()
+      const job: Job = { row, competence, window: new Set(own), days, run: [], near: nearby(row), place, stage: -1, need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
+      jobs.push(job)
+      pushTo(byPlace, place, job)
     }
-  }
-
-  // 2. The people, hardest competence first, then the tightest window.
-  const staff = staffOf(ws, kept)
-  jobs.sort((a, b) => a.rank - b.rank || a.days.length - b.days.length || (a.days[0] ?? '').localeCompare(b.days[0] ?? ''))
-  const short = new Map<Job, Map<ISODate, number>>()
-  for (const job of jobs) {
-    const left = new Map<ISODate, number>()
-    for (const date of Object.keys(job.fte).sort()) {
-      const hours = job.fte[date] * perDay - ownCover(kept, job, date, wd)
-      if (hours < SMALLEST) continue
-      const rest = staffDay(ws, staff, job, date, hours, nextOf, makeId)
-      if (rest >= SMALLEST) left.set(date, rest)
-    }
-    if (left.size) short.set(job, left)
-  }
-
-  // 3. What nobody could take is moved to a day of the window where someone can: the days of its run first, and then
-  // the free days next to the window, as far as the stages before and after it allow. The stages are moved in the order
-  // they come, so that a later one can follow an earlier one that went before the window.
-  const daysOf = (job: Job) => Object.keys(job.fte).filter((date) => job.fte[date] > NOISE)
-  const allows = (job: Job): ((date: ISODate) => boolean) => {
-    if (job.stage < 0) return () => true
-    const staged = (byPlace.get(job.place) ?? []).filter((other) => other.stage >= 0 && daysOf(other).length)
-    const before = staged.filter((other) => other.stage < job.stage)
-    const after = staged.filter((other) => other.stage > job.stage)
-    const last = Math.max(-1, ...before.map((other) => other.stage))
-    const next = Math.min(Infinity, ...after.map((other) => other.stage))
-    const from = before.filter((other) => other.stage === last).flatMap(daysOf).sort()[0]
-    const to = after.filter((other) => other.stage === next).flatMap(daysOf).sort().at(-1)
-    return (date) => (from === undefined || date >= from) && (to === undefined || date <= to)
-  }
-  const tearDown = (job: Job) => job.row.phase === 'Demontering'
-  const moveOrder = (job: Job) => (job.stage < 0 ? Infinity : tearDown(job) ? -job.stage : job.stage)
-  for (const [job, left] of [...short].sort(([a], [b]) => moveOrder(a) - moveOrder(b))) {
-    for (const [date, hours] of left) {
-      const fixed = fixedOf(job.row)
-      if (fixed[date]) continue
-      let rest = hours
-      const allowed = allows(job)
-      const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d)), ...job.near].filter((d) => d !== date && allowed(d))
-      for (const other of others) {
-        if (rest < SMALLEST) break
-        const free = candidates(ws, staff, job, other, nextOf).reduce((sum, c) => sum + c.free.reduce((s, iv) => s + paidHours(iv, wd), 0), 0)
-        if (free < SMALLEST) continue
-        // Moved in tenths of a day, as the Kalender writes FTE, no more than the day has room for.
-        const moved = Math.min(rest, Math.floor((Math.min(rest, free) / perDay) * 10 + 1e-9) / 10 * perDay)
-        if (moved < SMALLEST) continue
-        const taken = moved - staffDay(ws, staff, job, other, moved, nextOf, makeId)
-        if (taken < SMALLEST) continue
-        const fte = tenth(taken / perDay)
-        job.fte[other] = tenth((job.fte[other] ?? 0) + fte)
-        job.fte[date] = tenth(job.fte[date] - fte)
-        if (job.fte[date] <= NOISE) delete job.fte[date]
-        rest -= taken
+    for (const group of byPlace.values()) {
+      const tearDown = group[0].row.phase === 'Demontering'
+      const order = tearDown ? [...ORDERED].reverse() : ORDERED
+      const present = order.filter((stage) => group.some((job) => styleOf.get(job.competence)?.stage === stage))
+      for (const job of group) {
+        const stage = styleOf.get(job.competence)?.stage
+        const index = stage ? present.indexOf(stage) : -1
+        job.stage = index
+        job.run = index < 0 ? job.days : stagePart(job.days, index, present.length)
+        if (job.need > NOISE) placeOnRun(job, stage === 'ekstra')
       }
     }
+
+    // 2. The people, hardest competence first, then the tightest window.
+    const staff = staffOf(ws, kept)
+    jobs.sort((a, b) => a.rank - b.rank || a.days.length - b.days.length || (a.days[0] ?? '').localeCompare(b.days[0] ?? ''))
+    const short = new Map<Job, Map<ISODate, number>>()
+    for (const job of jobs) {
+      const left = new Map<ISODate, number>()
+      for (const date of Object.keys(job.fte).sort()) {
+        const hours = job.fte[date] * perDay - ownCover(kept, job, date, wd)
+        if (hours < SMALLEST) continue
+        const rest = staffDay(ws, staff, job, date, hours, nextOf, makeId)
+        if (rest >= SMALLEST) left.set(date, rest)
+      }
+      if (left.size) short.set(job, left)
+    }
+
+    // 3. What nobody could take is moved to another day of the window where someone can, the days of its run first, as
+    // far as the stages before and after it allow. The stages are moved in the order they come.
+    const daysOf = (job: Job) => Object.keys(job.fte).filter((date) => job.fte[date] > NOISE)
+    const allows = (job: Job): ((date: ISODate) => boolean) => {
+      if (job.stage < 0) return () => true
+      const staged = (byPlace.get(job.place) ?? []).filter((other) => other.stage >= 0 && daysOf(other).length)
+      const before = staged.filter((other) => other.stage < job.stage)
+      const after = staged.filter((other) => other.stage > job.stage)
+      const last = Math.max(-1, ...before.map((other) => other.stage))
+      const next = Math.min(Infinity, ...after.map((other) => other.stage))
+      const from = before.filter((other) => other.stage === last).flatMap(daysOf).sort()[0]
+      const to = after.filter((other) => other.stage === next).flatMap(daysOf).sort().at(-1)
+      return (date) => (from === undefined || date >= from) && (to === undefined || date <= to)
+    }
+    const tearDown = (job: Job) => job.row.phase === 'Demontering'
+    const moveOrder = (job: Job) => (job.stage < 0 ? Infinity : tearDown(job) ? -job.stage : job.stage)
+    const uncovered = new Map<string, number>()
+    for (const [job, left] of [...short].sort(([a], [b]) => moveOrder(a) - moveOrder(b))) {
+      for (const [date, hours] of left) {
+        let rest = hours
+        if (!fixedOf(job.row)[date]) {
+          const allowed = allows(job)
+          const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d))].filter((d) => d !== date && allowed(d))
+          for (const other of others) {
+            if (rest < SMALLEST) break
+            const free = candidates(ws, staff, job, other, nextOf).reduce((sum, c) => sum + c.free.reduce((s, iv) => s + paidHours(iv, wd), 0), 0)
+            if (free < SMALLEST) continue
+            // Moved in tenths of a day, as the Kalender writes FTE, no more than the day has room for.
+            const moved = Math.min(rest, Math.floor((Math.min(rest, free) / perDay) * 10 + 1e-9) / 10 * perDay)
+            if (moved < SMALLEST) continue
+            const taken = moved - staffDay(ws, staff, job, other, moved, nextOf, makeId)
+            if (taken < SMALLEST) continue
+            const fte = tenth(taken / perDay)
+            job.fte[other] = tenth((job.fte[other] ?? 0) + fte)
+            job.fte[date] = tenth(job.fte[date] - fte)
+            if (job.fte[date] <= NOISE) delete job.fte[date]
+            rest -= taken
+          }
+        }
+        if (rest >= SMALLEST) uncovered.set(job.place, (uncovered.get(job.place) ?? 0) + rest)
+      }
+    }
+    return { jobs, byPlace, staff, uncovered }
   }
+
+  // Where the permanent staff cannot do it all, the window is widened onto the free days next to it, as many as the
+  // hours left over take, and everything of that project, hall and phase is planned again over the widened span. A
+  // widening stays only where it pays: 10 an uncovered hour against 3 a day the hall is used outside its phases.
+  const extra = new Map<string, ISODate[]>()
+  const stopped = new Set<string>()
+  let result = planWith(extra)
+  for (let pass = 0; pass < 3; pass++) {
+    const grown = new Map<string, ISODate[]>()
+    for (const [place, hours] of result.uncovered) {
+      if (hours < 1 || stopped.has(place)) continue
+      const group = result.byPlace.get(place)!
+      const used = extra.get(place) ?? []
+      const free = group[0].near.filter((date) => !used.includes(date))
+      if (!free.length) continue
+      const daily = Math.max(perDay, (group.reduce((sum, job) => sum + job.need, 0) * perDay) / group[0].days.length)
+      grown.set(place, used)
+      extra.set(place, [...used, ...free.slice(0, Math.max(1, Math.min(free.length, Math.ceil(hours / daily))))])
+    }
+    if (!grown.size) break
+    const next = planWith(extra)
+    let undone = false
+    for (const [place, before] of grown) {
+      const saved = (result.uncovered.get(place) ?? 0) - (next.uncovered.get(place) ?? 0)
+      if (saved * WEIGHTS.uncovered >= (extra.get(place)!.length - before.length) * WEIGHTS.outsideWindow) continue
+      extra.set(place, before)
+      stopped.add(place)
+      undone = true
+    }
+    result = undone ? planWith(extra) : next
+  }
+  const { jobs, staff } = result
 
   // The rows as the engine leaves them, the days it wrote marked; a suggested row with FTE becomes a stored row.
   const byRow = new Map(jobs.map((job) => [job.row.id, job]))
@@ -356,9 +404,8 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
   const solvedRows = new Map(allocations.map((row) => [row.id, row]))
   const outside = new Map<string, OutsideDay>()
   for (const job of jobs) {
-    const window = new Set(job.days)
     for (const date of Object.keys(job.fte))
-      if (!window.has(date) && job.near.includes(date)) {
+      if (!job.window.has(date) && job.near.includes(date)) {
         const hall = (job.row.hall ?? '').trim()
         outside.set(`${numberKey(job.row.projectNo)}|${hall.toLowerCase()}|${date}`, { projectNo: job.row.projectNo, projectName: job.row.projectName, hall, date })
       }
