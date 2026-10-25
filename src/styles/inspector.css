@@ -35,6 +35,9 @@
 .insp-days td.neg{color:var(--neg)}
 .insp-days td.pos{color:var(--pos)}
 .insp-out{font-family:var(--font-ui);color:var(--over)}
+.insp-findings{margin:12px 0 0;padding:0;list-style:none;font-size:var(--fs-sm)}
+.insp-findings li{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent)}
+.insp-findings b{flex:none;font:500 var(--fs-sm) var(--font-num)}
 .insp-foot{flex:none;box-sizing:border-box;display:flex;align-items:center;min-height:56px;padding:12px 20px;background:var(--panel);border-top:1px solid var(--line)}
 .insp-foot>button{width:100%}
 .insp-done{font-size:var(--fs-md);font-weight:500}

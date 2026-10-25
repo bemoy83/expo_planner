@@ -336,3 +336,10 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 - On Kompetanser: a stage per competence, the competence its team goes on to, and the fewest per hall; the order is the ranking. Marking out is a competence of its own, which the planner adds.
 - In Egen registrering: hours typed as people × days keep the team on the line.
 - Next is step 2, the score: everything in hours, never kroner; a hired person comes for at least three hours; overtime only for small gaps. The weights are found with pairs of plans the planner has ranked, kept as tests.
+
+## Planning engine, step 2: the score, to be tested by the user
+
+- The score is one function, `scorePlan`, the one place that says what a good plan is: the engine is to make it as low as it can. Everything is counted in hours, never kroner (the planner, 2026-10-25).
+- The weights were set from six pairs of plans the planner ranked: a scarce competence is freed by hiring an easier one; a short switch is not worth it when the two competences are as easy to hire; a little overtime beats a call-out of three hours, a day's worth does not (overtime is to be avoided as a rule); an earlier start beats both hire and overtime; a switch of hall that saves nothing is not made. Each is a test, with the margins checked.
+- Orders that wait count as cover in the score, as the plan's intent; elsewhere they count nowhere, as before.
+- The score is shown for the project of the row in focus in the row details. It is worked out over the whole period while the panel is open.
