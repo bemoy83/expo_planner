@@ -83,7 +83,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
 .bm-demand.compact .bm-name,.bm-demand.compact .bm-week-left{font-size:var(--fs-xs)}
 .bm-demand.compact .bm-need{padding:0 4px}
-.bm-need-line{position:relative;display:block;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklab,var(--cc) 22%,var(--bg))}
+.bm-need-line{position:relative;display:block;flex:1;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklab,var(--cc) 22%,var(--bg))}
 .bm-need-line>i{position:absolute;top:0;left:0;bottom:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
 .bm-need-line .covered{background:var(--cc)}
 /* what is given beyond the demand: the ochre tail, as on the label; red means under */
@@ -95,7 +95,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-need-label .rule,.bm-need-line .rule{width:1.5px;margin-left:-.75px;background:var(--bg)}
 /* the thin line with its figure beside it (Innleid), the figure over on an ochre chip */
 .bm-need-compact{position:absolute;left:8px;right:8px;top:50%;display:flex;align-items:center;gap:6px;height:16px;margin-top:-8px}
-.bm-need-compact .bm-need-line{flex:1}
 .bm-need-compact b{flex:none;font:600 var(--fs-xs)/1 var(--font-num)}
 .bm-need-compact b.alert{padding:2px 4px;border-radius:3px;background:var(--alert-warn);color:var(--alert-on)}
 .bm-idle-head{color:var(--faint)}
