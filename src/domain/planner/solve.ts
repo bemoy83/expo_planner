@@ -24,7 +24,9 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  *    same competence or the one before it in its chain, and those with the fewest competences, so the others stay free (R3, R5).
  * 3. What nobody could take on a day is moved to a day of the window where someone can, and then to a day before the
  *    build-up or after the tear-down that the hall stands free (`nearby`, R6): the planner starts earlier before he
- *    hires in. Those days are listed for Venyou (`outside`). What is left stays in the plan, uncovered, for Bemanning
+ *    hires in. The order of the stages holds when work is moved (the planner, 2026-10-25): a stage goes no earlier
+ *    than the stage before it has, and no later than the stage after it ends, so an earlier start is open to the first
+ *    stage, and to the next once the first has gone there; a tear-down the other way round. Those days are listed for Venyou (`outside`). What is left stays in the plan, uncovered, for Bemanning
  *    and Innleid to show.
  *
  * Only normal time is planned: overtime and hire are the planner's (R6). Blocks the planner painted stay, and those
@@ -65,6 +67,10 @@ interface Job {
   run: ISODate[]
   /** The days next to the window its halls stand free, nearest first. */
   near: ISODate[]
+  /** Its project, hall and phase, whose stages keep their order. */
+  place: string
+  /** The place of its stage among those of its project, hall and phase, earliest first; -1 for a competence with none in that order. */
+  stage: number
   /** FTE-days still to place. */
   need: number
   /** The fewest a day, where the competence has one. */
@@ -250,9 +256,10 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     const fixed = fixedOf(row)
     const need = tenth(required(row) - Object.values(fixed).reduce((sum, v) => sum + v, 0))
     const style = styleOf.get(competence)
-    const job: Job = { row, competence, days: workdaysOf(window), run: [], near: nearby(row), need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
+    const place = `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${row.phase}`
+    const job: Job = { row, competence, days: workdaysOf(window), run: [], near: nearby(row), place, stage: -1, need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
     jobs.push(job)
-    pushTo(byPlace, `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${row.phase}`, job)
+    pushTo(byPlace, place, job)
   }
   for (const group of byPlace.values()) {
     const tearDown = group[0].row.phase === 'Demontering'
@@ -261,6 +268,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     for (const job of group) {
       const stage = styleOf.get(job.competence)?.stage
       const index = stage ? present.indexOf(stage) : -1
+      job.stage = index
       job.run = index < 0 ? job.days : stagePart(job.days, index, present.length)
       if (job.need > NOISE) placeOnRun(job, stage === 'ekstra')
     }
@@ -281,13 +289,30 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     if (left.size) short.set(job, left)
   }
 
-  // 3. What nobody could take is moved to a day of the window where someone can: the days of its run first.
-  for (const [job, left] of short) {
+  // 3. What nobody could take is moved to a day of the window where someone can: the days of its run first, and then
+  // the free days next to the window, as far as the stages before and after it allow. The stages are moved in the order
+  // they come, so that a later one can follow an earlier one that went before the window.
+  const daysOf = (job: Job) => Object.keys(job.fte).filter((date) => job.fte[date] > NOISE)
+  const allows = (job: Job): ((date: ISODate) => boolean) => {
+    if (job.stage < 0) return () => true
+    const staged = (byPlace.get(job.place) ?? []).filter((other) => other.stage >= 0 && daysOf(other).length)
+    const before = staged.filter((other) => other.stage < job.stage)
+    const after = staged.filter((other) => other.stage > job.stage)
+    const last = Math.max(-1, ...before.map((other) => other.stage))
+    const next = Math.min(Infinity, ...after.map((other) => other.stage))
+    const from = before.filter((other) => other.stage === last).flatMap(daysOf).sort()[0]
+    const to = after.filter((other) => other.stage === next).flatMap(daysOf).sort().at(-1)
+    return (date) => (from === undefined || date >= from) && (to === undefined || date <= to)
+  }
+  const tearDown = (job: Job) => job.row.phase === 'Demontering'
+  const moveOrder = (job: Job) => (job.stage < 0 ? Infinity : tearDown(job) ? -job.stage : job.stage)
+  for (const [job, left] of [...short].sort(([a], [b]) => moveOrder(a) - moveOrder(b))) {
     for (const [date, hours] of left) {
       const fixed = fixedOf(job.row)
       if (fixed[date]) continue
       let rest = hours
-      const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d)), ...job.near].filter((d) => d !== date)
+      const allowed = allows(job)
+      const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d)), ...job.near].filter((d) => d !== date && allowed(d))
       for (const other of others) {
         if (rest < SMALLEST) break
         const free = candidates(ws, staff, job, other, nextOf).reduce((sum, c) => sum + c.free.reduce((s, iv) => s + paidHours(iv, wd), 0), 0)

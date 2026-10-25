@@ -367,3 +367,9 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 
 - The invented season has the competences and product types the planner works with, by name, competence and unit, taken from his KPI export (Banner, Snekker, FOGA, Innredning, Profilering, Engangstepper, Teppefliser, Møbler, Oppmerking, Ekstra; FOGA-vegger, Teppefliser, Disker & Podier and the like). The rates and quantities are made up; the file itself is not kept. Marking out («Oppmåling», a hall at a time) is its competence «Oppmerking», as the planner decided, and meeting rooms and seating are the house's own work, ordered per event. Kompetanser has the stages, the chains FOGA → Innredning and Teppefliser → Møbler, and two a hall for marking out; whoever has FOGA has Innredning too.
 - Read in from a clean start, it showed that the score counted no demand not yet put on a day: an empty plan scored nothing. The score now counts such demand as uncovered when it is given the rows and what they need (`Unplanned`), in the engine's dialog and the row details.
+
+## Planning engine: the stages keep their order when work is moved (2026-10-25)
+
+- Seen by the planner on the new demo season: the engine moved what nobody could take to any day of the window or before it, so furniture could come before the floor. The score let it, a day out of order costing 1 against 10 an uncovered hour.
+- The order is now a fixed rule of the moves: a stage goes no earlier than the first day of the stage before it, and no later than the last day of the stage after it. The stages are moved in the order they come, so an earlier start is open to the first stage, and to the next once the first has gone there; a tear-down the other way round.
+- The price is more hours left to hire where the first stages are not short: on the demo season, Byggemessen goes from about 40 to 470 uncovered hours.

@@ -94,6 +94,23 @@ describe('the planning engine', () => {
     expect(scorePlan(solution.workspace, [MON, TUE], () => new Set([TUE])).byKind.uncovered).toBe(0)
   })
 
+  it('keeps the order of the stages when it moves work: the walls start no earlier than the floor', () => {
+    const rows = [row('tepper'), row('foga')]
+    const ws0 = workspace([person('ola', 'tepper'), person('per', 'foga')])
+    const { workspace: ws } = run(ws0, rows, [2, 4], [TUE, WED], true, [MON])
+    expect(fteOf(ws, 'foga')).toEqual({ [TUE]: 2, [WED]: 2 })
+    expect(scorePlan(ws, [MON, TUE, WED], () => new Set([TUE, WED])).byKind.stage).toBe(0)
+  })
+
+  it('lets the walls follow the floor to a day before the window once the floor has gone there', () => {
+    const rows = [row('tepper'), row('foga')]
+    const ws0 = workspace([person('ola', 'tepper'), person('per', 'foga')])
+    const { workspace: ws } = run(ws0, rows, [3, 3], [TUE, WED], true, [MON])
+    expect(fteOf(ws, 'tepper')?.[MON]).toBe(1)
+    expect(fteOf(ws, 'foga')?.[MON]).toBe(1)
+    expect(scorePlan(ws, [MON, TUE, WED], () => new Set([TUE, WED])).byKind.stage).toBe(0)
+  })
+
   it('does not start earlier where the crew can do it in the window', () => {
     const solution = run(workspace([person('per', 'foga'), person('pål', 'foga')]), [row('foga')], [2], [TUE], true, [MON])
     expect(fteOf(solution.workspace, 'foga')).toEqual({ [TUE]: 2 })
