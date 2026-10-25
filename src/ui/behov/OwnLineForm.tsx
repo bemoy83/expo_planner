@@ -111,6 +111,9 @@ export function OwnLineForm({ ctx, onContext, draft, onDraft, projects, projectG
         avdeling: ctx.avdeling,
         origin: 'manual' as const,
         ...(index === 0 && draft.replaces ? { replaces: draft.replaces } : {}),
+        // A team stays whole on one line; shared out on several halls, the line has its hours only.
+        ...(n === 1 && typedAssembly?.crew ? { assemblyCrew: typedAssembly.crew } : {}),
+        ...(n === 1 && typedDismantle?.crew ? { dismantleCrew: typedDismantle.crew } : {}),
       })),
     )
   }

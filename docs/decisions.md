@@ -328,3 +328,11 @@ What each mode does now is in [features/plan.md](features/plan.md), [features/be
 - Tab picks a value in any list of `PickField` that the arrow keys went to, as Enter does, and the focus moves on. An offer only marked when the list opened is passed by, so that tabbing through does not accept it.
 - Tab from Kompetanse goes to «Legg til»; Grunnlag stays as it is between lines and is reached with Shift+Tab.
 - A quantity can be typed with its unit, «1stk» (`parseQuantity`); on a type of KPI the unit is the type's, and another one keeps the line from being added. Hours can be the quantity at a rate, «10/t» or «80/d» (`parseHours`); they are stored as hours, not worked out again when the quantity changes.
+
+## Planning engine, step 1: the settings, to be tested by the user
+
+The planning engine is designed with the planner in two Claude Docs, «Planleggingsmotor: intervju» (his knowledge as rules R1–R11) and «Planleggingsmotor: byggeplan» (five steps and the decisions of 2026-10-25). It plans days and named people together, over all projects at once, and is accepted per project. Step 1 stores what it is to know, as data, with no special rules in the engine (the planner, 2026-10-25: he gives everyone with FOGA the interior fitting too).
+
+- On Kompetanser: a stage per competence, the competence its team goes on to, and the fewest per hall; the order is the ranking. Marking out is a competence of its own, which the planner adds.
+- In Egen registrering: hours typed as people × days keep the team on the line.
+- Next is step 2, the score: everything in hours, never kroner; a hired person comes for at least three hours; overtime only for small gaps. The weights are found with pairs of plans the planner has ranked, kept as tests.

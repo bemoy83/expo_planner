@@ -2,7 +2,7 @@ import { daysBetween, dateRange, periodText, type ISODate } from './dates'
 import { dayType } from './holidays'
 import { decimalText } from './numbers'
 import { eventKey, venueEvents } from './projects'
-import { PLANNED_BASIS, type DateSpan, type DemandLine, type ProjectRef, type VenueBooking, type VismaRow } from './types'
+import { PLANNED_BASIS, type Crew, type DateSpan, type DemandLine, type ProjectRef, type VenueBooking, type VismaRow } from './types'
 import { anchorDate } from './venueImport'
 
 /**
@@ -18,6 +18,8 @@ import { anchorDate } from './venueImport'
 interface TypedHours {
   hours: number
   read?: string
+  /** The team the hours were given as, where they were people × days. */
+  crew?: Crew
   noQuantity?: true
 }
 
@@ -38,7 +40,8 @@ export const parseHours = (text: string, hoursPerDay: number, quantity?: number 
     const people = num(m[1])
     const count = num(m[2])
     const inHours = !!m[3] && /^[th]/.test(m[3])
-    return { hours: inHours ? people * count : people * count * hoursPerDay, read: `${shown(people)} pers × ${shown(count)} ${inHours ? 't' : count === 1 ? 'dag' : 'dager'}` }
+    const read = `${shown(people)} pers × ${shown(count)} ${inHours ? 't' : count === 1 ? 'dag' : 'dager'}`
+    return inHours ? { hours: people * count, read } : { hours: people * count * hoursPerDay, read, ...(people > 0 && count > 0 ? { crew: { people, days: count } } : {}) }
   }
   if ((m = t.match(new RegExp(`^${n} ?(?:/|per) ?(t|time|timen|h|d|dag|dagen)$`)))) {
     const anHour = /^[th]/.test(m[2])
@@ -53,6 +56,19 @@ export const parseHours = (text: string, hoursPerDay: number, quantity?: number 
   if ((m = t.match(new RegExp(`^${n} ?(?:t|timer|h)?$`)))) return { hours: num(m[1]) }
   return { hours: NaN, read: 'forstår ikke' }
 }
+
+/** A team as it is typed in short: «2p 3d». */
+export const crewTyped = (crew: Crew): string => `${shown(crew.people)}p ${shown(crew.days)}d`
+
+/** A team in a cell: «2 × 3 d». */
+export const crewShort = (crew: Crew): string => `${shown(crew.people)} × ${shown(crew.days)} d`
+
+/**
+ * The hours of a phase of an own line as typed, with the team where they were given as one. A team is dropped
+ * where the hours are given otherwise, or not given.
+ */
+export const phaseHours = (phase: 'assembly' | 'dismantle', typed: { hours: number; crew?: Crew } | null): Partial<DemandLine> =>
+  phase === 'assembly' ? { assemblyHours: typed?.hours ?? 0, assemblyCrew: typed?.crew } : { dismantleHours: typed?.hours ?? 0, dismantleCrew: typed?.crew }
 
 /**
  * A quantity as typed: the number, and the unit written after it, if any. The quantity is NaN for a text that cannot be

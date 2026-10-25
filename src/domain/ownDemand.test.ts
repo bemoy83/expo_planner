@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fromLastYear, ownTotals, parseHours, parseQuantity, previousProjectNo, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
+import { crewShort, crewTyped, fromLastYear, ownTotals, parseHours, phaseHours, parseQuantity, previousProjectNo, projectHallSpans, projectTiming, spanText, usualAvdeling, workdays } from './ownDemand'
 import type { DemandLine, VenueBooking } from './types'
 
 describe('parseQuantity', () => {
@@ -33,9 +33,17 @@ describe('parseHours', () => {
   })
 
   it('reads people by days or by hours', () => {
-    expect(parseHours('3p 2d', 7.5)).toEqual({ hours: 45, read: '3 pers × 2 dager' })
+    expect(parseHours('3p 2d', 7.5)).toEqual({ hours: 45, read: '3 pers × 2 dager', crew: { people: 3, days: 2 } })
     expect(parseHours('2p 6t', 7.5)).toEqual({ hours: 12, read: '2 pers × 6 t' })
-    expect(parseHours('2 pers x 1 dag', 8)).toEqual({ hours: 16, read: '2 pers × 1 dag' })
+    expect(parseHours('2 pers x 1 dag', 8)).toEqual({ hours: 16, read: '2 pers × 1 dag', crew: { people: 2, days: 1 } })
+  })
+
+  it('keeps a team given in days whole, and drops it where the hours are given otherwise', () => {
+    expect(crewTyped({ people: 2, days: 3 })).toBe('2p 3d')
+    expect(crewShort({ people: 2, days: 1.5 })).toBe('2 × 1,5 d')
+    expect(phaseHours('assembly', parseHours('2p 3d', 7.5))).toEqual({ assemblyHours: 45, assemblyCrew: { people: 2, days: 3 } })
+    expect(phaseHours('dismantle', parseHours('12', 7.5))).toEqual({ dismantleHours: 12, dismantleCrew: undefined })
+    expect(phaseHours('assembly', null)).toEqual({ assemblyHours: 0, assemblyCrew: undefined })
   })
 
   it('reads a product and days of work', () => {

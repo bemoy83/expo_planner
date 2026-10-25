@@ -1,6 +1,6 @@
 import { productTypeKey } from './kpi'
 import type { TableDiff } from './tableDiff'
-import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type KpiConfig, type LineColor, type Person, type Workspace } from './types'
+import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type KpiConfig, type LineColor, type Person, type Stage, type Workspace } from './types'
 import { clamp } from './numbers'
 
 /**
@@ -52,9 +52,38 @@ export const competenceStyles = (ws: Workspace): CompetenceStyle[] => {
 
 const asRecord = (styles: CompetenceStyle[]): Record<CompetenceKey, CompetenceStyle> => Object.fromEntries(styles.map((style, order) => [style.key, { ...style, order }]))
 
-/** Changes how a competence is shown. The styles of all competences are stored from then on, so their colours and order stay put. */
-export const setCompetenceStyle = (ws: Workspace, key: CompetenceKey, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color'>>): Record<CompetenceKey, CompetenceStyle> =>
-  asRecord(competenceStyles(ws).map((style) => (style.key === key ? { ...style, ...patch, shortLabel: (patch.shortLabel ?? style.shortLabel).slice(0, SHORT_LABEL_LENGTH) } : style)))
+/** What the planning engine knows of a competence, as the planner sets it: its stage, the competence its team goes on to, and the fewest per hall. */
+type EngineFields = Pick<CompetenceStyle, 'stage' | 'next' | 'minPerHall'>
+
+/** The style with the planner's changes, a part set to nothing being left out rather than stored as empty. */
+const patched = (style: CompetenceStyle, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color'> & EngineFields>): CompetenceStyle => {
+  const next: CompetenceStyle = { ...style, ...patch, shortLabel: (patch.shortLabel ?? style.shortLabel).slice(0, SHORT_LABEL_LENGTH) }
+  for (const part of ['stage', 'next', 'minPerHall'] as const) if (!next[part]) delete next[part]
+  return next
+}
+
+/** Changes how a competence is shown, or what the engine knows of it. The styles of all competences are stored from then on, so their colours and order stay put. */
+export const setCompetenceStyle = (ws: Workspace, key: CompetenceKey, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color'> & EngineFields>): Record<CompetenceKey, CompetenceStyle> =>
+  asRecord(competenceStyles(ws).map((style) => (style.key === key ? patched(style, patch) : style)))
+
+/**
+ * Whether the team of one competence can go on to another: not to itself, and not where the other's teams already
+ * lead back to it, so that a chain has an end. A competence nobody knows of yet is no place to go on to.
+ */
+export const canGoOnTo = (styles: CompetenceStyle[], from: CompetenceKey, to: CompetenceKey): boolean => {
+  const byKey = new Map(styles.map((style) => [style.key, style]))
+  if (from === to || !byKey.has(to)) return false
+  const seen = new Set<CompetenceKey>()
+  for (let at: CompetenceKey | undefined = to; at && !seen.has(at); at = byKey.get(at)?.next) {
+    if (at === from) return false
+    seen.add(at)
+  }
+  return true
+}
+
+/** The styles with a team that went on to one competence going on to another, or to none. */
+const repointed = (styles: CompetenceStyle[], from: CompetenceKey, to: CompetenceKey | undefined): CompetenceStyle[] =>
+  styles.map((style) => (style.next !== from ? style : patched(style, { next: to && to !== style.key ? to : undefined })))
 
 /** The list with `change` made to the items it applies to, or the list itself when it applies to none. */
 const mapChanged = <T,>(list: T[], change: (item: T) => T): T[] => {
@@ -93,7 +122,7 @@ export const renameCompetence = (ws: Workspace, from: CompetenceKey, toLabel: st
     demandAdjustments: keyed(ws.demandAdjustments),
     suppliers: withKeySwapped(ws.suppliers, from, to),
     hireOrders: keyed(ws.hireOrders),
-    competenceStyles: stored ? asRecord(styles.map((s) => (s === style ? renamed : s))) : ws.competenceStyles,
+    competenceStyles: stored ? asRecord(repointed(styles, from, to).map((s) => (s.key === from ? renamed : s))) : ws.competenceStyles,
   }
   const same = (Object.keys(next) as (keyof Workspace)[]).every((part) => next[part] === ws[part])
   return same ? ws : next
@@ -140,7 +169,7 @@ export const competenceUse = (ws: Workspace, key: CompetenceKey): CompetenceUse 
 /** Whether a competence is only there because the planner added it, so that it can be removed again. */
 export const isUnusedCompetence = (ws: Workspace, key: CompetenceKey): boolean => !textsInUse(ws).has(key) && !(ws.assignments ?? []).some((a) => a.competence === key) && !(ws.hireOrders ?? []).some((order) => order.competence === key)
 
-export const removeCompetence = (ws: Workspace, key: CompetenceKey): Record<CompetenceKey, CompetenceStyle> => asRecord(competenceStyles(ws).filter((style) => style.key !== key))
+export const removeCompetence = (ws: Workspace, key: CompetenceKey): Record<CompetenceKey, CompetenceStyle> => asRecord(repointed(competenceStyles(ws), key, undefined).filter((style) => style.key !== key))
 
 /** A new person at the end of the list, with the competences given. */
 export const addPerson = (persons: Person[], name: string, id: string = `person-${crypto.randomUUID()}`, competences: CompetenceKey[] = []): Person[] => [
@@ -204,6 +233,7 @@ export const replaceCompetence = (ws: Workspace, from: CompetenceKey, toLabel: s
   if (styles?.[from]) {
     const { [from]: old, ...rest } = styles
     styles = rest[to] ? rest : { ...rest, [to]: { ...old, key: to, label: toLabel.trim(), shortLabel: defaultShortLabel(toLabel.trim()) } }
+    styles = Object.fromEntries(repointed(Object.values(styles), from, to).map((style) => [style.key, style]))
   }
   return { ...ws, persons: withKeySwapped(ws.persons, from, to), suppliers: withKeySwapped(ws.suppliers, from, to), assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), hireOrders: swap(ws.hireOrders), competenceStyles: styles }
 }
@@ -316,13 +346,29 @@ export interface FileCompetence {
   label: string
   shortLabel?: string
   color?: LineColor
+  stage?: Stage
+  /** The name of the competence its team goes on to. */
+  next?: string
+  minPerHall?: number
 }
 
 const styled = (style: CompetenceStyle, file: FileCompetence): CompetenceStyle => {
   const shortLabel = (file.shortLabel || style.shortLabel).slice(0, SHORT_LABEL_LENGTH)
   const color = file.color ?? style.color
-  return shortLabel === style.shortLabel && color === style.color ? style : { ...style, shortLabel, color }
+  const stage = file.stage ?? style.stage
+  const next = file.next ? competenceKey(file.next) : style.next
+  const minPerHall = file.minPerHall ?? style.minPerHall
+  const same = shortLabel === style.shortLabel && color === style.color && stage === style.stage && next === style.next && minPerHall === style.minPerHall
+  return same ? style : patched(style, { shortLabel, color, stage, next, minPerHall })
 }
+
+/** The styles with a team going on only to a competence there is, and never round in a ring: a link that would close one is dropped. */
+const chainsKept = (styles: CompetenceStyle[]): CompetenceStyle[] =>
+  styles.reduce((kept, style, index) => {
+    if (!style.next) return kept
+    const without = kept.map((s, i) => (i === index ? patched(s, { next: undefined }) : s))
+    return canGoOnTo(without, style.key, style.next) ? kept : without
+  }, styles)
 
 const oneOfEach = (file: FileCompetence[]): FileCompetence[] => {
   const seen = new Set<CompetenceKey>()
@@ -349,7 +395,7 @@ export const mergeCompetenceStyles = (ws: Workspace, file: FileCompetence[], rep
     return styled({ key, label: row.label.trim(), shortLabel: defaultShortLabel(row.label.trim()), color, order: 0 }, row)
   })
   const inFile = new Set(fromRows.map((style) => style.key))
-  return asRecord([...fromRows, ...(replace ? [] : styles.filter((style) => !inFile.has(style.key)))])
+  return asRecord(chainsKept([...fromRows, ...(replace ? [] : styles.filter((style) => !inFile.has(style.key)))]))
 }
 
 interface StylesDiff extends TableDiff {

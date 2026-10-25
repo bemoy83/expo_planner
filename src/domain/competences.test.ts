@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type FilePerson, diffCompetenceStyles, diffPersons, isNameTaken, mergeCompetenceStyles, mergePersons, renameCompetence, replacePersons, competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, unstaffedCompetences, updatePerson } from './competences'
+import { type FilePerson, canGoOnTo, diffCompetenceStyles, diffPersons, isNameTaken, mergeCompetenceStyles, mergePersons, renameCompetence, replacePersons, competenceUse, replaceCompetence, supersededCompetences, addCompetence, addPerson, competenceStyles, isUnusedCompetence, moveCompetence, removeCompetence, removePerson, setCompetenceStyle, togglePersonCompetence, unstaffedCompetences, updatePerson } from './competences'
 import { DEFAULT_SETTINGS, LINE_COLORS, type AllocationRow, type DemandLine, type Workspace } from './types'
 
 const row = (competence: string): AllocationRow => ({ id: `row-${competence}`, order: 0, projectName: 'VVS 2026', projectNo: '26970', refYear: '2026', competence, phase: 'Montering', basis: 'Planlagt', fte: {}, notes: {} })
@@ -57,6 +57,45 @@ describe('competence styles', () => {
     expect(isUnusedCompetence(ws, 'foga')).toBe(false)
     expect(isUnusedCompetence({ ...ws, persons: togglePersonCompetence(ws.persons!, 'p1', 'rigging') }, 'rigging')).toBe(false)
     expect(Object.keys(removeCompetence(ws, 'rigging'))).not.toContain('rigging')
+  })
+})
+
+describe('what the planning engine knows of a competence', () => {
+  it('stores a stage, the competence its team goes on to and the fewest per hall, and leaves out what is set to nothing', () => {
+    const stored = setCompetenceStyle(base, 'teppefliser', { stage: 'gulv', next: 'banner', minPerHall: 2 })
+    expect(stored.teppefliser).toMatchObject({ stage: 'gulv', next: 'banner', minPerHall: 2 })
+    const cleared = setCompetenceStyle({ ...base, competenceStyles: stored }, 'teppefliser', { stage: undefined, next: undefined, minPerHall: 0 })
+    expect(cleared.teppefliser).not.toHaveProperty('stage')
+    expect(cleared.teppefliser).not.toHaveProperty('next')
+    expect(cleared.teppefliser).not.toHaveProperty('minPerHall')
+  })
+
+  it('lets a team go on to another competence, but not to itself or round in a ring', () => {
+    const ws: Workspace = { ...base, competenceStyles: setCompetenceStyle(base, 'teppefliser', { next: 'foga' }) }
+    const styles = competenceStyles(ws)
+    expect(canGoOnTo(styles, 'foga', 'banner')).toBe(true)
+    expect(canGoOnTo(styles, 'foga', 'foga')).toBe(false)
+    expect(canGoOnTo(styles, 'foga', 'teppefliser')).toBe(false)
+    expect(canGoOnTo(styles, 'foga', 'ukjent')).toBe(false)
+  })
+
+  it('follows a competence that is renamed or replaced, and lets go of one that is removed', () => {
+    const added: Workspace = { ...base, competenceStyles: addCompetence(base, 'Rigging')! }
+    const ws: Workspace = { ...added, competenceStyles: setCompetenceStyle(added, 'teppefliser', { next: 'rigging' }) }
+    expect(renameCompetence(ws, 'rigging', 'Takrigg')!.competenceStyles!.teppefliser.next).toBe('takrigg')
+    expect(replaceCompetence(ws, 'rigging', 'Banner').competenceStyles!.teppefliser.next).toBe('banner')
+    expect(removeCompetence(ws, 'rigging').teppefliser).not.toHaveProperty('next')
+  })
+
+  it('takes the engine\'s fields from a file, and drops a link that would close a ring', () => {
+    const ws: Workspace = { ...base, competenceStyles: setCompetenceStyle(base, 'foga', { next: 'teppefliser' }) }
+    const merged = mergeCompetenceStyles(ws, [{ label: 'Teppefliser', stage: 'gulv', next: 'FOGA', minPerHall: 2 }, { label: 'Banner', stage: 'lopende' }])
+    expect(merged.teppefliser).toMatchObject({ stage: 'gulv', minPerHall: 2 })
+    expect(merged.banner.stage).toBe('lopende')
+    // FOGA went on to Teppefliser already, so Teppefliser cannot go on to FOGA.
+    expect(merged.foga.next).toBe('teppefliser')
+    expect(merged.teppefliser).not.toHaveProperty('next')
+    expect(diffCompetenceStyles(ws, [{ label: 'Banner', stage: 'lopende' }])).toMatchObject({ changed: 1 })
   })
 })
 

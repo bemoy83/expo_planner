@@ -122,16 +122,19 @@ interface DemoProductType {
   quantity: [number, number]
 }
 
-/** The competences, with a short name and a colour as Kompetanser has them (the colour names of `kompetanserFile.ts`). */
-const DEMO_COMPETENCE_STYLES: [string, string, string][] = [
-  ['Vegger', 'VEG', 'Blå'],
-  ['Tepper', 'TEP', 'Grønn'],
-  ['Møbler', 'MØB', 'Gul'],
-  ['Grafikk', 'GRA', 'Fiolett'],
-  ['Elektro', 'ELE', 'Oransje'],
-  ['Rigg', 'RIG', 'Rød'],
-  ['Snekker', 'SNE', 'Turkis'],
-  ['Lager', 'LAG', 'Grå'],
+/**
+ * The competences, with a short name and a colour as Kompetanser has them (the colour and stage names of `kompetanserFile.ts`),
+ * and the stage of the build-up each comes in, and the competence its team goes on to.
+ */
+const DEMO_COMPETENCE_STYLES: [string, string, string, string, string][] = [
+  ['Vegger', 'VEG', 'Blå', 'Standbygging', ''],
+  ['Tepper', 'TEP', 'Grønn', 'Gulv', 'Møbler'],
+  ['Møbler', 'MØB', 'Gul', 'Løsøre', ''],
+  ['Grafikk', 'GRA', 'Fiolett', 'Løpende', ''],
+  ['Elektro', 'ELE', 'Oransje', '', ''],
+  ['Rigg', 'RIG', 'Rød', '', ''],
+  ['Snekker', 'SNE', 'Turkis', 'Tilvalg', ''],
+  ['Lager', 'LAG', 'Grå', 'Ekstra', ''],
 ]
 
 export const DEMO_COMPETENCES = DEMO_COMPETENCE_STYLES.map(([name]) => name)
@@ -333,7 +336,7 @@ const budsjettFile = () => {
 }
 
 /** The competences as Kompetanser exports them, in the planner's order, with a short name and a colour. */
-const kompetanserFile = () => writeXlsx([{ name: 'Kompetanser', head: ['Kompetanse', 'Kort', 'Farge'], rows: DEMO_COMPETENCE_STYLES }])
+const kompetanserFile = () => writeXlsx([{ name: 'Kompetanser', head: ['Kompetanse', 'Kort', 'Farge', 'Trinn', 'Går videre til'], rows: DEMO_COMPETENCE_STYLES }])
 
 const WRITERS: Record<DemoFile, () => Uint8Array> = {
   venyou: venyouFile,

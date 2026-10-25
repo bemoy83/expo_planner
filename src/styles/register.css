@@ -109,7 +109,8 @@
 /* Mannskap (ui/personell/, ui/leverandorer/): the competences someone has as chips, and the shifts */
 .mk-people{--cols:minmax(150px,1fr) minmax(260px,2.4fr) minmax(140px,1fr) 40px}
 .mk-suppliers{--cols:minmax(150px,1fr) minmax(220px,1.8fr) 156px 92px minmax(140px,1fr) minmax(120px,1fr) 40px}
-.mk-competences{--cols:52px 40px minmax(120px,1fr) 64px 52px 176px 52px 56px minmax(160px,1.4fr) 36px}
+.mk-competences{--cols:52px 40px minmax(120px,1fr) 64px 52px 176px 52px 56px 128px minmax(110px,.8fr) 64px minmax(160px,1.4fr) 36px}
+.mk-competences select{width:100%}
 .mk-center{display:flex;justify-content:center;text-align:center}
 .mk-name input{font-weight:600}
 .mk-note input{color:var(--muted)}
@@ -163,8 +164,8 @@
 .mk-block.short{padding:0 5px;font-family:var(--font-num);letter-spacing:.02em}
 .mk-unstaffed{gap:6px;align-items:center;color:var(--over);font-weight:600}
 @container (max-width:1000px){
-  .mk-competences{--cols:44px 36px minmax(110px,1fr) 60px 48px 96px 48px 52px 32px}
-  .mk-competences .op-row>:nth-child(9){display:none}
+  .mk-competences{--cols:44px 36px minmax(110px,1fr) 60px 48px 96px 48px 52px 112px minmax(96px,.8fr) 56px 32px}
+  .mk-competences .op-row>:nth-child(12){display:none}
   .mk-preview .mk-block:not(.short){display:none}
   .mk-suppliers{--cols:minmax(130px,1fr) minmax(180px,1.6fr) 150px 84px minmax(110px,1fr) 36px}
   .mk-suppliers .op-row>:nth-child(6){display:none}

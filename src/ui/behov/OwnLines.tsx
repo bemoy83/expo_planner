@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { typeAndRate } from '../../domain/kpi'
-import { ownTotals, parseHours, parseQuantity, type HallSpans } from '../../domain/ownDemand'
+import { crewShort, crewTyped, ownTotals, parseHours, parseQuantity, phaseHours, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine, type KpiConfig } from '../../domain/types'
 import { TriCheckbox } from '../common'
 import { count } from '../dom'
@@ -75,7 +75,7 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
   const withQuantity = (line: DemandLine, quantity: number | null): Partial<DemandLine> => {
     const { rate } = typeAndRate(kpi, line.workType)
     if (!rate || !quantity) return { quantity }
-    return { quantity, assemblyHours: rate.assembly ? quantity / rate.assembly : 0, dismantleHours: rate.dismantle ? quantity / rate.dismantle : 0 }
+    return { quantity, ...phaseHours('assembly', { hours: rate.assembly ? quantity / rate.assembly : 0 }), ...phaseHours('dismantle', { hours: rate.dismantle ? quantity / rate.dismantle : 0 }) }
   }
   /** A quantity typed in a cell, with its unit or without; a text that cannot be read, or a unit other than its type's on KPI, changes nothing. */
   const withQuantityText = (line: DemandLine, text: string) => {
@@ -85,10 +85,29 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
     else if (!Number.isNaN(typed.quantity) && !typed.wrongUnit) onUpdate(line, { ...withQuantity(line, typed.quantity), ...(typed.unit ? { unit: typed.unit } : {}) })
   }
   /** Hours typed in a cell, short or not; a text that cannot be read changes nothing, and an empty one is none. */
-  const withHours = (line: DemandLine, field: 'assemblyHours' | 'dismantleHours', text: string) => {
+  const withHours = (line: DemandLine, phase: 'assembly' | 'dismantle', text: string) => {
     const typed = parseHours(text, hoursPerDay, line.quantity)
-    if (!typed) onUpdate(line, { [field]: 0 })
-    else if (!Number.isNaN(typed.hours)) onUpdate(line, { [field]: typed.hours })
+    if (!typed || !Number.isNaN(typed.hours)) onUpdate(line, phaseHours(phase, typed))
+  }
+  /** The hours of a phase in its cell: a team as it was typed, «2p 3d», to edit, and beside the hours. */
+  const hoursCell = (line: DemandLine, phase: 'assembly' | 'dismantle') => {
+    const h = phase === 'assembly' ? line.assemblyHours : line.dismantleHours
+    const crew = phase === 'assembly' ? line.assemblyCrew : line.dismantleCrew
+    return (
+      <EditCell
+        value={crew ? crewTyped(crew) : formatFte(h, 2)}
+        shown={
+          crew ? (
+            <>
+              <small className="muted">{crewShort(crew)}</small> {hoursOrDash(h)}
+            </>
+          ) : (
+            hoursOrDash(h)
+          )
+        }
+        onCommit={(text) => withHours(line, phase, text)}
+      />
+    )
   }
 
   const allPicked = lines.every((l) => selected.has(l.id))
@@ -200,10 +219,10 @@ export function OwnLines({ lines, projects, spans, single, selected, onSelect, f
                         />
                       </td>
                       <td className="num">
-                        <EditCell value={formatFte(line.assemblyHours, 2)} shown={hoursOrDash(line.assemblyHours)} onCommit={(text) => withHours(line, 'assemblyHours', text)} />
+                        {hoursCell(line, 'assembly')}
                       </td>
                       <td className="num">
-                        <EditCell value={formatFte(line.dismantleHours, 2)} shown={hoursOrDash(line.dismantleHours)} onCommit={(text) => withHours(line, 'dismantleHours', text)} />
+                        {hoursCell(line, 'dismantle')}
                       </td>
                       <td>
                         <button

@@ -120,6 +120,16 @@ export interface DemandLine {
   replaces?: string
   /** The projects of a later year this own line is not offered to again («Ikke i år»). */
   notIn?: string[]
+  /** For the planner's own line: the team its build-up hours were given as, people × days, which the planning engine keeps whole (R8). */
+  assemblyCrew?: Crew
+  /** The same for its tear-down hours. */
+  dismantleCrew?: Crew
+}
+
+/** Work given as a team and how long it works, «2 people for 3 days», not as a quantity at a rate. The hours are people × days × a normal day. */
+export interface Crew {
+  people: number
+  days: number
 }
 
 /** One planning row in the Kalender: required hours for a scope, and FTE typed per day. */
@@ -258,15 +268,29 @@ export const sameTag = (a: { projectNo?: string; hall?: string }, b: { projectNo
 export const LINE_COLORS = ['line-blue', 'line-teal', 'line-green', 'line-amber', 'line-rose', 'line-violet', 'line-slate', 'line-orange'] as const
 export type LineColor = (typeof LINE_COLORS)[number]
 
-/** How a competence is shown in Bemanning. */
+/**
+ * Where the work of a competence comes in a build-up, in the order a stand is built (the planning engine's R2):
+ * marking out, floor, stand walls, the customer's additions, and the loose items. `lopende` runs through the whole
+ * build-up (banner, transport) and `ekstra` is the house's own services (meeting rooms, stands for seats), which give way to the rest.
+ */
+export const STAGES = ['oppmerking', 'gulv', 'standbygging', 'tilvalg', 'losore', 'lopende', 'ekstra'] as const
+export type Stage = (typeof STAGES)[number]
+
+/** How a competence is shown in Bemanning, and what the planning engine knows of it. */
 export interface CompetenceStyle {
   key: CompetenceKey
   label: string
   /** At most four characters, for narrow blocks. */
   shortLabel: string
   color: LineColor
-  /** Order in the demand strip and of the keys 1–9. */
+  /** Order in the demand strip and of the keys 1–9, and the planning engine's ranking: the hardest to replace first (R7). */
   order: number
+  /** Where its work comes in a build-up; none where the planner has not said. */
+  stage?: Stage
+  /** The competence its team goes on to when its own work is done, as the carpet layers go on to the furniture (R3). */
+  next?: CompetenceKey
+  /** The fewest people it is done by in a hall, as marking out is by two (R4). */
+  minPerHall?: number
 }
 
 /** One of the permanent staff. */

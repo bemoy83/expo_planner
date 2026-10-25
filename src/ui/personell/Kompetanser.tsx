@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, Plus, X } from 'lucide-react'
-import { competenceUse, type CompetenceUse, addCompetence, competenceStyles, diffCompetenceStyles, mergeCompetenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, setCompetenceStyle, unstaffedCompetences, type FileCompetence } from '../../domain/competences'
+import { canGoOnTo, competenceUse, type CompetenceUse, addCompetence, competenceStyles, diffCompetenceStyles, mergeCompetenceStyles, staffedCompetences, isUnusedCompetence, moveCompetence, removeCompetence, setCompetenceStyle, unstaffedCompetences, type FileCompetence } from '../../domain/competences'
 import { todayIso } from '../../domain/dates'
-import { LINE_COLORS, type CompetenceStyle, type LineColor } from '../../domain/types'
-import { COLOR_NAMES, readKompetanserWorkbook, writeKompetanserWorkbook } from '../../import/kompetanserFile'
+import { LINE_COLORS, STAGES, type CompetenceStyle, type LineColor, type Stage } from '../../domain/types'
+import { COLOR_NAMES, readKompetanserWorkbook, STAGE_NAMES, writeKompetanserWorkbook } from '../../import/kompetanserFile'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, MergeReplaceDialog } from '../common'
 import { download, XLSX_TYPE } from '../files'
@@ -11,7 +11,7 @@ import { TableFileMenu } from '../TableFile'
 import { describeDiff, useTableFile } from '../useTableFile'
 import { competenceColor, count } from '../dom'
 import { OrderHandle, useRowOrder } from '../RowOrder'
-import { TextField } from '../fields'
+import { NumberField, TextField } from '../fields'
 import { AddDialog } from './AddDialog'
 import type { TablePage } from '../RegisterHead'
 
@@ -84,7 +84,7 @@ export function Kompetanser({ head, notify, show }: TablePage) {
   const holders = (key: string) => (ws.persons ?? []).filter((p) => p.competences.includes(key)).length
   const hired = (key: string) => (ws.suppliers ?? []).filter((s) => s.competences.includes(key)).length
 
-  const setStyle = (style: CompetenceStyle, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color'>>, text: string) => {
+  const setStyle = (style: CompetenceStyle, patch: Partial<Pick<CompetenceStyle, 'shortLabel' | 'color' | 'stage' | 'next' | 'minPerHall'>>, text: string) => {
     updateStaffing((w) => ({ ...w, competenceStyles: setCompetenceStyle(w, style.key, patch) }))
     notify(text)
   }
@@ -115,8 +115,8 @@ export function Kompetanser({ head, notify, show }: TablePage) {
     <>
       {head(
         <TableFileMenu
-          exportTitle="Last ned kompetansene som en Excel-fil: navn, kortnavn og farge, i rekkefølgen her."
-          importTitle="Les inn en fil med kompetanser: en som er eksportert herfra, eller en med kolonnen Kompetanse, og gjerne Kort og Farge."
+          exportTitle="Last ned kompetansene som en Excel-fil: navn, kortnavn, farge, trinn, går videre til og minst per hall, i rekkefølgen her."
+          importTitle="Les inn en fil med kompetanser: en som er eksportert herfra, eller en med kolonnen Kompetanse, og gjerne Kort, Farge, Trinn, Går videre til og Minst per hall."
           canExport={styles.length > 0}
           onExport={() => download(`expo-planner-kompetanser-${todayIso()}.xlsx`, writeKompetanserWorkbook(ws), XLSX_TYPE)}
           onFile={onFile}
@@ -126,7 +126,7 @@ export function Kompetanser({ head, notify, show }: TablePage) {
         <div className="op-zone">
           <div className="op-strip">
             <input className="search" type="search" placeholder="Søk kompetanse" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <span className="muted small mk-bar-note">{movable ? 'Dra en rad for å endre rekkefølgen i Bemanning.' : 'Rekkefølgen kan endres når søket er tomt.'}</span>
+            <span className="muted small mk-bar-note">{movable ? 'Dra en rad for å endre rekkefølgen.' : 'Rekkefølgen kan endres når søket er tomt.'}</span>
             <span className="toolbar-gap" />
             <button className="primary" onClick={() => setAdding(true)}>
               <Plus size={14} aria-hidden /> Ny kompetanse
@@ -138,6 +138,9 @@ export function Kompetanser({ head, notify, show }: TablePage) {
             </span>
             <span>
               <strong>Kort</strong> (opptil 4 tegn) og <strong>farge</strong> brukes i Bemanning.
+            </span>
+            <span>
+              <strong>Rekkefølgen</strong> er også rangeringen i planleggingen: den som er vanskeligst å erstatte, øverst.
             </span>
             <span className="op-flow-aside">
               Tastene <kbd>1</kbd>–<kbd>9</kbd> velger de ni første som noen faste har.
@@ -161,6 +164,11 @@ export function Kompetanser({ head, notify, show }: TablePage) {
               </span>
               <span className="num" title="Leverandører som stiller med den">
                 Innleid
+              </span>
+              <span title="Hvor arbeidet kommer i en montering: oppmerking, gulv, standbygging, tilvalg og løsøre etter hverandre; løpende gjennom hele; ekstra viker for resten">Trinn</span>
+              <span title="Kompetansen laget går videre til når eget arbeid er gjort, som teppe til møbler">Går videre til</span>
+              <span className="num" title="Færrest som gjør arbeidet i en hall, som oppmerking med to">
+                Minst/hall
               </span>
               <span title="Det som nevner kompetansen. Den kan fjernes først når ingenting gjør det.">Brukes av</span>
               <span />
@@ -212,6 +220,54 @@ export function Kompetanser({ head, notify, show }: TablePage) {
                       {n || (needed ? '0' : '')}
                     </span>
                     <span className="num muted">{s || ''}</span>
+                    <span>
+                      <select
+                        aria-label={`Trinn for ${style.label}`}
+                        value={style.stage ?? ''}
+                        onChange={(e) => {
+                          const stage = (e.target.value || undefined) as Stage | undefined
+                          setStyle(style, { stage }, stage ? `${style.label} er på trinnet ${STAGE_NAMES[stage].toLowerCase()}` : `${style.label} har ikke noe trinn`)
+                        }}
+                      >
+                        <option value="">–</option>
+                        {STAGES.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {STAGE_NAMES[stage]}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                    <span>
+                      <select
+                        aria-label={`${style.label} går videre til`}
+                        value={style.next ?? ''}
+                        onChange={(e) => {
+                          const next = e.target.value || undefined
+                          const to = styles.find((other) => other.key === next)
+                          setStyle(style, { next }, to ? `Laget på ${style.label} går videre til ${to.label}` : `Laget på ${style.label} går ikke videre`)
+                        }}
+                      >
+                        <option value="">–</option>
+                        {styles
+                          .filter((other) => other.key === style.next || canGoOnTo(styles, style.key, other.key))
+                          .map((other) => (
+                            <option key={other.key} value={other.key}>
+                              {other.label}
+                            </option>
+                          ))}
+                      </select>
+                    </span>
+                    <span className="num">
+                      <NumberField
+                        value={style.minPerHall ?? 0}
+                        ariaLabel={`Minst per hall for ${style.label}`}
+                        placeholder="–"
+                        onCommit={(n) => {
+                          const minPerHall = Math.max(0, Math.round(n)) || undefined
+                          setStyle(style, { minPerHall }, minPerHall ? `${style.label} gjøres av minst ${minPerHall} i en hall` : `${style.label} har ikke noe minste antall`)
+                        }}
+                      />
+                    </span>
                     <span className="muted small ellipsis" title={used.join(' · ')}>
                       {used.length ? used.join(' · ') : <span className="faint">ingen · kan fjernes</span>}
                     </span>

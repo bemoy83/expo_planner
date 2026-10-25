@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2, X } from 'lucide-react'
 import { competenceStyles } from '../../domain/competences'
 import { EMPTY_KPI, productTypeKey } from '../../domain/kpi'
-import { fromLastYear, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
+import { crewTyped, fromLastYear, usualAvdeling, type HallSpans } from '../../domain/ownDemand'
 import { DRAFT_BASIS, PLANNED_BASIS, type DemandLine } from '../../domain/types'
 import { useWorkspace } from '../../store/workspaceStore'
 import { Menu, type Message } from '../common'
@@ -90,7 +90,7 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
 
   /** A line in the form from one that exists: its work, amount, hours and competence, in its project, hall and avd. */
   const fromLine = (
-    line: Pick<DemandLine, 'projectNo' | 'hall' | 'avdeling' | 'workType' | 'quantity' | 'unit' | 'competence' | 'assemblyHours' | 'dismantleHours' | 'comment'>,
+    line: Pick<DemandLine, 'projectNo' | 'hall' | 'avdeling' | 'workType' | 'quantity' | 'unit' | 'competence' | 'assemblyHours' | 'dismantleHours' | 'comment' | 'assemblyCrew' | 'dismantleCrew'>,
     patch: Partial<OwnDraft>,
     into = line.projectNo,
   ) => {
@@ -104,8 +104,8 @@ export function EgenView({ placing, projects, projectNo, onProjectChange, seed, 
       work: line.workType,
       quantity: line.quantity === null ? '' : formatFte(line.quantity, 3),
       unit: line.unit,
-      assembly: typed(line.assemblyHours),
-      dismantle: typed(line.dismantleHours),
+      assembly: line.assemblyCrew ? crewTyped(line.assemblyCrew) : typed(line.assemblyHours),
+      dismantle: line.dismantleCrew ? crewTyped(line.dismantleCrew) : typed(line.dismantleHours),
       competence: line.competence,
       comment: line.comment,
       ...patch,

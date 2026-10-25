@@ -60,7 +60,7 @@ describe('the invented season', () => {
   })
 
   it('reads as the planner’s own tables of competences, staff, suppliers and budgets', () => {
-    expect(readKompetanserWorkbook(bytes('kompetanser'))).toEqual(expect.arrayContaining([{ label: 'Vegger', shortLabel: 'VEG', color: 'line-blue' }]))
+    expect(readKompetanserWorkbook(bytes('kompetanser'))).toEqual(expect.arrayContaining([{ label: 'Vegger', shortLabel: 'VEG', color: 'line-blue', stage: 'standbygging' }, { label: 'Tepper', shortLabel: 'TEP', color: 'line-green', stage: 'gulv', next: 'Møbler' }]))
     expect(readKompetanserWorkbook(bytes('kompetanser')).map((c) => c.label)).toEqual(DEMO_COMPETENCES)
     const people = readPersonellWorkbook(bytes('personell'))
     expect(people.map((p) => p.name)).toEqual(DEMO_PEOPLE.map(([name]) => name))
