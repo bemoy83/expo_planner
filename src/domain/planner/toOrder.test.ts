@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, type AllocationRow, type Assignment, type HireOrder, type Workspace } from '../types'
-import { toOrder } from './toOrder'
+import { toHire, toOrder } from './toOrder'
 
 const MON = '2026-10-12'
 const TUE = '2026-10-13'
@@ -36,5 +36,28 @@ describe('what is left to hire in', () => {
     const order: HireOrder = { id: 'o', supplierId: 's1', competence: 'foga', date: MON, fte: 1, start: 420, end: 900, conf: null, projectNo: '26001' }
     expect(toOrder(ws([row('foga', { [MON]: 1 })], [], [order]), [MON])).toEqual([])
     expect(toOrder(ws([row('foga', { [MON]: 1 }, '26002')]), [MON], ['26001'])).toEqual([])
+  })
+})
+
+describe('«Til innleie»', () => {
+  it('lists the people hired in per competence and supplier, as runs of days with the people on each, for the projects picked', () => {
+    const hired = [
+      { supplierId: 's1', competences: ['foga'], dates: [MON, TUE], projectNos: ['26001'] },
+      { supplierId: 's1', competences: ['foga'], dates: [MON, TUE], projectNos: ['26001', '26002'] },
+      { supplierId: 's1', competences: ['foga'], dates: [TUE], projectNos: ['26001'] },
+      { supplierId: 's2', competences: ['snekker'], dates: [MON], projectNos: ['26003'] },
+    ]
+    expect(toHire(ws([]), hired, ['26001'])).toEqual([
+      {
+        competence: 'foga',
+        label: 'foga',
+        supplier: 'Messehjelp AS',
+        personDays: 5,
+        spans: [
+          { from: MON, to: TUE, people: 2, projectNos: ['26001', '26002'] },
+          { from: TUE, to: TUE, people: 1, projectNos: ['26001'] },
+        ],
+      },
+    ])
   })
 })

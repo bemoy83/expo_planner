@@ -377,6 +377,8 @@ export interface HireOrder {
   asked?: number
   /** The project the people are for, as on a block. */
   projectNo?: string
+  /** A draft of the planning engine's, in the plan it hands back alone: never stored. */
+  engine?: true
 }
 
 /** Hours added to a day's demand for a competence, on top of what the Kalender plans. */

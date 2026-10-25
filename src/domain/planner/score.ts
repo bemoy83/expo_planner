@@ -1,6 +1,6 @@
 import { competenceStyles } from '../competences'
 import { pushTo } from '../collections'
-import { daysBetween, type ISODate } from '../dates'
+import { addDays, daysBetween, type ISODate } from '../dates'
 import { hireHours, isWaiting } from '../hire'
 import { stageOfType } from '../kpi'
 import { dayType } from '../holidays'
@@ -26,6 +26,13 @@ export const WEIGHTS = {
   hireHardest: 1.5,
   /** A hired person comes for this many hours at least, however little there is to do. */
   minCallOut: 3,
+  /**
+   * A hired person who was not there the working day before. More than a switch of hall, since the same person going on
+   * to the next hall is better than a new one; less than a day paid for without work, since a hire is let go over quiet
+   * days and a new one taken later; and less than a day's overtime is worth, since a whole day short is hired (the
+   * planner, 2026-10-25).
+   */
+  hireStart: 1,
   /**
    * Overtime: a person who works any that day, an hour of the first `overtimeShort` hours a person works over in a day, and an
    * hour past them. A little overtime beats a call-out; a day's worth does not, since overtime is to be avoided (the planner, 2026-10-25).
@@ -64,6 +71,8 @@ export interface Finding {
   unplanned?: boolean
   /** The person it is about: a switch, overtime. */
   personId?: string
+  /** For hire: the people who were not there the working day before. */
+  started?: number
   /** For a switch: what changed. */
   switched?: 'competence' | 'hall' | 'project'
   /** For a stage out of place, the stage; for outside the window and too few in a hall, the hall. */
@@ -190,6 +199,30 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
     if (!wanted.has(order.date)) continue
     const hours = order.fte * Math.max(weights.minCallOut, hireHours(order, wd))
     add({ kind: 'hire', cost: hours * costOfHire(order.competence), date: order.date, competence: order.competence, hours, ...(order.projectNo ? { projectNo: order.projectNo } : {}) })
+  }
+
+  // Starts: per supplier and competence, the people more than the working day before. A weekend or a holiday between
+  // breaks no run.
+  const hiredBy = new Map<string, Map<ISODate, { count: number; byProject: Map<string, number> }>>()
+  for (const order of ws.hireOrders ?? []) {
+    if (!wanted.has(order.date)) continue
+    const key = `${order.supplierId}|${order.competence}`
+    if (!hiredBy.has(key)) hiredBy.set(key, new Map())
+    const day = hiredBy.get(key)!.get(order.date) ?? { count: 0, byProject: new Map() }
+    day.count += order.fte
+    day.byProject.set(order.projectNo ?? '', (day.byProject.get(order.projectNo ?? '') ?? 0) + order.fte)
+    hiredBy.get(key)!.set(order.date, day)
+  }
+  for (const [key, days] of hiredBy) {
+    const competence = key.slice(key.indexOf('|') + 1)
+    for (const [date, day] of days) {
+      let before = addDays(date, -1)
+      for (let i = 0; i < 14 && dayType(before) !== 'arbeidsdag'; i++) before = addDays(before, -1)
+      const started = Math.ceil(day.count - 1e-6) - Math.ceil((days.get(before)?.count ?? 0) - 1e-6)
+      if (started <= 0) continue
+      const projectNo = [...day.byProject].sort(([, a], [, b]) => b - a)[0][0]
+      add({ kind: 'hire', cost: started * weights.hireStart, date, competence, started, ...(projectNo ? { projectNo } : {}) })
+    }
   }
 
   // Overtime and switches, person by person, block after block.

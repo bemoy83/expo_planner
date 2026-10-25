@@ -117,7 +117,7 @@ describe('the parts of the score', () => {
 
   it('pays a hired person for three hours at least', () => {
     const s = score(plan([row('foga', 'B1', { [MON]: 1 / 7.5 })], [], [hire(MON, 'foga', '7:00', '8:00')]))
-    expect(s.findings).toEqual([expect.objectContaining({ kind: 'hire', hours: 3 })])
+    expect(s.findings.filter((f) => !f.started)).toEqual([expect.objectContaining({ kind: 'hire', hours: 3 })])
   })
 
   it('counts a switch of competence, hall or project, but not a team going on along its chain', () => {
@@ -201,6 +201,35 @@ describe('the planner\'s choices', () => {
     const picked = plan(rows, kariInB, [hire(WED, 'foga', '7:00', '11:00')])
     const moved = kariInB.flatMap((b) => (b.date === WED ? [{ ...b, end: at('10:30') }, block('kari', WED, 'foga', '10:30', '15:00', 'C1')] : [b]))
     const other = plan(rows, moved, [hire(WED, 'foga', '7:00', '11:00')])
+    expect(total(picked)).toBeLessThan(total(other))
+  })
+})
+
+describe('the planner\'s choices about hire (2026-10-25)', () => {
+  const week = (fte: number[]) => Object.fromEntries(WEEK.map((d, i) => [d, fte[i]]).filter(([, v]) => v))
+  const hired = (days: string[]) => days.map((d) => hire(d, 'foga'))
+
+  it('counts a start for a hired person who was not there the working day before, and none over a weekend', () => {
+    const s = score(plan([row('foga', 'B1', week([1, 1, 0, 1, 1]))], [], hired([MON, TUE, THU, FRI])))
+    expect(s.findings.filter((f) => f.started)).toEqual([expect.objectContaining({ date: MON, started: 1 }), expect.objectContaining({ date: THU, started: 1 })])
+    const friday = plan([row('foga', 'B1', { [FRI]: 1, '2026-10-19': 1 })], [], hired([FRI, '2026-10-19']))
+    expect(scorePlan(friday, [...WEEK, '2026-10-19'], () => new Set([...WEEK, '2026-10-19'])).findings.filter((f) => f.started)).toHaveLength(1)
+  })
+
+  it('1. two hired for two days each, rather than one for five with a day almost without work', () => {
+    const picked = plan([row('foga', 'B1', week([1, 1, 0, 1, 1]))], [], hired([MON, TUE, THU, FRI]))
+    const other = plan([row('foga', 'B1', week([1, 1, 0.1, 1, 0.9]))], [], hired(WEEK))
+    expect(total(picked)).toBeLessThan(total(other))
+  })
+
+  it('2. the same hired person to the next hall, rather than a new one: a start costs more than a switch of hall', () => {
+    expect(WEIGHTS.hireStart).toBeGreaterThan(WEIGHTS.hallSwitch)
+  })
+
+  it('3. a hired person let go over two quiet days and a new one taken, rather than kept on', () => {
+    const rows = [row('foga', 'B1', week([1, 0.1, 0.1, 1, 1]))]
+    const picked = plan(rows, [block('kari', TUE, 'foga', '7:00', '7:45'), block('kari', WED, 'foga', '7:00', '7:45')], hired([MON, THU, FRI]))
+    const other = plan(rows, [], hired(WEEK))
     expect(total(picked)).toBeLessThan(total(other))
   })
 })

@@ -1,6 +1,7 @@
 import { competenceStyles } from '../competences'
 import { pushTo } from '../collections'
 import { addDays, type ISODate } from '../dates'
+import { hireHours, shiftTimes } from '../hire'
 import { dayType } from '../holidays'
 import { isSuggestedRow } from '../plannedRows'
 import { numberKey } from '../projects'
@@ -8,8 +9,8 @@ import { shareOverDays } from '../spread'
 import { freeIntervals, paidHours, paidTotal } from '../staffing/intervals'
 import { normalWindows, okAssignments } from '../staffing/time'
 import { stageOfType } from '../kpi'
-import { hallKey, stageOrderOf, stagePlace, stagesOf, weightsOf } from './score'
-import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Interval, type Stage, type Workspace } from '../types'
+import { hallKey, hireCost, stageOrderOf, stagePlace, stagesOf, weightsOf } from './score'
+import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type HireOrder, type Interval, type Stage, type Supplier, type Workspace } from '../types'
 
 /**
  * The planning engine (step 3 of the Claude Doc «Planleggingsmotor: byggeplan»): the days of the demand and the
@@ -26,6 +27,13 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  *    are still free for, so nobody stands idle while work can be begun. Extra work comes last. Each time, those who were
  *    in the hall for the project the day before come back first, then those who were in the hall, then the others,
  *    the fewest competences first (R3, R5).
+ *    Where the permanent staff cannot do what a job must do that day, people are hired in (the Claude Doc «Innleie i
+ *    planleggingsmotoren»): a hired person is one more person, from the first supplier who offers the competence for the
+ *    day shift, kept on from day to day as the permanent staff are, to the next hall or project or along the chain, and
+ *    let go when there is no work for a day. Someone is hired only for half a day's work or more, but on a job's last day
+ *    or where the job would otherwise have nobody on a day in the middle of its span.
+ *    A job given more than its share keeps an even crew: once it has fewer people than the day before, it is given no more
+ *    than it had, so no quiet day falls in the middle of its span (the planner, 2026-10-25).
  * 3. What nobody could take stays in the plan, uncovered, spread over its window, for Bemanning and Innleid to show.
  * 4. Where hours are left, the window of the project's hall and phase is widened onto the days before the build-up or
  *    after the tear-down that the hall stands free (`nearby`, R6), and all its work is planned again over the widened
@@ -33,8 +41,10 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  * 5. Each day's blocks of a competence are shared out again on the same people, so each has as few pieces as can be
  *    (`consolidate`), and a person's day is laid out in one stretch per project and hall, yesterday's work first (`inStretches`).
  *
- * Only normal time is planned: overtime and hire are the planner's (R6). Blocks the planner painted stay, and those
- * the engine painted before are planned again. Whether the FTE the planner typed stays is his choice (`keepTyped`).
+ * Only normal time is planned: overtime is the planner's (R6). The hired people come back as orders that wait for an
+ * answer, marked as the engine's (`HireOrder.engine`), in the plan it hands back alone: they are never taken with it,
+ * but the score counts them, and «Til innleie» lists them. The orders the planner has made count as cover. Blocks the
+ * planner painted stay, and those the engine painted before are planned again. Whether the FTE the planner typed stays is his choice (`keepTyped`).
  * Nothing is random: the same workspace gives the same plan.
  */
 
@@ -141,11 +151,31 @@ const cut = (iv: Interval, hours: number, snap: number, wd: Workspace['settings'
   return { start: iv.start, end: Math.min(end, iv.end) }
 }
 
+/** Someone who can be put on work: a permanent person, or one hired in from a supplier. */
+interface Worker {
+  id: string
+  competences: CompetenceKey[]
+  order: number
+  /** For one hired in: the supplier. */
+  supplierId?: string
+}
+
+/** The id of a hired person is of this shape, so a block of one is told from one of the permanent staff. */
+const HIRE = 'hire:'
+const isHired = (personId: string) => personId.startsWith(HIRE)
+
+/** A normal working day before a date, over weekends and holidays. */
+const workdayBefore = (date: ISODate): ISODate => {
+  let day = addDays(date, -1)
+  for (let i = 0; i < 14 && dayType(day) !== 'arbeidsdag'; i++) day = addDays(day, -1)
+  return day
+}
+
 /**
  * The people who can take a job on a day, best first: who did the same row the day before, who did the same competence
  * or the one before it in its chain, then who changes nothing else; and among those, who has the fewest competences.
  */
-const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf: Map<CompetenceKey, CompetenceKey | undefined>) => {
+const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, people: readonly Worker[]) => {
   const wd = ws.settings.workday
   const rank = (personId: string): number => {
     const before = staff.before(personId, date)
@@ -155,15 +185,18 @@ const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf
     const sameHall = hallKey(before.hall) === hallKey(job.row.hall)
     return sameProject && sameHall ? 0 : sameHall ? 0.5 : 1
   }
-  return (ws.persons ?? [])
+  return people
     .filter((person) => person.competences.includes(job.competence))
     .map((person) => ({ person, free: staff.free(person.id, date), rank: rank(person.id) }))
     .filter((c) => paidTotal(c.free, wd) >= SMALLEST)
     .sort((a, b) => a.rank - b.rank || a.person.competences.length - b.person.competences.length || a.person.order - b.person.order)
 }
 
-/** Paints people on a job's day until its hours are covered or nobody is left; returns the hours nobody could take. */
-const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: number, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, makeId: () => string, maxRank = Infinity): number => {
+/**
+ * Paints people on a job's day until its hours are covered or nobody is left; returns the hours nobody could take. Of
+ * those as good for continuity, one hired in that day comes first, as the day is paid for.
+ */
+const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: number, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, makeId: () => string, people: readonly Worker[], maxRank = Infinity): number => {
   const wd = ws.settings.workday
   let left = hours
   const done = new Set<string>()
@@ -171,9 +204,9 @@ const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: n
     // Among those as good for continuity, the one whose free time fits what is left best: who can take it all with the
     // least to spare, else who has the most, so the work goes to as few people as can be and leaves no scraps.
     const fit = (free: number) => (free >= left - EPS ? free - left : 1000 - free)
-    const pick = candidates(ws, staff, job, date, nextOf)
+    const pick = candidates(ws, staff, job, date, nextOf, people)
       .filter((c) => !done.has(c.person.id) && c.rank <= maxRank)
-      .sort((a, b) => a.rank - b.rank || fit(paidTotal(a.free, wd)) - fit(paidTotal(b.free, wd)) || a.person.competences.length - b.person.competences.length || a.person.order - b.person.order)[0]
+      .sort((a, b) => a.rank - b.rank || Number(!!b.person.supplierId) - Number(!!a.person.supplierId) || fit(paidTotal(a.free, wd)) - fit(paidTotal(b.free, wd)) || a.person.competences.length - b.person.competences.length || a.person.order - b.person.order)[0]
     if (!pick) break
     const { person, free } = pick
     done.add(person.id)
@@ -345,6 +378,19 @@ export interface Solution {
   outside: OutsideDay[]
   /** The rows given, as the engine leaves them, in the same order: a suggested row it put FTE on is the stored row it became. */
   rows: AllocationRow[]
+  /** The people the engine hires in, each for one run of working days. */
+  hired: HiredRun[]
+}
+
+/** One person hired in for a run of working days, as «Til innleie» lists it. */
+export interface HiredRun {
+  supplierId: string
+  /** The competence the person was hired for, and those further along its chain the person went on to. */
+  competences: CompetenceKey[]
+  /** The days, in order. */
+  dates: ISODate[]
+  /** The projects the person worked for, by their number as written. */
+  projectNos: string[]
 }
 
 export interface OutsideDay {
@@ -362,6 +408,12 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
   const styleOf = new Map<CompetenceKey, CompetenceStyle & { index: number }>(styles.map((style, index) => [style.key, { ...style, index }]))
   const nextOf = new Map(styles.map((style) => [style.key, style.next]))
   const weights = weightsOf(ws.settings)
+  const costOfHire = hireCost(styles, weights)
+  const persons: Worker[] = ws.persons ?? []
+  const dayShift = shiftTimes('dag', wd)
+  // The supplier a competence is hired from: the first in the planner's order who offers it for the day shift.
+  const suppliers = [...(ws.suppliers ?? [])].sort((a, b) => a.order - b.order)
+  const supplierFor = (competence: CompetenceKey): Supplier | undefined => suppliers.find((s) => s.competences.includes(competence) && s.shifts.includes('dag'))
 
   // What stays: the planner's blocks, and, if he wants, the FTE he typed.
   const kept = okAssignments({ ...ws, assignments: (ws.assignments ?? []).filter((a) => a.source !== 'suggested') })
@@ -423,6 +475,54 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
     // still free for, so nobody stands idle while there is work that can be begun. Each time, those who were in the hall
     // for the project the day before come back first, then those who were in the hall, and only then the others.
     const staff = staffOf(ws, kept)
+    // The orders the planner has made, answered or not, cover a project's competence on a day, once over its jobs.
+    const ordered = new Map<string, number>()
+    for (const order of ws.hireOrders ?? []) {
+      const key = `${order.competence}|${numberKey(order.projectNo ?? '')}|${order.date}`
+      ordered.set(key, (ordered.get(key) ?? 0) + order.fte * hireHours(order, wd))
+    }
+    const orderCover = (job: Job, date: ISODate, most: number): number => {
+      const key = `${job.competence}|${numberKey(job.row.projectNo)}|${date}`
+      const hours = Math.min(most, ordered.get(key) ?? 0)
+      if (hours > 0) ordered.set(key, ordered.get(key)! - hours)
+      return hours
+    }
+    // The people hired in, and the work of each place they did, as what it costs, for the widening to weigh.
+    const hires: Worker[] = []
+    const hiredAt = new Map<string, number>()
+    // The hired people at work on each day, as they are put on work.
+    const hiredOn = new Map<ISODate, Set<Worker>>()
+    const working = (worker: Worker, date: ISODate) => staff.blocks.has(dayKey(worker.id, date))
+    const poolOf = (date: ISODate): Worker[] => (hiredOn.get(date)?.size ? [...persons, ...hiredOn.get(date)!] : persons)
+    const newHire = (supplier: Supplier, competence: CompetenceKey): Worker => {
+      const competences = [competence]
+      for (let next = nextOf.get(competence); next && supplier.competences.includes(next) && !competences.includes(next); next = nextOf.get(next)) competences.push(next)
+      const hire = { id: `${HIRE}${supplier.id}:${competence}:${hires.length}`, competences, order: 10000 + hires.length, supplierId: supplier.id }
+      hires.push(hire)
+      return hire
+    }
+    // Hires people for hours of a job on a day: those on a run of days who worked the day before first, the one whose
+    // work changes least, else a new one. Returns the hours nobody could take, as no supplier offers the competence.
+    const hireFor = (job: Job, date: ISODate, hours: number): number => {
+      const before = workdayBefore(date)
+      let rest = hours
+      while (rest >= SMALLEST) {
+        const going = [...(hiredOn.get(before) ?? [])].filter((hire) => !working(hire, date))
+        let hire = candidates(ws, staff, job, date, nextOf, going)[0]?.person
+        if (!hire) {
+          const supplier = supplierFor(job.competence)
+          if (!supplier) break
+          hire = newHire(supplier, job.competence)
+        }
+        const was = rest
+        rest = staffDay(ws, staff, job, date, rest, nextOf, makeId, [hire])
+        if (rest > was - SMALLEST) break
+        if (!hiredOn.has(date)) hiredOn.set(date, new Set())
+        hiredOn.get(date)!.add(hire)
+      }
+      hiredAt.set(job.place, (hiredAt.get(job.place) ?? 0) + (hours - rest) * costOfHire(job.competence))
+      return rest
+    }
     const left = new Map(jobs.map((job) => [job, job.need]))
     const began = new Map<Job, ISODate>()
     for (const job of jobs) {
@@ -446,14 +546,35 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
       return job.days.length >= stagesIn.get(job.place)! ? first < date : first <= date
     }
     const daysLeft = (job: Job, date: ISODate) => job.days.filter((day) => day >= date).length
-    const give = (job: Job, date: ISODate, fte: number, maxRank: number) => {
-      const wanted = Math.min(left.get(job)!, fte) * perDay
-      if (wanted < SMALLEST) return
-      const took = tenth((wanted - staffDay(ws, staff, job, date, wanted, nextOf, makeId, maxRank)) / perDay)
+    const record = (job: Job, date: ISODate, hours: number) => {
+      const took = tenth(hours / perDay)
       if (took <= NOISE) return
       job.fte[date] = tenth((job.fte[date] ?? 0) + took)
       left.set(job, tenth(left.get(job)! - took))
       if (!began.has(job) || began.get(job)! > date) began.set(job, date)
+    }
+    const give = (job: Job, date: ISODate, fte: number, maxRank: number) => {
+      const wanted = Math.min(left.get(job)!, fte) * perDay
+      if (wanted < SMALLEST) return
+      record(job, date, wanted - staffDay(ws, staff, job, date, wanted, nextOf, makeId, poolOf(date), maxRank))
+    }
+    // People are hired for what the permanent staff could not do of a job's share of the day: half a day's work at the
+    // least, as less waits for the days after, but on the last day of the job, and where the job has begun and would
+    // otherwise have no one that day, a quiet day in the middle of its span.
+    const hire = (job: Job, date: ISODate, fte: number) => {
+      const wanted = Math.min(left.get(job)!, fte) * perDay
+      const gap = !job.fte[date] && began.has(job) && began.get(job)! < date
+      if (wanted < SMALLEST || (wanted < perDay / 2 && daysLeft(job, date) > 1 && !gap)) return
+      record(job, date, wanted - hireFor(job, date, wanted))
+    }
+    // What a job may be given over its share: anything while its crew has not yet gone down, and once it has, no more
+    // than it had the day before, so no day in the middle of its span is quieter than the days around it.
+    const roomOf = (job: Job, date: ISODate): number => {
+      const at = job.days.indexOf(date)
+      let went = false
+      for (let i = 1; i < at && !went; i++) went = (job.fte[job.days[i]] ?? 0) < (job.fte[job.days[i - 1]] ?? 0) - NOISE
+      if (!went || at < 1) return left.get(job)!
+      return Math.max(0, (job.fte[job.days[at - 1]] ?? 0) - (job.fte[date] ?? 0))
     }
     jobs.sort((a, b) => a.rank - b.rank || hallKey(a.row.hall).localeCompare(hallKey(b.row.hall), 'nb', { numeric: true }))
     const openFrom = new Map<Job, ISODate>()
@@ -464,9 +585,11 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
         const typed = fixedOf(job.row)[date]
         if (!typed) continue
         const hours = typed * perDay - ownCover(kept, job, date, wd)
-        if (hours >= SMALLEST) staffDay(ws, staff, job, date, hours, nextOf, makeId)
+        if (hours >= SMALLEST) staffDay(ws, staff, job, date, hours, nextOf, makeId, poolOf(date))
       }
-      const due = (job: Job) => Math.max(job.min, Math.ceil(left.get(job)! / Math.max(1, daysLeft(job, date)) - 1e-9))
+      // A job's share of the day: what it has left over the days it has left, as it stands when it opens that day.
+      const share = new Map<Job, number>()
+      const due = (job: Job) => Math.max(job.min, Math.ceil(share.get(job)! - 1e-9))
       const pressed = (job: Job) => left.get(job)! / Math.max(1, daysLeft(job, date))
       // Jobs are opened in rounds, as a stage begun today can open the next today where the window is short.
       const done = new Set<Job>()
@@ -475,9 +598,11 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
         if (!open.length) break
         for (const job of open) {
           done.add(job)
+          share.set(job, pressed(job))
           if (!openFrom.has(job)) openFrom.set(job, date)
-          // The planner's own blocks for the job that day count first.
-          const own = tenth(Math.min(left.get(job)!, ownCover(kept, job, date, wd) / perDay))
+          // The planner's own blocks and orders for the job that day count first.
+          const ownHours = ownCover(kept, job, date, wd)
+          const own = tenth(Math.min(left.get(job)!, (ownHours + orderCover(job, date, Math.max(0, left.get(job)! * perDay - ownHours))) / perDay))
           if (own > NOISE) {
             job.fte[date] = tenth((job.fte[date] ?? 0) + own)
             left.set(job, tenth(left.get(job)! - own))
@@ -486,7 +611,8 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
         }
         open.sort((a, b) => Number(extraWork(a)) - Number(extraWork(b)) || pressed(b) - pressed(a) || a.stage - b.stage || a.rank - b.rank)
         for (const maxRank of [0, 0.5, Infinity]) for (const job of open) give(job, date, due(job) - (job.fte[date] ?? 0), maxRank)
-        for (const job of open) give(job, date, left.get(job)!, Infinity)
+        for (const job of open) hire(job, date, Math.max(job.min, share.get(job)!) - (job.fte[date] ?? 0))
+        for (const job of open) give(job, date, roomOf(job, date), Infinity)
       }
     }
 
@@ -501,19 +627,23 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
       shareOverDays(rest, days.length).forEach((part, i) => part && (job.fte[days[i]] = tenth((job.fte[days[i]] ?? 0) + part)))
       uncovered.set(job.place, (uncovered.get(job.place) ?? 0) + rest * perDay)
     }
-    return { jobs, byPlace, staff, uncovered }
+    // What each place costs: its uncovered hours and its hired ones.
+    const cost = new Map(hiredAt)
+    for (const [place, hours] of uncovered) cost.set(place, (cost.get(place) ?? 0) + hours * weights.uncovered)
+    return { jobs, byPlace, staff, hires, cost }
   }
 
   // Where the permanent staff cannot do it all, the window is widened onto all the free days next to it, and everything of
   // that project, hall and phase is planned again over the widened span; a day the plan does not use is not listed for
-  // Venyou. A widening stays only where it pays: 10 an uncovered hour against 3 a day the hall is used outside its phases.
+  // Venyou. A widening stays only where it pays: what the uncovered and hired hours cost against a day the hall is used
+  // outside its phases.
   const extra = new Map<string, ISODate[]>()
   const stopped = new Set<string>()
   let result = planWith(extra)
   for (let pass = 0; pass < 3; pass++) {
     const grown = new Map<string, ISODate[]>()
-    for (const [place, hours] of result.uncovered) {
-      if (hours < 1 || stopped.has(place)) continue
+    for (const [place, cost] of result.cost) {
+      if (cost < weights.outsideWindow || stopped.has(place)) continue
       const group = result.byPlace.get(place)!
       const used = extra.get(place) ?? []
       const free = group[0].near.filter((date) => !used.includes(date))
@@ -526,15 +656,15 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
     const next = planWith(extra)
     let undone = false
     for (const [place, before] of grown) {
-      const saved = (result.uncovered.get(place) ?? 0) - (next.uncovered.get(place) ?? 0)
-      if (saved * weights.uncovered >= (extra.get(place)!.length - before.length) * weights.outsideWindow) continue
+      const saved = (result.cost.get(place) ?? 0) - (next.cost.get(place) ?? 0)
+      if (saved >= (extra.get(place)!.length - before.length) * weights.outsideWindow) continue
       extra.set(place, before)
       stopped.add(place)
       undone = true
     }
     result = undone ? planWith(extra) : next
   }
-  const { jobs, staff } = result
+  const { jobs, staff, hires } = result
 
   // The rows as the engine leaves them, the FTE of their jobs added up and the days it wrote marked; a suggested row
   // with FTE becomes a stored row.
@@ -573,9 +703,50 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
         outside.set(`${numberKey(job.row.projectNo)}|${hallKey(hall)}|${date}`, { projectNo: job.row.projectNo, projectName: job.row.projectName, hall, date })
       }
   }
-  const painted = inStretches(consolidate([...staff.blocks.values()].flat().filter((a) => a.source === 'suggested'), wd, makeId), wd, makeId)
+  const blocks = [...staff.blocks.values()].flat().filter((a) => a.source === 'suggested')
+  const painted = inStretches(consolidate(blocks.filter((a) => !isHired(a.personId)), wd, makeId), wd, makeId)
   const assignments = [...(ws.assignments ?? []).filter((a) => a.source !== 'suggested'), ...painted]
-  return { workspace: { ...ws, allocations, assignments }, projects: [...projects], rows: rows.map((row) => became.get(row.id) ?? solvedRows.get(row.id) ?? row), outside: [...outside.values()].sort((a, b) => a.hall.localeCompare(b.hall, 'nb') || a.date.localeCompare(b.date)) }
+  const { drafts, hired } = hiredOrders(blocks.filter((a) => isHired(a.personId)), hires, dayShift, wd, makeId)
+  return {
+    workspace: { ...ws, allocations, assignments, hireOrders: [...(ws.hireOrders ?? []), ...drafts] },
+    projects: [...projects],
+    rows: rows.map((row) => became.get(row.id) ?? solvedRows.get(row.id) ?? row),
+    outside: [...outside.values()].sort((a, b) => a.hall.localeCompare(b.hall, 'nb') || a.date.localeCompare(b.date)),
+    hired,
+  }
+}
+
+/**
+ * The hired people's work as orders that wait for an answer: a person is paid for the day shift, which is shared on the
+ * competences and projects the person worked for that day by their hours, so a day's orders of a person add up to one.
+ * Orders of one supplier, competence, project and day are one. And each person as a run of days.
+ */
+const hiredOrders = (blocks: Assignment[], hires: Worker[], shift: Interval, wd: Workspace['settings']['workday'], makeId: () => string): { drafts: HireOrder[]; hired: HiredRun[] } => {
+  const supplierOf = new Map(hires.map((hire) => [hire.id, hire.supplierId!]))
+  const byDay = new Map<string, Assignment[]>()
+  for (const a of blocks) pushTo(byDay, dayKey(a.personId, a.date), a)
+  const orders = new Map<string, HireOrder>()
+  const runs = new Map<string, HiredRun>()
+  for (const day of [...byDay.keys()].sort()) {
+    const work = byDay.get(day)!
+    const total = work.reduce((sum, a) => sum + paidHours(a, wd), 0)
+    if (total <= 0) continue
+    const { personId, date } = work[0]
+    const supplierId = supplierOf.get(personId)!
+    const run = runs.get(personId) ?? { supplierId, competences: [], dates: [], projectNos: [] }
+    runs.set(personId, run)
+    run.dates.push(date)
+    for (const a of work) {
+      if (!run.competences.includes(a.competence)) run.competences.push(a.competence)
+      if (a.projectNo && !run.projectNos.some((p) => numberKey(p) === numberKey(a.projectNo!))) run.projectNos.push(a.projectNo)
+      const key = `${supplierId}|${a.competence}|${numberKey(a.projectNo ?? '')}|${date}`
+      const order = orders.get(key) ?? { id: makeId(), supplierId, competence: a.competence, date, fte: 0, start: shift.start, end: shift.end, conf: null, engine: true, ...(a.projectNo ? { projectNo: a.projectNo } : {}) }
+      order.fte += paidHours(a, wd) / total
+      orders.set(key, order)
+    }
+  }
+  const drafts = [...orders.values()].map((order) => ({ ...order, fte: Math.round(order.fte * 100) / 100 }))
+  return { drafts, hired: [...runs.values()].map((run) => ({ ...run, dates: [...new Set(run.dates)].sort() })) }
 }
 
 /**

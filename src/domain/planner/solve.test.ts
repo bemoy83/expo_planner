@@ -277,3 +277,60 @@ describe('a day shared out again on the same people', () => {
     expect(out.map((a) => `${a.personId}|${a.projectNo}`).sort()).toEqual(['per|B', 'pål|A'])
   })
 })
+
+describe('hire in the planning engine', () => {
+  const THU = '2026-10-15'
+  const suppliers = [
+    { id: 'kveld', name: 'Kveldshjelp', order: 0, competences: ['foga'], shifts: ['kveld' as const] },
+    { id: 'mh', name: 'Messehjelp', order: 1, competences: ['foga', 'tepper'], shifts: ['dag' as const] },
+  ]
+  const hiring = (persons: Person[], allocations: AllocationRow[] = []) => ({ ...workspace(persons, allocations), suppliers })
+  const drafts = (ws: Workspace) => (ws.hireOrders ?? []).filter((o) => o.engine)
+  const perDay = (ws: Workspace) => {
+    const days: Record<string, number> = {}
+    for (const o of drafts(ws)) days[o.date] = (days[o.date] ?? 0) + o.fte
+    return days
+  }
+
+  it('hires what the permanent staff cannot do, one person kept on over the span, from the first supplier with a day shift', () => {
+    const { workspace: ws, hired } = run(hiring([person('per', 'foga')]), [row('foga')], [6], [MON, TUE, WED])
+    expect(fteOf(ws, 'foga')).toEqual({ [MON]: 2, [TUE]: 2, [WED]: 2 })
+    expect(blocksOf(ws).map((b) => b.personId)).toEqual(['per', 'per', 'per'])
+    expect(hired).toEqual([{ supplierId: 'mh', competences: ['foga'], dates: [MON, TUE, WED], projectNos: ['26001'] }])
+    expect(drafts(ws)).toEqual([MON, TUE, WED].map((date) => expect.objectContaining({ supplierId: 'mh', competence: 'foga', date, fte: 1, conf: null, projectNo: '26001' })))
+  })
+
+  it('sends the same hired person on to the next hall, rather than a new one', () => {
+    const rows = [row('foga', {}, '26001', 'B1'), row('foga', {}, '26002', 'C1')]
+    const windows: Record<string, string[]> = { '26001': [MON], '26002': [TUE] }
+    const { hired } = solve({ ws: hiring([], rows), rows, required: () => 1, windowOf: (r) => new Set(windows[r.projectNo]), keepTyped: true, makeId })
+    expect(hired).toEqual([expect.objectContaining({ dates: [MON, TUE], projectNos: ['26001', '26002'] })])
+  })
+
+  it('hires nobody for less than half a day, but on the last day, and lets a hired person go over a quiet day', () => {
+    const { workspace: ws } = run(hiring([person('per', 'foga')]), [row('foga')], [3.2], [MON, TUE, WED])
+    // A fifth of a day more than Per can do is left for the last day, where it is hired.
+    expect(perDay(ws)).toEqual({ [WED]: 1 })
+  })
+
+  it('counts the orders the planner has made as cover', () => {
+    const ws = { ...hiring([person('per', 'foga')]), hireOrders: [{ id: 'o', supplierId: 'mh', competence: 'foga', date: MON, fte: 1, start: 420, end: 900, conf: null, projectNo: '26001' }] }
+    const { workspace: solved } = run(ws, [row('foga')], [2], [MON])
+    expect(drafts(solved)).toEqual([])
+    expect(fteOf(solved, 'foga')).toEqual({ [MON]: 2 })
+  })
+
+  it('leaves uncovered what no supplier offers for the day shift', () => {
+    const ws = { ...workspace([]), suppliers: [suppliers[0]] }
+    const { workspace: solved, hired } = run(ws, [row('foga')], [2], [MON, TUE])
+    expect(hired).toEqual([])
+    expect(scorePlan(solved, WEEK, () => new Set([MON, TUE])).byKind.uncovered).toBeGreaterThan(0)
+  })
+
+  it('never takes the hired people with the plan', () => {
+    const ws = hiring([], [row('foga', {}, '26001', 'B1', 'stored')])
+    const solution = run(ws, ws.allocations, [2], [MON, TUE, THU])
+    expect(drafts(solution.workspace).length).toBeGreaterThan(0)
+    expect(takeProjects(ws, solution.workspace, ['26001']).hireOrders ?? []).toEqual([])
+  })
+})

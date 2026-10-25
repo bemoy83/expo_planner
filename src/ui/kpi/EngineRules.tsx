@@ -24,6 +24,7 @@ const WEIGHT_ROWS: { key: keyof Weights; label: string; text: string; unit: stri
   { key: 'hireEasiest', label: 'Innleid time, letteste kompetanse', text: 'For kompetansen nederst på Kompetanser.', unit: 'per time' },
   { key: 'hireHardest', label: 'Innleid time, vanskeligste kompetanse', text: 'For kompetansen øverst på Kompetanser; de imellom får en verdi imellom.', unit: 'per time' },
   { key: 'minCallOut', label: 'Minste oppmøte for innleide', text: 'En innleid betales for minst så mange timer, uansett hvor lite det er å gjøre.', unit: 'timer' },
+  { key: 'hireStart', label: 'Ny innleid', text: 'En innleid som ikke var der arbeidsdagen før. Mer enn et hallbytte, mindre enn en betalt dag uten arbeid.', unit: 'per person' },
   { key: 'overtimePerson', label: 'Person på overtid', text: 'Hver person som tar overtid en dag.', unit: 'per person og dag' },
   { key: 'overtimeShort', label: 'Kort overtid', text: 'Så mange timer per person og dag teller som kort overtid.', unit: 'timer' },
   { key: 'overtimeHour', label: 'Overtidstime, kort', text: 'En time av den korte overtiden.', unit: 'per time' },

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { dayText, type ISODate } from '../../domain/dates'
+import { dayText, periodText, type ISODate } from '../../domain/dates'
 import { engineData, runEngine, type EngineData, type EngineResult } from '../../domain/planner/run'
 import { projectScore, type Score } from '../../domain/planner/score'
 import type { OutsideDay } from '../../domain/planner/solve'
-import { toOrder } from '../../domain/planner/toOrder'
+import { toHire, toOrder } from '../../domain/planner/toOrder'
 import { numberKey } from '../../domain/projects'
 import type { AllocationRow, Workspace } from '../../domain/types'
 import { Segmented } from '../common'
@@ -36,6 +36,8 @@ interface Line {
   after: Score
   days: number
   people: number
+  /** The days of work of the people the engine hires in for the project. */
+  hired: number
   uncovered: number
   /** The days the plan works in a hall outside the project's window. */
   outside: OutsideDay[]
@@ -107,6 +109,7 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
           after: projectAfter,
           days: new Set(planned.flatMap((r) => Object.keys(r.fte).filter((d) => r.fte[d]))).size,
           people: new Set(blocks.map((a) => a.personId)).size,
+          hired: (solution.workspace.hireOrders ?? []).filter((o) => o.engine && numberKey(o.projectNo ?? '') === numberKey(projectNo)).reduce((sum, o) => sum + o.fte, 0),
           uncovered: projectAfter.findings.filter((f) => f.kind === 'uncovered').reduce((sum, f) => sum + (f.hours ?? 0), 0),
           outside: solution.outside.filter((day) => numberKey(day.projectNo) === numberKey(projectNo)),
         }
@@ -124,8 +127,9 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
   }
   const chosen = lines.filter(picked)
   const toVenyou = venyouText(chosen.flatMap((line) => line.outside))
-  // What is left to hire in for the projects picked, once the engine's permanent staff are on them.
-  const toHire = solution && chosen.length ? toOrder(solution.workspace, dates, chosen.map((line) => line.projectNo)) : []
+  // The people the engine hires in for the projects picked, and what is left that nobody covers.
+  const hires = solution && chosen.length ? toHire(ws, solution.hired, chosen.map((line) => line.projectNo)) : []
+  const uncovered = solution && chosen.length ? toOrder(solution.workspace, dates, chosen.map((line) => line.projectNo)) : []
   const [copied, setCopied] = useState(false)
 
   const columns: Column<Line>[] = [
@@ -144,7 +148,8 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
             {count(new Set(line.outside.map((d) => d.date)).size, 'dag', 'dager')}
           </span> : '–'),
     },
-    { key: 'uncovered', head: 'Udekket t', title: 'Timer ingen faste kan ta, som må leies inn eller dekkes på annen måte', className: 'num', sort: (line) => line.uncovered, cell: (line) => (line.uncovered ? hours(line.uncovered) : '–') },
+    { key: 'hired', head: 'Innleid', title: 'Dagsverk motoren leier inn til prosjektet', className: 'num', sort: (line) => line.hired, cell: (line) => (line.hired ? hours(line.hired) : '–') },
+    { key: 'uncovered', head: 'Udekket t', title: 'Timer verken de faste eller innleide kan ta', className: 'num', sort: (line) => line.uncovered, cell: (line) => (line.uncovered ? hours(line.uncovered) : '–') },
     {
       key: 'score',
       head: 'Poengsum',
@@ -161,7 +166,7 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
       <div className="dialog wide engine-dialog" role="dialog" aria-label="Foreslå plan" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
         <h2>Foreslå plan</h2>
         <p className="hint">
-          Motoren planlegger dagene og de faste for alle prosjektene i perioden samtidig, etter trinnene og rangeringen på Kompetanser. Det ingen faste kan ta, står igjen som udekket. Velg hvilke prosjekter som skal få planen.
+          Motoren planlegger dagene og de faste for alle prosjektene i perioden samtidig, etter trinnene og rangeringen på Kompetanser. Det de faste ikke rekker, leier den inn: færrest mulig, over lengst mulig spenn. Velg hvilke prosjekter som skal få planen.
         </p>
         <div className="engine-choice">
           <span>FTE du har skrevet selv</span>
@@ -195,24 +200,30 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
             <p className="muted engine-busy">Motoren regner ut planen …</p>
           )}
         </div>
-        {toHire.length > 0 && (
+        {(hires.length > 0 || uncovered.length > 0) && (
           <div className="engine-list">
             <div className="engine-list-head">
               <strong>Til innleie</strong>
-              <span className="muted small">Det de faste ikke rekker, for prosjektene du har valgt. Bestill med penselen i Innleid.</span>
+              <span className="muted small">Det de faste ikke rekker, for prosjektene du har valgt. Bestill med penselen i Innleid; planen tar ikke med bestillingene.</span>
             </div>
             <ul>
-              {toHire.map((need) => (
-                <li key={need.competence}>
-                  <b>{need.label}</b>: {hours(need.hours)} t over {count(need.days.length, 'dag', 'dager')}, opptil {count(Math.max(...need.days.map((d) => d.people)), 'person', 'personer')} om dagen ·{' '}
-                  {need.suppliers.length ? (
-                    need.suppliers.join(', ')
-                  ) : (
-                    <span className="engine-mark">
-                      <i className="op-attention" aria-hidden />
-                      ingen leverandør tilbyr den
+              {hires.map((need) => (
+                <li key={`${need.competence}|${need.supplier}`}>
+                  <b>{need.label}</b> · {need.supplier}:{' '}
+                  {need.spans.map((span, i) => (
+                    <span key={i} title={span.projectNos.map((p) => lines.find((line) => numberKey(line.projectNo) === numberKey(p))?.name ?? p).join(', ')}>
+                      {i > 0 && ', '}
+                      {count(span.people, 'person', 'personer')} {periodText(span.from, span.to)}
                     </span>
-                  )}
+                  ))}
+                </li>
+              ))}
+              {uncovered.map((need) => (
+                <li key={need.competence}>
+                  <span className="engine-mark">
+                    <i className="op-attention" aria-hidden />
+                    <b>{need.label}</b>: {hours(need.hours)} t udekket{need.suppliers.length ? '' : ', ingen leverandør tilbyr den på dagtid'}
+                  </span>
                 </li>
               ))}
             </ul>

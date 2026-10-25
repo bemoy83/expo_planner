@@ -4,6 +4,7 @@ import { dayText } from '../../domain/dates'
 import type { CostKind, Finding, Score } from '../../domain/planner/score'
 import { STAGE_NAMES } from '../../import/kompetanserFile'
 import { useWorkspace } from '../../store/workspaceStore'
+import { count } from '../dom'
 import { hours } from '../format'
 
 const KIND_LABELS: Record<CostKind, string> = {
@@ -29,7 +30,7 @@ const findingText = (f: Finding, competence: (key: string) => string, person: (i
     case 'uncovered':
       return f.unplanned ? `${where}: ${hours(f.hours ?? 0)} t ikke lagt i planen` : `${where} ${day}: ${hours(f.hours ?? 0)} t udekket`
     case 'hire':
-      return `${where} ${day}: ${hours(f.hours ?? 0)} t innleid`
+      return f.started ? `${where} ${day}: ${count(f.started, 'ny innleid', 'nye innleide')}` : `${where} ${day}: ${hours(f.hours ?? 0)} t innleid`
     case 'overtime':
       return `${person(f.personId ?? '')} ${day}: ${hours(f.hours ?? 0)} t overtid`
     case 'switch':
