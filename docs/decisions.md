@@ -387,3 +387,9 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 - Seen by the planner: a person was moved back and forth between halls and projects. The engine staffed one job at a time over all its days, so who was where the day before was not yet known, and the job staffed first on a day took people who belonged to another hall.
 - It now staffs a day at a time. On each day every job first takes back those who were in its hall for its project the day before, then those who were in its hall, and only then the others. A person's day is then laid out in one stretch per project and hall, yesterday's work first (`inStretches`): A then B, never A, B and A again.
 - On the demo season: hall switches 568 → 521, competence switches 184 → 152, days of A, B and A 1 → 0; uncovered hours 3 881 → 3 972, as people stay in a hall rather than go where they are short.
+
+## Planning engine: a competence planned as one team, hall by hall (2026-10-25)
+
+- Seen by the planner: each row (hall and department) was placed by itself, whole people from its first day, so C and D with both departments were stacked on one day, over the crew, and the next day had a person idle.
+- The work of a competence in a project and phase is now one team's (`placeAsTeam`): a steady crew a day over the days of its runs, the fewest whole people that get it done there and no more than the permanent staff who have the competence where that is enough, and the halls filled one after the other, both departments of a hall together. Extra work and a competence with a fewest per hall keep their own placing.
+- On the demo season, Byggemessen's Profilering is now 3, 3, 3 and 1,2 a day, C before D; uncovered hours about the same (3 976). Hall switches went up (521 → 610), as a person now ends one hall and begins the next on the same day.

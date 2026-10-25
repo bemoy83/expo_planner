@@ -198,6 +198,23 @@ describe('blocks the engine painted', () => {
   })
 })
 
+describe('a competence planned as one team', () => {
+  it('gives a steady crew a day and fills the halls one after the other, both departments of a hall together', () => {
+    const THU = '2026-10-15'
+    const avd = (hall: string, avdeling: string): AllocationRow => ({ ...row('foga', {}, '26001', hall, `forslag|${hall}|${avdeling}`), avdeling })
+    const rows = [avd('D', '10'), avd('C', '20'), avd('C', '10'), avd('D', '20')]
+    const ws0 = workspace([person('per', 'foga')])
+    const { workspace: ws } = solve({ ws: ws0, rows, required: () => 1, windowOf: () => new Set([MON, TUE, WED, THU]), keepTyped: true, makeId })
+    const days = (hall: string) => ws.allocations.filter((r) => r.hall === hall).flatMap((r) => Object.keys(r.fte)).sort()
+    expect(days('C')).toEqual([MON, TUE])
+    expect(days('D')).toEqual([WED, THU])
+    // One a day, as there is one fitter: no day over, none idle.
+    const perDay = new Map<string, number>()
+    for (const r of ws.allocations) for (const [date, fte] of Object.entries(r.fte)) perDay.set(date, (perDay.get(date) ?? 0) + fte)
+    expect([...perDay.values()]).toEqual([1, 1, 1, 1])
+  })
+})
+
 describe('people who stay where they are', () => {
   it('keeps a person in the hall they were in the day before, rather than moving them to a hall planned first', () => {
     // Hall D has the shorter window, so its job comes first; on the Tuesday, Per goes back to hall C all the same.

@@ -115,6 +115,36 @@ const placeOnRun = (job: Job, extra: boolean): void => {
   shareOverDays(job.need, days).forEach((part, i) => part && (job.fte[run[i]] = (job.fte[run[i]] ?? 0) + part))
 }
 
+/**
+ * The FTE of a team's jobs, the work of one competence in a project and phase: a steady crew a day over the days of their
+ * runs, the fewest whole people that get it done there and no more than `crew` where that is enough, and the jobs filled
+ * in the order of their halls, each as far as its own days allow, before the next is begun. Where the crew cannot do it in
+ * the days, it is given one more a day until it can: what that asks beyond the permanent staff is left uncovered.
+ */
+const placeAsTeam = (team: Job[], crew: number): void => {
+  team.sort((a, b) => hallKey(a.row.hall).localeCompare(hallKey(b.row.hall), 'nb', { numeric: true }) || (a.row.avdeling ?? '').localeCompare(b.row.avdeling ?? ''))
+  const days = [...new Set(team.flatMap((job) => job.run))].sort()
+  const left = new Map(team.map((job) => [job, job.need]))
+  const total = team.reduce((sum, job) => sum + job.need, 0)
+  let cap = Math.max(1, Math.ceil(total / days.length - 1e-9))
+  if (crew > 0 && cap > crew && crew * days.length >= total) cap = crew
+  const used = new Map(days.map((date) => [date, team.reduce((sum, job) => sum + (job.fte[date] ?? 0), 0)]))
+  for (let rounds = 0; [...left.values()].some((rest) => rest > NOISE) && rounds < 50; rounds++, cap++) {
+    for (const date of days) {
+      for (const job of team) {
+        const room = tenth(cap - used.get(date)!)
+        const rest = left.get(job)!
+        if (room <= NOISE) break
+        if (rest <= NOISE || !job.run.includes(date)) continue
+        const part = tenth(Math.min(rest, room))
+        job.fte[date] = tenth((job.fte[date] ?? 0) + part)
+        used.set(date, tenth(used.get(date)! + part))
+        left.set(job, tenth(rest - part))
+      }
+    }
+  }
+}
+
 interface Staff {
   /** Each person's blocks by day: those there were and those the engine paints. */
   blocks: Map<string, Assignment[]>
@@ -382,6 +412,9 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
   const styleOf = new Map<CompetenceKey, CompetenceStyle & { index: number }>(styles.map((style, index) => [style.key, { ...style, index }]))
   const nextOf = new Map(styles.map((style) => [style.key, style.next]))
 
+  const holders = new Map<CompetenceKey, number>()
+  for (const person of ws.persons ?? []) for (const key of person.competences) holders.set(key, (holders.get(key) ?? 0) + 1)
+
   // What stays: the planner's blocks, and, if he wants, the FTE he typed.
   const kept = okAssignments({ ...ws, assignments: (ws.assignments ?? []).filter((a) => a.source !== 'suggested') })
   const fixedOf = (row: AllocationRow): Record<ISODate, number> => {
@@ -428,9 +461,20 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
           const run = job.days.filter((date) => (tearDown ? date <= walls.at(-1)! : date >= walls[0]))
           if (run.length) job.run = run
         }
-        if (job.need > NOISE) placeOnRun(job, styleOf.get(job.competence)?.stage === 'ekstra')
       }
     }
+    // The work of a competence in a project and phase is one team's: it is given a steady crew a day, no more than the
+    // permanent staff who have it where the window lets it, and the halls are filled one after the other, so a hall is
+    // done before the team goes on to the next (the planner, 2026-10-25). Extra work, and a competence done by at least so
+    // many in a hall, keep their own placing.
+    const teams = new Map<string, Job[]>()
+    for (const job of jobs) {
+      if (job.need <= NOISE) continue
+      const stage = styleOf.get(job.competence)?.stage
+      if (stage === 'ekstra' || job.min) placeOnRun(job, stage === 'ekstra')
+      else pushTo(teams, `${numberKey(job.row.projectNo)}|${job.row.phase}|${job.competence}`, job)
+    }
+    for (const team of teams.values()) placeAsTeam(team, holders.get(team[0].competence) ?? 0)
 
     // 2. The people, a day at a time, so that who was where the day before is known for every job. On each day, every job
     // first takes back those who were in its hall for its project the day before, then those who were in its hall, and
