@@ -351,3 +351,8 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 - Marked so a run can be done again: the days the engine wrote (`AllocationRow.engine`) and its blocks (`source: 'suggested'`). Typing into a day or changing a block makes it the planner's (`setAllocationFte`, `ownChanged` in `updateStaffing`).
 - Nothing is random, so the same workspace gives the same plan; a fixed seed is not needed. The demo season is planned and scored in about 0,3 s, so no Web Worker yet.
 - Left for later, as listed in TODO: teams of people × days, moving in for extra work, marking out made by itself, a preview in the grid, person swaps.
+
+## Planning engine, step 4: earlier start, to be tested by the user
+
+- The working days before a build-up and after a tear-down that the row's halls stand free in Venyou are lawful days for the engine, after the days of the window, nearest first and at most five (`freeDaysNear`). A booking of the hall in any phase ends them, hidden or not. They cost 3 a hall and day in the score, so they are used where they save more than that: hire and uncovered hours.
+- They are shown per project in the dialog («Tidligere») and listed «Til Venyou» by hall and project, to be copied (the planner, 2026-10-25: Venyou is told, so it blocks the halls). No cost for keeping a hall open is put in Resultat (the planner, 2026-10-25).

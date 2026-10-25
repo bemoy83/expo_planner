@@ -476,6 +476,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           rows={engineRows}
           required={requiredFte}
           windowOf={windowOf}
+          nearby={plan.nearbyOf}
           dates={dates}
           onClose={() => setEngineOpen(false)}
           onApply={(solution, projectNos) => {

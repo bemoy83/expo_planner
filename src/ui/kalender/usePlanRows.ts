@@ -7,7 +7,7 @@ import { locateRows, sharedPlaces } from '../../domain/locations'
 import { isSuggestedRow, rowScope, suggestedRows } from '../../domain/plannedRows'
 import type { AllocationRow, DemandLine, Settings, Workspace } from '../../domain/types'
 import { hallNames, projectPhases } from '../../domain/venue'
-import { buildWindows, windowFor } from '../../domain/windows'
+import { buildWindows, freeDaysNear, windowFor } from '../../domain/windows'
 import type { AllocLane } from './gridTypes'
 import type { RowDetails } from './RowInspector'
 import { buildGroups, filterGroups, groupItems, inWindow, projectKey, type Dimension, type RowFilter } from './rows'
@@ -85,12 +85,18 @@ export function usePlanRows({ ws, range, demandIndex, locatedDemand, settings, w
   )
   // The days each row can be worked on: its project's build-up or tear-down days in its hall.
   // The same lookup gives the hall phase of each day of a project, for the strip on its line.
-  const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf, sharedPlaces(hallNames(ws.venue), ws.hallRules)), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf, ws.venue, ws.hallRules])
+  const places = useMemo(() => sharedPlaces(hallNames(ws.venue), ws.hallRules), [ws.venue, ws.hallRules])
+  const [windows, phasesOfProject] = useMemo(() => [buildWindows(shownVenue, projectOf, places), projectPhases(shownVenue, projectOf)] as const, [shownVenue, projectOf, places])
   const projectOfRow = useMemo(() => new Map(allGroups.flatMap((group) => group.rows.map((row) => [row.id, group.key] as const))), [allGroups])
   // The FTE that counts as need, in the staffing lines and as the demand of Bemanning: that of the projects shown.
   const planned = useMemo(() => (outside.size ? ws.allocations.filter((row) => !outside.has(projectOfRow.get(row.id) ?? projectKey(row))) : ws.allocations), [ws.allocations, outside, projectOfRow])
   const need = useMemo(() => dailyNeed(planned), [planned])
   const windowOf = useCallback((row: AllocationRow) => windowFor(windows, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase), [windows, projectOfRow])
+  // The days next to a row's window that its halls stand free, for the planning engine's earlier start; every booking counts, hidden or not.
+  const nearbyOf = useCallback(
+    (row: AllocationRow) => freeDaysNear(ws.venue, projectOf, places, projectOfRow.get(row.id) ?? projectKey(row), row.hall, row.phase, windowOf(row)),
+    [ws.venue, projectOf, places, projectOfRow, windowOf],
+  )
   // A level in entry is a row of its own: the days it can be worked on are those of the rows under it, together.
   const levelWindows = useMemo(
     () => new Map(items.flatMap((item) => (item.kind === 'group' && item.entry ? [[item.node.key, new Set(item.node.rows.flatMap((row) => [...(windowOf(row) ?? [])]))] as const] : []))),
@@ -112,6 +118,6 @@ export function usePlanRows({ ws, range, demandIndex, locatedDemand, settings, w
 
   return {
     hallCalendar, hallsOf, inViewOnly, rows, filtered, shownGroups, items, allocLanes, laneOfRow, laneKeys, allGroups, projects,
-    phasesOfProject, planned, need, windowOf, levelWindows, details, projectOptions, rowDimensions, competences,
+    phasesOfProject, planned, need, windowOf, nearbyOf, levelWindows, details, projectOptions, rowDimensions, competences,
   }
 }

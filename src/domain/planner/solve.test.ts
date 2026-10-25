@@ -37,8 +37,8 @@ let n = 0
 const makeId = () => `id${n++}`
 
 /** Solves for the rows, each needing the FTE-days given, all with the same window. */
-const run = (ws: Workspace, rows: AllocationRow[], needs: number[], window: string[], keepTyped = true) =>
-  solve({ ws, rows, required: (r) => needs[rows.indexOf(rows.find((x) => x.id === r.id)!)], windowOf: () => new Set(window), keepTyped, makeId })
+const run = (ws: Workspace, rows: AllocationRow[], needs: number[], window: string[], keepTyped = true, near: string[] = []) =>
+  solve({ ws, rows, required: (r) => needs[rows.indexOf(rows.find((x) => x.id === r.id)!)], windowOf: () => new Set(window), nearby: () => near, keepTyped, makeId })
 
 const blocksOf = (ws: Workspace, competence?: string) => (ws.assignments ?? []).filter((a) => a.source === 'suggested' && (!competence || a.competence === competence))
 const fteOf = (ws: Workspace, competence: string, projectNo = '26001') => ws.allocations.find((r) => r.competence === competence && r.projectNo === projectNo)?.fte
@@ -84,6 +84,20 @@ describe('the planning engine', () => {
     const { workspace: ws } = run(ws0, [row('foga')], [2], [MON, TUE])
     expect(fteOf(ws, 'foga')).toEqual({ [TUE]: 2 })
     expect(scorePlan(ws, [MON, TUE], () => new Set([MON, TUE])).byKind.uncovered).toBe(0)
+  })
+
+  it('starts earlier on a day the hall stands free when the crew cannot do it all in the window, and lists the day for Venyou', () => {
+    const ws0 = workspace([person('per', 'foga'), person('pål', 'foga')])
+    const solution = run(ws0, [row('foga')], [4], [TUE], true, [MON])
+    expect(fteOf(solution.workspace, 'foga')).toEqual({ [MON]: 2, [TUE]: 2 })
+    expect(solution.outside).toEqual([{ projectNo: '26001', projectName: 'Messe 26001', hall: 'B1', date: MON }])
+    expect(scorePlan(solution.workspace, [MON, TUE], () => new Set([TUE])).byKind.uncovered).toBe(0)
+  })
+
+  it('does not start earlier where the crew can do it in the window', () => {
+    const solution = run(workspace([person('per', 'foga'), person('pål', 'foga')]), [row('foga')], [2], [TUE], true, [MON])
+    expect(fteOf(solution.workspace, 'foga')).toEqual({ [TUE]: 2 })
+    expect(solution.outside).toEqual([])
   })
 
   it('leaves the demand nobody can take in the plan, uncovered', () => {

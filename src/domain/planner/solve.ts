@@ -22,8 +22,10 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  * 2. The jobs are staffed hardest competence first (R7), then the tightest window: on each day the people who have
  *    the competence and free normal time, those who did the same work the day before first, then those who did the
  *    same competence or the one before it in its chain, and those with the fewest competences, so the others stay free (R3, R5).
- * 3. What nobody could take on a day is moved to a day of the window where someone can; what is left stays in the plan,
- *    uncovered, for Bemanning and Innleid to show.
+ * 3. What nobody could take on a day is moved to a day of the window where someone can, and then to a day before the
+ *    build-up or after the tear-down that the hall stands free (`nearby`, R6): the planner starts earlier before he
+ *    hires in. Those days are listed for Venyou (`outside`). What is left stays in the plan, uncovered, for Bemanning
+ *    and Innleid to show.
  *
  * Only normal time is planned: overtime and hire are the planner's (R6). Blocks the planner painted stay, and those
  * the engine painted before are planned again. Whether the FTE the planner typed stays is his choice (`keepTyped`).
@@ -37,6 +39,8 @@ export interface SolveInput {
   /** The FTE-days a row needs in all. */
   required: (row: AllocationRow) => number
   windowOf: (row: AllocationRow) => Set<ISODate> | undefined
+  /** The working days next to a row's window that its halls stand free, nearest first (`freeDaysNear`); none where not given. */
+  nearby?: (row: AllocationRow) => ISODate[]
   /** Whether the FTE the planner typed stays where it is; else it is planned again with the rest. */
   keepTyped: boolean
   makeId?: () => string
@@ -59,6 +63,8 @@ interface Job {
   days: ISODate[]
   /** The days its stage puts it on, a part of `days`. */
   run: ISODate[]
+  /** The days next to the window its halls stand free, nearest first. */
+  near: ISODate[]
   /** FTE-days still to place. */
   need: number
   /** The fewest a day, where the competence has one. */
@@ -205,9 +211,19 @@ export interface Solution {
   workspace: Workspace
   /** The projects the engine planned, by their number as written. */
   projects: string[]
+  /** The days the engine works in a hall outside the project's window, for the planner to tell Venyou: by project, hall and day. */
+  outside: OutsideDay[]
 }
 
-export const solve = ({ ws, rows, required, windowOf, keepTyped, makeId = () => `eng-${crypto.randomUUID()}` }: SolveInput): Solution => {
+export interface OutsideDay {
+  projectNo: string
+  projectName: string
+  /** The row's hall or place; empty for a row of all the project's halls. */
+  hall: string
+  date: ISODate
+}
+
+export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyped, makeId = () => `eng-${crypto.randomUUID()}` }: SolveInput): Solution => {
   const wd = ws.settings.workday
   const perDay = ws.settings.hoursPerDay
   const styles = competenceStyles(ws)
@@ -232,7 +248,7 @@ export const solve = ({ ws, rows, required, windowOf, keepTyped, makeId = () => 
     const fixed = fixedOf(row)
     const need = tenth(required(row) - Object.values(fixed).reduce((sum, v) => sum + v, 0))
     const style = styleOf.get(competence)
-    const job: Job = { row, competence, days: workdaysOf(window), run: [], need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
+    const job: Job = { row, competence, days: workdaysOf(window), run: [], near: nearby(row), need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
     jobs.push(job)
     pushTo(byPlace, `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${row.phase}`, job)
   }
@@ -269,7 +285,7 @@ export const solve = ({ ws, rows, required, windowOf, keepTyped, makeId = () => 
       const fixed = fixedOf(job.row)
       if (fixed[date]) continue
       let rest = hours
-      const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d))].filter((d) => d !== date)
+      const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d)), ...job.near].filter((d) => d !== date)
       for (const other of others) {
         if (rest < SMALLEST) break
         const free = candidates(ws, staff, job, other, nextOf).reduce((sum, c) => sum + c.free.reduce((s, iv) => s + paidHours(iv, wd), 0), 0)
@@ -307,9 +323,18 @@ export const solve = ({ ws, rows, required, windowOf, keepTyped, makeId = () => 
     projects.add(job.row.projectNo)
     allocations.push({ ...job.row, id: `row-${makeId()}`, order: ++order, fte: job.fte, notes: {}, engine: Object.keys(job.fte).sort() })
   }
+  const outside = new Map<string, OutsideDay>()
+  for (const job of jobs) {
+    const window = new Set(job.days)
+    for (const date of Object.keys(job.fte))
+      if (!window.has(date) && job.near.includes(date)) {
+        const hall = (job.row.hall ?? '').trim()
+        outside.set(`${numberKey(job.row.projectNo)}|${hall.toLowerCase()}|${date}`, { projectNo: job.row.projectNo, projectName: job.row.projectName, hall, date })
+      }
+  }
   const painted = [...staff.blocks.values()].flat().filter((a) => a.source === 'suggested')
   const assignments = [...(ws.assignments ?? []).filter((a) => a.source !== 'suggested'), ...painted]
-  return { workspace: { ...ws, allocations, assignments }, projects: [...projects] }
+  return { workspace: { ...ws, allocations, assignments }, projects: [...projects], outside: [...outside.values()].sort((a, b) => a.hall.localeCompare(b.hall, 'nb') || a.date.localeCompare(b.date)) }
 }
 
 /**
