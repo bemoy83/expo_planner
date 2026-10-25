@@ -362,3 +362,8 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 - The engine makes no orders (the planner, 2026-10-25): the dialog lists «Til innleie» for the projects picked, per competence, the hours, days and most people a day, and the suppliers who offer it, the hardest competences being staffed first so what is left is mostly the easier ones (R5, R7). A competence no supplier offers is marked: it cannot be hired in.
 - Orders that wait count as ordered, as in the score. The hours are those Innleid shows as remaining once the plan is taken, where the planner orders with the brush.
 - With this the five steps of «Planleggingsmotor: byggeplan» are built in a first version; what is left out is listed in TODO.
+
+## The demo season with the planner's competences (2026-10-25)
+
+- The invented season has the competences and product types the planner works with, by name, competence and unit, taken from his KPI export (Banner, Snekker, FOGA, Innredning, Profilering, Engangstepper, Teppefliser, Møbler, Oppmerking, Ekstra; FOGA-vegger, Teppefliser, Disker & Podier and the like). The rates and quantities are made up; the file itself is not kept. Marking out («Oppmåling», a hall at a time) is its competence «Oppmerking», as the planner decided, and meeting rooms and seating are the house's own work, ordered per event. Kompetanser has the stages, the chains FOGA → Innredning and Teppefliser → Møbler, and two a hall for marking out; whoever has FOGA has Innredning too.
+- Read in from a clean start, it showed that the score counted no demand not yet put on a day: an empty plan scored nothing. The score now counts such demand as uncovered when it is given the rows and what they need (`Unplanned`), in the engine's dialog and the row details.

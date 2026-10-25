@@ -59,6 +59,8 @@ export interface Finding {
   competence?: CompetenceKey
   /** The hours it is about: uncovered, hired, overtime. */
   hours?: number
+  /** For uncovered hours: demand not put on any day of the plan, rather than days nobody covers. */
+  unplanned?: boolean
   /** The person it is about: a switch, overtime. */
   personId?: string
   /** For a switch: what changed. */
@@ -103,12 +105,20 @@ const switchOf = (a: Assignment, b: Assignment, next: Map<CompetenceKey, Compete
   return null
 }
 
+/** The rows of the plan with what each needs in all, so that demand put on no day counts too. */
+export interface Unplanned {
+  rows: AllocationRow[]
+  /** The FTE-days a row needs in all. */
+  required: (row: AllocationRow) => number
+}
+
 /**
  * The score of the plan and its staffing over the dates. `windowOf` gives a planning row the days the hall calendar
  * gives its project in its hall, as the Kalender does; a row with none is not held against a window. Orders that wait
- * for an answer count as cover: they are the plan's, not yet the supplier's.
+ * for an answer count as cover: they are the plan's, not yet the supplier's. With `unplanned`, the demand of a row
+ * that is on no day of the plan counts as uncovered too, on the first day of its window.
  */
-export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: AllocationRow) => Set<ISODate> | undefined, weights: Weights = WEIGHTS): Score => {
+export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: AllocationRow) => Set<ISODate> | undefined, weights: Weights = WEIGHTS, unplanned?: Unplanned): Score => {
   const wanted = new Set(dates)
   const wd = ws.settings.workday
   const styles = competenceStyles(ws)
@@ -124,6 +134,14 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
     for (const date of dates)
       for (const p of balance.get(competence, date).projects.values())
         if (p.remaining > 0.01) add({ kind: 'uncovered', cost: p.remaining * weights.uncovered, date, competence, hours: p.remaining, ...(p.projectNo !== NO_PROJECT ? { projectNo: p.projectNo } : {}) })
+
+  for (const row of unplanned?.rows ?? []) {
+    const missing = unplanned!.required(row) - Object.values(row.fte).reduce((sum, fte) => sum + fte, 0)
+    if (missing <= 0.05) continue
+    const hours = missing * ws.settings.hoursPerDay
+    const date = [...(windowOf(row) ?? [])].sort()[0] ?? dates[0]
+    add({ kind: 'uncovered', cost: hours * weights.uncovered, date, competence: competenceKey(row.competence), hours, unplanned: true, ...(row.projectNo ? { projectNo: row.projectNo } : {}), ...(row.hall ? { hall: row.hall } : {}) })
+  }
 
   // Hire: every person of an order is paid for a call-out at least, at the cost of the competence.
   const costOfHire = hireCost(styles, weights)

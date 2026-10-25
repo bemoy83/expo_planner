@@ -6,7 +6,7 @@ import { competenceStyles } from '../../domain/competences'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { isSuggestedRow } from '../../domain/plannedRows'
-import { projectScore, scorePlan } from '../../domain/planner/score'
+import { projectScore, scorePlan, WEIGHTS } from '../../domain/planner/score'
 import { takeProjects } from '../../domain/planner/solve'
 import type { AllocationRow } from '../../domain/types'
 import { usePref, usePrefSet } from '../../store/prefs'
@@ -228,7 +228,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // The projects as Bemanning lists them, see `projectSpansOf`.
   // The score of the project of the row in focus, worked out only while its details are open.
   const scored = inspectorOpen && !bemanning ? plan.details?.row.projectNo : undefined
-  const score = useMemo(() => (scored === undefined ? null : projectScore(scorePlan(ws, dates, windowOf), scored)), [scored, ws, dates, windowOf])
+  const requiredFte = useCallback((row: AllocationRow) => rowTotals(demandIndex, row, settings).requiredFte ?? 0, [demandIndex, settings])
+  const score = useMemo(
+    () => (scored === undefined ? null : projectScore(scorePlan(ws, dates, windowOf, WEIGHTS, { rows: allGroups.flatMap((group) => group.rows), required: requiredFte }), scored)),
+    [scored, ws, dates, windowOf, allGroups, requiredFte],
+  )
   const competenceLabel = useMemo(() => {
     const labels = new Map(competenceStyles(ws).map((style) => [style.key, style.label]))
     return (key: string) => labels.get(key) ?? key
@@ -238,7 +242,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     return (id: string) => names.get(id) ?? id
   }, [ws.persons])
   const engineRows = useMemo(() => (engineOpen ? allGroups.flatMap((group) => group.rows) : []), [engineOpen, allGroups])
-  const requiredFte = useCallback((row: AllocationRow) => rowTotals(demandIndex, row, settings).requiredFte ?? 0, [demandIndex, settings])
   const projectSpans = useMemo(() => (bemanning ? projectSpansOf(allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start) : []), [bemanning, allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start])
   // The work plans: a day or a week to read and print, opened from the page header or a right-click on a date in Bemanning.
   const [workPlan, setWorkPlan] = useState<OpenPlan | null>(null)

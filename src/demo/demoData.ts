@@ -9,7 +9,7 @@ import { writeXlsx, type CellValue } from '../import/xlsx.ts'
  * The data is fixed, not random, so tests can count on it. It is built to touch what the app has to handle: product
  * types with several units, one missing from the KPI table, lines without a product type, a free-text place, a place
  * of several halls, a project booked in several halls, events that overlap, events with and without demand, two
- * statuses, a season that runs over the new year, and six big fairs whose build-up needs more than the 20 permanent staff can work, whose competences follow the demand. The crew is 20 people over eight competences and ten suppliers.
+ * statuses, a season that runs over the new year, and six big fairs whose build-up needs more than the 20 permanent staff can work, whose competences follow the demand. The crew is 20 people over ten competences and ten suppliers. The competences and product types have the names the planner works with; the rates and quantities are made up.
  */
 
 /** The file names, as the app reads the period of a Venyou export and the date of a Visma export from them. */
@@ -123,44 +123,82 @@ interface DemoProductType {
 }
 
 /**
- * The competences, with a short name and a colour as Kompetanser has them (the colour and stage names of `kompetanserFile.ts`),
- * and the stage of the build-up each comes in, and the competence its team goes on to.
+ * The competences, in the planner's order with the hardest to replace first, with a short name and a colour as Kompetanser
+ * has them (the colour and stage names of `kompetanserFile.ts`), the stage of the build-up each comes in, the competence
+ * its team goes on to, and the fewest it is done by in a hall. The names are those the planner works with (2026-10-25).
  */
-const DEMO_COMPETENCE_STYLES: [string, string, string, string, string][] = [
-  ['Vegger', 'VEG', 'Blå', 'Standbygging', ''],
-  ['Tepper', 'TEP', 'Grønn', 'Gulv', 'Møbler'],
-  ['Møbler', 'MØB', 'Gul', 'Løsøre', ''],
-  ['Grafikk', 'GRA', 'Fiolett', 'Løpende', ''],
-  ['Elektro', 'ELE', 'Oransje', '', ''],
-  ['Rigg', 'RIG', 'Rød', '', ''],
-  ['Snekker', 'SNE', 'Turkis', 'Tilvalg', ''],
-  ['Lager', 'LAG', 'Grå', 'Ekstra', ''],
+const DEMO_COMPETENCE_STYLES: [string, string, string, string, string, number | null][] = [
+  ['Banner', 'BAN', 'Fiolett', 'Løpende', '', null],
+  ['Snekker', 'SNE', 'Turkis', 'Tilvalg', '', null],
+  ['FOGA', 'FOGA', 'Blå', 'Standbygging', 'Innredning', null],
+  ['Innredning', 'INN', 'Grå', 'Løsøre', '', null],
+  ['Profilering', 'PRO', 'Rød', 'Tilvalg', '', null],
+  ['Engangstepper', 'ENG', 'Oransje', 'Gulv', '', null],
+  ['Teppefliser', 'TEP', 'Grønn', 'Gulv', 'Møbler', null],
+  ['Møbler', 'MØB', 'Gul', 'Løsøre', '', null],
+  ['Oppmerking', 'OPP', 'Grå', 'Oppmerking', '', 2],
+  ['Ekstra', 'EKS', 'Rød', 'Ekstra', '', null],
 ]
 
 export const DEMO_COMPETENCES = DEMO_COMPETENCE_STYLES.map(([name]) => name)
 
+/**
+ * The product types by the names the planner's KPI table has, each with its competence and unit; the rates are made up.
+ * The house's own work (marking out, meeting rooms, seating) is ordered per event, not per stand (`EVENT_TYPES`).
+ */
 export const DEMO_PRODUCT_TYPES: DemoProductType[] = [
-  { name: 'Systemvegger', competence: 'Vegger', units: [{ unit: 'lm', assembly: 7, dismantle: 11.5 }], articles: [['1001', 'Systemvegg hvit 1 lm'], ['1002', 'Systemvegg grå 1 lm']], quantity: [6, 18] },
+  { name: 'FOGA-vegger', competence: 'FOGA', units: [{ unit: 'lm', assembly: 8, dismantle: 12 }], articles: [['1001', 'Systemvegg hvit 1 lm'], ['1002', 'Systemvegg grå 1 lm']], quantity: [6, 18] },
   // Two units with rates and none in use: the planner picks one.
-  { name: 'Dragere', competence: 'Vegger', units: [{ unit: 'lm', assembly: 9, dismantle: 14 }, { unit: 'stk', assembly: 4, dismantle: 6 }], articles: [['1010', 'Drager 1 m']], quantity: [2, 8] },
-  { name: 'Teppefliser', competence: 'Tepper', units: [{ unit: 'm2', assembly: 20, dismantle: 35 }], articles: [['2001', 'Teppeflis grå'], ['2002', 'Teppeflis blå']], quantity: [9, 48] },
-  { name: 'Engangstepper', competence: 'Tepper', units: [{ unit: 'm2', assembly: 30, dismantle: 0 }], articles: [['2010', 'Engangsteppe antrasitt']], quantity: [9, 36] },
-  { name: 'Møbler', competence: 'Møbler', units: [{ unit: 'stk', assembly: 12, dismantle: 18 }], articles: [['3001', 'Barkrakk'], ['3002', 'Ståbord'], ['3003', 'Disk med lås']], quantity: [1, 6] },
-  { name: 'Banner', competence: 'Grafikk', units: [{ unit: 'stk', assembly: 3, dismantle: 8 }], articles: [['4001', 'Banner 1x3 m']], quantity: [1, 3] },
+  { name: 'FOGA-dragere', competence: 'FOGA', units: [{ unit: 'stk', assembly: 14, dismantle: 22 }, { unit: 'lm', assembly: 30, dismantle: 32 }], articles: [['1010', 'Drager 1 m']], quantity: [2, 8] },
+  { name: 'Frontbord', competence: 'FOGA', units: [{ unit: 'lm', assembly: 12, dismantle: 18 }], articles: [['1020', 'Frontbord 1 lm']], quantity: [1, 4] },
+  { name: 'Teppefliser', competence: 'Teppefliser', units: [{ unit: 'm²', assembly: 40, dismantle: 60 }], articles: [['2001', 'Teppeflis grå'], ['2002', 'Teppeflis blå']], quantity: [9, 48] },
+  { name: 'Gangtepper', competence: 'Teppefliser', units: [{ unit: 'm²', assembly: 55, dismantle: 75 }], articles: [['2005', 'Gangteppe rød']], quantity: [20, 80] },
+  { name: 'Engangstepper', competence: 'Engangstepper', units: [{ unit: 'm²', assembly: 12, dismantle: 0 }], articles: [['2010', 'Engangsteppe antrasitt']], quantity: [9, 36] },
+  { name: 'Møbler', competence: 'Møbler', units: [{ unit: 'stk', assembly: 7, dismantle: 10 }], articles: [['3001', 'Barkrakk'], ['3002', 'Ståbord']], quantity: [1, 6] },
+  { name: 'Stoler i oppsett', competence: 'Møbler', units: [{ unit: 'stk', assembly: 120, dismantle: 160 }], articles: [['3010', 'Stol i rekke']], quantity: [20, 80] },
+  { name: 'Innredning', competence: 'Innredning', units: [{ unit: 'stk', assembly: 3.5, dismantle: 7 }], articles: [['3020', 'Brosjyrestativ']], quantity: [1, 4] },
+  { name: 'Disker & Podier', competence: 'Innredning', units: [{ unit: 'stk', assembly: 3, dismantle: 4.5 }], articles: [['3030', 'Disk med lås'], ['3031', 'Podium 1x1 m']], quantity: [1, 3] },
+  { name: 'Hyller & Heng', competence: 'Innredning', units: [{ unit: 'stk', assembly: 5, dismantle: 7 }], articles: [['3040', 'Hylle 1 m']], quantity: [1, 6] },
+  { name: 'Banner', competence: 'Banner', units: [{ unit: 'm²', assembly: 18, dismantle: 25 }], articles: [['4001', 'Banner 1x3 m']], quantity: [3, 12] },
+  { name: 'Duk i ramme', competence: 'Banner', units: [{ unit: 'stk', assembly: 0.7, dismantle: 1.5 }], articles: [['4005', 'Tekstilvegg i ramme']], quantity: [1, 3] },
   // Counted per order: a stand with a print is one, whatever the quantity.
-  { name: 'Print', competence: 'Grafikk', units: [{ unit: 'ordre', assembly: 1.5, dismantle: 4, inUse: true }, { unit: 'm2', assembly: 6, dismantle: 15 }], articles: [['4010', 'Folieprint vegg']], quantity: [2, 12] },
-  { name: 'Lys', competence: 'Elektro', units: [{ unit: 'stk', assembly: 6, dismantle: 10 }], articles: [['5001', 'Spotlys LED']], quantity: [2, 8] },
-  { name: 'Strøm', competence: 'Elektro', units: [{ unit: 'stk', assembly: 2, dismantle: 4 }], articles: [['5010', 'Strømuttak 230V']], quantity: [1, 2] },
-  { name: 'Truss', competence: 'Rigg', units: [{ unit: 'lm', assembly: 4, dismantle: 8 }], articles: [['7001', 'Truss 2 m'], ['7002', 'Truss hjørne']], quantity: [2, 12] },
-  { name: 'Spesialbygg', competence: 'Snekker', units: [{ unit: 'stands', assembly: 0.08, dismantle: 0.25 }], articles: [['8001', 'Spesialbygg etter tegning']], quantity: [1, 1] },
-  { name: 'Lagerplass', competence: 'Lager', units: [{ unit: 'stk', assembly: 3, dismantle: 3 }], articles: [['8010', 'Pall lagret']], quantity: [1, 4] },
+  { name: 'Print', competence: 'Profilering', units: [{ unit: 'ordre', assembly: 1, dismantle: 0, inUse: true }, { unit: 'stk', assembly: 5, dismantle: 0 }], articles: [['4010', 'Folieprint vegg']], quantity: [2, 12] },
+  { name: 'Firmaskilt', competence: 'Profilering', units: [{ unit: 'stk', assembly: 18, dismantle: 22 }], articles: [['4020', 'Firmaskilt over stand']], quantity: [1, 2] },
+  { name: 'Snekker-vegger', competence: 'Snekker', units: [{ unit: 'lm', assembly: 0.9, dismantle: 1.3 }], articles: [['8001', 'Lettvegg MDF']], quantity: [2, 8] },
+  { name: 'Oppbygget gulv', competence: 'Snekker', units: [{ unit: 'm²', assembly: 2.2, dismantle: 3.5 }], articles: [['8010', 'Oppbygget gulv med kant']], quantity: [9, 30] },
+  { name: 'Laminatgulv', competence: 'Snekker', units: [{ unit: 'm²', assembly: 5, dismantle: 13 }], articles: [['8020', 'Laminat eik']], quantity: [9, 24] },
+  { name: 'Oppmåling', competence: 'Oppmerking', units: [{ unit: 'haller', assembly: 0.07, dismantle: 0 }], articles: [['9101', 'Oppmerking av hall']], quantity: [1, 1] },
+  { name: 'Møteromsvegger', competence: 'Ekstra', units: [{ unit: 'lm', assembly: 18, dismantle: 22 }], articles: [['9110', 'Pop-up møterom, vegger']], quantity: [10, 40] },
+  { name: 'Tribuner', competence: 'Ekstra', units: [{ unit: 'sett', assembly: 0.25, dismantle: 0.35 }], articles: [['9120', 'Tribune 100 plasser']], quantity: [1, 3] },
 ]
 
-/** How often a stand orders each product type; the rest are ordered by about half the stands. */
-const DEMAND_SHARE: Record<string, number> = { Systemvegger: 0.9, Teppefliser: 0.8, Spesialbygg: 0.12, Truss: 0.2, Lagerplass: 0.25, Dragere: 0.3 }
+/** The product types ordered once per event or hall, not per stand. */
+const EVENT_TYPES = new Set(['Oppmåling', 'Møteromsvegger', 'Tribuner'])
+
+/** How often a stand orders each product type. */
+const DEMAND_SHARE: Record<string, number> = {
+  'FOGA-vegger': 0.9,
+  'FOGA-dragere': 0.3,
+  Frontbord: 0.2,
+  Teppefliser: 0.75,
+  Gangtepper: 0.05,
+  Engangstepper: 0.2,
+  Møbler: 0.6,
+  'Stoler i oppsett': 0.05,
+  Innredning: 0.35,
+  'Disker & Podier': 0.4,
+  'Hyller & Heng': 0.3,
+  Banner: 0.3,
+  'Duk i ramme': 0.25,
+  Print: 0.5,
+  Firmaskilt: 0.4,
+  'Snekker-vegger': 0.12,
+  'Oppbygget gulv': 0.08,
+  Laminatgulv: 0.08,
+}
 
 /** A product type that is ordered but not in the KPI table, so that the app shows it to be set up. */
-const NEW_TYPE = { name: 'Gulvplater', articles: [['6001', 'Gulvplate 1x2 m']] as [string, string][], quantity: [4, 20] as [number, number] }
+const NEW_TYPE = { name: 'Gardiner', articles: [['6001', 'Gardin 1 lm']] as [string, string][], quantity: [2, 8] as [number, number] }
 
 /** The two departments that order, as Visma's «Avdeling» codes. */
 const DEPARTMENTS = ['10', '20']
@@ -192,16 +230,23 @@ const makeVismaRows = (): CellValue[][] => {
       // A stand number begins with the letter of its hall: «C04-12» is in hall C.
       const hall = pick(event.halls)
       const stand = hall.startsWith('STUDIO') ? `S${String(1 + s).padStart(2, '0')}` : `${hall[0]}${String(1 + s).padStart(2, '0')}-${10 + Math.floor(next() * 80)}`
-      const types = DEMO_PRODUCT_TYPES.filter((type) => next() < (DEMAND_SHARE[type.name] ?? 0.5))
+      const types = DEMO_PRODUCT_TYPES.filter((type) => !EVENT_TYPES.has(type.name) && next() < (DEMAND_SHARE[type.name] ?? 0))
       for (const type of types.length ? types : [DEMO_PRODUCT_TYPES[0]]) {
         const [articleNo, text] = pick(type.articles)
         line(event, stand, '', articleNo, text, between(type.quantity), type.name, DEMO_PRODUCT_TYPES.indexOf(type) + 1)
       }
-      if (next() < 0.25) line(event, stand, '', NEW_TYPE.articles[0][0], NEW_TYPE.articles[0][1], between(NEW_TYPE.quantity), NEW_TYPE.name, 20)
+      if (next() < 0.1) line(event, stand, '', NEW_TYPE.articles[0][0], NEW_TYPE.articles[0][1], between(NEW_TYPE.quantity), NEW_TYPE.name, DEMO_PRODUCT_TYPES.length + 1)
     }
     // Lines without a stand have their place as free text: one hall named in words, and one that names none.
-    line(event, '', `Kafé ved hall ${event.halls[0]}`, '3002', 'Ståbord', 4, 'Møbler', 5)
-    line(event, '', 'Inngangsparti', '4001', 'Banner 1x3 m', 2, 'Banner', 6)
+    const typed = (name: string) => DEMO_PRODUCT_TYPES.findIndex((type) => type.name === name) + 1
+    line(event, '', `Kafé ved hall ${event.halls[0]}`, '3002', 'Ståbord', 4, 'Møbler', typed('Møbler'))
+    line(event, '', 'Inngangsparti', '4001', 'Banner 1x3 m', 6, 'Banner', typed('Banner'))
+    // The house's own work: each hall marked out, and in the big fairs meeting rooms and seats in the first hall.
+    for (const hall of event.halls) line(event, '', `Hall ${hall}`, '9101', 'Oppmerking av hall', 1, 'Oppmåling', typed('Oppmåling'))
+    if (event.stands >= 100) {
+      line(event, '', `Møterom hall ${event.halls[0]}`, '9110', 'Pop-up møterom, vegger', between([10, 40]), 'Møteromsvegger', typed('Møteromsvegger'))
+      line(event, '', `Scene hall ${event.halls.at(-1)}`, '9120', 'Tribune 100 plasser', between([1, 3]), 'Tribuner', typed('Tribuner'))
+    }
     // Lines without a product type, for the planner to give one by their article text.
     line(event, `${event.halls[0][0]}01-90`, '', '9001', 'Montering etter avtale', 8, '', 0)
     line(event, `${event.halls[0][0]}01-90`, '', '9002', 'Frakt', 1, '', 0)
@@ -285,6 +330,8 @@ export const DEMO_PEOPLE: [string, string[]][] = (() => {
   return main.map((competence, i): [string, string[]] => {
     const has = new Set([competence])
     if (i % 2) has.add(pick(competence))
+    // Whoever knows FOGA does the interior fitting too, as the planner gives them both (2026-10-25).
+    if (has.has('FOGA')) has.add('Innredning')
     return [`${FIRST_NAMES[i]} ${FAMILY_NAMES[(i * 7) % FAMILY_NAMES.length]}`, DEMO_COMPETENCES.filter((c) => has.has(c))]
   })
 })()
@@ -295,16 +342,16 @@ const personellFile = () => writeXlsx([{ name: 'Personell', head: ['Navn', 'Nota
 
 /** Made-up suppliers, with no contact person. Most offer one or two competences: few can be ordered for all of them. */
 export const DEMO_SUPPLIERS: { name: string; rate: number; shifts: string[]; competences: string[] }[] = [
-  { name: 'Messehjelp AS', rate: 520, shifts: ['Dag', 'Kveld'], competences: ['Vegger', 'Møbler'] },
-  { name: 'Riggteamet', rate: 560, shifts: ['Dag', 'Kveld', 'Natt'], competences: ['Vegger', 'Elektro', 'Rigg'] },
-  { name: 'Gulv og Tepper Service', rate: 495, shifts: ['Dag'], competences: ['Tepper'] },
-  { name: 'Bemanningsbyrået Nord', rate: 480, shifts: ['Dag', 'Kveld'], competences: ['Møbler', 'Lager'] },
-  { name: 'Snekkerverkstedet', rate: 610, shifts: ['Dag'], competences: ['Snekker', 'Vegger'] },
-  { name: 'Lys og Lyd Utleie', rate: 590, shifts: ['Dag', 'Kveld', 'Natt'], competences: ['Elektro', 'Rigg'] },
-  { name: 'Ekstrahender', rate: 450, shifts: ['Dag', 'Kveld'], competences: ['Møbler', 'Lager'] },
-  { name: 'Folie og Skilt', rate: 575, shifts: ['Dag'], competences: ['Grafikk'] },
-  { name: 'Kveldsteppe', rate: 530, shifts: ['Kveld', 'Natt'], competences: ['Tepper'] },
-  { name: 'Trussmontasje', rate: 640, shifts: ['Dag', 'Natt'], competences: ['Rigg'] },
+  { name: 'Messehjelp AS', rate: 520, shifts: ['Dag', 'Kveld'], competences: ['FOGA', 'Møbler'] },
+  { name: 'Systemmontasje', rate: 560, shifts: ['Dag', 'Kveld', 'Natt'], competences: ['FOGA', 'Innredning'] },
+  { name: 'Gulv og Tepper Service', rate: 495, shifts: ['Dag'], competences: ['Teppefliser', 'Engangstepper'] },
+  { name: 'Bemanningsbyrået Nord', rate: 480, shifts: ['Dag', 'Kveld'], competences: ['Møbler', 'Ekstra'] },
+  { name: 'Snekkerverkstedet', rate: 610, shifts: ['Dag'], competences: ['Snekker'] },
+  { name: 'Scene og Tribune', rate: 590, shifts: ['Dag', 'Kveld', 'Natt'], competences: ['Ekstra'] },
+  { name: 'Ekstrahender', rate: 450, shifts: ['Dag', 'Kveld'], competences: ['Møbler', 'Innredning'] },
+  { name: 'Folie og Skilt', rate: 575, shifts: ['Dag'], competences: ['Profilering', 'Banner'] },
+  { name: 'Kveldsteppe', rate: 530, shifts: ['Kveld', 'Natt'], competences: ['Teppefliser'] },
+  { name: 'Bannerservice', rate: 640, shifts: ['Dag', 'Natt'], competences: ['Banner'] },
 ]
 
 const leverandorerFile = () =>
@@ -336,7 +383,7 @@ const budsjettFile = () => {
 }
 
 /** The competences as Kompetanser exports them, in the planner's order, with a short name and a colour. */
-const kompetanserFile = () => writeXlsx([{ name: 'Kompetanser', head: ['Kompetanse', 'Kort', 'Farge', 'Trinn', 'Går videre til'], rows: DEMO_COMPETENCE_STYLES }])
+const kompetanserFile = () => writeXlsx([{ name: 'Kompetanser', head: ['Kompetanse', 'Kort', 'Farge', 'Trinn', 'Går videre til', 'Minst per hall'], rows: DEMO_COMPETENCE_STYLES }])
 
 const WRITERS: Record<DemoFile, () => Uint8Array> = {
   venyou: venyouFile,

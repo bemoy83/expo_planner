@@ -101,6 +101,13 @@ describe('the parts of the score', () => {
     expect(s.findings).toEqual([expect.objectContaining({ kind: 'uncovered', hours: 7.5, cost: 75, projectNo: PROJECT, competence: 'foga' })])
   })
 
+  it('counts demand put on no day as uncovered too, when it is asked to', () => {
+    const empty = row('foga', 'B1', {})
+    const s = scorePlan(plan([empty], []), WEEK, () => new Set([TUE, WED]), WEIGHTS, { rows: [empty], required: () => 2 })
+    expect(s.findings).toEqual([expect.objectContaining({ kind: 'uncovered', unplanned: true, hours: 15, date: TUE, hall: 'B1' })])
+    expect(score(plan([empty], [])).total).toBe(0)
+  })
+
   it('costs a hired hour more the harder the competence is to replace', () => {
     const cost = hireCost(Object.values(BASE.competenceStyles!).sort((a, b) => a.order - b.order))
     expect(cost('banner')).toBe(WEIGHTS.hireHardest)

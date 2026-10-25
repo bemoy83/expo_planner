@@ -213,6 +213,8 @@ export interface Solution {
   projects: string[]
   /** The days the engine works in a hall outside the project's window, for the planner to tell Venyou: by project, hall and day. */
   outside: OutsideDay[]
+  /** The rows given, as the engine leaves them, in the same order: a suggested row it put FTE on is the stored row it became. */
+  rows: AllocationRow[]
 }
 
 export interface OutsideDay {
@@ -318,11 +320,15 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     if (same && engine.join() === (row.engine ?? []).join()) return row
     return { ...row, fte: job.fte, ...(engine.length ? { engine } : { engine: undefined }) }
   })
+  const became = new Map<string, AllocationRow>()
   for (const job of jobs) {
     if (!isSuggestedRow(job.row) || !Object.keys(job.fte).length) continue
     projects.add(job.row.projectNo)
-    allocations.push({ ...job.row, id: `row-${makeId()}`, order: ++order, fte: job.fte, notes: {}, engine: Object.keys(job.fte).sort() })
+    const stored = { ...job.row, id: `row-${makeId()}`, order: ++order, fte: job.fte, notes: {}, engine: Object.keys(job.fte).sort() }
+    allocations.push(stored)
+    became.set(job.row.id, stored)
   }
+  const solvedRows = new Map(allocations.map((row) => [row.id, row]))
   const outside = new Map<string, OutsideDay>()
   for (const job of jobs) {
     const window = new Set(job.days)
@@ -334,7 +340,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
   }
   const painted = [...staff.blocks.values()].flat().filter((a) => a.source === 'suggested')
   const assignments = [...(ws.assignments ?? []).filter((a) => a.source !== 'suggested'), ...painted]
-  return { workspace: { ...ws, allocations, assignments }, projects: [...projects], outside: [...outside.values()].sort((a, b) => a.hall.localeCompare(b.hall, 'nb') || a.date.localeCompare(b.date)) }
+  return { workspace: { ...ws, allocations, assignments }, projects: [...projects], rows: rows.map((row) => became.get(row.id) ?? solvedRows.get(row.id) ?? row), outside: [...outside.values()].sort((a, b) => a.hall.localeCompare(b.hall, 'nb') || a.date.localeCompare(b.date)) }
 }
 
 /**

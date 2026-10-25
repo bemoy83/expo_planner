@@ -42,8 +42,8 @@ describe('the invented season', () => {
 
   it('reads as a KPI file, with a type of several units left for the planner and the freight left out', () => {
     expect(kpi.workTypes).toHaveLength(DEMO_PRODUCT_TYPES.length)
-    expect(kpi.workTypes.find((t) => t.productType === 'Dragere')).toMatchObject({ unit: '', competence: 'Vegger' })
-    expect(kpi.workTypes.find((t) => t.productType === 'Print')).toMatchObject({ unit: 'ordre', competence: 'Grafikk' })
+    expect(kpi.workTypes.find((t) => t.productType === 'FOGA-dragere')).toMatchObject({ unit: '', competence: 'FOGA' })
+    expect(kpi.workTypes.find((t) => t.productType === 'Print')).toMatchObject({ unit: 'ordre', competence: 'Profilering' })
     expect(kpi.excludedArticles).toEqual([{ articleNo: '9002', note: 'Frakt' }])
   })
 
@@ -60,7 +60,7 @@ describe('the invented season', () => {
   })
 
   it('reads as the planner’s own tables of competences, staff, suppliers and budgets', () => {
-    expect(readKompetanserWorkbook(bytes('kompetanser'))).toEqual(expect.arrayContaining([{ label: 'Vegger', shortLabel: 'VEG', color: 'line-blue', stage: 'standbygging' }, { label: 'Tepper', shortLabel: 'TEP', color: 'line-green', stage: 'gulv', next: 'Møbler' }]))
+    expect(readKompetanserWorkbook(bytes('kompetanser'))).toEqual(expect.arrayContaining([{ label: 'FOGA', shortLabel: 'FOGA', color: 'line-blue', stage: 'standbygging', next: 'Innredning' }, { label: 'Oppmerking', shortLabel: 'OPP', color: 'line-slate', stage: 'oppmerking', minPerHall: 2 }]))
     expect(readKompetanserWorkbook(bytes('kompetanser')).map((c) => c.label)).toEqual(DEMO_COMPETENCES)
     const people = readPersonellWorkbook(bytes('personell'))
     expect(people.map((p) => p.name)).toEqual(DEMO_PEOPLE.map(([name]) => name))
@@ -68,10 +68,10 @@ describe('the invented season', () => {
     // Every competence has people, and everyone has at least one.
     for (const competence of DEMO_COMPETENCES) expect(people.some((p) => p.competences[competence])).toBe(true)
     expect(people.every((p) => Object.values(p.competences).some(Boolean))).toBe(true)
-    // The staff follows the demand: the walls and carpets, which take the most hours, have more people than the furniture.
+    // The staff follows the demand: the walls, which take the most hours, have more people than the furniture; and whoever knows FOGA does the interior fitting.
     const many = (competence: string) => people.filter((p) => p.competences[competence]).length
-    expect(many('Vegger')).toBeGreaterThan(many('Møbler'))
-    expect(many('Tepper')).toBeGreaterThan(many('Møbler'))
+    expect(many('FOGA')).toBeGreaterThan(many('Møbler'))
+    expect(people.filter((p) => p.competences.FOGA).every((p) => p.competences.Innredning)).toBe(true)
     const suppliers = readLeverandorerWorkbook(bytes('leverandorer'))
     expect(suppliers).toHaveLength(DEMO_SUPPLIERS.length)
     expect(suppliers.every((s) => !s.contact)).toBe(true)

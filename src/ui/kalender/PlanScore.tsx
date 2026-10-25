@@ -24,7 +24,7 @@ const findingText = (f: Finding, competence: (key: string) => string, person: (i
   const where = [f.competence && competence(f.competence), f.hall].filter(Boolean).join(' · ')
   switch (f.kind) {
     case 'uncovered':
-      return `${where} ${day}: ${hours(f.hours ?? 0)} t udekket`
+      return f.unplanned ? `${where}: ${hours(f.hours ?? 0)} t ikke lagt i planen` : `${where} ${day}: ${hours(f.hours ?? 0)} t udekket`
     case 'hire':
       return `${where} ${day}: ${hours(f.hours ?? 0)} t innleid`
     case 'overtime':

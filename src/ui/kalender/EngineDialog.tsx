@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { projectScore, scorePlan, type Score } from '../../domain/planner/score'
+import { projectScore, scorePlan, WEIGHTS, type Score } from '../../domain/planner/score'
 import { solve, type OutsideDay } from '../../domain/planner/solve'
 import { toOrder } from '../../domain/planner/toOrder'
 import { numberKey } from '../../domain/projects'
@@ -58,8 +58,9 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
   const [keepTyped, setKeepTyped] = useState(true)
   const solution = useMemo(() => solve({ ws, rows, required, windowOf, nearby, keepTyped }), [ws, rows, required, windowOf, nearby, keepTyped])
   const lines = useMemo((): Line[] => {
-    const before = scorePlan(ws, dates, windowOf)
-    const after = scorePlan(solution.workspace, dates, windowOf)
+    // Demand put on no day counts as uncovered, so a plan not yet made is not scored as one that costs nothing.
+    const before = scorePlan(ws, dates, windowOf, WEIGHTS, { rows, required })
+    const after = scorePlan(solution.workspace, dates, windowOf, WEIGHTS, { rows: solution.rows, required })
     return solution.projects
       .map((projectNo) => {
         const mine = (r: AllocationRow) => numberKey(r.projectNo) === numberKey(projectNo)
@@ -78,7 +79,7 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
         }
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
-  }, [ws, solution, dates, windowOf])
+  }, [ws, rows, required, solution, dates, windowOf])
   // A project is picked to start with where the engine's plan is better than what it has.
   const [skipped, setSkipped] = useState<Set<string> | null>(null)
   const picked = (line: Line) => (skipped ? !skipped.has(line.projectNo) : line.after.total < line.before.total - 1e-6)
