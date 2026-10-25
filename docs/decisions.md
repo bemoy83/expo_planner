@@ -356,3 +356,9 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 
 - The working days before a build-up and after a tear-down that the row's halls stand free in Venyou are lawful days for the engine, after the days of the window, nearest first and at most five (`freeDaysNear`). A booking of the hall in any phase ends them, hidden or not. They cost 3 a hall and day in the score, so they are used where they save more than that: hire and uncovered hours.
 - They are shown per project in the dialog («Tidligere») and listed «Til Venyou» by hall and project, to be copied (the planner, 2026-10-25: Venyou is told, so it blocks the halls). No cost for keeping a hall open is put in Resultat (the planner, 2026-10-25).
+
+## Planning engine, step 5: what to hire, to be tested by the user
+
+- The engine makes no orders (the planner, 2026-10-25): the dialog lists «Til innleie» for the projects picked, per competence, the hours, days and most people a day, and the suppliers who offer it, the hardest competences being staffed first so what is left is mostly the easier ones (R5, R7). A competence no supplier offers is marked: it cannot be hired in.
+- Orders that wait count as ordered, as in the score. The hours are those Innleid shows as remaining once the plan is taken, where the planner orders with the brush.
+- With this the five steps of «Planleggingsmotor: byggeplan» are built in a first version; what is left out is listed in TODO.

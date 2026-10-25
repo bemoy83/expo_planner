@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { projectScore, scorePlan, type Score } from '../../domain/planner/score'
 import { solve, type OutsideDay } from '../../domain/planner/solve'
+import { toOrder } from '../../domain/planner/toOrder'
 import { numberKey } from '../../domain/projects'
 import type { AllocationRow, Workspace } from '../../domain/types'
 import { Segmented } from '../common'
@@ -89,6 +90,9 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
   }
   const chosen = lines.filter(picked)
   const toVenyou = venyouText(chosen.flatMap((line) => line.outside))
+  const chosenKey = chosen.map((line) => line.projectNo).join('|')
+  // What is left to hire in for the projects picked, once the engine's permanent staff are on them.
+  const toHire = useMemo(() => (chosenKey ? toOrder(solution.workspace, dates, chosenKey.split('|')) : []), [solution, dates, chosenKey])
   const [copied, setCopied] = useState(false)
 
   const columns: Column<Line>[] = [
@@ -142,9 +146,32 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
         <div className="engine-scroll">
           <DataTable table={table} rowKey={(line) => line.projectNo} empty="Ingen prosjekter har behov med monterings- eller demonteringsdager i perioden." />
         </div>
+        {toHire.length > 0 && (
+          <div className="engine-list">
+            <div className="engine-list-head">
+              <strong>Til innleie</strong>
+              <span className="muted small">Det de faste ikke rekker, for prosjektene du har valgt. Bestill med penselen i Innleid.</span>
+            </div>
+            <ul>
+              {toHire.map((need) => (
+                <li key={need.competence}>
+                  <b>{need.label}</b>: {hours(need.hours)} t over {count(need.days.length, 'dag', 'dager')}, opptil {count(Math.max(...need.days.map((d) => d.people)), 'person', 'personer')} om dagen ·{' '}
+                  {need.suppliers.length ? (
+                    need.suppliers.join(', ')
+                  ) : (
+                    <span className="engine-outside">
+                      <i className="op-attention" aria-hidden />
+                      ingen leverandør tilbyr den
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {toVenyou.length > 0 && (
-          <div className="engine-venyou">
-            <div className="engine-venyou-head">
+          <div className="engine-list">
+            <div className="engine-list-head">
               <strong>Til Venyou</strong>
               <span className="muted small">Planen bruker hallene utover eventfasene. Meld fra, så hallene blir blokkert.</span>
               <button
