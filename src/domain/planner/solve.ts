@@ -372,9 +372,8 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
   }
 
   /**
-   * One plan of every job: steps 1 to 3 with each project, hall and phase given the free days `extra` next to its window
-   * as days of the window, so that its stages share the whole of the widened span. Hands back the jobs, the people and
-   * the hours nobody took, by project, hall and phase.
+   * One plan of every job, steps 1 to 3 above, with each project, hall and phase given the free days `extra` next to its
+   * window as days of it. Hands back the jobs, the people and the hours nobody took, by project, hall and phase.
    */
   const planWith = (extra: Map<string, ISODate[]>) => {
     // 1. The jobs: each row's demand in its window, widened by `extra`, with the place of its stage among those of its
