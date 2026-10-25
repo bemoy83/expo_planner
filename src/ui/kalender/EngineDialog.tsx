@@ -56,7 +56,8 @@ const venyouText = (days: OutsideDay[]): string[] => {
  */
 export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onApply, onClose }: Props) {
   const [keepTyped, setKeepTyped] = useState(true)
-  const solution = useMemo(() => solve({ ws, rows, required, windowOf, nearby, keepTyped }), [ws, rows, required, windowOf, nearby, keepTyped])
+  const [widen, setWiden] = useState(true)
+  const solution = useMemo(() => solve({ ws, rows, required, windowOf, nearby: widen ? nearby : undefined, keepTyped }), [ws, rows, required, windowOf, nearby, widen, keepTyped])
   const lines = useMemo((): Line[] => {
     // Demand put on no day counts as uncovered, so a plan not yet made is not scored as one that costs nothing.
     const before = scorePlan(ws, dates, windowOf, WEIGHTS, { rows, required })
@@ -143,6 +144,18 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
             ]}
           />
           <span className="muted small">Blokker du har malt i Bemanning, blir alltid stående.</span>
+        </div>
+        <div className="engine-choice">
+          <span>Monterings- og demonteringsvinduet</span>
+          <Segmented
+            label="Monterings- og demonteringsvinduet"
+            value={widen ? 'widen' : 'keep'}
+            onChange={(value) => (setWiden(value === 'widen'), setSkipped(null))}
+            options={[
+              { value: 'widen', label: 'Kan utvides', title: 'Det de faste ikke rekker i vinduet, kan legges på dager før monteringen eller etter demonteringen der hallen står ledig i Venyou' },
+              { value: 'keep', label: 'Holdes', title: 'Alt arbeid holdes innenfor vinduet; det de faste ikke rekker, står igjen som udekket' },
+            ]}
+          />
         </div>
         <div className="engine-scroll">
           <DataTable table={table} rowKey={(line) => line.projectNo} empty="Ingen prosjekter har behov med monterings- eller demonteringsdager i perioden." />
