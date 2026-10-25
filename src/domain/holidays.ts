@@ -62,3 +62,10 @@ export const workdayBefore = (date: ISODate): ISODate => {
   while (dayType(day) !== 'arbeidsdag') day = addDays(day, -1)
   return day
 }
+
+/** The nearest working day after a date, over weekends and holidays. */
+export const workdayAfter = (date: ISODate): ISODate => {
+  let day = addDays(date, 1)
+  while (dayType(day) !== 'arbeidsdag') day = addDays(day, 1)
+  return day
+}
