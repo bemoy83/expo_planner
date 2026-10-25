@@ -24,7 +24,8 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  *    the competence and free normal time, those who did the same work the day before first, then those who did the
  *    same competence or the one before it in its chain, and those with the fewest competences, so the others stay free (R3, R5).
  * 3. What nobody could take on a day is moved to a day of the window where someone can, as far as the order of the
- *    stages allows: a stage goes no earlier than the stage before it has, and no later than the stage after it ends.
+ *    stages allows: a stage starts no earlier than the day after the stage before it has started, and ends no later than
+ *    the stage after it; a running competence (banner) keeps to the days the walls stand.
  * 4. Where that leaves hours over, the window of the project's hall and phase is widened onto the days before the
  *    build-up or after the tear-down that the hall stands free (`nearby`, R6), and all its work is planned again over
  *    the widened span by the same rules (the planner, 2026-10-25: the point of a longer span is that everything is
@@ -98,7 +99,8 @@ const workdaysOf = (window: Set<ISODate>): ISODate[] => {
  */
 const stagePart = (days: ISODate[], index: number, count: number): ISODate[] => {
   if (count <= 1) return days
-  const from = Math.floor((index * days.length) / (count + 1))
+  // Each stage starts at least a day after the one before it, as far as the window has days.
+  const from = Math.min(days.length - 1, Math.max(index, Math.floor((index * days.length) / (count + 1))))
   const to = Math.max(from + 1, Math.ceil(((index + 2) * days.length) / (count + 1)))
   return days.slice(from, to)
 }
@@ -280,10 +282,17 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
       const present = order.filter((stage) => group.some((job) => styleOf.get(job.competence)?.stage === stage))
       for (const job of group) {
         const stage = styleOf.get(job.competence)?.stage
-        const index = stage ? present.indexOf(stage) : -1
-        job.stage = index
-        job.run = index < 0 ? job.days : stagePart(job.days, index, present.length)
-        if (job.need > NOISE) placeOnRun(job, stage === 'ekstra')
+        job.stage = stage ? present.indexOf(stage) : -1
+        job.run = job.stage < 0 ? job.days : stagePart(job.days, job.stage, present.length)
+      }
+      // A running competence (banner) runs while the walls stand: from the day they start, in a tear-down until they come down.
+      const walls = group.filter((job) => styleOf.get(job.competence)?.stage === 'standbygging').flatMap((job) => job.run).sort()
+      for (const job of group) {
+        if (styleOf.get(job.competence)?.stage === 'lopende' && walls.length) {
+          const run = job.days.filter((date) => (tearDown ? date <= walls.at(-1)! : date >= walls[0]))
+          if (run.length) job.run = run
+        }
+        if (job.need > NOISE) placeOnRun(job, styleOf.get(job.competence)?.stage === 'ekstra')
       }
     }
 
@@ -306,13 +315,22 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     // far as the stages before and after it allow. The stages are moved in the order they come.
     const daysOf = (job: Job) => Object.keys(job.fte).filter((date) => job.fte[date] > NOISE)
     const allows = (job: Job): ((date: ISODate) => boolean) => {
+      const group = byPlace.get(job.place) ?? []
+      if (styleOf.get(job.competence)?.stage === 'lopende') {
+        const walls = group.filter((other) => styleOf.get(other.competence)?.stage === 'standbygging').flatMap(daysOf).sort()
+        if (!walls.length) return () => true
+        return job.row.phase === 'Demontering' ? (date) => date <= walls.at(-1)! : (date) => date >= walls[0]
+      }
       if (job.stage < 0) return () => true
-      const staged = (byPlace.get(job.place) ?? []).filter((other) => other.stage >= 0 && daysOf(other).length)
+      const staged = group.filter((other) => other.stage >= 0 && daysOf(other).length)
       const before = staged.filter((other) => other.stage < job.stage)
       const after = staged.filter((other) => other.stage > job.stage)
       const last = Math.max(-1, ...before.map((other) => other.stage))
       const next = Math.min(Infinity, ...after.map((other) => other.stage))
-      const from = before.filter((other) => other.stage === last).flatMap(daysOf).sort()[0]
+      // A stage starts the day after the stage before it has started, where the window has such a day: on a stand the
+      // floor is laid before the walls go up, though in the hall the stages run side by side.
+      const started = before.filter((other) => other.stage === last).flatMap(daysOf).sort()[0]
+      const from = started === undefined ? undefined : (job.days.find((date) => date > started) ?? started)
       const to = after.filter((other) => other.stage === next).flatMap(daysOf).sort().at(-1)
       return (date) => (from === undefined || date >= from) && (to === undefined || date <= to)
     }
@@ -322,7 +340,9 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     for (const [job, left] of [...short].sort(([a], [b]) => moveOrder(a) - moveOrder(b))) {
       for (const [date, hours] of left) {
         let rest = hours
-        if (!fixedOf(job.row)[date]) {
+        // A stage's first day stays where it is when a later stage has work: emptied, the stage would start after it.
+        const holds = job.stage >= 0 && date === daysOf(job).sort()[0] && (byPlace.get(job.place) ?? []).some((other) => other.stage > job.stage && daysOf(other).length)
+        if (!fixedOf(job.row)[date] && !holds) {
           const allowed = allows(job)
           const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d))].filter((d) => d !== date && allowed(d))
           for (const other of others) {

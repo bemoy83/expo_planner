@@ -97,28 +97,40 @@ describe('the planning engine', () => {
   it('widens the window where the crew is short, and plans every stage over the widened span, the floor first', () => {
     const rows = [row('tepper'), row('foga')]
     const ws0 = workspace([person('ola', 'tepper'), person('per', 'foga')])
-    const { workspace: ws, outside } = run(ws0, rows, [2, 4], [TUE, WED], true, [MON])
+    const THU = '2026-10-15'
+    const { workspace: ws, outside } = run(ws0, rows, [2, 4], [TUE, WED, THU], true, [MON])
     const first = (fte: Record<string, number> | undefined) => Object.keys(fte ?? {}).sort()[0]
-    // The floor is not short, but it is planned again over the widened span: it starts the Monday, before the walls.
+    // The floor is not short, but it is planned again over the widened span: it starts the Monday, and the walls the day after.
     expect(first(fteOf(ws, 'tepper'))).toBe(MON)
-    expect(first(fteOf(ws, 'foga')) >= first(fteOf(ws, 'tepper'))).toBe(true)
+    expect(first(fteOf(ws, 'foga'))).toBe(TUE)
     expect(outside.map((d) => d.date)).toContain(MON)
-    expect(scorePlan(ws, [MON, TUE, WED], () => new Set([TUE, WED])).byKind.stage).toBe(0)
+    expect(scorePlan(ws, [MON, TUE, WED, THU], () => new Set([TUE, WED, THU])).byKind.stage).toBe(0)
   })
 
   it('keeps the order of the stages when it moves work within the window', () => {
     const rows = [row('tepper'), row('foga')]
     const ws0 = workspace([person('ola', 'tepper'), person('per', 'foga')])
     const { workspace: ws } = run(ws0, rows, [2, 4], [TUE, WED])
-    expect(Object.keys(fteOf(ws, 'foga') ?? {}).sort()).toEqual([TUE, WED])
+    // The walls start the day after the floor, so what the one fitter cannot do waits there rather than going before the floor.
+    expect(Object.keys(fteOf(ws, 'foga') ?? {}).sort()).toEqual([WED])
     expect(scorePlan(ws, [TUE, WED], () => new Set([TUE, WED])).byKind.stage).toBe(0)
+  })
+
+  it('starts a stage the day after the stage before it, and keeps banner to the days the walls stand', () => {
+    const rows = [row('tepper'), row('foga'), row('banner')]
+    const ws0 = workspace([person('ola', 'tepper'), person('per', 'foga'), person('pål', 'foga'), person('kari', 'banner'), person('siri', 'banner')])
+    const { workspace: ws } = run(ws0, rows, [1, 4, 4], [MON, TUE, WED])
+    const first = (fte: Record<string, number> | undefined) => Object.keys(fte ?? {}).sort()[0]
+    expect(first(fteOf(ws, 'tepper'))).toBe(MON)
+    expect(first(fteOf(ws, 'foga')) > MON).toBe(true)
+    expect(first(fteOf(ws, 'banner')) >= first(fteOf(ws, 'foga'))).toBe(true)
   })
 
   it('does not widen the window where it does not pay', () => {
     // Nobody can do the walls the Monday either, so a day outside the window would save nothing.
     const away = { id: 'per-mon', personId: 'per', date: MON }
     const ws0 = { ...workspace([person('ola', 'tepper'), person('per', 'foga')]), unavailability: [away] }
-    const { outside } = run(ws0, [row('tepper'), row('foga')], [2, 4], [TUE, WED], true, [MON])
+    const { outside } = run(ws0, [row('foga')], [4], [TUE, WED], true, [MON])
     expect(outside).toEqual([])
   })
 
