@@ -17,10 +17,13 @@ export interface RemoteRow {
   updated_at: string
 }
 
+/** A record as the shared copy answers a push of it: its new rev, and who it overwrote unseen where someone did. */
+export type Pushed = { kind: string; id: string; rev: number; overwritten_by: string | null }
+
 /** What the engine needs of the shared copy: the two calls it makes. Supabase in the app, a stand-in in the tests. */
 export interface SharedCopy {
   /** Sends the writes of one batch; returns each record's new rev, and who it overwrote unseen where someone did. */
-  push: (batch: string, records: { kind: string; id: string; data: unknown; base_rev: number | null }[]) => Promise<{ kind: string; id: string; rev: number; overwritten_by: string | null }[]>
+  push: (batch: string, records: { kind: string; id: string; data: unknown; base_rev: number | null }[]) => Promise<Pushed[]>
   /** The records written after `after`, in the order of their revs, at most `limit`. */
   pull: (after: number, limit: number) => Promise<RemoteRow[]>
 }
@@ -55,15 +58,44 @@ const batchesOf = (entries: OutboxEntry[]): OutboxEntry[][] => {
   return [...batches.values()]
 }
 
-/** Sends what waits, a batch at a time. Returns the ids of the planners who had changed a record unseen. */
+/**
+ * At most this many writes go in one call to the shared copy. A user action can write thousands of records (a plan run
+ * over all projects, emptying the workspace), and one call that large outlasts the database's limit on a statement.
+ */
+export const PUSH_CHUNK = 500
+/** A call that still runs out of time is tried again with half as many writes, down to this many. */
+const MIN_CHUNK = 25
+
+/** The shared copy gave up on a call that took too long (Postgres «query_canceled»), rather than saying no to it. */
+const timedOut = (error: unknown) => (error as { code?: unknown } | null)?.code === '57014'
+
+/**
+ * Sends what waits, a batch at a time, a large batch in parts: each part is confirmed as it is answered, so what has
+ * been sent is not sent again. The parts of a batch keep its id, but another browser can read the first before the
+ * last is sent. Returns the ids of the planners who had changed a record unseen.
+ */
 export const pushAll = async (copy: SharedCopy): Promise<string[]> => {
   const overwritten: string[] = []
+  let size = PUSH_CHUNK
   for (const batch of batchesOf(await pendingOutbox())) {
-    // One write per record: the last of the batch is what it ended up as.
-    const last = new Map(batch.map((entry) => [`${entry.kind}|${entry.id}`, entry]))
-    const result = await copy.push(batch[0].batch, [...last.values()].map((entry) => ({ kind: entry.kind, id: entry.id, data: entry.value, base_rev: entry.baseRev })))
-    await confirmSent(batch, result)
-    for (const row of result) if (row.overwritten_by) overwritten.push(row.overwritten_by)
+    // One write per record: the last of the batch is what it ended up as. All its entries are confirmed with it.
+    const last = new Map<string, OutboxEntry[]>()
+    for (const entry of batch) pushTo(last, `${entry.kind}|${entry.id}`, entry)
+    const writes = [...last.values()]
+    for (let at = 0; at < writes.length; ) {
+      const part = writes.slice(at, at + size)
+      let result: Pushed[]
+      try {
+        result = await copy.push(batch[0].batch, part.map((entries) => entries[entries.length - 1]).map((entry) => ({ kind: entry.kind, id: entry.id, data: entry.value, base_rev: entry.baseRev })))
+      } catch (error) {
+        if (!timedOut(error) || size <= MIN_CHUNK) throw error
+        size = Math.max(MIN_CHUNK, Math.floor(size / 2))
+        continue
+      }
+      await confirmSent(part.flat(), result)
+      for (const row of result) if (row.overwritten_by) overwritten.push(row.overwritten_by)
+      at += part.length
+    }
   }
   return overwritten
 }

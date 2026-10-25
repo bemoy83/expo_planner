@@ -173,7 +173,9 @@ Made 2026-10-21 against the code of phases 1 to 4; fixed the same day on the use
 - The sync status and who is present are a context of their own (`useSyncStatus`), and the tree under `CloudProvider` is drawn again only when the database changes; a look that finds nothing to send says nothing.
 - The Realtime channel is private, open to the members of the workspace (policies on `realtime.messages`, `003_owner_and_channel.sql`), with public access turned off in the project's Realtime settings.
 
-Left as they are: `records.updated_by` keeps a user who has written from being deleted; a push is one call however big the batch; the notice of an overwrite also comes where both wrote the same value.
+Fixed 2026-10-25: a push was one call however big the batch, and a large user action (emptying the workspace, a plan run over many projects) outlasted Supabase's 8 seconds for a statement; the sync stopped with «canceling statement due to statement timeout». A batch is now sent in parts of at most 500 records (`PUSH_CHUNK` in `engine.ts`), each confirmed as it is answered, and a part that still runs out of time is tried again at half the size, down to 25; `push_records` has 60 seconds of its own (`supabase/004_push_timeout.sql`). The parts keep the batch's id, so another browser may take in the first part of a large action before the last is sent.
+
+Left as they are: `records.updated_by` keeps a user who has written from being deleted; the notice of an overwrite also comes where both wrote the same value.
 
 ## Alternatives weighed
 

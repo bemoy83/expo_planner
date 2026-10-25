@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../domain/types'
 import { clearAll, pendingOutbox, readCursor, sharedDbName, switchDatabase, writeRecords } from '../store/db'
-import { remoteRecord, startEngine, type RemoteRow, type SharedCopy, type SyncState } from './engine'
+import { PUSH_CHUNK, pushAll, remoteRecord, startEngine, type RemoteRow, type SharedCopy, type SyncState } from './engine'
 
 /**
  * The engine's runs against a stand-in for the shared copy: when it sends and reads, what it says of the state, and
@@ -273,5 +273,56 @@ describe('a row of the shared table', () => {
     expect(remoteRecord(row(1, { data: 'Kari' }))).toBeNull()
     expect(remoteRecord(row(1, { kind: 'hidden', data: false }))).toBeNull()
     expect(remoteRecord(row(1, { kind: 'budget', data: '120000' }))).toBeNull()
+  })
+})
+
+describe('sending a large batch', () => {
+  /** The stand-in, with the size of every call it is sent, timing out on calls larger than `limit`. */
+  const sized = (limit = Infinity) => {
+    const shared = standIn()
+    const sizes: number[] = []
+    const copy: SharedCopy = {
+      ...shared.copy,
+      push: async (batch, records) => {
+        sizes.push(records.length)
+        if (records.length > limit) throw { code: '57014', message: 'canceling statement due to statement timeout' }
+        return shared.copy.push(batch, records)
+      },
+    }
+    return { shared, sizes, copy }
+  }
+  const people = (n: number) => Array.from({ length: n }, (_, i) => person(`p${i}`))
+
+  it('sends it in parts under one batch id, and empties the outbox', async () => {
+    await writeRecords(people(PUSH_CHUNK * 2 + 10))
+    const { shared, sizes, copy } = sized()
+    await pushAll(copy)
+    expect(sizes).toEqual([PUSH_CHUNK, PUSH_CHUNK, 10])
+    expect(new Set(shared.rows.map((r) => r.batch_id)).size).toBe(1)
+    expect(await pendingOutbox()).toEqual([])
+  })
+
+  it('tries a part that runs out of time again at half the size, and goes on at that size', async () => {
+    await writeRecords(people(300))
+    const { shared, sizes, copy } = sized(200)
+    await pushAll(copy)
+    expect(sizes).toEqual([300, 250, 125, 125, 50])
+    expect(shared.rows).toHaveLength(300)
+    expect(await pendingOutbox()).toEqual([])
+  })
+
+  it('gives up where even the smallest part runs out of time, keeping what was not sent', async () => {
+    await writeRecords(people(30))
+    const { copy } = sized(10)
+    await expect(pushAll(copy)).rejects.toMatchObject({ code: '57014' })
+    expect(await pendingOutbox()).toHaveLength(30)
+  })
+
+  it('confirms every write of a record that a batch wrote twice', async () => {
+    await writeRecords([person('p1'), { ...person('p1'), value: { id: 'p1', name: 'Ny', order: 0, competences: [] } }])
+    const { shared, copy } = sized()
+    await pushAll(copy)
+    expect(shared.rows.map((r) => (r.data as { name: string }).name)).toEqual(['Ny'])
+    expect(await pendingOutbox()).toEqual([])
   })
 })
