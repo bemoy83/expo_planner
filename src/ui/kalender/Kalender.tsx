@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react'
 import { ALL_HALLS, cleanHallFilter, type HallFilter } from '../../domain/areas'
 import { capacityForDate, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
-import { competenceStyles } from '../../domain/competences'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { isSuggestedRow } from '../../domain/plannedRows'
@@ -233,14 +232,6 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     () => (scored === undefined ? null : projectScore(scorePlan(ws, dates, windowOf, WEIGHTS, { rows: allGroups.flatMap((group) => group.rows), required: requiredFte }), scored)),
     [scored, ws, dates, windowOf, allGroups, requiredFte],
   )
-  const competenceLabel = useMemo(() => {
-    const labels = new Map(competenceStyles(ws).map((style) => [style.key, style.label]))
-    return (key: string) => labels.get(key) ?? key
-  }, [ws])
-  const personName = useMemo(() => {
-    const names = new Map((ws.persons ?? []).map((person) => [person.id, person.name]))
-    return (id: string) => names.get(id) ?? id
-  }, [ws.persons])
   const engineRows = useMemo(() => (engineOpen ? allGroups.flatMap((group) => group.rows) : []), [engineOpen, allGroups])
   const projectSpans = useMemo(() => (bemanning ? projectSpansOf(allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start) : []), [bemanning, allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start])
   // The work plans: a day or a week to read and print, opened from the page header or a right-click on a date in Bemanning.
@@ -443,7 +434,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
       </div>
       {bemanning && !innleid && <PersonPanel />}
       {innleid && <InnleidSidePanel onOpenSuppliers={onOpenSuppliers} />}
-      {inspectorOpen && !bemanning && <RowInspector details={plan.details} need={need} capacity={capacity} settings={settings} score={score} competence={competenceLabel} person={personName} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
+      {inspectorOpen && !bemanning && <RowInspector details={plan.details} need={need} capacity={capacity} settings={settings} score={score} onEdit={actions.editRow} onSpread={spreadRow} onClose={closeInspector} />}
       </div>
 
       {cellMenu && menuRow && (

@@ -1,10 +1,10 @@
 import { competenceStyles } from '../competences'
 import type { ISODate } from '../dates'
-import { isWaiting } from '../hire'
 import { numberKey } from '../projects'
 import { normalDayHours } from '../staffing/intervals'
 import { buildProjectBalance, NO_PROJECT } from '../staffing/projectBalance'
 import type { CompetenceKey, Workspace } from '../types'
+import { waitingAsOrdered, WEIGHTS } from './score'
 
 /**
  * What is left to hire in once the permanent staff are on the plan (step 5 of the Claude Doc «Planleggingsmotor:
@@ -12,9 +12,6 @@ import type { CompetenceKey, Workspace } from '../types'
  * and the suppliers who offer the competence. The engine orders nothing: the planner orders with the brush in
  * Innleid, as before, where the same hours are what remains. Orders that wait for an answer count as ordered.
  */
-
-/** A hired person comes for this many hours at least, as the score counts them. */
-const MIN_CALL_OUT = 3
 
 export interface OrderDay {
   date: ISODate
@@ -35,8 +32,7 @@ export interface OrderNeed {
 export const toOrder = (ws: Workspace, dates: ISODate[], projectNos?: string[]): OrderNeed[] => {
   const wanted = projectNos && new Set(projectNos.map(numberKey))
   const day = normalDayHours(ws.settings.workday)
-  const asOrdered = { ...ws, hireOrders: (ws.hireOrders ?? []).map((order) => (isWaiting(order) ? { ...order, conf: order.fte } : order)) }
-  const balance = buildProjectBalance(asOrdered, dates, true)
+  const balance = buildProjectBalance(waitingAsOrdered(ws), dates, true)
   const styles = competenceStyles(ws)
   const needs: OrderNeed[] = []
   for (const style of styles) {
@@ -47,7 +43,7 @@ export const toOrder = (ws: Workspace, dates: ISODate[], projectNos?: string[]):
         if (wanted && (p.projectNo === NO_PROJECT || !wanted.has(numberKey(p.projectNo)))) continue
         if (p.remaining > 0.01) hours += p.remaining
       }
-      if (hours > 0.01) days.push({ date, hours, people: Math.max(1, Math.ceil(hours / Math.max(day, MIN_CALL_OUT) - 1e-9)) })
+      if (hours > 0.01) days.push({ date, hours, people: Math.max(1, Math.ceil(hours / Math.max(day, WEIGHTS.minCallOut) - 1e-9)) })
     }
     if (!days.length) continue
     const suppliers = [...(ws.suppliers ?? [])].sort((a, b) => a.order - b.order).filter((s) => s.competences.includes(style.key)).map((s) => s.name)

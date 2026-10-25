@@ -7,7 +7,7 @@ import { numberKey } from '../projects'
 import { buildProjectBalance, NO_PROJECT } from '../staffing/projectBalance'
 import { overtimeHours } from '../staffing/intervals'
 import { okAssignments } from '../staffing/time'
-import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Stage, type Workspace } from '../types'
+import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Stage, type WorkPhase, type Workspace } from '../types'
 
 /**
  * The score of a plan with its staffing: what it costs, counted in hours, never in kroner (the planner, 2026-10-25).
@@ -82,6 +82,25 @@ const KINDS: CostKind[] = ['uncovered', 'hire', 'overtime', 'switch', 'outside',
 /** The stages in the order a stand is built. Running and extra work have no place in it. */
 const ORDERED: Stage[] = ['oppmerking', 'gulv', 'standbygging', 'tilvalg', 'losore']
 
+/** The stages in the order they come in a phase: a tear-down takes the stand down the other way round (R9). */
+export const stagesOf = (phase: WorkPhase | ''): Stage[] => (phase === 'Demontering' ? [...ORDERED].reverse() : ORDERED)
+
+/** A hall or place as it is compared: trimmed and in lower case, none being empty. */
+export const hallKey = (hall: string | undefined): string => (hall ?? '').trim().toLowerCase()
+
+/** A project's hall and phase, whose stages keep their order. */
+export const stagePlace = (row: Pick<AllocationRow, 'projectNo' | 'hall' | 'phase'>): string => `${numberKey(row.projectNo)}|${hallKey(row.hall)}|${row.phase}`
+
+/** The workspace with the orders that wait for an answer counted as ordered: they are the plan's, not yet the supplier's. */
+export const waitingAsOrdered = (ws: Workspace): Workspace => ({ ...ws, hireOrders: (ws.hireOrders ?? []).map((order) => (isWaiting(order) ? { ...order, conf: order.fte } : order)) })
+
+/** A score of the findings given, the costliest first. */
+const scoreOf = (findings: Finding[]): Score => {
+  const byKind = Object.fromEntries(KINDS.map((kind) => [kind, 0])) as Record<CostKind, number>
+  for (const finding of findings) byKind[finding.kind] += finding.cost
+  return { total: findings.reduce((sum, finding) => sum + finding.cost, 0), byKind, findings }
+}
+
 /**
  * What an hired hour of each competence costs: from `hireEasiest` for the last of the planner's order to `hireHardest`
  * for the first, the hardest to replace (R7).
@@ -92,16 +111,14 @@ export const hireCost = (styles: CompetenceStyle[], weights: Weights = WEIGHTS):
   return (competence) => cost.get(competence) ?? weights.hireEasiest
 }
 
-const sameText = (a: string | undefined, b: string | undefined) => (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase()
-
 /** Two blocks of a person this near in time are one stretch of work, whose changes count; a gap of longer is a new start. */
 const STRETCH_DAYS = 3
 
 /** What changes from one block of a person to the next: the competence, unless along its chain; else the hall; else the project. */
 const switchOf = (a: Assignment, b: Assignment, next: Map<CompetenceKey, CompetenceKey | undefined>): Finding['switched'] | null => {
   if (a.competence !== b.competence) return next.get(a.competence) === b.competence ? null : 'competence'
-  if (a.hall && b.hall && !sameText(a.hall, b.hall)) return 'hall'
-  if (!sameText(a.projectNo, b.projectNo)) return 'project'
+  if (a.hall && b.hall && hallKey(a.hall) !== hallKey(b.hall)) return 'hall'
+  if (numberKey(a.projectNo ?? '') !== numberKey(b.projectNo ?? '')) return 'project'
   return null
 }
 
@@ -128,8 +145,7 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
   const add = (finding: Finding) => finding.cost > 1e-9 && findings.push(finding)
 
   // Uncovered: what each project lacks of a competence on a day after its blocks and its orders.
-  const asOrdered = { ...ws, hireOrders: (ws.hireOrders ?? []).map((order) => (isWaiting(order) ? { ...order, conf: order.fte } : order)) }
-  const balance = buildProjectBalance(asOrdered, dates, true)
+  const balance = buildProjectBalance(waitingAsOrdered(ws), dates, true)
   for (const competence of balance.competences)
     for (const date of dates)
       for (const p of balance.get(competence, date).projects.values())
@@ -185,7 +201,7 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
     if (!window?.size) continue
     for (const date in row.fte)
       if (row.fte[date] && wanted.has(date) && !window.has(date)) {
-        const key = `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${date}`
+        const key = `${numberKey(row.projectNo)}|${hallKey(row.hall)}|${date}`
         if (!outside.has(key)) outside.set(key, { kind: 'outside', cost: weights.outsideWindow, date, projectNo: row.projectNo, ...(row.hall ? { hall: row.hall } : {}) })
       }
   }
@@ -198,16 +214,14 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
     if (!stage || !ORDERED.includes(stage) || !row.phase) continue
     const days = Object.keys(row.fte).filter((date) => row.fte[date] && wanted.has(date)).sort()
     if (!days.length) continue
-    const key = `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${row.phase}`
+    const key = stagePlace(row)
     if (!runs.has(key)) runs.set(key, { row, stages: new Map() })
     const { stages } = runs.get(key)!
     const run = stages.get(stage)
     stages.set(stage, { first: run && run.first < days[0] ? run.first : days[0], last: run && run.last > days.at(-1)! ? run.last : days.at(-1)! })
   }
   for (const { row, stages } of runs.values()) {
-    // A tear-down takes the stand down in the opposite order (R9).
-    const order = row.phase === 'Demontering' ? [...ORDERED].reverse() : ORDERED
-    const present = order.filter((stage) => stages.has(stage))
+    const present = stagesOf(row.phase).filter((stage) => stages.has(stage))
     for (let i = 1; i < present.length; i++) {
       const before = stages.get(present[i - 1])!
       const after = stages.get(present[i])!
@@ -222,7 +236,7 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
   const people = new Map<string, { a: Assignment; persons: Set<string> }>()
   for (const a of okAssignments(ws)) {
     if (!wanted.has(a.date) || !styleOf.get(a.competence)?.minPerHall || !a.projectNo) continue
-    const key = `${a.competence}|${numberKey(a.projectNo)}|${(a.hall ?? '').trim().toLowerCase()}|${a.date}`
+    const key = `${a.competence}|${numberKey(a.projectNo)}|${hallKey(a.hall)}|${a.date}`
     const at = people.get(key) ?? { a, persons: new Set() }
     at.persons.add(a.personId)
     people.set(key, at)
@@ -233,15 +247,9 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
   }
 
   findings.sort((a, b) => b.cost - a.cost || a.date.localeCompare(b.date))
-  const byKind = Object.fromEntries(KINDS.map((kind) => [kind, 0])) as Record<CostKind, number>
-  for (const finding of findings) byKind[finding.kind] += finding.cost
-  return { total: findings.reduce((sum, finding) => sum + finding.cost, 0), byKind, findings }
+  return scoreOf(findings)
 }
 
 /** The part of a score that is one project's: its findings, and their sums. */
-export const projectScore = (score: Score, projectNo: string): Score => {
-  const findings = score.findings.filter((finding) => finding.projectNo !== undefined && numberKey(finding.projectNo) === numberKey(projectNo))
-  const byKind = Object.fromEntries(KINDS.map((kind) => [kind, 0])) as Record<CostKind, number>
-  for (const finding of findings) byKind[finding.kind] += finding.cost
-  return { total: findings.reduce((sum, finding) => sum + finding.cost, 0), byKind, findings }
-}
+export const projectScore = (score: Score, projectNo: string): Score =>
+  scoreOf(score.findings.filter((finding) => finding.projectNo !== undefined && numberKey(finding.projectNo) === numberKey(projectNo)))

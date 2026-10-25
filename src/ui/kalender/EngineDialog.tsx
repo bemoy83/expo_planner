@@ -92,9 +92,8 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
   }
   const chosen = lines.filter(picked)
   const toVenyou = venyouText(chosen.flatMap((line) => line.outside))
-  const chosenKey = chosen.map((line) => line.projectNo).join('|')
   // What is left to hire in for the projects picked, once the engine's permanent staff are on them.
-  const toHire = useMemo(() => (chosenKey ? toOrder(solution.workspace, dates, chosenKey.split('|')) : []), [solution, dates, chosenKey])
+  const toHire = chosen.length ? toOrder(solution.workspace, dates, chosen.map((line) => line.projectNo)) : []
   const [copied, setCopied] = useState(false)
 
   const columns: Column<Line>[] = [
@@ -108,7 +107,7 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
       title: 'Dager motoren starter før monteringen eller slutter etter demonteringen, der hallen står ledig i Venyou',
       className: 'num',
       sort: (line) => line.outside.length,
-      cell: (line) => (line.outside.length ? <span className="engine-outside">
+      cell: (line) => (line.outside.length ? <span className="engine-mark">
             <i className="op-attention" aria-hidden />
             {count(new Set(line.outside.map((d) => d.date)).size, 'dag', 'dager')}
           </span> : '–'),
@@ -173,7 +172,7 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
                   {need.suppliers.length ? (
                     need.suppliers.join(', ')
                   ) : (
-                    <span className="engine-outside">
+                    <span className="engine-mark">
                       <i className="op-attention" aria-hidden />
                       ingen leverandør tilbyr den
                     </span>

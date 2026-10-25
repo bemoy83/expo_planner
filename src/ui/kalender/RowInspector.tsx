@@ -32,8 +32,6 @@ interface Props {
   settings: Settings
   /** The score of the row's project, its plan and staffing over the whole period; none until it is worked out. */
   score: Score | null
-  competence: (key: string) => string
-  person: (id: string) => string
   onEdit: (row: AllocationRow) => void
   /** Shares what is left of the row's demand over its window. */
   onSpread: (row: AllocationRow) => void
@@ -44,7 +42,7 @@ interface Props {
  * Row details: the demand, the window and the days of the planning row in focus. The panel slides in over
  * the right edge of the grid, so the grid keeps its width.
  */
-export const RowInspector = memo(function RowInspector({ details, need, capacity, settings, score, competence, person, onEdit, onSpread, onClose }: Props) {
+export const RowInspector = memo(function RowInspector({ details, need, capacity, settings, score, onEdit, onSpread, onClose }: Props) {
   if (!details) {
     return (
       <SidePanel
@@ -128,7 +126,7 @@ export const RowInspector = memo(function RowInspector({ details, need, capacity
           </div>
           {outside > 0 && <p className="insp-warn">{formatFte(outside)} FTE-dager ligger utenfor vinduet.</p>}
         </section>
-        {score && <PlanScore score={score} competence={competence} person={person} />}
+        {score && <PlanScore score={score} />}
         <section className="insp-sec">
           <h3 className="insp-h">Vindu</h3>
           {windowDays.length ? (

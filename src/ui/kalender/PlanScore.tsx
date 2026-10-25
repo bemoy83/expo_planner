@@ -1,6 +1,9 @@
+import { useMemo } from 'react'
+import { competenceStyles } from '../../domain/competences'
 import { dayText } from '../../domain/dates'
 import type { CostKind, Finding, Score } from '../../domain/planner/score'
 import { STAGE_NAMES } from '../../import/kompetanserFile'
+import { useWorkspace } from '../../store/workspaceStore'
 import { hours } from '../format'
 
 const KIND_LABELS: Record<CostKind, string> = {
@@ -40,17 +43,18 @@ const findingText = (f: Finding, competence: (key: string) => string, person: (i
   }
 }
 
-interface Props {
-  score: Score
-  competence: (key: string) => string
-  person: (id: string) => string
-}
 
 /**
  * The score of the project of the row in focus, in the row details: what its plan and staffing cost, in hours, by kind,
  * and the costliest findings. A permanent hour costs nothing; everything else is weighed against it (`domain/planner/score.ts`).
  */
-export function PlanScore({ score, competence, person }: Props) {
+export function PlanScore({ score }: { score: Score }) {
+  const ws = useWorkspace().workspace!
+  const [competence, person] = useMemo(() => {
+    const labels = new Map(competenceStyles(ws).map((style) => [style.key, style.label]))
+    const names = new Map((ws.persons ?? []).map((p) => [p.id, p.name]))
+    return [(key: string) => labels.get(key) ?? key, (id: string) => names.get(id) ?? id]
+  }, [ws])
   const kinds = (Object.keys(KIND_LABELS) as CostKind[]).filter((kind) => score.byKind[kind] > 0)
   return (
     <section className="insp-sec">

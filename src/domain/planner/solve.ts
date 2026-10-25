@@ -5,10 +5,10 @@ import { dayType } from '../holidays'
 import { isSuggestedRow } from '../plannedRows'
 import { numberKey } from '../projects'
 import { shareOverDays } from '../spread'
-import { freeIntervals, paidHours } from '../staffing/intervals'
+import { freeIntervals, paidHours, paidTotal } from '../staffing/intervals'
 import { normalWindows, okAssignments } from '../staffing/time'
-import { WEIGHTS } from './score'
-import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Interval, type Stage, type Workspace } from '../types'
+import { hallKey, stagePlace, stagesOf, WEIGHTS } from './score'
+import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Interval, type Workspace } from '../types'
 
 /**
  * The planning engine (step 3 of the Claude Doc «Planleggingsmotor: byggeplan»): the days of the demand and the
@@ -55,9 +55,6 @@ export interface SolveInput {
 const NOISE = 0.05
 /** Hours less than this are not worth a block. */
 const SMALLEST = 0.25
-
-/** The stages in the order a stand is built. */
-const ORDERED: Stage[] = ['oppmerking', 'gulv', 'standbygging', 'tilvalg', 'losore']
 
 const tenth = (value: number) => Math.round(value * 10) / 10
 
@@ -169,13 +166,13 @@ const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf
     if (!before) return 2
     if (before.competence !== job.competence) return nextOf.get(before.competence) === job.competence ? 1.5 : 3
     const sameProject = numberKey(before.projectNo ?? '') === numberKey(job.row.projectNo)
-    const sameHall = (before.hall ?? '').trim().toLowerCase() === (job.row.hall ?? '').trim().toLowerCase()
+    const sameHall = hallKey(before.hall) === hallKey(job.row.hall)
     return sameProject && sameHall ? 0 : sameHall ? 0.5 : 1
   }
   return (ws.persons ?? [])
     .filter((person) => person.competences.includes(job.competence))
     .map((person) => ({ person, free: staff.free(person.id, date), rank: rank(person.id) }))
-    .filter((c) => c.free.reduce((sum, iv) => sum + paidHours(iv, wd), 0) >= SMALLEST)
+    .filter((c) => paidTotal(c.free, wd) >= SMALLEST)
     .sort((a, b) => a.rank - b.rank || a.person.competences.length - b.person.competences.length || a.person.order - b.person.order)
 }
 
@@ -215,7 +212,7 @@ const ownCover = (kept: readonly Assignment[], job: Job, date: ISODate, wd: Work
         a.date === date &&
         a.competence === job.competence &&
         numberKey(a.projectNo ?? '') === numberKey(job.row.projectNo) &&
-        (!a.hall || (a.hall ?? '').trim().toLowerCase() === (job.row.hall ?? '').trim().toLowerCase()),
+        (!a.hall || hallKey(a.hall) === hallKey(job.row.hall)),
     )
     .reduce((sum, a) => sum + paidHours(a, wd), 0)
 
@@ -269,7 +266,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
       const fixed = fixedOf(row)
       const need = tenth(required(row) - Object.values(fixed).reduce((sum, v) => sum + v, 0))
       const style = styleOf.get(competence)
-      const place = `${numberKey(row.projectNo)}|${(row.hall ?? '').trim().toLowerCase()}|${row.phase}`
+      const place = stagePlace(row)
       const own = workdaysOf(window)
       const days = [...new Set([...own, ...(extra.get(place) ?? [])])].sort()
       const job: Job = { row, competence, window: new Set(own), days, run: [], near: nearby(row), place, stage: -1, need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
@@ -278,8 +275,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     }
     for (const group of byPlace.values()) {
       const tearDown = group[0].row.phase === 'Demontering'
-      const order = tearDown ? [...ORDERED].reverse() : ORDERED
-      const present = order.filter((stage) => group.some((job) => styleOf.get(job.competence)?.stage === stage))
+      const present = stagesOf(group[0].row.phase).filter((stage) => group.some((job) => styleOf.get(job.competence)?.stage === stage))
       for (const job of group) {
         const stage = styleOf.get(job.competence)?.stage
         job.stage = stage ? present.indexOf(stage) : -1
@@ -347,7 +343,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
           const others = [...job.run, ...job.days.filter((d) => !job.run.includes(d))].filter((d) => d !== date && allowed(d))
           for (const other of others) {
             if (rest < SMALLEST) break
-            const free = candidates(ws, staff, job, other, nextOf).reduce((sum, c) => sum + c.free.reduce((s, iv) => s + paidHours(iv, wd), 0), 0)
+            const free = candidates(ws, staff, job, other, nextOf).reduce((sum, c) => sum + paidTotal(c.free, wd), 0)
             if (free < SMALLEST) continue
             // Moved in tenths of a day, as the Kalender writes FTE, no more than the day has room for.
             const moved = Math.min(rest, Math.floor((Math.min(rest, free) / perDay) * 10 + 1e-9) / 10 * perDay)
@@ -427,7 +423,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     for (const date of Object.keys(job.fte))
       if (!job.window.has(date) && job.near.includes(date)) {
         const hall = (job.row.hall ?? '').trim()
-        outside.set(`${numberKey(job.row.projectNo)}|${hall.toLowerCase()}|${date}`, { projectNo: job.row.projectNo, projectName: job.row.projectName, hall, date })
+        outside.set(`${numberKey(job.row.projectNo)}|${hallKey(hall)}|${date}`, { projectNo: job.row.projectNo, projectName: job.row.projectName, hall, date })
       }
   }
   const painted = [...staff.blocks.values()].flat().filter((a) => a.source === 'suggested')
