@@ -12,6 +12,16 @@ export interface Settings {
   workday: WorkdaySettings
   /** The share added to the planned hours on Resultat, 0.1 for 10 %: the budget holds overhead, the plan direct work only. */
   overhead: number
+  /** The planning engine's rules as the planner has set them; the defaults where not (`domain/planner/score.ts`). */
+  engine?: EngineRules
+}
+
+/** What the planner sets of the planning engine's rules on Oppsett › Planleggingsmotor. */
+export interface EngineRules {
+  /** The order of the stages in a build-up; a tear-down takes them the other way round. */
+  stageOrder?: Stage[]
+  /** The weights of the score that differ from the defaults, by name. */
+  weights?: Record<string, number>
 }
 
 /** Minutes after midnight, 0–1440. Values made by the UI are multiples of `snap`. */

@@ -236,3 +236,13 @@
   .hl-unplaced .segmented button{padding:0 6px}
 }
 @media (max-width:1100px){.hl-rules{grid-template-columns:minmax(0,1fr) 260px}}
+/* Oppsett › Planleggingsmotor: the stages and the weights of the engine */
+/* two tables on one page: the page scrolls, not each table */
+.eng-page{overflow-y:auto}
+.eng-page .op-table,.eng-page .op-body{flex:none;overflow:visible}
+.eng-head{margin:22px var(--row-inset) 4px;font-size:var(--fs-md)}
+.eng-lead{margin:0 var(--row-inset) 10px;max-width:72ch}
+.eng-stages{--cols:52px minmax(220px,1.4fr) minmax(160px,1fr) minmax(160px,1fr)}
+.eng-stage{display:flex;flex-direction:column;gap:2px;padding:6px 0}
+.eng-outside{background:var(--section)}
+.eng-weights{--cols:minmax(180px,1fr) minmax(240px,2fr) 80px 140px 72px}

@@ -8,7 +8,7 @@ import { numberKey } from '../projects'
 import { buildProjectBalance, NO_PROJECT } from '../staffing/projectBalance'
 import { overtimeHours } from '../staffing/intervals'
 import { okAssignments } from '../staffing/time'
-import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type KpiConfig, type Stage, type WorkPhase, type Workspace } from '../types'
+import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type KpiConfig, type Settings, type Stage, type WorkPhase, type Workspace } from '../types'
 
 /**
  * The score of a plan with its staffing: what it costs, counted in hours, never in kroner (the planner, 2026-10-25).
@@ -80,11 +80,23 @@ export interface Score {
 
 const KINDS: CostKind[] = ['uncovered', 'hire', 'overtime', 'switch', 'outside', 'stage', 'minimum']
 
-/** The stages in the order a stand is built. Running and extra work have no place in it. */
-const ORDERED: Stage[] = ['oppmerking', 'gulv', 'standbygging', 'tilvalg', 'losore']
+/** The stages that come in an order, as a stand is built by default. Running and extra work have no place in it. */
+export const ORDERED_STAGES: Stage[] = ['oppmerking', 'gulv', 'standbygging', 'tilvalg', 'losore']
+
+/** The order of the stages in a build-up as the planner has set it: every ordered stage once, the default order for any he has not placed. */
+export const stageOrderOf = (settings: Pick<Settings, 'engine'>): Stage[] => {
+  const set = (settings.engine?.stageOrder ?? []).filter((stage, i, all) => ORDERED_STAGES.includes(stage) && all.indexOf(stage) === i)
+  return [...set, ...ORDERED_STAGES.filter((stage) => !set.includes(stage))]
+}
+
+/** The weights of the score: the defaults, with the planner's own where he has set one. */
+export const weightsOf = (settings: Pick<Settings, 'engine'>): Weights => {
+  const own = settings.engine?.weights ?? {}
+  return Object.fromEntries(Object.entries(WEIGHTS).map(([name, value]) => [name, Number.isFinite(own[name]) && own[name] >= 0 ? own[name] : value])) as Weights
+}
 
 /** The stages in the order they come in a phase: a tear-down takes the stand down the other way round (R9). */
-export const stagesOf = (phase: WorkPhase | ''): Stage[] => (phase === 'Demontering' ? [...ORDERED].reverse() : ORDERED)
+export const stagesOf = (phase: WorkPhase | '', order: Stage[] = ORDERED_STAGES): Stage[] => (phase === 'Demontering' ? [...order].reverse() : order)
 
 /** A hall or place as it is compared: trimmed and in lower case, none being empty. */
 export const hallKey = (hall: string | undefined): string => (hall ?? '').trim().toLowerCase()
@@ -148,7 +160,7 @@ export const rowStage = (kpi: KpiConfig | undefined, competenceStage: Stage | un
  * for an answer count as cover: they are the plan's, not yet the supplier's. With `unplanned`, the demand of a row
  * that is on no day of the plan counts as uncovered too, on the first day of its window.
  */
-export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: AllocationRow) => Set<ISODate> | undefined, weights: Weights = WEIGHTS, unplanned?: Unplanned): Score => {
+export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: AllocationRow) => Set<ISODate> | undefined, weights: Weights = weightsOf(ws.settings), unplanned?: Unplanned): Score => {
   const wanted = new Set(dates)
   const wd = ws.settings.workday
   const styles = competenceStyles(ws)
@@ -224,7 +236,7 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
   const runs = new Map<string, { row: AllocationRow; stages: Map<Stage, { first: ISODate; last: ISODate }> }>()
   for (const row of ws.allocations) {
     const stage = rowStage(ws.kpi, styleOf.get(competenceKey(row.competence))?.stage, unplanned?.hoursByWork?.(row))
-    if (!stage || !ORDERED.includes(stage) || !row.phase) continue
+    if (!stage || !ORDERED_STAGES.includes(stage) || !row.phase) continue
     const days = Object.keys(row.fte).filter((date) => row.fte[date] && wanted.has(date)).sort()
     if (!days.length) continue
     const key = stagePlace(row)
@@ -234,7 +246,7 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
     stages.set(stage, { first: run && run.first < days[0] ? run.first : days[0], last: run && run.last > days.at(-1)! ? run.last : days.at(-1)! })
   }
   for (const { row, stages } of runs.values()) {
-    const present = stagesOf(row.phase).filter((stage) => stages.has(stage))
+    const present = stagesOf(row.phase, stageOrderOf(ws.settings)).filter((stage) => stages.has(stage))
     for (let i = 1; i < present.length; i++) {
       const before = stages.get(present[i - 1])!
       const after = stages.get(present[i])!

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { projectScore, scorePlan, WEIGHTS, type Score } from '../../domain/planner/score'
+import { projectScore, scorePlan, weightsOf, type Score } from '../../domain/planner/score'
 import { solve, type OutsideDay } from '../../domain/planner/solve'
 import { toOrder } from '../../domain/planner/toOrder'
 import { numberKey } from '../../domain/projects'
@@ -62,8 +62,8 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
   const solution = useMemo(() => solve({ ws, rows, required, hoursByWork, windowOf, nearby: widen ? nearby : undefined, keepTyped }), [ws, rows, required, hoursByWork, windowOf, nearby, widen, keepTyped])
   const lines = useMemo((): Line[] => {
     // Demand put on no day counts as uncovered, so a plan not yet made is not scored as one that costs nothing.
-    const before = scorePlan(ws, dates, windowOf, WEIGHTS, { rows, required, hoursByWork })
-    const after = scorePlan(solution.workspace, dates, windowOf, WEIGHTS, { rows: solution.rows, required, hoursByWork })
+    const before = scorePlan(ws, dates, windowOf, weightsOf(ws.settings), { rows, required, hoursByWork })
+    const after = scorePlan(solution.workspace, dates, windowOf, weightsOf(ws.settings), { rows: solution.rows, required, hoursByWork })
     return solution.projects
       .map((projectNo) => {
         const mine = (r: AllocationRow) => numberKey(r.projectNo) === numberKey(projectNo)

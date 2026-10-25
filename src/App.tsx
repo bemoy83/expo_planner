@@ -37,7 +37,7 @@ export default function App() {
   )
 }
 
-type View = 'kalender' | 'behov' | 'resultat' | 'haller' | 'prosjekter' | 'hallregler' | 'kpi' | 'tekstregler' | 'utelatte' | 'personell' | 'leverandorer' | 'kompetanser'
+type View = 'kalender' | 'behov' | 'resultat' | 'haller' | 'prosjekter' | 'hallregler' | 'kpi' | 'tekstregler' | 'utelatte' | 'motor' | 'personell' | 'leverandorer' | 'kompetanser'
 
 interface Tab {
   label: string
@@ -76,6 +76,7 @@ const TABS: Tab[] = [
       { view: 'kpi', label: 'Produkttyper', title: 'Hvordan hver produkttype leses: enhet, kompetanse og satser' },
       { view: 'tekstregler', label: 'Tekstregler', title: 'Produkttypen linjer uten en får etter artikkelteksten' },
       { view: 'utelatte', label: 'Utelatte artikler', title: 'Artikkelnumrene som ikke leses' },
+      { view: 'motor', label: 'Planleggingsmotor', title: 'Reglene bak «Foreslå plan»: trinnenes rekkefølge og vektene i poengsummen' },
     ],
   },
 ]

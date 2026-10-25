@@ -16,8 +16,9 @@ import { RegisterHead, type PageCount, type RegisterPage } from '../RegisterHead
 import { ProductTypes } from './ProductTypes'
 import { TextRules } from './TextRules'
 import { ExcludedArticles } from './ExcludedArticles'
+import { EngineRules } from './EngineRules'
 
-export type OppsettPage = 'kpi' | 'tekstregler' | 'utelatte'
+export type OppsettPage = 'kpi' | 'tekstregler' | 'utelatte' | 'motor'
 
 interface Props {
   page: OppsettPage
@@ -66,6 +67,7 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
     kpi: { rows: types.length, issues: unfinished, issueText: (n) => `${count(n, 'produkttype', 'produkttyper')} er ikke ferdig satt opp` },
     tekstregler: { rows: kpi.byText?.length ?? 0 },
     utelatte: { rows: kpi.excludedArticles?.length ?? 0 },
+    motor: { rows: Object.keys(ws.settings.engine?.weights ?? {}).length + (ws.settings.engine?.stageOrder?.length ? 1 : 0) },
   }
 
   // The page's key figures, on the band; none where its list is empty.
@@ -82,6 +84,7 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
         </BandFigures>
       )
     }
+    if (page === 'motor') return null
     if (page === 'tekstregler') {
       const rules = kpi.byText ?? []
       if (!rules.length) return null
@@ -120,6 +123,7 @@ export function Oppsett({ page, pages, onPage, onOpenBehov }: Props) {
       {page === 'kpi' && <ProductTypes rows={rows} types={types} yields={yields} notify={notify} />}
       {page === 'tekstregler' && <TextRules notify={notify} onOpenBehov={onOpenBehov} />}
       {page === 'utelatte' && <ExcludedArticles notify={notify} />}
+      {page === 'motor' && <EngineRules notify={notify} />}
 
       {pending && diff && (
         <MergeReplaceDialog

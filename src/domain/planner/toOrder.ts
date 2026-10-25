@@ -4,7 +4,7 @@ import { numberKey } from '../projects'
 import { normalDayHours } from '../staffing/intervals'
 import { buildProjectBalance, NO_PROJECT } from '../staffing/projectBalance'
 import type { CompetenceKey, Workspace } from '../types'
-import { waitingAsOrdered, WEIGHTS } from './score'
+import { waitingAsOrdered, weightsOf } from './score'
 
 /**
  * What is left to hire in once the permanent staff are on the plan (step 5 of the Claude Doc «Planleggingsmotor:
@@ -43,7 +43,7 @@ export const toOrder = (ws: Workspace, dates: ISODate[], projectNos?: string[]):
         if (wanted && (p.projectNo === NO_PROJECT || !wanted.has(numberKey(p.projectNo)))) continue
         if (p.remaining > 0.01) hours += p.remaining
       }
-      if (hours > 0.01) days.push({ date, hours, people: Math.max(1, Math.ceil(hours / Math.max(day, WEIGHTS.minCallOut) - 1e-9)) })
+      if (hours > 0.01) days.push({ date, hours, people: Math.max(1, Math.ceil(hours / Math.max(day, weightsOf(ws.settings).minCallOut) - 1e-9)) })
     }
     if (!days.length) continue
     const suppliers = [...(ws.suppliers ?? [])].sort((a, b) => a.order - b.order).filter((s) => s.competences.includes(style.key)).map((s) => s.name)

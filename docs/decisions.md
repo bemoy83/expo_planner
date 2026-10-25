@@ -406,3 +406,7 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 - A product type can have a stage of its own on Oppsett › Produkttyper and in the KPI file («Trinn»); without one it has its competence's. A file without the column keeps the stages set. The engine splits a row's work by the stage of its product types (`hoursByWorkType`), a job per stage; the score leaves a row whose work spans stages out of the order check. In the demo season, built-up floor and laminate are on the floor.
 - The window is widened onto all its free days at once, not a few at a time: a stage short of people needs days before it, which the stages before it can only give where the window reaches back far enough. A day the plan does not use is not listed for Venyou.
 - On the demo season: uncovered hours 3 075 → 2 536; Byggemessen 116 → 118 (its carpentry is bound by the three carpenters).
+
+## Planning engine: its rules open to the planner (2026-10-25)
+
+- Asked by the planner: the order of the stages was set nowhere, and what «ekstra» is was told nowhere. Oppsett › Planleggingsmotor shows the stages in their order, movable, with what each holds and which competences and product types are on it, the two outside the order, and the weights of the score, each editable, with its default. They are stored in the settings, only what differs from the defaults.

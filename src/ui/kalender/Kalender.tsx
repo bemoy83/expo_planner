@@ -5,7 +5,7 @@ import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { isSuggestedRow } from '../../domain/plannedRows'
-import { projectScore, scorePlan, WEIGHTS } from '../../domain/planner/score'
+import { projectScore, scorePlan, weightsOf } from '../../domain/planner/score'
 import { takeProjects } from '../../domain/planner/solve'
 import type { AllocationRow } from '../../domain/types'
 import { usePref, usePrefSet } from '../../store/prefs'
@@ -230,7 +230,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const requiredFte = useCallback((row: AllocationRow) => rowTotals(demandIndex, row, settings).requiredFte ?? 0, [demandIndex, settings])
   const hoursByWork = useCallback((row: AllocationRow) => hoursByWorkType(demandIndex, row), [demandIndex])
   const score = useMemo(
-    () => (scored === undefined ? null : projectScore(scorePlan(ws, dates, windowOf, WEIGHTS, { rows: allGroups.flatMap((group) => group.rows), required: requiredFte, hoursByWork }), scored)),
+    () => (scored === undefined ? null : projectScore(scorePlan(ws, dates, windowOf, weightsOf(ws.settings), { rows: allGroups.flatMap((group) => group.rows), required: requiredFte, hoursByWork }), scored)),
     [scored, ws, dates, windowOf, allGroups, requiredFte, hoursByWork],
   )
   const engineRows = useMemo(() => (engineOpen ? allGroups.flatMap((group) => group.rows) : []), [engineOpen, allGroups])

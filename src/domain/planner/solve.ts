@@ -8,7 +8,7 @@ import { shareOverDays } from '../spread'
 import { freeIntervals, paidHours, paidTotal } from '../staffing/intervals'
 import { normalWindows, okAssignments } from '../staffing/time'
 import { stageOfType } from '../kpi'
-import { hallKey, stagePlace, stagesOf, WEIGHTS } from './score'
+import { hallKey, stageOrderOf, stagePlace, stagesOf, weightsOf } from './score'
 import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Interval, type Stage, type Workspace } from '../types'
 
 /**
@@ -361,6 +361,7 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
   const styles = competenceStyles(ws)
   const styleOf = new Map<CompetenceKey, CompetenceStyle & { index: number }>(styles.map((style, index) => [style.key, { ...style, index }]))
   const nextOf = new Map(styles.map((style) => [style.key, style.next]))
+  const weights = weightsOf(ws.settings)
 
   // What stays: the planner's blocks, and, if he wants, the FTE he typed.
   const kept = okAssignments({ ...ws, assignments: (ws.assignments ?? []).filter((a) => a.source !== 'suggested') })
@@ -408,7 +409,7 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
     }
     const stagesIn = new Map<string, number>()
     for (const [place, group] of byPlace) {
-      const present = stagesOf(group[0].row.phase).filter((stage) => group.some((job) => job.kind === stage))
+      const present = stagesOf(group[0].row.phase, stageOrderOf(ws.settings)).filter((stage) => group.some((job) => job.kind === stage))
       stagesIn.set(place, present.length)
       for (const job of group) {
         job.stage = job.kind ? present.indexOf(job.kind) : -1
@@ -527,7 +528,7 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
     let undone = false
     for (const [place, before] of grown) {
       const saved = (result.uncovered.get(place) ?? 0) - (next.uncovered.get(place) ?? 0)
-      if (saved * WEIGHTS.uncovered >= (extra.get(place)!.length - before.length) * WEIGHTS.outsideWindow) continue
+      if (saved * weights.uncovered >= (extra.get(place)!.length - before.length) * weights.outsideWindow) continue
       extra.set(place, before)
       stopped.add(place)
       undone = true

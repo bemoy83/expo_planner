@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { setCompetenceStyle } from '../competences'
 import { DEFAULT_SETTINGS, type AllocationRow, type Assignment, type CompetenceStyle, type HireOrder, type Workspace } from '../types'
-import { hireCost, projectScore, scorePlan, WEIGHTS } from './score'
+import { hireCost, projectScore, scorePlan, stageOrderOf, stagesOf, WEIGHTS, weightsOf } from './score'
 
 /**
  * The score of a plan, and the planner's own choices between pairs of plans (2026-10-25), which the weights are to
@@ -202,5 +202,22 @@ describe('the planner\'s choices', () => {
     const moved = kariInB.flatMap((b) => (b.date === WED ? [{ ...b, end: at('10:30') }, block('kari', WED, 'foga', '10:30', '15:00', 'C1')] : [b]))
     const other = plan(rows, moved, [hire(WED, 'foga', '7:00', '11:00')])
     expect(total(picked)).toBeLessThan(total(other))
+  })
+})
+
+describe('the rules the planner sets', () => {
+  it('takes his weights where he has set them, and the defaults for the rest', () => {
+    const weights = weightsOf({ engine: { weights: { uncovered: 20, hallSwitch: -1, unknown: 5 } } })
+    expect(weights.uncovered).toBe(20)
+    expect(weights.hallSwitch).toBe(WEIGHTS.hallSwitch)
+    expect(weights).not.toHaveProperty('unknown')
+    expect(scorePlan({ ...plan([row('foga', 'B1', { [MON]: 1 })], []), settings: { ...BASE.settings, engine: { weights: { uncovered: 20 } } } }, WEEK, () => new Set(WEEK)).total).toBe(150)
+  })
+
+  it('takes his order of the stages, every stage once, and a tear-down the other way round', () => {
+    const order = stageOrderOf({ engine: { stageOrder: ['gulv', 'oppmerking', 'gulv', 'lopende'] } })
+    expect(order).toEqual(['gulv', 'oppmerking', 'standbygging', 'tilvalg', 'losore'])
+    expect(stagesOf('Demontering', order)[0]).toBe('losore')
+    expect(stageOrderOf({})).toEqual(['oppmerking', 'gulv', 'standbygging', 'tilvalg', 'losore'])
   })
 })
