@@ -1,10 +1,9 @@
 import { competenceStyles } from '../competences'
 import type { ISODate } from '../dates'
 import { numberKey } from '../projects'
-import { normalDayHours } from '../staffing/intervals'
 import { buildProjectBalance, NO_PROJECT } from '../staffing/projectBalance'
 import type { CompetenceKey, Workspace } from '../types'
-import { waitingAsOrdered, weightsOf } from './score'
+import { waitingAsOrdered } from './score'
 import type { HiredRun } from './solve'
 
 /**
@@ -55,47 +54,32 @@ export const toHire = (ws: Workspace, hired: HiredRun[], projectNos: string[]): 
   return [...needs.values()].sort((a, b) => (order.get(a.competence) ?? 99) - (order.get(b.competence) ?? 99) || a.supplier.localeCompare(b.supplier, 'nb'))
 }
 
-/**
- * What is left uncovered once the permanent staff and the people hired in are on the plan: per competence and day,
- * the hours nobody covers, the people that is, and the suppliers who offer the competence; where none does, it
- * cannot be hired in. Orders that wait for an answer count as ordered.
- */
-
-export interface OrderDay {
-  date: ISODate
-  hours: number
-  /** The people the hours take: a normal day each, and at least a call-out. */
-  people: number
-}
-
-export interface OrderNeed {
+/** What is left of a competence that nobody covers, and the suppliers who offer it; none means it cannot be hired in. */
+export interface Uncovered {
   competence: CompetenceKey
   label: string
   hours: number
-  days: OrderDay[]
-  /** The suppliers who offer the competence, in the planner's order; none means it cannot be hired in. */
   suppliers: string[]
 }
 
-export const toOrder = (ws: Workspace, dates: ISODate[], projectNos?: string[]): OrderNeed[] => {
+/**
+ * What is left uncovered once the permanent staff and the people hired in are on the plan, per competence, for the
+ * projects asked for. Orders that wait for an answer count as ordered.
+ */
+export const leftUncovered = (ws: Workspace, dates: ISODate[], projectNos?: string[]): Uncovered[] => {
   const wanted = projectNos && new Set(projectNos.map(numberKey))
-  const day = normalDayHours(ws.settings.workday)
   const balance = buildProjectBalance(waitingAsOrdered(ws), dates, true)
-  const styles = competenceStyles(ws)
-  const needs: OrderNeed[] = []
-  for (const style of styles) {
-    const days: OrderDay[] = []
-    for (const date of dates) {
-      let hours = 0
+  const needs: Uncovered[] = []
+  for (const style of competenceStyles(ws)) {
+    let hours = 0
+    for (const date of dates)
       for (const p of balance.get(style.key, date).projects.values()) {
         if (wanted && (p.projectNo === NO_PROJECT || !wanted.has(numberKey(p.projectNo)))) continue
         if (p.remaining > 0.01) hours += p.remaining
       }
-      if (hours > 0.01) days.push({ date, hours, people: Math.max(1, Math.ceil(hours / Math.max(day, weightsOf(ws.settings).minCallOut) - 1e-9)) })
-    }
-    if (!days.length) continue
-    const suppliers = [...(ws.suppliers ?? [])].sort((a, b) => a.order - b.order).filter((s) => s.competences.includes(style.key)).map((s) => s.name)
-    needs.push({ competence: style.key, label: style.label, hours: days.reduce((sum, d) => sum + d.hours, 0), days, suppliers })
+    if (hours <= 0.01) continue
+    const suppliers = [...(ws.suppliers ?? [])].sort((a, b) => a.order - b.order).filter((s) => s.competences.includes(style.key) && s.shifts.includes('dag')).map((s) => s.name)
+    needs.push({ competence: style.key, label: style.label, hours, suppliers })
   }
   return needs.sort((a, b) => b.hours - a.hours)
 }

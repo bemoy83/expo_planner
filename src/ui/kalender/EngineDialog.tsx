@@ -3,7 +3,7 @@ import { dayText, periodText, type ISODate } from '../../domain/dates'
 import { engineData, runEngine, type EngineData, type EngineResult } from '../../domain/planner/run'
 import { projectScore, type Score } from '../../domain/planner/score'
 import type { OutsideDay } from '../../domain/planner/solve'
-import { toHire, toOrder } from '../../domain/planner/toOrder'
+import { leftUncovered, toHire } from '../../domain/planner/toHire'
 import { numberKey } from '../../domain/projects'
 import type { AllocationRow, Workspace } from '../../domain/types'
 import { Segmented } from '../common'
@@ -129,7 +129,7 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
   const toVenyou = venyouText(chosen.flatMap((line) => line.outside))
   // The people the engine hires in for the projects picked, and what is left that nobody covers.
   const hires = solution && chosen.length ? toHire(ws, solution.hired, chosen.map((line) => line.projectNo)) : []
-  const uncovered = solution && chosen.length ? toOrder(solution.workspace, dates, chosen.map((line) => line.projectNo)) : []
+  const uncovered = solution && chosen.length ? leftUncovered(solution.workspace, dates, chosen.map((line) => line.projectNo)) : []
   const [copied, setCopied] = useState(false)
 
   const columns: Column<Line>[] = [

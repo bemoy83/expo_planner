@@ -55,3 +55,10 @@ export const holidayName = (date: ISODate): string | undefined => {
 
 export const dayType = (date: ISODate): DayType =>
   holidayName(date) ? 'helligdag' : isWeekend(date) ? 'helg' : 'arbeidsdag'
+
+/** The nearest working day before a date, over weekends and holidays. */
+export const workdayBefore = (date: ISODate): ISODate => {
+  let day = addDays(date, -1)
+  while (dayType(day) !== 'arbeidsdag') day = addDays(day, -1)
+  return day
+}

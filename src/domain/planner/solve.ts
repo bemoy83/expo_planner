@@ -2,7 +2,7 @@ import { competenceStyles } from '../competences'
 import { pushTo } from '../collections'
 import { addDays, type ISODate } from '../dates'
 import { hireHours, shiftTimes } from '../hire'
-import { dayType } from '../holidays'
+import { dayType, workdayBefore } from '../holidays'
 import { isSuggestedRow } from '../plannedRows'
 import { numberKey } from '../projects'
 import { shareOverDays } from '../spread'
@@ -152,7 +152,7 @@ const cut = (iv: Interval, hours: number, snap: number, wd: Workspace['settings'
 }
 
 /** Someone who can be put on work: a permanent person, or one hired in from a supplier. */
-interface Worker {
+interface Staffer {
   id: string
   competences: CompetenceKey[]
   order: number
@@ -164,18 +164,11 @@ interface Worker {
 const HIRE = 'hire:'
 const isHired = (personId: string) => personId.startsWith(HIRE)
 
-/** A normal working day before a date, over weekends and holidays. */
-const workdayBefore = (date: ISODate): ISODate => {
-  let day = addDays(date, -1)
-  for (let i = 0; i < 14 && dayType(day) !== 'arbeidsdag'; i++) day = addDays(day, -1)
-  return day
-}
-
 /**
  * The people who can take a job on a day, best first: who did the same row the day before, who did the same competence
  * or the one before it in its chain, then who changes nothing else; and among those, who has the fewest competences.
  */
-const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, people: readonly Worker[]) => {
+const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, people: readonly Staffer[]) => {
   const wd = ws.settings.workday
   const rank = (personId: string): number => {
     const before = staff.before(personId, date)
@@ -196,7 +189,7 @@ const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf
  * Paints people on a job's day until its hours are covered or nobody is left; returns the hours nobody could take. Of
  * those as good for continuity, one hired in that day comes first, as the day is paid for.
  */
-const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: number, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, makeId: () => string, people: readonly Worker[], maxRank = Infinity): number => {
+const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: number, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, makeId: () => string, people: readonly Staffer[], maxRank = Infinity): number => {
   const wd = ws.settings.workday
   let left = hours
   const done = new Set<string>()
@@ -409,7 +402,7 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
   const nextOf = new Map(styles.map((style) => [style.key, style.next]))
   const weights = weightsOf(ws.settings)
   const costOfHire = hireCost(styles, weights)
-  const persons: Worker[] = ws.persons ?? []
+  const persons: Staffer[] = ws.persons ?? []
   const dayShift = shiftTimes('dag', wd)
   // The supplier a competence is hired from: the first in the planner's order who offers it for the day shift.
   const suppliers = [...(ws.suppliers ?? [])].sort((a, b) => a.order - b.order)
@@ -488,13 +481,13 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
       return hours
     }
     // The people hired in, and the work of each place they did, as what it costs, for the widening to weigh.
-    const hires: Worker[] = []
+    const hires: Staffer[] = []
     const hiredAt = new Map<string, number>()
     // The hired people at work on each day, as they are put on work.
-    const hiredOn = new Map<ISODate, Set<Worker>>()
-    const working = (worker: Worker, date: ISODate) => staff.blocks.has(dayKey(worker.id, date))
-    const poolOf = (date: ISODate): Worker[] => (hiredOn.get(date)?.size ? [...persons, ...hiredOn.get(date)!] : persons)
-    const newHire = (supplier: Supplier, competence: CompetenceKey): Worker => {
+    const hiredOn = new Map<ISODate, Set<Staffer>>()
+    const working = (worker: Staffer, date: ISODate) => staff.blocks.has(dayKey(worker.id, date))
+    const poolOf = (date: ISODate): Staffer[] => (hiredOn.get(date)?.size ? [...persons, ...hiredOn.get(date)!] : persons)
+    const newHire = (supplier: Supplier, competence: CompetenceKey): Staffer => {
       const competences = [competence]
       for (let next = nextOf.get(competence); next && supplier.competences.includes(next) && !competences.includes(next); next = nextOf.get(next)) competences.push(next)
       const hire = { id: `${HIRE}${supplier.id}:${competence}:${hires.length}`, competences, order: 10000 + hires.length, supplierId: supplier.id }
@@ -721,7 +714,7 @@ export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () =
  * competences and projects the person worked for that day by their hours, so a day's orders of a person add up to one.
  * Orders of one supplier, competence, project and day are one. And each person as a run of days.
  */
-const hiredOrders = (blocks: Assignment[], hires: Worker[], shift: Interval, wd: Workspace['settings']['workday'], makeId: () => string): { drafts: HireOrder[]; hired: HiredRun[] } => {
+const hiredOrders = (blocks: Assignment[], hires: Staffer[], shift: Interval, wd: Workspace['settings']['workday'], makeId: () => string): { drafts: HireOrder[]; hired: HiredRun[] } => {
   const supplierOf = new Map(hires.map((hire) => [hire.id, hire.supplierId!]))
   const byDay = new Map<string, Assignment[]>()
   for (const a of blocks) pushTo(byDay, dayKey(a.personId, a.date), a)

@@ -1,9 +1,9 @@
 import { competenceStyles } from '../competences'
 import { pushTo } from '../collections'
-import { addDays, daysBetween, type ISODate } from '../dates'
+import { daysBetween, type ISODate } from '../dates'
 import { hireHours, isWaiting } from '../hire'
 import { stageOfType } from '../kpi'
-import { dayType } from '../holidays'
+import { dayType, workdayBefore } from '../holidays'
 import { numberKey } from '../projects'
 import { buildProjectBalance, NO_PROJECT } from '../staffing/projectBalance'
 import { overtimeHours } from '../staffing/intervals'
@@ -216,9 +216,7 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
   for (const [key, days] of hiredBy) {
     const competence = key.slice(key.indexOf('|') + 1)
     for (const [date, day] of days) {
-      let before = addDays(date, -1)
-      for (let i = 0; i < 14 && dayType(before) !== 'arbeidsdag'; i++) before = addDays(before, -1)
-      const started = Math.ceil(day.count - 1e-6) - Math.ceil((days.get(before)?.count ?? 0) - 1e-6)
+      const started = Math.ceil(day.count - 1e-6) - Math.ceil((days.get(workdayBefore(date))?.count ?? 0) - 1e-6)
       if (started <= 0) continue
       const projectNo = [...day.byProject].sort(([, a], [, b]) => b - a)[0][0]
       add({ kind: 'hire', cost: started * weights.hireStart, date, competence, started, ...(projectNo ? { projectNo } : {}) })

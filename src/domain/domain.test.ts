@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildDemandIndex, capacityForDate, dailyNeed, planningSettings, referenceProjectNo, requiredHours, rowTotals } from './calc'
 import { addDays, dateRange, dayOfMonth, excelSerialToDate, isoWeek, localIso, monthShort, normalizeDate, weekdayIndex } from './dates'
-import { dayType, easterSunday, holidayName } from './holidays'
+import { dayType, easterSunday, holidayName, workdayBefore } from './holidays'
 import { DEFAULT_SETTINGS, type AllocationRow, type CapacityLine, type DemandLine } from './types'
 
 describe('dates', () => {
@@ -50,6 +50,9 @@ describe('holidays', () => {
     expect(dayType('2026-01-01')).toBe('helligdag')
     expect(dayType('2026-01-03')).toBe('helg')
     expect(dayType('2026-01-05')).toBe('arbeidsdag')
+    expect(workdayBefore('2026-01-05')).toBe('2026-01-02')
+    expect(workdayBefore('2026-01-02')).toBe('2025-12-31')
+    expect(workdayBefore('2026-01-07')).toBe('2026-01-06')
   })
 })
 
