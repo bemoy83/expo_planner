@@ -403,6 +403,7 @@ input.cell-input{position:absolute;inset:0;width:100%;padding:0;border-radius:0;
 .engine-choice{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
 .engine-scroll{max-height:50vh;overflow:auto}
 .engine-scroll .ledger{width:100%}
+.engine-busy{padding:24px 0;text-align:center}
 .engine-mark{display:inline-flex;align-items:center;gap:6px}
 .engine-list{border-top:1px solid var(--line);padding-top:10px}
 .engine-list-head{display:flex;align-items:baseline;gap:10px}

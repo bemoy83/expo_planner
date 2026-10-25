@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { projectScore, scorePlan, weightsOf, type Score } from '../../domain/planner/score'
-import { solve, type OutsideDay } from '../../domain/planner/solve'
+import { engineData, runEngine, type EngineData, type EngineResult } from '../../domain/planner/run'
+import { projectScore, type Score } from '../../domain/planner/score'
+import type { OutsideDay } from '../../domain/planner/solve'
 import { toOrder } from '../../domain/planner/toOrder'
 import { numberKey } from '../../domain/projects'
 import type { AllocationRow, Workspace } from '../../domain/types'
@@ -51,6 +52,34 @@ const venyouText = (days: OutsideDay[]): string[] => {
   return [...lines.values()].map(({ head, dates }) => `${head}: ${dates.sort().map(dayText).join(', ')}`)
 }
 
+const hasWorker = typeof Worker !== 'undefined'
+
+/**
+ * The engine's result for the data, worked out in a Web Worker so the page goes on while it works; `null` until it is
+ * there. Where there is no worker, as in the tests, it is worked out here.
+ */
+const useEngine = (data: EngineData): EngineResult | null => {
+  const worker = useRef<Worker | null>(null)
+  const sent = useRef(0)
+  const [done, setDone] = useState<{ data: EngineData; result: EngineResult } | null>(null)
+  const here = useMemo(() => (hasWorker ? null : runEngine(data)), [data])
+  useEffect(
+    () => () => {
+      worker.current?.terminate()
+      worker.current = null
+    },
+    [],
+  )
+  useEffect(() => {
+    if (!hasWorker) return
+    const id = ++sent.current
+    worker.current ??= new Worker(new URL('./engine.worker.ts', import.meta.url), { type: 'module' })
+    worker.current.onmessage = (event: MessageEvent<{ id: number; result: EngineResult }>) => event.data.id === id && setDone({ data, result: event.data.result })
+    worker.current.postMessage({ id, data })
+  }, [data])
+  return here ?? (done?.data === data ? done.result : null)
+}
+
 /**
  * «Foreslå plan»: the planning engine's plan for every project of the period at once (`domain/planner/solve.ts`), shown
  * per project with its score before and after, to be taken for the projects the planner picks. Nothing is written
@@ -59,11 +88,12 @@ const venyouText = (days: OutsideDay[]): string[] => {
 export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby, dates, onApply, onClose }: Props) {
   const [keepTyped, setKeepTyped] = useState(true)
   const [widen, setWiden] = useState(true)
-  const solution = useMemo(() => solve({ ws, rows, required, hoursByWork, windowOf, nearby: widen ? nearby : undefined, keepTyped }), [ws, rows, required, hoursByWork, windowOf, nearby, widen, keepTyped])
+  const data = useMemo(() => engineData(ws, rows, dates, { required, hoursByWork, windowOf, nearby: widen ? nearby : undefined }, keepTyped), [ws, rows, dates, required, hoursByWork, windowOf, nearby, widen, keepTyped])
+  const result = useEngine(data)
+  const solution = result?.solution
   const lines = useMemo((): Line[] => {
-    // Demand put on no day counts as uncovered, so a plan not yet made is not scored as one that costs nothing.
-    const before = scorePlan(ws, dates, windowOf, weightsOf(ws.settings), { rows, required, hoursByWork })
-    const after = scorePlan(solution.workspace, dates, windowOf, weightsOf(ws.settings), { rows: solution.rows, required, hoursByWork })
+    if (!result) return []
+    const { solution, before, after } = result
     return solution.projects
       .map((projectNo) => {
         const mine = (r: AllocationRow) => numberKey(r.projectNo) === numberKey(projectNo)
@@ -82,7 +112,7 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
         }
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
-  }, [ws, rows, required, hoursByWork, solution, dates, windowOf])
+  }, [result])
   // A project is picked to start with where the engine's plan is better than what it has.
   const [skipped, setSkipped] = useState<Set<string> | null>(null)
   const picked = (line: Line) => (skipped ? !skipped.has(line.projectNo) : line.after.total < line.before.total - 1e-6)
@@ -95,7 +125,7 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
   const chosen = lines.filter(picked)
   const toVenyou = venyouText(chosen.flatMap((line) => line.outside))
   // What is left to hire in for the projects picked, once the engine's permanent staff are on them.
-  const toHire = chosen.length ? toOrder(solution.workspace, dates, chosen.map((line) => line.projectNo)) : []
+  const toHire = solution && chosen.length ? toOrder(solution.workspace, dates, chosen.map((line) => line.projectNo)) : []
   const [copied, setCopied] = useState(false)
 
   const columns: Column<Line>[] = [
@@ -159,7 +189,11 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
           />
         </div>
         <div className="engine-scroll">
-          <DataTable table={table} rowKey={(line) => line.projectNo} empty="Ingen prosjekter har behov med monterings- eller demonteringsdager i perioden." />
+          {result ? (
+            <DataTable table={table} rowKey={(line) => line.projectNo} empty="Ingen prosjekter har behov med monterings- eller demonteringsdager i perioden." />
+          ) : (
+            <p className="muted engine-busy">Motoren regner ut planen …</p>
+          )}
         </div>
         {toHire.length > 0 && (
           <div className="engine-list">
@@ -211,7 +245,7 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
           <button type="button" onClick={onClose}>
             Avbryt
           </button>
-          <button type="button" className="primary" disabled={!chosen.length} onClick={() => onApply(solution.workspace, chosen.map((line) => line.projectNo))}>
+          <button type="button" className="primary" disabled={!solution || !chosen.length} onClick={() => solution && onApply(solution.workspace, chosen.map((line) => line.projectNo))}>
             {chosen.length ? `Bruk for ${count(chosen.length, 'prosjekt', 'prosjekter')}` : 'Bruk'}
           </button>
         </div>
