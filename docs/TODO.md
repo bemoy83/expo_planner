@@ -11,7 +11,7 @@ Agreed with the user 2026-10-18. The app is feature complete for a first version
 - **Data that lasts.** Signed in, the workspace is shared and synced with Supabase (`docs/supabase-sync-plan.md`, phases 1 to 4 built 2026-10-21), and the app reminds the planner to download a backup a week after the last. Still open: the free plan keeps no backup of its own, the undo history is lost on reload, and the questions of data protection and the company's Microsoft tenant are the user's.
 - **One season end to end.** Much that is built is marked «to be tested by the user» or checked by tests only: Bemanning, Behov, Oppsett, Innleid, the levels of detail of Plan, competences that follow a product type. A walk through a real season on the real files, in the order of a clean start, has not been done.
 
-Not needed for a first version: oppsummering and status per week, history for earlier years (wanted later, for comparing a project year over year), moving a whole span, a «Foreslå plan» that gathers into whole people or looks at the crew, sending orders to suppliers, trade crews and Admin (deferred by the user), a staff register import, notes on staffing lines.
+Not needed for a first version: oppsummering and status per week, history for earlier years (wanted later, for comparing a project year over year), moving a whole span, a «Foreslå plan» that looks at the crew, sending orders to suppliers, trade crews and Admin (deferred by the user), a staff register import, notes on staffing lines.
 
 ## Clean start: where it stands
 
@@ -88,7 +88,7 @@ Kalender
 - Selecting by dragging follows the mouse past the left and right edges but not up or down.
 - The pencil («Fordel behov») shares what is left, to the tenth as it is written, in whole people, evenly, with what does not divide on the first days; the decimals are the last person, so the days never rise (4,6 over three days is 2, 2 and 0,6; 2026-10-24, `shareOverDays`). A front- or back-loaded shape and a cap at the available crew are not choices. A plain click with the pencil puts all that is left on that one day, as the planner wants (checked by him, 2026-10-24).
 - A row's window is the build-up (A) or tear-down (D) days of its project in its hall; moving in and out are not counted as work days. A folded level shows the window of its rows together (`levelWindows`), and a row for all halls or for «Mangler hall» gets the days of all the project's halls together.
-- «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row. Small rows therefore get one day with a decimal each (0,2 here, 0,6 there) instead of being gathered into whole people across rows. It does not look at the available crew.
+- «Foreslå plan» (✦) shares each row's demand the way the pencil does, row by row, so small rows get one day with a decimal each; gathering them into whole people across rows is dropped (the user, 2026-10-25). It does not look at the available crew.
 - Notes can be written on planning cells; the staffing lines have none.
 - A suggested row cannot carry a note or be edited until FTE is typed into it.
 - With the hall calendar and the staffing details both open on a laptop screen, the pinned top block leaves the planning rows about three lines. The user accepts this and will redesign if a way of working needs all of it open at once. With many halls ticked under «Steder» the block can be taller than the grid; the staffing lines then slide in under the hall calendar, and after them the upper halls under the date header.
