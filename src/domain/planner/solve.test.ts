@@ -44,16 +44,16 @@ const blocksOf = (ws: Workspace, competence?: string) => (ws.assignments ?? []).
 const fteOf = (ws: Workspace, competence: string, projectNo = '26001') => ws.allocations.find((r) => r.competence === competence && r.projectNo === projectNo)?.fte
 
 describe('the planning engine', () => {
-  it('places a job in its window in whole people and keeps the same person on it from day to day', () => {
+  it('places a job in its window as soon as people are free, in whole days, and keeps them on it', () => {
     const rows = [row('foga')]
     const { workspace: ws, projects } = run(workspace([person('per', 'foga'), person('pål', 'foga')]), rows, [3], [MON, TUE, WED])
     expect(projects).toEqual(['26001'])
-    expect(fteOf(ws, 'foga')).toEqual({ [MON]: 1, [TUE]: 1, [WED]: 1 })
+    // Both fitters are free the Monday, so the work is begun with both; the one who goes on the Tuesday is one of them.
+    expect(fteOf(ws, 'foga')).toEqual({ [MON]: 2, [TUE]: 1 })
     const blocks = blocksOf(ws)
     expect(blocks).toHaveLength(3)
-    expect(new Set(blocks.map((b) => b.personId)).size).toBe(1)
     expect(blocks[0]).toMatchObject({ projectNo: '26001', hall: 'B1', start: DEFAULT_SETTINGS.workday.dayStart, end: DEFAULT_SETTINGS.workday.dayEnd })
-    expect(ws.allocations.find((r) => r.competence === 'foga')!.engine).toEqual([MON, TUE, WED])
+    expect(ws.allocations.find((r) => r.competence === 'foga')!.engine).toEqual([MON, TUE])
   })
 
   it('puts the floor before the walls in a hall, with the stages overlapping', () => {
@@ -163,7 +163,8 @@ describe('the planning engine', () => {
     const { workspace: ws } = run(ws0, [row('foga')], [2], [MON, TUE])
     expect(ws.assignments!.find((a) => a.id === 'own')).toBe(own)
     expect(ws.assignments!.some((a) => a.id === 'old')).toBe(false)
-    expect(blocksOf(ws).map((b) => b.date)).toEqual([TUE])
+    // Per's own block covers half the Monday's work; Pål is free and takes the rest the same day, so the Tuesday is free.
+    expect(blocksOf(ws).map((b) => `${b.personId} ${b.date}`)).toEqual([`pål ${MON}`])
   })
 
   it('plans every project at once, and takes the plan for the projects the planner picks', () => {
@@ -177,12 +178,13 @@ describe('the planning engine', () => {
     expect(blocksOf(taken).map((b) => b.projectNo)).toEqual(['26002'])
   })
 
-  it('makes the score lower than the plan it started from', () => {
+  it('covers what the staff can cover, in the order of the stages', () => {
     const rows = [row('foga'), row('tepper'), row('banner')]
     const ws0 = workspace([person('per', 'foga'), person('ola', 'tepper', 'foga'), person('kari', 'banner')])
     const { workspace: ws } = run(ws0, rows, [4, 2, 3], WEEK)
-    const score = (w: Workspace) => scorePlan(w, WEEK, () => new Set(WEEK)).total
-    expect(score(ws)).toBe(0)
+    const score = scorePlan(ws, WEEK, () => new Set(WEEK))
+    expect(score.byKind.uncovered).toBe(0)
+    expect(score.byKind.stage).toBe(0)
   })
 })
 
@@ -216,14 +218,16 @@ describe('a competence planned as one team', () => {
 })
 
 describe('people who stay where they are', () => {
-  it('keeps a person in the hall they were in the day before, rather than moving them to a hall planned first', () => {
-    // Hall D has the shorter window, so its job comes first; on the Tuesday, Per goes back to hall C all the same.
+  it('keeps a person in the hall they were in the day before while it has work for them', () => {
+    // Hall C needs four days' work over the Monday and Tuesday, hall D one the Tuesday: the one who finishes C the
+    // Tuesday is one who was there the Monday, and D gets one who is done in C.
     const rows = [row('foga', {}, '26001', 'C'), row('foga', {}, '26002', 'D')]
-    const ws0 = workspace([person('per', 'foga'), person('pål', 'foga')])
-    const solution = solve({ ws: ws0, rows, required: (r) => (r.hall === 'C' ? 2 : 1), windowOf: (r) => new Set(r.hall === 'C' ? [MON, TUE] : [TUE]), keepTyped: true, makeId })
-    const halls = (personId: string) => blocksOf(solution.workspace).filter((b) => b.personId === personId).map((b) => b.hall)
-    expect(new Set(halls('per')).size).toBe(1)
-    expect(new Set(halls('pål')).size).toBe(1)
+    const ws0 = workspace([person('per', 'foga'), person('pål', 'foga'), person('siri', 'foga')])
+    const solution = solve({ ws: ws0, rows, required: (r) => (r.hall === 'C' ? 4 : 1), windowOf: (r) => new Set(r.hall === 'C' ? [MON, TUE] : [TUE]), keepTyped: true, makeId })
+    const blocks = blocksOf(solution.workspace)
+    const tuesdayInC = blocks.filter((b) => b.date === TUE && b.hall === 'C').map((b) => b.personId)
+    expect(tuesdayInC).toHaveLength(1)
+    expect(blocks.some((b) => b.date === MON && b.personId === tuesdayInC[0] && b.hall === 'C')).toBe(true)
   })
 
   it('lays a person\'s day out as one stretch per project, not A, B and A again', () => {
