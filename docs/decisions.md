@@ -381,3 +381,9 @@ The planning engine is designed with the planner in two Claude Docs, «Planleggi
 
 - Seen by the planner: a person got many short blocks in a day. Two changes: the people for a job's day are picked so the hours go to as few as can be (among those as good for continuity, the one whose free time fits what is left best, else the one with the most), and each day's blocks of a competence are shared out again on the same people (`consolidate`): whole people on the biggest pieces of work, the one who had a piece the day before keeps it, and pieces that meet are one block. The hours of each piece of work and of each person stay as they were.
 - On the demo season: blocks a person and day 1,57 → 1,20, pieces of work a person and day 1,22 → 1,19, covered hours the same. Days with three pieces or more went from 26 to 36: the scraps of several jobs now go to one person who has room, rather than to several.
+
+## Planning engine: a person stays in the hall until it is done (2026-10-25)
+
+- Seen by the planner: a person was moved back and forth between halls and projects. The engine staffed one job at a time over all its days, so who was where the day before was not yet known, and the job staffed first on a day took people who belonged to another hall.
+- It now staffs a day at a time. On each day every job first takes back those who were in its hall for its project the day before, then those who were in its hall, and only then the others. A person's day is then laid out in one stretch per project and hall, yesterday's work first (`inStretches`): A then B, never A, B and A again.
+- On the demo season: hall switches 568 → 521, competence switches 184 → 152, days of A, B and A 1 → 0; uncovered hours 3 881 → 3 972, as people stay in a hall rather than go where they are short.

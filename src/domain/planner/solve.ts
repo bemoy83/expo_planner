@@ -34,6 +34,7 @@ import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey,
  *
  * 5. Each day's blocks of a competence are shared out again on the same people, so each has as few pieces as can be
  *    (`consolidate`): whole people on the biggest pieces of work, and the one who had a piece the day before keeps it.
+ *    A person's day is then laid out in one stretch per project and hall, yesterday's work first (`inStretches`).
  *
  * Only normal time is planned: overtime and hire are the planner's (R6). Blocks the planner painted stay, and those
  * the engine painted before are planned again. Whether the FTE the planner typed stays is his choice (`keepTyped`).
@@ -182,7 +183,7 @@ const candidates = (ws: Workspace, staff: Staff, job: Job, date: ISODate, nextOf
 }
 
 /** Paints people on a job's day until its hours are covered or nobody is left; returns the hours nobody could take. */
-const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: number, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, makeId: () => string): number => {
+const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: number, nextOf: Map<CompetenceKey, CompetenceKey | undefined>, makeId: () => string, maxRank = Infinity): number => {
   const wd = ws.settings.workday
   let left = hours
   const done = new Set<string>()
@@ -191,7 +192,7 @@ const staffDay = (ws: Workspace, staff: Staff, job: Job, date: ISODate, hours: n
     // least to spare, else who has the most, so the work goes to as few people as can be and leaves no scraps.
     const fit = (free: number) => (free >= left - EPS ? free - left : 1000 - free)
     const pick = candidates(ws, staff, job, date, nextOf)
-      .filter((c) => !done.has(c.person.id))
+      .filter((c) => !done.has(c.person.id) && c.rank <= maxRank)
       .sort((a, b) => a.rank - b.rank || fit(paidTotal(a.free, wd)) - fit(paidTotal(b.free, wd)) || a.person.competences.length - b.person.competences.length || a.person.order - b.person.order)[0]
     if (!pick) break
     const { person, free } = pick
@@ -305,6 +306,56 @@ export const consolidate = (painted: Assignment[], wd: Workspace['settings']['wo
   return out
 }
 
+/**
+ * Each person's day laid out so that each project, and within it each hall, is one stretch: what the person ended the
+ * day before with comes first, then the rest of that project, then the other projects one after the other. The time the
+ * person gives the engine's work and the hours of each piece stay as they were; only their order in the day changes, so
+ * a day is A then B, never A, B and A again (the planner, 2026-10-25).
+ */
+export const inStretches = (painted: Assignment[], wd: Workspace['settings']['workday'], makeId: () => string): Assignment[] => {
+  const byDay = new Map<string, Assignment[]>()
+  for (const a of painted) pushTo(byDay, `${a.date}|${a.personId}`, a)
+  const lastWork = new Map<string, Assignment>()
+  const out: Assignment[] = []
+  for (const key of [...byDay.keys()].sort()) {
+    const blocks = byDay.get(key)!.sort((a, b) => a.start - b.start)
+    const personId = blocks[0].personId
+    const pieces = new Map<string, { sample: Assignment; hours: number }>()
+    for (const a of blocks) {
+      const piece = pieces.get(workKey(a)) ?? { sample: a, hours: 0 }
+      piece.hours += paidHours(a, wd)
+      pieces.set(workKey(a), piece)
+    }
+    const before = lastWork.get(personId)
+    const first = before && pieces.has(workKey(before)) ? before : blocks[0]
+    const order = [...pieces.values()].sort(
+      (a, b) =>
+        Number(workKey(b.sample) === workKey(first)) - Number(workKey(a.sample) === workKey(first)) ||
+        Number(numberKey(b.sample.projectNo ?? '') === numberKey(first.projectNo ?? '')) - Number(numberKey(a.sample.projectNo ?? '') === numberKey(first.projectNo ?? '')) ||
+        numberKey(a.sample.projectNo ?? '').localeCompare(numberKey(b.sample.projectNo ?? '')) ||
+        hallKey(a.sample.hall).localeCompare(hallKey(b.sample.hall)) ||
+        a.sample.competence.localeCompare(b.sample.competence),
+    )
+    const free = blocks.map((a) => ({ start: a.start, end: a.end }))
+    let at = 0
+    order.forEach((piece, index) => {
+      let hours = piece.hours
+      while (at < free.length && (hours > EPS || index === order.length - 1)) {
+        const slot = free[at]
+        const part = index === order.length - 1 ? slot : cut(slot, hours, wd.snap, wd)
+        const previous = out.at(-1)
+        if (previous && previous.personId === personId && previous.date === piece.sample.date && workKey(previous) === workKey(piece.sample) && previous.end === part.start) previous.end = part.end
+        else out.push({ ...piece.sample, id: makeId(), start: part.start, end: part.end })
+        hours -= paidHours(part, wd)
+        if (part.end >= slot.end) at++
+        else free[at] = { start: part.end, end: slot.end }
+      }
+    })
+    lastWork.set(personId, order.at(-1)!.sample)
+  }
+  return out
+}
+
 export interface Solution {
   /** The workspace with the engine's plan for every project. */
   workspace: Workspace
@@ -381,19 +432,28 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
       }
     }
 
-    // 2. The people, hardest competence first, then the tightest window.
+    // 2. The people, a day at a time, so that who was where the day before is known for every job. On each day, every job
+    // first takes back those who were in its hall for its project the day before, then those who were in its hall, and
+    // only then the others, hardest competence first, then the tightest window: nobody leaves a hall that still has their
+    // work for another (the planner, 2026-10-25).
     const staff = staffOf(ws, kept)
     jobs.sort((a, b) => a.rank - b.rank || a.days.length - b.days.length || (a.days[0] ?? '').localeCompare(b.days[0] ?? ''))
+    const onDay = new Map<ISODate, Job[]>()
+    for (const job of jobs) for (const date of Object.keys(job.fte)) pushTo(onDay, date, job)
     const short = new Map<Job, Map<ISODate, number>>()
-    for (const job of jobs) {
-      const left = new Map<ISODate, number>()
-      for (const date of Object.keys(job.fte).sort()) {
-        const hours = job.fte[date] * perDay - ownCover(kept, job, date, wd)
-        if (hours < SMALLEST) continue
-        const rest = staffDay(ws, staff, job, date, hours, nextOf, makeId)
-        if (rest >= SMALLEST) left.set(date, rest)
+    for (const date of [...onDay.keys()].sort()) {
+      const todo = onDay.get(date)!
+      const left = new Map(todo.map((job) => [job, job.fte[date] * perDay - ownCover(kept, job, date, wd)]))
+      for (const maxRank of [0, 0.5, Infinity])
+        for (const job of todo) {
+          const hours = left.get(job)!
+          if (hours >= SMALLEST) left.set(job, staffDay(ws, staff, job, date, hours, nextOf, makeId, maxRank))
+        }
+      for (const [job, rest] of left) {
+        if (rest < SMALLEST) continue
+        if (!short.has(job)) short.set(job, new Map())
+        short.get(job)!.set(date, rest)
       }
-      if (left.size) short.set(job, left)
     }
 
     // 3. What nobody could take is moved to another day of the window where someone can, the days of its run first, as
@@ -515,7 +575,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
         outside.set(`${numberKey(job.row.projectNo)}|${hallKey(hall)}|${date}`, { projectNo: job.row.projectNo, projectName: job.row.projectName, hall, date })
       }
   }
-  const painted = consolidate([...staff.blocks.values()].flat().filter((a) => a.source === 'suggested'), wd, makeId)
+  const painted = inStretches(consolidate([...staff.blocks.values()].flat().filter((a) => a.source === 'suggested'), wd, makeId), wd, makeId)
   const assignments = [...(ws.assignments ?? []).filter((a) => a.source !== 'suggested'), ...painted]
   return { workspace: { ...ws, allocations, assignments }, projects: [...projects], rows: rows.map((row) => became.get(row.id) ?? solvedRows.get(row.id) ?? row), outside: [...outside.values()].sort((a, b) => a.hall.localeCompare(b.hall, 'nb') || a.date.localeCompare(b.date)) }
 }

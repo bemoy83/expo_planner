@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { setCompetenceStyle } from '../competences'
 import { DEFAULT_SETTINGS, type AllocationRow, type Assignment, type CompetenceStyle, type Person, type Workspace } from '../types'
 import { scorePlan } from './score'
-import { consolidate, solve, takeProjects } from './solve'
+import { consolidate, inStretches, solve, takeProjects } from './solve'
 import { ownChanged } from '../staffing/edit'
 
 /** The planning engine on small invented plans. */
@@ -195,6 +195,27 @@ describe('blocks the engine painted', () => {
     const after = ownChanged(before, [{ ...painted, end: 780 }, other])!
     expect(after.map((a) => a.source)).toEqual(['manual', 'suggested'])
     expect(ownChanged(before, [other])).toEqual([other])
+  })
+})
+
+describe('people who stay where they are', () => {
+  it('keeps a person in the hall they were in the day before, rather than moving them to a hall planned first', () => {
+    // Hall D has the shorter window, so its job comes first; on the Tuesday, Per goes back to hall C all the same.
+    const rows = [row('foga', {}, '26001', 'C'), row('foga', {}, '26002', 'D')]
+    const ws0 = workspace([person('per', 'foga'), person('pål', 'foga')])
+    const solution = solve({ ws: ws0, rows, required: (r) => (r.hall === 'C' ? 2 : 1), windowOf: (r) => new Set(r.hall === 'C' ? [MON, TUE] : [TUE]), keepTyped: true, makeId })
+    const halls = (personId: string) => blocksOf(solution.workspace).filter((b) => b.personId === personId).map((b) => b.hall)
+    expect(new Set(halls('per')).size).toBe(1)
+    expect(new Set(halls('pål')).size).toBe(1)
+  })
+
+  it('lays a person\'s day out as one stretch per project, not A, B and A again', () => {
+    const wd = DEFAULT_SETTINGS.workday
+    const piece = (projectNo: string, from: number, to: number): Assignment => ({ id: `${projectNo}-${from}`, personId: 'per', date: MON, competence: 'foga', start: from, end: to, source: 'suggested', projectNo, hall: 'B1' })
+    const out = inStretches([piece('A', 420, 540), piece('B', 540, 660), piece('A', 660, 900)], wd, makeId)
+    expect(out.map((a) => a.projectNo)).toEqual(['A', 'B'])
+    expect(out[0]).toMatchObject({ start: 420 })
+    expect(out[1].end).toBe(900)
   })
 })
 
