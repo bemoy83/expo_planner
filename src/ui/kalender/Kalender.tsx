@@ -279,7 +279,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   return (
     <div className={`kalender ${bemanning ? 'bemanning-mode' : pull ? 'pulling' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode} data-part={planMode === 'bemanning' ? crewPart : undefined}>
       <BemanningScope active={bemanning} innleid={innleid} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={plan.planned} phases={plan.phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
-      <InnleidScope active={innleid}>
+      <InnleidScope active={innleid} counted={bemanning}>
       {innleid ? <InnleidHead places={places} onDayPlan={() => openDayPlan(dayPlanDate())} /> : bemanning ? <BemanningHead places={places} onDayPlan={() => openDayPlan(dayPlanDate())} /> : <KalenderHead
         places={places}
         projects={shownGroups.length}

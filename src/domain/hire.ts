@@ -64,26 +64,45 @@ export interface Coverage {
   /** Positive while hours are missing, negative when more is ordered than remains. */
   remaining: number
   state: CoverState
+  /** As `remaining`, by the confirmed orders alone: what the Avvik of the day counts. */
+  left: number
+  /** As `state`, by the confirmed orders alone. */
+  firm: CoverState
 }
 
+/** Hours over what remains are a deviation only from one person of the shortest order: less than that is what a whole person gives. */
+const coverState = (need: number, ordered: number, any: boolean, least: number): CoverState =>
+  need <= 0 && !any ? 'none' : need - ordered > HOURS_NOISE ? 'short' : ordered - need < Math.max(HOURS_NOISE, least - 1e-6) ? 'ok' : 'over'
+
 /**
- * I1: the cover of one competence on one day. An order that waits for an answer counts as ordered. Hours over
- * what remains are a deviation only from one person of the shortest order: less than that is what a whole person gives.
+ * I1: the cover of one competence on one day. For ordering, an order that waits for an answer counts as ordered (`state`);
+ * for the Avvik only the confirmed count (`firm`), as they do in the Kalender.
  */
 export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings): Coverage => {
   const need = Math.max(0, rest)
   let planned = 0
   let confirmed = 0
   let least = Infinity
+  let leastConfirmed = Infinity
+  let anyConfirmed = false
   for (const order of orders) {
     const hours = hireHours(order, wd)
     planned += order.fte * hours
-    if (!isWaiting(order)) confirmed += order.fte * hours
     least = Math.min(least, hours)
+    if (isWaiting(order)) continue
+    confirmed += order.fte * hours
+    leastConfirmed = Math.min(leastConfirmed, hours)
+    anyConfirmed = true
   }
-  const remaining = need - planned
-  const state: CoverState = need <= 0 && !orders.length ? 'none' : remaining > HOURS_NOISE ? 'short' : -remaining < Math.max(HOURS_NOISE, least - 1e-6) ? 'ok' : 'over'
-  return { rest: need, planned, confirmed, remaining, state }
+  return {
+    rest: need,
+    planned,
+    confirmed,
+    remaining: need - planned,
+    state: coverState(need, planned, orders.length > 0, least),
+    left: need - confirmed,
+    firm: coverState(need, confirmed, anyConfirmed, leastConfirmed),
+  }
 }
 
 /** The figure a cover is shown with: the hours missing as a negative number, the hours over as a positive one, `null` where neither. */
@@ -180,20 +199,23 @@ type DeviationState = 'none' | 'under' | 'ok' | 'over'
 
 interface Deviation {
   state: DeviationState
-  /** Negative: the hours missing. Positive: the hours ordered over what remains. */
+  /** Negative: the hours missing. Positive: the hours confirmed over what remains. */
   value: number
   /** The hours ordered that wait for an answer. */
   pending: number
 }
 
-/** I2: a day's Avvik over its competences. Hours missing in one competence are not made up for by hours over in another. */
+/**
+ * I2: a day's Avvik over its competences, after the permanent staff and the confirmed orders: what Faste and Innleid both
+ * show. Hours missing in one competence are not made up for by hours over in another. Orders that wait count nowhere, and are given apart.
+ */
 export const deviation = (covers: Coverage[]): Deviation => {
   const pending = covers.reduce((sum, cover) => sum + cover.planned - cover.confirmed, 0)
-  if (covers.every((cover) => cover.state === 'none')) return { state: 'none', value: 0, pending }
-  const short = covers.reduce((sum, cover) => sum + (cover.state === 'short' ? cover.remaining : 0), 0)
+  if (covers.every((cover) => cover.firm === 'none')) return { state: 'none', value: 0, pending }
+  const short = covers.reduce((sum, cover) => sum + (cover.firm === 'short' ? cover.left : 0), 0)
   if (short > HOURS_NOISE) return { state: 'under', value: -short, pending }
-  const over = covers.reduce((sum, cover) => sum + Math.max(0, -cover.remaining), 0)
-  return { state: covers.some((cover) => cover.state === 'over') ? 'over' : 'ok', value: over > HOURS_NOISE ? over : 0, pending }
+  const over = covers.reduce((sum, cover) => sum + Math.max(0, -cover.left), 0)
+  return { state: covers.some((cover) => cover.firm === 'over') ? 'over' : 'ok', value: over > HOURS_NOISE ? over : 0, pending }
 }
 
 const newId = () => `hire-${crypto.randomUUID()}`
@@ -420,7 +442,7 @@ export interface HireBoard {
   cover: (competence: CompetenceKey, date: ISODate) => Coverage
   /** The days with hours that remain or with orders. */
   deviations: Map<ISODate, Deviation>
-  /** The days where hours are missing, in order. */
+  /** The days where hours are missing that nothing is ordered for, waiting or confirmed, in order. */
   underDays: ISODate[]
 }
 
@@ -439,7 +461,7 @@ export const ordersByDay = (orders: HireOrder[]): Map<string, HireOrder[]> => {
   return map
 }
 
-const NO_COVER: Coverage = { rest: 0, planned: 0, confirmed: 0, remaining: 0, state: 'none' }
+const NO_COVER: Coverage = { rest: 0, planned: 0, confirmed: 0, remaining: 0, state: 'none', left: 0, firm: 'none' }
 
 /**
  * The board of Innleid. `restOf` gives the hours of a competence that remain on a day after the permanent staff:
@@ -467,7 +489,7 @@ export const hireBoard = (competences: CompetenceKey[], dates: ISODate[], restOf
     competences: competences.filter((competence) => active.has(competence)),
     cover: (competence, date) => covers.get(dayKey(competence, date)) ?? NO_COVER,
     deviations,
-    underDays: dates.filter((date) => deviations.get(date)?.state === 'under'),
+    underDays: dates.filter((date) => perDay.get(date)?.some((cover) => cover.state === 'short')),
   }
 }
 

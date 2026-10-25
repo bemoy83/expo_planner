@@ -1,4 +1,4 @@
-import { Fragment, memo, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, memo, type ReactNode } from 'react'
 import { ChevronsUpDown, CircleHelp, Eraser, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { coverage, coveredBy, coverFigure, coverLines, dayKey, HOURS_NOISE, isWaiting, orderedLabel, shiftText, type Coverage, type HireBoard, type OrderGroup } from '../../domain/hire'
@@ -7,13 +7,13 @@ import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } 
 import { competenceColor, count } from '../dom'
 import { useBemanning, type Density } from '../bemanning/BemanningScope'
 import { ProjectLines } from '../bemanning/ProjectLines'
-import { HeatLegend, Line, SectionLine } from '../kalender/GridRows'
+import { AvvikSection } from '../bemanning/AvvikSection'
+import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { heatTile, HEAT_LABELS } from '../kalender/heat'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
-import { HEAT_ROW_H, LEFT_W, ROW_H } from '../kalender/layout'
+import { LEFT_W, ROW_H } from '../kalender/layout'
 import { HIRE_COMPACT_H, HIRE_H, HIRE_PROJECT_H } from '../bemanning/layout'
-import { HoursLeft, LinePick, NeedLabel, NeedLine } from '../bemanning/NeedLabel'
+import { LinePick, NeedLabel, NeedLine } from '../bemanning/NeedLabel'
 import { PlanBar } from '../kalender/PlanBar'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
 import { numberKey } from '../../domain/projects'
@@ -21,7 +21,7 @@ import { useInnleid, type HireProjectLine, type HireTool, type InnleidActions, t
 import { OrderEditor } from './OrderEditor'
 import { SupplierRows } from './SupplierRows'
 import { AnswerGlyph, AnswerPopover, LineMenu, ShiftMenu, SupplierMenu, TimePopover, type MenuItem } from './OrderPopovers'
-import { hoursText, signedHours } from '../format'
+import { hoursText } from '../format'
 
 const days = (n: number) => count(n, 'dag', 'dager')
 
@@ -45,53 +45,13 @@ export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPla
   )
 }
 
-/** A day of the Avvik line: under, ok or over as a tile, with the hours and a clock where an order waits for an answer. */
-const AvvikLine = memo(function AvvikLine({ cols, board, maxShortage, maxSurplus, total }: { cols: Columns; board: HireBoard; maxShortage: number; maxSurplus: number; total: number }) {
-  return (
-    <Line
-      className="sum-row deviation-row heat-row"
-      height={HEAT_ROW_H}
-      label={
-        <>
-          <span className="lbl-cap strong">Mangler / over</span>
-          <HeatLegend title="Rødt: timer som mangler (mørkere = flere). Grønt: ok, dekket innenfor én person på ett skift. Oker: bestilt over behovet. Skravert: noe venter på svar." />
-          <HoursLeft hours={total} />
-        </>
-      }
-      cols={cols}
-      cells={(date) => {
-        const dev = board.deviations.get(date)
-        if (!dev || dev.state === 'none') return <div key={date} className={`${dayClass(cols, date)} cell sum-cell`} />
-        const tile = heatTile(dev.value, maxShortage, maxSurplus, dev.state)
-        const waits = dev.pending > HOURS_NOISE
-        return (
-          <div key={date} className={`${dayClass(cols, date)} cell sum-cell heat-cell ${tile.kind}`} title={`${dayText(date)} · ${HEAT_LABELS[tile.kind]} ${signedHours(dev.value) || '0'} t${waits ? `\n${hoursText(dev.pending)} t venter på svar` : ''}`}>
-            <span className={`heat ${tile.kind}`} style={{ '--p': `${tile.percent}%` } as CSSProperties} />
-            {waits && <span className="il-waits" aria-label="Venter på svar"><AnswerGlyph waits /></span>}
-            <span className="heat-value">{signedHours(dev.value)}</span>
-          </div>
-        )
-      }}
-    />
-  )
-})
-
 /** What is pinned above the competences: the projects in view, and the Avvik of each day. */
 export function InnleidTop() {
-  const { cols, dates, viewFrom, viewTo } = useBemanning()
-  const { board, scale } = useInnleid()
-  // The hours missing in the days in view.
-  const total = dates.slice(viewFrom, viewTo + 1).reduce((sum, date) => sum + Math.max(0, -(board.deviations.get(date)?.value ?? 0)), 0)
+  const { board } = useInnleid()
   return (
     <>
       <ProjectLines />
-      <div className="top-section open il-avvik-section">
-        <SectionLine>
-          Restbehov etter faste
-          <span className="section-meta section-meta-end" title="Timer som mangler i dagene som vises">timer</span>
-        </SectionLine>
-        <AvvikLine cols={cols} board={board} maxShortage={scale.maxShortage} maxSurplus={scale.maxSurplus} total={total} />
-      </div>
+      <AvvikSection board={board} />
     </>
   )
 }

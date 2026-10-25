@@ -137,7 +137,12 @@ describe('Avvik of a day (I2)', () => {
   })
 
   it('is under when a competence is short, whatever another has over, and says what waits (A6)', () => {
-    expect(deviation([ok, short, over])).toEqual({ state: 'under', value: -22.5, pending: 7.5 })
+    expect(deviation([ok, short, over])).toEqual({ state: 'under', value: -30, pending: 7.5 })
+  })
+
+  it('counts only the confirmed orders: what waits leaves the day short until it is answered', () => {
+    expect(deviation([coverage(15, [order('e', 'k1', 'vegger', 'd', 2, null)], wd)])).toEqual({ state: 'under', value: -15, pending: 15 })
+    expect(deviation([coverage(15, [order('e', 'k1', 'vegger', 'd', 1, 1), order('f', 'k2', 'vegger', 'd', 1, null)], wd)])).toEqual({ state: 'under', value: -7.5, pending: 7.5 })
   })
 })
 
@@ -327,9 +332,9 @@ describe('the board of Innleid', () => {
     expect(board.cover('vegger', 'd4').state).toBe('none')
   })
 
-  it('has the Avvik of the days that have something, and the days that are under', () => {
+  it('has the Avvik of the days that have something, by the confirmed orders, and the days nothing is ordered for', () => {
     expect([...board.deviations.keys()]).toEqual(['d1', 'd2', 'd3'])
-    expect(board.deviations.get('d1')).toEqual({ state: 'ok', value: 0, pending: 30 })
+    expect(board.deviations.get('d1')).toEqual({ state: 'under', value: -30, pending: 30 })
     expect(board.deviations.get('d2')).toEqual({ state: 'under', value: -15, pending: 0 })
     expect(board.deviations.get('d3')).toEqual({ state: 'over', value: 7.5, pending: 0 })
     expect(board.underDays).toEqual(['d2'])

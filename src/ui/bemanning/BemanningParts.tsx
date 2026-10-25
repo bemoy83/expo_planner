@@ -17,6 +17,8 @@ import { useBemanning } from './BemanningScope'
 import { DemandRows } from './DemandRows'
 import { DayMenu, DemandPopover } from './Popovers'
 import { ProjectLines } from './ProjectLines'
+import { AvvikSection } from './AvvikSection'
+import { useInnleid } from '../innleid/InnleidScope'
 import type { Tool } from './tools'
 import { EPSILON } from './week'
 import { hoursText } from '../format'
@@ -47,11 +49,13 @@ export function BemanningHead({ places, onDayPlan }: { /** The button «Steder»
   )
 }
 
-/** What is pinned above the people: the projects in view and the demand per competence. */
+/** What is pinned above the people: the projects in view, the Avvik of each day as Innleid has it, and the demand per competence. */
 export function BemanningTop() {
+  const { board } = useInnleid()
   return (
     <>
       <ProjectLines />
+      <AvvikSection board={board} />
       <DemandRows />
     </>
   )

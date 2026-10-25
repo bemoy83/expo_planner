@@ -8,7 +8,6 @@ import { usePref } from '../../store/prefs'
 import { useBemanning, type Density } from '../bemanning/BemanningScope'
 import { projectDays, restDays } from '../bemanning/lineBalances'
 import { isTyping } from '../dom'
-import { heatScale } from '../kalender/heat'
 import { useStableActions } from '../kalender/useStableActions'
 import { toolOfKey, type ToolKind } from '../toolKeys'
 
@@ -83,7 +82,7 @@ export interface HireProjectLine {
   missing: number
 }
 
-function useInnleidState(active: boolean) {
+function useInnleidState(active: boolean, counted: boolean) {
   const { ws, dates, balance, styles, updateStaffing, onShowDate, viewFrom, viewTo, projectBalance, kalenderProjects, projectName } = useBemanning()
   const orders = ws.hireOrders ?? NO_ORDERS
   const suppliers = ws.suppliers ?? NO_SUPPLIERS
@@ -120,9 +119,8 @@ function useInnleidState(active: boolean) {
     const lines = linesOf(competence)
     return projectNo === undefined ? lines : lines.filter((line) => (line.projectNo ?? NO_PROJECT) === projectNo)
   }
-  const board = useMemo<HireBoard>(() => hireBoard(active ? [...styles.keys()] : [], dates, restOf, orders, wd), [active, styles, dates, restOf, orders, wd])
+  const board = useMemo<HireBoard>(() => hireBoard(counted ? [...styles.keys()] : [], dates, restOf, orders, wd), [counted, styles, dates, restOf, orders, wd])
   const rows = useMemo<CompetenceStyle[]>(() => board.competences.map((key) => styles.get(key)!), [board, styles])
-  const scale = useMemo(() => heatScale([...board.deviations.values()].map((dev) => dev.value)), [board])
   const waiting = useMemo(() => waitingHours(orders, wd), [orders, wd])
 
   const [density, setDensity] = usePref<Density>('innleidDensity', 'compact', cleanDensity)
@@ -386,7 +384,7 @@ function useInnleidState(active: boolean) {
 
   const dragDays = drag?.mode === 'select' ? span(drag.anchor, drag.focus) : null
   return {
-    board, rows, scale, waiting, suppliers, orders, ordersOn, wd,
+    board, rows, waiting, suppliers, orders, ordersOn, wd,
     tool, pickTool, brush, pickBrush, brushWith, eraseFrom, pickErase: setEraseId, preview, density, setDensity,
     panel, setPanel, openSupplier, openControl,
     open, openDates, openLine, groups, picked, projectLines, projectName, pick, openOn, fold, stepDays, openNextUnder,
@@ -403,10 +401,11 @@ const InnleidContext = createContext<InnleidState | null>(null)
 
 /**
  * What the parts of Innleid share: the board of the period, the days picked on a competence with the lines of
- * their editor, and the edits of the orders. Nothing is worked out while Innleid is not shown.
+ * their editor, and the edits of the orders. The board is worked out in both parts of Bemanning, for the Avvik line
+ * they share (`counted`); the rest only while Innleid is shown (`active`).
  */
-export function InnleidScope({ active, children }: { active: boolean; children: ReactNode }) {
-  const state = useInnleidState(active)
+export function InnleidScope({ active, counted, children }: { active: boolean; counted: boolean; children: ReactNode }) {
+  const state = useInnleidState(active, counted)
   return <InnleidContext.Provider value={state}>{children}</InnleidContext.Provider>
 }
 
