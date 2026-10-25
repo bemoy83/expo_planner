@@ -1,5 +1,6 @@
 import { kpiRows, productTypeKey, productTypeName, type KpiFile } from '../domain/kpi'
 import type { ExcludedArticle, KpiConfig, KpiRate, VismaImport, WorkTypeRule } from '../domain/types'
+import { STAGE_NAMES, stageByName } from './kompetanserFile'
 import { vismaProductType } from './vismaExport'
 import { cell, column, dataRows, FileFormatError, firstSheetWith, isMarked, num, readXlsx, text, writeXlsx, type CellValue, type Sheet } from './xlsx'
 
@@ -8,7 +9,7 @@ import { cell, column, dataRows, FileFormatError, firstSheetWith, isMarked, num,
  * unit, as in the table. The file is the planner's own copy of the setup, to keep or to edit in Excel and read back.
  */
 
-const HEAD = ['Produkttype', 'Enhet', 'I bruk', 'Kompetanse', 'Montering', 'Demontering']
+const HEAD = ['Produkttype', 'Enhet', 'I bruk', 'Kompetanse', 'Montering', 'Demontering', 'Trinn']
 /** The sheet of the article numbers left out. It is always written, so that a file read back says the list is empty. */
 const ARTICLES = 'Utelatte artikler'
 const ARTICLE_HEAD = ['Art.nr', 'Merknad']
@@ -26,7 +27,7 @@ export const writeKpiWorkbook = (kpi: KpiConfig, visma: VismaImport[] = []): Uin
     // A type that only occurs in an export is not part of the setup yet.
     .filter((row) => row.lacking !== 'new')
     .sort((a, b) => a.name.localeCompare(b.name, 'nb') || Number(b.active) - Number(a.active) || a.unit.localeCompare(b.unit, 'nb'))
-    .map((row): CellValue[] => [row.name, row.unit, row.active ? IN_USE : '', row.competence, row.assembly || null, row.dismantle || null])
+    .map((row): CellValue[] => [row.name, row.unit, row.active ? IN_USE : '', row.competence, row.assembly || null, row.dismantle || null, row.stage ? STAGE_NAMES[row.stage] : null])
   const articles = (kpi.excludedArticles ?? []).map((article): CellValue[] => [article.articleNo, article.note])
   return writeXlsx([
     { name: 'KPI', head: HEAD, rows },
@@ -57,7 +58,7 @@ const readArticles = (sheets: Sheet[]): ExcludedArticle[] | undefined =>
 
 const readKpiTable = (sheets: Sheet[]): KpiFile => {
   const found = firstSheetWith(sheets, [NAMES.productType, 'enhet', 'montering', 'demontering'], (sheet, header): KpiFile | null => {
-    const columns = { productType: column(header, NAMES.productType), unit: column(header, 'enhet'), inUse: column(header, 'i bruk'), competence: column(header, NAMES.competence), assembly: column(header, 'montering'), dismantle: column(header, 'demontering') }
+    const columns = { productType: column(header, NAMES.productType), unit: column(header, 'enhet'), inUse: column(header, 'i bruk'), competence: column(header, NAMES.competence), assembly: column(header, 'montering'), dismantle: column(header, 'demontering'), stage: column(header, 'trinn') }
     const rates: KpiRate[] = []
     const types = new Map<string, WorkTypeRule & { units: Set<string>; marked: string }>()
     for (const row of dataRows(sheet, header.row)) {
@@ -69,6 +70,7 @@ const readKpiTable = (sheets: Sheet[]): KpiFile => {
       const unit = text(get(columns.unit))
       const type = types.get(productTypeKey(name)) ?? { productType: name, unit: '', competence: '', units: new Set<string>(), marked: '' }
       type.competence ||= text(get(columns.competence))
+      type.stage ||= stageByName(text(get(columns.stage)))
       types.set(productTypeKey(name), type)
       // A row without a unit names the product type only: a rate cannot be without a unit.
       if (!unit) continue
@@ -78,7 +80,7 @@ const readKpiTable = (sheets: Sheet[]): KpiFile => {
       if (isMarked(get(columns.inUse))) type.marked ||= unit
     }
     if (!types.size) return null
-    const workTypes = [...types.values()].map(({ units, marked, ...rule }): WorkTypeRule => ({ ...rule, unit: marked || (units.size > 1 ? '' : rule.unit) }))
+    const workTypes = [...types.values()].map(({ units, marked, stage, ...rule }): WorkTypeRule => ({ ...rule, ...(stage ? { stage } : {}), unit: marked || (units.size > 1 ? '' : rule.unit) }))
     return { workTypes, rates, unitsInUse: columns.inUse !== undefined }
   })
   if (!found) throw new FileFormatError('Fant ingen KPI-tabell. Filen må ha kolonnene «Produkttype», «Enhet», «Montering» og «Demontering».')

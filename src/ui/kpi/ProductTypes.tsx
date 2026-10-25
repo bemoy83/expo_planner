@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowRight, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
-import { addKpiRow, EMPTY_KPI, productTypeKey, removeKpiRow, renameUnit, setActiveUnit, setCompetence, setRate, type KpiRow, type KpiType, type Lacking, type NewKpiRow } from '../../domain/kpi'
+import { addKpiRow, EMPTY_KPI, productTypeKey, removeKpiRow, renameUnit, setActiveUnit, setCompetence, setRate, setStage, type KpiRow, type KpiType, type Lacking, type NewKpiRow } from '../../domain/kpi'
 import { parseDecimal } from '../../domain/numbers'
 import { countsStands, setupHours, yieldByType, type TypeYield } from '../../domain/visma'
 import { useWorkspace } from '../../store/workspaceStore'
@@ -13,7 +13,8 @@ import { useCompetenceColor } from '../behov/format'
 import { wholeHours } from '../format'
 import { CompetenceStrip } from '../personell/CompetenceStrip'
 import { competenceStyles } from '../../domain/competences'
-import { competenceKey, type CompetenceKey } from '../../domain/types'
+import { competenceKey, STAGES, type CompetenceKey, type Stage } from '../../domain/types'
+import { STAGE_NAMES } from '../../import/kompetanserFile'
 import type { Notify } from '../Toasts'
 
 const LACKING_TEXT: Record<Lacking, string> = {
@@ -36,6 +37,9 @@ interface Edits {
   useUnit: (type: KpiType, unit: string) => void
   renameUnit: (type: KpiType, from: string, to: string) => void
   setCompetence: (type: KpiType, competence: string) => void
+  /** The stage of a competence, which a product type has unless it is given one of its own. */
+  competenceStage: (competence: string) => Stage | undefined
+  setStage: (type: KpiType, stage: Stage | undefined) => void
   setRate: (type: KpiType, row: KpiRow, phase: 'assembly' | 'dismantle', value: number) => void
   remove: (type: KpiType, row: KpiRow) => void
   addUnit: (type: KpiType) => void
@@ -107,6 +111,12 @@ export function ProductTypes({ rows, types, yields, notify }: { rows: KpiRow[]; 
       notify(!from ? `${type.name} regnes i ${to}.` : there ? `${type.name}: ${to} finnes allerede, den er nå i bruk.` : `${type.name}: ${from} heter nå ${to}.`)
     },
     setCompetence: changeCompetence,
+    competenceStage: (competence) => styles.find((style) => style.key === competenceKey(competence))?.stage,
+    setStage: ({ name, competence }, stage) => {
+      setKpi(setStage(kpi, name, stage))
+      const own = styles.find((style) => style.key === competenceKey(competence))?.stage
+      notify(stage ? `${name} er på trinnet ${STAGE_NAMES[stage].toLowerCase()}.` : `${name} følger trinnet til ${competence}${own ? ` (${STAGE_NAMES[own].toLowerCase()})` : ''}.`)
+    },
     setRate: ({ name }, row, phase, value) => {
       setKpi(setRate(kpi, name, row.unit, { [phase]: value }))
       notify(`${name}: ${phase === 'assembly' ? 'montering' : 'demontering'} ${value ? `${String(value).replace('.', ',')} ${row.unit} per time` : 'ingen'}.`)
@@ -178,6 +188,7 @@ export function ProductTypes({ rows, types, yields, notify }: { rows: KpiRow[]; 
             <span title="Navnet på produkttypen. Det er navnet som kobler en ordrelinje til satsen her.">Produkttype</span>
             <span title="«ordre» og «stands» teller antall stands; andre enheter summerer antall">Enhet i bruk</span>
             <span>Kompetanse</span>
+            <span title="Hvor arbeidet kommer i en montering. Uten eget trinn følger produkttypen kompetansens trinn fra Mannskap › Kompetanser.">Trinn</span>
             <span className="num" title="Enheter per persontime">
               Montering
             </span>
@@ -350,6 +361,21 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
             onPick={(competence) => competence !== type.competence && edits.setCompetence(type, competence)}
           />
         </span>
+        <span>
+          <select
+            aria-label={`Trinn for ${type.name}`}
+            value={type.stage ?? ''}
+            onChange={(e) => edits.setStage(type, (e.target.value || undefined) as Stage | undefined)}
+            disabled={!type.configured}
+          >
+            <option value="">{edits.competenceStage(type.competence) ? `Som kompetansen: ${STAGE_NAMES[edits.competenceStage(type.competence)!]}` : '–'}</option>
+            {STAGES.map((stage) => (
+              <option key={stage} value={stage}>
+                {STAGE_NAMES[stage]}
+              </option>
+            ))}
+          </select>
+        </span>
         <span className="num">{inUse && <Rate type={type} row={inUse} phase="assembly" want={type.lacking === 'rate'} edits={edits} />}</span>
         <span className="num">{inUse && <Rate type={type} row={inUse} phase="dismantle" edits={edits} />}</span>
         <span className="num muted">{type.lines || ''}</span>
@@ -384,6 +410,7 @@ function TypeRows({ type, edits }: { type: KpiType; edits: Edits }) {
               <TextField value={row.unit} floating options={edits.units} ariaLabel={`Enhet for ${type.name}`} onCommit={(unit) => edits.renameUnit(type, row.unit, unit)} />
             </span>
             <span className="muted">{given && (countsStands(row.unit) ? `teller ${count(given.quantity, 'stand', 'stands')}` : `summerer ${wholeHours(given.quantity)} ${row.unit}`)}</span>
+            <span />
             <span className="num">
               <Rate type={type} row={row} phase="assembly" edits={edits} />
             </span>

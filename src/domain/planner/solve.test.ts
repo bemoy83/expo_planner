@@ -217,6 +217,20 @@ describe('a competence planned as one team', () => {
   })
 })
 
+describe('a row whose work spans stages', () => {
+  it('splits it by the stage of its product types, so the floor part of carpentry is done with the floor', () => {
+    const rows = [row('tepper'), row('foga'), row('snekker')]
+    let ws0 = workspace([person('ola', 'tepper'), person('per', 'foga'), person('siv', 'snekker')])
+    ws0 = { ...ws0, competenceStyles: setCompetenceStyle(ws0, 'snekker', { stage: 'tilvalg' }), kpi: { workTypes: [{ productType: 'Oppbygget gulv', unit: 'm²', competence: 'snekker', stage: 'gulv' }, { productType: 'Snekker-vegger', unit: 'lm', competence: 'snekker' }], rates: [] } }
+    const THU = '2026-10-15'
+    const byWork = (r: AllocationRow) => (r.competence === 'snekker' ? new Map([['Oppbygget gulv', 7.5], ['Snekker-vegger', 7.5]]) : new Map<string, number>())
+    const { workspace: ws } = solve({ ws: ws0, rows, required: (r) => (r.competence === 'snekker' ? 2 : 1), hoursByWork: byWork, windowOf: () => new Set([MON, TUE, WED, THU]), keepTyped: true, makeId })
+    // The built-up floor is begun the Monday with the carpet; the carpenter walls wait for the walls.
+    expect(fteOf(ws, 'snekker')?.[MON]).toBe(1)
+    expect(Object.keys(fteOf(ws, 'snekker') ?? {}).sort()[1] > MON).toBe(true)
+  })
+})
+
 describe('people who stay where they are', () => {
   it('keeps a person in the hall they were in the day before while it has work for them', () => {
     // Hall C needs four days' work over the Monday and Tuesday, hall D one the Tuesday: the one who finishes C the

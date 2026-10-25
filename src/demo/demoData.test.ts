@@ -45,6 +45,8 @@ describe('the invented season', () => {
     expect(kpi.workTypes.find((t) => t.productType === 'FOGA-dragere')).toMatchObject({ unit: '', competence: 'FOGA' })
     expect(kpi.workTypes.find((t) => t.productType === 'Print')).toMatchObject({ unit: 'ordre', competence: 'Profilering' })
     expect(kpi.excludedArticles).toEqual([{ articleNo: '9002', note: 'Frakt' }])
+    // Built-up floor is carpentry on the floor.
+    expect(kpi.workTypes.find((t) => t.productType === 'Oppbygget gulv')).toMatchObject({ competence: 'Snekker', stage: 'gulv' })
   })
 
   it('gives most demand lines hours, and leaves some for the planner to resolve', () => {

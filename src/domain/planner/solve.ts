@@ -7,8 +7,9 @@ import { numberKey } from '../projects'
 import { shareOverDays } from '../spread'
 import { freeIntervals, paidHours, paidTotal } from '../staffing/intervals'
 import { normalWindows, okAssignments } from '../staffing/time'
+import { stageOfType } from '../kpi'
 import { hallKey, stagePlace, stagesOf, WEIGHTS } from './score'
-import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Interval, type Workspace } from '../types'
+import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Interval, type Stage, type Workspace } from '../types'
 
 /**
  * The planning engine (step 3 of the Claude Doc «Planleggingsmotor: byggeplan»): the days of the demand and the
@@ -44,6 +45,8 @@ export interface SolveInput {
   /** The FTE-days a row needs in all. */
   required: (row: AllocationRow) => number
   windowOf: (row: AllocationRow) => Set<ISODate> | undefined
+  /** A row's required hours by the product type of its demand, so that its work is split by stage (`hoursByWorkType`); one stage, its competence's, where not given. */
+  hoursByWork?: (row: AllocationRow) => Map<string, number>
   /** The working days next to a row's window that its halls stand free, nearest first (`freeDaysNear`); none where not given. */
   nearby?: (row: AllocationRow) => ISODate[]
   /** Whether the FTE the planner typed stays where it is; else it is planned again with the rest. */
@@ -71,6 +74,8 @@ interface Job {
   near: ISODate[]
   /** Its project, hall and phase, whose stages keep their order. */
   place: string
+  /** Its stage: that of its product types, or of its competence. */
+  kind?: Stage
   /** The place of its stage among those of its project, hall and phase, earliest first; -1 for a competence with none in that order. */
   stage: number
   /** FTE-days still to place. */
@@ -350,7 +355,7 @@ export interface OutsideDay {
   date: ISODate
 }
 
-export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyped, makeId = () => `eng-${crypto.randomUUID()}` }: SolveInput): Solution => {
+export const solve = ({ ws, rows, required, windowOf, hoursByWork, nearby = () => [], keepTyped, makeId = () => `eng-${crypto.randomUUID()}` }: SolveInput): Solution => {
   const wd = ws.settings.workday
   const perDay = ws.settings.hoursPerDay
   const styles = competenceStyles(ws)
@@ -385,17 +390,28 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
       const place = stagePlace(row)
       const own = workdaysOf(window)
       const days = [...new Set([...own, ...(extra.get(place) ?? [])])].sort()
-      const job: Job = { row, competence, window: new Set(own), days, near: nearby(row), place, stage: -1, need, min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: { ...fixed } }
-      jobs.push(job)
-      pushTo(byPlace, place, job)
+      // A row's work is split by the stage of its product types, as built-up floor is carpentry on the floor; the FTE the
+      // planner typed goes with the stage that has the most of it.
+      const byStage = new Map<Stage | undefined, number>()
+      for (const [workType, hours] of hoursByWork?.(row) ?? []) {
+        const kind = stageOfType(ws.kpi, workType, style?.stage)
+        byStage.set(kind, (byStage.get(kind) ?? 0) + hours)
+      }
+      if (!byStage.size) byStage.set(style?.stage, 1)
+      const total = [...byStage.values()].reduce((sum, hours) => sum + hours, 0) || 1
+      const most = [...byStage].sort(([, a], [, b]) => b - a)[0][0]
+      for (const [kind, hours] of byStage) {
+        const job: Job = { row, competence, kind, window: new Set(own), days, near: nearby(row), place, stage: -1, need: tenth((need * hours) / total), min: style?.minPerHall ?? 0, rank: style?.index ?? styles.length, fte: kind === most ? { ...fixed } : {} }
+        jobs.push(job)
+        pushTo(byPlace, place, job)
+      }
     }
     const stagesIn = new Map<string, number>()
     for (const [place, group] of byPlace) {
-      const present = stagesOf(group[0].row.phase).filter((stage) => group.some((job) => styleOf.get(job.competence)?.stage === stage))
+      const present = stagesOf(group[0].row.phase).filter((stage) => group.some((job) => job.kind === stage))
       stagesIn.set(place, present.length)
       for (const job of group) {
-        const stage = styleOf.get(job.competence)?.stage
-        job.stage = stage ? present.indexOf(stage) : -1
+        job.stage = job.kind ? present.indexOf(job.kind) : -1
       }
     }
 
@@ -416,8 +432,8 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     const hasWork = (job: Job) => job.need > NOISE || Object.keys(job.fte).length > 0
     const isOpen = (job: Job, date: ISODate): boolean => {
       const group = byPlace.get(job.place)!
-      if (styleOf.get(job.competence)?.stage === 'lopende') {
-        const walls = group.filter((other) => styleOf.get(other.competence)?.stage === 'standbygging' && hasWork(other))
+      if (job.kind === 'lopende') {
+        const walls = group.filter((other) => other.kind === 'standbygging' && hasWork(other))
         return !walls.length || walls.some((wall) => began.has(wall) && began.get(wall)! <= date)
       }
       if (job.stage <= 0) return true
@@ -441,7 +457,7 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     }
     jobs.sort((a, b) => a.rank - b.rank || hallKey(a.row.hall).localeCompare(hallKey(b.row.hall), 'nb', { numeric: true }))
     const openFrom = new Map<Job, ISODate>()
-    const extraWork = (job: Job) => styleOf.get(job.competence)?.stage === 'ekstra'
+    const extraWork = (job: Job) => job.kind === 'ekstra'
     for (const date of [...new Set(jobs.flatMap((job) => job.days))].sort()) {
       // The FTE the planner typed is staffed first, as he put it.
       for (const job of jobs) {
@@ -488,9 +504,9 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
     return { jobs, byPlace, staff, uncovered }
   }
 
-  // Where the permanent staff cannot do it all, the window is widened onto the free days next to it, as many as the
-  // hours left over take, and everything of that project, hall and phase is planned again over the widened span. A
-  // widening stays only where it pays: 10 an uncovered hour against 3 a day the hall is used outside its phases.
+  // Where the permanent staff cannot do it all, the window is widened onto all the free days next to it, and everything of
+  // that project, hall and phase is planned again over the widened span; a day the plan does not use is not listed for
+  // Venyou. A widening stays only where it pays: 10 an uncovered hour against 3 a day the hall is used outside its phases.
   const extra = new Map<string, ISODate[]>()
   const stopped = new Set<string>()
   let result = planWith(extra)
@@ -502,9 +518,9 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
       const used = extra.get(place) ?? []
       const free = group[0].near.filter((date) => !used.includes(date))
       if (!free.length) continue
-      const daily = Math.max(perDay, (group.reduce((sum, job) => sum + job.need, 0) * perDay) / group[0].days.length)
       grown.set(place, used)
-      extra.set(place, [...used, ...free.slice(0, Math.max(1, Math.min(free.length, Math.ceil(hours / daily))))])
+      // All the free days at once: a stage short of people needs the days before it that the stages before it can then use.
+      extra.set(place, [...used, ...free])
     }
     if (!grown.size) break
     const next = planWith(extra)
@@ -520,27 +536,33 @@ export const solve = ({ ws, rows, required, windowOf, nearby = () => [], keepTyp
   }
   const { jobs, staff } = result
 
-  // The rows as the engine leaves them, the days it wrote marked; a suggested row with FTE becomes a stored row.
-  const byRow = new Map(jobs.map((job) => [job.row.id, job]))
+  // The rows as the engine leaves them, the FTE of their jobs added up and the days it wrote marked; a suggested row
+  // with FTE becomes a stored row.
+  const fteOf = new Map<string, { row: AllocationRow; fte: Record<ISODate, number> }>()
+  for (const job of jobs) {
+    const entry = fteOf.get(job.row.id) ?? { row: job.row, fte: {} }
+    for (const [date, fte] of Object.entries(job.fte)) entry.fte[date] = tenth((entry.fte[date] ?? 0) + fte)
+    fteOf.set(job.row.id, entry)
+  }
   let order = Math.max(-1, ...ws.allocations.map((row) => row.order))
   const projects = new Set<string>()
   const allocations = ws.allocations.map((row) => {
-    const job = byRow.get(row.id)
-    if (!job) return row
+    const planned = fteOf.get(row.id)?.fte
+    if (!planned) return row
     projects.add(row.projectNo)
     const fixed = fixedOf(row)
-    const engine = Object.keys(job.fte).filter((date) => !(date in fixed)).sort()
-    const same = Object.keys(job.fte).length === Object.keys(row.fte).filter((date) => row.fte[date]).length && Object.entries(job.fte).every(([date, fte]) => row.fte[date] === fte)
+    const engine = Object.keys(planned).filter((date) => !(date in fixed)).sort()
+    const same = Object.keys(planned).length === Object.keys(row.fte).filter((date) => row.fte[date]).length && Object.entries(planned).every(([date, fte]) => row.fte[date] === fte)
     if (same && engine.join() === (row.engine ?? []).join()) return row
-    return { ...row, fte: job.fte, ...(engine.length ? { engine } : { engine: undefined }) }
+    return { ...row, fte: planned, ...(engine.length ? { engine } : { engine: undefined }) }
   })
   const became = new Map<string, AllocationRow>()
-  for (const job of jobs) {
-    if (!isSuggestedRow(job.row) || !Object.keys(job.fte).length) continue
-    projects.add(job.row.projectNo)
-    const stored = { ...job.row, id: `row-${makeId()}`, order: ++order, fte: job.fte, notes: {}, engine: Object.keys(job.fte).sort() }
+  for (const { row, fte } of fteOf.values()) {
+    if (!isSuggestedRow(row) || !Object.keys(fte).length) continue
+    projects.add(row.projectNo)
+    const stored = { ...row, id: `row-${makeId()}`, order: ++order, fte, notes: {}, engine: Object.keys(fte).sort() }
     allocations.push(stored)
-    became.set(job.row.id, stored)
+    became.set(row.id, stored)
   }
   const solvedRows = new Map(allocations.map((row) => [row.id, row]))
   const outside = new Map<string, OutsideDay>()

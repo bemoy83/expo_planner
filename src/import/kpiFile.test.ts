@@ -102,3 +102,12 @@ describe('the KPI file', () => {
     expect(() => file(['Produkttype', 'Enhet'], ['Print', 'ordre'])).toThrow(FileFormatError)
   })
 })
+
+describe('the stage of a product type in the file', () => {
+  it('is written by name and read back, and left out where the type has none', () => {
+    const kpi: KpiConfig = { workTypes: [{ productType: 'Oppbygget gulv', unit: 'm²', competence: 'Snekker', stage: 'gulv' }, { productType: 'Snekker-vegger', unit: 'lm', competence: 'Snekker' }], rates: [{ name: 'Oppbygget gulv', unit: 'm²', assembly: 2, dismantle: 3 }, { name: 'Snekker-vegger', unit: 'lm', assembly: 1, dismantle: 1 }] }
+    const read = readKpiWorkbook(writeKpiWorkbook(kpi))
+    expect(read.workTypes.find((t) => t.productType === 'Oppbygget gulv')?.stage).toBe('gulv')
+    expect(read.workTypes.find((t) => t.productType === 'Snekker-vegger')).not.toHaveProperty('stage')
+  })
+})

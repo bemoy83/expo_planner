@@ -37,7 +37,8 @@ const NEXT = 'Går videre til'
 const MIN = 'Minst per hall'
 
 const colorOf = (name: string): LineColor | undefined => LINE_COLORS.find((color) => COLOR_NAMES[color].toLowerCase() === name.toLowerCase())
-const stageOf = (name: string): Stage | undefined => STAGES.find((stage) => STAGE_NAMES[stage].toLowerCase() === name.toLowerCase())
+/** A stage by its name, in any case; none for a name the app does not have. */
+export const stageByName = (name: string): Stage | undefined => STAGES.find((stage) => STAGE_NAMES[stage].toLowerCase() === name.trim().toLowerCase())
 
 export const writeKompetanserWorkbook = (ws: Workspace): Uint8Array => {
   const styles = competenceStyles(ws)
@@ -66,7 +67,7 @@ export const readKompetanserWorkbook = (bytes: Uint8Array): FileCompetence[] => 
           label: get(row, NAME),
           ...(get(row, SHORT) ? { shortLabel: get(row, SHORT) } : {}),
           ...(colorOf(get(row, COLOR)) ? { color: colorOf(get(row, COLOR)) } : {}),
-          ...(stageOf(get(row, STAGE)) ? { stage: stageOf(get(row, STAGE)) } : {}),
+          ...(stageByName(get(row, STAGE)) ? { stage: stageByName(get(row, STAGE)) } : {}),
           ...(get(row, NEXT) ? { next: get(row, NEXT) } : {}),
           ...(min && min > 0 ? { minPerHall: Math.round(min) } : {}),
         }

@@ -199,6 +199,8 @@ export interface WorkTypeRule {
   productType: string
   unit: string
   competence: string
+  /** Where its work comes in a build-up, where it is not where its competence's does: built-up floor is carpentry on the floor (the planner, 2026-10-25). */
+  stage?: Stage
 }
 
 /** Units of work done per person-hour for a work type and unit. */

@@ -1,5 +1,5 @@
 import { diffBy, type TableDiff } from './tableDiff'
-import type { ExcludedArticle, KpiConfig, KpiRate, VismaImport, VismaRow, WorkTypeRule } from './types'
+import type { ExcludedArticle, KpiConfig, KpiRate, Stage, VismaImport, VismaRow, WorkTypeRule } from './types'
 
 /**
  * The KPI setup as one editable table: a row per product type and unit, with the rates for that unit.
@@ -16,6 +16,8 @@ export interface KpiRow {
   unit: string
   /** The competence (nøkkelområde) of the product type, the same on all its units. */
   competence: string
+  /** Its stage, where it has one of its own; else its competence's is used. */
+  stage?: Stage
   assembly: number
   dismantle: number
   /** This unit is the one used when Visma lines of the product type are calculated. */
@@ -72,7 +74,7 @@ export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => 
   const row = (name: string, unit: string, assembly: number, dismantle: number): KpiRow => {
     const rule = rules.get(productTypeKey(name))
     const used = seen.get(productTypeKey(name))
-    return { name: rule?.productType ?? used?.name ?? productTypeName(name), unit, competence: rule?.competence ?? '', assembly, dismantle, active: !!rule && same(rule.unit, unit), lines: used?.lines ?? 0, configured: !!rule, lacking: lackingOf(name) }
+    return { name: rule?.productType ?? used?.name ?? productTypeName(name), unit, competence: rule?.competence ?? '', ...(rule?.stage ? { stage: rule.stage } : {}), assembly, dismantle, active: !!rule && same(rule.unit, unit), lines: used?.lines ?? 0, configured: !!rule, lacking: lackingOf(name) }
   }
   const rows = kpi.rates.map((rate) => row(rate.name, rate.unit, rate.assembly, rate.dismantle))
   for (const rule of kpi.workTypes) if (!rates.has(rateKey(rule.productType, rule.unit))) rows.push(row(rule.productType, rule.unit, 0, 0))
@@ -87,6 +89,7 @@ export const kpiRows = (kpi: KpiConfig, visma: VismaImport[] = []): KpiRow[] => 
 export interface KpiType {
   name: string
   competence: string
+  stage?: Stage
   /** Its units with their rates, the unit in use first; none where it has none yet. */
   units: KpiRow[]
   /** The unit its lines are counted in, where one is chosen. */
@@ -103,7 +106,7 @@ export const kpiTypes = (rows: KpiRow[]): KpiType[] => {
   const types = new Map<string, KpiType>()
   for (const row of rows) {
     const key = productTypeKey(row.name)
-    const type = types.get(key) ?? { name: row.name, competence: row.competence, units: [], lines: row.lines, configured: row.configured, lacking: row.lacking, unfinished: !!row.lacking && (row.configured || row.lines > 0) }
+    const type = types.get(key) ?? { name: row.name, competence: row.competence, ...(row.stage ? { stage: row.stage } : {}), units: [], lines: row.lines, configured: row.configured, lacking: row.lacking, unfinished: !!row.lacking && (row.configured || row.lines > 0) }
     if (row.unit) type.units.push(row)
     if (row.active) type.inUse = row
     types.set(key, type)
@@ -145,6 +148,20 @@ export const renameUnit = (kpi: KpiConfig, name: string, from: string, to: strin
   const rates = kpi.rates.map((rate) => (rateKey(rate.name, rate.unit) === rateKey(name, from) ? { ...rate, unit: to.trim() } : rate))
   return inUse ? setActiveUnit({ ...kpi, rates }, name, to) : { ...kpi, rates }
 }
+
+/** Gives a product type a stage of its own, or takes it away so its competence's is used. */
+export const setStage = (kpi: KpiConfig, name: string, stage: Stage | undefined): KpiConfig => ({
+  ...kpi,
+  workTypes: kpi.workTypes.map((rule) => {
+    if (!sameType(rule.productType, name)) return rule
+    const { stage: _old, ...rest } = rule
+    return stage ? { ...rest, stage } : rest
+  }),
+})
+
+/** The stage of a product type's work: its own, or else its competence's. */
+export const stageOfType = (kpi: KpiConfig | undefined, productType: string, competenceStage: Stage | undefined): Stage | undefined =>
+  kpi?.workTypes.find((rule) => sameType(rule.productType, productType))?.stage ?? competenceStage
 
 /** Sets the competence (nøkkelområde) of a work type; it applies to all its units. */
 export const setCompetence = (kpi: KpiConfig, name: string, unit: string, competence: string): KpiConfig => {
@@ -192,9 +209,12 @@ export interface KpiFile extends KpiConfig {
  */
 const keepChosenUnits = (existing: KpiConfig, { workTypes: incoming = [], unitsInUse }: Partial<KpiFile>, rates: KpiRate[]): WorkTypeRule[] => {
   const rated = new Set(rates.map((rate) => rateKey(rate.name, rate.unit)))
-  return incoming.map((rule) => {
+  return incoming.map((given) => {
+    const old = existing.workTypes.find((each) => sameType(each.productType, given.productType))
+    // A file without stages keeps those the planner has set.
+    const rule = given.stage || !old?.stage ? given : { ...given, stage: old.stage }
     if (unitsInUse && rule.unit) return rule
-    const chosen = existing.workTypes.find((old) => sameType(old.productType, rule.productType))?.unit
+    const chosen = old?.unit
     return chosen && rated.has(rateKey(rule.productType, chosen)) ? { ...rule, unit: chosen } : rule
   })
 }
@@ -252,7 +272,7 @@ const diffPart = <T,>(existing: T[], incoming: T[] | undefined, key: (item: T) =
 /** What a KPI file would change, for the work types, the rates and the article numbers left out. */
 export const diffKpi = (existing: KpiConfig, incoming: Partial<KpiFile>): { workTypes: TableDiff; rates: TableDiff; excludedArticles: TableDiff } => ({
   // Counted as they would be taken in: a unit the planner has chosen is no change.
-  workTypes: diffPart(existing.workTypes, incoming.workTypes && keepChosenUnits(existing, incoming, [...existing.rates, ...(incoming.rates ?? [])]), (rule) => productTypeKey(rule.productType), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence)),
+  workTypes: diffPart(existing.workTypes, incoming.workTypes && keepChosenUnits(existing, incoming, [...existing.rates, ...(incoming.rates ?? [])]), (rule) => productTypeKey(rule.productType), (a, b) => same(a.unit, b.unit) && same(a.competence, b.competence) && a.stage === b.stage),
   rates: diffPart(existing.rates, incoming.rates, (rate) => rateKey(rate.name, rate.unit), (a, b) => a.assembly === b.assembly && a.dismantle === b.dismantle),
   excludedArticles: diffPart(existing.excludedArticles ?? [], incoming.excludedArticles, (article) => articleKey(article.articleNo), (a, b) => a.note === b.note),
 })

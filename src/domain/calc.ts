@@ -26,6 +26,8 @@ interface HourTotals {
 interface HourPart extends HourTotals {
   hall: string
   avdeling: string
+  /** The product type of the line. */
+  workType: string
 }
 
 export interface DemandIndex {
@@ -49,7 +51,7 @@ export const buildDemandIndex = (demand: DemandLine[]): DemandIndex => {
     totals.dismantle += line.dismantleHours
     hours.set(k, totals)
     const list = parts.get(k) ?? []
-    list.push({ hall: line.hall.trim(), avdeling: (line.avdeling ?? '').trim(), assembly: line.assemblyHours, dismantle: line.dismantleHours })
+    list.push({ hall: line.hall.trim(), avdeling: (line.avdeling ?? '').trim(), workType: line.workType, assembly: line.assemblyHours, dismantle: line.dismantleHours })
     parts.set(k, list)
     if (!line.competence.trim()) continue
     const byCompetence = options.get(line.projectNo.trim()) ?? new Map<string, Set<string>>()
@@ -80,6 +82,20 @@ export const requiredHours = (index: DemandIndex, row: RowScope): number | null 
     sum += part[phase]
   }
   return sum
+}
+
+/** The required hours of a row by the product type of its demand lines, as `requiredHours` counts them. */
+export const hoursByWorkType = (index: DemandIndex, row: RowScope): Map<string, number> => {
+  const by = new Map<string, number>()
+  const ref = referenceProjectNo(row.projectNo, row.refYear)
+  if (!ref || !row.phase) return by
+  const phase = row.phase === 'Montering' ? 'assembly' : 'dismantle'
+  for (const part of index.parts.get(key(ref, row.competence, row.basis)) ?? []) {
+    if (row.hall !== undefined && norm(part.hall) !== norm(row.hall)) continue
+    if (row.avdeling !== undefined && norm(part.avdeling) !== norm(row.avdeling)) continue
+    if (part[phase]) by.set(part.workType, (by.get(part.workType) ?? 0) + part[phase])
+  }
+  return by
 }
 
 /** Halls and departments with demand for a project, competence and basis, for choosing a row's scope. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addKpiRow, kpiTypes, linesByText, withTextType, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, productTypeKey, productTypeName, typeAndRate } from './kpi'
+import { addKpiRow, kpiTypes, linesByText, withTextType, articlesSeen, diffKpi, excludedLines, isCounted, withExcludedArticle, withoutExcludedArticle, EMPTY_KPI, kpiRows, linesWithoutProductType, mergeKpi, removeKpiRow, renameUnit, replaceKpi, setActiveUnit, setCompetence, setRate, setStage, stageOfType, productTypeKey, productTypeName, typeAndRate } from './kpi'
 import type { KpiConfig, VismaImport, VismaRow } from './types'
 
 const kpi: KpiConfig = {
@@ -247,5 +247,24 @@ describe('article numbers left out', () => {
       { articleNo: '12', texts: [], lines: 1 },
       { articleNo: '4711', texts: ['Frakt'], lines: 2 },
     ])
+  })
+})
+
+describe('the stage of a product type', () => {
+  const kpi: KpiConfig = { workTypes: [{ productType: 'Oppbygget gulv', unit: 'm²', competence: 'Snekker' }, { productType: 'Snekker-vegger', unit: 'lm', competence: 'Snekker' }], rates: [] }
+
+  it('is its own where it has one, and else its competence\'s', () => {
+    const set = setStage(kpi, 'oppbygget GULV', 'gulv')
+    expect(stageOfType(set, 'Oppbygget gulv', 'tilvalg')).toBe('gulv')
+    expect(stageOfType(set, 'Snekker-vegger', 'tilvalg')).toBe('tilvalg')
+    expect(setStage(set, 'Oppbygget gulv', undefined).workTypes[0]).not.toHaveProperty('stage')
+  })
+
+  it('is kept when a file without stages is read in, and taken from one that has them', () => {
+    const set = setStage(kpi, 'Oppbygget gulv', 'gulv')
+    const plain = { workTypes: [{ productType: 'Oppbygget gulv', unit: 'm²', competence: 'Snekker' }] }
+    expect(mergeKpi(set, plain).workTypes.find((t) => t.productType === 'Oppbygget gulv')?.stage).toBe('gulv')
+    expect(mergeKpi(kpi, { workTypes: [{ ...plain.workTypes[0], stage: 'gulv' }] }).workTypes[0].stage).toBe('gulv')
+    expect(diffKpi(kpi, { workTypes: [{ ...plain.workTypes[0], stage: 'gulv' }] }).workTypes.changed).toBe(1)
   })
 })

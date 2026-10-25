@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { ALL_HALLS, cleanHallFilter, type HallFilter } from '../../domain/areas'
-import { capacityForDate, rowTotals, sumValues } from '../../domain/calc'
+import { capacityForDate, hoursByWorkType, rowTotals, sumValues } from '../../domain/calc'
 import { calendarRange } from '../../domain/calendarRange'
 import { dateRange, daysBetween, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
@@ -228,9 +228,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // The score of the project of the row in focus, worked out only while its details are open.
   const scored = inspectorOpen && !bemanning ? plan.details?.row.projectNo : undefined
   const requiredFte = useCallback((row: AllocationRow) => rowTotals(demandIndex, row, settings).requiredFte ?? 0, [demandIndex, settings])
+  const hoursByWork = useCallback((row: AllocationRow) => hoursByWorkType(demandIndex, row), [demandIndex])
   const score = useMemo(
-    () => (scored === undefined ? null : projectScore(scorePlan(ws, dates, windowOf, WEIGHTS, { rows: allGroups.flatMap((group) => group.rows), required: requiredFte }), scored)),
-    [scored, ws, dates, windowOf, allGroups, requiredFte],
+    () => (scored === undefined ? null : projectScore(scorePlan(ws, dates, windowOf, WEIGHTS, { rows: allGroups.flatMap((group) => group.rows), required: requiredFte, hoursByWork }), scored)),
+    [scored, ws, dates, windowOf, allGroups, requiredFte, hoursByWork],
   )
   const engineRows = useMemo(() => (engineOpen ? allGroups.flatMap((group) => group.rows) : []), [engineOpen, allGroups])
   const projectSpans = useMemo(() => (bemanning ? projectSpansOf(allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start) : []), [bemanning, allGroups, plan.phasesOfProject, plan.hallsOf, hallCalendar.halls, range.start])
@@ -469,6 +470,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
           ws={ws}
           rows={engineRows}
           required={requiredFte}
+          hoursByWork={hoursByWork}
           windowOf={windowOf}
           nearby={plan.nearbyOf}
           dates={dates}

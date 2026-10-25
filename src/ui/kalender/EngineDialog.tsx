@@ -16,6 +16,8 @@ interface Props {
   /** Every row of the plan, stored and suggested, of every project in the period. */
   rows: AllocationRow[]
   required: (row: AllocationRow) => number
+  /** A row's required hours by product type, so its work is split by stage. */
+  hoursByWork: (row: AllocationRow) => Map<string, number>
   windowOf: (row: AllocationRow) => Set<ISODate> | undefined
   /** The working days next to a row's window that its halls stand free, for an earlier start. */
   nearby: (row: AllocationRow) => ISODate[]
@@ -54,14 +56,14 @@ const venyouText = (days: OutsideDay[]): string[] => {
  * per project with its score before and after, to be taken for the projects the planner picks. Nothing is written
  * until he does; then it is one undo step.
  */
-export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onApply, onClose }: Props) {
+export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby, dates, onApply, onClose }: Props) {
   const [keepTyped, setKeepTyped] = useState(true)
   const [widen, setWiden] = useState(true)
-  const solution = useMemo(() => solve({ ws, rows, required, windowOf, nearby: widen ? nearby : undefined, keepTyped }), [ws, rows, required, windowOf, nearby, widen, keepTyped])
+  const solution = useMemo(() => solve({ ws, rows, required, hoursByWork, windowOf, nearby: widen ? nearby : undefined, keepTyped }), [ws, rows, required, hoursByWork, windowOf, nearby, widen, keepTyped])
   const lines = useMemo((): Line[] => {
     // Demand put on no day counts as uncovered, so a plan not yet made is not scored as one that costs nothing.
-    const before = scorePlan(ws, dates, windowOf, WEIGHTS, { rows, required })
-    const after = scorePlan(solution.workspace, dates, windowOf, WEIGHTS, { rows: solution.rows, required })
+    const before = scorePlan(ws, dates, windowOf, WEIGHTS, { rows, required, hoursByWork })
+    const after = scorePlan(solution.workspace, dates, windowOf, WEIGHTS, { rows: solution.rows, required, hoursByWork })
     return solution.projects
       .map((projectNo) => {
         const mine = (r: AllocationRow) => numberKey(r.projectNo) === numberKey(projectNo)
@@ -80,7 +82,7 @@ export function EngineDialog({ ws, rows, required, windowOf, nearby, dates, onAp
         }
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
-  }, [ws, rows, required, solution, dates, windowOf])
+  }, [ws, rows, required, hoursByWork, solution, dates, windowOf])
   // A project is picked to start with where the engine's plan is better than what it has.
   const [skipped, setSkipped] = useState<Set<string> | null>(null)
   const picked = (line: Line) => (skipped ? !skipped.has(line.projectNo) : line.after.total < line.before.total - 1e-6)

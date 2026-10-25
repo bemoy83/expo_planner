@@ -2,12 +2,13 @@ import { competenceStyles } from '../competences'
 import { pushTo } from '../collections'
 import { daysBetween, type ISODate } from '../dates'
 import { hireHours, isWaiting } from '../hire'
+import { stageOfType } from '../kpi'
 import { dayType } from '../holidays'
 import { numberKey } from '../projects'
 import { buildProjectBalance, NO_PROJECT } from '../staffing/projectBalance'
 import { overtimeHours } from '../staffing/intervals'
 import { okAssignments } from '../staffing/time'
-import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type Stage, type WorkPhase, type Workspace } from '../types'
+import { competenceKey, type AllocationRow, type Assignment, type CompetenceKey, type CompetenceStyle, type KpiConfig, type Stage, type WorkPhase, type Workspace } from '../types'
 
 /**
  * The score of a plan with its staffing: what it costs, counted in hours, never in kroner (the planner, 2026-10-25).
@@ -127,6 +128,18 @@ export interface Unplanned {
   rows: AllocationRow[]
   /** The FTE-days a row needs in all. */
   required: (row: AllocationRow) => number
+  /** A row's required hours by product type, so its stage is that of its product types (`hoursByWorkType`). */
+  hoursByWork?: (row: AllocationRow) => Map<string, number>
+}
+
+/**
+ * The stage of a row's work: that of its product types, else its competence's. A row whose work spans several stages, as
+ * carpentry with built-up floor and walls, has none, as its days cannot be told apart by stage.
+ */
+export const rowStage = (kpi: KpiConfig | undefined, competenceStage: Stage | undefined, hours: Map<string, number> | undefined): Stage | undefined | null => {
+  if (!hours?.size) return competenceStage
+  const stages = new Set([...hours.keys()].map((workType) => stageOfType(kpi, workType, competenceStage)))
+  return stages.size === 1 ? [...stages][0] : null
 }
 
 /**
@@ -210,7 +223,7 @@ export const scorePlan = (ws: Workspace, dates: ISODate[], windowOf: (row: Alloc
   // Stages: in a project's hall and phase, each stage's days against those of the stages before and after it.
   const runs = new Map<string, { row: AllocationRow; stages: Map<Stage, { first: ISODate; last: ISODate }> }>()
   for (const row of ws.allocations) {
-    const stage = styleOf.get(competenceKey(row.competence))?.stage
+    const stage = rowStage(ws.kpi, styleOf.get(competenceKey(row.competence))?.stage, unplanned?.hoursByWork?.(row))
     if (!stage || !ORDERED.includes(stage) || !row.phase) continue
     const days = Object.keys(row.fte).filter((date) => row.fte[date] && wanted.has(date)).sort()
     if (!days.length) continue

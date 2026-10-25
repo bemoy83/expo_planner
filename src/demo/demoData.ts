@@ -120,6 +120,8 @@ interface DemoProductType {
   articles: [string, string][]
   /** The quantity per stand, as a range. */
   quantity: [number, number]
+  /** Its stage, where it is not its competence's (the stage names of `kompetanserFile.ts`). */
+  stage?: string
 }
 
 /**
@@ -165,8 +167,8 @@ export const DEMO_PRODUCT_TYPES: DemoProductType[] = [
   { name: 'Print', competence: 'Profilering', units: [{ unit: 'ordre', assembly: 1, dismantle: 0, inUse: true }, { unit: 'stk', assembly: 5, dismantle: 0 }], articles: [['4010', 'Folieprint vegg']], quantity: [2, 12] },
   { name: 'Firmaskilt', competence: 'Profilering', units: [{ unit: 'stk', assembly: 18, dismantle: 22 }], articles: [['4020', 'Firmaskilt over stand']], quantity: [1, 2] },
   { name: 'Snekker-vegger', competence: 'Snekker', units: [{ unit: 'lm', assembly: 0.9, dismantle: 1.3 }], articles: [['8001', 'Lettvegg MDF']], quantity: [2, 8] },
-  { name: 'Oppbygget gulv', competence: 'Snekker', units: [{ unit: 'm²', assembly: 2.2, dismantle: 3.5 }], articles: [['8010', 'Oppbygget gulv med kant']], quantity: [9, 30] },
-  { name: 'Laminatgulv', competence: 'Snekker', units: [{ unit: 'm²', assembly: 5, dismantle: 13 }], articles: [['8020', 'Laminat eik']], quantity: [9, 24] },
+  { name: 'Oppbygget gulv', competence: 'Snekker', stage: 'Gulv', units: [{ unit: 'm²', assembly: 2.2, dismantle: 3.5 }], articles: [['8010', 'Oppbygget gulv med kant']], quantity: [9, 30] },
+  { name: 'Laminatgulv', competence: 'Snekker', stage: 'Gulv', units: [{ unit: 'm²', assembly: 5, dismantle: 13 }], articles: [['8020', 'Laminat eik']], quantity: [9, 24] },
   { name: 'Oppmåling', competence: 'Oppmerking', units: [{ unit: 'haller', assembly: 0.07, dismantle: 0 }], articles: [['9101', 'Oppmerking av hall']], quantity: [1, 1] },
   { name: 'Møteromsvegger', competence: 'Ekstra', units: [{ unit: 'lm', assembly: 18, dismantle: 22 }], articles: [['9110', 'Pop-up møterom, vegger']], quantity: [10, 40] },
   { name: 'Tribuner', competence: 'Ekstra', units: [{ unit: 'sett', assembly: 0.25, dismantle: 0.35 }], articles: [['9120', 'Tribune 100 plasser']], quantity: [1, 3] },
@@ -269,9 +271,9 @@ const kpiFile = () =>
   writeXlsx([
     {
       name: 'KPI',
-      head: ['Produkttype', 'Enhet', 'I bruk', 'Kompetanse', 'Montering', 'Demontering'],
+      head: ['Produkttype', 'Enhet', 'I bruk', 'Kompetanse', 'Montering', 'Demontering', 'Trinn'],
       rows: DEMO_PRODUCT_TYPES.flatMap((type) =>
-        type.units.map((unit): CellValue[] => [type.name, unit.unit, unit.inUse ? 'Ja' : '', type.competence, unit.assembly, unit.dismantle || null]),
+        type.units.map((unit): CellValue[] => [type.name, unit.unit, unit.inUse ? 'Ja' : '', type.competence, unit.assembly, unit.dismantle || null, type.stage ?? null]),
       ),
     },
     // The freight is no work for the crew.
