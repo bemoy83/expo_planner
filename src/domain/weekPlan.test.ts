@@ -55,7 +55,7 @@ describe('the week plan', () => {
   it('flags the days that lack crew, and the days an order waits instead', () => {
     const first = plan.projects.find((p) => p.projectNo === FIRST)!
     expect(first.bars[0].flags).toEqual([{ state: 'short', days: [0, 2] }])
-    const order = { id: 'o', supplierId: 's1', competence: 'vegger', date: WED, fte: 2, start: wd.dayStart, end: wd.dayEnd, conf: null, projectNo: FIRST }
+    const order = { id: 'o', supplierId: 's1', shift: 'dag' as const, competence: 'vegger', date: WED, fte: 2, start: wd.dayStart, end: wd.dayEnd, conf: null, projectNo: FIRST }
     const waiting = buildWeekPlan({ ...ws, hireOrders: [order] }, MON).projects.find((p) => p.projectNo === FIRST)!
     expect(waiting.bars[0].flags).toEqual([
       { state: 'short', days: [0] },

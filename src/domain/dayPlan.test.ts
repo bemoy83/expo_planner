@@ -61,7 +61,7 @@ describe('the day plan', () => {
   })
 
   it('shows a supplier under its project, and what waits does not cover', () => {
-    const order = { id: 'o1', supplierId: 's1', competence: 'vegger', date: MON, fte: 3, start: wd.dayStart, end: wd.dayEnd, conf: null, projectNo: FIRST }
+    const order = { id: 'o1', supplierId: 's1', shift: 'dag' as const, competence: 'vegger', date: MON, fte: 3, start: wd.dayStart, end: wd.dayEnd, conf: null, projectNo: FIRST }
     const plan = buildDayPlan({ ...staffed(), hireOrders: [order] }, MON)
     const hired = plan.groups.flatMap((g) => g.competences.flatMap((c) => c.entries)).find((e) => e.kind === 'hired')!
     expect(hired).toMatchObject({ kind: 'hired', name: 'Messehjelp AS', people: 3, waiting: true, projectNo: FIRST })
@@ -120,7 +120,7 @@ describe('the day plan', () => {
   })
 
   it('counts the people of a confirmed order in its group, and shows those that wait without counting them', () => {
-    const order = (id: string, conf: number | null) => ({ id, supplierId: 's1', competence: 'vegger', date: MON, fte: 2, start: wd.dayStart, end: wd.dayEnd, conf, projectNo: SECOND })
+    const order = (id: string, conf: number | null) => ({ id, supplierId: 's1', shift: 'dag' as const, competence: 'vegger', date: MON, fte: 2, start: wd.dayStart, end: wd.dayEnd, conf, projectNo: SECOND })
     const plan = buildDayPlan({ ...staffed(), hireOrders: [order('o1', 2), { ...order('o2', null), start: 960, end: 1200 }] }, MON)
     const group = plan.groups.flatMap((g) => g.competences).find((c) => c.entries.some((e) => e.kind === 'hired'))!
     expect(group.people).toBe(2)

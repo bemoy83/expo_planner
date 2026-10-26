@@ -33,7 +33,7 @@ describe('what is left uncovered', () => {
   })
 
   it('counts orders that wait as ordered, and keeps to the projects asked for', () => {
-    const order: HireOrder = { id: 'o', supplierId: 's1', competence: 'foga', date: MON, fte: 1, start: 420, end: 900, conf: null, projectNo: '26001' }
+    const order: HireOrder = { id: 'o', supplierId: 's1', shift: 'dag', competence: 'foga', date: MON, fte: 1, start: 420, end: 900, conf: null, projectNo: '26001' }
     expect(leftUncovered(ws([row('foga', { [MON]: 1 })], [], [order]), [MON])).toEqual([])
     expect(leftUncovered(ws([row('foga', { [MON]: 1 }, '26002')]), [MON], ['26001'])).toEqual([])
   })

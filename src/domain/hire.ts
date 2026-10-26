@@ -1,6 +1,7 @@
 import { dayText, type ISODate } from './dates'
 import { projectTag, sameProject, SHIFT_IDS, workOf, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type Work, type WorkdaySettings, type Workspace } from './types'
 import { pushTo } from './collections'
+import { dayType } from './holidays'
 import type { NeedLabelParts, NeedSegment } from './needLabel'
 
 /**
@@ -35,10 +36,10 @@ const clock = (minute: Minute) => `${String(Math.floor(minute / 60) % 24).padSta
 /** A stretch of time as it is written on an order: «07:00–15:00». */
 export const timesText = (times: Interval): string => `${clock(times.start)}–${clock(times.end)}`
 
-/** When an order is worked, as a line of the editor names it: its shift, or its own times. */
-export const shiftText = (times: Interval, wd: WorkdaySettings): string => {
-  const shift = shiftOf(times, wd)
-  return shift ? SHIFT_LABELS[shift] : timesText(times)
+/** When an order is worked: its shift, with its own times beside it where they are not the shift's. */
+export const shiftText = (order: Interval & { shift: ShiftId }, wd: WorkdaySettings): string => {
+  const times = shiftTimes(order.shift, wd)
+  return times.start === order.start && times.end === order.end ? SHIFT_LABELS[order.shift] : `${SHIFT_LABELS[order.shift]} ${timesText(order)}`
 }
 
 /** The length of an order's time, which goes through the night where its end is not after its start. */
@@ -220,9 +221,11 @@ export const deviation = (covers: Coverage[]): Deviation => {
 
 const newId = () => `hire-${crypto.randomUUID()}`
 
-const sameOrder = (a: HireOrder, b: HireOrder) => a.supplierId === b.supplierId && a.competence === b.competence && a.date === b.date && a.start === b.start && a.end === b.end && sameProject(a, b)
+/** What tells orders apart: a supplier's line (its shift), a competence, a project and a day. Times are not part of it, so new times leave an order on its line. */
+type OrderKey = Pick<HireOrder, 'supplierId' | 'shift' | 'competence' | 'date' | 'projectNo'>
+const sameOrder = (a: OrderKey, b: OrderKey) => a.supplierId === b.supplierId && a.shift === b.shift && a.competence === b.competence && a.date === b.date && sameProject(a, b)
 
-/** I5: orders of the same supplier, competence, project, day and time are one: their people add up, and it waits while one of them does. */
+/** I5: orders of the same supplier, shift, competence, project and day are one: their people add up, and it waits while one of them does. The first one's times stand. */
 export const mergeOrders = (orders: HireOrder[]): HireOrder[] => {
   const merged: HireOrder[] = []
   for (const order of orders) {
@@ -251,13 +254,14 @@ export const planOrders = (orders: HireOrder[], supplier: Supplier, work: Compet
   const tagged = workOf(work)
   const competence = tagged.competence
   if (!supplier.competences.includes(competence) || !supplier.shifts.length) return []
-  const taken = new Set(orders.filter((order) => order.supplierId === supplier.id && order.competence === competence && sameProject(order, tagged) && dates.includes(order.date)).map((order) => shiftOf(order, wd)))
-  const times = shiftTimes(supplier.shifts.find((shift) => !taken.has(shift)) ?? supplier.shifts[0], wd)
+  const taken = new Set(orders.filter((order) => order.supplierId === supplier.id && order.competence === competence && sameProject(order, tagged) && dates.includes(order.date)).map((order) => order.shift))
+  const shift = supplier.shifts.find((one) => !taken.has(one)) ?? supplier.shifts[0]
+  const times = shiftTimes(shift, wd)
   const hours = hireHours(times, wd)
   const missing = new Map(dates.map((date) => [date, coverage(restOf(date), ordersOf(orders, tagged, date), wd)]))
   const short = dates.filter((date) => missing.get(date)!.state === 'short')
   const days = short.length ? short : strict ? [] : dates
-  return days.map((date) => ({ id: makeId(), supplierId: supplier.id, competence, ...projectTag(tagged), date, fte: Math.max(1, Math.ceil(Math.max(0, missing.get(date)!.remaining) / hours - 1e-6)), ...times, conf: null }))
+  return days.map((date) => ({ id: makeId(), supplierId: supplier.id, shift, competence, ...projectTag(tagged), date, fte: Math.max(1, Math.ceil(Math.max(0, missing.get(date)!.remaining) / hours - 1e-6)), ...times, conf: null }))
 }
 
 /** A line of a competence that orders are made for: a project, or with no project the hours that are on none of the project lines. */
@@ -351,6 +355,7 @@ export const eraseOrders = (orders: HireOrder[], competence: CompetenceKey, date
 export interface OrderGroup {
   key: string
   supplierId: string
+  shift: ShiftId
   start: Minute
   end: Minute
   projectNo?: string
@@ -368,7 +373,7 @@ export const orderGroups = (orders: HireOrder[], suppliers: Supplier[]): OrderGr
   const groups = new Map<string, OrderGroup>()
   for (const order of orders) {
     const key = groupKey(order.supplierId, order)
-    if (!groups.has(key)) groups.set(key, { key, supplierId: order.supplierId, start: order.start, end: order.end, ...projectTag(order), orders: [] })
+    if (!groups.has(key)) groups.set(key, { key, supplierId: order.supplierId, shift: order.shift, start: order.start, end: order.end, ...projectTag(order), orders: [] })
     groups.get(key)!.orders.push(order)
   }
   const place = (id: string) => suppliers.findIndex((supplier) => supplier.id === id)
@@ -383,7 +388,7 @@ export const fillGroup = (group: OrderGroup, competence: CompetenceKey, dates: I
   const counts = group.orders.map((order) => order.fte).sort((a, b) => a - b)
   const fte = counts[Math.floor(counts.length / 2)]
   const have = new Set(group.orders.map((order) => order.date))
-  return dates.filter((date) => !have.has(date)).map((date) => ({ id: makeId(), supplierId: group.supplierId, competence, ...(group.projectNo && { projectNo: group.projectNo }), date, fte, start: group.start, end: group.end, conf: null }))
+  return dates.filter((date) => !have.has(date)).map((date) => ({ id: makeId(), supplierId: group.supplierId, shift: group.shift, competence, ...(group.projectNo && { projectNo: group.projectNo }), date, fte, start: group.start, end: group.end, conf: null }))
 }
 
 /** A supplier's orders as they are listed: by day, then in the planner's order of the competences, then by time. */
@@ -530,4 +535,275 @@ export const supplierTotals = (supplier: Supplier, orders: HireOrder[], wd: Work
   const hours = own.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
   const waiting = own.filter(isWaiting).length
   return { people: own.reduce((sum, order) => sum + order.fte, 0), hours, cost: supplier.rate ? hours * supplier.rate : null, confirmed: own.length - waiting, waiting }
+}
+
+/*
+ * Orders painted on the suppliers' lines, as Faste paints blocks on people (the Claude Doc «Innleid på leverandørlinjer:
+ * byggeplan», 2026-10-26): a line per supplier and shift, the brush a competence and maybe a project with a count of people.
+ */
+
+/** A line of a supplier: one of its shifts. */
+export interface SupplierLine {
+  /** `lineKey`. */
+  key: string
+  supplierId: string
+  shift: ShiftId
+  /** The supplier offers the shift. A shift it no longer offers keeps its line while it has orders. */
+  offered: boolean
+  /** The competences ordered on the line that the supplier no longer offers. */
+  stale: CompetenceKey[]
+}
+
+/** Where on the suppliers' lines: a supplier's shift. */
+export type LineRef = Pick<SupplierLine, 'supplierId' | 'shift'>
+/** A day on a supplier's line. */
+export type LineDay = LineRef & { date: ISODate }
+
+export const lineKey = (supplierId: string, shift: ShiftId): string => `${supplierId}|${shift}`
+
+/** A supplier's lines: the shifts it offers in the order of the day, and one it no longer offers while that has orders. */
+export const supplierLines = (supplier: Supplier, orders: HireOrder[]): SupplierLine[] => {
+  const own = orders.filter((order) => order.supplierId === supplier.id)
+  return SHIFT_IDS.filter((shift) => supplier.shifts.includes(shift) || own.some((order) => order.shift === shift)).map((shift) => ({
+    key: lineKey(supplier.id, shift),
+    supplierId: supplier.id,
+    shift,
+    offered: supplier.shifts.includes(shift),
+    stale: [...new Set(own.filter((order) => order.shift === shift && !supplier.competences.includes(order.competence)).map((order) => order.competence))],
+  }))
+}
+
+/** The days a stroke fills: its working days, or every one of them where it has none, as Faste's brush (`onlyOffDays`). */
+export const strokeDays = (dates: ISODate[]): ISODate[] => {
+  const work = dates.filter((date) => dayType(date) === 'arbeidsdag')
+  return work.length ? work : dates
+}
+
+/** I7 for a count set anew: more people is a new question, so the order waits again; fewer keeps a confirmed order confirmed. What was asked is forgotten. */
+const recount = (order: HireOrder, fte: number): HireOrder => {
+  if (fte === order.fte) return order
+  return fte > order.fte ? { ...withoutAsked(order), fte, conf: null } : { ...withoutAsked(order), fte, conf: isWaiting(order) ? null : fte }
+}
+
+/** What a stroke of the brush orders: its competence, for its project or none, on the lines and the days it goes over. */
+export interface Paint {
+  lines: LineRef[]
+  competence: CompetenceKey
+  projectNo?: string
+  dates: ISODate[]
+  /** The people on the brush. */
+  count: number
+}
+
+/**
+ * The brush's count on every day of the stroke and every line it goes over, at the shift's times. An order that is there
+ * on the same key gets the count (`recount`), so a second stroke corrects the first. A line of a supplier that does not
+ * offer the competence is skipped, and counted.
+ */
+export const paintOrders = (orders: HireOrder[], paint: Paint, suppliers: Supplier[], wd: WorkdaySettings, makeId: () => string = newId): { orders: HireOrder[]; skipped: number } => {
+  const fte = Math.max(1, Math.round(paint.count))
+  const days = strokeDays(paint.dates)
+  const next = [...orders]
+  let changed = false
+  let skipped = 0
+  for (const line of paint.lines) {
+    if (!suppliers.find((supplier) => supplier.id === line.supplierId)?.competences.includes(paint.competence)) {
+      skipped++
+      continue
+    }
+    for (const date of days) {
+      const key: OrderKey = { supplierId: line.supplierId, shift: line.shift, competence: paint.competence, date, ...projectTag(paint) }
+      const at = next.findIndex((order) => sameOrder(order, key))
+      if (at < 0) next.push({ id: makeId(), ...key, fte, ...shiftTimes(line.shift, wd), conf: null })
+      else if (recount(next[at], fte) !== next[at]) next[at] = recount(next[at], fte)
+      else continue
+      changed = true
+    }
+  }
+  return { orders: changed ? next : orders, skipped }
+}
+
+/** The orders without any on the days of the lines: Tøm, Alt and Delete, which empty the days as Faste's do (`clearDays`). */
+export const clearOrders = (orders: HireOrder[], cells: LineDay[]): HireOrder[] => {
+  const keys = new Set(cells.map((cell) => `${lineKey(cell.supplierId, cell.shift)}|${cell.date}`))
+  const gone = (order: HireOrder) => keys.has(`${lineKey(order.supplierId, order.shift)}|${order.date}`)
+  return orders.some(gone) ? orders.filter((order) => !gone(order)) : orders
+}
+
+/** An order to put somewhere: what it is, without the answer, which a placed order waits for. */
+type Placing = Omit<HireOrder, 'id' | 'conf' | 'asked' | 'engine'>
+
+/**
+ * Orders put on lines by a paste or a move: each takes the place of what is on its key, and waits. One for a competence
+ * its supplier does not offer is skipped. Returns which were placed, by their place in `items`.
+ */
+const placeOrders = (orders: HireOrder[], items: Placing[], suppliers: Supplier[], makeId: () => string): { orders: HireOrder[]; placed: boolean[] } => {
+  const placed = items.map((item) => !!suppliers.find((supplier) => supplier.id === item.supplierId)?.competences.includes(item.competence))
+  const put = items.filter((_, i) => placed[i])
+  if (!put.length) return { orders, placed }
+  const kept = orders.filter((order) => !put.some((item) => sameOrder(order, item)))
+  return { orders: [...kept, ...put.map((item) => ({ id: makeId(), ...item, conf: null }))], placed }
+}
+
+/** An order on another line: the line's shift, with the order's own times where the shift is the same and the shift's where it is not. */
+const onLine = (order: HireOrder, to: LineDay, wd: WorkdaySettings): Placing => {
+  const { id: _id, conf: _conf, asked: _asked, engine: _engine, ...rest } = order
+  return { ...rest, supplierId: to.supplierId, shift: to.shift, date: to.date, ...(to.shift === order.shift ? {} : shiftTimes(to.shift, wd)) }
+}
+
+/** Orders copied from days on lines, each with how far its line and day are from the first of them. */
+export interface OrderClip {
+  items: { line: number; day: number; order: HireOrder }[]
+}
+
+/** The orders on some lines over some days, to paste: `null` where there are none. */
+export const copyOrders = (orders: HireOrder[], lines: LineRef[], dates: ISODate[]): OrderClip | null => {
+  const items: OrderClip['items'] = []
+  for (const order of orders) {
+    const line = lines.findIndex((one) => one.supplierId === order.supplierId && one.shift === order.shift)
+    const day = dates.indexOf(order.date)
+    if (line >= 0 && day >= 0) items.push({ line, day, order })
+  }
+  return items.length ? { items } : null
+}
+
+/**
+ * The orders copied, pasted on `lines` (from the line under the pointer down) over `dates` (from the day under it on).
+ * What lands past the last line or day, or on a supplier that does not offer the competence, is skipped.
+ */
+export const pasteOrders = (orders: HireOrder[], clip: OrderClip, lines: LineRef[], dates: ISODate[], suppliers: Supplier[], wd: WorkdaySettings, makeId: () => string = newId): { orders: HireOrder[]; pasted: number; skipped: number } => {
+  const landing = clip.items.filter((item) => lines[item.line] && dates[item.day])
+  const placing = landing.map((item) => onLine(item.order, { ...lines[item.line], date: dates[item.day] }, wd))
+  const result = placeOrders(orders, placing, suppliers, makeId)
+  const pasted = result.placed.filter(Boolean).length
+  return { orders: result.orders, pasted, skipped: clip.items.length - pasted }
+}
+
+/** A day's orders on a line moved to another day or line, or copied with `copy`, as Faste moves a day's blocks (`moveDay`). An order that cannot go stays. */
+export const moveOrders = (orders: HireOrder[], from: LineDay, to: LineDay, copy: boolean, suppliers: Supplier[], wd: WorkdaySettings, makeId: () => string = newId): { orders: HireOrder[]; moved: number; skipped: number } => {
+  const same = from.supplierId === to.supplierId && from.shift === to.shift && from.date === to.date
+  const moving = orders.filter((order) => order.supplierId === from.supplierId && order.shift === from.shift && order.date === from.date)
+  if (same || !moving.length) return { orders, moved: 0, skipped: 0 }
+  const left = copy ? orders : orders.filter((order) => !moving.includes(order))
+  const result = placeOrders(left, moving.map((order) => onLine(order, to, wd)), suppliers, makeId)
+  const stays = moving.filter((_, i) => !result.placed[i])
+  const moved = moving.length - stays.length
+  return { orders: copy || !stays.length ? result.orders : [...result.orders, ...stays], moved, skipped: stays.length }
+}
+
+/** Days in a row on a line with one order of the same competence, project, people, times and answer: drawn as one, «Snekker · 3 pers. · 4 d». */
+export interface OrderRun {
+  /** The run's lane on its line, from the top: one per competence and project ordered on the line. */
+  lane: number
+  competence: CompetenceKey
+  projectNo?: string
+  fte: number
+  start: Minute
+  end: Minute
+  waits: boolean
+  from: ISODate
+  to: ISODate
+  /** The orders of the run, a day each, in order. */
+  orders: HireOrder[]
+}
+
+/** A line's orders as runs, each in its lane. */
+export interface LineRuns {
+  /** The lanes from the top: competences in the planner's order, then projects. */
+  lanes: { competence: CompetenceKey; projectNo?: string }[]
+  /** The runs as they are drawn: an empty day breaks one, a weekend too. */
+  runs: OrderRun[]
+  /** The runs as an end is taken hold of and pulled: only an empty working day breaks one (`overOffDays` in Faste). */
+  grips: OrderRun[]
+}
+
+const laneKey = (order: Pick<HireOrder, 'competence' | 'projectNo'>) => `${order.competence}|${(order.projectNo ?? '').trim().toLowerCase()}`
+const sameRun = (a: HireOrder, b: HireOrder) => a.fte === b.fte && a.start === b.start && a.end === b.end && isWaiting(a) === isWaiting(b) && a.asked === b.asked
+
+/**
+ * The orders of one line over the days, as runs in lanes. `rank` places a competence in the planner's order, so that
+ * a run keeps its lane from day to day and two competences on a day lie one above the other.
+ */
+export const orderRuns = (lineOrders: HireOrder[], dates: ISODate[], rank: (competence: CompetenceKey) => number): LineRuns => {
+  const inView = new Set(dates)
+  const byLane = new Map<string, Map<ISODate, HireOrder>>()
+  const lanes: LineRuns['lanes'] = []
+  for (const order of lineOrders) {
+    if (!inView.has(order.date)) continue
+    const key = laneKey(order)
+    if (!byLane.has(key)) {
+      byLane.set(key, new Map())
+      lanes.push({ competence: order.competence, ...projectTag(order) })
+    }
+    byLane.get(key)!.set(order.date, order)
+  }
+  lanes.sort((a, b) => rank(a.competence) - rank(b.competence) || (a.projectNo ?? '').localeCompare(b.projectNo ?? ''))
+  const walk = (overOffDays: boolean): OrderRun[] => {
+    const runs: OrderRun[] = []
+    lanes.forEach((lane, at) => {
+      const days = byLane.get(laneKey(lane))!
+      let run: OrderRun | null = null
+      for (const date of dates) {
+        const order = days.get(date)
+        if (!order) {
+          if (!(overOffDays && dayType(date) !== 'arbeidsdag')) run = null
+          continue
+        }
+        if (run && sameRun(run.orders[0], order)) {
+          run.orders.push(order)
+          run.to = date
+          continue
+        }
+        run = { lane: at, competence: order.competence, ...projectTag(order), fte: order.fte, start: order.start, end: order.end, waits: isWaiting(order), from: date, to: date, orders: [order] }
+        runs.push(run)
+      }
+    })
+    return runs
+  }
+  return { lanes, runs: walk(false), grips: walk(true) }
+}
+
+/**
+ * A run pulled by an end to `to` (`grips` of `orderRuns`): outward, its order on the new days as a stroke has them
+ * (`strokeDays`), waiting, as it is a new question; inward, its orders past `to` removed. The day at the other end always stays.
+ */
+export const stretchOrders = (orders: HireOrder[], run: OrderRun, edge: 'start' | 'end', to: ISODate, dates: ISODate[], suppliers: Supplier[], makeId: () => string = newId): HireOrder[] => {
+  const outward = edge === 'end' ? to > run.to : to < run.from
+  if (outward) {
+    const added = dates.filter((date) => (edge === 'end' ? date > run.to && date <= to : date >= to && date < run.from))
+    const template = run.orders[0]
+    const { id: _id, conf: _conf, asked: _asked, engine: _engine, ...rest } = template
+    return placeOrders(orders, strokeDays(added).map((date) => ({ ...rest, date })), suppliers, makeId).orders
+  }
+  const keep = (order: HireOrder) => (edge === 'end' ? order.date <= (to < run.from ? run.from : to) : order.date >= (to > run.to ? run.to : to))
+  const gone = new Set(run.orders.filter((order) => !keep(order)).map((order) => order.id))
+  return gone.size ? orders.filter((order) => !gone.has(order.id)) : orders
+}
+
+/** A line of a competence's demand in Innleid: a project, or with none the hours on none of them, which comes last. */
+export interface ShareLine {
+  /** The hours of the competence that remain on the line on the day after the permanent staff. */
+  rest: number
+  /** An order for a project is the line's own. */
+  own: (order: HireOrder) => boolean
+}
+
+/**
+ * The orders of a competence on a day as its lines count them, as Faste shares its blocks (`buildProjectBalance`): each
+ * line its own orders, and a share of those for no project by what it still lacks after them. What none of the lines
+ * lacks goes to the last. A share is the order with part of its people, so the label and the cover are worked out as for any.
+ */
+export const shareOrders = (lines: ShareLine[], orders: HireOrder[], wd: WorkdaySettings): HireOrder[][] => {
+  const tagged = (order: HireOrder) => !!order.projectNo?.trim()
+  const own = lines.map((line) => orders.filter((order) => tagged(order) && line.own(order)))
+  const untagged = orders.filter((order) => !tagged(order))
+  const hoursOf = (list: HireOrder[]) => list.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
+  const free = hoursOf(untagged)
+  if (free <= 0 || !lines.length) return own
+  const lacking = lines.map((line, i) => Math.max(0, line.rest - hoursOf(own[i])))
+  const lack = lacking.reduce((sum, hours) => sum + hours, 0)
+  const given = Math.min(free, lack)
+  const parts = lacking.map((hours) => (lack > 0 ? (given * hours) / lack / free : 0))
+  parts[parts.length - 1] += Math.max(0, free - lack) / free
+  return own.map((list, i) => (parts[i] > 1e-9 ? [...list, ...untagged.map((order) => ({ ...order, fte: order.fte * parts[i] }))] : list))
 }

@@ -76,6 +76,7 @@ const block = (personId: string, date: string, competence: string, from = '7:00'
 const hire = (date: string, competence: string, from = '7:00', to = '15:00', people = 1): HireOrder => ({
   id: `o${n++}`,
   supplierId: 's1',
+  shift: 'dag',
   competence,
   date,
   fte: people,

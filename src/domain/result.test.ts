@@ -208,8 +208,8 @@ describe('the staffing of the season', () => {
     ...withTwoProjects({ settings: DEFAULT_SETTINGS, venue: [], projects: [], demand: [], allocations: [] }),
     assignments: [1, 2, 3, 4].map((person) => day(person, '2026-10-12')).concat(day(1, '2026-10-13', FIRST), day(1, '2026-10-14')),
     hireOrders: [
-      { id: 'o1', supplierId: 's1', competence: 'vegger', date: '2026-10-13', fte: 2, start: wd.dayStart, end: wd.dayEnd, conf: 2 },
-      { id: 'o2', supplierId: 's1', competence: 'vegger', date: '2026-10-13', fte: 4, start: wd.dayStart, end: wd.dayEnd, conf: null },
+      { id: 'o1', supplierId: 's1', shift: 'dag' as const, competence: 'vegger', date: '2026-10-13', fte: 2, start: wd.dayStart, end: wd.dayEnd, conf: 2 },
+      { id: 'o2', supplierId: 's1', shift: 'dag' as const, competence: 'vegger', date: '2026-10-13', fte: 4, start: wd.dayStart, end: wd.dayEnd, conf: null },
     ],
   }
 
