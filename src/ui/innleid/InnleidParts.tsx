@@ -1,4 +1,4 @@
-import { Fragment, memo, type ReactNode } from 'react'
+import { Fragment, memo, useMemo, type ReactNode } from 'react'
 import { CircleHelp, Eraser, Minus, Plus, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { coverFigure, dayKey, HOURS_NOISE, isWaiting, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
@@ -24,6 +24,7 @@ import { hoursText } from '../format'
 import type { ToolKind } from '../toolKeys'
 
 const days = (n: number) => count(n, 'dag', 'dager')
+const NO_ORDERS: HireOrder[] = []
 
 /** The page header in Innleid: how much of what the permanent staff leave is still missing. */
 export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPlan: () => void }) {
@@ -231,7 +232,11 @@ function HireDemandRows() {
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
   const compact = density === 'compact'
-  const byDay = ordersByDay(orders)
+  // One function per competence for as long as the orders are the same, so a scroll frame draws no line again.
+  const ordersOf = useMemo(() => {
+    const byDay = ordersByDay(orders)
+    return new Map(rows.map((style) => [style.key, (date: ISODate) => byDay.get(dayKey(style.key, date)) ?? NO_ORDERS]))
+  }, [orders, rows])
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
       <SectionLine>
@@ -249,7 +254,7 @@ function HireDemandRows() {
               style={style}
               cols={cols}
               board={board}
-              ordersOf={(date) => byDay.get(dayKey(style.key, date)) ?? []}
+              ordersOf={ordersOf.get(style.key)!}
               suppliers={suppliers}
               wd={wd}
               projectName={projectName}

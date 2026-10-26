@@ -298,6 +298,17 @@ export const supplierReview = (suppliers: Supplier[], orders: HireOrder[], compe
     .filter((review) => review.orders.length)
     .sort((a, b) => (a.firstWaiting && b.firstWaiting ? a.firstWaiting.localeCompare(b.firstWaiting) : a.firstWaiting ? -1 : b.firstWaiting ? 1 : 0))
 
+/**
+ * What a change of the orders (a stroke, a move, a pulled end) does to the hours ordered: those of the orders it adds or
+ * changes less those of the orders it takes away or changes, waiting or not. The pill over a stroke shows it.
+ */
+export const hoursChange = (before: HireOrder[], after: HireOrder[], wd: WorkdaySettings): number => {
+  const was = new Set(before)
+  const is = new Set(after)
+  const hours = (list: HireOrder[], skip: Set<HireOrder>) => list.reduce((sum, order) => sum + (skip.has(order) ? 0 : order.fte * hireHours(order, wd)), 0)
+  return hours(after, was) - hours(before, is)
+}
+
 /** I10: the hours ordered that wait for an answer. */
 export const waitingHours = (orders: HireOrder[], wd: WorkdaySettings): number => orders.reduce((sum, order) => sum + (isWaiting(order) ? order.fte * hireHours(order, wd) : 0), 0)
 

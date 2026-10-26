@@ -224,4 +224,27 @@ describe('Innleid', () => {
     await act(async () => store.undo())
     expect(times()).toEqual(week.map(() => ['dag', 420, 900]))
   })
+
+  it('keeps the day of a run selected when a click on it opens its popover again', async () => {
+    const { container, queryByRole } = await renderKalender(workspace([order('dag', '2026-10-06', 2)]), PREFS)
+    for (let i = 0; i < 2; i++) {
+      pressOn(runOf(container, 'dag-2026-10-06'), container, 0, '2026-10-06')
+      letGo()
+      await settle()
+      // The first click opens the popover; Escape closes it, and the day stays selected for the second.
+      if (i === 0) fireEvent.keyDown(document, { key: 'Escape' })
+      await settle()
+    }
+    expect(queryByRole('dialog')).not.toBeNull()
+    expect(container.querySelector('.chosen')).not.toBeNull()
+  })
+
+  it('shows what the brush would order on the day under a still pointer, and orders nothing', async () => {
+    const { container } = await renderKalender(workspace(), PREFS)
+    keyDown('1')
+    fireEvent.mouseMove(container.querySelector('.il-suppliers')!, pointOf(container, 0, '2026-10-06'))
+    await settle()
+    expect(container.querySelectorAll('.il-run.coming')).toHaveLength(1)
+    expect(ordersOf()).toEqual([])
+  })
 })

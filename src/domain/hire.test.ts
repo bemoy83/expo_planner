@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, orderedLabel, deviation,  hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -445,5 +445,17 @@ describe('orders painted on the suppliers\' lines', () => {
       [['k1', 1, null]],
       [['k1', 1, null]],
     ])
+  })
+})
+
+describe('the hours a change orders', () => {
+  it('counts what is added or changed less what is taken away or changed', () => {
+    const a = order('a', 'k1', 'vegger', 'd1', 2, null)
+    const b = order('b', 'k1', 'vegger', 'd2', 1, 1)
+    const more = { ...a, fte: 3 }
+    expect(hoursChange([a, b], [a, b], wd)).toBe(0)
+    expect(hoursChange([a], [a, b], wd)).toBe(7.5)
+    expect(hoursChange([a, b], [more, b], wd)).toBe(7.5)
+    expect(hoursChange([a, b], [b], wd)).toBe(-15)
   })
 })
