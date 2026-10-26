@@ -271,7 +271,7 @@ export const orderText = (supplier: Supplier, orders: HireOrder[], competences: 
     if (order.date !== day) lines.push(dayText(order.date))
     day = order.date
     const label = competences.find((competence) => competence.key === order.competence)?.label ?? order.competence
-    lines.push(`  ${label}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}: ${order.fte} pers. ${timesText(order)}`)
+    lines.push(`  ${label}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}: ${order.fte} pers. ${SHIFT_LABELS[order.shift]} ${timesText(order)}`)
   }
   return lines.join('\n')
 }

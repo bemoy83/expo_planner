@@ -188,7 +188,7 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
         <h3 className="insp-h">Bestilling</h3>
         {!own.length && (
           <p className="insp-note">
-            Ingen bestilling ennå. {offered.length ? `Velg ${supplier.name} som pensel og dra over dager på ${offered.map((style) => style.label).join(' eller ')}.` : `${supplier.name} har ingen kompetanser ennå.`}
+            Ingen bestilling ennå. {offered.length ? `Ta ${offered.map((style) => style.label).join(' eller ')} som pensel, og mal på skiftlinjene til ${supplier.name}.` : `${supplier.name} har ingen kompetanser ennå.`}
           </p>
         )}
         <OrderDays orders={own} />
@@ -242,28 +242,33 @@ function Help() {
       <section className="insp-sec">
         <h3 className="insp-h">Grep i rutenettet</h3>
         <dl>
-          <dt>Klikk</dt>
-          <dd>Åpne dagen</dd>
-          <dt>Dra</dt>
-          <dd>Velg flere dager</dd>
+          <dt>1–9, klikk</dt>
+          <dd>Ta en kompetanse som pensel: tallet, navnet eller en dag i behovet. En prosjektlinje under den bestiller for prosjektet.</dd>
+          <dt>+ −</dt>
+          <dd>Antall personer på penselen</dd>
           <dt>Pensel + dra</dt>
-          <dd>Bestill valgt leverandør på dagene som mangler (B, 1–9)</dd>
+          <dd>Bestill antallet på skiftlinjene og dagene du drar over. Samme kompetanse og prosjekt erstattes (B). Shift stopper der behovet er dekket.</dd>
           <dt>Tøm, Alt+dra</dt>
-          <dd>Fjern bestillinger (T)</dd>
-          <dt>↑ ↓</dt>
-          <dd>Gå til linjen over eller under i kompetansen som er åpen</dd>
-          <dt>Delete</dt>
-          <dd>Fjern linjen som er valgt i editoren, ellers bestillingene på dagene som er valgt</dd>
+          <dd>Fjern bestillinger (T). Startet på en blokk fjernes bare den kompetansen; med Shift alt.</dd>
+          <dt>Velg + dra</dt>
+          <dd>Marker dager over flere linjer (V). Delete fjerner, Cmd+C og Cmd+V kopierer og limer inn der pekeren står.</dd>
+          <dt>Dra en blokk</dt>
+          <dd>Flytt dagens bestillinger til en annen dag eller linje. Alt kopierer.</dd>
+          <dt>Dra i enden</dt>
+          <dd>Flere eller færre dager i et løp</dd>
+          <dt>Klikk en blokk</dt>
+          <dd>Svar, antall, tider, prosjekt og Fjern for løpet, eller for alt i markeringen du klikker inni</dd>
           <dt>Esc</dt>
-          <dd>Fjern utvalget, legg bort penselen, lukk panelet, fold sammen</dd>
+          <dd>Avbryt strøket, fjern markeringen, legg bort penselen, lukk panelet</dd>
         </dl>
       </section>
       <section className="insp-sec">
         <h3 className="insp-h">Slik fungerer det</h3>
         <ol>
-          <li>Klikk en dag på en kompetanse, eller dra over flere. Endringer gjelder alle valgte dager.</li>
-          <li>Velg leverandør til penselen, og mal over dagene: det som mangler bestilles, fordelt på prosjektene. Samme leverandør kan ha flere skift.</li>
-          <li>Alt starter som «Venter». Registrer svaret: stiller de færre, justerer du antallet, og resten blir udekket igjen.</li>
+          <li>Hver leverandør har en linje per skift den tilbyr. Ta kompetansen som mangler som pensel, sett antallet, og mal over dagene på linjene du vil bestille fra.</li>
+          <li>Fra sumlinjen bestilles uten prosjekt, og bestillingen fordeles på prosjektene. Fra en prosjektlinje bestilles for prosjektet.</li>
+          <li>Alt starter som «Venter». Registrer svaret i blokken: stiller de færre, justerer du antallet, og resten blir udekket igjen.</li>
+          <li>Egne tider settes i blokken, for hele løpet eller en markering på én gang. Bestillingen blir på skiftlinjen sin.</li>
           <li>Bare bekreftede bestillinger teller i «Tilgjengelig» i planen.</li>
           <li>Leverandørkontrollen viser det som venter på svar. Bekreft der, og kopier bestillingen du sender.</li>
         </ol>

@@ -293,6 +293,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
           <span>
             {count(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {count(chosen.rowTo - chosen.rowFrom + 1, 'linje', 'linjer')}
           </span>
+          <span>Klikk en blokk: endre alle</span>
           <span>Del fjerner</span>
           <span>Esc</span>
         </StrokeBox>

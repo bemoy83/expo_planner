@@ -192,7 +192,7 @@ describe('the order to send and what waits (I9, I10)', () => {
       { key: 'tepper', label: 'Tepper' },
     ]
     expect(orderText(manpower, orders, competences)).toBe(
-      ['Bestilling – Manpower', 'tor 8. okt', '  Vegger: 4 pers. 07:00–15:00', 'fre 9. okt', '  Vegger: 3 pers. 07:00–15:00', '  Vegger: 1 pers. 15:00–23:00', '  Tepper: 2 pers. 07:00–15:00'].join('\n'),
+      ['Bestilling – Manpower', 'tor 8. okt', '  Vegger: 4 pers. Dag 07:00–15:00', 'fre 9. okt', '  Vegger: 3 pers. Dag 07:00–15:00', '  Vegger: 1 pers. Kveld 15:00–23:00', '  Tepper: 2 pers. Dag 07:00–15:00'].join('\n'),
     )
   })
 

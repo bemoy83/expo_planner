@@ -136,6 +136,7 @@ const alike = <T,>(values: T[]): T | null => (values.every((value) => value === 
  */
 export function OrderPopover({ at, orders, date, title, wd, projects, projectName, edits, onClose }: OrderProps) {
   const [oneDay, setOneDay] = useState(false)
+  const [draft, setDraft] = useState<Interval | null>(null)
   const days = new Set(orders.map((order) => order.date)).size
   const shown = oneDay ? orders.filter((order) => order.date === date) : orders
   const ids = shown.map((order) => order.id)
@@ -149,14 +150,20 @@ export function OrderPopover({ at, orders, date, title, wd, projects, projectNam
   const shift = alike(shown.map((order) => order.shift))
   const projectNo = alike(shown.map((order) => order.projectNo?.trim() ?? ''))
   const own = shift !== null && start !== null && end !== null && (shiftTimes(shift, wd).start !== start || shiftTimes(shift, wd).end !== end)
+  // New times are a draft until «Sett tider» or Enter, so a week of them is one change and one undo step.
+  const times = draft ?? (start !== null && end !== null ? { start, end } : shift !== null ? shiftTimes(shift, wd) : null)
   const setTime = (part: 'start' | 'end', text: string) => {
-    if (!text || start === null || end === null) return
+    if (!text || !times) return
     const minute = (Math.round(clockMinutes(text) / 30) * 30) % 1440
-    edits.times(ids, part === 'start' ? { start: minute, end } : { start, end: minute })
+    setDraft(part === 'start' ? { start: minute, end: times.end } : { start: times.start, end: minute })
+  }
+  const applyTimes = () => {
+    if (draft && draft.start !== draft.end) edits.times(ids, draft)
+    setDraft(null)
   }
   const choices = [...new Set([...projects, ...(projectNo ? [projectNo] : [])])]
   return (
-    <Popover at={at} width={300} onClose={onClose} onEnter={onClose}>
+    <Popover at={at} width={300} onClose={onClose} onEnter={() => (applyTimes(), onClose())}>
       <span className="il-pop-title">
         {title}
         <em>{oneDay ? dayText(date) : days > 1 ? `${days} dager` : dayText(date)}</em>
@@ -196,19 +203,29 @@ export function OrderPopover({ at, orders, date, title, wd, projects, projectNam
         </button>
       )}
       <div className="il-times">
-        {start === null || end === null ? (
-          <span className="il-pop-note">Ulike tider</span>
+        {!times ? (
+          <span className="il-pop-note">Ulike skift</span>
         ) : (
           <>
-            <input type="time" step={1800} aria-label="Fra" value={clock(start)} onChange={(e) => setTime('start', e.target.value)} />
+            <input type="time" step={1800} aria-label="Fra" value={clock(times.start)} onChange={(e) => setTime('start', e.target.value)} />
             <span>–</span>
-            <input type="time" step={1800} aria-label="Til" value={clock(end)} onChange={(e) => setTime('end', e.target.value)} />
-            {own && shift !== null && (
-              <button className="link small" onClick={() => edits.times(ids, shiftTimes(shift, wd))}>
-                {SHIFT_LABELS[shift]}s tider
+            <input type="time" step={1800} aria-label="Til" value={clock(times.end)} onChange={(e) => setTime('end', e.target.value)} />
+            {draft ? (
+              <button className="link small" disabled={draft.start === draft.end} onClick={applyTimes}>
+                Sett tider
               </button>
+            ) : (
+              own &&
+              shift !== null && (
+                <button className="link small" onClick={() => edits.times(ids, shiftTimes(shift, wd))}>
+                  {SHIFT_LABELS[shift]}s tider
+                </button>
+              )
             )}
-            <span className="il-pop-note">{start === end ? 'Velg en sluttid' : `${hoursText(hireHours({ start, end }, wd))} t betalt${end <= start ? ' · over natten' : ''}`}</span>
+            <span className="il-pop-note">
+              {times.start === times.end ? 'Velg en sluttid' : `${hoursText(hireHours(times, wd))} t betalt${times.end <= times.start ? ' · over natten' : ''}`}
+              {!draft && (start === null || end === null) ? ' · ulike tider nå' : ''}
+            </span>
           </>
         )}
       </div>
