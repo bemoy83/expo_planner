@@ -313,6 +313,8 @@
 .strip-dismantle::before{background:var(--ph-dismantle)}
 .strip-mon::before{background:var(--mon)}
 .strip-dem::before{background:var(--dem)}
+/* a project worked beyond its hall days: the strip goes on over them in the phase the work is for, hatched as FTE outside a row's window is */
+.group-row .cell.group-cell.strip-outside::before{background-image:var(--hatch)}
 /* A level that takes FTE itself instead of only summing its rows: typed in, so its days are a row's days for as long as it is:
    on the canvas with a row's weekends, ruled off between the days, the figures in a row's ink. A top level keeps its band in
    the label column alone, and its strong line. That it is folded says it is typed on: its label needs no mark of its own. */

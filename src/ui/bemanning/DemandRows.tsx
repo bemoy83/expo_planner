@@ -18,7 +18,7 @@ import { LinePick, NeedLabel, NeedLine } from './NeedLabel'
 const NO_HOURS = new Map<string, number>()
 
 /** An open line's day the staff cannot cover in normal time: the hatch across it, and no figure. */
-const UNCOVERABLE_DAY: NeedLabelParts = { segs: [{ kind: 'uncoverable', from: 0, width: 1 }], rules: [], figure: null, alert: false }
+const UNCOVERABLE_DAY: NeedLabelParts = { segs: [{ kind: 'uncoverable', from: 0, width: 1 }], rules: [], figure: null, alert: false, of: null }
 
 interface LineProps {
   row: DemandRow
@@ -94,9 +94,9 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         const unc = uncoverable.get(`${style.key}|${date}`) ?? 0
         // An open line leaves its days to the lines under it; what the staff cannot cover is the competence's alone, so it stays here.
         if (summed)
-          return unc > EPSILON && !compact ? (
+          return unc > EPSILON ? (
             <button key={date} className={classes} title={`${style.label} · ${dayText(date)}\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.`} onClick={(e) => onDay(style.key, date, e)}>
-              <NeedLabel parts={UNCOVERABLE_DAY} className="summed" />
+              {compact ? <NeedLine parts={UNCOVERABLE_DAY} /> : <NeedLabel parts={UNCOVERABLE_DAY} className="summed" />}
             </button>
           ) : (
             <div key={date} className={classes} />
@@ -107,8 +107,8 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
         if (compact)
           // One line: the demand as a tint, filled solid from the left as it is covered, and what is given beyond it as the ochre tail.
           return (
-            <button key={date} className={classes} title={`${style.label} · ${what}`} onClick={(e) => onDay(style.key, date, e)}>
-              {(cell.demand > EPSILON || over) && <NeedLine parts={staffedLabel(cell, 0, EPSILON)} />}
+            <button key={date} className={classes} title={`${style.label} · ${what}${unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : ''}`} onClick={(e) => onDay(style.key, date, e)}>
+              {(cell.demand > EPSILON || over) && <NeedLine parts={staffedLabel(cell, unc, EPSILON)} />}
             </button>
           )
         const title =
@@ -235,7 +235,7 @@ export function DemandRows() {
         <Twisty open={open} show="Vis alle kompetanser" hide="Vis bare kompetansen i fokus" onToggle={() => bm.setDemandOpen(!open)} />
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
-        <span className="section-meta section-meta-end" title={open ? 'Timer som mangler i dagene som vises' : undefined}>{open ? 't mangler' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
+        <span className="section-meta section-meta-end" title={open ? 'Timer som mangler i dagene som vises' : undefined}>{open ? 'timer mangler' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
       </SectionLine>
       {busy.map(line)}
       {open && idle.length > 0 && (

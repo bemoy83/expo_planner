@@ -3,9 +3,10 @@ import { ChevronsUpDown, CircleHelp, Eraser, Printer, MousePointer2, Paintbrush,
 import { dayText, type ISODate } from '../../domain/dates'
 import { coverage, coveredBy, coverFigure, coverLines, dayKey, HOURS_NOISE, isWaiting, orderedLabel, shiftText, type Coverage, type HireBoard, type OrderGroup } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
-import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
+import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor, count } from '../dom'
-import { useBemanning, type Density } from '../bemanning/BemanningScope'
+import { useBemanning } from '../bemanning/BemanningScope'
+import { DensityToggle } from '../bemanning/DensityToggle'
 import { ProjectLines } from '../bemanning/ProjectLines'
 import { AvvikSection } from '../bemanning/AvvikSection'
 import { Line } from '../kalender/GridRows'
@@ -59,7 +60,7 @@ export function InnleidTop() {
 /** The planning bar in Innleid: the mode and the part, undo, the tools with the supplier they work with, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
   const { styles } = useBemanning()
-  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, pickBrush, eraseFrom, pickErase, suppliers, open, panel, setPanel, density, setDensity } = useInnleid()
+  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, pickBrush, eraseFrom, pickErase, suppliers, open, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   // With a competence open, the suppliers that offer it are listed first, and those that do not cannot be picked.
   const focus = open ? styles.get(open.competence) : undefined
@@ -117,15 +118,6 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             </button>
           )}
           {under === 0 && waiting <= HOURS_NOISE && <span className="bm-hints">Alt dekket og bekreftet</span>}
-          <Segmented<Density>
-            label="Visning"
-            value={density}
-            onChange={setDensity}
-            options={[
-              { value: 'compact', label: 'Kompakt', title: 'Kompakt: hver linje som en tynn strek med tallet ved siden av' },
-              { value: 'detail', label: 'Detaljert', title: 'Detaljert: dagens etikett med tallet på, og hvem som dekker på prosjektlinjene' },
-            ]}
-          />
           <button className="ghost" onClick={onToday}>
             I dag
           </button>
@@ -140,13 +132,15 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
 
 /** The heading over the competences, at the foot of the planning bar. */
 export function InnleidHeading() {
-  const { rows } = useInnleid()
+  const { rows, density, setDensity } = useInnleid()
   return (
     <div className="grid-row col-head bm-people-head" style={{ height: ROW_H }}>
       <div className="grid-label">
-        <span className="lbl-desc">Kompetanse</span>
+        <span className="lbl-desc">
+          Kompetanse <DensityToggle compact={density === 'compact'} onChange={(compact) => setDensity(compact ? 'compact' : 'detail')} />
+        </span>
         <span className="bm-label-note">{rows.length} med restbehov</span>
-        <span className="bm-label-note bm-label-end">t mangler</span>
+        <span className="bm-label-note bm-label-end">timer mangler</span>
       </div>
       <span className="phase-legend" style={{ left: LEFT_W }}>
         <span>Klikk en dag for å bestille, eller dra over flere · ← → flytter dagene · med Pensel bestiller draget · Alt+dra tømmer</span>

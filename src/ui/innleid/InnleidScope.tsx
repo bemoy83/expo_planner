@@ -150,8 +150,15 @@ function useInnleidState(active: boolean, counted: boolean) {
     setBrushId(id)
     if (id && tool === 'select') setTool('paint')
   }
-  /** The supplier picked in the editor is the brush, whatever tool is held: picking orders nothing, a stroke does. */
+  /** The brush put away: no supplier is picked, and Velg is back. */
+  const dropBrush = () => {
+    setBrushId(null)
+    setTool('select')
+    setHover(null)
+  }
+  /** The supplier picked in the editor is the brush, whatever tool is held: picking orders nothing, a stroke does. Picked again, it is put away. */
   const brushWith = (id: string) => {
+    if (tool === 'paint' && brushId === id) return dropBrush()
     setBrushId(id)
     setTool('paint')
     setHover(null)
@@ -385,7 +392,7 @@ function useInnleidState(active: boolean, counted: boolean) {
   const dragDays = drag?.mode === 'select' ? span(drag.anchor, drag.focus) : null
   return {
     board, rows, waiting, suppliers, orders, ordersOn, wd,
-    tool, pickTool, brush, pickBrush, brushWith, eraseFrom, pickErase: setEraseId, preview, density, setDensity,
+    tool, pickTool, brush, pickBrush, brushWith, dropBrush, eraseFrom, pickErase: setEraseId, preview, density, setDensity,
     panel, setPanel, openSupplier, openControl,
     open, openDates, openLine, groups, picked, projectLines, projectName, pick, openOn, fold, stepDays, openNextUnder,
     pop, setPop, edits, actions,

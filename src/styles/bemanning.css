@@ -43,22 +43,28 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
    what remains, signed, as Mangler / over has it. Where the staff cannot cover it in normal time, those hours are hatched at the end in
    the colour of a blocking alert; on the hatch and on the tail the figure is in the alerts' ink. A day that is covered is a full label
    with no figure. What it is of, and the rest, is in the tooltip. */
-.bm-need-label{position:absolute;inset:6px 5px;display:flex;align-items:center;justify-content:flex-end;padding:0 7px;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 18%,transparent)}
+.bm-need-label{position:absolute;inset:6px 5px;container-type:inline-size;display:flex;align-items:center;justify-content:flex-end;padding:0 7px;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 18%,transparent)}
 .bm-need-label>i{position:absolute;top:0;bottom:0;left:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
 .bm-need-label .covered{background:color-mix(in oklab,var(--cc) 42%,transparent)}
 .bm-need-label .surplus{background:var(--alert-warn)}
-.bm-need-label .uncoverable{background:repeating-linear-gradient(135deg,var(--alert-block) 0 2px,transparent 2px 6px)}
+.bm-need-label .uncoverable,.bm-need-line .uncoverable{background:repeating-linear-gradient(135deg,var(--alert-block) 0 2px,transparent 2px 6px)}
 .bm-need-label b{position:relative;font:600 var(--fs-xs)/1 var(--font-num)}
+/* the hours that cover the day of those it needs, and where the label is too narrow for them, what is missing or over in their place */
+.bm-need-signed{display:none}
+@container (max-width:76px){.bm-need-of{display:none}.bm-need-signed{display:inline}}
 .bm-need-label.alert b{color:var(--alert-on)}
 /* an open line, whose days are on the lines under it: no label, only the hatch of a day the staff cannot cover, across the day */
 .bm-need-label.summed{background:none}
 /* hours carried here from the day before: a dot in the corner */
 .bm-carried{position:absolute;top:3px;left:3px;width:5px;height:5px;border-radius:50%;background:var(--over)}
 /* a competence in focus: its line and the lines of its projects stay, the others step back; their days are neutral, as an open level's in the plan, and the line that is the brush has the mark at its name */
-.bm-demand.dim,.il-row.dim{opacity:.5}
+/* A line that steps back lies over today's line, on the page's own colour, so the line is dimmed with it */
+.bm-demand.dim,.il-row.dim{position:relative;z-index:2;background:var(--bg);opacity:.5}
 .bm-demand.dim:hover,.il-row.dim:hover{opacity:.8}
-/* the line that is the brush: its name, not its days, in a stronger tint with the mark, to say which project and place are chosen */
+/* the line that is the brush: its name in a stronger tint with the mark, to say which project and place are chosen, */
 .bm-demand.on:not(.held) .bm-pick,.il-row.on .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
+/* and its days a faint tint of it, so the line the brush paints on is found across the page (the planner's choice, 2026-10-26); days picked or under a stroke keep their own tint */
+.bm-demand.on:not(.held) .cell,.il-row.on .il-day:not(.picked,.dragged,.stroked-paint,.stroked-erase){background-image:linear-gradient(color-mix(in oklab,var(--cc) 8%,transparent),color-mix(in oklab,var(--cc) 8%,transparent))}
 /* a project's line under the competence in focus, and a place's under the project in focus: indented under its name, the name in the ink of what is under something */
 .bm-project-pick{--pick-indent:52px}
 .bm-pick-glyph{--pick-indent:12px}
@@ -121,7 +127,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-pop-carry span{margin-right:auto;font:400 var(--fs-sm) var(--font-num);color:var(--faint)}
 
 /* ---- the people ---- */
-.bm-people{position:relative;padding-bottom:40px;user-select:none}
+/* The rows of Bemanning, with today's line, which stops where the lines do: above the room left under the last. */
+.bm-body{position:relative;--people-foot:40px}
+.bm-body>.today-line{bottom:var(--people-foot)}
+.bm-people{position:relative;padding-bottom:var(--people-foot);user-select:none}
 .bm-person{position:relative}
 .bm-person.dim{opacity:.4}
 .bm-person-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
@@ -292,8 +301,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-row.open.on .grid-label{box-shadow:inset 3px 0 0 var(--cc)}
 /* A day of a line: Faste's label (`.bm-need-label`), filled from the left by what is ordered. Compact, Faste's thin line with the figure beside it. */
 .il-day{flex-direction:column;align-items:stretch;justify-content:flex-start;min-width:0;cursor:pointer;user-select:none}
-/* With Velg a click on a day opens its orders, so the day under the pointer is tinted as a button is; the brush and the eraser show what they would do instead. */
-.il-row:not(.brush,.nobrush,.erase) .il-day:not(.picked,.dragged):hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* the days picked, and those a drag reaches, in the tint of what is selected, as in the rest of the Kalender */
 .il-day:is(.picked,.dragged){background-image:linear-gradient(var(--pick-soft),var(--pick-soft))}
 .il-day.stroked-paint{background-image:linear-gradient(color-mix(in oklab,var(--cc) 22%,transparent),color-mix(in oklab,var(--cc) 22%,transparent))}
@@ -423,8 +430,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* the control panel: a supplier per section, its name, what waits and what is confirmed, its order to copy and «Bekreft alle», and under it its orders by day */
 .il-control-head .segmented{display:flex}
 .il-control-head .segmented button{flex:1}
-.il-control-supplier{display:flex;align-items:center;gap:6px}
-.il-control-supplier .il-panel-what{flex:1}
+.il-control-supplier{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+/* the name has a line of its own, so a long one never meets the buttons */
+.il-control-supplier .il-panel-what{flex:1 0 100%}
+.il-control-supplier .il-control-counts{margin-right:auto}
 .il-control-counts{display:inline-flex;flex:none;align-items:center;gap:4px;font:500 var(--fs-sm) var(--font-num);color:var(--muted)}
 .il-control-counts .il-glyph:not(:first-child){margin-left:6px}
 .il-control-supplier>button:last-child{flex:none;white-space:nowrap}

@@ -395,9 +395,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
             {innleid ? <InnleidHeading /> : bemanning ? <PeopleHeading /> : <PlanningHeading />}
           </div>
 
-          {todayLine}
-          {innleid && <div {...hoverProps}><InnleidRows onOpenSuppliers={onOpenSuppliers} /></div>}
-          {bemanning && !innleid && <div {...hoverProps}><PeopleRows onOpenPersonell={onOpenPersonell} /></div>}
+          {/* In Bemanning today's line keeps to the lines, and stops under the last of them. */}
+          {!bemanning && todayLine}
+          {innleid && <div className="bm-body" {...hoverProps}>{todayLine}<InnleidRows onOpenSuppliers={onOpenSuppliers} /></div>}
+          {bemanning && !innleid && <div className="bm-body" {...hoverProps}>{todayLine}<PeopleRows onOpenPersonell={onOpenPersonell} /></div>}
           {!bemanning && (
             <PlanRows
               start={range.start}

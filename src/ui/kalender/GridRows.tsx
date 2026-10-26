@@ -403,10 +403,14 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
   // The colour of a day in entry: the phase most of its FTE is for, and where it has none yet, the phase of the level or of its first row.
   const phaseOn = (date: ISODate) => (node.dimension === 'phase' ? node.label : (workPhaseOn(node.rows, date) ?? node.rows[0]?.phase ?? ''))
   const valueAt = (date: ISODate) => node.daily.get(date)
-  // What the strip shows on a day: the hall phase on a project's line, else the work phase of a folded level.
+  // FTE on a project's line on a day the halls have no phase for it: build-up or tear-down planned beyond the hall's days.
+  const outside = (date: ISODate) => !!phases?.size && !phases.has(date) && !!node.daily.get(date)
+  // What the strip shows on a day: the hall phase on a project's line, where the project is worked beyond it the phase the work
+  // is for (hatched, as FTE outside a row's window is), else the work phase of a folded level.
   const stripOn = (date: ISODate): string | null => {
     const hallPhase = phases?.get(date)
     if (hallPhase) return hallPhase
+    if (outside(date)) return workPhaseOn(node.rows, date) === 'Demontering' ? 'dismantle' : 'assembly'
     if (!item.collapsed || phases) return null
     if (!node.daily.get(date)) return null
     if (node.dimension === 'phase') return node.label === 'Demontering' ? 'dem' : 'mon'
@@ -469,7 +473,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
         if (item.entry) return valueCell(cell, date, col, valueAt(date), undefined, spanClass(valueAt, edit.ghost, window, phaseOn(date), date))
         const phase = stripOn(date)
         // The strip is rounded where a phase starts and ends.
-        const strip = phase ? `strip strip-${phase} ${stripOn(addDays(date, -1)) === phase ? '' : 'strip-start'} ${stripOn(addDays(date, 1)) === phase ? '' : 'strip-end'}` : ''
+        const strip = phase ? `strip strip-${phase} ${stripOn(addDays(date, -1)) === phase ? '' : 'strip-start'} ${stripOn(addDays(date, 1)) === phase ? '' : 'strip-end'} ${outside(date) ? 'strip-outside' : ''}` : ''
         const inSpan = strip || (project?.venue && date >= project.venue.start && date <= project.venue.end ? 'in-span' : '')
         return readCell(cols, date, item.collapsed ? node.daily.get(date) : undefined, `group-cell ${inSpan}`)
       }}
