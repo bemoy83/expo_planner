@@ -14,8 +14,6 @@ export const cleanCrewPart = (stored: unknown): CrewPart => (stored === 'innleid
 /** A day in Bemanning is never narrower or wider than this. */
 const BEMANNING_MIN_W = 80
 const BEMANNING_MAX_W = 160
-/** A day in Innleid is always this wide: most suppliers' names fit on the chip of an order (`design_docs/innleid/`). */
-export const INNLEID_W = 116
 /** The days Bemanning opens on when nothing says which. */
 export const BEMANNING_DAYS = 10
 /** How long the switch between the modes zooms. */
