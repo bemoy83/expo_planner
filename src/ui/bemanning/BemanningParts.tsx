@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ClipboardCopy, Maximize2, TriangleAlert, X } from 'lucide-react'
+import { ClipboardCopy, TriangleAlert, X } from 'lucide-react'
 import { addDays, dayOfMonth, isoWeek, monthShort, weekdayName, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { freeCapacity, removeCarried } from '../../domain/staffing/balance'
@@ -9,14 +9,13 @@ import { backFrom, isAway } from '../../domain/staffing/time'
 import { placeName } from '../../domain/workPlace'
 import { PanelToggle } from '../common'
 import { count, modKey } from '../dom'
-import type { CrewPart, PlanMode } from '../kalender/zoom'
 import { Toasts } from '../Toasts'
 import { useBemanning } from './BemanningScope'
 import { DemandRows } from './DemandRows'
 import { CarryWork, DayMenu, DemandPopover } from './Popovers'
 import { EPSILON } from './week'
 import { hoursText } from '../format'
-import { CrewBar, CrewHead, CrewTop } from './CrewFrame'
+import { CrewBar, CrewHead, CrewTop, type CrewBarProps } from './CrewFrame'
 import { crewTools } from './crewTools'
 
 /** The page header in Bemanning: how far the people cover the demand of the days in view. */
@@ -47,27 +46,11 @@ export function BemanningHead({ places, onDayPlan }: { /** The button «Steder»
 /** What is pinned above the people: the projects in view, the Avvik of each day as Innleid has it, and the demand per competence. */
 export const BemanningTop = () => <CrewTop demand={<DemandRows />} />
 
-interface ToolbarProps {
-  /** The width of the grid as it is seen. */
-  width: number
-  mode: PlanMode
-  onMode: (mode: PlanMode) => void
-  /** Every project, as key and name, and the one chosen in the filter. */
-  projects: [key: string, name: string][]
-  project: string
-  onProject: (key: string) => void
-  /** Goes to Innleid, the other part of Bemanning. */
-  onPart: (part: CrewPart) => void
-  onToday: () => void
-  /** Sizes the days so the chosen project fills the grid. */
-  onFit: () => void
-}
-
 /**
  * The planning bar in Bemanning: the mode, undo, the tools (Velg, the brush with the competence it paints,
  * and Tøm), the project, and where in the period.
  */
-export function BemanningToolbar({ width, mode, onMode, onPart, projects, project, onProject, onToday, onFit }: ToolbarProps) {
+export function BemanningToolbar(bar: CrewBarProps) {
   const { tool, pickTool, brush, brushProject, brushHall, projectName, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
   const tools = crewTools(brush ? styles.get(brush) : undefined, brushProject && `${projectName(brushProject)}${brushHall !== null ? ` · ${placeName(brushHall)}` : ''}`, {
     select: 'Velg dager: klikk en dag, eller dra over flere for å kopiere dem. Dra en blokk til en annen dag eller person for å flytte dagens blokker, med Alt for å kopiere (V).',
@@ -76,32 +59,13 @@ export function BemanningToolbar({ width, mode, onMode, onPart, projects, projec
   })
   return (
     <CrewBar
-      width={width}
-      fitKey={`${project}|${tool}|${brush}|${brushProject}|${brushHall}|${unresolved}|${!!clip}|${breaches.length}`}
-      mode={mode}
-      onMode={onMode}
+      {...bar}
+      fitKey={`${tool}|${brush}|${brushProject}|${brushHall}|${unresolved}|${!!clip}|${breaches.length}`}
       part="faste"
-      onPart={onPart}
       tool={tool}
       tools={tools}
       pickTool={pickTool}
       pickKeys={brush ? null : lastKey}
-      onToday={onToday}
-      before={
-        <select className="bar-select" aria-label="Prosjekt" title="Prosjekt: dagene tilpasses prosjektet, og de andre prosjektene dempes" value={project} onChange={(e) => onProject(e.target.value)}>
-          <option value="">Alle prosjekter</option>
-          {projects.map(([key, name]) => (
-            <option key={key} value={key}>
-              {name}
-            </option>
-          ))}
-        </select>
-      }
-      after={
-        <button className="ghost" disabled={!project} title={project ? 'Tilpass dagene til prosjektet' : 'Velg et prosjekt for å tilpasse dagene til det'} onClick={onFit}>
-          <Maximize2 size={14} aria-hidden /> Tilpass prosjekt
-        </button>
-      }
     >
       {breaches.length > 0 && (
         <button

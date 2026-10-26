@@ -10,12 +10,11 @@ import { DensityToggle } from '../bemanning/DensityToggle'
 import { SectionLine } from '../kalender/GridRows'
 import type { Columns } from '../kalender/gridTypes'
 import { LinePick, NeedRow } from '../bemanning/NeedLabel'
-import type { CrewPart, PlanMode } from '../kalender/zoom'
 import { numberKey } from '../../domain/projects'
 import { useInnleid, type HireProjectLine, type InnleidActions } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 import { hoursText } from '../format'
-import { CrewBar, CrewHead, CrewHeading, CrewTop } from '../bemanning/CrewFrame'
+import { CrewBar, CrewHead, CrewHeading, CrewTop, type CrewBarProps } from '../bemanning/CrewFrame'
 import { crewTools } from '../bemanning/crewTools'
 
 const days = (n: number) => count(n, 'dag', 'dager')
@@ -44,7 +43,7 @@ export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPla
 export const InnleidTop = () => <CrewTop demand={<HireDemandRows />} />
 
 /** The planning bar in Innleid, as Faste's: the mode and the part, undo, the tools with the brush and its people, and what is still to do. */
-export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
+export function InnleidToolbar(bar: CrewBarProps) {
   const { styles, projectName } = useBemanning()
   const { board, rows, waiting, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
   const under = board.underDays.length
@@ -55,17 +54,13 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
   })
   return (
     <CrewBar
-      width={width}
+      {...bar}
       fitKey={`${under}|${waiting > HOURS_NOISE}|${tool}|${brush}|${brushProject}|${people}`}
-      mode={mode}
-      onMode={onMode}
       part="innleid"
-      onPart={onPart}
       tool={tool}
       tools={tools}
       pickTool={pickTool}
       pickKeys={brush || !rows.length ? null : Math.min(9, rows.length)}
-      onToday={onToday}
       before={
         <>
           {waiting > HOURS_NOISE && (

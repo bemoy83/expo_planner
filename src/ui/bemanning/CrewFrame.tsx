@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Printer } from 'lucide-react'
+import { Maximize2, Printer } from 'lucide-react'
 import { ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
 import { LEFT_W, ROW_H } from '../kalender/layout'
@@ -45,6 +45,19 @@ export function CrewTop({ demand }: { demand: ReactNode }) {
   )
 }
 
+/** What the Kalender hands the bar of either part. */
+export interface CrewBarProps {
+  width: number
+  mode: PlanMode
+  onMode: (mode: PlanMode) => void
+  onPart: (part: CrewPart) => void
+  onToday: () => void
+  projects: [key: string, name: string][]
+  project: string
+  onProject: (key: string) => void
+  onFit: () => void
+}
+
 interface BarProps {
   width: number
   fitKey: string
@@ -58,17 +71,23 @@ interface BarProps {
   /** No competence is the brush: how many keys pick one, or `null` where none can be picked. */
   pickKeys: number | null
   onToday: () => void
+  /** Every project, as key and name, and the one chosen in the filter, which dims the others and fits the days to it. */
+  projects: [key: string, name: string][]
+  project: string
+  onProject: (key: string) => void
+  /** Sizes the days so the chosen project fills the grid. */
+  onFit: () => void
   /** What the part has after the tools: the brush's people, the clipboard, what needs the planner. */
   children?: ReactNode
-  /** What the part has at the end before «I dag», and after it. */
+  /** What the part has at the end before the project, and after it all. */
   before?: ReactNode
   after?: ReactNode
 }
 
 /** The planning bar: the mode and the part, undo, the tools, what the part adds, and where in the period. */
-export function CrewBar({ width, fitKey, mode, onMode, part, onPart, tool, tools, pickTool, pickKeys, onToday, children, before, after }: BarProps) {
+export function CrewBar({ width, fitKey, mode, onMode, part, onPart, tool, tools, pickTool, pickKeys, onToday, projects, project, onProject, onFit, children, before, after }: BarProps) {
   return (
-    <PlanBar width={width} fitKey={`${part}|${fitKey}`}>
+    <PlanBar width={width} fitKey={`${part}|${project}|${fitKey}`}>
       <div className="bar-zone">
         <ModeSwitch mode={mode} onChange={onMode} />
         <PartSwitch part={part} onChange={onPart} />
@@ -80,8 +99,19 @@ export function CrewBar({ width, fitKey, mode, onMode, part, onPart, tool, tools
       <div className="bar-view">
         <div className="bar-zone bar-zone-end">
           {before}
+          <select className="bar-select" aria-label="Prosjekt" title="Prosjekt: dagene tilpasses prosjektet, og de andre prosjektene dempes" value={project} onChange={(e) => onProject(e.target.value)}>
+            <option value="">Alle prosjekter</option>
+            {projects.map(([key, name]) => (
+              <option key={key} value={key}>
+                {name}
+              </option>
+            ))}
+          </select>
           <button className="ghost" onClick={onToday}>
             I dag
+          </button>
+          <button className="ghost" disabled={!project} title={project ? 'Tilpass dagene til prosjektet' : 'Velg et prosjekt for å tilpasse dagene til det'} onClick={onFit}>
+            <Maximize2 size={14} aria-hidden /> Tilpass prosjekt
           </button>
           {after}
         </div>
