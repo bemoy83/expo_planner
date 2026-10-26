@@ -307,7 +307,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
                 <CoverList orders={orders} suppliers={suppliers} nameOf={nameOf} projectName={projectName} />
               </>
             ) : compact ? (
-              parts && <NeedLine parts={parts} />
+              parts && <NeedLine parts={parts} figure />
             ) : (
               <>
                 {parts && <NeedLabel parts={parts} className={project ? 'il-need-small' : ''} />}

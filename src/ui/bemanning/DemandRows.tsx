@@ -108,7 +108,7 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
           // One line: the demand as a tint, filled solid from the left as it is covered, and what is given beyond it as the ochre tail.
           return (
             <button key={date} className={classes} title={`${style.label} · ${what}${unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : ''}`} onClick={(e) => onDay(style.key, date, e)}>
-              {(cell.demand > EPSILON || over) && <NeedLine parts={staffedLabel(cell, unc, EPSILON)} />}
+              {(cell.demand > EPSILON || over) && <NeedLine parts={staffedLabel(cell, unc, EPSILON)} figure />}
             </button>
           )
         const title =
