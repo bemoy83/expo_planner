@@ -42,7 +42,7 @@ export function OrderEditor({ style }: { style: CompetenceStyle }) {
           <i className="swatch" />
           {style.label}
         </button>
-        <span className="il-editor-for" title="Piltastene flytter dagene. Shift utvider.">
+        <span className="il-editor-for">
           {openLine ? `${openLine.name} · ` : ''}
           {open.from && open.to ? daysText(open.from, open.to) : 'Velg dager i rutenettet'}
         </span>

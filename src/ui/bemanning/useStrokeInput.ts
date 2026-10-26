@@ -1,26 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
+import { useCallback, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { ISODate } from '../../domain/dates'
 import type { DayCell as Day } from '../../domain/staffing/edit'
 import type { Workspace, WorkdaySettings } from '../../domain/types'
 import { LEFT_W } from '../kalender/layout'
-import { useStableActions } from '../kalender/useStableActions'
 import { dividerHeight, personRowAt, type DayGrid } from './dayGrid'
-import { PANEL_W } from '../cssVars'
 import { stretchStop } from './runs'
 import type { Rect, Stroke, Tool } from './tools'
+import { daysAcross, useFollowPointer } from './useFollowPointer'
 import { stretched, type StretchPlan } from './useStrokePreview'
 
-/** How near the edges of the days the pointer makes a stroke scroll the grid: the right edge, the label column, the bottom. */
-const SCROLL_NEAR_RIGHT = 40
-const SCROLL_NEAR_LEFT = 16
-const SCROLL_NEAR_BOTTOM = 30
 /** Below this width of a day, an end is pulled by whole days: two hours are too little to aim at. */
 const STOPS_FROM_W = 64
 /** How far the pointer goes from where it was pressed before a press is a stroke that stops at a time, and no longer a click on the day. */
 const DRAG_FROM = 4
-
-/** Where across the days a point of the window is, counted in days from the first: the whole of it is the column, the rest how far into that day. */
-const daysAcross = (el: HTMLElement, x: number, colW: number): number => (x - el.getBoundingClientRect().left - LEFT_W + el.scrollLeft) / colW
 
 /**
  * The stroke under way, kept beside the state too, so the button let go right after it went down still ends it;
@@ -76,10 +68,8 @@ interface Options {
  */
 export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, listedCount, listedAble, divided, strokeState, activeTool, brush, panelOpen, selection, setSelection, onFocusDate, updateStaffing, stretch, paintCells, paint, clear, moveBlocks }: Options) {
   const { strokeRef, setStroke, setShift, shiftHeld } = strokeState
-  const endStroke = useRef<(() => void) | null>(null)
   /** Where across the window the button went down for the stroke under way. */
   const pressedAt = useRef(0)
-  const pointer = useRef<{ x: number; y: number } | null>(null)
 
   /** The line and the day under a point of the window. The pointer is measured against the grid, not the elements, so nothing laid over the grid stops a stroke. */
   const cellAt = (x: number, y: number): { row: number; col: number } | null => {
@@ -101,9 +91,8 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
   )
 
   const cancelStroke = () => {
-    endStroke.current?.()
+    followed.stop()
     setStroke(null)
-    pointer.current = null
   }
   const finishStroke = (s: Stroke, copy: boolean) => {
     cancelStroke()
@@ -125,7 +114,7 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
   }
 
   // A stroke follows the pointer wherever it goes, and ends where the button is let go.
-  const strokeEnv = useStableActions({
+  const followed = useFollowPointer(scrollRef, panelOpen, {
     move: (x: number, y: number) => {
       const at = cellAt(x, y)
       const s = strokeRef.current
@@ -150,39 +139,11 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
         if (s.row1 !== at.row || s.col1 !== col || s.at !== time || !s.toDemand !== !toDemand) setStroke({ ...s, row1: at.row, col1: col, at: time, toDemand })
       } else if (s.row1 !== at.row || s.col1 !== at.col) setStroke({ ...s, row1: at.row, col1: at.col })
     },
-    finish: (copy: boolean) => strokeRef.current && finishStroke(strokeRef.current, copy),
+    up: (e: MouseEvent) => {
+      if (strokeRef.current) finishStroke(strokeRef.current, e.altKey)
+    },
   })
-  /** Listens for the pointer from the moment the button goes down, until it is let go or the stroke is called off. */
-  const followStroke = () => {
-    endStroke.current?.()
-    const onMove = (e: MouseEvent) => {
-      pointer.current = { x: e.clientX, y: e.clientY }
-      strokeEnv.move(e.clientX, e.clientY)
-    }
-    const onUp = (e: MouseEvent) => strokeEnv.finish(e.altKey)
-    // Near the edges of the days the grid scrolls on under a still pointer.
-    const timer = setInterval(() => {
-      const el = scrollRef.current
-      const at = pointer.current
-      if (!el || !at) return
-      const box = el.getBoundingClientRect()
-      const dx = at.x > box.right - SCROLL_NEAR_RIGHT - (panelOpen.current ? PANEL_W : 0) ? 1 : at.x < box.left + LEFT_W + SCROLL_NEAR_LEFT ? -1 : 0
-      const dy = at.y > box.bottom - SCROLL_NEAR_BOTTOM ? 1 : 0
-      if (!dx && !dy) return
-      el.scrollLeft += dx * 40
-      el.scrollTop += dy * 20
-      strokeEnv.move(at.x, at.y)
-    }, 60)
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    endStroke.current = () => {
-      clearInterval(timer)
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      endStroke.current = null
-    }
-  }
-  useEffect(() => () => endStroke.current?.(), [])
+  const { pointer } = followed
 
   /** A press on the people starts a stroke: by the tool, on a block a move with «Velg», and on an end of a run a pull of it with any tool. */
   const cellDown = (event: React.MouseEvent) => {
@@ -196,16 +157,15 @@ export function useStrokeInput({ ws, wd, scrollRef, bodyRef, colW, dates, grid, 
     const mode = edge ? 'stretch' : event.altKey || activeTool === 'erase' ? 'erase' : activeTool === 'paint' ? 'paint' : onBlock ? 'move' : 'select'
     event.preventDefault()
     if (mode === 'paint' || mode === 'erase') setSelection(null)
-    pointer.current = { x: event.clientX, y: event.clientY }
     pressedAt.current = event.clientX
     setStroke({ mode, toDemand: mode === 'paint' && event.shiftKey, row0: at.row, col0: at.col, row1: at.row, col1: at.col, stretch: edge ? { edge: edge.dataset.edge === 'start' ? 'start' : 'end', blockId: edge.dataset.block ?? '' } : undefined })
-    followStroke()
+    followed.follow(event.clientX, event.clientY)
   }
 
   /** Shift goes down or up: a stroke under way is worked out again where the pointer is. */
   const holdShift = (down: boolean) => {
     setShift(down)
-    if (strokeRef.current && pointer.current) strokeEnv.move(pointer.current.x, pointer.current.y)
+    if (strokeRef.current && pointer.current) followed.move(pointer.current.x, pointer.current.y)
   }
 
   return { cellAt, dateAtX, cellDown, cancelStroke, holdShift }

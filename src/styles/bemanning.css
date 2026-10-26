@@ -64,12 +64,14 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* A line that steps back lies over today's line on the page's own colour, and only what is on it is dimmed: the line itself stays
    solid, so today's line does not show through it, nor do the days under its label column */
 .bm-demand.dim,.il-row.dim{position:relative;z-index:2;background:var(--bg)}
+/* A row with a stroke or days picked lies over its neighbours, for the frame and its pill above it. */
+.il-row.marked{position:relative;z-index:3}
 :is(.bm-demand,.il-row).dim>.cell,:is(.bm-demand,.il-row).dim .grid-label>*{opacity:.5}
 :is(.bm-demand,.il-row).dim:hover>.cell,:is(.bm-demand,.il-row).dim:hover .grid-label>*{opacity:.8}
 /* the line that is the brush: its name in a stronger tint with the mark, to say which project and place are chosen, */
 .bm-demand.on:not(.held) .bm-pick,.il-row.on .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
 /* and its days a faint tint of it, so the line the brush paints on is found across the page (the planner's choice, 2026-10-26); days picked or under a stroke keep their own tint */
-.bm-demand.on:not(.held) .cell,.il-row.on .il-day:not(.picked,.dragged,.stroked-paint,.stroked-erase){background-image:linear-gradient(color-mix(in oklab,var(--cc) 8%,transparent),color-mix(in oklab,var(--cc) 8%,transparent))}
+.bm-demand.on:not(.held) .cell,.il-row.on .il-day{background-image:linear-gradient(color-mix(in oklab,var(--cc) 8%,transparent),color-mix(in oklab,var(--cc) 8%,transparent))}
 /* a project's line under the competence in focus, and a place's under the project in focus: indented under its name, the name in the ink of what is under something */
 .bm-project-pick{--pick-indent:52px}
 .bm-pick-glyph{--pick-indent:12px}
@@ -90,10 +92,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-demand:not(.compact,.summed) .cell{border-bottom:1px solid var(--grid-row)}
 :not(.bm-demand:not(.compact,.summed))+.bm-demand:not(.compact,.summed) .cell{box-shadow:inset 0 1px 0 var(--grid-row)}
 /* compact: one thin line per day, the demand as a tint that fills solid from the left as it is covered */
-.bm-demand.compact .bm-pick{gap:6px}
-.bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
-.bm-demand.compact .bm-name,.bm-demand.compact .bm-week-left{font-size:var(--fs-xs)}
-.bm-demand.compact .bm-need{padding:0 4px}
+:is(.bm-demand,.il-row).compact .bm-pick{gap:6px}
+:is(.bm-demand,.il-row).compact .swatch{width:7px;height:7px;border-radius:2px}
+:is(.bm-demand,.il-row).compact :is(.bm-name,.bm-week-left){font-size:var(--fs-xs)}
+:is(.bm-demand,.il-row).compact .bm-need{padding:0 4px}
 .bm-need-line{position:relative;display:block;flex:1;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklab,var(--cc) 22%,var(--bg))}
 .bm-need-line>i{position:absolute;top:0;left:0;bottom:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
 .bm-need-line .covered{background:var(--cc)}
@@ -300,16 +302,13 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* ---- Innleid: the hours of each competence that remain after the permanent staff, and how far orders cover them ---- */
 .heat-legend+.bm-week-left{min-width:64px;margin-left:10px;justify-content:flex-end}
 .il-unfold{flex:none;margin:0 3px;color:var(--faint)}
-.il-row .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
+.il-row:not(.compact) .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
 /* As in Faste: the lines under the competence that is open are neutral, in the tree of its lines (`.bm-project-pick`), the line the days are picked on has the mark at its name
    (the editor's edge on the competence's own), and the other competences step back (`.il-row.dim`, with Faste's). */
 .il-row.open.on .grid-label{box-shadow:inset 3px 0 0 var(--cc)}
 /* A day of a line: Faste's label (`.bm-need-label`), filled from the left by what is ordered. Compact, Faste's thin line with the figure beside it. */
 .il-day{flex-direction:column;align-items:stretch;justify-content:flex-start;min-width:0;cursor:pointer;user-select:none}
 /* the days picked, and those a drag reaches, in the tint of what is selected, as in the rest of the Kalender */
-.il-day:is(.picked,.dragged){background-image:linear-gradient(var(--pick-soft),var(--pick-soft))}
-.il-day.stroked-paint{background-image:linear-gradient(color-mix(in oklab,var(--cc) 22%,transparent),color-mix(in oklab,var(--cc) 22%,transparent))}
-.il-day.stroked-erase{background-image:linear-gradient(color-mix(in oklab,var(--alert-block) 14%,transparent),color-mix(in oklab,var(--alert-block) 14%,transparent))}
 .il-need-small{top:5px;bottom:auto;height:20px}
 .il-need-open{bottom:auto;height:28px}
 /* Who covers a project's day, under its label: the supplier with the most confirmed and its people, then one «+N». The name gives way, the figures never. */

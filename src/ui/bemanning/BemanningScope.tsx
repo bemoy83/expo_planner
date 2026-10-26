@@ -181,7 +181,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     closePanel: () => setPanel(null),
     fold: () => setUnfolded(null),
     pickTool,
-    competenceKeys: staffed.map((style) => style.key),
+    brushKeys: staffed.map((style) => style.key),
     pickBrush,
     toggleHours: () => {
       const personId = selected?.personId ?? unfolded
@@ -203,7 +203,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   })
 
   return {
-    ws, dates, cols, room: view.room, viewFrom: view.viewFrom, viewTo: view.viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
+    ws, dates, cols, scrollRef, room: view.room, viewFrom: view.viewFrom, viewTo: view.viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, styles, keyOf: view.keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, brushProject: activeProject, brushHall: activeHall, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand: brush.pickFromDemand, pickProject: brush.pickProject, pickPlace: brush.pickPlace,
     balance, shownBalance: preview.shownBalance, shownRemaining: preview.shownRemaining, totals: view.totals, remainingOf, demandRows: view.demandRows, uncoverable: view.uncoverable, projectLines, projectShown: preview.projectShown, restShown: preview.restShown, placeLines, placeShown: preview.placeShown, projectName: brush.projectName, projectBalance, kalenderProjects: brush.kalenderProjects,
