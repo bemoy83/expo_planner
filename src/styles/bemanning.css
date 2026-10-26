@@ -109,7 +109,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* the thin line with its figure beside it (Innleid), the figure over on an ochre chip */
 .bm-need-compact{position:absolute;left:8px;right:8px;top:50%;display:flex;align-items:center;gap:6px;height:16px;margin-top:-8px}
 .bm-need-compact b{flex:none;font:600 var(--fs-xs)/1 var(--font-num)}
-.bm-need-compact b.alert{padding:2px 4px;border-radius:3px;background:var(--alert-warn);color:var(--alert-on)}
 .bm-idle-head{color:var(--faint)}
 
 /* ---- the planning bar ---- */

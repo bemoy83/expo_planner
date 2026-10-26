@@ -51,7 +51,7 @@ export function NeedLine({ parts, figure = false }: { parts: NeedLabelParts; fig
   return (
     <span className="bm-need-compact">
       {line}
-      {parts.figure !== null && <b className={parts.alert ? 'alert' : ''}>{signedHours(parts.figure)}</b>}
+      {parts.figure !== null && <b>{signedHours(parts.figure)}</b>}
     </span>
   )
 }
