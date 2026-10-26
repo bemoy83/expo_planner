@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { parseDecimal } from '../../domain/numbers'
 import type { CompetenceStyle } from '../../domain/types'
 import { competenceColor, inWindow } from '../dom'
@@ -77,11 +77,63 @@ interface DemandProps {
   x: number
   y: number
   style: CompetenceStyle
-  /** «tirsdag 13. okt» */
+  /** «tirsdag 13. okt», with the project's name after it on a project's line. */
   dayText: string
-  demand: number
-  assigned: number
-  remaining: number
+  /** The day's balance in hours, a figure each: Faste's demand, assigned and left; Innleid's left after Faste, confirmed, waiting and missing. */
+  stats: { label: string; hours: number }[]
+  /** What the part adds under the figures: the free time and moved hours of Faste, the orders of Innleid. */
+  children?: ReactNode
+  /** What the button that makes it the brush says. */
+  paintText: string
+  canPaint: boolean
+  onClose: () => void
+  onPaint: () => void
+}
+
+/**
+ * What a click on a day of a demand line opens, the same in Faste and Innleid: the day's balance, what the part adds
+ * under it, and the competence (or the project's line) as the brush.
+ */
+export function DemandPopover({ x, y, style, dayText, stats, children, paintText, canPaint, onClose, onPaint }: DemandProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  useDismiss(ref, true, onClose)
+  return (
+    <div className="menu-pop bm-demand-pop" role="dialog" ref={ref} style={{ ...inWindow(x, y + 8, 300, 300), ...competenceColor(style) }}>
+      <div className="bm-pop-head">
+        <i className="swatch" />
+        <b>{style.label}</b>
+        <span>{dayText}</span>
+      </div>
+      <div className="stats">
+        {stats.map((stat) => (
+          <div key={stat.label}>
+            <span>{stat.label}</span>
+            <b>{hoursText(stat.hours)}</b>
+          </div>
+        ))}
+      </div>
+      {children}
+      <div className="dialog-actions">
+        <button onClick={onClose}>Lukk</button>
+        <button
+          className="primary"
+          disabled={!canPaint}
+          onClick={() => {
+            onClose()
+            onPaint()
+          }}
+        >
+          {paintText}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const DEFAULT_CARRY = '3'
+
+interface CarryProps {
+  style: CompetenceStyle
   /** Hours moved to this day from the day before. */
   carried: number
   /** Free normal time of the people who have the competence. */
@@ -89,21 +141,13 @@ interface DemandProps {
   /** The weekday the hours would move to, with «(overtid)» where that is a day off. */
   nextDay: string
   nextDayShort: string
-  /** Whether the competence is the brush already. */
-  painting: boolean
-  canPaint: boolean
   onClose: () => void
   onCarry: (hours: number) => void
   onRemoveCarried: () => void
-  onPaint: () => void
 }
 
-const DEFAULT_CARRY = '3'
-
-/** What a click on a day of a demand line opens: the day's balance, and moving unfinished work to the next day. */
-export function DemandPopover({ x, y, style, dayText, demand, assigned, remaining, carried, free, nextDay, nextDayShort, painting, canPaint, onClose, onCarry, onRemoveCarried, onPaint }: DemandProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  useDismiss(ref, true, onClose)
+/** Faste's part of the popover of a demand day: the free time of the people, and moving unfinished work to the next day. */
+export function CarryWork({ style, carried, free, nextDay, nextDayShort, onClose, onCarry, onRemoveCarried }: CarryProps) {
   const [amount, setAmount] = useState(DEFAULT_CARRY)
   const hours = parseDecimal(amount) ?? 0
   const valid = hours > 0
@@ -113,26 +157,7 @@ export function DemandPopover({ x, y, style, dayText, demand, assigned, remainin
     onCarry(hours)
   }
   return (
-    <div className="menu-pop bm-demand-pop" role="dialog" ref={ref} style={{ ...inWindow(x, y + 8, 300, 300), ...competenceColor(style) }}>
-      <div className="bm-pop-head">
-        <i className="swatch" />
-        <b>{style.label}</b>
-        <span>{dayText}</span>
-      </div>
-      <div className="stats">
-        <div>
-          <span>Behov</span>
-          <b>{hoursText(demand)}</b>
-        </div>
-        <div>
-          <span>Tildelt</span>
-          <b>{hoursText(assigned)}</b>
-        </div>
-        <div>
-          <span>Gjenstår</span>
-          <b>{hoursText(Math.max(0, remaining))}</b>
-        </div>
-      </div>
+    <>
       <p>
         Ledig hos faste med {style.label}: <b>{hoursText(free)} t</b>
       </p>
@@ -160,19 +185,6 @@ export function DemandPopover({ x, y, style, dayText, demand, assigned, remainin
           </button>
         </div>
       </div>
-      <div className="dialog-actions">
-        <button onClick={onClose}>Lukk</button>
-        <button
-          className="primary"
-          disabled={!canPaint}
-          onClick={() => {
-            onClose()
-            onPaint()
-          }}
-        >
-          {painting ? `Maler med ${style.label}` : `Mal med ${style.label}`}
-        </button>
-      </div>
-    </div>
+    </>
   )
 }

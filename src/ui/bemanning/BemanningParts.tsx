@@ -15,7 +15,7 @@ import type { CrewPart, PlanMode } from '../kalender/zoom'
 import { Toasts } from '../Toasts'
 import { useBemanning } from './BemanningScope'
 import { DemandRows } from './DemandRows'
-import { DayMenu, DemandPopover } from './Popovers'
+import { CarryWork, DayMenu, DemandPopover } from './Popovers'
 import { ProjectLines } from './ProjectLines'
 import { AvvikSection } from './AvvikSection'
 import { useInnleid } from '../innleid/InnleidScope'
@@ -197,20 +197,27 @@ export function BemanningOverlays() {
               y={demandPop.y}
               style={styles.get(demandPop.competence)!}
               dayText={dayText(demandPop.date)}
-              demand={cell.demand}
-              assigned={cell.assigned}
-              remaining={cell.remaining}
-              carried={cell.carried}
-              free={freeCapacity(ws, demandPop.date, demandPop.competence).hours}
-              nextDay={`${nextName}${dayType(next) !== 'arbeidsdag' ? ' (overtid)' : ''}`}
-              nextDayShort={nextName.slice(0, 3)}
-              painting={brush === demandPop.competence}
+              stats={[
+                { label: 'Behov', hours: cell.demand },
+                { label: 'Tildelt', hours: cell.assigned },
+                { label: 'Gjenstår', hours: Math.max(0, cell.remaining) },
+              ]}
+              paintText={brush === demandPop.competence ? `Maler med ${styles.get(demandPop.competence)!.label}` : `Mal med ${styles.get(demandPop.competence)!.label}`}
               canPaint={staffed.some((style) => style.key === demandPop.competence)}
               onClose={() => bm.setDemandPop(null)}
-              onCarry={(hours) => updateStaffing((w) => ({ ...w, demandAdjustments: carry(w, demandPop.competence, demandPop.date, hours) }))}
-              onRemoveCarried={() => updateStaffing((w) => ({ ...w, demandAdjustments: removeCarried(w.demandAdjustments ?? [], demandPop.competence, demandPop.date) }))}
               onPaint={() => brush !== demandPop.competence && bm.pickBrush(demandPop.competence)}
-            />
+            >
+              <CarryWork
+                style={styles.get(demandPop.competence)!}
+                carried={cell.carried}
+                free={freeCapacity(ws, demandPop.date, demandPop.competence).hours}
+                nextDay={`${nextName}${dayType(next) !== 'arbeidsdag' ? ' (overtid)' : ''}`}
+                nextDayShort={nextName.slice(0, 3)}
+                onClose={() => bm.setDemandPop(null)}
+                onCarry={(hours) => updateStaffing((w) => ({ ...w, demandAdjustments: carry(w, demandPop.competence, demandPop.date, hours) }))}
+                onRemoveCarried={() => updateStaffing((w) => ({ ...w, demandAdjustments: removeCarried(w.demandAdjustments ?? [], demandPop.competence, demandPop.date) }))}
+              />
+            </DemandPopover>
           )
         })()}
       <Toasts toasts={bm.toasts} onDismiss={bm.dismissToast} />

@@ -23,6 +23,7 @@ import { InnleidHead, InnleidToolbar, InnleidTop, SupplierHeading } from '../inn
 import { SupplierRows } from '../innleid/SupplierRows'
 import { InnleidScope } from '../innleid/InnleidScope'
 import { InnleidSidePanel } from '../innleid/SupplierPanel'
+import { InnleidOverlays } from '../innleid/InnleidOverlays'
 import { AreaMenu } from './AreaMenu'
 import { CellMenu } from './CellMenu'
 import { EngineDialog } from './EngineDialog'
@@ -465,6 +466,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
 
       {workPlan && <WorkPlanDialog open={workPlan} onOpen={setWorkPlan} onClose={() => setWorkPlan(null)} />}
       {bemanning && !innleid && <BemanningOverlays />}
+      {innleid && <InnleidOverlays />}
       {!bemanning && <StatusBar focus={grid.focusInfo} selectionSum={grid.selectionSum} notice={notice} progress={grid.progress} onSaveNote={setAllocationNote} />}
 
       {engineOpen && (

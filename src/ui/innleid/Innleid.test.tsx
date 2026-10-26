@@ -1,4 +1,4 @@
-import { act, fireEvent } from '@testing-library/react'
+import { act, fireEvent, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ISODate } from '../../domain/dates'
 import type { HireOrder, Supplier } from '../../domain/types'
@@ -36,7 +36,11 @@ const ordersOf = () =>
   (store.workspace?.hireOrders ?? [])
     .map((order) => [order.supplierId, order.shift, order.date, order.fte])
     .sort((a, b) => String(a).localeCompare(String(b)))
-const order = (shift: HireOrder['shift'], date: ISODate, fte: number): HireOrder => ({ id: `${shift}-${date}`, supplierId: 's1', shift, competence: 'foga', date, fte, start: 420, end: 900, conf: null })
+const order = (shift: HireOrder['shift'], date: ISODate, fte: number, conf: number | null = null): HireOrder => ({ id: `${shift}-${date}`, supplierId: 's1', shift, competence: 'foga', date, fte, start: 420, end: 900, conf })
+/** The run on a line that holds the order with the id, and a press on it, or on one of its ends. */
+const runOf = (container: HTMLElement, id: string) => [...container.querySelectorAll<HTMLElement>('.il-run')].find((run) => run.dataset.ids?.split(' ').includes(id))!
+const pressOn = (target: Element, container: HTMLElement, line: number, date: ISODate, init: MouseEventInit = {}) => fireEvent.mouseDown(target, { button: 0, ...pointOf(container, line, date), ...init })
+const answers = () => (store.workspace?.hireOrders ?? []).map((one) => [one.date, one.conf]).sort((a, b) => String(a).localeCompare(String(b)))
 
 describe('Innleid', () => {
   afterEach(cleanupKalender)
@@ -98,5 +102,79 @@ describe('Innleid', () => {
     letGo()
     await settle()
     expect(ordersOf()).toEqual([])
+  })
+
+  it('removes the orders of the days selected with Delete, in one undo step', async () => {
+    const { container } = await renderKalender(workspace([order('dag', '2026-10-06', 2), order('kveld', '2026-10-07', 1), order('dag', '2026-10-08', 1)]), PREFS)
+    press(container, 0, '2026-10-06')
+    moveTo(container, 1, '2026-10-07')
+    letGo()
+    await settle()
+    keyDown('Delete')
+    await settle()
+    expect(ordersOf()).toEqual([['s1', 'dag', '2026-10-08', 1]])
+    await act(async () => store.undo())
+    expect(ordersOf()).toHaveLength(3)
+  })
+
+  it('copies the days selected and pastes them from the line and day under the pointer', async () => {
+    const { container } = await renderKalender(workspace([order('dag', '2026-10-06', 2)]), PREFS)
+    press(container, 0, '2026-10-06')
+    letGo()
+    keyDown('c', { ctrlKey: true })
+    fireEvent.mouseMove(container.querySelector('.il-suppliers')!, pointOf(container, 1, '2026-10-08'))
+    keyDown('v', { ctrlKey: true })
+    await settle()
+    expect(ordersOf()).toEqual([
+      ['s1', 'dag', '2026-10-06', 2],
+      ['s1', 'kveld', '2026-10-08', 2],
+    ])
+  })
+
+  it('moves a day of orders to another day and line, and copies it there with Alt', async () => {
+    const { container } = await renderKalender(workspace([order('dag', '2026-10-06', 2)]), PREFS)
+    pressOn(runOf(container, 'dag-2026-10-06'), container, 0, '2026-10-06')
+    moveTo(container, 1, '2026-10-07')
+    letGo()
+    await settle()
+    expect(ordersOf()).toEqual([['s1', 'kveld', '2026-10-07', 2]])
+    const [moved] = store.workspace!.hireOrders!
+    pressOn(runOf(container, moved.id), container, 1, '2026-10-07')
+    moveTo(container, 0, '2026-10-09')
+    letGo({ altKey: true })
+    await settle()
+    expect(ordersOf()).toEqual([
+      ['s1', 'dag', '2026-10-09', 2],
+      ['s1', 'kveld', '2026-10-07', 2],
+    ])
+  })
+
+  it('answers for the whole run in its popover, or for the day clicked alone', async () => {
+    const { container, getByRole } = await renderKalender(workspace([order('dag', '2026-10-06', 2), order('dag', '2026-10-07', 2)]), PREFS)
+    pressOn(runOf(container, 'dag-2026-10-06'), container, 0, '2026-10-07')
+    letGo()
+    await settle()
+    const pop = () => within(getByRole('dialog'))
+    fireEvent.click(pop().getByRole('button', { name: /Bekreftet/ }))
+    await settle()
+    expect(answers()).toEqual([['2026-10-06', 2], ['2026-10-07', 2]])
+    fireEvent.click(pop().getByRole('checkbox'))
+    fireEvent.click(pop().getByRole('button', { name: /Venter/ }))
+    await settle()
+    expect(answers()).toEqual([['2026-10-06', 2], ['2026-10-07', null]])
+  })
+
+  it('gives a run more days or fewer by an end pulled', async () => {
+    const { container } = await renderKalender(workspace([order('dag', '2026-10-06', 2), order('dag', '2026-10-07', 2)]), PREFS)
+    pressOn(runOf(container, 'dag-2026-10-06').querySelector('.bm-edge.end')!, container, 0, '2026-10-07')
+    moveTo(container, 0, '2026-10-09')
+    letGo()
+    await settle()
+    expect(ordersOf().map(([, , date]) => date)).toEqual(['2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09'])
+    pressOn(runOf(container, 'dag-2026-10-06').querySelector('.bm-edge.end')!, container, 0, '2026-10-09')
+    moveTo(container, 0, '2026-10-06')
+    letGo()
+    await settle()
+    expect(ordersOf().map(([, , date]) => date)).toEqual(['2026-10-06'])
   })
 })

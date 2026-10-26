@@ -121,6 +121,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* what opens at the pointer: the balance of a day of a demand line */
 .bm-demand-pop{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:var(--fs-md)}
 .bm-demand-pop p{margin:0}
+.il-pop-orders{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;font-size:var(--fs-sm)}
 .bm-pop-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-base)}
 .bm-pop-head span{margin-left:auto;font-size:var(--fs-sm);color:var(--muted)}
 .bm-pop-carry{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
@@ -200,7 +201,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-block:hover .bm-edge::after{opacity:1}
 /* what the pointer does to a day */
 [data-tool='paint'] .bm-cell{cursor:cell}
-[data-tool='select'] .bm-block{cursor:grab}
+[data-tool='select'] :is(.bm-block,.il-run){cursor:grab}
 [data-tool='erase'] .bm-cell{cursor:crosshair}
 [data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
 [data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
@@ -341,22 +342,19 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-status:hover{background:var(--wash)}
 .il-status.waits{color:var(--muted)}
 .il-status .il-glyph{color:var(--text)}
-.il-menu>.il-remove{color:var(--neg)}
+.il-remove{align-self:flex-start;gap:6px;padding:0 4px;background:transparent;color:var(--neg)}
 /* The popovers of the editor */
 .il-pop{position:fixed;z-index:80;display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:var(--panel);box-shadow:0 12px 32px -8px var(--shadow),0 0 0 1px var(--line-strong);font-size:var(--fs-md)}
-.il-pop.il-menu{gap:0;padding:6px}
-.il-menu>button{gap:8px}
-.il-menu>button svg{margin-left:auto}
-.il-menu-name{font-weight:500}
-.il-menu-note{font-size:var(--fs-xs);color:var(--muted)}
 .il-pop-title{display:flex;align-items:baseline;gap:8px;font-weight:600}
 .il-pop-title em{font:400 var(--fs-xs) var(--font-ui);font-style:normal;color:var(--muted)}
 .il-pop-note{margin:0;padding:0 2px;font-size:var(--fs-xs);color:var(--muted)}
+.il-pop-check{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm)}
+.il-pop-field{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm)}
+.il-pop-field select{flex:1;min-width:0}
 .il-pop .segmented{display:flex}
 .il-pop .segmented button{flex:1}
 .il-sends{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
 .il-sends-day{flex:1;color:var(--muted)}
-.il-sends-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
 .il-times{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .il-times input{width:92px;font:600 var(--fs-md) var(--font-num)}
 .il-times .il-pop-note{flex-basis:100%}

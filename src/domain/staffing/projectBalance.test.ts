@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, tagOrders } from '../hire'
+import { mergeOrders, orderText, tagOrders } from '../hire'
 import { buildBalance, removeCarried } from './balance'
 import { clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, paintDays, pasteDays, recolourBlock, resizeBlock, splitBlock } from './edit'
 import { buildProjectBalance, carry, cellsToDemand, NO_PROJECT, projectsWithWork, projectTotals } from './projectBalance'
 import { TWO_PROJECTS, withTwoProjects } from '../../test/staffingFixture'
-import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, sameProject, type Assignment, type HireOrder, type Supplier, type Workspace } from '../types'
+import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type Assignment, type HireOrder, type Supplier, type Workspace } from '../types'
 import { nextInRun } from '../../ui/bemanning/runs'
 
 /** The project balance of `staffing.ts`: the hours of a competence on a day shared out on its projects. */
@@ -145,11 +145,9 @@ describe('the project on a block', () => {
 })
 
 describe('the project on an order', () => {
-  it('keeps orders of two projects apart, in the editor too', () => {
+  it('keeps orders of two projects apart', () => {
     expect(mergeOrders([order(MON, 2, FIRST), order(MON, 1, SECOND)])).toHaveLength(2)
     expect(mergeOrders([order(MON, 2, FIRST), { ...order(MON, 1, FIRST), id: 'other' }])).toHaveLength(1)
-    expect(orderGroups([order(MON, 2, FIRST), order(MON, 1, SECOND)], [supplier]).map((g) => g.projectNo)).toEqual([FIRST, SECOND])
-    expect(groupKey('s1', order(MON, 2, FIRST))).not.toBe(groupKey('s1', order(MON, 2, SECOND)))
   })
 
   it('is set or taken off without a new answer, and joins an order of the same project', () => {
@@ -158,15 +156,7 @@ describe('the project on an order', () => {
     expect(tagOrders(tagged, [tagged[0].id], null)[0].projectNo).toBeUndefined()
   })
 
-  it('is erased for one project, or for all', () => {
-    const both = [order(MON, 2, FIRST), order(MON, 1, SECOND)]
-    expect(eraseOrders(both, 'vegger', [MON], undefined, (o) => sameProject(o, { projectNo: FIRST })).map((o) => o.projectNo)).toEqual([SECOND])
-    expect(eraseOrders(both, 'vegger', [MON])).toEqual([])
-  })
-
-  it('fills a line with its project, and names the project in the text to the supplier', () => {
-    const [group] = orderGroups([order(MON, 2, FIRST)], [supplier])
-    expect(fillGroup(group, 'vegger', [MON, TUE], id)).toMatchObject([{ date: TUE, projectNo: FIRST }])
+  it('names the project in the text to the supplier', () => {
     expect(orderText(supplier, [order(MON, 2, FIRST)], [{ key: 'vegger', label: 'Vegger' }], (no) => `Prosjekt ${no}`)).toContain(`Vegger · Prosjekt ${FIRST}: 2 pers.`)
   })
 })

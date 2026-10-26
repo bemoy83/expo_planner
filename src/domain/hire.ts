@@ -250,52 +250,8 @@ export const removeOrders = (orders: HireOrder[], ids: string[]): HireOrder[] =>
   return orders.some((order) => picked.has(order.id)) ? orders.filter((order) => !picked.has(order.id)) : orders
 }
 
-/** I4: the orders without those of a competence on some days: of every supplier, or of the one given; on every line, or on the one whose orders `holds` (`HireLine`). */
-export const eraseOrders = (orders: HireOrder[], competence: CompetenceKey, dates: ISODate[], supplierId?: string, holds: (order: HireOrder) => boolean = () => true): HireOrder[] => {
-  const days = new Set(dates)
-  const gone = (order: HireOrder) => order.competence === competence && days.has(order.date) && (supplierId === undefined || order.supplierId === supplierId) && holds(order)
-  return orders.some(gone) ? orders.filter((order) => !gone(order)) : orders
-}
-
-/** The orders of one supplier at one time for one project, over the days that are picked: a line of the editor. */
-export interface OrderGroup {
-  key: string
-  supplierId: string
-  shift: ShiftId
-  start: Minute
-  end: Minute
-  projectNo?: string
-  orders: HireOrder[]
-}
-
-/** What tells the lines of the editor apart: a supplier, a time and a project. */
-export const groupKey = (supplierId: string, times: Interval & { projectNo?: string }): string => `${supplierId}|${times.start}|${times.end}|${(times.projectNo ?? '').trim().toLowerCase()}`
-
 /** How late in the working day a time is, counted from six in the morning, so that a night shift comes last. */
 const fromMorning = (minute: Minute) => (minute - 360 + DAY) % DAY
-
-/** I8: the orders of a competence on the days that are picked, gathered by supplier and time, in the suppliers' order and then by time. */
-export const orderGroups = (orders: HireOrder[], suppliers: Supplier[]): OrderGroup[] => {
-  const groups = new Map<string, OrderGroup>()
-  for (const order of orders) {
-    const key = groupKey(order.supplierId, order)
-    if (!groups.has(key)) groups.set(key, { key, supplierId: order.supplierId, shift: order.shift, start: order.start, end: order.end, ...projectTag(order), orders: [] })
-    groups.get(key)!.orders.push(order)
-  }
-  const place = (id: string) => suppliers.findIndex((supplier) => supplier.id === id)
-  return [...groups.values()].sort((a, b) => place(a.supplierId) - place(b.supplierId) || fromMorning(a.start) - fromMorning(b.start))
-}
-
-/** A group waits while one of its orders does. */
-export const groupWaits = (group: OrderGroup): boolean => group.orders.some(isWaiting)
-
-/** I8, «Fyll»: the group's order on the days it lacks one, with the number of people it has on most of its days (the median). */
-export const fillGroup = (group: OrderGroup, competence: CompetenceKey, dates: ISODate[], makeId: () => string = newId): HireOrder[] => {
-  const counts = group.orders.map((order) => order.fte).sort((a, b) => a - b)
-  const fte = counts[Math.floor(counts.length / 2)]
-  const have = new Set(group.orders.map((order) => order.date))
-  return dates.filter((date) => !have.has(date)).map((date) => ({ id: makeId(), supplierId: group.supplierId, shift: group.shift, competence, ...(group.projectNo && { projectNo: group.projectNo }), date, fte, start: group.start, end: group.end, conf: null }))
-}
 
 /** A supplier's orders as they are listed: by day, then in the planner's order of the competences, then by time. */
 export const supplierOrders = (supplier: Supplier, orders: HireOrder[], competences: { key: CompetenceKey }[]): HireOrder[] => {

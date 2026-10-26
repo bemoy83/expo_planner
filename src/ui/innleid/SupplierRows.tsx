@@ -154,11 +154,16 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
         const at = cols.c0 + cols.dates.indexOf(run.from)
         const days = cols.dates.indexOf(run.to) - cols.dates.indexOf(run.from) + 1
         const state = coming && run.orders.some(coming) ? 'coming' : going && run.orders.some(going) ? 'going' : ''
+        // An end is taken hold of where the run as it is pulled ends (`grips`, which go on over days off), as in Faste.
+        const grip = runs.grips.find((one) => one.orders.includes(order))
+        const atStart = grip?.from === run.from
+        const atEnd = grip?.to === run.to
         return (
           <span
             key={`${run.lane}|${run.from}`}
             className={`il-run ${run.waits ? 'waits' : ''} ${state} ${lane.height < 20 ? 'sm' : ''} ${focus && focus !== run.competence ? 'other' : ''}`}
             data-lane={laneOf(run)}
+            data-ids={run.orders.map((one) => one.id).join(' ')}
             style={{ left: daysWide(at, LEFT_W + DAY_INSET), width: daysWide(days, -2 * DAY_INSET), top: lane.top, height: lane.height, ...competenceColor(style) }}
             onMouseDown={actions.cellDown}
             title={`${label} · ${supplier.name} · ${SHIFT_LABELS[line.shift]}\n${dayText(run.from)}${run.to === run.from ? '' : ` – ${dayText(run.to)}`} · ${people} pers. · ${run.waits ? 'venter på svar' : 'bekreftet'}${own ? `\nEgne tider ${own}` : ''}${run.projectNo ? '' : '\nUten prosjekt: fordeles på prosjektene'}${stale ? `\n${supplier.name} tilbyr ikke ${style?.label ?? run.competence} lenger` : ''}`}
@@ -169,6 +174,8 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
               <b>{people}</b>
               {own && <small>{own}</small>}
             </span>
+            {atStart && <i className="bm-edge start" data-edge="start" data-block={grip!.orders[0].id} />}
+            {atEnd && <i className="bm-edge end" data-edge="end" data-block={grip!.orders[grip!.orders.length - 1].id} />}
           </span>
         )
       })}
@@ -204,7 +211,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
   }
   const pillStyle = pill?.competence ? competenceColor(styles.get(pill.competence)) : undefined
   return (
-    <div className="bm-people il-suppliers" ref={bodyRef} data-tool={tool}>
+    <div className="bm-people il-suppliers" ref={bodyRef} data-tool={tool} onMouseMove={actions.bodyMove} onMouseLeave={actions.bodyLeave}>
       {blocks.map((block) => {
         const { supplier } = block
         const days = perDay.get(supplier.id)

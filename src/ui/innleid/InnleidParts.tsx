@@ -214,7 +214,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
         const cover = coverOf(date)
         const parts = cover.state === 'none' ? null : orderedLabel(cover, orders, wd, suppliers)
         return (
-          <button key={date} className={`${dayClass(cols, date)} cell bm-need il-day`} title={coverTitle(label, date, cover, orders, nameOf, projectName, wd)} onClick={() => actions.pickDay(style.key, project?.projectNo)}>
+          <button key={date} className={`${dayClass(cols, date)} cell bm-need il-day`} title={coverTitle(label, date, cover, orders, nameOf, projectName, wd)} onClick={(event) => actions.pickDay(style.key, project?.projectNo, date, event)}>
             {parts && (compact ? <NeedLine parts={parts} figure /> : <NeedLabel parts={parts} />)}
           </button>
         )

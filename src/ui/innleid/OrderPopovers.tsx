@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, Minus, Plus } from 'lucide-react'
-import { groupWaits, hireHours, shiftOf, SHIFT_LABELS, shiftTimes, timesText, type OrderGroup } from '../../domain/hire'
-import { SHIFT_IDS, type CompetenceStyle, type Interval, type Supplier, type WorkdaySettings } from '../../domain/types'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Minus, Plus, Trash2 } from 'lucide-react'
+import { hireHours, isWaiting, SHIFT_LABELS, shiftTimes } from '../../domain/hire'
+import type { HireOrder, Interval, WorkdaySettings } from '../../domain/types'
 import { clockMinutes } from '../bemanning/week'
 import { Segmented } from '../common'
-import { dayText } from '../../domain/dates'
+import { dayText, type ISODate } from '../../domain/dates'
+import { count } from '../dom'
 import { useStableActions } from '../kalender/useStableActions'
 import { clock, hoursText } from '../format'
 
@@ -35,7 +36,7 @@ export function Stepper({ value, min = 1, max = Infinity, label, onStep }: { val
 }
 
 /**
- * The frame of a popover of the editor, under the button it was opened from, or over it where there is no room.
+ * The frame of a popover of Innleid, under the run it was opened from, or over it where there is no room.
  * The first press outside it only closes it: the press is swallowed, with its click, so it selects no day and
  * presses nothing under it. Escape closes it, and Enter does where `onEnter` is given.
  */
@@ -89,105 +90,6 @@ function Popover({ at, width, className = '', onClose, onEnter, children }: { at
   )
 }
 
-/** A choice of the menu of an editor's line: what it does, set apart from those above it where `rule` is given, in the ink of danger where it removes. */
-export interface MenuItem {
-  label: string
-  onPick: () => void
-  rule?: boolean
-  danger?: boolean
-}
-
-/** The menu behind ⋯ on a line of the editor. */
-export function LineMenu({ at, items, onClose }: { at: DOMRect; items: MenuItem[]; onClose: () => void }) {
-  return (
-    <Popover at={at} width={230} className="il-menu" onClose={onClose}>
-      {items.map((item) => (
-        <Fragment key={item.label}>
-          {item.rule && <span className="menu-rule" />}
-          <button role="menuitem" className={item.danger ? 'il-remove' : undefined} onClick={item.onPick}>
-            <span className="il-menu-name">{item.label}</span>
-          </button>
-        </Fragment>
-      ))}
-    </Popover>
-  )
-}
-
-const shiftsText = (supplier: Supplier) => supplier.shifts.map((shift) => SHIFT_LABELS[shift]).join(' · ')
-
-/** The suppliers to pick from for a competence: those that offer it, and under them those that do not, which cannot be picked. */
-export function SupplierMenu({ at, competence, suppliers, current, onPick, onClose }: { at: DOMRect; competence: CompetenceStyle; suppliers: Supplier[]; current?: string; onPick: (supplier: Supplier) => void; onClose: () => void }) {
-  const offers = suppliers.filter((supplier) => supplier.competences.includes(competence.key))
-  const others = suppliers.filter((supplier) => !supplier.competences.includes(competence.key))
-  const item = (supplier: Supplier, disabled: boolean) => (
-    <button key={supplier.id} role="menuitem" disabled={disabled} onClick={() => (onClose(), onPick(supplier))}>
-      <span className="il-menu-name">{supplier.name}</span>
-      <span className="il-menu-note">{[shiftsText(supplier), supplier.rate ? `${supplier.rate} kr/t` : ''].filter(Boolean).join(' · ')}</span>
-      {supplier.id === current && <Check size={14} aria-label="Valgt" />}
-    </button>
-  )
-  return (
-    <Popover at={at} width={240} className="il-menu" onClose={onClose}>
-      <span className="menu-group first">Tilbyr {competence.label}</span>
-      {offers.map((supplier) => item(supplier, !supplier.shifts.length))}
-      {!offers.length && <p className="il-pop-note">Ingen leverandør tilbyr {competence.label} ennå.</p>}
-      {others.length > 0 && <span className="menu-group">Tilbyr ikke {competence.label}</span>}
-      {others.map((supplier) => item(supplier, true))}
-    </Popover>
-  )
-}
-
-/** The shift of a line of the editor: one of the supplier's, or times of its own. */
-export function ShiftMenu({ at, group, supplier, wd, onPick, onOwn, onClose }: { at: DOMRect; group: OrderGroup; supplier: Supplier | undefined; wd: WorkdaySettings; onPick: (times: Interval) => void; onOwn: () => void; onClose: () => void }) {
-  const now = shiftOf(group, wd)
-  return (
-    <Popover at={at} width={220} className="il-menu" onClose={onClose}>
-      {SHIFT_IDS.map((shift) => {
-        const times = shiftTimes(shift, wd)
-        const offered = supplier?.shifts.includes(shift) ?? false
-        return (
-          <button key={shift} role="menuitem" disabled={!offered} title={offered ? undefined : `${supplier?.name ?? 'Leverandøren'} tilbyr ikke ${SHIFT_LABELS[shift].toLowerCase()}`} onClick={() => (onClose(), onPick(times))}>
-            <span className="il-menu-name">{SHIFT_LABELS[shift]}</span>
-            <span className="il-menu-note">{timesText(times)}</span>
-            {shift === now && <Check size={14} aria-label="Valgt" />}
-          </button>
-        )
-      })}
-      <span className="menu-rule" />
-      <button role="menuitem" onClick={onOwn}>
-        <span className="il-menu-name">Egen tid …</span>
-        {now === null && <Check size={14} aria-label="Valgt" />}
-      </button>
-    </Popover>
-  )
-}
-
-/** Times of its own for a line of the editor, on the half hour. A time that ends before it starts goes through the night. */
-export function TimePopover({ at, group, wd, onTimes, onClose }: { at: DOMRect; group: OrderGroup; wd: WorkdaySettings; onTimes: (times: Interval) => void; onClose: () => void }) {
-  const [start, setStart] = useState(group.start)
-  const [end, setEnd] = useState(group.end)
-  const set = (part: 'start' | 'end', text: string) => {
-    if (!text) return
-    const minute = (Math.round(clockMinutes(text) / 30) * 30) % 1440
-    const next = part === 'start' ? { start: minute, end } : { start, end: minute }
-    setStart(next.start)
-    setEnd(next.end)
-    onTimes(next)
-  }
-  return (
-    <Popover at={at} width={260} onClose={onClose} onEnter={onClose}>
-      <span className="il-pop-title">Egen tid</span>
-      <div className="il-times">
-        <input type="time" step={1800} aria-label="Fra" value={clock(start)} onChange={(e) => set('start', e.target.value)} />
-        <span>–</span>
-        <input type="time" step={1800} aria-label="Til" value={clock(end)} onChange={(e) => set('end', e.target.value)} />
-        <span className="il-pop-note">{start === end ? 'Velg en sluttid' : `${hoursText(hireHours({ start, end }, wd))} t betalt${end <= start ? ' · over natten' : ''}`}</span>
-      </div>
-      <PopFoot onClose={onClose} />
-    </Popover>
-  )
-}
-
 function PopFoot({ onClose }: { onClose: () => void }) {
   return (
     <div className="il-pop-foot">
@@ -199,60 +101,132 @@ function PopFoot({ onClose }: { onClose: () => void }) {
   )
 }
 
-interface AnswerProps {
+/** What the popover of orders changes: each one undo step, on the orders with the ids. */
+export interface OrderEdits {
+  waits: (ids: string[]) => void
+  confirm: (ids: string[]) => void
+  fewer: (ids: string[], people: number) => void
+  count: (ids: string[], by: number) => void
+  times: (ids: string[], times: Interval) => void
+  tag: (ids: string[], projectNo: string | null) => void
+  remove: (ids: string[]) => void
+}
+
+interface OrderProps {
   at: DOMRect
-  group: OrderGroup
-  supplier: Supplier | undefined
-  onWaits: () => void
-  onConfirm: () => void
-  /** The supplier sends this many of what was asked, on the orders with the ids. */
-  onFewer: (ids: string[], people: number) => void
+  /** The orders of the run, or of the days selected, as they are now. */
+  orders: HireOrder[]
+  /** The day clicked, which «Bare denne dagen» narrows them to. */
+  date: ISODate
+  title: string
+  wd: WorkdaySettings
+  /** The projects the orders can be for. */
+  projects: string[]
+  projectName: (projectNo: string) => string
+  edits: OrderEdits
   onClose: () => void
 }
 
-/** The answer of a supplier for a line of the editor: it waits, or it is confirmed, with fewer people where the supplier cannot send all. */
-export function AnswerPopover({ at, group, supplier, onWaits, onConfirm, onFewer, onClose }: AnswerProps) {
-  const waits = groupWaits(group)
-  const asked = (order: OrderGroup['orders'][number]) => order.asked ?? order.fte
-  const [first] = group.orders
-  const alike = group.orders.every((order) => order.fte === first.fte && asked(order) === asked(first))
-  const sends = (ids: string[], fte: number, of: number, label: string) => (
-    <>
-      <Stepper value={fte} max={of} label={label} onStep={(by) => onFewer(ids, fte + by)} /> av {of}
-    </>
-  )
+/** One value where all of them have it, else `null`. */
+const alike = <T,>(values: T[]): T | null => (values.every((value) => value === values[0]) ? values[0] : null)
+
+/**
+ * What a click on a run of a supplier's line opens, or on a run inside days selected: the answer of the supplier, the people,
+ * the times, the project and «Fjern», for all of the orders, or with «Bare denne dagen» for those of the day clicked.
+ */
+export function OrderPopover({ at, orders, date, title, wd, projects, projectName, edits, onClose }: OrderProps) {
+  const [oneDay, setOneDay] = useState(false)
+  const days = new Set(orders.map((order) => order.date)).size
+  const shown = oneDay ? orders.filter((order) => order.date === date) : orders
+  const ids = shown.map((order) => order.id)
+  if (!shown.length) return null
+  const waits = shown.some(isWaiting)
+  const asked = (order: HireOrder) => order.asked ?? order.fte
+  const fte = alike(shown.map((order) => order.fte))
+  const of = alike(shown.map(asked))
+  const start = alike(shown.map((order) => order.start))
+  const end = alike(shown.map((order) => order.end))
+  const shift = alike(shown.map((order) => order.shift))
+  const projectNo = alike(shown.map((order) => order.projectNo?.trim() ?? ''))
+  const own = shift !== null && start !== null && end !== null && (shiftTimes(shift, wd).start !== start || shiftTimes(shift, wd).end !== end)
+  const setTime = (part: 'start' | 'end', text: string) => {
+    if (!text || start === null || end === null) return
+    const minute = (Math.round(clockMinutes(text) / 30) * 30) % 1440
+    edits.times(ids, part === 'start' ? { start: minute, end } : { start, end: minute })
+  }
+  const choices = [...new Set([...projects, ...(projectNo ? [projectNo] : [])])]
   return (
-    <Popover at={at} width={270} onClose={onClose} onEnter={onClose}>
+    <Popover at={at} width={300} onClose={onClose} onEnter={onClose}>
       <span className="il-pop-title">
-        Svar fra {supplier?.name ?? 'leverandøren'}
-        {group.orders.length > 1 && <em>{group.orders.length} dager</em>}
+        {title}
+        <em>{oneDay ? dayText(date) : days > 1 ? `${days} dager` : dayText(date)}</em>
       </span>
+      {days > 1 && (
+        <label className="il-pop-check">
+          <input type="checkbox" checked={oneDay} onChange={(e) => setOneDay(e.target.checked)} /> Bare denne dagen ({dayText(date)})
+        </label>
+      )}
       <Segmented
         label="Svar"
         value={waits ? 'venter' : 'bekreftet'}
-        onChange={(answer) => (answer === 'venter' ? onWaits() : onConfirm())}
+        onChange={(answer) => (answer === 'venter' ? edits.waits(ids) : edits.confirm(ids))}
         options={[
           { value: 'venter', label: <><AnswerGlyph waits /> Venter</> },
           { value: 'bekreftet', label: <><AnswerGlyph waits={false} /> Bekreftet</> },
         ]}
       />
-      {!waits &&
-        (alike ? (
-          <div className="il-sends">
-            Stiller {sends(group.orders.map((order) => order.id), first.fte, asked(first), 'Antall de stiller')}
-            {group.orders.length > 1 ? ' per dag' : ''}
-          </div>
+      <div className="il-sends">
+        <span className="il-sends-day">{waits ? 'Bestilt' : 'Stiller'}</span>
+        {fte === null ? (
+          <em className="il-pop-note">ulikt per dag</em>
+        ) : waits ? (
+          <Stepper value={fte} label="Antall personer" onStep={(by) => edits.count(ids, by)} />
         ) : (
-          <div className="il-sends-list">
-            {group.orders.map((order) => (
-              <div key={order.id} className="il-sends">
-                <span className="il-sends-day">{dayText(order.date)}</span>
-                {sends([order.id], order.fte, asked(order), `Antall de stiller ${dayText(order.date)}`)}
-              </div>
-            ))}
-          </div>
-        ))}
-      {!waits && <p className="il-pop-note">Kan de stille færre? Juster antallet – resten blir udekket igjen.</p>}
+          <>
+            <Stepper value={fte} max={of ?? fte} label="Antall de stiller" onStep={(by) => edits.fewer(ids, fte + by)} />
+            {of !== null && of !== fte && <span>av {of}</span>}
+          </>
+        )}
+        <span>pers.</span>
+      </div>
+      {!waits && fte !== null && <p className="il-pop-note">Stiller de færre, blir resten udekket igjen. Flere personer er et nytt spørsmål: bestillingen venter da igjen.</p>}
+      {!waits && fte !== null && (
+        <button className="link small" onClick={() => edits.count(ids, 1)}>
+          Be om én til
+        </button>
+      )}
+      <div className="il-times">
+        {start === null || end === null ? (
+          <span className="il-pop-note">Ulike tider</span>
+        ) : (
+          <>
+            <input type="time" step={1800} aria-label="Fra" value={clock(start)} onChange={(e) => setTime('start', e.target.value)} />
+            <span>–</span>
+            <input type="time" step={1800} aria-label="Til" value={clock(end)} onChange={(e) => setTime('end', e.target.value)} />
+            {own && shift !== null && (
+              <button className="link small" onClick={() => edits.times(ids, shiftTimes(shift, wd))}>
+                {SHIFT_LABELS[shift]}s tider
+              </button>
+            )}
+            <span className="il-pop-note">{start === end ? 'Velg en sluttid' : `${hoursText(hireHours({ start, end }, wd))} t betalt${end <= start ? ' · over natten' : ''}`}</span>
+          </>
+        )}
+      </div>
+      <label className="il-pop-field">
+        <span>Prosjekt</span>
+        <select value={projectNo ?? ''} onChange={(e) => edits.tag(ids, e.target.value || null)}>
+          {projectNo === null && <option value="">Ulike prosjekter</option>}
+          <option value="">Uten prosjekt</option>
+          {choices.map((choice) => (
+            <option key={choice} value={choice}>
+              {projectName(choice)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button className="il-remove" onClick={() => edits.remove(ids)}>
+        <Trash2 size={14} aria-hidden /> Fjern {count(shown.length, 'bestilling', 'bestillinger')}
+      </button>
       <PopFoot onClose={onClose} />
     </Popover>
   )
