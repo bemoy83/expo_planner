@@ -4,6 +4,15 @@ import type { EndShape } from './runs'
 
 /** The heights of Bemanning's lines in the Kalender's grid. */
 export const PERSON_H = 40
+/** A lane of a shift line in Innleid with more than one, a block's height and the air under it. */
+const LANE_H = 16
+/**
+ * A supplier's shift line in Innleid, as high as a person's, with a lane in height for each competence and project
+ * ordered on it in the days in view (the v9 design, 2026-10-26): one lane fills the line as a person's block does, two
+ * share it, and from three the line grows by a lane's height for each, as narrower lanes lose their text.
+ */
+export const shiftLine = (lanes: number): { height: number; lane: (at: number) => { top: number; height: number } } =>
+  lanes <= 1 ? { height: PERSON_H, lane: () => ({ top: 7, height: PERSON_H - 14 }) } : { height: Math.max(PERSON_H, 8 + LANE_H * lanes), lane: (at) => ({ top: 5 + at * LANE_H, height: LANE_H - 2 }) }
 /** The line between the people who have the competence in focus and those who do not. */
 export const DIVIDER_H = 24
 /** The air beside a folded day's blocks, see `.bm-timeline` (`--day-inset`). A block that goes on into the next day reaches over it, and over the rule between the days. */

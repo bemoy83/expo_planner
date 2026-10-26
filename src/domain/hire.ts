@@ -1,5 +1,5 @@
 import { dayText, type ISODate } from './dates'
-import { projectTag, sameProject, SHIFT_IDS, workOf, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type Work, type WorkdaySettings, type Workspace } from './types'
+import { projectTag, sameProject, SHIFT_IDS, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type WorkdaySettings, type Workspace } from './types'
 import { pushTo } from './collections'
 import { dayType } from './holidays'
 import type { NeedLabelParts, NeedSegment } from './needLabel'
@@ -143,59 +143,6 @@ export const orderedLabel = (cover: Coverage, orders: HireOrder[], wd: WorkdaySe
   return { segs, rules, figure, alert: figure !== null && figure > 0, of: cover.rest > HOURS_NOISE ? { done: cover.planned, need: cover.rest } : null }
 }
 
-/** Who covers a day, for a project's line: the supplier with the most people confirmed, or with the most where none is, and how many others there are. */
-export interface CoveredBy {
-  supplierId: string
-  /** The people of the supplier that day, answered or not. */
-  people: number
-  /** None of them is confirmed. */
-  waits: boolean
-  /** The other suppliers, and whether one of them has an order that waits. */
-  more: number
-  moreWaits: boolean
-}
-
-export const coveredBy = (orders: HireOrder[]): CoveredBy | null => {
-  const bySupplier = new Map<string, { supplierId: string; people: number; confirmed: number; waiting: number }>()
-  for (const order of orders) {
-    const one = bySupplier.get(order.supplierId) ?? { supplierId: order.supplierId, people: 0, confirmed: 0, waiting: 0 }
-    one.people += order.fte
-    if (isWaiting(order)) one.waiting += order.fte
-    else one.confirmed += order.fte
-    bySupplier.set(order.supplierId, one)
-  }
-  const list = [...bySupplier.values()]
-  if (!list.length) return null
-  const confirmed = list.filter((one) => one.confirmed > 0).sort((a, b) => b.confirmed - a.confirmed)
-  const top = confirmed[0] ?? [...list].sort((a, b) => b.people - a.people)[0]
-  const others = list.filter((one) => one !== top)
-  return { supplierId: top.supplierId, people: top.people, waits: top.confirmed === 0, more: others.length, moreWaits: others.some((one) => one.waiting > 0) }
-}
-
-/** A line of an open competence's day: a supplier's people for a project, or for none. */
-export interface CoverLine {
-  key: string
-  supplierId: string
-  projectNo?: string
-  people: number
-  waits: boolean
-}
-
-/** An open competence's day, as its editor lists the orders: a line per supplier and project, the confirmed first, then by supplier and by the project's name. */
-export const coverLines = (orders: HireOrder[], suppliers: Supplier[], projectName: (projectNo: string) => string = (projectNo) => projectNo): CoverLine[] => {
-  const lines = new Map<string, CoverLine>()
-  for (const order of orders) {
-    const key = `${order.supplierId}|${(order.projectNo ?? '').trim().toLowerCase()}`
-    const line = lines.get(key) ?? { key, supplierId: order.supplierId, ...projectTag(order), people: 0, waits: false }
-    line.people += order.fte
-    line.waits ||= isWaiting(order)
-    lines.set(key, line)
-  }
-  const place = (id: string) => suppliers.findIndex((supplier) => supplier.id === id)
-  const named = (line: CoverLine) => (line.projectNo ? projectName(line.projectNo) : '')
-  return [...lines.values()].sort((a, b) => Number(a.waits) - Number(b.waits) || place(a.supplierId) - place(b.supplierId) || named(a).localeCompare(named(b), 'nb'))
-}
-
 type DeviationState = 'none' | 'under' | 'ok' | 'over'
 
 interface Deviation {
@@ -241,29 +188,6 @@ export const mergeOrders = (orders: HireOrder[]): HireOrder[] => {
   return merged.length === orders.length ? orders : merged
 }
 
-const ordersOf = (orders: HireOrder[], work: Work, date: ISODate) => orders.filter((order) => order.competence === work.competence && order.date === date && (!work.projectNo || sameProject(order, work)))
-
-/**
- * I3: the orders a supplier is given for a competence over some days, each with the people that cover what is missing.
- * The shift is the supplier's first that it is not ordered for on those days already, for the same project. Only the days
- * that are short are ordered; where none is and `strict` is not set, every day gets one person, as an extra supplier.
- * `restOf` gives the hours that remain of the competence on a day after the permanent staff: of the project, where
- * the work is for one, and then only that project's orders cover them.
- */
-export const planOrders = (orders: HireOrder[], supplier: Supplier, work: CompetenceKey | Work, dates: ISODate[], restOf: (date: ISODate) => number, wd: WorkdaySettings, strict = false, makeId: () => string = newId): HireOrder[] => {
-  const tagged = workOf(work)
-  const competence = tagged.competence
-  if (!supplier.competences.includes(competence) || !supplier.shifts.length) return []
-  const taken = new Set(orders.filter((order) => order.supplierId === supplier.id && order.competence === competence && sameProject(order, tagged) && dates.includes(order.date)).map((order) => order.shift))
-  const shift = supplier.shifts.find((one) => !taken.has(one)) ?? supplier.shifts[0]
-  const times = shiftTimes(shift, wd)
-  const hours = hireHours(times, wd)
-  const missing = new Map(dates.map((date) => [date, coverage(restOf(date), ordersOf(orders, tagged, date), wd)]))
-  const short = dates.filter((date) => missing.get(date)!.state === 'short')
-  const days = short.length ? short : strict ? [] : dates
-  return days.map((date) => ({ id: makeId(), supplierId: supplier.id, shift, competence, ...projectTag(tagged), date, fte: Math.max(1, Math.ceil(Math.max(0, missing.get(date)!.remaining) / hours - 1e-6)), ...times, conf: null }))
-}
-
 /** A line of a competence that orders are made for: a project, or with no project the hours that are on none of the project lines. */
 export interface HireLine {
   projectNo?: string
@@ -271,24 +195,6 @@ export interface HireLine {
   restOf: (date: ISODate) => number
   /** Whether an order of the competence covers the line. */
   holds: (order: HireOrder) => boolean
-}
-
-/**
- * I3 over several lines: what each line lacks on the days is ordered from the supplier for it, tagged with its project,
- * in the order of the lines. Where no line lacks anything on any of the days, each day gets one person, for the
- * first line with hours that remain that day, else the last: a supplier added on top.
- */
-export const planAcross = (orders: HireOrder[], supplier: Supplier, competence: CompetenceKey, lines: HireLine[], dates: ISODate[], wd: WorkdaySettings, makeId: () => string = newId): HireOrder[] => {
-  const added: HireOrder[] = []
-  const own = (line: HireLine) => [...orders, ...added].filter((order) => order.competence === competence && line.holds(order))
-  const work = (line: HireLine): Work => ({ competence, ...(line.projectNo && { projectNo: line.projectNo }) })
-  for (const line of lines) added.push(...planOrders(own(line), supplier, work(line), dates, line.restOf, wd, true, makeId))
-  if (added.length || !lines.length || !supplier.competences.includes(competence)) return added
-  for (const date of dates) {
-    const line = lines.find((one) => one.restOf(date) > HOURS_NOISE) ?? lines[lines.length - 1]
-    added.push(...planOrders(own(line), supplier, work(line), [date], line.restOf, wd, false, makeId))
-  }
-  return added
 }
 
 /** The orders with `change` made to those with the ids, merged again where two have become the same. */
@@ -542,6 +448,24 @@ export const supplierTotals = (supplier: Supplier, orders: HireOrder[], wd: Work
  * byggeplan», 2026-10-26): a line per supplier and shift, the brush a competence and maybe a project with a count of people.
  */
 
+/** The people a supplier is ordered for on a day, over its shifts and competences: in all, and of them those that wait for an answer. */
+export interface SupplierDay {
+  people: number
+  waiting: number
+}
+
+/** The people each supplier is ordered for per day, for its name line: by supplier, then by date. */
+export const supplierDays = (orders: HireOrder[]): Map<string, Map<ISODate, SupplierDay>> => {
+  const map = new Map<string, Map<ISODate, SupplierDay>>()
+  for (const order of orders) {
+    const days = map.get(order.supplierId) ?? new Map<ISODate, SupplierDay>()
+    const day = days.get(order.date)
+    days.set(order.date, { people: (day?.people ?? 0) + order.fte, waiting: (day?.waiting ?? 0) + (isWaiting(order) ? order.fte : 0) })
+    map.set(order.supplierId, days)
+  }
+  return map
+}
+
 /** A line of a supplier: one of its shifts. */
 export interface SupplierLine {
   /** `lineKey`. */
@@ -697,6 +621,14 @@ export const moveOrders = (orders: HireOrder[], from: LineDay, to: LineDay, copy
   const stays = moving.filter((_, i) => !result.placed[i])
   const moved = moving.length - stays.length
   return { orders: copy || !stays.length ? result.orders : [...result.orders, ...stays], moved, skipped: stays.length }
+}
+
+/** The lane of a run on a shift line, as text for a mark on the page: its competence and project. */
+export const laneOf = (order: Pick<HireOrder, 'competence' | 'projectNo'>): string => `${order.competence}|${order.projectNo?.trim() ?? ''}`
+/** A lane's competence and project again, from `laneOf`. */
+export const laneFrom = (lane: string): Pick<HireOrder, 'competence' | 'projectNo'> => {
+  const [competence, projectNo] = lane.split('|')
+  return { competence, ...(projectNo && { projectNo }) }
 }
 
 /** Days in a row on a line with one order of the same competence, project, people, times and answer: drawn as one, «Snekker · 3 pers. · 4 d». */

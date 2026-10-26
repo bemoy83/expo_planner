@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, planOrders, tagOrders } from '../hire'
+import { eraseOrders, groupKey, mergeOrders, orderGroups, orderText, fillGroup, tagOrders } from '../hire'
 import { buildBalance, removeCarried } from './balance'
 import { clickBlock, copyDays, drawBlock, mergeAdjacent, moveDay, paintDays, pasteDays, recolourBlock, resizeBlock, splitBlock } from './edit'
 import { buildProjectBalance, carry, cellsToDemand, NO_PROJECT, projectsWithWork, projectTotals } from './projectBalance'
@@ -150,12 +150,6 @@ describe('the project on an order', () => {
     expect(mergeOrders([order(MON, 2, FIRST), { ...order(MON, 1, FIRST), id: 'other' }])).toHaveLength(1)
     expect(orderGroups([order(MON, 2, FIRST), order(MON, 1, SECOND)], [supplier]).map((g) => g.projectNo)).toEqual([FIRST, SECOND])
     expect(groupKey('s1', order(MON, 2, FIRST))).not.toBe(groupKey('s1', order(MON, 2, SECOND)))
-  })
-
-  it('orders a second project on the day shift the first already has', () => {
-    const [planned] = planOrders([order(MON, 2, FIRST)], supplier, { competence: 'vegger', projectNo: SECOND }, [MON], () => 7.5, wd, true, id)
-    expect(planned).toMatchObject({ projectNo: SECOND, start: wd.dayStart, end: wd.dayEnd, fte: 1 })
-    expect(planOrders([order(MON, 2)], supplier, 'vegger', [MON], () => 30, wd, true, id)[0].start).not.toBe(wd.dayStart)
   })
 
   it('is set or taken off without a new answer, and joins an order of the same project', () => {

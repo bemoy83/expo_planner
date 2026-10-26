@@ -7,7 +7,7 @@ import { useWorkspace } from '../../store/workspaceStore'
 import type { Columns } from '../kalender/gridTypes'
 import { useStableActions } from '../kalender/useStableActions'
 import { useToasts, type Toast } from '../Toasts'
-import { dayGrid } from './dayGrid'
+import { dayGrid, dividerHeight, personRowAt } from './dayGrid'
 import { type BlockNames } from './dayCell'
 import type { AbsenceDraft } from './PersonPanel'
 import type { ProjectSpan } from './projectsInView'
@@ -19,7 +19,7 @@ import { useBrush } from './useBrush'
 import { usePeopleLines } from './usePeopleLines'
 import { useStaffingEdits } from './useStaffingEdits'
 import { useStrokeInput, useStrokeState } from './useStrokeInput'
-import { useStrokePreview } from './useStrokePreview'
+import { stretched, useStrokePreview } from './useStrokePreview'
 import { clamp } from '../../domain/numbers'
 
 export type { PersonLine } from './usePeopleLines'
@@ -105,7 +105,30 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   const { stroke } = strokeState
   const preview = useStrokePreview({ active, ws, dates, stroke, grid, listed, activeTool, brush: activeBrush, brushWork, activeProject, projectLines, placeLines, balance, projectBalance, planned, viewDates, remainingOf, hover, clip })
   const edits = useStaffingEdits({ ws, updateStaffing, undo, toast, dates, grid, persons, styles, brush: activeBrush, brushWork, selection, clip, setClip, hover })
-  const input = useStrokeInput({ ws, wd: ws.settings.workday, scrollRef, bodyRef, colW: cols.colW, dates, grid, listedCount: listed.length, listedAble, divided, strokeState, activeTool, brush: activeBrush, panelOpen, selection, setSelection, onFocusDate, updateStaffing, stretch: preview.stretch, paintCells: preview.paintCells, paint: edits.paint, clear: edits.clear, moveBlocks: edits.moveBlocks })
+  const { stretch } = preview
+  const input = useStrokeInput({
+    wd: ws.settings.workday,
+    scrollRef,
+    bodyRef,
+    rowAt: (top) => (listed.length ? personRowAt(top, listedAble, listed.length, dividerHeight(listedAble, listed.length, divided)) : null),
+    colW: cols.colW,
+    dates,
+    stops: true,
+    block: '.bm-block',
+    strokeState,
+    activeTool,
+    panelOpen,
+    selection,
+    setSelection,
+    onFocusDate,
+    paint: (s) => activeBrush && edits.paint(preview.paintCells(s), activeBrush),
+    clear: (s) => edits.clear(grid.strokeCells(s)),
+    moveBlocks: (s, copy) => edits.moveBlocks(grid.dayAt(s.row0, s.col0), grid.dayAt(s.row1, s.col1), copy),
+    // An end of a run is painted over its new days as the brush would, or the run's blocks on them removed.
+    finishStretch: () => {
+      if (stretch && stretched(ws, stretch) !== (ws.assignments ?? [])) updateStaffing((w) => ({ ...w, assignments: stretched(w, stretch) }))
+    },
+  })
   const { cancelStroke } = input
 
   // Only a change of the day or the time is a new place for the block that is dragged. It is kept beside

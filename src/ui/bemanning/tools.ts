@@ -10,6 +10,8 @@ export interface Stroke {
   stretch?: { edge: 'start' | 'end'; blockId: string; /** The time of the day under the pointer the end is pulled to, at a stop; unset until the pointer moves. */ at?: number }
   /** Shift is held while a brush stroke is drawn or an end of a run pulled, or at a click: it goes no further than where the demand is met, see `cellsToDemand`. */
   toDemand?: boolean
+  /** With `erase`: the lane of a line it was started on (Innleid's competence and project on a shift), which is all it empties. */
+  lane?: string
   /** With `paint`: the time of the day under the pointer the brush is drawn to, at a stop; unset for a click, which fills the day. */
   at?: number
   row0: number

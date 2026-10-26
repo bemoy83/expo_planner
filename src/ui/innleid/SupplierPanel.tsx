@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Check, Copy, Paintbrush } from 'lucide-react'
+import { ArrowLeft, Check, Copy } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { groupKey, HOURS_NOISE, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
+import { HOURS_NOISE, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
 import { SHIFT_IDS, type HireOrder, type Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { Segmented, SidePanel } from '../common'
@@ -30,14 +30,12 @@ function useCopyOrder() {
 
 /** Orders by day, each with what it is for, its time and people, and its answer, which a click turns; a click on what it is for shows it in the grid. */
 function OrderDays({ orders }: { orders: HireOrder[] }) {
-  const { styles, onShowDate, projectName } = useBemanning()
-  const { wd, edits, openOn, pick } = useInnleid()
+  const { styles, projectName } = useBemanning()
+  const { wd, edits, showOrder } = useInnleid()
   const byDay = new Map<ISODate, HireOrder[]>()
   for (const order of orders) pushTo(byDay, order.date, order)
   const show = (order: HireOrder) => {
-    openOn(order.competence, order.date, order.date, order.projectNo)
-    pick(groupKey(order.supplierId, order))
-    onShowDate(order.date)
+    showOrder(order)
   }
   return (
     <>
@@ -80,7 +78,7 @@ type ControlShow = 'waiting' | 'all'
  */
 function Control({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { styles } = useBemanning()
-  const { suppliers, orders, wd, edits, openSupplier } = useInnleid()
+  const { suppliers, orders, wd, edits, setPanel } = useInnleid()
   const [show, setShow] = useState<ControlShow>('waiting')
   const { copied, copy } = useCopyOrder()
   const competences = [...styles.values()]
@@ -106,7 +104,7 @@ function Control({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
         return (
           <section key={supplier.id} className="insp-sec il-control">
             <div className="il-control-supplier">
-              <button className="il-panel-what" title={`Åpne ${supplier.name}`} onClick={() => openSupplier(supplier.id)}>
+              <button className="il-panel-what" title={`Åpne ${supplier.name}`} onClick={() => setPanel({ kind: 'supplier', id: supplier.id })}>
                 <b>{supplier.name}</b>
               </button>
               <span className="il-control-counts">
@@ -140,7 +138,7 @@ function Control({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
 /** A supplier's order: what it is ordered for per day, with the answer of each, a text of it to send, and what it offers. */
 function SupplierOrder({ supplier }: { supplier: Supplier }) {
   const { styles } = useBemanning()
-  const { orders, wd, tool, brush, pickTool, edits } = useInnleid()
+  const { orders, wd, edits } = useInnleid()
   const { copied: copiedId, copy: copyOrder } = useCopyOrder()
   const copied = copiedId === supplier.id
   const competences = [...styles.values()]
@@ -150,15 +148,6 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
   const copy = () => copyOrder(supplier)
   return (
     <div className="insp-body">
-      {tool === 'paint' && brush?.id === supplier.id && (
-        <div className="insp-sec il-brush-on">
-          <Paintbrush size={14} aria-hidden />
-          <span>Pensel: dra over dager på {offered.length ? offered.map((style) => style.label).join(', ') : 'en kompetanse'}.</span>
-          <button className="link" onClick={() => pickTool('select')}>
-            Legg bort
-          </button>
-        </div>
-      )}
       <section className="insp-sec">
         <dl className="il-stats">
           <div>
