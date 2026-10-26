@@ -499,6 +499,9 @@ describe('orders painted on the suppliers\' lines', () => {
     ])
     const copied = moveOrders(orders, { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k1', shift: 'dag', date: TUE }, true, suppliers, wd, id)
     expect(copied.orders).toHaveLength(4)
+    // Confirmed with fewer, «2/3»: moved, it asks for the three again.
+    const fewer = { ...on('k1', 'dag', MON, 2, 2), asked: 3 }
+    expect(moveOrders([fewer], { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k1', shift: 'dag', date: TUE }, false, suppliers, wd, id).orders[0]).toMatchObject({ fte: 3, conf: null })
     expect(moveOrders(orders, { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k1', shift: 'dag', date: MON }, false, suppliers, wd, id).orders).toBe(orders)
   })
 
@@ -516,5 +519,15 @@ describe('orders painted on the suppliers\' lines', () => {
     // Four people: 15 hours more than A and B lack, which go to the last line.
     expect(shareOrders(lines, [tagged, on('k3', 'dag', MON, 4, null)], wd).map(hours)).toEqual([15, 7.5, 15])
     expect(shareOrders(lines, [tagged], wd)).toEqual([[tagged], [], []])
+    // Whole people, the confirmed first: A lacks 7.5 and B 7.5, so the confirmed person goes to A, and of the two who
+    // wait one goes to B and the last, which none lacks, to the last line.
+    const confirmed = on('k3', 'dag', MON, 1, 1)
+    const waiting = on('k1', 'dag', MON, 2, null)
+    const shared = shareOrders(lines, [tagged, waiting, confirmed], wd)
+    expect(shared.map((list) => list.map(({ supplierId, fte, conf }) => [supplierId, fte, conf]))).toEqual([
+      [['k1', 1, 1], ['k3', 1, 1]],
+      [['k1', 1, null]],
+      [['k1', 1, null]],
+    ])
   })
 })

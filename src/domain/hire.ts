@@ -645,10 +645,13 @@ const placeOrders = (orders: HireOrder[], items: Placing[], suppliers: Supplier[
   return { orders: [...kept, ...put.map((item) => ({ id: makeId(), ...item, conf: null }))], placed }
 }
 
-/** An order on another line: the line's shift, with the order's own times where the shift is the same and the shift's where it is not. */
+/**
+ * An order on another line: the line's shift, with the order's own times where the shift is the same and the shift's
+ * where it is not. It is a new question, for as many as were asked the first time («2/3» asks for 3).
+ */
 const onLine = (order: HireOrder, to: LineDay, wd: WorkdaySettings): Placing => {
-  const { id: _id, conf: _conf, asked: _asked, engine: _engine, ...rest } = order
-  return { ...rest, supplierId: to.supplierId, shift: to.shift, date: to.date, ...(to.shift === order.shift ? {} : shiftTimes(to.shift, wd)) }
+  const { id: _id, conf: _conf, asked, engine: _engine, ...rest } = order
+  return { ...rest, fte: asked ?? order.fte, supplierId: to.supplierId, shift: to.shift, date: to.date, ...(to.shift === order.shift ? {} : shiftTimes(to.shift, wd)) }
 }
 
 /** Orders copied from days on lines, each with how far its line and day are from the first of them. */
@@ -790,20 +793,26 @@ export interface ShareLine {
 
 /**
  * The orders of a competence on a day as its lines count them, as Faste shares its blocks (`buildProjectBalance`): each
- * line its own orders, and a share of those for no project by what it still lacks after them. What none of the lines
- * lacks goes to the last. A share is the order with part of its people, so the label and the cover are worked out as for any.
+ * line its own orders, and those for no project a person at a time to the line that lacks the most after what it has,
+ * the confirmed before the waiting, as `shareOverDays` gives whole people first. What none of the lines lacks goes to
+ * the last. A share is the order with some of its people, so the label and the cover are worked out as for any.
  */
 export const shareOrders = (lines: ShareLine[], orders: HireOrder[], wd: WorkdaySettings): HireOrder[][] => {
   const tagged = (order: HireOrder) => !!order.projectNo?.trim()
-  const own = lines.map((line) => orders.filter((order) => tagged(order) && line.own(order)))
+  const shares = lines.map((line) => orders.filter((order) => tagged(order) && line.own(order)))
   const untagged = orders.filter((order) => !tagged(order))
-  const hoursOf = (list: HireOrder[]) => list.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
-  const free = hoursOf(untagged)
-  if (free <= 0 || !lines.length) return own
-  const lacking = lines.map((line, i) => Math.max(0, line.rest - hoursOf(own[i])))
-  const lack = lacking.reduce((sum, hours) => sum + hours, 0)
-  const given = Math.min(free, lack)
-  const parts = lacking.map((hours) => (lack > 0 ? (given * hours) / lack / free : 0))
-  parts[parts.length - 1] += Math.max(0, free - lack) / free
-  return own.map((list, i) => (parts[i] > 1e-9 ? [...list, ...untagged.map((order) => ({ ...order, fte: order.fte * parts[i] }))] : list))
+  if (!untagged.length || !lines.length) return shares
+  const lacking = lines.map((line, i) => line.rest - shares[i].reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0))
+  const given = lines.map(() => new Map<HireOrder, number>())
+  for (const order of [...untagged.filter((one) => !isWaiting(one)), ...untagged.filter(isWaiting)]) {
+    const hours = hireHours(order, wd)
+    for (let left = order.fte; left > 1e-9; left -= 1) {
+      const people = Math.min(1, left)
+      const most = lacking.reduce((best, lack, i) => (lack > lacking[best] ? i : best), 0)
+      const to = lacking[most] > 1e-9 ? most : lines.length - 1
+      lacking[to] -= people * hours
+      given[to].set(order, (given[to].get(order) ?? 0) + people)
+    }
+  }
+  return shares.map((list, i) => [...list, ...[...given[i]].map(([order, fte]) => (fte === order.fte ? order : { ...order, fte }))])
 }
