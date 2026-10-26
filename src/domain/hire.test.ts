@@ -433,10 +433,12 @@ describe('orders painted on the suppliers\' lines', () => {
     ])
   })
 
-  it('empties the days of lines of every order on them', () => {
+  it('empties the days of lines of every order on them, or of one competence and project', () => {
     const orders = [on('k1', 'dag', MON, 1, null), on('k1', 'dag', MON, 1, null, 'tepper'), on('k1', 'kveld', MON, 1, null), on('k1', 'dag', TUE, 1, null)]
     expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }])).toEqual(orders.slice(2))
     expect(clearOrders(orders, [{ supplierId: 'k3', shift: 'dag', date: MON }])).toBe(orders)
+    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], { competence: 'tepper' })).toEqual([orders[0], ...orders.slice(2)])
+    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], { competence: 'tepper', projectNo: '26101' })).toBe(orders)
   })
 
   it('draws runs in lanes by the competences\' order, broken by a change or a weekend, and pulled over an empty weekend', () => {

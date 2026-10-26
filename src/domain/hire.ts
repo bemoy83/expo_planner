@@ -623,10 +623,15 @@ export const paintOrders = (orders: HireOrder[], paint: Paint, suppliers: Suppli
   return { orders: changed ? next : orders, skipped }
 }
 
-/** The orders without any on the days of the lines: Tøm, Alt and Delete, which empty the days as Faste's do (`clearDays`). */
-export const clearOrders = (orders: HireOrder[], cells: LineDay[]): HireOrder[] => {
+/**
+ * The orders without those on the days of the lines: with `only`, of that competence and project alone, as a stroke of
+ * Tøm that starts on its lane and Delete on a chosen run take; without, all of them, as a stroke with Shift, one from an
+ * empty place, and Alt take, which empty the days as Faste's do (`clearDays`).
+ */
+export const clearOrders = (orders: HireOrder[], cells: LineDay[], only?: Pick<HireOrder, 'competence' | 'projectNo'>): HireOrder[] => {
   const keys = new Set(cells.map((cell) => `${lineKey(cell.supplierId, cell.shift)}|${cell.date}`))
-  const gone = (order: HireOrder) => keys.has(`${lineKey(order.supplierId, order.shift)}|${order.date}`)
+  const gone = (order: HireOrder) =>
+    keys.has(`${lineKey(order.supplierId, order.shift)}|${order.date}`) && (!only || (order.competence === only.competence && sameProject(order, only)))
   return orders.some(gone) ? orders.filter((order) => !gone(order)) : orders
 }
 
