@@ -18,7 +18,7 @@ export const sheetWorkspace = (): Workspace => ({
     { name: 'Byggemessen', projectNo: FIRST },
   ],
   assignments: [block(1, FIRST, 'B', { end: 660, id: 'am' }), block(1, SECOND, undefined, { start: 720, end: 900, id: 'pm' }), block(2, FIRST, 'B')],
-  hireOrders: [{ id: 'o', supplierId: 's1', competence: 'vegger', date: MON, fte: 3, start: wd.dayStart, end: wd.dayEnd, conf: null, projectNo: FIRST }],
+  hireOrders: [{ id: 'o', supplierId: 's1', shift: 'dag', competence: 'vegger', date: MON, fte: 3, start: wd.dayStart, end: wd.dayEnd, conf: null, projectNo: FIRST }],
   suppliers: [{ id: 's1', name: 'Messehjelp AS', order: 0, competences: ['vegger'], shifts: ['dag'] } as never],
 })
 

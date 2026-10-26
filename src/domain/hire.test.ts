@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coveredBy, coverFigure, coverLines, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planAcross, planOrders, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coveredBy, coverFigure, coverLines, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planAcross, planOrders, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -12,7 +12,7 @@ const manpower = supplier('k1', 'Manpower', ['vegger', 'tepper'])
 const nordic = supplier('k3', 'Nordic Crew', ['vegger', 'rigg'])
 const standbygg = supplier('k5', 'StandBygg', ['vegger', 'elektro'], ['dag'])
 
-const order = (id: string, supplierId: string, competence: string, date: string, fte: number, conf: number | null, times = DAG): HireOrder => ({ id, supplierId, competence, date, fte, ...times, conf })
+const order = (id: string, supplierId: string, competence: string, date: string, fte: number, conf: number | null, times = DAG): HireOrder => ({ id, supplierId, shift: shiftOf(times, wd) ?? 'dag', competence, date, fte, ...times, conf })
 
 let seq = 0
 const makeId = () => `n${++seq}`
@@ -26,9 +26,9 @@ describe('shifts and paid hours', () => {
     expect(shiftOf({ start: 480, end: 900 }, wd)).toBeNull()
   })
 
-  it('names an order by its shift, or by its own times', () => {
-    expect(shiftText(KVELD, wd)).toBe('Kveld')
-    expect(shiftText({ start: 480, end: 900 }, wd)).toBe('08:00–15:00')
+  it('names an order by its shift, with its own times beside it where they are not the shift\'s', () => {
+    expect(shiftText({ ...KVELD, shift: 'kveld' }, wd)).toBe('Kveld')
+    expect(shiftText({ start: 480, end: 900, shift: 'dag' }, wd)).toBe('Dag 08:00–15:00')
     expect(timesText({ start: 1380, end: 420 })).toBe('23:00–07:00')
   })
 
@@ -214,7 +214,7 @@ describe('ordering (I3, I4)', () => {
   })
 })
 
-describe('one order per supplier, competence, day and time (I5)', () => {
+describe('one order per supplier, shift, competence, project and day (I5)', () => {
   it('adds the people of two that are the same, and waits while one of them does', () => {
     const merged = mergeOrders([order('a', 'k1', 'vegger', 'd1', 2, 2), order('b', 'k1', 'vegger', 'd1', 1, null), order('c', 'k1', 'vegger', 'd1', 1, 1, KVELD)])
     expect(merged).toEqual([order('a', 'k1', 'vegger', 'd1', 3, null), order('c', 'k1', 'vegger', 'd1', 1, 1, KVELD)])
@@ -226,9 +226,14 @@ describe('one order per supplier, competence, day and time (I5)', () => {
     expect(mergeOrders(orders)).toBe(orders)
   })
 
-  it('merges an order moved onto the time of another', () => {
+  it('leaves an order on its shift when its times change, so it merges with no other', () => {
     const orders = [order('a', 'k1', 'vegger', 'd1', 2, 2), order('b', 'k1', 'vegger', 'd1', 1, 1, KVELD)]
-    expect(changeOrders(orders, ['b'], DAG)).toEqual([order('a', 'k1', 'vegger', 'd1', 3, null)])
+    expect(changeOrders(orders, ['b'], DAG)).toEqual([orders[0], { ...orders[1], ...DAG, conf: null }])
+  })
+
+  it('merges orders of one key whatever their times, keeping the first one\'s', () => {
+    const own = { ...order('b', 'k1', 'vegger', 'd1', 1, 1), start: 600, end: 1080 }
+    expect(mergeOrders([order('a', 'k1', 'vegger', 'd1', 2, 2), own])).toEqual([order('a', 'k1', 'vegger', 'd1', 3, 3)])
   })
 })
 
@@ -359,5 +364,172 @@ describe('the orders in the plan', () => {
     expect(line).toMatchObject({ group: 'added', values: { '2026-10-08': 5.33, '2026-10-09': 1 } })
     expect(capacityForDate('2026-10-08', [line], DEFAULT_SETTINGS)).toMatchObject({ base: 21, added: 5.33, available: 26.33 })
     expect(hiredFte({ settings: DEFAULT_SETTINGS }).confirmed).toEqual({})
+  })
+})
+
+describe('orders painted on the suppliers\' lines', () => {
+  // Monday 2026-10-12 to Monday 2026-10-19, a weekend between.
+  const MON = '2026-10-12'
+  const TUE = '2026-10-13'
+  const WED = '2026-10-14'
+  const FRI = '2026-10-16'
+  const SAT = '2026-10-17'
+  const SUN = '2026-10-18'
+  const NEXT = '2026-10-19'
+  const WEEK = [MON, TUE, WED, '2026-10-15', FRI, SAT, SUN, NEXT]
+  const suppliers = [manpower, nordic, standbygg]
+  let n = 0
+  const id = () => `n${n++}`
+  const on = (supplierId: string, shift: 'dag' | 'kveld', date: string, fte: number, conf: number | null, competence = 'vegger', projectNo?: string): HireOrder => ({
+    id: `${supplierId}-${shift}-${date}-${competence}-${projectNo ?? ''}`,
+    supplierId,
+    shift,
+    competence,
+    date,
+    fte,
+    ...(shift === 'dag' ? DAG : KVELD),
+    conf,
+    ...(projectNo && { projectNo }),
+  })
+
+  it('gives a supplier a line per shift it offers, and keeps one it no longer offers while that has orders', () => {
+    expect(supplierLines(standbygg, []).map((line) => line.key)).toEqual([lineKey('k5', 'dag')])
+    const lines = supplierLines(standbygg, [on('k5', 'kveld', MON, 1, null, 'tepper')])
+    expect(lines.map(({ shift, offered, stale }) => [shift, offered, stale])).toEqual([
+      ['dag', true, []],
+      ['kveld', false, ['tepper']],
+    ])
+    expect(supplierLines({ ...standbygg, shifts: [] }, [])).toEqual([])
+  })
+
+  it('fills the working days of a stroke, or its days off where it has nothing else', () => {
+    expect(strokeDays([FRI, SAT, SUN, NEXT])).toEqual([FRI, NEXT])
+    expect(strokeDays([SAT, SUN])).toEqual([SAT, SUN])
+  })
+
+  it('orders the brush\'s count on every line and day of a stroke, waiting, at the shift\'s times, and skips a supplier without the competence', () => {
+    const { orders, skipped } = paintOrders([], { lines: [{ supplierId: 'k1', shift: 'kveld' }, { supplierId: 'k3', shift: 'dag' }, { supplierId: 'k5', shift: 'dag' }], competence: 'tepper', dates: [FRI, SAT, SUN, NEXT], count: 3 }, suppliers, wd, id)
+    expect(skipped).toBe(2)
+    expect(orders.map(({ supplierId, shift, date, fte, start, conf }) => [supplierId, shift, date, fte, start, conf])).toEqual([
+      ['k1', 'kveld', FRI, 3, KVELD.start, null],
+      ['k1', 'kveld', NEXT, 3, KVELD.start, null],
+    ])
+  })
+
+  it('sets the count of an order on the same key, by I7: more waits again, fewer stays confirmed, what was asked is forgotten', () => {
+    const paint = (count: number, list: HireOrder[]) => paintOrders(list, { lines: [{ supplierId: 'k1', shift: 'dag' }], competence: 'vegger', dates: [MON], count }, suppliers, wd, id).orders
+    const confirmed = [{ ...on('k1', 'dag', MON, 2, 2), asked: 3 }]
+    expect(paint(4, confirmed)).toEqual([{ ...on('k1', 'dag', MON, 4, null) }])
+    expect(paint(1, confirmed)).toEqual([{ ...on('k1', 'dag', MON, 1, 1) }])
+    expect(paint(2, confirmed)).toBe(confirmed)
+  })
+
+  it('keeps a project\'s order and one for no project apart', () => {
+    const first = [on('k1', 'dag', MON, 2, 2)]
+    const { orders } = paintOrders(first, { lines: [{ supplierId: 'k1', shift: 'dag' }], competence: 'vegger', projectNo: '26101', dates: [MON], count: 1 }, suppliers, wd, id)
+    expect(orders.map((order) => [order.projectNo, order.fte])).toEqual([
+      [undefined, 2],
+      ['26101', 1],
+    ])
+  })
+
+  it('empties the days of lines of every order on them, or of one competence and project', () => {
+    const orders = [on('k1', 'dag', MON, 1, null), on('k1', 'dag', MON, 1, null, 'tepper'), on('k1', 'kveld', MON, 1, null), on('k1', 'dag', TUE, 1, null)]
+    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }])).toEqual(orders.slice(2))
+    expect(clearOrders(orders, [{ supplierId: 'k3', shift: 'dag', date: MON }])).toBe(orders)
+    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], { competence: 'tepper' })).toEqual([orders[0], ...orders.slice(2)])
+    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], { competence: 'tepper', projectNo: '26101' })).toBe(orders)
+  })
+
+  it('draws runs in lanes by the competences\' order, broken by a change or a weekend, and pulled over an empty weekend', () => {
+    const orders = [on('k1', 'dag', MON, 2, 2), on('k1', 'dag', TUE, 2, 2), on('k1', 'dag', WED, 2, null), on('k1', 'dag', FRI, 2, null), on('k1', 'dag', NEXT, 2, null), on('k1', 'dag', TUE, 1, null, 'tepper')]
+    const rank = (competence: string) => ['tepper', 'vegger'].indexOf(competence)
+    const { lanes, runs, grips } = orderRuns(orders, WEEK, rank)
+    expect(lanes.map((lane) => lane.competence)).toEqual(['tepper', 'vegger'])
+    expect(runs.map(({ lane, from, to, waits }) => [lane, from, to, waits])).toEqual([
+      [0, TUE, TUE, true],
+      [1, MON, TUE, false],
+      [1, WED, WED, true],
+      [1, FRI, FRI, true],
+      [1, NEXT, NEXT, true],
+    ])
+    // Thursday is empty, so only the weekend is gone over.
+    expect(grips.filter((run) => run.lane === 1).map(({ from, to }) => [from, to])).toEqual([
+      [MON, TUE],
+      [WED, WED],
+      [FRI, NEXT],
+    ])
+  })
+
+  it('stretches a run outward over working days, waiting, and inward to the day at the other end at most', () => {
+    const run = orderRuns([on('k1', 'dag', MON, 2, 2), on('k1', 'dag', TUE, 2, 2)], WEEK, () => 0).grips[0]
+    const out = stretchOrders(run.orders, run, 'end', NEXT, WEEK, suppliers, id)
+    expect(out.map((order) => [order.date, order.conf])).toEqual([
+      [MON, 2],
+      [TUE, 2],
+      [WED, null],
+      ['2026-10-15', null],
+      [FRI, null],
+      [NEXT, null],
+    ])
+    expect(stretchOrders(run.orders, run, 'end', MON, WEEK, suppliers, id).map((order) => order.date)).toEqual([MON])
+    expect(stretchOrders(run.orders, run, 'start', NEXT, WEEK, suppliers, id).map((order) => order.date)).toEqual([TUE])
+  })
+
+  it('pastes on other lines with their shift and its times, in place of what is there, and skips a supplier without the competence', () => {
+    const own = { ...on('k1', 'dag', MON, 2, 2), start: 600, end: 1080 }
+    const clip = copyOrders([own, on('k1', 'dag', TUE, 1, 1, 'tepper')], [{ supplierId: 'k1', shift: 'dag' }], [MON, TUE])!
+    expect(clip.items.map((item) => [item.line, item.day])).toEqual([
+      [0, 0],
+      [0, 1],
+    ])
+    const there = on('k3', 'kveld', WED, 5, 5)
+    const result = pasteOrders([there], clip, [{ supplierId: 'k3', shift: 'kveld' }], [WED, '2026-10-15'], suppliers, wd, id)
+    expect(result).toMatchObject({ pasted: 1, skipped: 1 })
+    expect(result.orders.map(({ supplierId, shift, date, fte, start, end, conf }) => [supplierId, shift, date, fte, start, end, conf])).toEqual([['k3', 'kveld', WED, 2, KVELD.start, KVELD.end, null]])
+    // On the same shift, an order keeps its own times.
+    expect(pasteOrders([], clip, [{ supplierId: 'k3', shift: 'dag' }], [WED], suppliers, wd, id).orders[0]).toMatchObject({ start: 600, end: 1080 })
+  })
+
+  it('moves a day\'s orders to another line and day, or copies them, and leaves those that cannot go', () => {
+    const orders = [on('k1', 'dag', MON, 2, 2), on('k1', 'dag', MON, 1, 1, 'tepper')]
+    const moved = moveOrders(orders, { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k3', shift: 'dag', date: TUE }, false, suppliers, wd, id)
+    expect(moved).toMatchObject({ moved: 1, skipped: 1 })
+    expect(moved.orders.map(({ supplierId, date, competence, conf }) => [supplierId, date, competence, conf])).toEqual([
+      ['k3', TUE, 'vegger', null],
+      ['k1', MON, 'tepper', 1],
+    ])
+    const copied = moveOrders(orders, { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k1', shift: 'dag', date: TUE }, true, suppliers, wd, id)
+    expect(copied.orders).toHaveLength(4)
+    // Confirmed with fewer, «2/3»: moved, it asks for the three again.
+    const fewer = { ...on('k1', 'dag', MON, 2, 2), asked: 3 }
+    expect(moveOrders([fewer], { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k1', shift: 'dag', date: TUE }, false, suppliers, wd, id).orders[0]).toMatchObject({ fte: 3, conf: null })
+    expect(moveOrders(orders, { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k1', shift: 'dag', date: MON }, false, suppliers, wd, id).orders).toBe(orders)
+  })
+
+  it('shares the orders for no project on the lines by what each lacks after its own, and gives what none lacks to the last', () => {
+    // 7.5 hours a person on the day shift.
+    const lines = [
+      { rest: 15, own: (order: HireOrder) => order.projectNo === 'A' },
+      { rest: 7.5, own: (order: HireOrder) => order.projectNo === 'B' },
+      { rest: 0, own: (order: HireOrder) => !['A', 'B'].includes(order.projectNo ?? '') },
+    ]
+    const hours = (list: HireOrder[]) => list.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
+    const tagged = on('k1', 'dag', MON, 1, 1, 'vegger', 'A')
+    // A lacks 7.5 after its own, B 7.5: the two people for no project go one to each.
+    expect(shareOrders(lines, [tagged, on('k3', 'dag', MON, 2, null)], wd).map(hours)).toEqual([15, 7.5, 0])
+    // Four people: 15 hours more than A and B lack, which go to the last line.
+    expect(shareOrders(lines, [tagged, on('k3', 'dag', MON, 4, null)], wd).map(hours)).toEqual([15, 7.5, 15])
+    expect(shareOrders(lines, [tagged], wd)).toEqual([[tagged], [], []])
+    // Whole people, the confirmed first: A lacks 7.5 and B 7.5, so the confirmed person goes to A, and of the two who
+    // wait one goes to B and the last, which none lacks, to the last line.
+    const confirmed = on('k3', 'dag', MON, 1, 1)
+    const waiting = on('k1', 'dag', MON, 2, null)
+    const shared = shareOrders(lines, [tagged, waiting, confirmed], wd)
+    expect(shared.map((list) => list.map(({ supplierId, fte, conf }) => [supplierId, fte, conf]))).toEqual([
+      [['k1', 1, 1], ['k3', 1, 1]],
+      [['k1', 1, null]],
+      [['k1', 1, null]],
+    ])
   })
 })

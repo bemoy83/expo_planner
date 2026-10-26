@@ -167,6 +167,12 @@ describe('a competence that is replaced', () => {
     expect(replaceCompetence(staffed, 'skilting', 'Skilting ')).toBe(staffed)
   })
 
+  it('adds the people of two orders that come to be for the same competence on one key', () => {
+    const hire = (id: string, competence: string, fte: number) => ({ id, supplierId: 's1', shift: 'dag' as const, competence, date: '2026-10-12', fte, start: 420, end: 900, conf: fte })
+    const next = replaceCompetence({ ...staffed, hireOrders: [hire('o1', 'skilting', 2), hire('o2', 'print', 1)] }, 'skilting', 'Print')
+    expect(next.hireOrders).toEqual([{ ...hire('o1', 'print', 3) }])
+  })
+
   it('hands its colour and place to the new one, unless that has its own', () => {
     const styled: Workspace = { ...staffed, competenceStyles: setCompetenceStyle(staffed, 'skilting', { color: 'line-rose' }) }
     const order = styled.competenceStyles!.skilting.order

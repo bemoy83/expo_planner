@@ -422,7 +422,7 @@ describe('hire in the planning engine', () => {
   })
 
   it('counts the orders the planner has made as cover', () => {
-    const ws = { ...hiring([person('per', 'foga')]), hireOrders: [{ id: 'o', supplierId: 'mh', competence: 'foga', date: MON, fte: 1, start: 420, end: 900, conf: null, projectNo: '26001' }] }
+    const ws = { ...hiring([person('per', 'foga')]), hireOrders: [{ id: 'o', supplierId: 'mh', shift: 'dag' as const, competence: 'foga', date: MON, fte: 1, start: 420, end: 900, conf: null, projectNo: '26001' }] }
     const { workspace: solved } = run(ws, [row('foga')], [2], [MON])
     expect(drafts(solved)).toEqual([])
     expect(fteOf(solved, 'foga')).toEqual({ [MON]: 2 })

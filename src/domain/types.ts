@@ -364,6 +364,8 @@ export interface Supplier {
 export interface HireOrder {
   id: string
   supplierId: string
+  /** The supplier's line the order stands on. Its times are its own: they begin as the shift's, and changing them leaves it on the line. */
+  shift: ShiftId
   competence: CompetenceKey
   date: ISODate
   /** The number of people. */

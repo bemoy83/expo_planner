@@ -870,7 +870,7 @@ const hiredOrders = (blocks: Assignment[], hires: Staffer[], shift: Interval, wd
       if (!run.competences.includes(a.competence)) run.competences.push(a.competence)
       if (a.projectNo && !run.projectNos.some((p) => numberKey(p) === numberKey(a.projectNo!))) run.projectNos.push(a.projectNo)
       const key = `${supplierId}|${a.competence}|${numberKey(a.projectNo ?? '')}|${date}`
-      const order = orders.get(key) ?? { id: makeId(), supplierId, competence: a.competence, date, fte: 0, start: shift.start, end: shift.end, conf: null, engine: true, ...(a.projectNo ? { projectNo: a.projectNo } : {}) }
+      const order = orders.get(key) ?? { id: makeId(), supplierId, shift: 'dag' as const, competence: a.competence, date, fte: 0, start: shift.start, end: shift.end, conf: null, engine: true, ...(a.projectNo ? { projectNo: a.projectNo } : {}) }
       order.fte += paidHours(a, wd) / total
       orders.set(key, order)
     }

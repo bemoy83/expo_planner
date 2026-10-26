@@ -1,3 +1,4 @@
+import { mergeOrders } from './hire'
 import { productTypeKey } from './kpi'
 import type { TableDiff } from './tableDiff'
 import { competenceKey, LINE_COLORS, type CompetenceKey, type CompetenceStyle, type KpiConfig, type LineColor, type Person, type Stage, type Workspace } from './types'
@@ -235,7 +236,7 @@ export const replaceCompetence = (ws: Workspace, from: CompetenceKey, toLabel: s
     styles = rest[to] ? rest : { ...rest, [to]: { ...old, key: to, label: toLabel.trim(), shortLabel: defaultShortLabel(toLabel.trim()) } }
     styles = Object.fromEntries(repointed(Object.values(styles), from, to).map((style) => [style.key, style]))
   }
-  return { ...ws, persons: withKeySwapped(ws.persons, from, to), suppliers: withKeySwapped(ws.suppliers, from, to), assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), hireOrders: swap(ws.hireOrders), competenceStyles: styles }
+  return { ...ws, persons: withKeySwapped(ws.persons, from, to), suppliers: withKeySwapped(ws.suppliers, from, to), assignments: swap(ws.assignments), demandAdjustments: swap(ws.demandAdjustments), hireOrders: ws.hireOrders && mergeOrders(swap(ws.hireOrders)!), competenceStyles: styles }
 }
 
 /** How the rows of a table are told apart by name, in a file and in the app: without regard to case and the spaces around it. */

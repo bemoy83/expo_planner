@@ -15,8 +15,8 @@ const ws: Workspace = {
     { id: 's2', name: 'Adecco', order: 1, competences: [], shifts: ['dag'] },
   ],
   hireOrders: [
-    { id: 'o1', supplierId: 's1', competence: 'vegger', date: '2026-10-08', fte: 2, start: 420, end: 900, conf: null },
-    { id: 'o2', supplierId: 's2', competence: 'vegger', date: '2026-10-08', fte: 1, start: 420, end: 900, conf: 1 },
+    { id: 'o1', supplierId: 's1', shift: 'dag', competence: 'vegger', date: '2026-10-08', fte: 2, start: 420, end: 900, conf: null },
+    { id: 'o2', supplierId: 's2', shift: 'dag', competence: 'vegger', date: '2026-10-08', fte: 1, start: 420, end: 900, conf: 1 },
   ],
 }
 

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { buildDemandIndex, type DemandIndex } from '../domain/calc'
 import type { ISODate } from '../domain/dates'
+import { mergeOrders } from '../domain/hire'
 import { type AllocationRow, type Budgets, type DemandLine, type HallRules, type KpiConfig, type LineOverride, type ProjectRef, type Settings, type VenueBooking, type VismaImport, type VismaRow, type Workspace } from '../domain/types'
 import { diffVenue, exportWindow, mergeVenue, withHidden, withVenueIds, type VenueDiff } from '../domain/venueImport'
 import { EMPTY_KPI } from '../domain/kpi'
@@ -479,7 +480,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         allocations: rows.size ? ws.allocations.map((row) => rows.get(row.id) ?? row) : ws.allocations,
         demand: lines.size ? ws.demand.map((line) => lines.get(line.id) ?? line) : ws.demand,
         assignments: follow(ws.assignments, tagged.assignments),
-        hireOrders: follow(ws.hireOrders, tagged.hireOrders),
+        // Two orders that come to be for the same project on one key are one (I5).
+        hireOrders: tagged.hireOrders.length ? mergeOrders(follow(ws.hireOrders, tagged.hireOrders) ?? []) : ws.hireOrders,
         demandAdjustments: follow(ws.demandAdjustments, tagged.demandAdjustments),
       }
       commit(next)

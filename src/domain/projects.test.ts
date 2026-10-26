@@ -102,7 +102,7 @@ describe('what follows a project', () => {
   })
 
   const block = (projectNo?: string): Assignment => ({ id: `a-${projectNo ?? 'none'}`, personId: 'p1', date: '2026-04-08', competence: 'foga', start: 420, end: 900, source: 'manual', ...(projectNo && { projectNo }) })
-  const order: HireOrder = { id: 'o1', supplierId: 's1', competence: 'foga', date: '2026-04-08', fte: 2, start: 420, end: 900, conf: 2, projectNo: '26HAG' }
+  const order: HireOrder = { id: 'o1', supplierId: 's1', shift: 'dag', competence: 'foga', date: '2026-04-08', fte: 2, start: 420, end: 900, conf: 2, projectNo: '26HAG' }
   const moved: DemandAdjustment = { id: 'm1', competence: 'foga', date: '2026-04-09', hours: 3, reason: 'carry', createdAt: '', projectNo: '26HAG' }
 
   it('moves the blocks, orders and moved hours of a project that gets another number', () => {

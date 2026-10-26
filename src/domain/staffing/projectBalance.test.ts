@@ -21,7 +21,7 @@ const id = () => `new-${counter++}`
 /** A whole normal day of walls for a person, 7,5 hours, for a project or none. */
 const day = (person: number, date: string, projectNo?: string): Assignment => ({ id: `b-${person}-${date}`, personId: `two-${person}`, date, competence: 'vegger', start: wd.dayStart, end: wd.dayEnd, source: 'manual', ...(projectNo && { projectNo }) })
 const staffed = (...assignments: Assignment[]): Workspace => ({ ...ws, assignments })
-const order = (date: string, fte: number, projectNo?: string, confirmed = true): HireOrder => ({ id: `o-${date}-${projectNo ?? 'none'}-${fte}`, supplierId: 's1', competence: 'vegger', date, fte, start: wd.dayStart, end: wd.dayEnd, conf: confirmed ? fte : null, ...(projectNo && { projectNo }) })
+const order = (date: string, fte: number, projectNo?: string, confirmed = true): HireOrder => ({ id: `o-${date}-${projectNo ?? 'none'}-${fte}`, supplierId: 's1', shift: 'dag', competence: 'vegger', date, fte, start: wd.dayStart, end: wd.dayEnd, conf: confirmed ? fte : null, ...(projectNo && { projectNo }) })
 const supplier: Supplier = { id: 's1', name: 'Messehjelp AS', order: 0, competences: ['vegger'], shifts: ['dag', 'kveld'] }
 const shares = (w: Workspace, date: string, withHired = false) =>
   Object.fromEntries([...buildProjectBalance(w, [date], withHired).get('vegger', date).projects].map(([key, p]) => [key, p.shared]))
