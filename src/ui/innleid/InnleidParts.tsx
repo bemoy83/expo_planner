@@ -136,11 +136,10 @@ export function InnleidHeading() {
   return (
     <div className="grid-row col-head bm-people-head" style={{ height: ROW_H }}>
       <div className="grid-label">
-        <span className="lbl-desc il-head-name">
-          Kompetanse<DensityToggle compact={density === 'compact'} onChange={(compact) => setDensity(compact ? 'compact' : 'detail')} />
-        </span>
-        <span className="bm-label-note">{rows.length} med restbehov</span>
-        <span className="bm-label-note bm-label-end">timer mangler</span>
+        <span className="il-head-name">Kompetanse</span>
+        <DensityToggle compact={density === 'compact'} onChange={(compact) => setDensity(compact ? 'compact' : 'detail')} />
+        <span className="bm-label-note il-head-count">{rows.length} med restbehov</span>
+        <span className="bm-label-note">timer mangler</span>
       </div>
       <span className="phase-legend" style={{ left: LEFT_W }}>
         <span>Klikk en dag for å bestille, eller dra over flere · ← → flytter dagene · med Pensel bestiller draget · Alt+dra tømmer</span>

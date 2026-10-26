@@ -3,8 +3,9 @@
 .section-meta-end{margin-left:auto}
 .bm-density{width:18px;height:18px;padding:0;border-radius:4px;background:none;color:var(--muted)}
 .bm-density:hover{background:none;color:var(--text)}
-/* Innleid's heading: the name and the switch beside it, centred in the line as a section's heading has them */
-.il-head-name{display:flex;align-items:center;gap:6px}
+/* Innleid's heading: the name and the switch beside it, each centred in the line by itself as the notes after them are, and the notes at the end */
+.il-head-name{flex:none}
+.bm-label-note.il-head-count{margin-left:auto}
 .bm-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md);font-weight:500}
 .bm-label-note{min-width:0;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
 .bm-label-end{margin-left:auto}
