@@ -3,7 +3,6 @@
 .section-meta-end{margin-left:auto}
 .bm-density{width:18px;height:18px;padding:0;border-radius:4px;background:none;color:var(--muted)}
 .bm-density:hover{background:none;color:var(--text)}
-/* Innleid's heading: the name and the switch beside it, each centred in the line by itself as the notes after them are, and the notes at the end */
 .bm-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md);font-weight:500}
 .bm-label-note{min-width:0;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
 .bm-label-end{margin-left:auto}
@@ -62,7 +61,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* A line that steps back lies over today's line on the page's own colour, and only what is on it is dimmed: the line itself stays
    solid, so today's line does not show through it, nor do the days under its label column */
 .bm-demand.dim,.il-row.dim{position:relative;z-index:2;background:var(--bg)}
-/* A row with a stroke or days picked lies over its neighbours, for the frame and its pill above it. */
 :is(.bm-demand,.il-row).dim>.cell,:is(.bm-demand,.il-row).dim .grid-label>*{opacity:.5}
 :is(.bm-demand,.il-row).dim:hover>.cell,:is(.bm-demand,.il-row).dim:hover .grid-label>*{opacity:.8}
 /* the line that is the brush: its name in a stronger tint with the mark, to say which project and place are chosen, */
@@ -121,6 +119,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* what opens at the pointer: the balance of a day of a demand line */
 .bm-demand-pop{position:fixed;margin:0;width:300px;padding:14px 16px;gap:12px;z-index:80;font-size:var(--fs-md)}
 .bm-demand-pop p{margin:0}
+.il-pop-orders{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;font-size:var(--fs-sm)}
 .bm-pop-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-base)}
 .bm-pop-head span{margin-left:auto;font-size:var(--fs-sm);color:var(--muted)}
 .bm-pop-carry{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
@@ -200,7 +199,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-block:hover .bm-edge::after{opacity:1}
 /* what the pointer does to a day */
 [data-tool='paint'] .bm-cell{cursor:cell}
-[data-tool='select'] .bm-block{cursor:grab}
+[data-tool='select'] :is(.bm-block,.il-run){cursor:grab}
 [data-tool='erase'] .bm-cell{cursor:crosshair}
 [data-tool='paint'] .bm-cell.blocked{cursor:not-allowed}
 [data-tool='paint'] .bm-cell.blocked:hover,.bm-cell.refused{background-image:var(--hatch)}
@@ -309,6 +308,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-supplier-name:hover{background:var(--sunken)}
 .il-supplier .bm-week-left{min-width:28px;margin-left:8px;justify-content:flex-end}
 .il-people{gap:6px;font:600 var(--fs-sm) var(--font-num)}
+.il-people .waits{padding:2px 6px;border-radius:4px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 14%,transparent) 0 2px,transparent 2px 5px)}
 /* A supplier's lines, as a person's in Faste (the v9 design, 2026-10-26): the supplier's first line has the strong line over it, its shifts are indented under its name, and a shift it no longer offers is struck through with the mark of attention. */
 .il-supplier{border-top:1px solid var(--grid-top)}
 .il-shift{flex:none;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
@@ -332,31 +332,27 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-count{display:inline-flex;align-items:center;gap:2px;height:var(--ctl-h);padding:0 8px 0 2px;border-radius:8px;background:var(--surface);box-shadow:var(--raise);font-size:var(--fs-sm)}
 .il-count b{min-width:18px;font:700 var(--fs-md) var(--font-num);text-align:center}
 .il-count span{margin-left:4px;color:var(--muted)}
-.il-people .waits{padding:2px 6px;border-radius:4px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 14%,transparent) 0 2px,transparent 2px 5px)}
 .il-step{display:inline-flex;align-items:center;gap:2px}
 .il-step button{width:23px;height:23px;padding:0;border-radius:6px}
 .il-step b{min-width:20px;font:700 var(--fs-md) var(--font-num);text-align:center}
 /* The answer of an order, in ink: confirmed with a check, waiting hatched and muted. */
-.il-status{flex:none;gap:5px;min-width:88px;height:28px;padding:0 8px;border-radius:7px;background:transparent;font-size:var(--fs-xs);font-weight:500;white-space:nowrap}
+.il-status{flex:none;gap:5px;min-width:92px;height:28px;padding:0 8px;border-radius:7px;background:transparent;font-size:var(--fs-xs);font-weight:500;white-space:nowrap}
 .il-status:hover{background:var(--wash)}
 .il-status.waits{color:var(--muted)}
 .il-status .il-glyph{color:var(--text)}
-.il-menu>.il-remove{color:var(--neg)}
-/* The popovers of the editor */
+.il-remove{align-self:flex-start;gap:6px;padding:0 4px;background:transparent;color:var(--neg)}
+/* The popover of the orders on the suppliers' lines */
 .il-pop{position:fixed;z-index:80;display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:var(--panel);box-shadow:0 12px 32px -8px var(--shadow),0 0 0 1px var(--line-strong);font-size:var(--fs-md)}
-.il-pop.il-menu{gap:0;padding:6px}
-.il-menu>button{gap:8px}
-.il-menu>button svg{margin-left:auto}
-.il-menu-name{font-weight:500}
-.il-menu-note{font-size:var(--fs-xs);color:var(--muted)}
 .il-pop-title{display:flex;align-items:baseline;gap:8px;font-weight:600}
 .il-pop-title em{font:400 var(--fs-xs) var(--font-ui);font-style:normal;color:var(--muted)}
 .il-pop-note{margin:0;padding:0 2px;font-size:var(--fs-xs);color:var(--muted)}
-.il-pop .segmented{display:flex}
-.il-pop .segmented button{flex:1}
+.il-pop-check{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm)}
+.il-pop-field{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm)}
+.il-pop-field select{flex:1;min-width:0}
+:is(.il-pop,.il-control-head) .segmented{display:flex}
+:is(.il-pop,.il-control-head) .segmented button{flex:1}
 .il-sends{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
 .il-sends-day{flex:1;color:var(--muted)}
-.il-sends-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
 .il-times{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .il-times input{width:92px;font:600 var(--fs-md) var(--font-num)}
 .il-times .il-pop-note{flex-basis:100%}
@@ -382,7 +378,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-panel-what{flex:1;min-width:0;justify-content:flex-start;gap:8px;margin-left:-6px;padding:5px 6px;background:transparent;text-align:left}
 .il-panel-what:hover{background:var(--wash)}
 .il-panel-what span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.il-panel-order .il-status{min-width:92px}
 .il-offer summary{margin:0;cursor:pointer}
 .il-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
 .il-tags button{gap:6px;padding:4px 9px;border-radius:6px;background:transparent;box-shadow:inset 0 0 0 1px var(--line);font-size:var(--fs-sm);color:var(--muted)}
@@ -390,13 +385,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-tags button:not([aria-pressed='true']) .swatch{opacity:.35}
 .il-to-suppliers{font-size:var(--fs-sm)}
 /* the control panel: a supplier per section, its name, what waits and what is confirmed, its order to copy and «Bekreft alle», and under it its orders by day */
-.il-control-head .segmented{display:flex}
-.il-control-head .segmented button{flex:1}
 .il-control-supplier{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 /* the name has a line of its own, so a long one never meets the buttons */
 .il-control-supplier .il-panel-what{flex:1 0 100%}
-.il-control-supplier .il-control-counts{margin-right:auto}
-.il-control-counts{display:inline-flex;flex:none;align-items:center;gap:4px;font:500 var(--fs-sm) var(--font-num);color:var(--muted)}
+.il-control-counts{display:inline-flex;flex:none;align-items:center;gap:4px;margin-right:auto;font:500 var(--fs-sm) var(--font-num);color:var(--muted)}
 .il-control-counts .il-glyph:not(:first-child){margin-left:6px}
 .il-control-supplier>button:last-child{flex:none;white-space:nowrap}
 .il-help dl{display:grid;grid-template-columns:92px minmax(0,1fr);gap:7px 12px;margin:0;font-size:var(--fs-md)}

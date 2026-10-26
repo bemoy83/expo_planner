@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
@@ -113,21 +113,24 @@ interface ShiftLineProps {
   coming: ((order: HireOrder) => boolean) | undefined
   going: ((order: HireOrder) => boolean) | undefined
   actions: InnleidActions
-  /** The supplier has this line alone: its label is the supplier's too, with the name. */
-  name?: NameProps
+  /** The supplier has this line alone: its label is the supplier's too, with the name. Plain values, so the line is not drawn again on a scroll frame. */
+  named?: boolean
+  competences: CompetenceStyle[]
+  waits: boolean
+  total: number
 }
 
 /** A supplier's shift, as a person's line in Faste: its orders as runs over the days, a lane in height for each competence and project. */
-const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions, name }: ShiftLineProps) {
+const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions, named = false, competences, waits, total }: ShiftLineProps) {
   const geometry = shiftLine(runs.lanes.length)
   const times = timesText(shiftTimes(line.shift, wd))
   return (
     <Line
-      className={`il-line ${name ? 'il-supplier' : ''} ${dim ? 'dim' : ''}`}
+      className={`il-line ${named ? 'il-supplier' : ''} ${dim ? 'dim' : ''}`}
       height={geometry.height}
       label={
         <>
-          {name && <SupplierName {...name} />}
+          {named && <SupplierName supplier={supplier} competences={competences} focus={focus} waits={waits} total={total} actions={actions} />}
           <span className={`il-shift ${line.offered ? '' : 'retired'}`} title={line.offered ? `${supplier.name} · ${SHIFT_LABELS[line.shift]} ${times}` : `${supplier.name} tilbyr ikke ${SHIFT_LABELS[line.shift].toLowerCase()} lenger. Bestillingene står til de er flyttet eller fjernet.`}>
             <b>{SHIFT_LABELS[line.shift]}</b> {times}
           </span>
@@ -137,7 +140,7 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
               Tilbys ikke lenger
             </span>
           )}
-          {name && <span className="bm-week-left">{name.total || ''}</span>}
+          {named && <span className="bm-week-left">{total || ''}</span>}
         </>
       }
       cols={cols}
@@ -154,11 +157,16 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
         const at = cols.c0 + cols.dates.indexOf(run.from)
         const days = cols.dates.indexOf(run.to) - cols.dates.indexOf(run.from) + 1
         const state = coming && run.orders.some(coming) ? 'coming' : going && run.orders.some(going) ? 'going' : ''
+        // An end is taken hold of where the run as it is pulled ends (`grips`, which go on over days off), as in Faste.
+        const grip = runs.grips.find((one) => one.orders.includes(order))
+        const atStart = grip?.from === run.from
+        const atEnd = grip?.to === run.to
         return (
           <span
             key={`${run.lane}|${run.from}`}
             className={`il-run ${run.waits ? 'waits' : ''} ${state} ${lane.height < 20 ? 'sm' : ''} ${focus && focus !== run.competence ? 'other' : ''}`}
             data-lane={laneOf(run)}
+            data-ids={run.orders.map((one) => one.id).join(' ')}
             style={{ left: daysWide(at, LEFT_W + DAY_INSET), width: daysWide(days, -2 * DAY_INSET), top: lane.top, height: lane.height, ...competenceColor(style) }}
             onMouseDown={actions.cellDown}
             title={`${label} · ${supplier.name} · ${SHIFT_LABELS[line.shift]}\n${dayText(run.from)}${run.to === run.from ? '' : ` – ${dayText(run.to)}`} · ${people} pers. · ${run.waits ? 'venter på svar' : 'bekreftet'}${own ? `\nEgne tider ${own}` : ''}${run.projectNo ? '' : '\nUten prosjekt: fordeles på prosjektene'}${stale ? `\n${supplier.name} tilbyr ikke ${style?.label ?? run.competence} lenger` : ''}`}
@@ -169,6 +177,8 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
               <b>{people}</b>
               {own && <small>{own}</small>}
             </span>
+            {atStart && <i className="bm-edge start" data-edge="start" data-block={grip!.orders[0].id} />}
+            {atEnd && <i className="bm-edge end" data-edge="end" data-block={grip!.orders[grip!.orders.length - 1].id} />}
           </span>
         )
       })}
@@ -185,8 +195,7 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
 export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, styles, labelOf } = useBemanning()
   const { suppliers, stored, rows, view, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
-  const perDay = supplierDays(stored)
-  const focus = brush
+  const perDay = useMemo(() => supplierDays(stored), [stored])
   if (!suppliers.length)
     return (
       <div className="bm-empty">
@@ -204,14 +213,14 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
   }
   const pillStyle = pill?.competence ? competenceColor(styles.get(pill.competence)) : undefined
   return (
-    <div className="bm-people il-suppliers" ref={bodyRef} data-tool={tool}>
+    <div className="bm-people il-suppliers" ref={bodyRef} data-tool={tool} onMouseMove={actions.bodyMove} onMouseLeave={actions.bodyLeave}>
       {blocks.map((block) => {
         const { supplier } = block
         const days = perDay.get(supplier.id)
         const name: NameProps = {
           supplier,
           competences: rows,
-          focus,
+          focus: brush,
           waits: !!days && [...days.values()].some((day) => day.waiting > 0),
           total: view.reduce((sum, date) => sum + (days?.get(date)?.people ?? 0), 0),
           actions,
@@ -240,14 +249,17 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                   styles={styles}
                   wd={wd}
                   projectName={projectName}
-                  focus={focus}
+                  focus={brush}
                   dim={block.dim}
                   refusedFrom={inStroke ? range.colFrom : -1}
                   refusedTo={inStroke ? range.colTo : -1}
                   coming={marked?.coming}
                   going={marked?.going}
                   actions={actions}
-                  name={block.single ? name : undefined}
+                  named={block.single}
+                  competences={rows}
+                  waits={name.waits}
+                  total={name.total}
                 />
               )
             })}
@@ -286,6 +298,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
           <span>
             {count(chosen.colTo - chosen.colFrom + 1, 'dag', 'dager')} × {count(chosen.rowTo - chosen.rowFrom + 1, 'linje', 'linjer')}
           </span>
+          <span>Klikk en blokk: endre alle</span>
           <span>Del fjerner</span>
           <span>Esc</span>
         </StrokeBox>

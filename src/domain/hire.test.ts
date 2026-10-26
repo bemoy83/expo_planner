@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -13,9 +13,6 @@ const nordic = supplier('k3', 'Nordic Crew', ['vegger', 'rigg'])
 const standbygg = supplier('k5', 'StandBygg', ['vegger', 'elektro'], ['dag'])
 
 const order = (id: string, supplierId: string, competence: string, date: string, fte: number, conf: number | null, times = DAG): HireOrder => ({ id, supplierId, shift: shiftOf(times, wd) ?? 'dag', competence, date, fte, ...times, conf })
-
-let seq = 0
-const makeId = () => `n${++seq}`
 
 describe('shifts and paid hours', () => {
   it('has the three shifts go round the clock from the normal day', () => {
@@ -133,15 +130,6 @@ describe('Avvik of a day (I2)', () => {
   })
 })
 
-describe('ordering (I3, I4)', () => {
-
-  it('erases the orders of a competence in the days, of all suppliers or of one (A12)', () => {
-    const orders = [order('a', 'k1', 'vegger', 'd1', 2, null), order('b', 'k3', 'vegger', 'd1', 1, 1), order('c', 'k1', 'tepper', 'd1', 1, null), order('d', 'k1', 'vegger', 'd3', 1, null)]
-    expect(eraseOrders(orders, 'vegger', ['d1', 'd2']).map((o) => o.id)).toEqual(['c', 'd'])
-    expect(eraseOrders(orders, 'vegger', ['d1', 'd2'], 'k1').map((o) => o.id)).toEqual(['b', 'c', 'd'])
-    expect(eraseOrders(orders, 'rigg', ['d1'])).toBe(orders)
-  })
-})
 
 describe('one order per supplier, shift, competence, project and day (I5)', () => {
   it('adds the people of two that are the same, and waits while one of them does', () => {
@@ -194,21 +182,6 @@ describe('answers and counts (I6, I7)', () => {
   })
 })
 
-describe('the lines of the editor (I8)', () => {
-  const orders = [order('a', 'k3', 'vegger', 'd1', 1, 1), order('b', 'k1', 'vegger', 'd1', 2, 2, KVELD), order('c', 'k1', 'vegger', 'd1', 4, 4), order('d', 'k1', 'vegger', 'd2', 2, null), order('e', 'k1', 'vegger', 'd3', 2, 2)]
-
-  it('gathers the orders by supplier and time, in the suppliers order and then by time (A13)', () => {
-    const groups = orderGroups(orders, [manpower, nordic])
-    expect(groups.map((group) => group.orders.map((o) => o.id))).toEqual([['c', 'd', 'e'], ['b'], ['a']])
-    expect(groups.map(groupWaits)).toEqual([true, false, false])
-  })
-
-  it('fills the days a group lacks with its median count', () => {
-    seq = 0
-    const [group] = orderGroups(orders, [manpower, nordic])
-    expect(fillGroup(group, 'vegger', ['d1', 'd2', 'd3', 'd4'], makeId)).toEqual([order('n1', 'k1', 'vegger', 'd4', 2, null)])
-  })
-})
 
 describe('the order to send and what waits (I9, I10)', () => {
   const orders = [order('a', 'k1', 'tepper', '2026-10-09', 2, null), order('b', 'k1', 'vegger', '2026-10-08', 4, 4), order('c', 'k1', 'vegger', '2026-10-09', 1, 1, KVELD), order('d', 'k3', 'vegger', '2026-10-08', 9, null), order('e', 'k1', 'vegger', '2026-10-09', 3, 3)]
@@ -219,7 +192,7 @@ describe('the order to send and what waits (I9, I10)', () => {
       { key: 'tepper', label: 'Tepper' },
     ]
     expect(orderText(manpower, orders, competences)).toBe(
-      ['Bestilling – Manpower', 'tor 8. okt', '  Vegger: 4 pers. 07:00–15:00', 'fre 9. okt', '  Vegger: 3 pers. 07:00–15:00', '  Vegger: 1 pers. 15:00–23:00', '  Tepper: 2 pers. 07:00–15:00'].join('\n'),
+      ['Bestilling – Manpower', 'tor 8. okt', '  Vegger: 4 pers. Dag 07:00–15:00', 'fre 9. okt', '  Vegger: 3 pers. Dag 07:00–15:00', '  Vegger: 1 pers. Kveld 15:00–23:00', '  Tepper: 2 pers. Dag 07:00–15:00'].join('\n'),
     )
   })
 
@@ -472,5 +445,17 @@ describe('orders painted on the suppliers\' lines', () => {
       [['k1', 1, null]],
       [['k1', 1, null]],
     ])
+  })
+})
+
+describe('the hours a change orders', () => {
+  it('counts what is added or changed less what is taken away or changed', () => {
+    const a = order('a', 'k1', 'vegger', 'd1', 2, null)
+    const b = order('b', 'k1', 'vegger', 'd2', 1, 1)
+    const more = { ...a, fte: 3 }
+    expect(hoursChange([a, b], [a, b], wd)).toBe(0)
+    expect(hoursChange([a], [a, b], wd)).toBe(7.5)
+    expect(hoursChange([a, b], [more, b], wd)).toBe(7.5)
+    expect(hoursChange([a, b], [b], wd)).toBe(-15)
   })
 })

@@ -54,13 +54,15 @@ interface Options {
   clear: (s: Stroke) => void
   moveBlocks?: (s: Stroke, copy: boolean) => void
   finishStretch?: () => void
+  /** A press that went nowhere, after the day it hit is selected: Innleid opens the popover of a run clicked on. */
+  clicked?: (s: Stroke) => void
 }
 
 /**
  * A stroke over the people from the press to the let-go: what a press starts by the tool and where it lands, the pointer followed
  * wherever it goes with the grid scrolled on near its edges, Shift answered at once, and what the stroke does when it ends.
  */
-export function useStrokeInput({ wd, scrollRef, bodyRef, rowAt, colW, dates, stops: timed, block, strokeState, activeTool, panelOpen, selection, setSelection, onFocusDate, paint, clear, moveBlocks, finishStretch }: Options) {
+export function useStrokeInput({ wd, scrollRef, bodyRef, rowAt, colW, dates, stops: timed, block, strokeState, activeTool, panelOpen, selection, setSelection, onFocusDate, paint, clear, moveBlocks, finishStretch, clicked }: Options) {
   const { strokeRef, setStroke, setShift, shiftHeld } = strokeState
   /** Where across the window the button went down for the stroke under way. */
   const pressedAt = useRef(0)
@@ -101,6 +103,7 @@ export function useStrokeInput({ wd, scrollRef, bodyRef, rowAt, colW, dates, sto
       const same = selection !== null && selection.row0 === s.row0 && selection.col0 === s.col0 && selection.row1 === s.row0 && selection.col1 === s.col0
       setSelection(same ? null : { row0: s.row0, col0: s.col0, row1: s.row0, col1: s.col0 })
       if (!same) onFocusDate(dates[s.col0])
+      clicked?.(s)
     } else if (s.mode === 'select') setSelection({ row0: s.row0, col0: s.col0, row1: s.row1, col1: s.col1 })
     else moveBlocks?.(s, copy)
   }
