@@ -226,6 +226,25 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const projectSpan = (key: string): DaySpan | undefined => allGroups.find((group) => group.key === key)?.venue ?? undefined
   const bemanning = shown === 'bemanning'
   const innleid = bemanning && crewPart === 'innleid'
+  // The bar of Bemanning, the same in both parts: the mode and the part, and the project the days are fitted to.
+  const fitProject = (key: string) => {
+    const span = projectSpan(key)
+    if (span) fitBemanning(span)
+  }
+  const crewBar = {
+    width: viewport.width,
+    mode: planMode,
+    onMode: switchMode,
+    onPart: switchPart,
+    onToday: () => scrollToDate(today, 1),
+    projects: plan.projects,
+    project: filter.project,
+    onProject: (key: string) => {
+      setFilter({ ...filter, project: key })
+      fitProject(key)
+    },
+    onFit: () => fitProject(filter.project),
+  }
   // The projects as Bemanning lists them, see `projectSpansOf`.
   // The score of the project of the row in focus, worked out only while its details are open.
   const scored = inspectorOpen && !bemanning ? plan.details?.row.projectNo : undefined
@@ -335,27 +354,8 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
 
           {/* The planning tools sit right above the rows they work on. They stay put when the days scroll sideways, and follow the top block when part of it gives way. */}
           <div className="grid-tools" ref={toolsRef} style={{ top: pinnedHeight - barHeight }}>
-            {innleid ? (
-              <InnleidToolbar width={viewport.width} mode={planMode} onMode={switchMode} onPart={switchPart} onToday={() => scrollToDate(today, 1)} />
-            ) : bemanning ? (
-              <BemanningToolbar
-                width={viewport.width}
-                mode={planMode}
-                onMode={switchMode}
-                onPart={switchPart}
-                projects={plan.projects}
-                project={filter.project}
-                onProject={(key) => {
-                  setFilter({ ...filter, project: key })
-                  const span = projectSpan(key)
-                  if (span) fitBemanning(span)
-                }}
-                onToday={() => scrollToDate(today, 1)}
-                onFit={() => {
-                  const span = projectSpan(filter.project)
-                  if (span) fitBemanning(span)
-                }}
-              />
+            {bemanning ? (
+              innleid ? <InnleidToolbar {...crewBar} /> : <BemanningToolbar {...crewBar} />
             ) : (
             <KalenderBar
               width={viewport.width}

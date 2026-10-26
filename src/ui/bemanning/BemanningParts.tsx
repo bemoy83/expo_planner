@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ClipboardCopy, Eraser, Printer, Maximize2, MousePointer2, Paintbrush, TriangleAlert, X } from 'lucide-react'
+import { ClipboardCopy, TriangleAlert, X } from 'lucide-react'
 import { addDays, dayOfMonth, isoWeek, monthShort, weekdayName, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { freeCapacity, removeCarried } from '../../domain/staffing/balance'
@@ -7,21 +7,16 @@ import { paintBlock } from '../../domain/staffing/edit'
 import { carry } from '../../domain/staffing/projectBalance'
 import { backFrom, isAway } from '../../domain/staffing/time'
 import { placeName } from '../../domain/workPlace'
-import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
-import { competenceColor, count, modKey } from '../dom'
-import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
-import { PlanBar } from '../kalender/PlanBar'
-import type { CrewPart, PlanMode } from '../kalender/zoom'
+import { PanelToggle } from '../common'
+import { count, modKey } from '../dom'
 import { Toasts } from '../Toasts'
 import { useBemanning } from './BemanningScope'
 import { DemandRows } from './DemandRows'
 import { CarryWork, DayMenu, DemandPopover } from './Popovers'
-import { ProjectLines } from './ProjectLines'
-import { AvvikSection } from './AvvikSection'
-import { useInnleid } from '../innleid/InnleidScope'
-import type { Tool } from './tools'
 import { EPSILON } from './week'
 import { hoursText } from '../format'
+import { CrewBar, CrewHead, CrewTop, type CrewBarProps } from './CrewFrame'
+import { crewTools } from './crewTools'
 
 /** The page header in Bemanning: how far the people cover the demand of the days in view. */
 export function BemanningHead({ places, onDayPlan }: { /** The button «Steder», as in the plan's header. */ places: ReactNode; /** Opens the day plan of the day in focus. */ onDayPlan: () => void }) {
@@ -36,126 +31,69 @@ export function BemanningHead({ places, onDayPlan }: { /** The button «Steder»
     totals.weekendOpen > EPSILON ? `helg ${hoursText(totals.weekendOpen)} t åpent` : '',
   ].filter(Boolean)
   return (
-    <div className="page-head mode-band">
-      <h2>Kalender</h2>
-      <ModeTag mode="bemanning" />
-      <span className="page-meta" title="Behov, overtid og åpne timer gjelder dagene som vises">{meta.join(' · ')}</span>
-      {places}
-      <button className="ghost" onClick={onDayPlan} title="Arbeidsplan til utskrift: dagsplanen for dagen du står på, og ukeplanen. Høyreklikk en dato for dagsplanen.">
-        <Printer size={14} aria-hidden /> Arbeidsplan
-      </button>
-      <PanelToggle open={!!panel} what="persondetaljer" hint="timer, overtid og fravær. Klikk et navn for å åpne dem for personen." disabled={!subject} onToggle={() => setPanel(panel ? null : subject ? { personId: subject } : null)} />
-    </div>
+    <CrewHead
+      part="faste"
+      meta={meta}
+      metaTitle="Behov, overtid og åpne timer gjelder dagene som vises"
+      places={places}
+      onDayPlan={onDayPlan}
+      dayPlanTitle="Arbeidsplan til utskrift: dagsplanen for dagen du står på, og ukeplanen. Høyreklikk en dato for dagsplanen."
+      panel={<PanelToggle open={!!panel} what="persondetaljer" hint="timer, overtid og fravær. Klikk et navn for å åpne dem for personen." disabled={!subject} onToggle={() => setPanel(panel ? null : subject ? { personId: subject } : null)} />}
+    />
   )
 }
 
 /** What is pinned above the people: the projects in view, the Avvik of each day as Innleid has it, and the demand per competence. */
-export function BemanningTop() {
-  const { board } = useInnleid()
-  return (
-    <>
-      <ProjectLines />
-      <AvvikSection board={board} />
-      <DemandRows />
-    </>
-  )
-}
-
-interface ToolbarProps {
-  /** The width of the grid as it is seen. */
-  width: number
-  mode: PlanMode
-  onMode: (mode: PlanMode) => void
-  /** Every project, as key and name, and the one chosen in the filter. */
-  projects: [key: string, name: string][]
-  project: string
-  onProject: (key: string) => void
-  /** Goes to Innleid, the other part of Bemanning. */
-  onPart: (part: CrewPart) => void
-  onToday: () => void
-  /** Sizes the days so the chosen project fills the grid. */
-  onFit: () => void
-}
+export const BemanningTop = () => <CrewTop demand={<DemandRows />} />
 
 /**
  * The planning bar in Bemanning: the mode, undo, the tools (Velg, the brush with the competence it paints,
  * and Tøm), the project, and where in the period.
  */
-export function BemanningToolbar({ width, mode, onMode, onPart, projects, project, onProject, onToday, onFit }: ToolbarProps) {
+export function BemanningToolbar(bar: CrewBarProps) {
   const { tool, pickTool, brush, brushProject, brushHall, projectName, styles, lastKey, unresolved, removeOpen, clip, setClip, breaches, overtimeLimit, nameOf, setPanel, onShowDate } = useBemanning()
-  const style = brush ? styles.get(brush) : undefined
-  const tools: ToolChoice<Tool>[] = [
-    { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager: klikk en dag, eller dra over flere for å kopiere dem. Dra en blokk til en annen dag eller person for å flytte dagens blokker, med Alt for å kopiere (V).' },
-    {
-      value: 'paint',
-      icon: <Paintbrush size={14} aria-hidden />,
-      name: style ? (
-        <>
-          Pensel <i className="swatch" style={competenceColor(style)} /> {style.label}
-          {brushProject && <span className="bm-brush-project"> · {projectName(brushProject)}{brushHall !== null && ` · ${placeName(brushHall)}`}</span>}
-        </>
-      ) : (
-        'Pensel'
-      ),
-      shortcut: 'B',
-      title: 'Mal dager med en kompetanse: klikk for hel dag, dra over flere, kort innenfor en dag for en del av den, Shift for å stoppe der behovet er dekket. Bare ledig tid fylles. Velg et prosjekt under kompetansen i behovet for å male for det (B).',
-    },
-    { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).' },
-  ]
+  const tools = crewTools(brush ? styles.get(brush) : undefined, brushProject && `${projectName(brushProject)}${brushHall !== null ? ` · ${placeName(brushHall)}` : ''}`, {
+    select: 'Velg dager: klikk en dag, eller dra over flere for å kopiere dem. Dra en blokk til en annen dag eller person for å flytte dagens blokker, med Alt for å kopiere (V).',
+    paint: 'Mal dager med en kompetanse: klikk for hel dag, dra over flere, kort innenfor en dag for en del av den, Shift for å stoppe der behovet er dekket. Bare ledig tid fylles. Velg et prosjekt under kompetansen i behovet for å male for det (B).',
+    erase: 'Klikk eller dra over dager for å tømme dem (T, eller hold Alt).',
+  })
   return (
-    <PlanBar width={width} fitKey={`${project}|${tool}|${brush}|${brushProject}|${brushHall}|${unresolved}|${!!clip}|${breaches.length}`}>
-      <div className="bar-zone">
-        <ModeSwitch mode={mode} onChange={onMode} />
-        <PartSwitch part="faste" onChange={onPart} />
-        <UndoRedoButtons />
-        <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
-        {!brush && <span className="bm-hints">Velg kompetanse i behovet{lastKey ? ` (1–${lastKey})` : ''}</span>}
-        {breaches.length > 0 && (
-          <button
-            className="bm-over-limit"
-            title={`Overtid over grensen:\n${breaches.flatMap((person) => person.weeks.map((week) => `${nameOf(person.personId)} · uke ${isoWeek(week.monday)} · ${hoursText(week.hours)} t`)).join('\n')}\nKlikk for å se den første.`}
-            onClick={() => {
-              setPanel({ personId: breaches[0].personId, week: breaches[0].weeks[0].monday })
-              onShowDate(breaches[0].weeks[0].monday)
-            }}
-          >
-            <TriangleAlert size={14} aria-hidden /> {breaches.length} over {hoursText(overtimeLimit)} t overtid/uke
+    <CrewBar
+      {...bar}
+      fitKey={`${tool}|${brush}|${brushProject}|${brushHall}|${unresolved}|${!!clip}|${breaches.length}`}
+      part="faste"
+      tool={tool}
+      tools={tools}
+      pickTool={pickTool}
+      pickKeys={brush ? null : lastKey}
+    >
+      {breaches.length > 0 && (
+        <button
+          className="bm-over-limit"
+          title={`Overtid over grensen:\n${breaches.flatMap((person) => person.weeks.map((week) => `${nameOf(person.personId)} · uke ${isoWeek(week.monday)} · ${hoursText(week.hours)} t`)).join('\n')}\nKlikk for å se den første.`}
+          onClick={() => {
+            setPanel({ personId: breaches[0].personId, week: breaches[0].weeks[0].monday })
+            onShowDate(breaches[0].weeks[0].monday)
+          }}
+        >
+          <TriangleAlert size={14} aria-hidden /> {breaches.length} over {hoursText(overtimeLimit)} t overtid/uke
+        </button>
+      )}
+      {clip && (
+        <span className="bm-clip" title="Dagene som er kopiert. De limes inn fra dagen og linjen under markøren.">
+          <ClipboardCopy size={14} aria-hidden /> Kopiert · {modKey('V')}
+          <button className="row-action" aria-label="Tøm utklippet" title="Tøm utklippet" onClick={() => setClip(null)}>
+            <X size={13} aria-hidden />
           </button>
-        )}
-        {clip && (
-          <span className="bm-clip" title="Dagene som er kopiert. De limes inn fra dagen og linjen under markøren.">
-            <ClipboardCopy size={14} aria-hidden /> Kopiert · {modKey('V')}
-            <button className="row-action" aria-label="Tøm utklippet" title="Tøm utklippet" onClick={() => setClip(null)}>
-              <X size={13} aria-hidden />
-            </button>
-          </span>
-        )}
-        {unresolved > 0 && (
-          <span className="bm-unresolved" title="Blokker der personen er borte eller ikke lenger har kompetansen. Timene er tilbake i behovet.">
-            {count(unresolved, 'uløst', 'uløste')}
-            <button onClick={removeOpen}>Fjern</button>
-          </span>
-        )}
-      </div>
-      <div className="bar-view">
-        <div className="bar-zone bar-zone-end">
-          <select className="bar-select" aria-label="Prosjekt" title="Prosjekt: dagene tilpasses prosjektet, og de andre prosjektene dempes" value={project} onChange={(e) => onProject(e.target.value)}>
-            <option value="">Alle prosjekter</option>
-            {projects.map(([key, name]) => (
-              <option key={key} value={key}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <button className="ghost" onClick={onToday}>
-            I dag
-          </button>
-          <button className="ghost" disabled={!project} title={project ? 'Tilpass dagene til prosjektet' : 'Velg et prosjekt for å tilpasse dagene til det'} onClick={onFit}>
-            <Maximize2 size={14} aria-hidden /> Tilpass prosjekt
-          </button>
-        </div>
-      </div>
-    </PlanBar>
+        </span>
+      )}
+      {unresolved > 0 && (
+        <span className="bm-unresolved" title="Blokker der personen er borte eller ikke lenger har kompetansen. Timene er tilbake i behovet.">
+          {count(unresolved, 'uløst', 'uløste')}
+          <button onClick={removeOpen}>Fjern</button>
+        </span>
+      )}
+    </CrewBar>
   )
 }
 

@@ -4,13 +4,13 @@ import type { DateSpan } from '../../domain/types'
 import { loadPref, savePref, usePref } from '../../store/prefs'
 import { LEFT_W, ZOOM_WIDTHS, type Zoom } from './layout'
 import { useModeZoom } from './useModeZoom'
-import { BEMANNING_DAYS, cleanCrewPart, cleanPlanMode, enterSpan, fitWidth, INNLEID_W, spanDays, type CrewPart, type DaySpan, type HeldColumns, type PlanMode, type ZoomPoint } from './zoom'
+import { BEMANNING_DAYS, cleanCrewPart, cleanPlanMode, enterSpan, fitWidth, spanDays, type CrewPart, type DaySpan, type HeldColumns, type PlanMode, type ZoomPoint } from './zoom'
 
 /**
  * The modes of the Kalender and their widths of a day. The rows are the demand plan or the people (`planMode`), and `shown` is
  * what is drawn: on the way into Bemanning the plan zooms in first and the rows change at the end, on the way out they change first.
- * Bemanning has two parts on the same days, the permanent staff and the people hired for what they leave: the days of Innleid
- * have one width, those of the permanent staff are as wide as the span they show asks for, and Bemanning has no steps of zoom.
+ * Bemanning has two parts on the same days, the permanent staff and the people hired for what they leave: the days of both are as wide
+ * as the span they show asks for, the same in the two parts, and Bemanning has no steps of zoom.
  */
 export function useModeState(range: DateSpan, focusDate: ISODate | undefined, today: ISODate, zoom: Zoom) {
   const [planMode, setPlanMode] = usePref<PlanMode>('planMode', 'plan', cleanPlanMode)
@@ -24,7 +24,7 @@ export function useModeState(range: DateSpan, focusDate: ISODate | undefined, to
   const [bemanningW, setBemanningW] = useState(() => fitWidth(spanDays(openSpan), window.innerWidth - LEFT_W))
   // The width the lines are drawn at. While the switch zooms, the width on screen is on its way from
   // one mode's to the other's (`useModeZoom`), and the days it passes are held drawn.
-  const colW = shown === 'bemanning' ? (crewPart === 'innleid' ? INNLEID_W : bemanningW) : ZOOM_WIDTHS[zoom]
+  const colW = shown === 'bemanning' ? bemanningW : ZOOM_WIDTHS[zoom]
   const [held, setHeld] = useState<HeldColumns | null>(null)
   // While the switch between the modes zooms, the days in view are held at those the plan shows at its own
   // width. The zoom passes through fewer days, and the projects listed would come and go with them,
@@ -53,7 +53,7 @@ interface Options {
 
 /** The switches between the modes and the parts, with the zoom between their widths, and the days of Bemanning remembered. */
 export function useModeSwitch({ modes, scrollRef, dates, range, zoom, viewport, zoomFrom, zoomStep, placeLeft, measure, onLeave }: Options) {
-  const { planMode, setPlanMode, shown, setShown, crewPart, setCrewPart, openSpan, bemanningW, setBemanningW, colW, held, setHeld, setHeldWindow } = modes
+  const { planMode, setPlanMode, shown, setShown, crewPart, setCrewPart, openSpan, setBemanningW, colW, held, setHeld, setHeldWindow } = modes
   const zoomTo = useModeZoom(zoomFrom, zoomStep, setHeld, placeLeft)
   /** The days between the label column and the right edge of the grid, in pixels. */
   const dayRoom = () => (scrollRef.current?.clientWidth ?? viewport.width) - LEFT_W
@@ -88,7 +88,7 @@ export function useModeSwitch({ modes, scrollRef, dates, range, zoom, viewport, 
     if (next === 'bemanning') {
       const stored = loadPref<DaySpan | null>('bemanningRange', null)
       const fitted = fitWidth(stored && stored.start <= stored.end ? spanDays(stored) : BEMANNING_DAYS, dayRoom())
-      zoomTo({ colW: crewPart === 'innleid' ? INNLEID_W : fitted, left }, () => {
+      zoomTo({ colW: fitted, left }, () => {
         setBemanningW(fitted)
         setShown('bemanning')
         setHeldWindow(null)
@@ -101,18 +101,15 @@ export function useModeSwitch({ modes, scrollRef, dates, range, zoom, viewport, 
       })
     }
   }
-  /** Goes to the other part of Bemanning: the day at the left edge stays, and the days zoom to the width of the part. */
+  /** Goes to the other part of Bemanning, on the same days at the same width. */
   const switchPart = (next: CrewPart) => {
-    if (next === crewPart) return
-    const width = next === 'innleid' ? INNLEID_W : bemanningW
-    if (width === colW) return setCrewPart(next)
-    zoomTo({ colW: width, left: Math.floor(zoomFrom().left + 0.01) }, () => setCrewPart(next))
+    if (next !== crewPart) setCrewPart(next)
   }
-  // The days seen with the permanent staff are remembered, for the next time Bemanning is opened: their width is theirs alone.
+  // The days seen in Bemanning are remembered, for the next time it is opened: their width is theirs alone.
   // Whole days, so the same days give the same width when they are opened again.
   const seenFrom = Math.min(dates.length - 1, Math.round(viewport.left / colW))
   const seenTo = Math.min(dates.length - 1, seenFrom + Math.max(1, Math.round((viewport.width - LEFT_W) / colW)) - 1)
-  const bemanningSpan = shown === 'bemanning' && crewPart === 'faste' && held === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
+  const bemanningSpan = shown === 'bemanning' && held === null && dates.length ? `${dates[seenFrom]}|${dates[seenTo]}` : null
   useEffect(() => {
     if (!bemanningSpan) return
     const [start, end] = bemanningSpan.split('|')

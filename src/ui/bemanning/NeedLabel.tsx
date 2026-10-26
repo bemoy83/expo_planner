@@ -1,7 +1,13 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { Check } from 'lucide-react'
+import type { ISODate } from '../../domain/dates'
 import type { NeedLabelParts, NeedSegment } from '../../domain/needLabel'
+import type { CompetenceStyle } from '../../domain/types'
+import { competenceColor } from '../dom'
+import { Line } from '../kalender/GridRows'
+import { dayClass, type Columns } from '../kalender/gridTypes'
 import { hoursShort, signedHours } from '../format'
+import { DEMAND_COMPACT_H, DEMAND_H } from './layout'
 import { EPSILON } from './week'
 
 /** What Faste and Innleid share of a line of the demand: the label of a day, its thin line, the hours in the label column, and the name of the line. */
@@ -103,5 +109,46 @@ export function LinePick({
       {kbd}
       <HoursLeft hours={hours} compact={compact} />
     </button>
+  )
+}
+
+/** What a day of a line of the demand shows: its label, or none on a day with nothing to show, and what it says when it is pointed at. */
+export interface NeedDay {
+  parts: NeedLabelParts | null
+  title: string
+  /** Compact: the figure beside the thin line. */
+  figure?: boolean
+  /** Placed on the label, as `summed`. */
+  labelClass?: string
+  /** Laid over the day, as the dot of hours carried here. */
+  mark?: ReactNode
+}
+
+/**
+ * A line of the demand, the same in Faste and in Innleid: the competence's colour, its name in the label column (`label`, a `LinePick`),
+ * and per day a button with its label, or its thin line when compact, that opens the day. A day `day` gives nothing for is empty.
+ * The parts wrap it in a memo of their own, with plain values, so a scroll frame draws no line again.
+ */
+export function NeedRow({ style, cols, compact, className, label, day, onDay }: { style: CompetenceStyle; cols: Columns; compact: boolean; className: string; label: ReactNode; day: (date: ISODate) => NeedDay | null; onDay: (date: ISODate, event: MouseEvent) => void }) {
+  return (
+    <Line
+      className={`bm-demand ${className} ${compact ? 'compact' : ''}`}
+      height={compact ? DEMAND_COMPACT_H : DEMAND_H}
+      style={competenceColor(style)}
+      label={label}
+      cols={cols}
+      cells={(date) => {
+        const shown = day(date)
+        const classes = `${dayClass(cols, date)} cell bm-need`
+        if (!shown) return <div key={date} className={classes} />
+        const { parts, title, figure = true, labelClass, mark } = shown
+        return (
+          <button key={date} className={classes} title={title} onClick={(event) => onDay(date, event)}>
+            {parts && (compact ? <NeedLine parts={parts} figure={figure} /> : <NeedLabel parts={parts} className={labelClass} />)}
+            {mark}
+          </button>
+        )
+      }}
+    />
   )
 }
