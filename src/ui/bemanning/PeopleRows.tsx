@@ -7,7 +7,8 @@ import type { PersonWeek } from '../../domain/staffing/time'
 import { competenceColor, count, modKey } from '../dom'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
+import { daysWide, LEFT_W } from '../kalender/layout'
+import { CrewHeading } from './CrewFrame'
 import { useBemanning, type PersonActions, type StretchPlan } from './BemanningScope'
 import { dayCell, runLabel, spanOf, type BlockNames, type Span } from './dayCell'
 import { DAY_INSET, DIVIDER_H, joinedClass, joinedPlace, PERSON_H } from './layout'
@@ -161,18 +162,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
 /** The heading over the people, at the foot of the planning bar. */
 export function PeopleHeading() {
   const { persons, brush, able, labelOf } = useBemanning()
-  return (
-    <div className="grid-row col-head bm-people-head" style={{ height: ROW_H }}>
-      <div className="grid-label">
-        <span className="lbl-desc">Personell</span>
-        <span className="bm-label-note">{brush ? `${able} med ${labelOf(brush)}` : `${persons.length} faste`}</span>
-        <span className="bm-label-note bm-label-end">uke · normal/kap.</span>
-      </div>
-      <span className="phase-legend" style={{ left: LEFT_W }}>
-        <span>Klikk et navn for detaljer · dobbeltklikk en dag for å brette ut timer (E) · høyreklikk en dag for fravær</span>
-      </span>
-    </div>
-  )
+  return <CrewHeading title="Personell" note={brush ? `${able} med ${labelOf(brush)}` : `${persons.length} faste`} end="uke · normal/kap." legend="Klikk et navn for detaljer · dobbeltklikk en dag for å brette ut timer (E) · høyreklikk en dag for fravær" />
 }
 
 /** The people, one line each, with what a stroke under way covers laid over them. */

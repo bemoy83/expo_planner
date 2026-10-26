@@ -1,27 +1,22 @@
 import { Fragment, memo, useMemo, type ReactNode } from 'react'
-import { CircleHelp, Eraser, Minus, Plus, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
+import { CircleHelp, Minus, Plus, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { coverFigure, dayKey, HOURS_NOISE, isWaiting, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
-import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
-import { competenceColor, count } from '../dom'
+import { PanelToggle } from '../common'
+import { count } from '../dom'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { DensityToggle } from '../bemanning/DensityToggle'
-import { ProjectLines } from '../bemanning/ProjectLines'
-import { AvvikSection } from '../bemanning/AvvikSection'
-import { Line, SectionLine } from '../kalender/GridRows'
-import { dayClass, type Columns } from '../kalender/gridTypes'
-import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
-import { LEFT_W, ROW_H } from '../kalender/layout'
-import { DEMAND_COMPACT_H, DEMAND_H } from '../bemanning/layout'
-import { LinePick, NeedLabel, NeedLine } from '../bemanning/NeedLabel'
-import { PlanBar } from '../kalender/PlanBar'
+import { SectionLine } from '../kalender/GridRows'
+import type { Columns } from '../kalender/gridTypes'
+import { LinePick, NeedRow } from '../bemanning/NeedLabel'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
 import { numberKey } from '../../domain/projects'
 import { useInnleid, type HireProjectLine, type InnleidActions } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 import { hoursText } from '../format'
-import type { ToolKind } from '../toolKeys'
+import { CrewBar, CrewHead, CrewHeading, CrewTop } from '../bemanning/CrewFrame'
+import { crewTools } from '../bemanning/crewTools'
 
 const days = (n: number) => count(n, 'dag', 'dager')
 const NO_ORDERS: HireOrder[] = []
@@ -33,78 +28,46 @@ export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPla
   const suppliers = ws.suppliers?.length ?? 0
   const meta = [count(suppliers, 'leverandør', 'leverandører'), `${count(rows.length, 'kompetanse', 'kompetanser')} med restbehov`, board.underDays.length ? `${days(board.underDays.length)} udekket` : 'Alt dekket']
   return (
-    <div className="page-head mode-band">
-      <h2>Kalender</h2>
-      <ModeTag mode="bemanning" part="innleid" />
-      <span className="page-meta" title="Gjelder hele perioden">{meta.join(' · ')}</span>
-      {places}
-      <button className="ghost" onClick={onDayPlan} title="Arbeidsplan til utskrift: dagsplanen for dagen du står på, og ukeplanen.">
-        <Printer size={14} aria-hidden /> Arbeidsplan
-      </button>
-      <PanelToggle open={!!panel} what="leverandørkontroll" hint="se over og bekreft bestillingene til leverandørene" onToggle={() => setPanel(panel ? null : { kind: 'control' })} />
-    </div>
+    <CrewHead
+      part="innleid"
+      meta={meta}
+      metaTitle="Gjelder hele perioden"
+      places={places}
+      onDayPlan={onDayPlan}
+      dayPlanTitle="Arbeidsplan til utskrift: dagsplanen for dagen du står på, og ukeplanen."
+      panel={<PanelToggle open={!!panel} what="leverandørkontroll" hint="se over og bekreft bestillingene til leverandørene" onToggle={() => setPanel(panel ? null : { kind: 'control' })} />}
+    />
   )
 }
 
 /** What is pinned above the suppliers, as above the people in Faste: the projects in view, the Avvik of each day, and the demand per competence. */
-export function InnleidTop() {
-  const { board } = useInnleid()
-  return (
-    <>
-      <ProjectLines />
-      <AvvikSection board={board} />
-      <HireDemandRows />
-    </>
-  )
-}
+export const InnleidTop = () => <CrewTop demand={<HireDemandRows />} />
 
-/** The planning bar in Innleid, where Faste has its own, between the demand and the lines that are painted: the mode and the part, undo, the tools with the brush and its people, and what is still to do. */
+/** The planning bar in Innleid, as Faste's: the mode and the part, undo, the tools with the brush and its people, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
   const { styles, projectName } = useBemanning()
   const { board, rows, waiting, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
   const under = board.underDays.length
-  const style = brush ? styles.get(brush) : undefined
-  const tools: ToolChoice<ToolKind>[] = [
-    { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager på leverandørenes linjer: klikk en dag, eller dra over flere (V).' },
-    {
-      value: 'paint',
-      icon: <Paintbrush size={14} aria-hidden />,
-      name: style ? (
-        <>
-          Pensel <i className="swatch" style={competenceColor(style)} /> {style.label}
-          {brushProject && <span className="bm-brush-project"> · {projectName(brushProject)}</span>}
-        </>
-      ) : (
-        'Pensel'
-      ),
-      shortcut: 'B',
-      title: 'Bestill penselens antall personer: dra over dager og skiftlinjer hos leverandørene, Shift for å stoppe der behovet er dekket. Velg et prosjekt under kompetansen i behovet for å bestille for det (B, 1–9 for kompetansen).',
-    },
-    { value: 'erase', icon: <Eraser size={14} aria-hidden />, name: 'Tøm', shortcut: 'T', title: 'Dra over dager for å fjerne bestillinger: startet på en bestilling fjernes bare den kompetansen, ellers alt; Shift fjerner alt (T, eller hold Alt).' },
-  ]
+  const tools = crewTools(brush ? styles.get(brush) : undefined, brushProject && projectName(brushProject), {
+    select: 'Velg dager på leverandørenes linjer: klikk en dag, eller dra over flere (V).',
+    paint: 'Bestill penselens antall personer: dra over dager og skiftlinjer hos leverandørene, Shift for å stoppe der behovet er dekket. Velg et prosjekt under kompetansen i behovet for å bestille for det (B, 1–9 for kompetansen).',
+    erase: 'Dra over dager for å fjerne bestillinger: startet på en bestilling fjernes bare den kompetansen, ellers alt; Shift fjerner alt (T, eller hold Alt).',
+  })
   return (
-    <PlanBar width={width} fitKey={`innleid|${under}|${waiting > HOURS_NOISE}|${tool}|${brush}|${brushProject}|${people}`}>
-      <div className="bar-zone">
-        <ModeSwitch mode={mode} onChange={onMode} />
-        <PartSwitch part="innleid" onChange={onPart} />
-        <UndoRedoButtons />
-        <ToolSwitch tool={tool} tools={tools} onChange={pickTool} />
-        {brush && tool === 'paint' && (
-          <span className="il-count" title="Personene penselen bestiller per dag og skift (+ og −)">
-            <button className="ghost icon-button" aria-label="Færre personer" disabled={people <= 1} onClick={() => stepCount(-1)}>
-              <Minus size={14} aria-hidden />
-            </button>
-            <b>{people}</b>
-            <button className="ghost icon-button" aria-label="Flere personer" onClick={() => stepCount(1)}>
-              <Plus size={14} aria-hidden />
-            </button>
-            <span>pers.</span>
-          </span>
-        )}
-        {!brush && rows.length > 0 && <span className="bm-hints">Velg kompetanse i behovet (1–{Math.min(9, rows.length)})</span>}
-      </div>
-      <div className="bar-view">
-        <div className="bar-zone bar-zone-end">
+    <CrewBar
+      width={width}
+      fitKey={`${under}|${waiting > HOURS_NOISE}|${tool}|${brush}|${brushProject}|${people}`}
+      mode={mode}
+      onMode={onMode}
+      part="innleid"
+      onPart={onPart}
+      tool={tool}
+      tools={tools}
+      pickTool={pickTool}
+      pickKeys={brush || !rows.length ? null : Math.min(9, rows.length)}
+      onToday={onToday}
+      before={
+        <>
           {waiting > HOURS_NOISE && (
             <button className="il-waiting" title="Timer som er bestilt, men ikke bekreftet. Klikk for å se over og bekrefte bestillingene." onClick={openControl}>
               <AnswerGlyph waits /> {hoursText(waiting)} t venter på svar
@@ -116,15 +79,27 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             </button>
           )}
           {under === 0 && waiting <= HOURS_NOISE && <span className="bm-hints">Alt dekket og bekreftet</span>}
-          <button className="ghost" onClick={onToday}>
-            I dag
+        </>
+      }
+      after={
+        <button className={`ghost icon-button ${panel?.kind === 'help' ? 'active' : ''}`} aria-label="Hjelp" title="Hjelp (?)" onClick={() => setPanel(panel?.kind === 'help' ? null : { kind: 'help' })}>
+          <CircleHelp size={16} aria-hidden />
+        </button>
+      }
+    >
+      {brush && tool === 'paint' && (
+        <span className="il-count" title="Personene penselen bestiller per dag og skift (+ og −)">
+          <button className="ghost icon-button" aria-label="Færre personer" disabled={people <= 1} onClick={() => stepCount(-1)}>
+            <Minus size={14} aria-hidden />
           </button>
-          <button className={`ghost icon-button ${panel?.kind === 'help' ? 'active' : ''}`} aria-label="Hjelp" title="Hjelp (?)" onClick={() => setPanel(panel?.kind === 'help' ? null : { kind: 'help' })}>
-            <CircleHelp size={16} aria-hidden />
+          <b>{people}</b>
+          <button className="ghost icon-button" aria-label="Flere personer" onClick={() => stepCount(1)}>
+            <Plus size={14} aria-hidden />
           </button>
-        </div>
-      </div>
-    </PlanBar>
+          <span>pers.</span>
+        </span>
+      )}
+    </CrewBar>
   )
 }
 
@@ -133,16 +108,12 @@ export function SupplierHeading() {
   const { styles } = useBemanning()
   const { suppliers, brush, able } = useInnleid()
   return (
-    <div className="grid-row col-head bm-people-head" style={{ height: ROW_H }}>
-      <div className="grid-label">
-        <span className="lbl-desc">Leverandører</span>
-        <span className="bm-label-note">{brush ? `${able} av ${suppliers.length} tilbyr ${styles.get(brush)?.label ?? brush}` : count(suppliers.length, 'leverandør', 'leverandører')}</span>
-        <span className="bm-label-note bm-label-end">pers.</span>
-      </div>
-      <span className="phase-legend" style={{ left: LEFT_W }}>
-        <span>Klikk et navn for leverandøren · Pensel bestiller antallet på dagene og skiftene du drar over · Alt+dra tømmer</span>
-      </span>
-    </div>
+    <CrewHeading
+      title="Leverandører"
+      note={brush ? `${able} av ${suppliers.length} tilbyr ${styles.get(brush)?.label ?? brush}` : count(suppliers.length, 'leverandør', 'leverandører')}
+      end="pers."
+      legend="Klikk et navn for leverandøren · Pensel bestiller antallet på dagene og skiftene du drar over · Alt+dra tømmer"
+    />
   )
 }
 
@@ -189,10 +160,11 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
   const coverOf = (date: ISODate) => (project ? project.cover(date) : board.cover(style.key, date))
   const label = project ? `${style.label} · ${project.name}` : style.label
   return (
-    <Line
-      className={`il-row ${compact ? 'compact' : ''} ${on ? 'on' : ''} ${dim ? 'dim' : ''}`}
-      height={compact ? DEMAND_COMPACT_H : DEMAND_H}
-      style={competenceColor(style)}
+    <NeedRow
+      style={style}
+      cols={cols}
+      compact={compact}
+      className={`${project ? 'bm-demand-project' : ''} ${on ? 'on' : ''} ${dim ? 'dim' : ''}`}
       label={
         project ? (
           <LinePick
@@ -210,16 +182,11 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
           <LinePick name={style.label} hours={missing} compact={compact} kbd={pickKey > 0 && !compact && <kbd>{pickKey}</kbd>} pressed={on} title={on ? 'Legg bort penselen (Esc)' : `Bestill ${style.label} med penselen${pickKey ? ` (${pickKey})` : ''}`} onClick={() => actions.pickFromDemand(style.key)} />
         )
       }
-      cols={cols}
-      cells={(date) => {
+      onDay={(date, event) => actions.pickDay(style.key, project?.projectNo, date, event)}
+      day={(date) => {
         const orders = ordersOf(date)
         const cover = coverOf(date)
-        const parts = cover.state === 'none' ? null : orderedLabel(cover, orders, wd, suppliers)
-        return (
-          <button key={date} className={`${dayClass(cols, date)} cell bm-need il-day`} title={coverTitle(label, date, cover, orders, nameOf, projectName, wd)} onClick={(event) => actions.pickDay(style.key, project?.projectNo, date, event)}>
-            {parts && (compact ? <NeedLine parts={parts} figure /> : <NeedLabel parts={parts} />)}
-          </button>
-        )
+        return { parts: cover.state === 'none' ? null : orderedLabel(cover, orders, wd, suppliers), title: coverTitle(label, date, cover, orders, nameOf, projectName, wd) }
       }}
     />
   )

@@ -3,17 +3,15 @@ import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import type { Balance } from '../../domain/staffing/balance'
 import { Twisty } from '../common'
-import { competenceColor } from '../dom'
-import { Line, SectionLine } from '../kalender/GridRows'
-import { dayClass, type Columns } from '../kalender/gridTypes'
+import { SectionLine } from '../kalender/GridRows'
+import type { Columns } from '../kalender/gridTypes'
 import { useStableActions } from '../kalender/useStableActions'
 import { useBemanning, type DemandRow } from './BemanningScope'
 import { DensityToggle } from './DensityToggle'
-import { DEMAND_COMPACT_H, DEMAND_H } from './layout'
 import { EPSILON } from './week'
 import { hoursText } from '../format'
 import { staffedLabel, type NeedLabelParts } from '../../domain/needLabel'
-import { LinePick, NeedLabel, NeedLine } from './NeedLabel'
+import { LinePick, NeedRow, type NeedDay } from './NeedLabel'
 
 const NO_HOURS = new Map<string, number>()
 
@@ -82,49 +80,33 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, cols, balance
     />
   )
   return (
-    <Line
-      className={`bm-demand ${project || rest ? 'bm-demand-project' : ''} ${place ? 'bm-demand-place' : ''} ${compact ? 'compact' : ''} ${on ? 'on' : brush && !project && !rest ? 'dim' : ''} ${on && projectHeld ? 'held' : ''} ${summed ? 'summed' : ''}`}
-      height={compact ? DEMAND_COMPACT_H : DEMAND_H}
-      label={label}
+    <NeedRow
+      style={style}
       cols={cols}
-      cells={(date) => {
+      compact={compact}
+      className={`${project || rest ? 'bm-demand-project' : ''} ${place ? 'bm-demand-place' : ''} ${on ? 'on' : brush && !project && !rest ? 'dim' : ''} ${on && projectHeld ? 'held' : ''} ${summed ? 'summed' : ''}`}
+      label={label}
+      onDay={(date, event) => onDay(style.key, date, event)}
+      day={(date): NeedDay | null => {
         const cell = balance.get(style.key, date)
-        const classes = `${dayClass(cols, date)} cell bm-need`
-        if (cell.demand < EPSILON && cell.assigned < EPSILON) return <div key={date} className={classes} />
+        if (cell.demand < EPSILON && cell.assigned < EPSILON) return null
         const unc = uncoverable.get(`${style.key}|${date}`) ?? 0
+        const uncText = unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : ''
         // An open line leaves its days to the lines under it; what the staff cannot cover is the competence's alone, so it stays here.
-        if (summed)
-          return unc > EPSILON ? (
-            <button key={date} className={classes} title={`${style.label} · ${dayText(date)}\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.`} onClick={(e) => onDay(style.key, date, e)}>
-              {compact ? <NeedLine parts={UNCOVERABLE_DAY} /> : <NeedLabel parts={UNCOVERABLE_DAY} className="summed" />}
-            </button>
-          ) : (
-            <div key={date} className={classes} />
-          )
+        if (summed) return unc > EPSILON ? { parts: UNCOVERABLE_DAY, title: `${style.label} · ${dayText(date)}${uncText}`, figure: false, labelClass: 'summed' } : null
         const left = Math.max(0, cell.remaining)
         const over = cell.remaining < -EPSILON
-        const what = over ? `+${hoursText(-cell.remaining)} t over` : left > EPSILON ? `${hoursText(left)} t igjen av ${hoursText(cell.demand)}` : 'dekket'
-        if (compact)
-          // One line: the demand as a tint, filled solid from the left as it is covered, and what is given beyond it as the ochre tail.
-          return (
-            <button key={date} className={classes} title={`${style.label} · ${what}${unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : ''}`} onClick={(e) => onDay(style.key, date, e)}>
-              {(cell.demand > EPSILON || over) && <NeedLine parts={staffedLabel(cell, unc, EPSILON)} figure />}
-            </button>
-          )
+        const parts = staffedLabel(cell, unc, EPSILON)
+        // Compact, one line: the demand as a tint, filled solid from the left as it is covered, and what is given beyond it as the ochre tail.
+        if (compact) return { parts: cell.demand > EPSILON || over ? parts : null, title: `${style.label} · ${over ? `+${hoursText(-cell.remaining)} t over` : left > EPSILON ? `${hoursText(left)} t igjen av ${hoursText(cell.demand)}` : 'dekket'}${uncText}` }
         const title =
           `${style.label}${project ? ` · ${project.name}` : ''}${place ? ` · ${place.name}` : ''} · ${dayText(date)}${dayType(date) !== 'arbeidsdag' ? ' (overtid)' : ''}\nBehov ${hoursText(cell.demand)} t · tildelt ${hoursText(cell.assigned)} t` +
           (cell.assignedOT > EPSILON ? ` (herav ${hoursText(cell.assignedOT)} t overtid)` : '') +
           ` · gjenstår ${hoursText(left)} t` +
           (cell.carried > EPSILON ? `\n${hoursText(cell.carried)} t er flyttet hit fra dagen før.` : '') +
-          (unc > EPSILON ? `\n${hoursText(unc)} t kan ikke dekkes av faste i normaltid.` : '')
-        return (
-          <button key={date} className={classes} title={title} onClick={(e) => onDay(style.key, date, e)}>
-            <NeedLabel parts={staffedLabel(cell, unc, EPSILON)} />
-            {cell.carried > EPSILON && <i className="bm-carried" />}
-          </button>
-        )
+          uncText
+        return { parts, title, mark: cell.carried > EPSILON && <i className="bm-carried" /> }
       }}
-      style={competenceColor(style)}
     />
   )
 })
