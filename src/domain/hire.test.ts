@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coveredBy, coverFigure, coverLines, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planAcross, planOrders, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coveredBy, coverFigure, coverLines, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planAcross, planOrders, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -431,6 +431,13 @@ describe('orders painted on the suppliers\' lines', () => {
       [undefined, 2],
       ['26101', 1],
     ])
+  })
+
+  it('counts the people of a supplier per day over its shifts and competences, and those that wait', () => {
+    const days = supplierDays([on('k1', 'dag', MON, 2, 2), on('k1', 'kveld', MON, 1, null, 'tepper'), on('k1', 'dag', TUE, 1, null), on('k3', 'dag', MON, 3, 3)])
+    expect(days.get('k1')?.get(MON)).toEqual({ people: 3, waiting: 1 })
+    expect(days.get('k1')?.get(TUE)).toEqual({ people: 1, waiting: 1 })
+    expect(days.get('k3')?.get(MON)).toEqual({ people: 3, waiting: 0 })
   })
 
   it('empties the days of lines of every order on them, or of one competence and project', () => {

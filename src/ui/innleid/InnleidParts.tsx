@@ -460,7 +460,7 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
           </Fragment>
         )
       })}
-      <SupplierRows />
+      <SupplierRows onOpenSuppliers={onOpenSuppliers} />
       {rows.length === 0 && <p className="empty-rows">Ingen restbehov i perioden: de faste dekker det som er planlagt, eller ingenting er planlagt ennå.</p>}
       {rows.length > 0 && !suppliers.length && (
         <p className="empty-rows">
