@@ -319,12 +319,7 @@ export const dayKey = (competence: CompetenceKey, date: ISODate): string => `${c
 /** The orders per competence and day, by `dayKey`. */
 export const ordersByDay = (orders: HireOrder[]): Map<string, HireOrder[]> => {
   const map = new Map<string, HireOrder[]>()
-  for (const order of orders) {
-    const key = dayKey(order.competence, order.date)
-    const list = map.get(key)
-    if (list) list.push(order)
-    else map.set(key, [order])
-  }
+  for (const order of orders) pushTo(map, dayKey(order.competence, order.date), order)
   return map
 }
 

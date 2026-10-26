@@ -23,9 +23,6 @@ import type { ToolKind } from '../toolKeys'
 /** What the side panel of Innleid shows: the suppliers' orders to look over and confirm, one supplier's order, or the help. */
 type InnleidPanel = { kind: 'control' } | { kind: 'supplier'; id: string } | { kind: 'help' }
 
-/** The tools of Innleid, Faste's: select days, paint orders on the suppliers' lines, or empty them. */
-export type HireTool = ToolKind
-
 /** Innleid opens on the compact lines, where a competence is one line high. */
 const cleanDensity = (stored: unknown): Density => (stored === 'detail' ? 'detail' : 'compact')
 const cleanFolded = (stored: unknown): string[] => (Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [])
@@ -120,16 +117,16 @@ function useInnleidState(active: boolean, counted: boolean) {
     (competence: CompetenceKey, date: ISODate, projectNo?: string) => Math.max(0, projectNo ? projectBalance.of(competence, date, projectNo).remaining : balance.get(competence, date).remaining),
     [balance, projectBalance],
   )
-  const baseBoard = useMemo<HireBoard>(() => hireBoard(counted ? [...styles.keys()] : [], dates, restOf, stored, wd), [counted, styles, dates, restOf, stored, wd])
-  const rows = useMemo<CompetenceStyle[]>(() => baseBoard.competences.map((key) => styles.get(key)!), [baseBoard, styles])
+  const board = useMemo<HireBoard>(() => hireBoard(counted ? [...styles.keys()] : [], dates, restOf, stored, wd), [counted, styles, dates, restOf, stored, wd])
+  const rows = useMemo<CompetenceStyle[]>(() => board.competences.map((key) => styles.get(key)!), [board, styles])
 
   // ---- the brush: a competence, and under it maybe a project, with a count of people ------------------------------------------
-  const [tool, setTool] = useState<HireTool>('select')
+  const [tool, setTool] = useState<ToolKind>('select')
   const [brushKey, setBrushKey] = useState<CompetenceKey | null>(null)
   const [brushProjectKey, setBrushProject] = useState<string | null>(null)
   const [counts, setCounts] = usePref<Record<string, number>>('innleidCounts', {}, cleanCounts)
   const brush = brushKey && rows.some((style) => style.key === brushKey) ? brushKey : null
-  const activeTool: HireTool = tool === 'paint' && !brush ? 'select' : tool
+  const activeTool: ToolKind = tool === 'paint' && !brush ? 'select' : tool
   const people = brush ? (counts[brush] ?? 1) : 1
   const [density, setDensity] = usePref<Density>('innleidDensity', 'compact', cleanDensity)
   const [folded, setFolded] = usePref<string[]>('innleidFolded', [], cleanFolded)
@@ -218,7 +215,6 @@ function useInnleidState(active: boolean, counted: boolean) {
   }), [listed, stored, folded])
 
   // ---- what a stroke would do ------------------------------------------------------------------------------------------------
-  const board = baseBoard
   const cellsOf = (s: Stroke): { lines: SupplierLine[]; days: ISODate[] } => {
     const { rowFrom, rowTo, colFrom, colTo } = strokeRange(s)
     return { lines: lineRefs.slice(rowFrom, rowTo + 1), days: dates.slice(colFrom, colTo + 1) }
@@ -281,7 +277,7 @@ function useInnleidState(active: boolean, counted: boolean) {
   const plan = useMemo(() => (stroke && active ? planOf(stroke, stored) : null), [stroke, active, stored, lineRefs, brush, brushProject, people, suppliers, wd, dates, board, baseProjectLines, rank]) // eslint-disable-line react-hooks/exhaustive-deps
   /** The orders as they are drawn: as the stroke under way would leave them. */
   const orders = plan?.orders ?? stored
-  const shownBoard = useMemo<HireBoard>(() => (plan ? hireBoard(counted ? [...styles.keys()] : [], dates, restOf, orders, wd) : baseBoard), [plan, baseBoard, counted, styles, dates, restOf, orders, wd])
+  const shownBoard = useMemo<HireBoard>(() => (plan ? hireBoard(counted ? [...styles.keys()] : [], dates, restOf, orders, wd) : board), [plan, board, counted, styles, dates, restOf, orders, wd])
   const projectLines = useMemo(() => (plan ? projectLinesOf(orders) : baseProjectLines), [plan, projectLinesOf, orders, baseProjectLines])
   /** The orders a stroke adds or changes (the brush), or takes away (Tøm): drawn as they would be. */
   const marked = useMemo(() => {
@@ -440,7 +436,7 @@ function useInnleidState(active: boolean, counted: boolean) {
   /** On the brush's competence, a pick goes from a project's line back to the sum line, and from the sum line out of focus. */
   const pickFromDemand = (competence: CompetenceKey) => (competence === brush ? (brushProject ? pickProject(null) : clearBrush()) : pickBrush(competence))
   /** R14: with no brush, Pensel takes the competence with the most missing in the days in view. */
-  const pickTool = (next: HireTool) => {
+  const pickTool = (next: ToolKind) => {
     if (next === 'paint' && !brush) {
       const missing = (key: CompetenceKey) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
       const most = [...rows].sort((a, b) => missing(b.key) - missing(a.key))[0]
@@ -577,7 +573,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, density, setDensity,
     panel, setPanel, openControl: () => setPanel({ kind: 'control' }), openNextUnder, showOrder,
     projectLines, projectName, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
-    clip, orderPop, setOrderPop, demandPop, setDemandPop, projectsFor, linesOf, pickLine: pickProject,
+    clip, orderPop, setOrderPop, demandPop, setDemandPop, projectsFor, pickProject,
   }
 }
 

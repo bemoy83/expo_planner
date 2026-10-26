@@ -28,8 +28,6 @@ export const joinedClass = (shape: EndShape | undefined): string => `${shape?.pr
 /** The width of the part at an end of a run that the end is pulled by, see `.bm-edge`. */
 export const EDGE_W = 10
 export const DEMAND_H = 32
-/** Innleid's lines are Faste's (`DEMAND_H`, `DEMAND_COMPACT_H`), but for a project's line in detail, with who covers it under its label. */
-export const HIRE_PROJECT_H = 46
 export const DEMAND_COMPACT_H = 14
 export const PROJECT_H = 22
 export const PROJECT_COMPACT_H = 12

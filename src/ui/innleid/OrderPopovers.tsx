@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 import { hireHours, isWaiting, SHIFT_LABELS, shiftTimes } from '../../domain/hire'
 import type { HireOrder, Interval, WorkdaySettings } from '../../domain/types'
@@ -6,7 +6,7 @@ import { clockMinutes } from '../bemanning/week'
 import { Segmented } from '../common'
 import { dayText, type ISODate } from '../../domain/dates'
 import { count } from '../dom'
-import { useStableActions } from '../kalender/useStableActions'
+import { useDismiss } from '../useDismiss'
 import { clock, hoursText } from '../format'
 
 /** Waiting for an answer is a hatch, as hours that are not there yet are hatched in the labels; confirmed is a solid disc with a check. Ink only: the colours say under, ok and over. */
@@ -21,7 +21,7 @@ export function AnswerGlyph({ waits, size = 14 }: { waits: boolean; size?: numbe
 }
 
 /** People, fewer or more. */
-export function Stepper({ value, min = 1, max = Infinity, label, onStep }: { value: number; min?: number; max?: number; label: string; onStep: (by: number) => void }) {
+function Stepper({ value, min = 1, max = Infinity, label, onStep }: { value: number; min?: number; max?: number; label: string; onStep: (by: number) => void }) {
   return (
     <span className="il-step" role="group" aria-label={label}>
       <button aria-label="Færre" disabled={value <= min} onClick={() => onStep(-1)}>
@@ -36,55 +36,20 @@ export function Stepper({ value, min = 1, max = Infinity, label, onStep }: { val
 }
 
 /**
- * The frame of a popover of Innleid, under the run it was opened from, or over it where there is no room.
- * The first press outside it only closes it: the press is swallowed, with its click, so it selects no day and
- * presses nothing under it. Escape closes it, and Enter does where `onEnter` is given.
+ * The frame of a popover of Innleid, under the run it was opened from, or over it where there is no room. The first press
+ * outside it only closes it (`useDismiss`, swallowed), Escape closes it, and Enter does where `onEnter` is given.
  */
-function Popover({ at, width, className = '', onClose, onEnter, children }: { at: DOMRect; width: number; className?: string; onClose: () => void; onEnter?: () => void; children: ReactNode }) {
+function Popover({ at, width, onClose, onEnter, children }: { at: DOMRect; width: number; onClose: () => void; onEnter?: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [above, setAbove] = useState(false)
   useLayoutEffect(() => {
     const height = ref.current?.offsetHeight ?? 0
     setAbove(at.bottom + 6 + height > window.innerHeight - 8 && at.top - 6 - height > 8)
   }, [at])
-  const handlers = useStableActions({ onClose, onEnter: onEnter ?? null })
-  useEffect(() => {
-    let swallow = false
-    const down = (e: MouseEvent) => {
-      if (ref.current?.contains(e.target as Node)) return
-      e.preventDefault()
-      e.stopPropagation()
-      swallow = true
-      handlers.onClose()
-    }
-    const click = (e: MouseEvent) => {
-      if (!swallow) return
-      e.preventDefault()
-      e.stopPropagation()
-      swallow = false
-    }
-    const key = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLInputElement
-      if (e.key === 'Escape' || (e.key === 'Enter' && onEnter && !typing)) {
-        e.preventDefault()
-        e.stopPropagation()
-        if (e.key === 'Enter') handlers.onEnter?.()
-        else handlers.onClose()
-      }
-    }
-    document.addEventListener('mousedown', down, true)
-    document.addEventListener('click', click, true)
-    document.addEventListener('keydown', key, true)
-    return () => {
-      document.removeEventListener('mousedown', down, true)
-      document.removeEventListener('keydown', key, true)
-      // The click of the press that closed it comes after this: it is let through to be swallowed, then the listener goes.
-      setTimeout(() => document.removeEventListener('click', click, true))
-    }
-  }, [handlers]) // eslint-disable-line react-hooks/exhaustive-deps
+  useDismiss(ref, true, onClose, { swallow: true, onEnter })
   const left = Math.max(8, Math.min(at.left + at.width / 2 - width / 2, window.innerWidth - width - 8))
   return (
-    <div ref={ref} className={`il-pop ${className}`} role="dialog" style={{ width, left, ...(above ? { bottom: window.innerHeight - at.top + 6 } : { top: at.bottom + 6 }) }}>
+    <div ref={ref} className="il-pop" role="dialog" style={{ width, left, ...(above ? { bottom: window.innerHeight - at.top + 6 } : { top: at.bottom + 6 }) }}>
       {children}
     </div>
   )

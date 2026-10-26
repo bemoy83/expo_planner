@@ -193,7 +193,6 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
   const { cols, styles, labelOf } = useBemanning()
   const { suppliers, stored, rows, view, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
   const perDay = supplierDays(stored)
-  const focus = brush
   if (!suppliers.length)
     return (
       <div className="bm-empty">
@@ -218,7 +217,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
         const name: NameProps = {
           supplier,
           competences: rows,
-          focus,
+          focus: brush,
           waits: !!days && [...days.values()].some((day) => day.waiting > 0),
           total: view.reduce((sum, date) => sum + (days?.get(date)?.people ?? 0), 0),
           actions,
@@ -247,7 +246,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                   styles={styles}
                   wd={wd}
                   projectName={projectName}
-                  focus={focus}
+                  focus={brush}
                   dim={block.dim}
                   refusedFrom={inStroke ? range.colFrom : -1}
                   refusedTo={inStroke ? range.colTo : -1}

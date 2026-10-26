@@ -14,7 +14,7 @@ import { OrderPopover } from './OrderPopovers'
 export function InnleidOverlays() {
   const bm = useBemanning()
   const { styles, labelOf, toasts, dismissToast } = bm
-  const { stored, suppliers, wd, board, tool, brush, brushProject, projectLines, projectName, projectsFor, orderPop, setOrderPop, demandPop, setDemandPop, pickBrush, pickLine, edits } = useInnleid()
+  const { stored, suppliers, wd, board, tool, brush, brushProject, projectLines, projectName, projectsFor, orderPop, setOrderPop, demandPop, setDemandPop, pickBrush, pickProject, edits } = useInnleid()
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
 
   const popOrders = orderPop ? stored.filter((order) => orderPop.ids.includes(order.id)) : []
@@ -65,7 +65,7 @@ export function InnleidOverlays() {
           onClose={() => setDemandPop(null)}
           onPaint={() => {
             pickBrush(demand.competence)
-            if (line) pickLine(line.projectNo)
+            if (line) pickProject(line.projectNo)
           }}
         >
           {dayOrders.length ? (

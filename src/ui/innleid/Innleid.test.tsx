@@ -164,6 +164,33 @@ describe('Innleid', () => {
     expect(answers()).toEqual([['2026-10-06', 2], ['2026-10-07', null]])
   })
 
+  it('closes a run’s popover on the first press outside, which selects nothing, and on Escape, which keeps the days selected', async () => {
+    const { container, queryByRole } = await renderKalender(workspace([order('dag', '2026-10-06', 2)]), PREFS)
+    const chosen = () => container.querySelector('.chosen')?.textContent
+    pressOn(runOf(container, 'dag-2026-10-06'), container, 0, '2026-10-06')
+    letGo()
+    await settle()
+    expect(queryByRole('dialog')).not.toBeNull()
+    expect(chosen()).toContain('1 dag × 1 linje')
+    press(container, 0, '2026-10-08')
+    moveTo(container, 0, '2026-10-09')
+    letGo()
+    await settle()
+    expect(queryByRole('dialog')).toBeNull()
+    expect(chosen()).toContain('1 dag × 1 linje')
+    press(container, 0, '2026-10-06')
+    moveTo(container, 0, '2026-10-07')
+    letGo()
+    pressOn(runOf(container, 'dag-2026-10-06'), container, 0, '2026-10-06')
+    letGo()
+    await settle()
+    expect(queryByRole('dialog')).not.toBeNull()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    await settle()
+    expect(queryByRole('dialog')).toBeNull()
+    expect(chosen()).toContain('2 dager × 1 linje')
+  })
+
   it('gives a run more days or fewer by an end pulled', async () => {
     const { container } = await renderKalender(workspace([order('dag', '2026-10-06', 2), order('dag', '2026-10-07', 2)]), PREFS)
     pressOn(runOf(container, 'dag-2026-10-06').querySelector('.bm-edge.end')!, container, 0, '2026-10-07')

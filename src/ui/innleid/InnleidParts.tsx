@@ -1,7 +1,7 @@
 import { Fragment, memo, type ReactNode } from 'react'
 import { CircleHelp, Eraser, Minus, Plus, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { coverFigure, HOURS_NOISE, isWaiting, orderedLabel, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
+import { coverFigure, dayKey, HOURS_NOISE, isWaiting, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor, count } from '../dom'
@@ -18,9 +18,10 @@ import { LinePick, NeedLabel, NeedLine } from '../bemanning/NeedLabel'
 import { PlanBar } from '../kalender/PlanBar'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
 import { numberKey } from '../../domain/projects'
-import { useInnleid, type HireProjectLine, type HireTool, type InnleidActions } from './InnleidScope'
+import { useInnleid, type HireProjectLine, type InnleidActions } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 import { hoursText } from '../format'
+import type { ToolKind } from '../toolKeys'
 
 const days = (n: number) => count(n, 'dag', 'dager')
 
@@ -62,7 +63,7 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
   const { board, rows, waiting, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   const style = brush ? styles.get(brush) : undefined
-  const tools: ToolChoice<HireTool>[] = [
+  const tools: ToolChoice<ToolKind>[] = [
     { value: 'select', icon: <MousePointer2 size={14} aria-hidden />, name: 'Velg', shortcut: 'V', title: 'Velg dager på leverandørenes linjer: klikk en dag, eller dra over flere (V).' },
     {
       value: 'paint',
@@ -188,7 +189,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
   const label = project ? `${style.label} · ${project.name}` : style.label
   return (
     <Line
-      className={`il-row ${project ? 'il-project' : ''} ${compact ? 'compact' : ''} ${on ? 'on' : ''} ${dim ? 'dim' : ''}`}
+      className={`il-row ${compact ? 'compact' : ''} ${on ? 'on' : ''} ${dim ? 'dim' : ''}`}
       height={compact ? DEMAND_COMPACT_H : DEMAND_H}
       style={competenceColor(style)}
       label={
@@ -230,13 +231,7 @@ function HireDemandRows() {
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
   const compact = density === 'compact'
-  const byDay = new Map<string, HireOrder[]>()
-  for (const order of orders) {
-    const key = `${order.competence}|${order.date}`
-    const list = byDay.get(key)
-    if (list) list.push(order)
-    else byDay.set(key, [order])
-  }
+  const byDay = ordersByDay(orders)
   return (
     <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
       <SectionLine>
@@ -254,7 +249,7 @@ function HireDemandRows() {
               style={style}
               cols={cols}
               board={board}
-              ordersOf={(date) => byDay.get(`${style.key}|${date}`) ?? []}
+              ordersOf={(date) => byDay.get(dayKey(style.key, date)) ?? []}
               suppliers={suppliers}
               wd={wd}
               projectName={projectName}
