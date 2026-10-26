@@ -257,22 +257,16 @@ function Help() {
           <dd>Åpne dagen</dd>
           <dt>Dra</dt>
           <dd>Velg flere dager</dd>
-          <dt>Shift+klikk</dt>
-          <dd>Utvid utvalget</dd>
           <dt>Pensel + dra</dt>
           <dd>Bestill valgt leverandør på dagene som mangler (B, 1–9)</dd>
           <dt>Tøm, Alt+dra</dt>
           <dd>Fjern bestillinger (T)</dd>
-          <dt>← →</dt>
-          <dd>Flytt dagene. Shift utvider.</dd>
           <dt>↑ ↓</dt>
-          <dd>Velg linje i editoren</dd>
-          <dt>+ −</dt>
-          <dd>Flere eller færre personer</dd>
-          <dt>Enter</dt>
-          <dd>Svar fra leverandøren</dd>
+          <dd>Gå til linjen over eller under i kompetansen som er åpen</dd>
+          <dt>Delete</dt>
+          <dd>Fjern linjen som er valgt i editoren, ellers bestillingene på dagene som er valgt</dd>
           <dt>Esc</dt>
-          <dd>Legg bort verktøy, lukk panel, fold sammen</dd>
+          <dd>Fjern utvalget, legg bort penselen, lukk panelet, fold sammen</dd>
         </dl>
       </section>
       <section className="insp-sec">

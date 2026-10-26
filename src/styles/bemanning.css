@@ -3,6 +3,9 @@
 .section-meta-end{margin-left:auto}
 .bm-density{width:18px;height:18px;padding:0;border-radius:4px;background:none;color:var(--muted)}
 .bm-density:hover{background:none;color:var(--text)}
+/* Innleid's heading: the name and the switch beside it, each centred in the line by itself as the notes after them are, and the notes at the end */
+.il-head-name{flex:none}
+.bm-label-note.il-head-count{margin-left:auto}
 .bm-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md);font-weight:500}
 .bm-label-note{min-width:0;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
 .bm-label-end{margin-left:auto}
@@ -28,7 +31,7 @@
 @media (prefers-reduced-motion:reduce){.bm-project-line{transition:none;animation:none}.bemanning-mode .grid-top,.bemanning-mode .bm-people{animation:none}}
 
 /* ---- the demand per competence ---- */
-.bm-demand{transition:opacity 160ms var(--ease)}
+.bm-demand>.cell,.bm-demand .grid-label>*{transition:opacity 160ms var(--ease)}
 .grid-label>.bm-pick{flex:1;align-self:stretch;min-width:0;justify-content:flex-start;gap:8px;margin:0 -12px 0 -10px;padding:0 12px 0 var(--pick-indent,36px);border-radius:0;background:transparent;font:inherit;text-align:left}
 .bm-pick:hover{background:var(--wash-bg)}
 .bm-pick:disabled{opacity:1;cursor:default}
@@ -43,22 +46,32 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
    what remains, signed, as Mangler / over has it. Where the staff cannot cover it in normal time, those hours are hatched at the end in
    the colour of a blocking alert; on the hatch and on the tail the figure is in the alerts' ink. A day that is covered is a full label
    with no figure. What it is of, and the rest, is in the tooltip. */
-.bm-need-label{position:absolute;inset:6px 5px;display:flex;align-items:center;justify-content:flex-end;padding:0 7px;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 18%,transparent)}
+.bm-need-label{position:absolute;inset:6px 5px;container-type:inline-size;display:flex;align-items:center;justify-content:flex-end;padding:0 7px;overflow:hidden;border-radius:5px;background:color-mix(in oklab,var(--cc) 18%,transparent)}
 .bm-need-label>i{position:absolute;top:0;bottom:0;left:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
 .bm-need-label .covered{background:color-mix(in oklab,var(--cc) 42%,transparent)}
 .bm-need-label .surplus{background:var(--alert-warn)}
-.bm-need-label .uncoverable{background:repeating-linear-gradient(135deg,var(--alert-block) 0 2px,transparent 2px 6px)}
+.bm-need-label .uncoverable,.bm-need-line .uncoverable{background:repeating-linear-gradient(135deg,var(--alert-block) 0 2px,transparent 2px 6px)}
 .bm-need-label b{position:relative;font:600 var(--fs-xs)/1 var(--font-num)}
+/* the hours that cover the day of those it needs, and where the label is too narrow for them, what is missing or over in their place */
+.bm-need-signed{display:none}
+@container (max-width:76px){.bm-need-of{display:none}.bm-need-signed{display:inline}}
 .bm-need-label.alert b{color:var(--alert-on)}
 /* an open line, whose days are on the lines under it: no label, only the hatch of a day the staff cannot cover, across the day */
 .bm-need-label.summed{background:none}
 /* hours carried here from the day before: a dot in the corner */
 .bm-carried{position:absolute;top:3px;left:3px;width:5px;height:5px;border-radius:50%;background:var(--over)}
 /* a competence in focus: its line and the lines of its projects stay, the others step back; their days are neutral, as an open level's in the plan, and the line that is the brush has the mark at its name */
-.bm-demand.dim,.il-row.dim{opacity:.5}
-.bm-demand.dim:hover,.il-row.dim:hover{opacity:.8}
-/* the line that is the brush: its name, not its days, in a stronger tint with the mark, to say which project and place are chosen */
+/* A line that steps back lies over today's line on the page's own colour, and only what is on it is dimmed: the line itself stays
+   solid, so today's line does not show through it, nor do the days under its label column */
+.bm-demand.dim,.il-row.dim{position:relative;z-index:2;background:var(--bg)}
+/* A row with a stroke or days picked lies over its neighbours, for the frame and its pill above it. */
+.il-row.marked{position:relative;z-index:3}
+:is(.bm-demand,.il-row).dim>.cell,:is(.bm-demand,.il-row).dim .grid-label>*{opacity:.5}
+:is(.bm-demand,.il-row).dim:hover>.cell,:is(.bm-demand,.il-row).dim:hover .grid-label>*{opacity:.8}
+/* the line that is the brush: its name in a stronger tint with the mark, to say which project and place are chosen, */
 .bm-demand.on:not(.held) .bm-pick,.il-row.on .bm-pick{background:color-mix(in oklab,var(--cc) 16%,var(--bg));box-shadow:inset 3px 0 0 var(--cc)}
+/* and its days a faint tint of it, so the line the brush paints on is found across the page (the planner's choice, 2026-10-26); days picked or under a stroke keep their own tint */
+.bm-demand.on:not(.held) .cell,.il-row.on .il-day{background-image:linear-gradient(color-mix(in oklab,var(--cc) 8%,transparent),color-mix(in oklab,var(--cc) 8%,transparent))}
 /* a project's line under the competence in focus, and a place's under the project in focus: indented under its name, the name in the ink of what is under something */
 .bm-project-pick{--pick-indent:52px}
 .bm-pick-glyph{--pick-indent:12px}
@@ -79,10 +92,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-demand:not(.compact,.summed) .cell{border-bottom:1px solid var(--grid-row)}
 :not(.bm-demand:not(.compact,.summed))+.bm-demand:not(.compact,.summed) .cell{box-shadow:inset 0 1px 0 var(--grid-row)}
 /* compact: one thin line per day, the demand as a tint that fills solid from the left as it is covered */
-.bm-demand.compact .bm-pick{gap:6px}
-.bm-demand.compact .swatch{width:7px;height:7px;border-radius:2px}
-.bm-demand.compact .bm-name,.bm-demand.compact .bm-week-left{font-size:var(--fs-xs)}
-.bm-demand.compact .bm-need{padding:0 4px}
+:is(.bm-demand,.il-row).compact .bm-pick{gap:6px}
+:is(.bm-demand,.il-row).compact .swatch{width:7px;height:7px;border-radius:2px}
+:is(.bm-demand,.il-row).compact :is(.bm-name,.bm-week-left){font-size:var(--fs-xs)}
+:is(.bm-demand,.il-row).compact .bm-need{padding:0 4px}
 .bm-need-line{position:relative;display:block;flex:1;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in oklab,var(--cc) 22%,var(--bg))}
 .bm-need-line>i{position:absolute;top:0;left:0;bottom:0;transition:width 280ms var(--ease),left 280ms var(--ease)}
 .bm-need-line .covered{background:var(--cc)}
@@ -96,7 +109,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* the thin line with its figure beside it (Innleid), the figure over on an ochre chip */
 .bm-need-compact{position:absolute;left:8px;right:8px;top:50%;display:flex;align-items:center;gap:6px;height:16px;margin-top:-8px}
 .bm-need-compact b{flex:none;font:600 var(--fs-xs)/1 var(--font-num)}
-.bm-need-compact b.alert{padding:2px 4px;border-radius:3px;background:var(--alert-warn);color:var(--alert-on)}
 .bm-idle-head{color:var(--faint)}
 
 /* ---- the planning bar ---- */
@@ -121,7 +133,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-pop-carry span{margin-right:auto;font:400 var(--fs-sm) var(--font-num);color:var(--faint)}
 
 /* ---- the people ---- */
-.bm-people{position:relative;padding-bottom:40px;user-select:none}
+/* The rows of Bemanning, with today's line, which stops where the lines do: above the room left under the last. */
+.bm-body{position:relative;--people-foot:40px}
+.bm-body>.today-line{bottom:var(--people-foot)}
+.bm-people{position:relative;padding-bottom:var(--people-foot);user-select:none}
 .bm-person{position:relative}
 .bm-person.dim{opacity:.4}
 .bm-person-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
@@ -286,18 +301,13 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* ---- Innleid: the hours of each competence that remain after the permanent staff, and how far orders cover them ---- */
 .heat-legend+.bm-week-left{min-width:64px;margin-left:10px;justify-content:flex-end}
 .il-unfold{flex:none;margin:0 3px;color:var(--faint)}
-.il-row .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
+.il-row:not(.compact) .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
 /* As in Faste: the lines under the competence that is open are neutral, in the tree of its lines (`.bm-project-pick`), the line the days are picked on has the mark at its name
    (the editor's edge on the competence's own), and the other competences step back (`.il-row.dim`, with Faste's). */
 .il-row.open.on .grid-label{box-shadow:inset 3px 0 0 var(--cc)}
 /* A day of a line: Faste's label (`.bm-need-label`), filled from the left by what is ordered. Compact, Faste's thin line with the figure beside it. */
 .il-day{flex-direction:column;align-items:stretch;justify-content:flex-start;min-width:0;cursor:pointer;user-select:none}
-/* With Velg a click on a day opens its orders, so the day under the pointer is tinted as a button is; the brush and the eraser show what they would do instead. */
-.il-row:not(.brush,.nobrush,.erase) .il-day:not(.picked,.dragged):hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* the days picked, and those a drag reaches, in the tint of what is selected, as in the rest of the Kalender */
-.il-day:is(.picked,.dragged){background-image:linear-gradient(var(--pick-soft),var(--pick-soft))}
-.il-day.stroked-paint{background-image:linear-gradient(color-mix(in oklab,var(--cc) 22%,transparent),color-mix(in oklab,var(--cc) 22%,transparent))}
-.il-day.stroked-erase{background-image:linear-gradient(color-mix(in oklab,var(--alert-block) 14%,transparent),color-mix(in oklab,var(--alert-block) 14%,transparent))}
 .il-need-small{top:5px;bottom:auto;height:20px}
 .il-need-open{bottom:auto;height:28px}
 /* Who covers a project's day, under its label: the supplier with the most confirmed and its people, then one «+N». The name gives way, the figures never. */
@@ -423,8 +433,10 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* the control panel: a supplier per section, its name, what waits and what is confirmed, its order to copy and «Bekreft alle», and under it its orders by day */
 .il-control-head .segmented{display:flex}
 .il-control-head .segmented button{flex:1}
-.il-control-supplier{display:flex;align-items:center;gap:6px}
-.il-control-supplier .il-panel-what{flex:1}
+.il-control-supplier{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+/* the name has a line of its own, so a long one never meets the buttons */
+.il-control-supplier .il-panel-what{flex:1 0 100%}
+.il-control-supplier .il-control-counts{margin-right:auto}
 .il-control-counts{display:inline-flex;flex:none;align-items:center;gap:4px;font:500 var(--fs-sm) var(--font-num);color:var(--muted)}
 .il-control-counts .il-glyph:not(:first-child){margin-left:6px}
 .il-control-supplier>button:last-child{flex:none;white-space:nowrap}

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import type { NeedLabelParts, NeedSegment } from '../../domain/needLabel'
-import { signedHours } from '../format'
+import { hoursShort, signedHours } from '../format'
 import { EPSILON } from './week'
 
 /** What Faste and Innleid share of a line of the demand: the label of a day, its thin line, the hours in the label column, and the name of the line. */
@@ -22,12 +22,20 @@ function Fill({ parts }: { parts: NeedLabelParts }) {
   )
 }
 
-/** A day's demand as a label (`domain/needLabel.ts`): the tint of the competence, its fill, and what is missing or over signed on it. `className` places it. */
+/**
+ * A day's demand as a label (`domain/needLabel.ts`): the tint of the competence, its fill, and on it the hours that cover it of
+ * those it needs, or, where the label is too narrow for them, what is missing or over, signed. `className` places it.
+ */
 export function NeedLabel({ parts, className = '' }: { parts: NeedLabelParts; className?: string }) {
   return (
     <span className={`bm-need-label ${parts.alert ? 'alert' : ''} ${className}`}>
       <Fill parts={parts} />
-      {parts.figure !== null && <b>{signedHours(parts.figure)}</b>}
+      {parts.of && (
+        <b className="bm-need-of">
+          {hoursShort(parts.of.done)}/{hoursShort(parts.of.need)}
+        </b>
+      )}
+      {parts.figure !== null && <b className={parts.of ? 'bm-need-signed' : ''}>{signedHours(parts.figure)}</b>}
     </span>
   )
 }
@@ -43,7 +51,7 @@ export function NeedLine({ parts, figure = false }: { parts: NeedLabelParts; fig
   return (
     <span className="bm-need-compact">
       {line}
-      {parts.figure !== null && <b className={parts.alert ? 'alert' : ''}>{signedHours(parts.figure)}</b>}
+      {parts.figure !== null && <b>{signedHours(parts.figure)}</b>}
     </span>
   )
 }

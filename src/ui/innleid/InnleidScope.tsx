@@ -7,9 +7,11 @@ import { sameProject, type CompetenceKey, type CompetenceStyle, type HireOrder, 
 import { usePref } from '../../store/prefs'
 import { useBemanning, type Density } from '../bemanning/BemanningScope'
 import { projectDays, restDays } from '../bemanning/lineBalances'
-import { isTyping } from '../dom'
 import { useStableActions } from '../kalender/useStableActions'
-import { toolOfKey, type ToolKind } from '../toolKeys'
+import { daysAcross, useFollowPointer } from '../bemanning/useFollowPointer'
+import { clamp } from '../../domain/numbers'
+import type { ToolKind } from '../toolKeys'
+import { useBemanningKeys } from '../bemanning/useBemanningKeys'
 
 /** The competence that is open, the days picked on it that the editor in its label works on (none where it is opened by its name), and the line of the editor that is picked. */
 interface OpenDays {
@@ -83,7 +85,7 @@ export interface HireProjectLine {
 }
 
 function useInnleidState(active: boolean, counted: boolean) {
-  const { ws, dates, balance, styles, updateStaffing, onShowDate, viewFrom, viewTo, projectBalance, kalenderProjects, projectName } = useBemanning()
+  const { ws, dates, cols, scrollRef, balance, styles, updateStaffing, onShowDate, viewFrom, viewTo, projectBalance, kalenderProjects, projectName } = useBemanning()
   const orders = ws.hireOrders ?? NO_ORDERS
   const suppliers = ws.suppliers ?? NO_SUPPLIERS
   const wd = ws.settings.workday
@@ -150,8 +152,15 @@ function useInnleidState(active: boolean, counted: boolean) {
     setBrushId(id)
     if (id && tool === 'select') setTool('paint')
   }
-  /** The supplier picked in the editor is the brush, whatever tool is held: picking orders nothing, a stroke does. */
+  /** The brush put away: no supplier is picked, and Velg is back. */
+  const dropBrush = () => {
+    setBrushId(null)
+    setTool('select')
+    setHover(null)
+  }
+  /** The supplier picked in the editor is the brush, whatever tool is held: picking orders nothing, a stroke does. Picked again, it is put away. */
   const brushWith = (id: string) => {
+    if (tool === 'paint' && brushId === id) return dropBrush()
     setBrushId(id)
     setTool('paint')
     setHover(null)
@@ -204,16 +213,6 @@ function useInnleidState(active: boolean, counted: boolean) {
     const at = dates.indexOf(date)
     if (at < viewFrom || at > viewTo) onShowDate(date)
   }
-  /** Moves the days picked by a day, or with `extend` their end alone. */
-  const stepDays = (by: number, extend: boolean) => {
-    if (!open?.from || !open.to) return
-    const from = dates.indexOf(open.from) + (extend ? 0 : by)
-    const to = dates.indexOf(open.to) + by
-    if (from < 0 || to >= dates.length || from > to) return
-    setOpen({ ...open, from: dates[from], to: dates[to] })
-    reveal(dates[by < 0 ? from : to])
-  }
-
   // The drag is also kept where the next event reads it at once: a press and its release can come before the press is drawn.
   const dragNow = useRef<DayDrag | null>(null)
   const dragTo = (next: DayDrag | null) => {
@@ -229,29 +228,49 @@ function useInnleidState(active: boolean, counted: boolean) {
    * project; one person a day where none is, as a supplier added on top. On a line under the competence, for that line alone.
    */
   const brushed = (competence: CompetenceKey, days: ISODate[], projectNo?: string) => (brush ? planAcross(orders, brush, competence, linesFor(competence, projectNo), days, wd) : [])
+  // A stroke follows the pointer as Faste's does (`useFollowPointer`): along the line it was started on, wherever the pointer goes, with the grid scrolled on near its edges.
+  const panelOpen = useRef(false)
+  useEffect(() => {
+    panelOpen.current = panel !== null
+  }, [panel])
+  const followed = useFollowPointer(scrollRef, panelOpen, {
+    move: (x: number) => {
+      const now = dragNow.current
+      const el = scrollRef.current
+      if (!now || !el) return
+      const date = dates[clamp(Math.floor(daysAcross(el, x, cols.colW)), 0, dates.length - 1)]
+      if (date !== now.focus) dragTo({ ...now, focus: date })
+    },
+    up: () => actions.dayUp(),
+  })
   const actions = useStableActions({
-    /** A press on a day of a competence. Alt is the eraser for the stroke; with Velg and Shift the days picked reach to the day; else a stroke starts there. */
-    dayDown: (competence: CompetenceKey, date: ISODate, shift: boolean, alt: boolean, projectNo?: string) => {
+    /** A press on a day of a competence starts a stroke there by the tool; Alt is the eraser for the stroke. */
+    dayDown: (competence: CompetenceKey, date: ISODate, alt: boolean, projectNo: string | undefined, x: number, y: number) => {
       const mode: HireTool = alt ? 'erase' : tool
-      if (mode === 'select' && shift && open?.competence === competence && open.projectNo === projectNo && open.from && open.to) return openOn(competence, date <= open.from ? open.to : open.from, date, projectNo)
       // A supplier that does not offer the competence orders nothing.
       if (mode === 'paint' && !brush?.competences.includes(competence)) return
       setPop(null)
+      setHover(null)
       dragTo({ competence, ...(projectNo !== undefined && { projectNo }), mode, anchor: date, focus: date })
+      followed.follow(x, y)
     },
+    /** The pointer over a day while the brush is held, and no stroke is under way: what a click there would order. */
     dayEnter: (competence: CompetenceKey, date: ISODate, projectNo?: string) => {
-      const now = dragNow.current
-      if (now?.competence === competence && now.projectNo === projectNo && now.focus !== date) dragTo({ ...now, focus: date })
-      if (!now && tool === 'paint') setHover({ competence, date, ...(projectNo !== undefined && { projectNo }) })
+      if (!dragNow.current && tool === 'paint') setHover({ competence, date, ...(projectNo !== undefined && { projectNo }) })
     },
     rowsLeave: () => setHover(null),
     /** The mouse is let go: the days the stroke reached are picked, ordered or emptied. */
     dayUp: () => {
+      followed.stop()
       const now = dragNow.current
       if (!now) return
       dragTo(null)
       const days = daysOf(now)
-      if (now.mode === 'select') return openOn(now.competence, now.anchor, now.focus, now.projectNo)
+      if (now.mode === 'select') {
+        // As in Faste, a click on the one day that is picked lets go of it.
+        const same = now.anchor === now.focus && open?.competence === now.competence && open.projectNo === now.projectNo && open.from === now.anchor && open.to === now.anchor
+        return same ? setOpen({ ...open, from: null, to: null, group: null }) : openOn(now.competence, now.anchor, now.focus, now.projectNo)
+      }
       // The eraser removes the orders of the line it is drawn on, of the supplier picked for «Tøm», or of all.
       if (now.mode === 'erase') return setOrders((list) => eraseOrders(list, now.competence, days, tool === 'erase' ? eraseFrom : undefined, now.projectNo === undefined ? undefined : linesFor(now.competence, now.projectNo)[0]?.holds))
       const added = brushed(now.competence, days, now.projectNo)
@@ -272,11 +291,6 @@ function useInnleidState(active: boolean, counted: boolean) {
       setOpen({ competence: open.competence, ...(open.projectNo !== projectNo && { projectNo }), from: open.from, to: open.to, group: null })
     },
   })
-  useEffect(() => {
-    window.addEventListener('mouseup', actions.dayUp)
-    return () => window.removeEventListener('mouseup', actions.dayUp)
-  }, [actions])
-
   const edits = {
     count: (group: OrderGroup, by: number) => setOrders((list) => changeCount(list, idsOf(group), by)),
     supplier: (group: OrderGroup, supplierId: string) => {
@@ -335,60 +349,57 @@ function useInnleidState(active: boolean, counted: boolean) {
     return { competence: at.competence, ...(at.projectNo !== undefined && { projectNo: at.projectNo }), mode, from: days[0], to: days[days.length - 1], added: mode === 'paint' ? brushed(at.competence, days, at.projectNo) : [], supplierId: mode === 'paint' ? brush?.id : tool === 'erase' ? eraseFrom : undefined }
   }, [drag, hover, tool, brush, eraseFrom, orders, dates, linesOf, wd]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const keys = useStableActions({
-    down: (e: KeyboardEvent) => {
-      if (!active || isTyping(e.target)) return
-      const key = e.key
-      if (!(e.metaKey || e.ctrlKey || e.altKey || pop)) {
-        // The tools have their keys whether days are picked or not: V, B and T, and 1 to 9 for the supplier of the brush.
-        const picked = toolOfKey(key)
-        const number = /^[1-9]$/.test(key) ? suppliers[Number(key) - 1] : undefined
-        if (picked || number) {
-          e.preventDefault()
-          if (number) return pickBrush(number.id), setTool('paint')
-          // B a second time puts the brush away.
-          return pickTool(picked === 'paint' && tool === 'paint' ? 'select' : picked!)
-        }
-        if (key === '?') return e.preventDefault(), setPanel(panel?.kind === 'help' ? null : { kind: 'help' })
-        // Escape puts the tool away first, then closes the panel, then folds the editor.
-        if (key === 'Escape' && tool !== 'select') return e.preventDefault(), pickTool('select')
-        if (key === 'Escape' && panel) return e.preventDefault(), setPanel(null)
-      }
-      // Undo and redo are the app's own keys. A popover has the keys while it is open.
-      if (e.metaKey || e.ctrlKey || e.altKey || pop || !open) return
-      const at = picked ? groups.indexOf(picked) : -1
-      const handled = (): boolean => {
-        if (key === 'Escape') return fold(), true
-        if (key === 'ArrowLeft' || key === 'ArrowRight') return stepDays(key === 'ArrowLeft' ? -1 : 1, e.shiftKey), true
-        if (key === 'ArrowUp' || key === 'ArrowDown') {
-          if (groups.length) pick(groups[Math.min(groups.length - 1, Math.max(0, at + (key === 'ArrowUp' ? -1 : 1)))].key)
-          return true
-        }
-        if (!picked) return false
-        if (key === '+' || key === '-') return edits.count(picked, key === '+' ? 1 : -1), true
-        if (key === 'Delete' || key === 'Backspace') return edits.remove(picked), true
-        if (key === 'Enter') {
-          const button = document.querySelector<HTMLElement>(`[data-answer="${CSS.escape(picked.key)}"]`)
-          if (button) setPop({ kind: 'answer', group: picked.key, at: button.getBoundingClientRect() })
-          return true
-        }
-        return false
-      }
-      if (handled()) e.preventDefault()
+  /** The line under the open competence a step up or down from the one picked, keeping the days that are picked. */
+  const stepLines = (delta: number) => {
+    if (!open) return
+    const at = projectLines.findIndex((line) => line.projectNo === open.projectNo)
+    const next = projectLines[clamp(at + delta, 0, projectLines.length - 1)]
+    if (next) setOpen({ ...open, projectNo: next.projectNo, group: null })
+  }
+  /** Delete removes the order line picked, else the orders of the days picked, on the line they are picked on. */
+  const remove = picked
+    ? () => edits.remove(picked)
+    : open && openDates.length
+      ? () => setOrders((list) => eraseOrders(list, open.competence, openDates, undefined, openLine?.holds))
+      : null
+  // The keys are Faste's (2026-10-26): Escape, V, B and T, the brush by 1 to 9, the lines by ↑ and ↓, and Delete.
+  useBemanningKeys({
+    active,
+    holdShift: () => {},
+    popoverOpen: !!pop,
+    stroking: drag !== null,
+    cancelStroke: () => {
+      followed.stop()
+      dragTo(null)
     },
+    selection: !!open?.from,
+    dropSelection: () => open && setOpen({ ...open, from: null, to: null, group: null }),
+    brushOrTool: tool !== 'select' || brushId !== null,
+    clearBrush: dropBrush,
+    panel: panel !== null,
+    closePanel: () => setPanel(null),
+    fold,
+    pickTool,
+    brushKeys: suppliers.map((supplier) => supplier.id),
+    pickBrush: (id) => {
+      setBrushId(id)
+      setTool('paint')
+    },
+    canStepLines: !!open && projectLines.length > 0,
+    stepLines,
+    remove,
+    help: () => setPanel(panel?.kind === 'help' ? null : { kind: 'help' }),
   })
-  useEffect(() => {
-    window.addEventListener('keydown', keys.down)
-    return () => window.removeEventListener('keydown', keys.down)
-  }, [keys])
 
   const dragDays = drag?.mode === 'select' ? span(drag.anchor, drag.focus) : null
   return {
     board, rows, waiting, suppliers, orders, ordersOn, wd,
-    tool, pickTool, brush, pickBrush, brushWith, eraseFrom, pickErase: setEraseId, preview, density, setDensity,
+    tool, pickTool, brush, pickBrush, brushWith, dropBrush, eraseFrom, pickErase: setEraseId, preview, density, setDensity,
     panel, setPanel, openSupplier, openControl,
-    open, openDates, openLine, groups, picked, projectLines, projectName, pick, openOn, fold, stepDays, openNextUnder,
+    open, openDates, openLine, groups, picked, projectLines, projectName, pick, openOn, fold, openNextUnder,
     pop, setPop, edits, actions,
+    /** A stroke is under way, from the press to the let-go. */
+    stroking: drag !== null,
     /** The days a drag has reached on a competence. */
     dragOn: drag && dragDays ? { competence: drag.competence, projectNo: drag.projectNo, ...dragDays } : null,
   }

@@ -139,7 +139,7 @@ export const orderedLabel = (cover: Coverage, orders: HireOrder[], wd: WorkdaySe
     if (i < sorted.length - 1 && !thin) rules.push(at / base)
   })
   const figure = coverFigure(cover)
-  return { segs, rules, figure, alert: figure !== null && figure > 0 }
+  return { segs, rules, figure, alert: figure !== null && figure > 0, of: cover.rest > HOURS_NOISE ? { done: cover.planned, need: cover.rest } : null }
 }
 
 /** Who covers a day, for a project's line: the supplier with the most people confirmed, or with the most where none is, and how many others there are. */

@@ -79,7 +79,7 @@ const SupplierLine = memo(function SupplierLine({ supplier, cols, days, total, w
  */
 export function SupplierRows() {
   const { cols, dates, viewFrom, viewTo, styles } = useBemanning()
-  const { suppliers, orders, rows, open, brush, tool, pickBrush, pickTool, openSupplier } = useInnleid()
+  const { suppliers, orders, rows, open, brush, tool, pickBrush, dropBrush, openSupplier } = useInnleid()
   const [all, setAll] = useState(false)
   const perDay = useMemo(() => {
     const map = new Map<string, Map<ISODate, DayPeople>>()
@@ -96,7 +96,7 @@ export function SupplierRows() {
   const offers = focus ? suppliers.filter((supplier) => supplier.competences.includes(focus.key)) : suppliers
   const listed = focus && !all ? offers : suppliers
   const view = dates.slice(viewFrom, viewTo + 1)
-  const onBrush = (id: string | null) => (id ? pickBrush(id) : pickTool('select'))
+  const onBrush = (id: string | null) => (id ? pickBrush(id) : dropBrush())
   return (
     <div className="il-suppliers">
       <SectionLine>

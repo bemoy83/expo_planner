@@ -1,18 +1,19 @@
 import { Fragment, memo, type ReactNode } from 'react'
 import { ChevronsUpDown, CircleHelp, Eraser, Printer, MousePointer2, Paintbrush, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { coverage, coveredBy, coverFigure, coverLines, dayKey, HOURS_NOISE, isWaiting, orderedLabel, shiftText, type Coverage, type HireBoard, type OrderGroup } from '../../domain/hire'
+import { coverage, coveredBy, coverFigure, coverLines, dayKey, hireHours, HOURS_NOISE, isWaiting, orderedLabel, shiftText, type Coverage, type HireBoard, type OrderGroup } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
-import { PanelToggle, Segmented, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
+import { PanelToggle, ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { competenceColor, count } from '../dom'
-import { useBemanning, type Density } from '../bemanning/BemanningScope'
+import { useBemanning } from '../bemanning/BemanningScope'
+import { DensityToggle } from '../bemanning/DensityToggle'
 import { ProjectLines } from '../bemanning/ProjectLines'
 import { AvvikSection } from '../bemanning/AvvikSection'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
-import { LEFT_W, ROW_H } from '../kalender/layout'
-import { HIRE_COMPACT_H, HIRE_H, HIRE_PROJECT_H } from '../bemanning/layout'
+import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
+import { DEMAND_COMPACT_H, DEMAND_H, HIRE_PROJECT_H } from '../bemanning/layout'
 import { LinePick, NeedLabel, NeedLine } from '../bemanning/NeedLabel'
 import { PlanBar } from '../kalender/PlanBar'
 import type { CrewPart, PlanMode } from '../kalender/zoom'
@@ -22,6 +23,7 @@ import { OrderEditor } from './OrderEditor'
 import { SupplierRows } from './SupplierRows'
 import { AnswerGlyph, AnswerPopover, LineMenu, ShiftMenu, SupplierMenu, TimePopover, type MenuItem } from './OrderPopovers'
 import { hoursText } from '../format'
+import { StrokeBox } from '../kalender/StrokeBox'
 
 const days = (n: number) => count(n, 'dag', 'dager')
 
@@ -59,7 +61,7 @@ export function InnleidTop() {
 /** The planning bar in Innleid: the mode and the part, undo, the tools with the supplier they work with, and what is still to do. */
 export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width: number; mode: PlanMode; onMode: (mode: PlanMode) => void; onPart: (part: CrewPart) => void; onToday: () => void }) {
   const { styles } = useBemanning()
-  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, pickBrush, eraseFrom, pickErase, suppliers, open, panel, setPanel, density, setDensity } = useInnleid()
+  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, pickBrush, eraseFrom, pickErase, suppliers, open, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   // With a competence open, the suppliers that offer it are listed first, and those that do not cannot be picked.
   const focus = open ? styles.get(open.competence) : undefined
@@ -117,15 +119,6 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
             </button>
           )}
           {under === 0 && waiting <= HOURS_NOISE && <span className="bm-hints">Alt dekket og bekreftet</span>}
-          <Segmented<Density>
-            label="Visning"
-            value={density}
-            onChange={setDensity}
-            options={[
-              { value: 'compact', label: 'Kompakt', title: 'Kompakt: hver linje som en tynn strek med tallet ved siden av' },
-              { value: 'detail', label: 'Detaljert', title: 'Detaljert: dagens etikett med tallet på, og hvem som dekker på prosjektlinjene' },
-            ]}
-          />
           <button className="ghost" onClick={onToday}>
             I dag
           </button>
@@ -140,16 +133,17 @@ export function InnleidToolbar({ width, mode, onMode, onPart, onToday }: { width
 
 /** The heading over the competences, at the foot of the planning bar. */
 export function InnleidHeading() {
-  const { rows } = useInnleid()
+  const { rows, density, setDensity } = useInnleid()
   return (
     <div className="grid-row col-head bm-people-head" style={{ height: ROW_H }}>
       <div className="grid-label">
-        <span className="lbl-desc">Kompetanse</span>
-        <span className="bm-label-note">{rows.length} med restbehov</span>
-        <span className="bm-label-note bm-label-end">t mangler</span>
+        <span className="il-head-name">Kompetanse</span>
+        <DensityToggle compact={density === 'compact'} onChange={(compact) => setDensity(compact ? 'compact' : 'detail')} />
+        <span className="bm-label-note il-head-count">{rows.length} med restbehov</span>
+        <span className="bm-label-note">timer mangler</span>
       </div>
       <span className="phase-legend" style={{ left: LEFT_W }}>
-        <span>Klikk en dag for å bestille, eller dra over flere · ← → flytter dagene · med Pensel bestiller draget · Alt+dra tømmer</span>
+        <span>Klikk en dag for å bestille, eller dra over flere · ↑ ↓ bytter linje · med Pensel bestiller draget · Alt+dra tømmer</span>
       </span>
     </div>
   )
@@ -222,12 +216,8 @@ interface RowProps {
   missing: number
   /** The competence is open: its label is the editor of the days picked, and its days list who covers them. */
   open: boolean
-  /** The days picked on this line. */
-  pickedFrom: ISODate | null
-  pickedTo: ISODate | null
-  /** The days a drag has reached on this line. */
-  dragFrom: ISODate | null
-  dragTo: ISODate | null
+  /** What is drawn over the line's days, as Faste draws it (`StrokeBox`): the days picked, a drag, or what a stroke would do. */
+  mark: RowMark | null
   /** What a stroke on this line would do, shown as what its days would be after it. */
   stroke: StrokePreview | null
   /** How the pointer shows what a press would do here: the brush, a brush whose supplier does not offer the competence, or the eraser. */
@@ -249,17 +239,18 @@ interface RowProps {
  * One competence, or a line under the open one: its name with what is missing in the days in view, and per day its
  * label. With days picked, the competence's label is the editor of their orders, and its days list who covers them.
  */
-const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, projectName, missing, open, pickedFrom, pickedTo, dragFrom, dragTo, stroke, cursor, compact, actions, project, lineOn = false, dim = false, last = false }: RowProps) {
+const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn, suppliers, wd, projectName, missing, open, mark, stroke, cursor, compact, actions, project, lineOn = false, dim = false, last = false }: RowProps) {
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
   const coverOf = (date: ISODate) => (project ? project.cover(date) : board.cover(style.key, date))
   const ordersOf = (date: ISODate) => (project ? project.orders(date) : (ordersOn.get(dayKey(style.key, date)) ?? []))
   const label = project ? `${style.label} · ${project.name}` : style.label
-  const height = project ? (compact ? HIRE_COMPACT_H : HIRE_PROJECT_H) : compact ? HIRE_COMPACT_H : HIRE_H
+  // A line is as high as Faste's, compact or not (2026-10-26); only a project's line in detail, with who covers it under its label, is higher.
+  const height = compact ? DEMAND_COMPACT_H : project ? HIRE_PROJECT_H : DEMAND_H
   return (
     <Line
-      className={`il-row ${project ? 'il-project' : ''} ${open ? 'open' : ''} ${compact && !open ? 'compact' : ''} ${lineOn ? 'on' : ''} ${dim ? 'dim' : ''} ${cursor}`}
+      className={`il-row ${project ? 'il-project' : ''} ${open ? 'open' : ''} ${compact && !open ? 'compact' : ''} ${lineOn ? 'on' : ''} ${dim ? 'dim' : ''} ${mark ? 'marked' : ''} ${cursor}`}
       height={height}
-      minHeight={open ? HIRE_H : undefined}
+      minHeight={open ? DEMAND_H : undefined}
       style={competenceColor(style)}
       label={
         project ? (
@@ -267,6 +258,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
             kind="project"
             name={project.name}
             hours={missing}
+            compact={compact}
             pressed={lineOn}
             outer={last ? 'end' : 'branch'}
             title={project.rest ? `${style.label} uten prosjekt: det ingen av prosjektlinjene har. Penselen her bestiller uten prosjekt.` : `Det ${project.name} mangler av ${style.label} etter de faste, og det som er bestilt for prosjektet. Penselen her bestiller for prosjektet.`}
@@ -275,13 +267,18 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         ) : open ? (
           <OrderEditor style={style} />
         ) : (
-          <LinePick name={style.label} hours={missing} glyph={<ChevronsUpDown className="il-unfold" size={13} aria-hidden />} title={`Åpne ${style.label}`} onClick={() => actions.openCompetence(style.key)} />
+          <LinePick name={style.label} hours={missing} compact={compact} glyph={<ChevronsUpDown className="il-unfold" size={compact ? 11 : 13} aria-hidden />} title={`Åpne ${style.label}`} onClick={() => actions.openCompetence(style.key)} />
         )
       }
       cols={cols}
+      overlay={
+        mark && (
+          <StrokeBox kind={mark.kind} style={{ left: daysWide(mark.from, LEFT_W), width: daysWide(mark.to - mark.from + 1), top: 0, bottom: 0 }} below={false}>
+            {mark.pill}
+          </StrokeBox>
+        )
+      }
       cells={(date) => {
-        const picked = pickedFrom !== null && pickedTo !== null && date >= pickedFrom && date <= pickedTo
-        const dragged = dragFrom !== null && dragTo !== null && date >= dragFrom && date <= dragTo
         const stroked = stroke !== null && date >= stroke.from && date <= stroke.to
         let orders = ordersOf(date)
         let cover = coverOf(date)
@@ -295,12 +292,12 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
         return (
           <div
             key={date}
-            className={`${dayClass(cols, date)} cell bm-need il-day ${picked ? 'picked' : ''} ${dragged ? 'dragged' : ''} ${stroked ? `stroked-${stroke.mode}` : ''}`}
+            className={`${dayClass(cols, date)} cell bm-need il-day`}
             title={coverTitle(label, date, cover, orders, nameOf, projectName, wd)}
             onMouseDown={(e) => {
               if (e.button !== 0) return
               e.preventDefault()
-              actions.dayDown(style.key, date, e.shiftKey, e.altKey, project?.projectNo)
+              actions.dayDown(style.key, date, e.altKey, project?.projectNo, e.clientX, e.clientY)
             }}
             onMouseEnter={() => actions.dayEnter(style.key, date, project?.projectNo)}
           >
@@ -323,6 +320,14 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOn
     />
   )
 })
+
+/** What is drawn over a line's days: the kind of `StrokeBox`, its days as columns of the period, and what its pill says. */
+interface RowMark {
+  kind: string
+  from: number
+  to: number
+  pill: ReactNode
+}
 
 /** The rows of Innleid: a line per competence with hours that remain after the permanent staff, or with orders. */
 export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
@@ -352,6 +357,48 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
       { label: 'Fjern bestillingen', onPick: () => edits.remove(group), rule: true, danger: true },
     ]
   }
+  const colOf = (date: ISODate) => dates.indexOf(date)
+  const supplierName = (id: string | undefined) => suppliers.find((supplier) => supplier.id === id)?.name
+  /**
+   * What is drawn over a line's days, as Faste draws its strokes and what is selected: what a stroke would do, with a pill that says it,
+   * the brush's day under the pointer without one, the days a drag with Velg reaches, or the days picked.
+   */
+  const markOf = (line: { picked: boolean; dragged: { from: ISODate; to: ISODate } | null; stroke: StrokePreview | null }): RowMark | null => {
+    const { stroke } = line
+    if (stroke) {
+      const days = colOf(stroke.to) - colOf(stroke.from) + 1
+      const span = { from: colOf(stroke.from), to: colOf(stroke.to) }
+      // The day under the pointer while the brush is held: its label shows what a click would order, and the box has no pill.
+      if (!il.stroking) return { kind: 'bare paint', ...span, pill: null }
+      if (stroke.mode === 'erase') {
+        const from = supplierName(stroke.supplierId)
+        return { kind: 'erase', ...span, pill: (<><b>Tøm</b><span>{count(days, 'dag', 'dager')}{from ? ` · ${from}` : ''}</span></>) }
+      }
+      const hours = stroke.added.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
+      const people = stroke.added.reduce((sum, order) => sum + order.fte, 0)
+      return {
+        kind: 'paint',
+        ...span,
+        pill: (
+          <>
+            <b>
+              <i className="swatch" /> {supplierName(stroke.supplierId)}
+            </b>
+            <span>
+              {count(days, 'dag', 'dager')} · {hours > 0 ? `+${hoursText(hours)} t · ${people} pers.` : 'ingenting mangler'}
+            </span>
+          </>
+        ),
+      }
+    }
+    if (line.dragged) return { kind: 'select', from: colOf(line.dragged.from), to: colOf(line.dragged.to), pill: <span>{count(colOf(line.dragged.to) - colOf(line.dragged.from) + 1, 'dag', 'dager')}</span> }
+    if (line.picked && open?.from && open.to) {
+      const from = colOf(open.from)
+      const to = colOf(open.to)
+      return { kind: 'bare chosen', from, to, pill: (<><span>{count(to - from + 1, 'dag', 'dager')}</span><span>Esc fjern</span></>) }
+    }
+    return null
+  }
   return (
     <div className="bm-people il-rows" onMouseLeave={actions.rowsLeave}>
       {rows.map((style) => {
@@ -375,10 +422,7 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
               projectName={projectName}
               missing={missing(style.key)}
               open={mine}
-              pickedFrom={own.picked ? open!.from : null}
-              pickedTo={own.picked ? open!.to : null}
-              dragFrom={own.dragged ? own.dragged.from : null}
-              dragTo={own.dragged ? own.dragged.to : null}
+              mark={markOf(own)}
               stroke={own.stroke}
               cursor={cursor}
               // As in Faste, the other competences shrink to their thin line while one is open.
@@ -402,10 +446,7 @@ export function InnleidRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }
                     projectName={projectName}
                     missing={project.missing}
                     open={false}
-                    pickedFrom={line.picked ? open.from : null}
-                    pickedTo={line.picked ? open.to : null}
-                    dragFrom={line.dragged ? line.dragged.from : null}
-                    dragTo={line.dragged ? line.dragged.to : null}
+                    mark={markOf(line)}
                     stroke={line.stroke}
                     cursor={cursor}
                     compact={compact}

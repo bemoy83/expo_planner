@@ -78,12 +78,14 @@ describe('the label of a day', () => {
 
   it('fills what remains from the left, the confirmed first and those that wait after, with a rule between the orders', () => {
     const orders = [day('w', 'k1', 1, null), day('c', 'k5', 2, 2)]
-    const { segs, rules } = orderedLabel(coverage(30, orders, wd), orders, wd, [manpower, standbygg])
+    const { segs, rules, of } = orderedLabel(coverage(30, orders, wd), orders, wd, [manpower, standbygg])
     expect(segs).toEqual([
       { kind: 'covered', from: 0, width: 0.5 },
       { kind: 'waiting', from: 0.5, width: 0.25 },
     ])
     expect(rules).toEqual([0.5])
+    // What is ordered, waiting or not, of what remains after the permanent staff.
+    expect(of).toEqual({ done: 22.5, need: 30 })
   })
 
   it('has what is ordered past what remains as the tail of over, which waits where its order does', () => {

@@ -25,6 +25,8 @@ export interface NeedLabelParts {
   figure: number | null
   /** The figure stands on an alert's fill, the tail or the hatch, and takes the alerts' ink. */
   alert: boolean
+  /** The hours that cover the day of the hours it needs, shown in their place on a label wide enough for them (2026-10-26); `null` where it needs none. */
+  of: { done: number; need: number } | null
 }
 
 /** The demand of a competence on a day against the hours the permanent staff are assigned. */
@@ -50,5 +52,5 @@ export const staffedLabel = (day: StaffedDay, uncoverable: number, noise: number
   if (day.assigned > day.demand) segs.push({ kind: 'surplus', from: covered, width: (day.assigned - day.demand) / base })
   if (uncoverable > noise) segs.push({ kind: 'uncoverable', from: 1 - uncoverable / base, width: uncoverable / base })
   const figure = over ? -day.remaining : left > noise ? -left : null
-  return { segs, rules: [], figure, alert: over || (left > noise && uncoverable > noise) }
+  return { segs, rules: [], figure, alert: over || (left > noise && uncoverable > noise), of: day.demand > noise ? { done: day.assigned, need: day.demand } : null }
 }
