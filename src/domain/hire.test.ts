@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coveredBy, coverFigure, coverLines, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, planAcross, planOrders, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, orderedLabel, deviation, eraseOrders, fillGroup, groupWaits, hireBoard, hiredFte, hiredLine, hireHours, mergeOrders, orderGroups, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -104,21 +104,6 @@ describe('the label of a day', () => {
     const thin = [day('a', 'k1', 30, 30), day('b', 'k5', 1, 1)]
     expect(orderedLabel(coverage(232.5, thin, wd), thin, wd).rules).toEqual([])
   })
-
-  it('names the supplier with the most confirmed for a project, and counts the others', () => {
-    expect(coveredBy([])).toBeNull()
-    expect(coveredBy([day('a', 'k1', 1, 1), day('b', 'k5', 3, null), day('c', 'k3', 1, 1), day('d', 'k3', 1, 1)])).toEqual({ supplierId: 'k3', people: 2, waits: false, more: 2, moreWaits: true })
-    expect(coveredBy([day('a', 'k1', 1, null), day('b', 'k5', 3, null)])).toEqual({ supplierId: 'k5', people: 3, waits: true, more: 1, moreWaits: true })
-  })
-
-  it('lists an open day per supplier and project, the confirmed first', () => {
-    const lines = coverLines([{ ...day('a', 'k5', 1, null), projectNo: '2026-1' }, { ...day('b', 'k1', 2, 2), projectNo: '2026-2' }, { ...day('c', 'k1', 1, 1), projectNo: '2026-1' }, { ...day('d', 'k1', 1, 1), projectNo: '2026-1' }], [manpower, standbygg], (no) => (no === '2026-1' ? 'Hage' : 'VVS'))
-    expect(lines.map(({ supplierId, projectNo, people, waits }) => [supplierId, projectNo, people, waits])).toEqual([
-      ['k1', '2026-1', 2, false],
-      ['k1', '2026-2', 2, false],
-      ['k5', '2026-1', 1, true],
-    ])
-  })
 })
 
 describe('Avvik of a day (I2)', () => {
@@ -149,62 +134,6 @@ describe('Avvik of a day (I2)', () => {
 })
 
 describe('ordering (I3, I4)', () => {
-  const rest = (hours: Record<string, number>) => (date: string) => hours[date] ?? 0
-
-  it('fills the count to cover what is missing, waiting for an answer (A10)', () => {
-    seq = 0
-    expect(planOrders([], manpower, 'vegger', ['d1'], rest({ d1: 45 }), wd, false, makeId)).toEqual([order('n1', 'k1', 'vegger', 'd1', 6, null)])
-    expect(planOrders([], manpower, 'vegger', ['d1'], rest({ d1: 50 }), wd, false, makeId)[0].fte).toBe(7)
-  })
-
-  it('orders the short days only, and with the brush nothing where none is short (A11)', () => {
-    const orders = [order('a', 'k3', 'vegger', 'd2', 4, null)]
-    const planned = planOrders(orders, manpower, 'vegger', ['d1', 'd2', 'd3'], rest({ d1: 15, d2: 30, d3: 0 }), wd, true, makeId)
-    expect(planned.map((o) => [o.date, o.fte])).toEqual([['d1', 2]])
-    expect(planOrders(orders, manpower, 'vegger', ['d2', 'd3'], rest({ d2: 30 }), wd, true, makeId)).toEqual([])
-    expect(planOrders(orders, manpower, 'vegger', ['d2', 'd3'], rest({ d2: 30 }), wd, false, makeId).map((o) => [o.date, o.fte])).toEqual([
-      ['d2', 1],
-      ['d3', 1],
-    ])
-  })
-
-  it('orders what each project lacks for it, and what is on no project line without one (I3 over lines)', () => {
-    seq = 0
-    const lines = [
-      { projectNo: '2026-1', restOf: rest({ d1: 15, d2: 0 }), holds: (o: HireOrder) => o.projectNo === '2026-1' },
-      { restOf: rest({ d1: 7.5, d2: 7.5 }), holds: (o: HireOrder) => !o.projectNo },
-    ]
-    const orders = [{ ...order('a', 'k3', 'vegger', 'd1', 1, 1), projectNo: '2026-1' }]
-    expect(planAcross(orders, manpower, 'vegger', lines, ['d1', 'd2'], wd, makeId).map((o) => [o.date, o.projectNo, o.fte])).toEqual([
-      ['d1', '2026-1', 1],
-      ['d1', undefined, 1],
-      ['d2', undefined, 1],
-    ])
-  })
-
-  it('gives one person a day to the first line with hours where none lacks anything', () => {
-    const lines = [
-      { projectNo: '2026-1', restOf: rest({ d2: 7.5 }), holds: (o: HireOrder) => o.projectNo === '2026-1' },
-      { projectNo: '2026-2', restOf: rest({ d1: 7.5 }), holds: (o: HireOrder) => o.projectNo === '2026-2' },
-    ]
-    const orders = [{ ...order('a', 'k3', 'vegger', 'd1', 1, 1), projectNo: '2026-2' }, { ...order('b', 'k3', 'vegger', 'd2', 1, 1), projectNo: '2026-1' }]
-    expect(planAcross(orders, manpower, 'vegger', lines, ['d1', 'd2', 'd3'], wd, makeId).map((o) => [o.date, o.projectNo, o.fte])).toEqual([
-      ['d1', '2026-2', 1],
-      ['d2', '2026-1', 1],
-      ['d3', '2026-2', 1],
-    ])
-    expect(planAcross(orders, manpower, 'elektro', lines, ['d1'], wd, makeId)).toEqual([])
-  })
-
-  it('takes the first shift the supplier is not ordered for on the days', () => {
-    const orders = [order('a', 'k1', 'vegger', 'd1', 2, null)]
-    expect(planOrders(orders, manpower, 'vegger', ['d1'], rest({ d1: 30 }), wd, false, makeId)[0]).toMatchObject({ ...KVELD, fte: 2 })
-    expect(planOrders([order('a', 'k5', 'vegger', 'd1', 2, null)], standbygg, 'vegger', ['d1'], rest({ d1: 30 }), wd, false, makeId)[0]).toMatchObject(DAG)
-  })
-
-  it('orders nothing from a supplier that does not offer the competence', () => {
-    expect(planOrders([], manpower, 'elektro', ['d1'], rest({ d1: 30 }), wd)).toEqual([])
-  })
 
   it('erases the orders of a competence in the days, of all suppliers or of one (A12)', () => {
     const orders = [order('a', 'k1', 'vegger', 'd1', 2, null), order('b', 'k3', 'vegger', 'd1', 1, 1), order('c', 'k1', 'tepper', 'd1', 1, null), order('d', 'k1', 'vegger', 'd3', 1, null)]
@@ -431,6 +360,11 @@ describe('orders painted on the suppliers\' lines', () => {
       [undefined, 2],
       ['26101', 1],
     ])
+  })
+
+  it('writes a lane as text and reads it back', () => {
+    expect(laneFrom(laneOf({ competence: 'vegger', projectNo: ' 26101 ' }))).toEqual({ competence: 'vegger', projectNo: '26101' })
+    expect(laneFrom(laneOf({ competence: 'vegger' }))).toEqual({ competence: 'vegger' })
   })
 
   it('counts the people of a supplier per day over its shifts and competences, and those that wait', () => {

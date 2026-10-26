@@ -31,9 +31,11 @@ interface Keys {
   closePanel: () => void
   fold: () => void
   pickTool: (tool: Tool) => void
-  /** What the brush can be, in order: the keys 1 to 9 pick them (the competences people have in Faste, the suppliers in Innleid). */
+  /** What the brush can be, in order: the keys 1 to 9 pick them (the competences people have in Faste, those with hours left in Innleid). */
   brushKeys: string[]
   pickBrush: (key: string) => void
+  /** + and − change the people on the brush (Innleid). */
+  stepCount?: (delta: number) => void
   /** «E» opens the hours of the person selected, or folds those that are open. */
   toggleHours?: () => void
   /** The arrows step the open hours, else the lines under the competence in focus. */
@@ -79,6 +81,7 @@ export function useBemanningKeys(latest: Keys) {
       else if (/^[1-9]$/.test(key) && k.brushKeys[Number(key) - 1]) k.pickBrush(k.brushKeys[Number(key) - 1])
       else if (key === 'e' && !e.altKey && k.toggleHours) k.toggleHours()
       else if (key === '?' && k.help) k.help()
+      else if ((key === '+' || key === '-') && k.stepCount) k.stepCount(key === '+' ? 1 : -1)
       else if ((key === 'arrowup' || key === 'arrowdown') && k.hoursOpen && k.stepHours) {
         e.preventDefault()
         k.stepHours(key === 'arrowup' ? -1 : 1)

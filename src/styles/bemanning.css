@@ -4,8 +4,6 @@
 .bm-density{width:18px;height:18px;padding:0;border-radius:4px;background:none;color:var(--muted)}
 .bm-density:hover{background:none;color:var(--text)}
 /* Innleid's heading: the name and the switch beside it, each centred in the line by itself as the notes after them are, and the notes at the end */
-.il-head-name{flex:none}
-.bm-label-note.il-head-count{margin-left:auto}
 .bm-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md);font-weight:500}
 .bm-label-note{min-width:0;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 var(--fs-xs) var(--font-num);color:var(--faint)}
 .bm-label-end{margin-left:auto}
@@ -65,7 +63,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
    solid, so today's line does not show through it, nor do the days under its label column */
 .bm-demand.dim,.il-row.dim{position:relative;z-index:2;background:var(--bg)}
 /* A row with a stroke or days picked lies over its neighbours, for the frame and its pill above it. */
-.il-row.marked{position:relative;z-index:3}
 :is(.bm-demand,.il-row).dim>.cell,:is(.bm-demand,.il-row).dim .grid-label>*{opacity:.5}
 :is(.bm-demand,.il-row).dim:hover>.cell,:is(.bm-demand,.il-row).dim:hover .grid-label>*{opacity:.8}
 /* the line that is the brush: its name in a stronger tint with the mark, to say which project and place are chosen, */
@@ -300,45 +297,16 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 
 /* ---- Innleid: the hours of each competence that remain after the permanent staff, and how far orders cover them ---- */
 .heat-legend+.bm-week-left{min-width:64px;margin-left:10px;justify-content:flex-end}
-.il-unfold{flex:none;margin:0 3px;color:var(--faint)}
 .il-row:not(.compact) .cell{border-right:1px solid var(--grid-col);border-bottom:1px solid var(--grid-row)}
-/* As in Faste: the lines under the competence that is open are neutral, in the tree of its lines (`.bm-project-pick`), the line the days are picked on has the mark at its name
-   (the editor's edge on the competence's own), and the other competences step back (`.il-row.dim`, with Faste's). */
-.il-row.open.on .grid-label{box-shadow:inset 3px 0 0 var(--cc)}
 /* A day of a line: Faste's label (`.bm-need-label`), filled from the left by what is ordered. Compact, Faste's thin line with the figure beside it. */
 .il-day{flex-direction:column;align-items:stretch;justify-content:flex-start;min-width:0;cursor:pointer;user-select:none}
-/* the days picked, and those a drag reaches, in the tint of what is selected, as in the rest of the Kalender */
-.il-need-small{top:5px;bottom:auto;height:20px}
-.il-need-open{bottom:auto;height:28px}
-/* Who covers a project's day, under its label: the supplier with the most confirmed and its people, then one «+N». The name gives way, the figures never. */
-.il-who{position:absolute;left:8px;right:6px;bottom:6px;display:flex;align-items:center;gap:4px;overflow:hidden;font:400 var(--fs-2xs)/1 var(--font-ui);white-space:nowrap;pointer-events:none}
-.il-who-top{display:flex;align-items:center;gap:4px;min-width:0}
-.il-who-top>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.il-who-top em{flex:none;font:600 var(--fs-2xs) var(--font-num);font-style:normal}
-.il-who-more{display:inline-flex;flex:none;align-items:center;gap:3px;font:600 var(--fs-2xs) var(--font-num);color:var(--muted)}
-/* The days of the open competence: every supplier and project as a line of the editor is, the project in small type; what waits hatched and dimmed. */
-.il-cover-list{display:flex;flex-direction:column;gap:6px;padding:42px 8px 10px 10px;pointer-events:none}
-.il-cover-list>span{display:flex;flex-direction:column;gap:1px;min-width:0;font:400 var(--fs-xs)/14px var(--font-ui);white-space:nowrap}
-.il-cover-list>span.waits{color:var(--muted)}
-.il-cover-list .il-who-top em{margin-left:auto;font-size:var(--fs-xs)}
-.il-cover-list small{overflow:hidden;text-overflow:ellipsis;font:400 var(--fs-2xs)/13px var(--font-ui);color:var(--faint)}
-.il-cover-list .waits small{padding-left:12px}
 /* Waiting for an answer: a hatch in ink, as hours that are not there yet are hatched in the labels. */
 .il-hatch{display:inline-block;flex:none;width:8px;height:8px;border-radius:2px;background:repeating-linear-gradient(135deg,currentColor 0 1.5px,transparent 1.5px 3.5px);box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 45%,transparent);opacity:.8}
-.il-who .il-hatch,.il-cover-list .il-hatch{width:7px;height:7px}
-.il-row.brush .il-day{cursor:crosshair}
-.il-row.nobrush .il-day{cursor:not-allowed}
-.il-row.erase .il-day{cursor:cell}
 /* the suppliers: the people ordered per day, read across, so a rule under each line and none between the days; those that wait hatched */
-.il-suppliers{margin-top:14px}
 .il-supplier .cell{border-bottom:1px solid var(--grid-row)}
 .il-supplier .grid-label{gap:8px}
 .il-supplier-name{justify-content:flex-start;padding:3px 6px;margin-left:-6px;background:transparent;font:inherit;text-align:left}
 .il-supplier-name:hover{background:var(--sunken)}
-.il-supplier.on .il-supplier-name{font-weight:600}
-.il-brush{flex:none;width:22px;height:22px;padding:0;border-radius:6px;background:transparent;color:var(--faint)}
-.il-brush:hover{background:var(--sunken);color:var(--text)}
-.il-brush[aria-pressed='true']{background:var(--pick);color:var(--bg)}
 .il-supplier .bm-week-left{min-width:28px;margin-left:8px;justify-content:flex-end}
 .il-people{gap:6px;font:600 var(--fs-sm) var(--font-num)}
 /* A supplier's lines, as a person's in Faste (the v9 design, 2026-10-26): the supplier's first line has the strong line over it, its shifts are indented under its name, and a shift it no longer offers is struck through with the mark of attention. */
@@ -352,34 +320,19 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-run{position:absolute;display:flex;align-items:center;border-radius:5px;background:var(--cc);color:var(--on-line)}
 .il-run.waits{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 75%,var(--bg)) 0 2px,color-mix(in oklab,var(--cc) 20%,var(--bg)) 2px 5.5px);color:var(--text)}
 .il-run.other{opacity:.28}
+/* What a stroke under way would do: what the brush adds or changes in a tint of the colour, what Tøm takes away hatched pale, as Faste's strokes show them. */
+.il-run.coming{background:color-mix(in oklab,var(--cc) 34%,var(--bg));color:var(--text)}
+.il-run.going{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);color:var(--muted)}
+.il-run:is(.coming,.going) .il-run-name{background:transparent}
 .il-run-name{position:sticky;display:flex;align-items:center;gap:6px;min-width:0;margin:0 3px;padding:1px 6px;overflow:hidden;border-radius:4px;background:inherit;font:600 var(--fs-sm) var(--font-ui);white-space:nowrap}
 .il-run.waits .il-run-name{background:color-mix(in oklab,var(--cc) 20%,var(--bg))}
 .il-run.sm .il-run-name{padding:0 5px;font-size:var(--fs-xs)}
 .il-run-name b{font:700 var(--fs-xs) var(--font-num)}
 .il-run-name small{font:400 var(--fs-2xs) var(--font-num)}
+.il-count{display:inline-flex;align-items:center;gap:2px;height:var(--ctl-h);padding:0 8px 0 2px;border-radius:8px;background:var(--surface);box-shadow:var(--raise);font-size:var(--fs-sm)}
+.il-count b{min-width:18px;font:700 var(--fs-md) var(--font-num);text-align:center}
+.il-count span{margin-left:4px;color:var(--muted)}
 .il-people .waits{padding:2px 6px;border-radius:4px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 14%,transparent) 0 2px,transparent 2px 5px)}
-/* the editor, in the label of the competence that is open: a head, the orders as segments on a track, and the supplier of the brush */
-.il-row.open .grid-label{align-items:stretch;padding:0;background:var(--panel);cursor:default;white-space:normal}
-.il-editor{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;padding:4px 12px 12px 8px}
-.il-editor-head{display:flex;align-items:center;gap:8px;height:36px;min-width:0}
-.il-editor-head .il-fold{flex:none;gap:8px;height:var(--ctl-h);padding:0 8px;background:transparent;font-weight:600}
-.il-editor-head .il-fold:hover{background:var(--sunken)}
-.il-editor-head .il-fold svg{color:var(--faint)}
-.il-editor-for{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-xs);color:var(--muted)}
-/* The orders are segments on the track: plain text, a light lift under the pointer, and the one picked raised on the surface. */
-.il-orders{display:flex;flex-direction:column;gap:2px;padding:2px;border-radius:9px;background:var(--sunken)}
-.il-order{display:flex;align-items:center;gap:2px;height:var(--ctl-h);padding:0 2px 0 8px;border-radius:7px;cursor:pointer;transition:background-color 120ms var(--ease)}
-.il-order:hover{background:color-mix(in oklab,var(--surface) 50%,transparent)}
-.il-order.on{background:var(--surface);box-shadow:var(--raise)}
-.il-order-supplier{flex:1;display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm);font-weight:500}
-.il-order.on .il-order-supplier{font-weight:600}
-.il-order-supplier>span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.il-order-supplier small{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font:400 var(--fs-2xs) var(--font-ui);color:var(--faint)}
-.il-order-supplier small.il-order-num{flex:none;font-family:var(--font-num)}
-.il-order .il-step button{background:transparent}
-.il-order .il-step button:hover:not(:disabled){background:var(--wash)}
-.il-order .il-order-more{min-width:28px;width:28px;height:28px;background:transparent;color:var(--muted)}
-.il-order .il-order-more:hover{background:var(--wash)}
 .il-step{display:inline-flex;align-items:center;gap:2px}
 .il-step button{width:23px;height:23px;padding:0;border-radius:6px}
 .il-step b{min-width:20px;font:700 var(--fs-md) var(--font-num);text-align:center}
@@ -389,9 +342,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-status.waits{color:var(--muted)}
 .il-status .il-glyph{color:var(--text)}
 .il-menu>.il-remove{color:var(--neg)}
-.il-add{display:flex;align-items:center;gap:10px}
-.il-add button{flex:none;height:var(--ctl-h);padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
-.il-add span{flex:1 1 160px;font-size:var(--fs-xs);color:var(--faint)}
 /* The popovers of the editor */
 .il-pop{position:fixed;z-index:80;display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:var(--panel);box-shadow:0 12px 32px -8px var(--shadow),0 0 0 1px var(--line-strong);font-size:var(--fs-md)}
 .il-pop.il-menu{gap:0;padding:6px}
@@ -419,8 +369,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bar-controls .il-under{padding-inline:10px;background:var(--alert-block);color:var(--alert-on);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
 .bar-controls .il-under:hover{filter:brightness(1.06)}
 /* The side panel of Innleid: a supplier's order, what every supplier offers, and the help. */
-.il-brush-on{display:flex;align-items:center;gap:8px;padding-top:10px;padding-bottom:10px;background:var(--surface);font-size:var(--fs-sm)}
-.il-brush-on span{flex:1}
 .il-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
 .il-stats dt{font-size:var(--fs-xs);color:var(--muted)}
 .il-stats dd{margin:2px 0 0;font:600 var(--fs-title-sm) var(--font-num)}
@@ -428,7 +376,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-answers .il-glyph:not(:first-child){margin-left:10px}
 .il-panel-actions{display:flex;gap:8px;margin-top:12px}
 .il-panel-actions button{flex:1;white-space:nowrap}
-.il-order-day{display:flex;flex-direction:column;gap:2px;margin-top:12px}
 .il-panel-order{display:flex;align-items:center;gap:6px;font-size:var(--fs-md)}
 .il-panel-order b{font:600 var(--fs-md) var(--font-num)}
 .il-panel-order em{font:400 var(--fs-xs) var(--font-num);font-style:normal;color:var(--faint)}
