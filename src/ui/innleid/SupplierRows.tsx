@@ -53,10 +53,18 @@ function WeekHours({ supplier, week }: { supplier: Supplier; week: NameProps['we
   )
 }
 
+/** What a supplier is ordered for on a day, under the pointer: the people in all, and per competence. */
+const dayTitle = (supplier: Supplier, date: ISODate, day: SupplierDay, styles: Map<string, CompetenceStyle>): string =>
+  [
+    `${supplier.name} · ${dayText(date)} · ${hoursText(day.people)} pers.`,
+    ...day.parts.map((part) => `${styles.get(part.competence)?.label ?? part.competence}: ${hoursText(part.people)} pers.${part.waiting ? `, ${hoursText(part.waiting)} venter på svar` : ''}`),
+  ].join('\n')
+
 interface NameLineProps extends NameProps {
   cols: Columns
   /** By date. */
   days: Map<ISODate, SupplierDay> | undefined
+  styles: Map<string, CompetenceStyle>
   folded: boolean
   /** It has no shift at all. */
   empty: boolean
@@ -64,8 +72,11 @@ interface NameLineProps extends NameProps {
   onOpenSuppliers: () => void
 }
 
-/** A supplier's name line: its name, and the people it is ordered for per day over its shifts, those that wait for an answer hatched. Its shift lines fold under it. */
-const NameLine = memo(function NameLine({ cols, days, folded, empty, dim, onOpenSuppliers, ...name }: NameLineProps) {
+/**
+ * A supplier's name line: its name, and per day what it is ordered for over its shifts (2026-10-27): a bar in the colours of the
+ * competences, as long as each one's people, those that wait for an answer hatched, and the people in all beside it. Its shift lines fold under it.
+ */
+const NameLine = memo(function NameLine({ cols, days, styles, folded, empty, dim, onOpenSuppliers, ...name }: NameLineProps) {
   const { supplier, actions } = name
   return (
     <Line
@@ -94,9 +105,22 @@ const NameLine = memo(function NameLine({ cols, days, folded, empty, dim, onOpen
       cells={(date) => {
         const day = days?.get(date)
         return (
-          <div key={date} className={`${dayClass(cols, date)} cell il-people`} onMouseDown={actions.cellDown} title={day ? `${supplier.name} · ${dayText(date)}\n${hoursText(day.people)} pers.${day.waiting ? `, ${hoursText(day.waiting)} venter på svar` : ''}` : undefined}>
-            {day && day.people > day.waiting && <span>{hoursText(day.people - day.waiting)}</span>}
-            {day && day.waiting > 0 && <span className="waits">{hoursText(day.waiting)}</span>}
+          <div key={date} className={`${dayClass(cols, date)} cell il-people`} onMouseDown={actions.cellDown} title={day ? dayTitle(supplier, date, day, styles) : undefined}>
+            {day && (
+              <>
+                <span className="il-day-bar">
+                  {day.parts.flatMap((part) => {
+                    const style = { ...competenceColor(styles.get(part.competence)) }
+                    const other = name.focus && name.focus !== part.competence ? 'other' : ''
+                    return [
+                      part.people > part.waiting && <i key={part.competence} className={other} style={{ ...style, flexGrow: part.people - part.waiting }} />,
+                      part.waiting > 0 && <i key={`${part.competence}|waits`} className={`waits ${other}`} style={{ ...style, flexGrow: part.waiting }} />,
+                    ]
+                  })}
+                </span>
+                <b>{hoursText(day.people)}</b>
+              </>
+            )}
           </div>
         )
       }}
@@ -243,7 +267,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                 </span>
               </div>
             )}
-            <NameLine {...name} cols={cols} days={days} folded={block.folded} empty={!block.rows.length && !block.folded} dim={block.dim} onOpenSuppliers={onOpenSuppliers} />
+            <NameLine {...name} cols={cols} days={days} styles={styles} folded={block.folded} empty={!block.rows.length && !block.folded} dim={block.dim} onOpenSuppliers={onOpenSuppliers} />
             {block.rows.map((shift) => {
               const row = shiftRows.indexOf(shift)
               const inStroke = range !== null && stroke?.mode === 'paint' && !offered && row >= range.rowFrom && row <= range.rowTo

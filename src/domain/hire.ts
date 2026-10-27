@@ -413,12 +413,20 @@ export const supplierTotals = (supplier: Supplier, orders: HireOrder[], wd: Work
  * byggeplan», 2026-10-26): a line per supplier and shift, the brush a competence and maybe a project with a count of people.
  */
 
-/** What a supplier is ordered for on a day, over its shifts and competences: people and paid hours, in all, and of them what waits for an answer. */
+/** Of what a supplier is ordered for on a day, the people of one competence, and of them those that wait for an answer. */
+export interface SupplierPart {
+  competence: string
+  people: number
+  waiting: number
+}
+
+/** What a supplier is ordered for on a day, over its shifts and competences: people and paid hours, in all, and of them what waits for an answer; and the people per competence, in the order they were first ordered. */
 export interface SupplierDay {
   people: number
   waiting: number
   hours: number
   waitingHours: number
+  parts: SupplierPart[]
 }
 
 /** What each supplier is ordered for per day, for its name line and its week: by supplier, then by date. */
@@ -426,10 +434,12 @@ export const supplierDays = (orders: HireOrder[], wd: WorkdaySettings): Map<stri
   const map = new Map<string, Map<ISODate, SupplierDay>>()
   for (const order of orders) {
     const days = map.get(order.supplierId) ?? new Map<ISODate, SupplierDay>()
-    const day = days.get(order.date) ?? { people: 0, waiting: 0, hours: 0, waitingHours: 0 }
+    const day = days.get(order.date) ?? { people: 0, waiting: 0, hours: 0, waitingHours: 0, parts: [] }
     const hours = order.fte * hireHours(order, wd)
-    const waits = isWaiting(order)
-    days.set(order.date, { people: day.people + order.fte, waiting: day.waiting + (waits ? order.fte : 0), hours: day.hours + hours, waitingHours: day.waitingHours + (waits ? hours : 0) })
+    const waiting = isWaiting(order) ? order.fte : 0
+    const part = day.parts.find((one) => one.competence === order.competence)
+    const parts = part ? day.parts.map((one) => (one === part ? { ...one, people: one.people + order.fte, waiting: one.waiting + waiting } : one)) : [...day.parts, { competence: order.competence, people: order.fte, waiting }]
+    days.set(order.date, { people: day.people + order.fte, waiting: day.waiting + waiting, hours: day.hours + hours, waitingHours: day.waitingHours + (waiting ? hours : 0), parts })
     map.set(order.supplierId, days)
   }
   return map

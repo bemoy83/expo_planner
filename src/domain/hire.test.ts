@@ -345,9 +345,9 @@ describe('orders painted on the suppliers\' lines', () => {
     const days = supplierDays([on('k1', 'dag', MON, 2, 2), on('k1', 'kveld', MON, 1, null, 'tepper'), on('k1', 'dag', TUE, 1, null), on('k3', 'dag', MON, 3, 3)], wd)
     const dag = hireHours(DAG, wd)
     const kveld = hireHours(KVELD, wd)
-    expect(days.get('k1')?.get(MON)).toEqual({ people: 3, waiting: 1, hours: 2 * dag + kveld, waitingHours: kveld })
-    expect(days.get('k1')?.get(TUE)).toEqual({ people: 1, waiting: 1, hours: dag, waitingHours: dag })
-    expect(days.get('k3')?.get(MON)).toEqual({ people: 3, waiting: 0, hours: 3 * dag, waitingHours: 0 })
+    expect(days.get('k1')?.get(MON)).toEqual({ people: 3, waiting: 1, hours: 2 * dag + kveld, waitingHours: kveld, parts: [{ competence: 'vegger', people: 2, waiting: 0 }, { competence: 'tepper', people: 1, waiting: 1 }] })
+    expect(days.get('k1')?.get(TUE)).toEqual({ people: 1, waiting: 1, hours: dag, waitingHours: dag, parts: [{ competence: 'vegger', people: 1, waiting: 1 }] })
+    expect(days.get('k3')?.get(MON)).toEqual({ people: 3, waiting: 0, hours: 3 * dag, waitingHours: 0, parts: [{ competence: 'vegger', people: 3, waiting: 0 }] })
   })
 
   it('empties the days of lines of every order on them, or of one competence and project', () => {
