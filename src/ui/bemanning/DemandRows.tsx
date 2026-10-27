@@ -125,9 +125,8 @@ const DemandLine = memo(function DemandLine({ row: { style, key }, able, cols, b
  */
 export function DemandRows() {
   const bm = useBemanning()
-  const { staffed, remainingOf, shownBalance, shownRemaining, uncoverable, cols, brush, brushProject, brushHall, projectLines, projectShown, restShown, placeLines, placeShown, demandDensity, onFocusDate, pickFromDemand, pickProject, pickPlace, setDemandPop } = bm
+  const { isStaffed: able, remainingOf, shownBalance, shownRemaining, uncoverable, cols, brush, brushProject, brushHall, projectLines, projectShown, restShown, placeLines, placeShown, demandDensity, onFocusDate, pickFromDemand, pickProject, pickPlace, setDemandPop } = bm
   const compact = demandDensity === 'compact'
-  const able = (competence: string) => staffed.some((style) => style.key === competence)
   const onDay = (competence: string, date: ISODate, event: React.MouseEvent) => {
     // A click on a day picks its competence, makes the day the one in focus, and opens its balance with moved hours.
     if (able(competence) && competence !== brush) bm.pickBrush(competence)

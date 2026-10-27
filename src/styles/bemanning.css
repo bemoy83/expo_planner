@@ -58,9 +58,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 /* hours carried here from the day before: a dot in the corner */
 .bm-carried{position:absolute;top:3px;left:3px;width:5px;height:5px;border-radius:50%;background:var(--over)}
 /* a competence in focus: its line and the lines of its projects stay, the others step back; their days are neutral, as an open level's in the plan, and the line that is the brush has the mark at its name */
-/* A line that steps back lies over today's line on the page's own colour, and only what is on it is dimmed: the line itself stays
-   solid, so today's line does not show through it, nor do the days under its label column */
-.bm-demand.dim{position:relative;z-index:2;background:var(--bg)}
+/* A line that steps back has only what is on it dimmed; today's line goes on over it, through the whole of the competences (the planner's choice, 2026-10-27). */
 .bm-demand.dim>.cell,.bm-demand.dim .grid-label>*{opacity:.5}
 .bm-demand.dim:hover>.cell,.bm-demand.dim:hover .grid-label>*{opacity:.8}
 /* the line that is the brush: its name in a stronger tint with the mark, to say which project and place are chosen, */

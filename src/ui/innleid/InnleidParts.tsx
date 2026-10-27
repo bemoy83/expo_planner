@@ -1,7 +1,7 @@
 import { memo, useMemo, type ReactNode } from 'react'
 import { CircleHelp, Minus, Plus, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { coverFigure, dayKey, HOURS_NOISE, isWaiting, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
+import { coverFigure, dayKey, HOURS_NOISE, isWaiting, missingIn, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { PanelToggle } from '../common'
 import { count } from '../dom'
@@ -205,9 +205,9 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
 /** The demand of Innleid, Faste's list of competences (`CompetenceList`): a line per competence with what remains after the permanent staff and how far the orders cover it, and under the brush's its projects. */
 function HireDemandRows() {
   const { cols, dates, viewFrom, viewTo, demandRows, demandDensity } = useBemanning()
-  const { board, suppliers, orders, wd, actions, brush, brushProject, projectLines, projectName, offered } = useInnleid()
+  const { board, suppliers, orders, wd, actions, brush, brushProject, projectLines, projectName, isOffered } = useInnleid()
   const view = dates.slice(viewFrom, viewTo + 1)
-  const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
+  const missing = (key: string) => missingIn((date) => board.cover(key, date), view)
   const compact = demandDensity === 'compact'
   // One function per competence for as long as the orders are the same, so a scroll frame draws no line again.
   const ordersOf = useMemo(() => {
@@ -230,7 +230,7 @@ function HireDemandRows() {
           projectName={projectName}
           missing={missing(style.key)}
           pickKey={key}
-          able={offered.has(style.key)}
+          able={isOffered(style.key)}
           on={mine}
           held={mine && !!brushProject}
           summed={opened}
