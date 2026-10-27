@@ -96,6 +96,9 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   // ---- the parts --------------------------------------------------------------------------------------
   const view = useBemanningBalance({ active, ws, dates, cols, viewport, planned, panelOpen: panel !== null, focusDate })
   const { staffed, styles, balance, projectBalance, viewDates, remainingOf, firstWorkday, weekStart, week } = view
+  // The competences someone of the permanent staff has: the others cannot be the brush in Faste, and their lines are greyed.
+  const staffedKeys = useMemo(() => new Set(staffed.map((style) => style.key)), [staffed])
+  const isStaffed = useCallback((competence: string) => staffedKeys.has(competence), [staffedKeys])
   const brush = useBrush({ ws, staffed, balance, projectBalance, planned, viewDates, firstWorkday, toast, setSelection, setUnfolded })
   const { tool, activeTool, activeBrush, activeProject, activeHall, brushWork, projectLines, placeLines, clearBrush, pickTool, pickBrush, stepProject } = brush
   const people = usePeopleLines({ active, ws, dates, brush: activeBrush, week, weekStart, unfolded, overtimeLimit })
@@ -204,7 +207,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     closePanel: () => setPanel(null),
     fold: () => setUnfolded(null),
     pickTool,
-    brushKeys: pickKeys(view.demandRows, (competence) => staffed.some((style) => style.key === competence)),
+    brushKeys: pickKeys(view.demandRows, isStaffed),
     pickBrush,
     toggleHours: () => {
       const personId = selected?.personId ?? unfolded
@@ -227,7 +230,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
 
   return {
     ws, dates, cols, scrollRef, room: view.room, viewFrom: view.viewFrom, viewTo: view.viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
-    persons, staffed, styles, keyOf: view.keyOf, lastKey: Math.min(view.demandRows.length, LAST_KEY),
+    persons, staffed, isStaffed, styles, keyOf: view.keyOf, lastKey: Math.min(view.demandRows.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, brushProject: activeProject, brushHall: activeHall, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand: brush.pickFromDemand, pickProject: brush.pickProject, pickPlace: brush.pickPlace,
     balance, shownBalance: preview.shownBalance, shownRemaining: preview.shownRemaining, totals: view.totals, remainingOf, demandRows: view.demandRows, uncoverable: view.uncoverable, projectLines, projectShown: preview.projectShown, restShown: preview.restShown, placeLines, placeShown: preview.placeShown, projectName: brush.projectName, projectBalance, kalenderProjects: brush.kalenderProjects,
     lines, listed, listedAble, able: people.able, week, isOk: people.isOk, isOpen: people.isOpen, ghost: preview.ghost, info: preview.info, refused: preview.refused, stroke, stretch: preview.stretch, paintReach: preview.paintReach, selected, selection, clip, setClip,

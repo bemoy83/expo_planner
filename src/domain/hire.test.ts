@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, missingIn, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -48,6 +48,7 @@ describe('coverage of a competence on a day (I1)', () => {
     expect(coverage(60, [], wd).state).toBe('short')
     expect(coverage(0, [], wd).state).toBe('none')
     expect(coverage(-7.5, [], wd)).toMatchObject({ rest: 0, state: 'none' })
+    expect(missingIn((date) => (date === '2026-10-08' ? coverage(60, [], wd) : coverage(0, [order('b2', 'k1', 'vegger', date, 4, 4)], wd)), ['2026-10-08', '2026-10-09'])).toBe(60)
   })
 
   it('counts an order that waits as ordered, but not as confirmed', () => {

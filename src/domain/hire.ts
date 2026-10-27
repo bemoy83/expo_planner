@@ -109,6 +109,9 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
 /** The figure a cover is shown with: the hours missing as a negative number, the hours over as a positive one, `null` where neither. */
 export const coverFigure = (cover: Coverage): number | null => (Math.abs(cover.remaining) > HOURS_NOISE ? -cover.remaining : null)
 
+/** The hours missing over some days, where a day with more ordered than remains makes up for none of another: what a line of Innleid shows in its label column. */
+export const missingIn = (cover: (date: ISODate) => Coverage, days: ISODate[]): number => days.reduce((sum, date) => sum + Math.max(0, cover(date).remaining), 0)
+
 /** A rule between two orders is dropped where any order is this thin a share of the label: it would hide it. */
 const THIN_SHARE = 0.04
 

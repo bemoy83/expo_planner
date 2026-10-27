@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
-import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
+import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, missingIn, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
 import { NO_PROJECT, projectsWithWork } from '../../domain/staffing/projectBalance'
 import { numberKey } from '../../domain/projects'
@@ -172,7 +172,7 @@ function useInnleidState(active: boolean, counted: boolean) {
         const ordersOf = (date: ISODate) => sharedOn(date)[at]
         const cover = (date: ISODate) => coverage(line.restOf(date), ordersOf(date), wd)
         const rest = line.projectNo === undefined
-        return { projectNo: line.projectNo ?? NO_PROJECT, name: rest ? 'Uten prosjekt' : projectName(line.projectNo!), rest, orders: ordersOf, cover, missing: view.reduce((sum, date) => sum + Math.max(0, cover(date).remaining), 0) }
+        return { projectNo: line.projectNo ?? NO_PROJECT, name: rest ? 'Uten prosjekt' : projectName(line.projectNo!), rest, orders: ordersOf, cover, missing: missingIn(cover, view) }
       })
       const projects = all.filter((line) => !line.rest)
       const rest = all.find((line) => line.rest)!
@@ -184,14 +184,15 @@ function useInnleidState(active: boolean, counted: boolean) {
   // ---- the brush, as Faste's (`useBrushPick`): a competence, and under it maybe a project, with a count of people ---------------
   // The competences a supplier offers: the others cannot be the brush, and their lines are greyed.
   const offered = useMemo(() => new Set(suppliers.flatMap((supplier) => supplier.competences)), [suppliers])
-  const brushKeys = useMemo(() => bm.demandRows.map(({ style }) => style.key).filter((key) => offered.has(key)), [bm.demandRows, offered])
+  const isOffered = useCallback((competence: string) => offered.has(competence), [offered])
+  const brushKeys = useMemo(() => bm.demandRows.map(({ style }) => style.key).filter(isOffered), [bm.demandRows, isOffered])
   const pick = useBrushPick({
     keys: brushKeys,
     linesOf: useCallback((competence: CompetenceKey) => projectLinesOf(competence, stored), [projectLinesOf, stored]),
     // R14: with no brush, Pensel takes the competence with the most missing in the days in view.
     fallback: () => {
-      const missing = (key: CompetenceKey) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
-      return [...rows].filter((style) => offered.has(style.key)).sort((a, b) => missing(b.key) - missing(a.key))[0]?.key ?? null
+      const missing = (key: CompetenceKey) => missingIn((date) => board.cover(key, date), view)
+      return [...rows].filter((style) => isOffered(style.key)).sort((a, b) => missing(b.key) - missing(a.key))[0]?.key ?? null
     },
     noneText: 'Ingen kompetanse har restbehov i perioden.',
     toast,
@@ -208,7 +209,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     if (active && bm.brush) pick.take(bm.brush, bm.brushProject)
   }
   useEffect(() => {
-    if (active || !brush || brush === bm.brush || !bm.staffed.some((style) => style.key === brush)) return
+    if (active || !brush || brush === bm.brush || !bm.isStaffed(brush)) return
     bm.pickBrush(brush)
     if (activeTool !== 'paint') bm.pickTool('select')
   }, [active]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -523,7 +524,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     closePanel: () => setPanel(null),
     fold: () => {},
     pickTool,
-    brushKeys: pickKeys(bm.demandRows, (competence) => offered.has(competence)),
+    brushKeys: pickKeys(bm.demandRows, isOffered),
     pickBrush,
     stepCount,
     canStepLines: brush !== null && projectLines.some((line) => !line.rest),
@@ -550,7 +551,7 @@ function useInnleidState(active: boolean, counted: boolean) {
 
   return {
     board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), suppliers, orders, stored, wd, view,
-    tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, offered,
+    tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, isOffered,
     panel, setPanel, openControl: () => setPanel({ kind: 'control' }), openNextUnder, showOrder,
     projectLines, projectName, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
     clip, orderPop, setOrderPop, demandPop, setDemandPop, projectsFor, pickProject,
