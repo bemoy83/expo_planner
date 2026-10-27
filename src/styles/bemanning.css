@@ -170,13 +170,14 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-block:is(.join-next,.meet-next){--cut-end:0px}
 /* The name lies over the blocks by coming after them, with no level of its own: what a day puts on top of its blocks (its overtime, why the person is away, the grip of an end) is on top of the name too. */
 .bm-run{position:absolute;top:7px;bottom:7px;display:flex;align-items:center;pointer-events:none}
-/* A name is written one way, on a single day and on a run: light, on a badge of the competence's colour. On the block's own colour the badge is not seen; over a hatch, and where a run's name slides over what is under it as the days scroll, it is what keeps the name readable. */
-.bm-block b,.bm-run-name{padding:1px 7px;overflow:hidden;border-radius:4px;font-family:var(--font-ui);font-size:var(--fs-sm);font-weight:600}
-.bm-block b,.bm-run-name:not(.other){background:var(--cc);color:var(--on-line)}
-/* The badge keeps clear of the two ends of its run, where the grip of an end shows on the block under it. */
-.bm-run-name{position:sticky;margin:0 8px;padding-left:4px;white-space:nowrap}
-/* A dimmed block is see-through with its name and badge, so the badge is its colour mixed into the ground by as much. The run's name lies over its blocks and is given that colour outright, with its name in the muted ink. */
-.bm-run-name.other{background:color-mix(in srgb,var(--cc) 28%,var(--bg));color:var(--muted)}
+/* A name is written one way, on a single day and on a run, in Faste and on Innleid's orders: text on the block, with no fill of its own (the planner's choice, 2026-10-27), in the block's ink: light on its colour, the text's ink on a hatch, and muted where the block steps back. */
+:is(.bm-block b,.bm-run-name,.il-run-name){overflow:hidden;font:600 var(--fs-sm) var(--font-ui);white-space:nowrap}
+.bm-block b{padding:1px 7px}
+.bm-run{color:var(--on-line)}
+.bm-run.hatched{color:var(--text)}
+/* A run's name keeps clear of the two ends of its run, where the grip of an end shows on the block under it. */
+.bm-run-name{position:sticky;margin:0 8px;padding:1px 7px 1px 4px}
+.bm-run-name.other{color:var(--muted)}
 /* a block whose hours are back in the demand: hatched in its colour, with no outline, so a run it is a part of stays one piece. The same in the folded day and in the open hours. */
 .bm-block.unresolved,.bm-edit-block.unresolved{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,transparent) 0 2px,transparent 2px 6px);color:var(--text);opacity:.85}
 .bm-block.other,.bm-edit-block.other{opacity:.28}
@@ -313,16 +314,14 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-line:not(.il-supplier) .il-shift{margin-left:28px}
 .il-shift.retired{text-decoration:line-through}
 .il-retired{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
-/* An order's run on a shift line: one piece over its days in the competence's colour, with ink on it; one that waits for an answer is hatched in the colour, the hatch running on unbroken over the days. Its name stays at the left edge of the days while the run is in view, as a run's in Faste. */
+/* An order's run on a shift line: one piece over its days in the competence's colour, with ink on it; one that waits for an answer is hatched in the colour, the hatch running on unbroken over the days. Its name stays at the left edge of the days while the run is in view, as a run's in Faste, written as Faste's names are (`.bm-run-name`), drawn and while a stroke is drawn. */
 .il-run{position:absolute;display:flex;align-items:center;border-radius:5px;background:var(--cc);color:var(--on-line)}
 .il-run.waits{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 75%,var(--bg)) 0 2px,color-mix(in oklab,var(--cc) 20%,var(--bg)) 2px 5.5px);color:var(--text)}
 .il-run.other{opacity:.28}
 /* What a stroke under way would do: what the brush adds or changes in a tint of the colour, what Tøm takes away hatched pale, as Faste's strokes show them. */
 .il-run.coming{background:color-mix(in oklab,var(--cc) 34%,var(--bg));color:var(--text)}
 .il-run.going{background:repeating-linear-gradient(135deg,color-mix(in oklab,var(--cc) 30%,var(--bg)) 0 2px,var(--bg) 2px 6px);color:var(--muted)}
-.il-run:is(.coming,.going) .il-run-name{background:transparent}
-.il-run-name{position:sticky;display:flex;align-items:center;gap:6px;min-width:0;margin:0 3px;padding:1px 6px;overflow:hidden;border-radius:4px;background:inherit;font:600 var(--fs-sm) var(--font-ui);white-space:nowrap}
-.il-run.waits .il-run-name{background:color-mix(in oklab,var(--cc) 20%,var(--bg))}
+.il-run-name{position:sticky;display:flex;align-items:center;gap:6px;min-width:0;margin:0 3px;padding:1px 6px}
 .il-run.sm .il-run-name{padding:0 5px;font-size:var(--fs-xs)}
 .il-run-name b{font:700 var(--fs-xs) var(--font-num)}
 .il-run-name small{font:400 var(--fs-2xs) var(--font-num)}
