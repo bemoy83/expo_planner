@@ -302,8 +302,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-supplier .cell{border-bottom:1px solid var(--grid-row)}
 .il-people{gap:6px;font:600 var(--fs-sm) var(--font-num)}
 .il-people .waits{padding:2px 6px;border-radius:4px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 14%,transparent) 0 2px,transparent 2px 5px)}
-/* A supplier's lines, as a person's in Faste (the v9 design, 2026-10-26): the supplier's first line has the strong line over it, its shifts are indented under its name, and a shift it no longer offers is struck through with the mark of attention. */
-.il-supplier{border-top:1px solid var(--grid-top)}
+/* A supplier's lines, as a person's in Faste (the v9 design, 2026-10-26): no strong line between the suppliers, as none between the people (2026-10-27); its shifts are indented under its name, and a shift it no longer offers is struck through with the mark of attention. */
 .il-shift{flex:none;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
 .il-shift b{font:500 var(--fs-sm) var(--font-ui);color:var(--text)}
 .il-line:not(.il-supplier) .il-shift{margin-left:28px}
