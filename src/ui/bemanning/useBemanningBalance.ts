@@ -62,6 +62,8 @@ export function useBemanningBalance({ active, ws, dates, cols, viewport, planned
     const held = new Set([...staffed.map((style) => style.key), ...(hireOrders ?? []).map((order) => order.competence)])
     return [...styles.values()].filter((style) => held.has(style.key) || remainingOf.has(style.key)).map((style, at) => ({ style, key: at < LAST_KEY ? at + 1 : 0 }))
   }, [staffed, hireOrders, styles, remainingOf])
+  /** The competences of the list, for the marks beside each name of the people and the suppliers. */
+  const listStyles = useMemo(() => demandRows.map((row) => row.style), [demandRows])
   const keyOf = useMemo(() => new Map(demandRows.filter((row) => row.key).map((row) => [row.style.key, row.key])), [demandRows])
 
   const firstWorkday = useMemo(() => {
@@ -86,7 +88,7 @@ export function useBemanningBalance({ active, ws, dates, cols, viewport, planned
     return hours
   }, [active, ws, balance, demandRows, cols.dates])
 
-  return { staffed, styles, keyOf, balance, projectBalance, room, viewFrom, viewTo, viewDates, totals, remainingOf, demandRows, firstWorkday, weekStart, week, uncoverable }
+  return { staffed, styles, keyOf, balance, projectBalance, room, viewFrom, viewTo, viewDates, totals, remainingOf, demandRows, listStyles, firstWorkday, weekStart, week, uncoverable }
 }
 
 /** A competence's line of the demand, with the key 1 to 9 that picks it, or 0. */
