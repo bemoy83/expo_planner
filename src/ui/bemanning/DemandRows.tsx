@@ -142,13 +142,14 @@ export function DemandRows() {
     onProject: (projectNo: string) => (projectNo === brushProject && brushHall !== null ? pickPlace(null) : pickProject(projectNo === brushProject ? null : projectNo)),
     onPlace: (hall: string) => pickPlace(hall === brushHall ? null : hall),
   })
+  // The competence in focus and the lines under it are always drawn in full, compact or not (2026-10-27); the others shrink to their thin line while it is open.
   const line = (row: DemandRow) => {
     const inFocus = row.style.key === brush
     // The competence in focus with lines under it leaves its days to them, as an open level of the plan.
     const opened = inFocus && projectLines.length > 0
     return (
       <Fragment>
-        <DemandLine row={row} able={able(row.style.key)} cols={cols} balance={shownBalance} uncoverable={uncoverable} remaining={shownRemaining.get(row.style.key) ?? 0} compact={compact || (brush !== null && !inFocus)} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} projectHeld={inFocus && brushProject !== null} summed={opened} treeOuter={opened ? 'start' : undefined} />
+        <DemandLine row={row} able={able(row.style.key)} cols={cols} balance={shownBalance} uncoverable={uncoverable} remaining={shownRemaining.get(row.style.key) ?? 0} compact={!inFocus && (compact || brush !== null)} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} projectHeld={inFocus && brushProject !== null} summed={opened} treeOuter={opened ? 'start' : undefined} />
         {inFocus &&
           projectLines.map((project, i) => {
             const shown = projectShown.get(project.projectNo)
@@ -165,7 +166,7 @@ export function DemandRows() {
                   balance={shown.balance}
                   uncoverable={NO_HOURS}
                   remaining={shown.remaining}
-                  compact={compact}
+                  compact={false}
                   brush={brush}
                   onPick={handlers.onPick}
                   onDay={handlers.onDay}
@@ -189,7 +190,7 @@ export function DemandRows() {
                         balance={at.balance}
                         uncoverable={NO_HOURS}
                         remaining={at.remaining}
-                        compact={compact}
+                        compact={false}
                         brush={brush}
                         onPick={handlers.onPick}
                         onDay={handlers.onDay}
@@ -206,7 +207,7 @@ export function DemandRows() {
             ) : null
           })}
         {inFocus && restShown && (
-          <DemandLine row={row} able cols={cols} balance={restShown.balance} uncoverable={NO_HOURS} remaining={restShown.remaining} compact={compact} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} rest treeOuter="end" />
+          <DemandLine row={row} able cols={cols} balance={restShown.balance} uncoverable={NO_HOURS} remaining={restShown.remaining} compact={false} brush={brush} onPick={handlers.onPick} onDay={handlers.onDay} rest treeOuter="end" />
         )}
       </Fragment>
     )
