@@ -8,7 +8,7 @@ import { competenceColor, count, modKey } from '../dom'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
 import { daysWide, LEFT_W } from '../kalender/layout'
-import { CrewHeading } from './CrewFrame'
+import { CrewHeading, CrewName } from './CrewFrame'
 import { useBemanning, type PersonActions, type StretchPlan } from './BemanningScope'
 import { dayCell, runLabel, spanOf, type BlockNames, type Span } from './dayCell'
 import { DAY_INSET, DIVIDER_H, joinedClass, joinedPlace, PERSON_H } from './layout'
@@ -30,7 +30,7 @@ interface LineProps {
   week: PersonWeek
   cols: Columns
   workday: WorkdaySettings
-  /** The competences people have, in order: one dot each in the label. */
+  /** The competences of the list, in order: one mark each in the label. */
   competences: CompetenceStyle[]
   styles: Map<string, CompetenceStyle>
   isOk: (a: Assignment) => boolean
@@ -90,14 +90,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
           <button className="row-action" aria-expanded={false} aria-label="Brett ut timer" title="Brett ut timer (E)" onClick={() => actions.unfold(person.id)}>
             <ChevronRight size={14} aria-hidden />
           </button>
-          <span className="bm-person-name" title="Vis timer, overtid og fravær" onClick={() => actions.openPanel(person.id)}>
-            <span className="bm-name">{person.name}</span>
-            <span className="bm-dots">
-              {competences.map((style) => (
-                <i key={style.key} className={`${person.competences.includes(style.key) ? 'has' : ''} ${style.key === brush ? 'focused' : ''}`} style={competenceColor(style)} title={person.competences.includes(style.key) ? style.label : undefined} />
-              ))}
-            </span>
-          </span>
+          <CrewName name={person.name} title="Vis timer, overtid og fravær" onOpen={() => actions.openPanel(person.id)} competences={competences} has={(competence) => person.competences.includes(competence)} focus={brush} />
           <WeekMeter week={week} overLimit={overLimit} />
         </>
       }
@@ -168,7 +161,7 @@ export function PeopleHeading() {
 /** The people, one line each, with what a stroke under way covers laid over them. */
 export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void }) {
   const bm = useBemanning()
-  const { ws, cols, listed, listedAble, staffed, styles, isOk, isOpen, brush, tool, stroke, stretch, paintReach, selection, clip, refused, ghost, info, actions, bodyRef, dates } = bm
+  const { ws, cols, listed, listedAble, listStyles, styles, isOk, isOpen, brush, tool, stroke, stretch, paintReach, selection, clip, refused, ghost, info, actions, bodyRef, dates } = bm
   const gap = listedAble < listed.length && brush ? DIVIDER_H : 0
   const topOf = (row: number) => row * PERSON_H + (row >= listedAble ? gap : 0)
   // A stroke that moves a day's blocks has no outline: the blocks show where they would land. A pulled end of a run has the pill of one over the days it changes, without the outline.
@@ -219,7 +212,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               week={week}
               cols={cols}
               workday={ws.settings.workday}
-              competences={staffed}
+              competences={listStyles}
               styles={styles}
               isOk={isOk}
               isOpen={isOpen}

@@ -105,7 +105,7 @@ export function SupplierHeading() {
     <CrewHeading
       title="Leverandører"
       note={brush ? `${able} av ${suppliers.length} tilbyr ${styles.get(brush)?.label ?? brush}` : count(suppliers.length, 'leverandør', 'leverandører')}
-      end="pers."
+      end="uke · timer"
       legend="Klikk et navn for leverandøren · Pensel bestiller antallet på dagene og skiftene du drar over · Alt+dra tømmer"
     />
   )

@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { Maximize2, Printer } from 'lucide-react'
+import type { CompetenceStyle } from '../../domain/types'
+import { competenceColor } from '../dom'
 import { ToolSwitch, UndoRedoButtons, type ToolChoice } from '../common'
 import { ModeSwitch, ModeTag, PartSwitch } from '../kalender/KalenderBar'
 import { LEFT_W, ROW_H } from '../kalender/layout'
@@ -133,5 +135,41 @@ export function CrewHeading({ title, note, end, legend }: { title: string; note:
         <span>{legend}</span>
       </span>
     </div>
+  )
+}
+
+interface NameProps {
+  name: string
+  /** What a click on the name does, and says under the pointer: it opens the person's or the supplier's panel. */
+  onOpen: () => void
+  title: string
+  /** What follows the name, as a supplier's mark that orders wait for an answer. */
+  mark?: ReactNode
+  /** The competences of the list (`listStyles`), a mark each in the same place in Faste and in Innleid, filled for those `has` holds. */
+  competences: CompetenceStyle[]
+  has: (competence: string) => boolean
+  /** The competence of the brush, whose mark has a ring. */
+  focus: string | null
+  /** What stands to the right of the marks, as a supplier's shift on its one line. */
+  aside?: ReactNode
+}
+
+/** The name of a person or a supplier in the label column, the same in Faste and Innleid (2026-10-27): the name, and under it the marks of the competences. */
+export function CrewName({ name, onOpen, title, mark, competences, has, focus, aside }: NameProps) {
+  return (
+    <span className="bm-person-name" title={title} onClick={onOpen}>
+      <span className="bm-name-line">
+        <span className="bm-name">{name}</span>
+        {mark}
+      </span>
+      <span className="bm-name-line">
+        <span className="bm-dots">
+          {competences.map((style) => (
+            <i key={style.key} className={`${has(style.key) ? 'has' : ''} ${style.key === focus ? 'focused' : ''}`} style={competenceColor(style)} title={has(style.key) ? style.label : undefined} />
+          ))}
+        </span>
+        {aside}
+      </span>
+    </span>
   )
 }

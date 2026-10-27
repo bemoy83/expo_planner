@@ -1,47 +1,56 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { laneOf, SHIFT_LABELS, shiftTimes, supplierDays, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
-import { DAY_INSET, DIVIDER_H, shiftLine } from '../bemanning/layout'
+import { CrewName } from '../bemanning/CrewFrame'
+import { DAY_INSET, DIVIDER_H, PERSON_H, shiftLine } from '../bemanning/layout'
 import { strokeRange } from '../bemanning/tools'
 import { competenceColor, count } from '../dom'
 import { hoursText } from '../format'
 import { Line } from '../kalender/GridRows'
 import { dayClass, type Columns } from '../kalender/gridTypes'
-import { daysWide, LEFT_W, ROW_H } from '../kalender/layout'
+import { daysWide, LEFT_W } from '../kalender/layout'
 import { PILL_ROOM, StrokeBox } from '../kalender/StrokeBox'
 import { useInnleid, type InnleidActions } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 
-/** What the label of a supplier's first line holds: its name, which opens its panel, and what it offers. */
+/** What the label of a supplier's first line holds: its name, which opens its panel, the marks of what it offers, and its week. */
 interface NameProps {
   supplier: Supplier
-  /** The competences of the board, for the marks of what the supplier offers. */
+  /** The competences of the list (`listStyles`), for the marks of what the supplier offers. */
   competences: CompetenceStyle[]
   /** The competence of the brush, whose mark has a ring. */
   focus: string | null
   waits: boolean
-  /** The people-days in the days in view. */
-  total: number
+  /** What it is ordered for in the week of the people's in Faste: paid hours, and of them those that wait for an answer. */
+  week: { hours: number; waiting: number }
   actions: InnleidActions
 }
 
-function SupplierName({ supplier, competences, focus, waits, actions }: NameProps) {
+function SupplierName({ supplier, competences, focus, waits, actions, aside }: NameProps & { aside?: ReactNode }) {
   return (
-    <>
-      <button className="il-supplier-name lbl-desc" title={`Åpne bestillingen til ${supplier.name}`} onClick={() => actions.openSupplier(supplier.id)}>
-        {supplier.name}
-      </button>
-      {waits && <AnswerGlyph waits size={12} />}
-      <span className="bm-dots" title={`Tilbyr: ${competences.filter((style) => supplier.competences.includes(style.key)).map((style) => style.label).join(', ') || 'ingen av kompetansene med restbehov'}`}>
-        {competences.map((style) => (
-          <i key={style.key} className={`${supplier.competences.includes(style.key) ? 'has' : ''} ${style.key === focus ? 'focused' : ''}`} style={competenceColor(style)} />
-        ))}
-      </span>
-    </>
+    <CrewName
+      name={supplier.name}
+      title={`Åpne bestillingen til ${supplier.name}`}
+      onOpen={() => actions.openSupplier(supplier.id)}
+      mark={waits && <AnswerGlyph waits size={12} />}
+      competences={competences}
+      has={(competence) => supplier.competences.includes(competence)}
+      focus={focus}
+      aside={aside}
+    />
+  )
+}
+
+/** A supplier's hours ordered in the week, where Faste has a person's hours against their capacity: a supplier has none. */
+function WeekHours({ supplier, week }: { supplier: Supplier; week: NameProps['week'] }) {
+  return (
+    <span className="bm-person-week" title={`${hoursText(week.hours)} t bestilt fra ${supplier.name} denne uka${week.waiting > 0 ? `, ${hoursText(week.waiting)} t av dem venter på svar` : ''}`}>
+      <span>{week.hours > 0 && <b>{hoursText(week.hours)}</b>}</span>
+    </span>
   )
 }
 
@@ -62,10 +71,12 @@ const NameLine = memo(function NameLine({ cols, days, folded, empty, dim, onOpen
   return (
     <Line
       className={`il-supplier ${dim ? 'dim' : ''}`}
-      height={ROW_H}
+      height={PERSON_H}
       label={
         <>
-          {!empty && (
+          {empty ? (
+            <span className="row-gap" />
+          ) : (
             <button className="row-action" aria-expanded={!folded} aria-label={folded ? 'Vis skiftene' : 'Skjul skiftene'} title={folded ? 'Vis skiftene' : 'Skjul skiftene'} onClick={() => actions.fold(supplier.id)}>
               {folded ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
             </button>
@@ -76,7 +87,7 @@ const NameLine = memo(function NameLine({ cols, days, folded, empty, dim, onOpen
               Ingen skift
             </button>
           ) : (
-            <span className="bm-week-left">{name.total || ''}</span>
+            <WeekHours supplier={supplier} week={name.week} />
           )}
         </>
       }
@@ -117,30 +128,33 @@ interface ShiftLineProps {
   named?: boolean
   competences: CompetenceStyle[]
   waits: boolean
-  total: number
+  week: NameProps['week']
 }
 
 /** A supplier's shift, as a person's line in Faste: its orders as runs over the days, a lane in height for each competence and project. */
-const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions, named = false, competences, waits, total }: ShiftLineProps) {
+const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions, named = false, competences, waits, week }: ShiftLineProps) {
   const geometry = shiftLine(runs.lanes.length)
   const times = timesText(shiftTimes(line.shift, wd))
+  const shift = (
+    <span className={`il-shift ${line.offered ? '' : 'retired'}`} title={line.offered ? `${supplier.name} · ${SHIFT_LABELS[line.shift]} ${times}` : `${supplier.name} tilbyr ikke ${SHIFT_LABELS[line.shift].toLowerCase()} lenger. Bestillingene står til de er flyttet eller fjernet.`}>
+      <b>{SHIFT_LABELS[line.shift]}</b> {times}
+    </span>
+  )
   return (
     <Line
       className={`il-line ${named ? 'il-supplier' : ''} ${dim ? 'dim' : ''}`}
       height={geometry.height}
       label={
         <>
-          {named && <SupplierName supplier={supplier} competences={competences} focus={focus} waits={waits} total={total} actions={actions} />}
-          <span className={`il-shift ${line.offered ? '' : 'retired'}`} title={line.offered ? `${supplier.name} · ${SHIFT_LABELS[line.shift]} ${times}` : `${supplier.name} tilbyr ikke ${SHIFT_LABELS[line.shift].toLowerCase()} lenger. Bestillingene står til de er flyttet eller fjernet.`}>
-            <b>{SHIFT_LABELS[line.shift]}</b> {times}
-          </span>
+          {named ? <span className="row-gap" /> : null}
+          {named ? <SupplierName supplier={supplier} competences={competences} focus={focus} waits={waits} week={week} actions={actions} aside={shift} /> : shift}
           {!line.offered && (
             <span className="il-retired">
               <i className="need-dot" />
               Tilbys ikke lenger
             </span>
           )}
-          {named && <span className="bm-week-left">{total || ''}</span>}
+          {named && <WeekHours supplier={supplier} week={week} />}
         </>
       }
       cols={cols}
@@ -193,9 +207,14 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
  * over the lines as in Faste, as a box with a pill, and the lines show what the stroke would leave.
  */
 export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
-  const { cols, styles, labelOf } = useBemanning()
-  const { suppliers, stored, rows, view, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
-  const perDay = useMemo(() => supplierDays(stored), [stored])
+  const { cols, styles, labelOf, listStyles, week } = useBemanning()
+  const { suppliers, stored, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
+  const perDay = useMemo(() => supplierDays(stored, wd), [stored, wd])
+  // Each supplier's week, the same object for as long as its orders and the week are, so a scroll frame draws no line again.
+  const weeks = useMemo(() => {
+    const sum = (days: Map<ISODate, SupplierDay> | undefined) => week.reduce((all, date) => ({ hours: all.hours + (days?.get(date)?.hours ?? 0), waiting: all.waiting + (days?.get(date)?.waitingHours ?? 0) }), { hours: 0, waiting: 0 })
+    return new Map(suppliers.map((supplier) => [supplier.id, sum(perDay.get(supplier.id))]))
+  }, [suppliers, perDay, week])
   if (!suppliers.length)
     return (
       <div className="bm-empty">
@@ -219,10 +238,10 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
         const days = perDay.get(supplier.id)
         const name: NameProps = {
           supplier,
-          competences: rows,
+          competences: listStyles,
           focus: brush,
           waits: !!days && [...days.values()].some((day) => day.waiting > 0),
-          total: view.reduce((sum, date) => sum + (days?.get(date)?.people ?? 0), 0),
+          week: weeks.get(supplier.id)!,
           actions,
         }
         const offered = !brush || supplier.competences.includes(brush)
@@ -257,9 +276,9 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                   going={marked?.going}
                   actions={actions}
                   named={block.single}
-                  competences={rows}
+                  competences={listStyles}
                   waits={name.waits}
-                  total={name.total}
+                  week={name.week}
                 />
               )
             })}

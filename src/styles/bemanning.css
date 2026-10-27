@@ -134,6 +134,9 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-person,.il-line{position:relative}
 .bm-person.dim,:is(.il-supplier,.il-line).dim{opacity:.4}
 .bm-person-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.bm-name-line{display:flex;align-items:center;gap:6px;min-width:0}
+/* where a line has no arrow, as a supplier's one line or one with no shift: the room of one, so every name stands in the same place */
+.row-gap{flex:none;width:22px}
 .bm-dots{display:flex;gap:3px}
 .bm-dots i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line-strong) 70%,transparent)}
 .bm-dots i.has{background:var(--cc);box-shadow:none}
@@ -297,10 +300,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-hatch{display:inline-block;flex:none;width:8px;height:8px;border-radius:2px;background:repeating-linear-gradient(135deg,currentColor 0 1.5px,transparent 1.5px 3.5px);box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 45%,transparent);opacity:.8}
 /* the suppliers: the people ordered per day, read across, so a rule under each line and none between the days; those that wait hatched */
 .il-supplier .cell{border-bottom:1px solid var(--grid-row)}
-.il-supplier .grid-label{gap:8px}
-.il-supplier-name{justify-content:flex-start;padding:3px 6px;margin-left:-6px;background:transparent;font:inherit;text-align:left}
-.il-supplier-name:hover{background:var(--sunken)}
-.il-supplier .bm-week-left{min-width:28px;margin-left:8px;justify-content:flex-end}
 .il-people{gap:6px;font:600 var(--fs-sm) var(--font-num)}
 .il-people .waits{padding:2px 6px;border-radius:4px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 14%,transparent) 0 2px,transparent 2px 5px)}
 /* A supplier's lines, as a person's in Faste (the v9 design, 2026-10-26): the supplier's first line has the strong line over it, its shifts are indented under its name, and a shift it no longer offers is struck through with the mark of attention. */
