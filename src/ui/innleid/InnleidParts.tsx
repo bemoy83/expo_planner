@@ -39,7 +39,7 @@ export function InnleidHead({ places, onDayPlan }: { places: ReactNode; onDayPla
   )
 }
 
-/** What is pinned above the suppliers, as above the people in Faste: the projects in view, the Avvik of each day, and the demand per competence. */
+/** What is pinned above the suppliers, as above the people in Faste: the projects in view, the demand per competence, and the Avvik of each day (`CrewTop`). */
 export const InnleidTop = () => <CrewTop demand={<HireDemandRows />} />
 
 /** The planning bar in Innleid, as Faste's: the mode and the part, undo, the tools with the brush and its people, and what is still to do. */

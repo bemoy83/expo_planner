@@ -160,7 +160,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-timeline{position:absolute;inset:7px var(--day-inset)}
 .bm-hatch{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--hatch)}
 .bm-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 7px;overflow:hidden;white-space:nowrap;border-radius:5px;background:var(--cc);color:var(--on-line);box-shadow:0 0 0 1px var(--bg);clip-path:inset(-1px var(--cut-end,-1px) -1px var(--cut-start,-1px));transition:opacity 160ms var(--ease)}
-.bm-block b{margin:0 -7px}
 .bm-block em{margin-left:auto;font:400 var(--fs-2xs) var(--font-num);font-style:normal;opacity:.85}
 /* a run: the blocks of days in a row with one competence meet, square where they do, and have one name between them. */
 /* An end that is joined to the day beside it (`join-`), or that meets what a stroke would put right beside it in its own day (`meet-`), is square, and the block's edge of the ground's colour is cut away there, see `.bm-block`. */
@@ -172,7 +171,6 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-run{position:absolute;top:7px;bottom:7px;display:flex;align-items:center;pointer-events:none}
 /* A name is written one way, on a single day and on a run, in Faste and on Innleid's orders: text on the block, with no fill of its own (the planner's choice, 2026-10-27), in the block's ink: light on its colour, the text's ink on a hatch, and muted where the block steps back. */
 :is(.bm-block b,.bm-run-name,.il-run-name){overflow:hidden;font:600 var(--fs-sm) var(--font-ui);white-space:nowrap}
-.bm-block b{padding:1px 7px}
 .bm-run{color:var(--on-line)}
 .bm-run.hatched{color:var(--text)}
 /* A run's name keeps clear of the two ends of its run, where the grip of an end shows on the block under it. */

@@ -33,14 +33,14 @@ export function CrewHead({ part, meta, metaTitle, places, onDayPlan, dayPlanTitl
   )
 }
 
-/** What is pinned above the lines: the projects in view, the Avvik of each day, and the demand per competence of the part. */
+/** What is pinned above the lines: the projects in view, the demand per competence of the part, and last, right over the bar as «Mangler / over» is in Plan, the Avvik of each day. */
 export function CrewTop({ demand }: { demand: ReactNode }) {
   const { board } = useInnleid()
   return (
     <>
       <ProjectLines />
-      <AvvikSection board={board} />
       {demand}
+      <AvvikSection board={board} />
     </>
   )
 }

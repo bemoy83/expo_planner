@@ -43,7 +43,7 @@ export function BemanningHead({ places, onDayPlan }: { /** The button «Steder»
   )
 }
 
-/** What is pinned above the people: the projects in view, the Avvik of each day as Innleid has it, and the demand per competence. */
+/** What is pinned above the people: the projects in view, the demand per competence, and the Avvik of each day (`CrewTop`). */
 export const BemanningTop = () => <CrewTop demand={<DemandRows />} />
 
 /**
