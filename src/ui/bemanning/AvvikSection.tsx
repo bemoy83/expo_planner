@@ -41,7 +41,7 @@ const AvvikLine = memo(function AvvikLine({ cols, board, maxShortage, maxSurplus
   )
 })
 
-/** What Faste and Innleid both pin above their competences: each day's Avvik after the permanent staff and the confirmed orders. */
+/** What Faste and Innleid both pin last, under their competences and right over the planning bar, as Plan has its own: each day's Avvik after the permanent staff and the confirmed orders. */
 export function AvvikSection({ board }: { board: HireBoard }) {
   const { cols, dates, viewFrom, viewTo } = useBemanning()
   const scale = useMemo(() => heatScale([...board.deviations.values()].map((dev) => dev.value)), [board])
