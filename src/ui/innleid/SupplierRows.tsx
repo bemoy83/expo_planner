@@ -1,4 +1,4 @@
-import { memo, useMemo, type ReactNode } from 'react'
+import { memo, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
@@ -30,7 +30,7 @@ interface NameProps {
   actions: InnleidActions
 }
 
-function SupplierName({ supplier, competences, focus, waits, actions, aside }: NameProps & { aside?: ReactNode }) {
+function SupplierName({ supplier, competences, focus, waits, actions }: NameProps) {
   return (
     <CrewName
       name={supplier.name}
@@ -40,7 +40,6 @@ function SupplierName({ supplier, competences, focus, waits, actions, aside }: N
       competences={competences}
       has={(competence) => supplier.competences.includes(competence)}
       focus={focus}
-      aside={aside}
     />
   )
 }
@@ -65,7 +64,7 @@ interface NameLineProps extends NameProps {
   onOpenSuppliers: () => void
 }
 
-/** A supplier with more than one line: its name, and the people it is ordered for per day over its shifts, those that wait for an answer hatched. Its lines fold under it. */
+/** A supplier's name line: its name, and the people it is ordered for per day over its shifts, those that wait for an answer hatched. Its shift lines fold under it. */
 const NameLine = memo(function NameLine({ cols, days, folded, empty, dim, onOpenSuppliers, ...name }: NameLineProps) {
   const { supplier, actions } = name
   return (
@@ -124,37 +123,27 @@ interface ShiftLineProps {
   coming: ((order: HireOrder) => boolean) | undefined
   going: ((order: HireOrder) => boolean) | undefined
   actions: InnleidActions
-  /** The supplier has this line alone: its label is the supplier's too, with the name. Plain values, so the line is not drawn again on a scroll frame. */
-  named?: boolean
-  competences: CompetenceStyle[]
-  waits: boolean
-  week: NameProps['week']
 }
 
 /** A supplier's shift, as a person's line in Faste: its orders as runs over the days, a lane in height for each competence and project. */
-const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions, named = false, competences, waits, week }: ShiftLineProps) {
+const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions }: ShiftLineProps) {
   const geometry = shiftLine(runs.lanes.length)
   const times = timesText(shiftTimes(line.shift, wd))
-  const shift = (
-    <span className={`il-shift ${line.offered ? '' : 'retired'}`} title={line.offered ? `${supplier.name} · ${SHIFT_LABELS[line.shift]} ${times}` : `${supplier.name} tilbyr ikke ${SHIFT_LABELS[line.shift].toLowerCase()} lenger. Bestillingene står til de er flyttet eller fjernet.`}>
-      <b>{SHIFT_LABELS[line.shift]}</b> {times}
-    </span>
-  )
   return (
     <Line
-      className={`il-line ${named ? 'il-supplier' : ''} ${dim ? 'dim' : ''}`}
+      className={`il-line ${dim ? 'dim' : ''}`}
       height={geometry.height}
       label={
         <>
-          {named ? <span className="row-gap" /> : null}
-          {named ? <SupplierName supplier={supplier} competences={competences} focus={focus} waits={waits} week={week} actions={actions} aside={shift} /> : shift}
+          <span className={`il-shift ${line.offered ? '' : 'retired'}`} title={line.offered ? `${supplier.name} · ${SHIFT_LABELS[line.shift]} ${times}` : `${supplier.name} tilbyr ikke ${SHIFT_LABELS[line.shift].toLowerCase()} lenger. Bestillingene står til de er flyttet eller fjernet.`}>
+            <b>{SHIFT_LABELS[line.shift]}</b> {times}
+          </span>
           {!line.offered && (
             <span className="il-retired">
               <i className="need-dot" />
               Tilbys ikke lenger
             </span>
           )}
-          {named && <WeekHours supplier={supplier} week={week} />}
         </>
       }
       cols={cols}
@@ -254,7 +243,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                 </span>
               </div>
             )}
-            {!block.single && <NameLine {...name} cols={cols} days={days} folded={block.folded} empty={!block.rows.length && !block.folded} dim={block.dim} onOpenSuppliers={onOpenSuppliers} />}
+            <NameLine {...name} cols={cols} days={days} folded={block.folded} empty={!block.rows.length && !block.folded} dim={block.dim} onOpenSuppliers={onOpenSuppliers} />
             {block.rows.map((shift) => {
               const row = shiftRows.indexOf(shift)
               const inStroke = range !== null && stroke?.mode === 'paint' && !offered && row >= range.rowFrom && row <= range.rowTo
@@ -275,10 +264,6 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                   coming={marked?.coming}
                   going={marked?.going}
                   actions={actions}
-                  named={block.single}
-                  competences={listStyles}
-                  waits={name.waits}
-                  week={name.week}
                 />
               )
             })}

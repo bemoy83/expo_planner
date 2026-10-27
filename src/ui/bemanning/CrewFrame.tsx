@@ -150,25 +150,20 @@ interface NameProps {
   has: (competence: string) => boolean
   /** The competence of the brush, whose mark has a ring. */
   focus: string | null
-  /** What stands to the right of the marks, as a supplier's shift on its one line. */
-  aside?: ReactNode
 }
 
 /** The name of a person or a supplier in the label column, the same in Faste and Innleid (2026-10-27): the name, and under it the marks of the competences. */
-export function CrewName({ name, onOpen, title, mark, competences, has, focus, aside }: NameProps) {
+export function CrewName({ name, onOpen, title, mark, competences, has, focus }: NameProps) {
   return (
     <span className="bm-person-name" title={title} onClick={onOpen}>
       <span className="bm-name-line">
         <span className="bm-name">{name}</span>
         {mark}
       </span>
-      <span className="bm-name-line">
-        <span className="bm-dots">
-          {competences.map((style) => (
-            <i key={style.key} className={`${has(style.key) ? 'has' : ''} ${style.key === focus ? 'focused' : ''}`} style={competenceColor(style)} title={has(style.key) ? style.label : undefined} />
-          ))}
-        </span>
-        {aside}
+      <span className="bm-dots">
+        {competences.map((style) => (
+          <i key={style.key} className={`${has(style.key) ? 'has' : ''} ${style.key === focus ? 'focused' : ''}`} style={competenceColor(style)} title={has(style.key) ? style.label : undefined} />
+        ))}
       </span>
     </span>
   )

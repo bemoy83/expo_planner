@@ -135,7 +135,7 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .bm-person.dim,:is(.il-supplier,.il-line).dim{opacity:.4}
 .bm-person-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .bm-name-line{display:flex;align-items:center;gap:6px;min-width:0}
-/* where a line has no arrow, as a supplier's one line or one with no shift: the room of one, so every name stands in the same place */
+/* where a line has no arrow, as a supplier with no shift: the room of one, so every name stands in the same place */
 .row-gap{flex:none;width:22px}
 .bm-dots{display:flex;gap:3px}
 .bm-dots i{width:8px;height:8px;border-radius:2px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line-strong) 70%,transparent)}
@@ -302,10 +302,9 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-supplier .cell{border-bottom:1px solid var(--grid-row)}
 .il-people{gap:6px;font:600 var(--fs-sm) var(--font-num)}
 .il-people .waits{padding:2px 6px;border-radius:4px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 14%,transparent) 0 2px,transparent 2px 5px)}
-/* A supplier's lines, as a person's in Faste (the v9 design, 2026-10-26): no strong line between the suppliers, as none between the people (2026-10-27); its shifts are indented under its name, and a shift it no longer offers is struck through with the mark of attention. */
-.il-shift{flex:none;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
+/* A supplier's lines, as a person's in Faste (the v9 design, 2026-10-26): no strong line between the suppliers, as none between the people (2026-10-27); its shifts are indented a step further than its name (2026-10-27), and a shift it no longer offers is struck through with the mark of attention. */
+.il-shift{flex:none;margin-left:40px;font:400 var(--fs-xs) var(--font-num);color:var(--faint);white-space:nowrap}
 .il-shift b{font:500 var(--fs-sm) var(--font-ui);color:var(--text)}
-.il-line:not(.il-supplier) .il-shift{margin-left:28px}
 .il-shift.retired{text-decoration:line-through}
 .il-retired{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
 /* An order's run on a shift line: one piece over its days in the competence's colour, with ink on it; one that waits for an answer is hatched in the colour, the hatch running on unbroken over the days. Its name stays at the left edge of the days while the run is in view, as a run's in Faste, written as Faste's names are (`.bm-run-name`), drawn and while a stroke is drawn. */

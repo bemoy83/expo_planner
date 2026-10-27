@@ -69,10 +69,8 @@ export interface SupplierBlock {
   dim: boolean
   /** The divider comes before it: the first of those without the brush's competence. */
   divider: boolean
-  /** It has one line, which has its name. */
-  single: boolean
   folded: boolean
-  /** The top of its first line, the name line where it has one. */
+  /** The top of its name line. */
   top: number
   rows: ShiftRow[]
 }
@@ -314,10 +312,10 @@ function useInnleidState(active: boolean, counted: boolean) {
       const divider = at === able && able < listed.length
       if (divider) top += DIVIDER_H
       const lines = supplierLines(supplier, stored)
-      const single = lines.length === 1
-      const isFolded = !single && folded.includes(supplier.id)
-      const block: SupplierBlock = { supplier, dim: at >= able, divider, single, folded: isFolded, top, rows: [] }
-      if (!single) top += PERSON_H
+      // Every supplier has a name line over its shifts, which folds them, one shift or several (2026-10-27).
+      const isFolded = folded.includes(supplier.id)
+      const block: SupplierBlock = { supplier, dim: at >= able, divider, folded: isFolded, top, rows: [] }
+      top += PERSON_H
       if (!isFolded)
         for (const line of lines) {
           const runs = orderRuns(byLine.get(line.key) ?? NO_ORDERS, drawn, rank)
