@@ -220,7 +220,7 @@ export function DemandRows() {
  * of Kompetanser, with the key 1 to 9 that picks it in both. Those the part has nothing for in the period (`busy`) are set aside under
  * «Uten behov», folded; the one in focus stays. Folded, only the competence in focus shows. `line` draws a competence and the lines under it.
  */
-export function CompetenceList({ busy, line }: { busy: (competence: string) => boolean; line: (row: DemandRow) => ReactNode }) {
+export function CompetenceList({ busy, line, missing = 'timer' }: { busy: (competence: string) => boolean; line: (row: DemandRow) => ReactNode; /** What the lines count as missing: hours, or Innleid's people. */ missing?: string }) {
   const bm = useBemanning()
   const { demandRows, brush, demandOpen: open, demandDensity, idleOpen } = bm
   const compact = demandDensity === 'compact'
@@ -233,7 +233,7 @@ export function CompetenceList({ busy, line }: { busy: (competence: string) => b
         <Twisty open={open} show="Vis alle kompetanser" hide="Vis bare kompetansen i fokus" onToggle={() => bm.setDemandOpen(!open)} />
         Kompetanse
         {open && <DensityToggle compact={compact} onChange={(next) => bm.setDemandDensity(next ? 'compact' : 'detail')} />}
-        <span className="section-meta section-meta-end" title={open ? 'Timer som mangler i dagene som vises' : undefined}>{open ? 'timer mangler' : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
+        <span className="section-meta section-meta-end" title={open ? `${missing[0].toUpperCase()}${missing.slice(1)} som mangler i dagene som vises` : undefined}>{open ? `${missing} mangler` : `${demandRows.filter(({ style }) => style.key !== brush).length} skjult`}</span>
       </SectionLine>
       {demandRows.filter(({ style }) => !isIdle(style.key)).map(shown)}
       {open && idle.length > 0 && (

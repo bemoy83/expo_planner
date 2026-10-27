@@ -223,10 +223,10 @@ function Help() {
       <section className="insp-sec">
         <h3 className="insp-h">Tallene</h3>
         <dl>
-          <dt>−7,5</dt>
-          <dd>Underbemannet: timer som mangler (rødt)</dd>
-          <dt>+7,5</dt>
-          <dd>Overbemannet: timer over behovet (oker)</dd>
+          <dt>−2</dt>
+          <dd>Underbemannet: personer som mangler (rødt). Timene som gjenstår regnes om til hele personer på en vanlig dag, rundet opp; timene står i tooltip.</dd>
+          <dt>+1</dt>
+          <dd>Overbemannet: personer over behovet (oker)</dd>
           <dt>Grønt</dt>
           <dd>Ok: dekket, innenfor én person på ett skift</dd>
           <dt>
@@ -245,7 +245,7 @@ function Help() {
           <dt>1–9, klikk</dt>
           <dd>Ta en kompetanse som pensel: tallet, navnet eller en dag i behovet. En prosjektlinje under den bestiller for prosjektet.</dd>
           <dt>+ −</dt>
-          <dd>Antall personer på penselen</dd>
+          <dd>Antall personer på penselen. Under 1 er Auto: hver dag får så mange personer av skiftet som mangler.</dd>
           <dt>Pensel + dra</dt>
           <dd>Bestill antallet på skiftlinjene og dagene du drar over. Samme kompetanse og prosjekt erstattes (B). Shift stopper der behovet er dekket.</dd>
           <dt>Tøm, Alt+dra</dt>

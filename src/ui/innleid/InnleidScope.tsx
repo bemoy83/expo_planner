@@ -27,7 +27,7 @@ type InnleidPanel = { kind: 'control' } | { kind: 'supplier'; id: string } | { k
 /** Innleid opens on the compact lines, where a competence is one line high. */
 const cleanFolded = (stored: unknown): string[] => (Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [])
 const cleanCounts = (stored: unknown): Record<string, number> =>
-  stored && typeof stored === 'object' ? Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] >= 1)) : {}
+  stored && typeof stored === 'object' ? Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] >= 0)) : {}
 
 const NO_ORDERS: HireOrder[] = []
 /** Whether a day of a line is inside a block of them. */
@@ -197,6 +197,7 @@ function useInnleidState(active: boolean, counted: boolean) {
   })
   const { brush, project: brushProject, activeTool, pickBrush, clearBrush, pickProject, pickFromDemand, pickTool, stepLines } = pick
   const baseProjectLines = pick.lines
+  // The people on the brush per competence; 0 is Auto, the people each day lacks (2026-10-27).
   const people = brush ? (counts[brush] ?? 1) : 1
 
   // The competence of the brush follows between Faste and Innleid (2026-10-26): taken from Faste when Innleid is shown, and handed back when it is left.
@@ -278,7 +279,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     let last = along.length - 1
     if (s.toDemand) while (last >= 0 && lacking(along[last]) <= 0) last--
     const reached = along.slice(0, last + 1)
-    const painted = paintOrders(orders, { lines, competence: brush, ...(brushProject && { projectNo: brushProject }), dates: reached, count: people }, suppliers, wd)
+    const painted = paintOrders(orders, { lines, competence: brush, ...(brushProject && { projectNo: brushProject }), dates: reached, count: people || 'auto', need: (date) => restOf(brush, date, brushProject ?? undefined) }, suppliers, wd)
     return { orders: painted.orders, skipped: painted.skipped, days: strokeDays(reached).length }
   }
   const plan = useMemo(() => (stroke && active ? planOf(stroke, stored) : null), [stroke, active, stored, lineRefs, brush, brushProject, people, suppliers, wd, dates, board, baseProjectLines, rank]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -428,7 +429,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     toast(`Limte inn ${count(result.pasted, 'bestilling', 'bestillinger')} fra ${dayText(dates[at.col])}${result.skipped ? ` · ${result.skipped} hoppet over` : ''}`, { label: 'Angre', run: undo })
   }
 
-  const stepCount = (delta: number) => brush && setCounts((now) => ({ ...now, [brush]: clamp((now[brush] ?? 1) + delta, 1, MOST_PEOPLE) }))
+  const stepCount = (delta: number) => brush && setCounts((now) => ({ ...now, [brush]: clamp((now[brush] ?? 1) + delta, 0, MOST_PEOPLE) }))
 
   /** Brings a day into view if it is not there already: nothing moves for a day the planner can see. */
   const reveal = (date: ISODate) => {
@@ -542,7 +543,7 @@ function useInnleidState(active: boolean, counted: boolean) {
       const only = stroke.lane ? laneFrom(stroke.lane) : null
       return { mode: 'erase' as const, competence: only?.competence, projectNo: only?.projectNo, text: [count(colTo - colFrom + 1, 'dag', 'dager'), lines, ...hours, ...(only ? ['Shift: alt'] : [])] }
     }
-    if (stroke.mode === 'paint' && plan && brush) return { mode: 'paint' as const, competence: brush, projectNo: brushProject ?? undefined, text: [`${count(plan.days, 'dag', 'dager')} × ${lines}`, `${people} pers.`, ...hours, ...(plan.skipped ? [`${plan.skipped} hoppes over`] : []), ...(stroke.toDemand ? ['til behovet er dekket'] : [])] }
+    if (stroke.mode === 'paint' && plan && brush) return { mode: 'paint' as const, competence: brush, projectNo: brushProject ?? undefined, text: [`${count(plan.days, 'dag', 'dager')} × ${lines}`, people ? `${people} pers.` : 'Auto: det som mangler', ...hours, ...(plan.skipped ? [`${plan.skipped} hoppes over`] : []), ...(stroke.toDemand ? ['til behovet er dekket'] : [])] }
     return null
   }, [stroke, plan, brush, brushProject, people, stored, wd])
 

@@ -62,9 +62,9 @@ export function NeedLine({ parts, figure = false }: { parts: NeedLabelParts; fig
   )
 }
 
-/** The hours a line lacks in the days in view, in the label column: signed, as on the labels, or a check where there are none. */
-export function HoursLeft({ hours, compact = false }: { hours: number; compact?: boolean }) {
-  return <span className="bm-week-left">{hours > EPSILON ? `${signedHours(-hours)} t` : <Check size={compact ? 11 : 13} aria-label="Dekket" />}</span>
+/** The hours a line lacks in the days in view, in the label column, or in Innleid the people (`unit`): signed, as on the labels, or a check where there are none. */
+export function HoursLeft({ hours, unit = 't', compact = false }: { hours: number; unit?: string; compact?: boolean }) {
+  return <span className="bm-week-left">{hours > EPSILON ? `${signedHours(-hours)} ${unit}` : <Check size={compact ? 11 : 13} aria-label="Dekket" />}</span>
 }
 
 /**
@@ -75,6 +75,7 @@ export function LinePick({
   kind = 'competence',
   name,
   hours,
+  unit,
   compact = false,
   glyph,
   kbd,
@@ -88,6 +89,8 @@ export function LinePick({
   kind?: 'competence' | 'project' | 'place'
   name: string
   hours: number
+  /** What `hours` counts, where it is not hours: Innleid's people. */
+  unit?: string
   compact?: boolean
   /** Before the colour of a competence: what a click does, as Innleid's unfold. */
   glyph?: ReactNode
@@ -107,7 +110,7 @@ export function LinePick({
       {kind === 'competence' && <i className="swatch" />}
       <span className="bm-name">{name}</span>
       {kbd}
-      <HoursLeft hours={hours} compact={compact} />
+      <HoursLeft hours={hours} unit={unit} compact={compact} />
     </button>
   )
 }

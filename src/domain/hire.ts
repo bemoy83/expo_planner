@@ -69,6 +69,9 @@ export interface Coverage {
   left: number
   /** As `state`, by the confirmed orders alone. */
   firm: CoverState
+  /** What Innleid shows (2026-10-27): the whole people of a normal day the hours that remain ask for, rounded up, and the people ordered, answered or not. */
+  need: number
+  people: number
 }
 
 /** Hours over what remains are a deviation only from one person of the shortest order: less than that is what a whole person gives. */
@@ -86,9 +89,11 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
   let least = Infinity
   let leastConfirmed = Infinity
   let anyConfirmed = false
+  let people = 0
   for (const order of orders) {
     const hours = hireHours(order, wd)
     planned += order.fte * hours
+    people += order.fte
     least = Math.min(least, hours)
     if (isWaiting(order)) continue
     confirmed += order.fte * hours
@@ -103,14 +108,19 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
     state: coverState(need, planned, orders.length > 0, least),
     left: need - confirmed,
     firm: coverState(need, confirmed, anyConfirmed, leastConfirmed),
+    need: need > HOURS_NOISE ? Math.ceil(need / personDay(wd) - HOURS_NOISE) : 0,
+    people,
   }
 }
 
-/** The figure a cover is shown with: the hours missing as a negative number, the hours over as a positive one, `null` where neither. */
-export const coverFigure = (cover: Coverage): number | null => (Math.abs(cover.remaining) > HOURS_NOISE ? -cover.remaining : null)
+/** The hours a person gives on a normal day, the shift «Dag»: what Innleid counts the hours that remain in. */
+export const personDay = (wd: WorkdaySettings): number => hireHours(shiftTimes('dag', wd), wd)
 
-/** The hours missing over some days, where a day with more ordered than remains makes up for none of another: what a line of Innleid shows in its label column. */
-export const missingIn = (cover: (date: ISODate) => Coverage, days: ISODate[]): number => days.reduce((sum, date) => sum + Math.max(0, cover(date).remaining), 0)
+/** The figure a cover is shown with: the people missing as a negative number, those over as a positive one, `null` where neither. */
+export const coverFigure = (cover: Coverage): number | null => (cover.people !== cover.need ? cover.people - cover.need : null)
+
+/** The people missing over some days, where a day with more ordered than it needs makes up for none of another: what a line of Innleid shows in its label column. */
+export const missingIn = (cover: (date: ISODate) => Coverage, days: ISODate[]): number => days.reduce((sum, date) => sum + Math.max(0, cover(date).need - cover(date).people), 0)
 
 /** A rule between two orders is dropped where any order is this thin a share of the label: it would hide it. */
 const THIN_SHARE = 0.04
@@ -119,7 +129,7 @@ const THIN_SHARE = 0.04
  * Innleid's label (`needLabel.ts`): the pieces it is filled with from the left, the rules between its orders, and
  * the figure. The label is what remains or what is ordered, whichever is more. Confirmed orders come first and
  * those that wait after them, whenever they were made, each supplier in the suppliers' order; what passes what
- * remains is the tail of over, and the figure is then on it.
+ * remains is the tail of over, and the figure is then on it. The figures are people (`Coverage.need`), the fill hours.
  */
 export const orderedLabel = (cover: Coverage, orders: HireOrder[], wd: WorkdaySettings, suppliers: Supplier[] = []): NeedLabelParts => {
   const place = (id: string) => suppliers.findIndex((supplier) => supplier.id === id)
@@ -143,7 +153,7 @@ export const orderedLabel = (cover: Coverage, orders: HireOrder[], wd: WorkdaySe
     if (i < sorted.length - 1 && !thin) rules.push(at / base)
   })
   const figure = coverFigure(cover)
-  return { segs, rules, figure, alert: figure !== null && figure > 0, of: cover.rest > HOURS_NOISE ? { done: cover.planned, need: cover.rest } : null }
+  return { segs, rules, figure, alert: figure !== null && figure > 0, of: cover.need > 0 ? { done: cover.people, need: cover.need } : null }
 }
 
 type DeviationState = 'none' | 'under' | 'ok' | 'over'
@@ -337,7 +347,7 @@ export const ordersByDay = (orders: HireOrder[]): Map<string, HireOrder[]> => {
   return map
 }
 
-const NO_COVER: Coverage = { rest: 0, planned: 0, confirmed: 0, remaining: 0, state: 'none', left: 0, firm: 'none' }
+const NO_COVER: Coverage = { rest: 0, planned: 0, confirmed: 0, remaining: 0, state: 'none', left: 0, firm: 'none', need: 0, people: 0 }
 
 /**
  * The board of Innleid. `restOf` gives the hours of a competence that remain on a day after the permanent staff:
@@ -494,18 +504,29 @@ export interface Paint {
   competence: CompetenceKey
   projectNo?: string
   dates: ISODate[]
-  /** The people on the brush. */
-  count: number
+  /** The people on the brush, or `'auto'`: on each day as many whole people of the line's shift as cover what is still missing (2026-10-27). */
+  count: number | 'auto'
+  /** With `'auto'`: the hours of the competence (of the project, where one is given) that remain on a day after the permanent staff. */
+  need?: (date: ISODate) => number
 }
 
 /**
- * The brush's count on every day of the stroke and every line it goes over, at the shift's times. An order that is there
- * on the same key gets the count (`recount`), so a second stroke corrects the first. A line of a supplier that does not
+ * The brush's count on every day of the stroke and every line it goes over, at the shift's times, or with Auto the people
+ * each day lacks (`Paint.count`), and nothing on a day that lacks none. An order that is there on the same key gets the
+ * count (`recount`), so a second stroke corrects the first. A line of a supplier that does not
  * offer the competence is skipped, and counted.
  */
 export const paintOrders = (orders: HireOrder[], paint: Paint, suppliers: Supplier[], wd: WorkdaySettings, makeId: () => string = newId): { orders: HireOrder[]; skipped: number } => {
-  const fte = Math.max(1, Math.round(paint.count))
   const days = strokeDays(paint.dates)
+  const fixed = paint.count === 'auto' ? 0 : Math.max(1, Math.round(paint.count))
+  // Auto: what is missing on the day after every other order of the competence (and the project), waiting or not, in the people
+  // of the line's shift, rounded up; lines painted before in the stroke count, so the first takes what is missing and the rest none.
+  const peopleFor = (key: OrderKey, next: HireOrder[]) => {
+    if (paint.count !== 'auto') return fixed
+    const others = next.filter((order) => order.competence === key.competence && order.date === key.date && (!paint.projectNo || sameProject(order, paint)) && !sameOrder(order, key))
+    const left = (paint.need?.(key.date) ?? 0) - others.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
+    return left > HOURS_NOISE ? Math.ceil(left / hireHours(shiftTimes(key.shift, wd), wd) - HOURS_NOISE) : 0
+  }
   const next = [...orders]
   let changed = false
   let skipped = 0
@@ -516,6 +537,8 @@ export const paintOrders = (orders: HireOrder[], paint: Paint, suppliers: Suppli
     }
     for (const date of days) {
       const key: OrderKey = { supplierId: line.supplierId, shift: line.shift, competence: paint.competence, date, ...projectTag(paint) }
+      const fte = peopleFor(key, next)
+      if (!fte) continue
       const at = next.findIndex((order) => sameOrder(order, key))
       if (at < 0) next.push({ id: makeId(), ...key, fte, ...shiftTimes(line.shift, wd), conf: null })
       else if (recount(next[at], fte) !== next[at]) next[at] = recount(next[at], fte)

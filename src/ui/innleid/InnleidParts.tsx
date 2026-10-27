@@ -82,15 +82,15 @@ export function InnleidToolbar(bar: CrewBarProps) {
       }
     >
       {brush && tool === 'paint' && (
-        <span className="il-count" title="Personene penselen bestiller per dag og skift (+ og −)">
-          <button className="ghost icon-button" aria-label="Færre personer" disabled={people <= 1} onClick={() => stepCount(-1)}>
+        <span className="il-count" title="Personene penselen bestiller per dag og skift (+ og −). Under 1 er Auto: så mange hele personer av skiftet som mangler hver dag.">
+          <button className="ghost icon-button" aria-label="Færre personer" disabled={people === 0} onClick={() => stepCount(-1)}>
             <Minus size={14} aria-hidden />
           </button>
-          <b>{people}</b>
+          <b>{people || 'Auto'}</b>
           <button className="ghost icon-button" aria-label="Flere personer" onClick={() => stepCount(1)}>
             <Plus size={14} aria-hidden />
           </button>
-          <span>pers.</span>
+          {people > 0 && <span>pers.</span>}
         </span>
       )}
     </CrewBar>
@@ -116,8 +116,8 @@ const coverTitle = (label: string, date: ISODate, cover: Coverage, orders: HireO
   if (cover.state === 'none') return `${label} · ${dayText(date)}\nIngen restbehov`
   const figure = coverFigure(cover)
   return (
-    `${label} · ${dayText(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` +
-    (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`) +
+    `${label} · ${dayText(date)}\nRestbehov ${count(cover.need, 'person', 'personer')} (${hoursText(cover.rest)} t) · bestilt ${hoursText(cover.people)} pers. (${hoursText(cover.planned)} t), bekreftet ${hoursText(cover.confirmed)} t` +
+    (figure === null ? '' : figure < 0 ? `\n${count(-figure, 'person', 'personer')} mangler` : `\n${count(figure, 'person', 'personer')} over`) +
     orders.map((order) => `\n${hoursText(order.fte)} pers. ${nameOf(order.supplierId)} · ${order.projectNo ? projectName(order.projectNo) : 'Uten prosjekt'} · ${shiftText(order, wd)}${isWaiting(order) ? ' · venter på svar' : order.asked ? `, ${order.fte} av ${order.asked}` : ''}`).join('')
   )
 }
@@ -167,6 +167,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
       label={
         project ? (
           <LinePick
+            unit="pers."
             kind="project"
             name={project.name}
             hours={missing}
@@ -179,6 +180,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
           />
         ) : (
           <LinePick
+            unit="pers."
             name={style.label}
             hours={missing}
             compact={compact}
@@ -264,5 +266,5 @@ function HireDemandRows() {
     )
   }
   // A competence with nothing left after the permanent staff and no orders in the period is set aside under «Uten behov».
-  return <CompetenceList busy={(competence) => board.competences.includes(competence)} line={line} />
+  return <CompetenceList busy={(competence) => board.competences.includes(competence)} line={line} missing="personer" />
 }
