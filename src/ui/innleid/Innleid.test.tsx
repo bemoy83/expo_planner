@@ -53,6 +53,21 @@ describe('Innleid', () => {
     expect(container.querySelector('.bm-divider')).not.toBeNull()
   })
 
+  it('lists the competences of Faste with the same keys, and greys one no supplier offers', async () => {
+    const names = (container: HTMLElement) => [...container.querySelectorAll('.bm-demand-section .bm-pick')].map((pick) => [pick.querySelector('.bm-name')?.textContent, pick.querySelector('kbd')?.textContent ?? '', (pick as HTMLButtonElement).disabled])
+    const offersFoga: Supplier[] = [SUPPLIERS[0]]
+    const { container } = await renderKalender(workspaceOf({ suppliers: offersFoga }), PREFS)
+    fireEvent.click(within(container.querySelector('.bm-demand-section')!).getByRole('button', { name: 'Vis kompetansene uten behov' }))
+    await settle()
+    expect(names(container)).toEqual([
+      ['FOGA', '1', false],
+      ['Elektro', '', true],
+    ])
+    keyDown('2')
+    await settle()
+    expect(container.querySelector('.bm-demand.on')).toBeNull()
+  })
+
   it('orders the count of the brush on every line and day a stroke goes over, in one undo step, and skips a line without the competence', async () => {
     const { container } = await renderKalender(workspace(), PREFS)
     keyDown('1')
