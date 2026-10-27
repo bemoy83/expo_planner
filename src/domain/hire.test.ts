@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, missingIn, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { laneFrom, laneOf, supplierDays, supplierWaits, supplierWeek, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, peopleMissingIn, isUrgent, urgentWaits, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -44,30 +44,40 @@ describe('coverage of a competence on a day (I1)', () => {
   })
 
   it('lacks everything without orders (A2), and is nothing where nothing remains', () => {
-    expect(coverFigure(coverage(60, [], wd))).toBe(-60)
+    // Innleid counts in whole people of a normal day: 60 hours is 8 people.
+    expect(coverFigure(coverage(60, [], wd))).toBe(-8)
     expect(coverage(60, [], wd).state).toBe('short')
     expect(coverage(0, [], wd).state).toBe('none')
     expect(coverage(-7.5, [], wd)).toMatchObject({ rest: 0, state: 'none' })
-    expect(missingIn((date) => (date === '2026-10-08' ? coverage(60, [], wd) : coverage(0, [order('b2', 'k1', 'vegger', date, 4, 4)], wd)), ['2026-10-08', '2026-10-09'])).toBe(60)
+    expect(peopleMissingIn((date) => (date === '2026-10-08' ? coverage(60, [], wd) : coverage(0, [order('b2', 'k1', 'vegger', date, 4, 4)], wd)), ['2026-10-08', '2026-10-09'])).toBe(8)
   })
 
   it('counts an order that waits as ordered, but not as confirmed', () => {
     expect(coverage(30, [order('a', 'k1', 'vegger', '2026-10-08', 2, 2), order('b', 'k5', 'vegger', '2026-10-08', 2, null)], wd)).toMatchObject({ planned: 30, confirmed: 15, state: 'ok' })
   })
 
-  it('is over from one person of the shortest order, and shows the hours over before that (A4, A8)', () => {
+  it('is over from one person of the shortest order, and shows the people over, rounded up from the hours (A4, A8)', () => {
     const over = coverage(7.5, [order('b11', 'k4', 'elektro', '2026-10-07', 3, 3)], wd)
     expect(over.state).toBe('over')
-    expect(coverFigure(over)).toBe(15)
+    expect(coverFigure(over)).toBe(2)
     const within = coverage(4, [order('a', 'k4', 'elektro', '2026-10-07', 1, 1)], wd)
     expect(within.state).toBe('ok')
-    expect(coverFigure(within)).toBe(3.5)
+    expect(coverFigure(within)).toBeNull()
   })
 
   it('lacks the hours of the people a supplier could not send (A7)', () => {
     const fewer = confirmFewer([order('b2', 'k1', 'vegger', '2026-10-08', 4, 4)], ['b2'], 3)
     expect(fewer).toEqual([{ ...order('b2', 'k1', 'vegger', '2026-10-08', 3, 3), asked: 4 }])
-    expect(coverFigure(coverage(30, fewer, wd))).toBe(-7.5)
+    expect(coverFigure(coverage(30, fewer, wd))).toBe(-1)
+  })
+})
+
+describe('answers that are urgent', () => {
+  it('are those that wait on today and the next two days, never on a day gone by', () => {
+    expect(['2026-10-07', '2026-10-08', '2026-10-10', '2026-10-11'].map((date) => isUrgent(date, '2026-10-08'))).toEqual([false, true, true, false])
+    expect(urgentWaits([order('a', 'k1', 'vegger', '2026-10-09', 2, 2)], '2026-10-08')).toBe(false)
+    expect(urgentWaits([order('a', 'k1', 'vegger', '2026-10-09', 2, null)], '2026-10-08')).toBe(true)
+    expect(urgentWaits([order('a', 'k1', 'vegger', '2026-10-12', 2, null)], '2026-10-08')).toBe(false)
   })
 })
 
@@ -82,8 +92,8 @@ describe('the label of a day', () => {
       { kind: 'waiting', from: 0.5, width: 0.25 },
     ])
     expect(rules).toEqual([0.5])
-    // What is ordered, waiting or not, of what remains after the permanent staff.
-    expect(of).toEqual({ done: 22.5, need: 30 })
+    // The people ordered, waiting or not, of those the hours that remain after the permanent staff ask for.
+    expect(of).toEqual({ done: 3, need: 4 })
   })
 
   it('has what is ordered past what remains as the tail of over, which waits where its order does', () => {
@@ -327,6 +337,28 @@ describe('orders painted on the suppliers\' lines', () => {
     expect(paint(2, confirmed)).toBe(confirmed)
   })
 
+  it('with Auto orders on each day the whole people of the line\'s shift that are still missing, counting the other orders and the lines before it', () => {
+    const dag = hireHours(DAG, wd)
+    const need = (date: string) => (date === MON ? 2.5 * dag : date === TUE ? dag : 0)
+    const auto = (list: HireOrder[], lines = [{ supplierId: 'k1', shift: 'dag' as const }]) => paintOrders(list, { lines, competence: 'vegger', dates: [MON, TUE], count: 'auto', need }, suppliers, wd, id).orders
+    expect(auto([]).map((order) => [order.date, order.fte])).toEqual([
+      [MON, 3],
+      [TUE, 1],
+    ])
+    // Another supplier covers one person on Monday; the key's own order is not counted against itself, and Tuesday is covered.
+    const before = [on('k3', 'dag', MON, 1, 1), on('k1', 'dag', MON, 5, null), on('k3', 'dag', TUE, 1, null)]
+    expect(auto(before).map((order) => [order.supplierId, order.date, order.fte])).toEqual([
+      ['k3', MON, 1],
+      ['k1', MON, 2],
+      ['k3', TUE, 1],
+    ])
+    // Two lines in one stroke: the first takes what is missing, the second gets none.
+    expect(auto([], [{ supplierId: 'k1', shift: 'dag' }, { supplierId: 'k3', shift: 'dag' }]).map((order) => [order.supplierId, order.date, order.fte])).toEqual([
+      ['k1', MON, 3],
+      ['k1', TUE, 1],
+    ])
+  })
+
   it('keeps a project\'s order and one for no project apart', () => {
     const first = [on('k1', 'dag', MON, 2, 2)]
     const { orders } = paintOrders(first, { lines: [{ supplierId: 'k1', shift: 'dag' }], competence: 'vegger', projectNo: '26101', dates: [MON], count: 1 }, suppliers, wd, id)
@@ -348,6 +380,11 @@ describe('orders painted on the suppliers\' lines', () => {
     expect(days.get('k1')?.get(MON)).toEqual({ people: 3, waiting: 1, hours: 2 * dag + kveld, waitingHours: kveld, parts: [{ competence: 'vegger', people: 2, waiting: 0 }, { competence: 'tepper', people: 1, waiting: 1 }] })
     expect(days.get('k1')?.get(TUE)).toEqual({ people: 1, waiting: 1, hours: dag, waitingHours: dag, parts: [{ competence: 'vegger', people: 1, waiting: 1 }] })
     expect(days.get('k3')?.get(MON)).toEqual({ people: 3, waiting: 0, hours: 3 * dag, waitingHours: 0, parts: [{ competence: 'vegger', people: 3, waiting: 0 }] })
+    // The week of the name line, and the marks after the name: what waits, and whether it is urgent.
+    expect(supplierWeek(days.get('k1'), [MON, TUE])).toEqual({ hours: 3 * dag + kveld, waiting: dag + kveld })
+    expect(supplierWeek(undefined, [MON])).toEqual({ hours: 0, waiting: 0 })
+    expect(supplierWaits(days.get('k1'), TUE)).toEqual({ waits: true, urgent: true })
+    expect(supplierWaits(days.get('k3'), MON)).toEqual({ waits: false, urgent: false })
   })
 
   it('empties the days of lines of every order on them, or of one competence and project', () => {

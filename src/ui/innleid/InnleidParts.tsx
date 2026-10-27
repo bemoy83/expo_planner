@@ -1,7 +1,7 @@
 import { memo, useMemo, type ReactNode } from 'react'
 import { CircleHelp, Minus, Plus, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { coverFigure, dayKey, HOURS_NOISE, isWaiting, missingIn, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
+import { coverFigure, dayKey, HOURS_NOISE, isWaiting, peopleMissingIn, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { PanelToggle } from '../common'
 import { count } from '../dom'
@@ -44,7 +44,7 @@ export const InnleidTop = () => <CrewTop demand={<HireDemandRows />} />
 /** The planning bar in Innleid, as Faste's: the mode and the part, undo, the tools with the brush and its people, and what is still to do. */
 export function InnleidToolbar(bar: CrewBarProps) {
   const { styles, projectName, lastKey } = useBemanning()
-  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
+  const { board, waiting, urgent, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   const tools = crewTools(brush ? styles.get(brush) : undefined, brushProject && projectName(brushProject), {
     select: 'Velg dager på leverandørenes linjer: klikk en dag, eller dra over flere (V).',
@@ -63,7 +63,8 @@ export function InnleidToolbar(bar: CrewBarProps) {
       before={
         <>
           {waiting > HOURS_NOISE && (
-            <button className="il-waiting" title="Timer som er bestilt, men ikke bekreftet. Klikk for å se over og bekrefte bestillingene." onClick={openControl}>
+            <button className="il-waiting" title={`Timer som er bestilt, men ikke bekreftet.${urgent ? ' Noen av dagene starter snart: purr på leverandørene.' : ''} Klikk for å se over og bekrefte bestillingene.`} onClick={openControl}>
+              {urgent && <i className="need-dot" />}
               <AnswerGlyph waits /> {hoursText(waiting)} t venter på svar
             </button>
           )}
@@ -82,15 +83,15 @@ export function InnleidToolbar(bar: CrewBarProps) {
       }
     >
       {brush && tool === 'paint' && (
-        <span className="il-count" title="Personene penselen bestiller per dag og skift (+ og −)">
-          <button className="ghost icon-button" aria-label="Færre personer" disabled={people <= 1} onClick={() => stepCount(-1)}>
+        <span className="il-count" title="Personene penselen bestiller per dag og skift (+ og −). Under 1 er Auto: så mange hele personer av skiftet som mangler hver dag.">
+          <button className="ghost icon-button" aria-label="Færre personer" disabled={people === 0} onClick={() => stepCount(-1)}>
             <Minus size={14} aria-hidden />
           </button>
-          <b>{people}</b>
+          <b>{people || 'Auto'}</b>
           <button className="ghost icon-button" aria-label="Flere personer" onClick={() => stepCount(1)}>
             <Plus size={14} aria-hidden />
           </button>
-          <span>pers.</span>
+          {people > 0 && <span>pers.</span>}
         </span>
       )}
     </CrewBar>
@@ -116,8 +117,8 @@ const coverTitle = (label: string, date: ISODate, cover: Coverage, orders: HireO
   if (cover.state === 'none') return `${label} · ${dayText(date)}\nIngen restbehov`
   const figure = coverFigure(cover)
   return (
-    `${label} · ${dayText(date)}\nRestbehov ${hoursText(cover.rest)} t · bestilt ${hoursText(cover.planned)} t, bekreftet ${hoursText(cover.confirmed)} t` +
-    (figure === null ? '' : figure < 0 ? `\n${hoursText(-figure)} t mangler` : `\n${hoursText(figure)} t over`) +
+    `${label} · ${dayText(date)}\nRestbehov ${count(cover.need, 'person', 'personer')} (${hoursText(cover.rest)} t) · bestilt ${hoursText(cover.people)} pers. (${hoursText(cover.planned)} t), bekreftet ${hoursText(cover.confirmed)} t` +
+    (figure === null ? '' : figure < 0 ? `\n${count(-figure, 'person', 'personer')} mangler` : `\n${count(figure, 'person', 'personer')} over`) +
     orders.map((order) => `\n${hoursText(order.fte)} pers. ${nameOf(order.supplierId)} · ${order.projectNo ? projectName(order.projectNo) : 'Uten prosjekt'} · ${shiftText(order, wd)}${isWaiting(order) ? ' · venter på svar' : order.asked ? `, ${order.fte} av ${order.asked}` : ''}`).join('')
   )
 }
@@ -167,6 +168,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
       label={
         project ? (
           <LinePick
+            unit="pers."
             kind="project"
             name={project.name}
             hours={missing}
@@ -179,6 +181,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
           />
         ) : (
           <LinePick
+            unit="pers."
             name={style.label}
             hours={missing}
             compact={compact}
@@ -207,7 +210,7 @@ function HireDemandRows() {
   const { cols, dates, viewFrom, viewTo, demandRows, demandDensity } = useBemanning()
   const { board, suppliers, orders, wd, actions, brush, brushProject, projectLines, projectName, isOffered } = useInnleid()
   const view = dates.slice(viewFrom, viewTo + 1)
-  const missing = (key: string) => missingIn((date) => board.cover(key, date), view)
+  const missing = (key: string) => peopleMissingIn((date) => board.cover(key, date), view)
   const compact = demandDensity === 'compact'
   // One function per competence for as long as the orders are the same, so a scroll frame draws no line again.
   const ordersOf = useMemo(() => {
@@ -264,5 +267,5 @@ function HireDemandRows() {
     )
   }
   // A competence with nothing left after the permanent staff and no orders in the period is set aside under «Uten behov».
-  return <CompetenceList busy={(competence) => board.competences.includes(competence)} line={line} />
+  return <CompetenceList busy={(competence) => board.competences.includes(competence)} line={line} missing="personer" />
 }

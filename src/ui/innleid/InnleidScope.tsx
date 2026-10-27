@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { dayText, type ISODate } from '../../domain/dates'
+import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
-import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, missingIn, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
+import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, peopleMissingIn, urgentWaits, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
 import { NO_PROJECT, projectsWithWork } from '../../domain/staffing/projectBalance'
 import { numberKey } from '../../domain/projects'
@@ -27,7 +27,7 @@ type InnleidPanel = { kind: 'control' } | { kind: 'supplier'; id: string } | { k
 /** Innleid opens on the compact lines, where a competence is one line high. */
 const cleanFolded = (stored: unknown): string[] => (Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [])
 const cleanCounts = (stored: unknown): Record<string, number> =>
-  stored && typeof stored === 'object' ? Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] >= 1)) : {}
+  stored && typeof stored === 'object' ? Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] >= 0)) : {}
 
 const NO_ORDERS: HireOrder[] = []
 /** Whether a day of a line is inside a block of them. */
@@ -169,7 +169,7 @@ function useInnleidState(active: boolean, counted: boolean) {
         const ordersOf = (date: ISODate) => sharedOn(date)[at]
         const cover = (date: ISODate) => coverage(line.restOf(date), ordersOf(date), wd)
         const rest = line.projectNo === undefined
-        return { projectNo: line.projectNo ?? NO_PROJECT, name: rest ? 'Uten prosjekt' : projectName(line.projectNo!), rest, orders: ordersOf, cover, missing: missingIn(cover, view) }
+        return { projectNo: line.projectNo ?? NO_PROJECT, name: rest ? 'Uten prosjekt' : projectName(line.projectNo!), rest, orders: ordersOf, cover, missing: peopleMissingIn(cover, view) }
       })
       const projects = all.filter((line) => !line.rest)
       const rest = all.find((line) => line.rest)!
@@ -188,7 +188,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     linesOf: useCallback((competence: CompetenceKey) => projectLinesOf(competence, stored), [projectLinesOf, stored]),
     // R14: with no brush, Pensel takes the competence with the most missing in the days in view.
     fallback: () => {
-      const missing = (key: CompetenceKey) => missingIn((date) => board.cover(key, date), view)
+      const missing = (key: CompetenceKey) => peopleMissingIn((date) => board.cover(key, date), view)
       return [...rows].filter((style) => isOffered(style.key)).sort((a, b) => missing(b.key) - missing(a.key))[0]?.key ?? null
     },
     noneText: 'Ingen kompetanse har restbehov i perioden.',
@@ -197,6 +197,7 @@ function useInnleidState(active: boolean, counted: boolean) {
   })
   const { brush, project: brushProject, activeTool, pickBrush, clearBrush, pickProject, pickFromDemand, pickTool, stepLines } = pick
   const baseProjectLines = pick.lines
+  // The people on the brush per competence; 0 is Auto, the people each day lacks (2026-10-27).
   const people = brush ? (counts[brush] ?? 1) : 1
 
   // The competence of the brush follows between Faste and Innleid (2026-10-26): taken from Faste when Innleid is shown, and handed back when it is left.
@@ -278,7 +279,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     let last = along.length - 1
     if (s.toDemand) while (last >= 0 && lacking(along[last]) <= 0) last--
     const reached = along.slice(0, last + 1)
-    const painted = paintOrders(orders, { lines, competence: brush, ...(brushProject && { projectNo: brushProject }), dates: reached, count: people }, suppliers, wd)
+    const painted = paintOrders(orders, { lines, competence: brush, ...(brushProject && { projectNo: brushProject }), dates: reached, count: people || 'auto', need: (date) => restOf(brush, date, brushProject ?? undefined) }, suppliers, wd)
     return { orders: painted.orders, skipped: painted.skipped, days: strokeDays(reached).length }
   }
   const plan = useMemo(() => (stroke && active ? planOf(stroke, stored) : null), [stroke, active, stored, lineRefs, brush, brushProject, people, suppliers, wd, dates, board, baseProjectLines, rank]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -428,7 +429,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     toast(`Limte inn ${count(result.pasted, 'bestilling', 'bestillinger')} fra ${dayText(dates[at.col])}${result.skipped ? ` · ${result.skipped} hoppet over` : ''}`, { label: 'Angre', run: undo })
   }
 
-  const stepCount = (delta: number) => brush && setCounts((now) => ({ ...now, [brush]: clamp((now[brush] ?? 1) + delta, 1, MOST_PEOPLE) }))
+  const stepCount = (delta: number) => brush && setCounts((now) => ({ ...now, [brush]: clamp((now[brush] ?? 1) + delta, 0, MOST_PEOPLE) }))
 
   /** Brings a day into view if it is not there already: nothing moves for a day the planner can see. */
   const reveal = (date: ISODate) => {
@@ -542,12 +543,12 @@ function useInnleidState(active: boolean, counted: boolean) {
       const only = stroke.lane ? laneFrom(stroke.lane) : null
       return { mode: 'erase' as const, competence: only?.competence, projectNo: only?.projectNo, text: [count(colTo - colFrom + 1, 'dag', 'dager'), lines, ...hours, ...(only ? ['Shift: alt'] : [])] }
     }
-    if (stroke.mode === 'paint' && plan && brush) return { mode: 'paint' as const, competence: brush, projectNo: brushProject ?? undefined, text: [`${count(plan.days, 'dag', 'dager')} × ${lines}`, `${people} pers.`, ...hours, ...(plan.skipped ? [`${plan.skipped} hoppes over`] : []), ...(stroke.toDemand ? ['til behovet er dekket'] : [])] }
+    if (stroke.mode === 'paint' && plan && brush) return { mode: 'paint' as const, competence: brush, projectNo: brushProject ?? undefined, text: [`${count(plan.days, 'dag', 'dager')} × ${lines}`, people ? `${people} pers.` : 'Auto: det som mangler', ...hours, ...(plan.skipped ? [`${plan.skipped} hoppes over`] : []), ...(stroke.toDemand ? ['til behovet er dekket'] : [])] }
     return null
   }, [stroke, plan, brush, brushProject, people, stored, wd])
 
   return {
-    board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), suppliers, orders, stored, wd, view,
+    board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), urgent: useMemo(() => urgentWaits(stored, todayIso()), [stored]), suppliers, orders, stored, wd, view,
     tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, isOffered,
     panel, setPanel, openControl: () => setPanel({ kind: 'control' }), openNextUnder, showOrder,
     projectLines, projectName, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
