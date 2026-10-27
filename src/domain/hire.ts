@@ -467,6 +467,9 @@ export const supplierDays = (orders: HireOrder[], wd: WorkdaySettings): Map<stri
   return map
 }
 
+/** What a competence's piece of a supplier's day is named (2026-10-27): its full name where it is the day's only one, its short name beside one more, and none among more, where the colour says it. */
+export const partName = (parts: number): 'label' | 'short' | null => (parts === 1 ? 'label' : parts === 2 ? 'short' : null)
+
 /** What a supplier is ordered for in a week, as Faste counts a person's (`week` of `BemanningScope`): paid hours, and of them those that wait for an answer. */
 export const supplierWeek = (days: Map<ISODate, SupplierDay> | undefined, week: ISODate[]): { hours: number; waiting: number } =>
   week.reduce((sum, date) => ({ hours: sum.hours + (days?.get(date)?.hours ?? 0), waiting: sum.waiting + (days?.get(date)?.waitingHours ?? 0) }), { hours: 0, waiting: 0 })
