@@ -44,7 +44,7 @@ export const InnleidTop = () => <CrewTop demand={<HireDemandRows />} />
 /** The planning bar in Innleid, as Faste's: the mode and the part, undo, the tools with the brush and its people, and what is still to do. */
 export function InnleidToolbar(bar: CrewBarProps) {
   const { styles, projectName, lastKey } = useBemanning()
-  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
+  const { board, waiting, urgent, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   const tools = crewTools(brush ? styles.get(brush) : undefined, brushProject && projectName(brushProject), {
     select: 'Velg dager på leverandørenes linjer: klikk en dag, eller dra over flere (V).',
@@ -63,7 +63,8 @@ export function InnleidToolbar(bar: CrewBarProps) {
       before={
         <>
           {waiting > HOURS_NOISE && (
-            <button className="il-waiting" title="Timer som er bestilt, men ikke bekreftet. Klikk for å se over og bekrefte bestillingene." onClick={openControl}>
+            <button className="il-waiting" title={`Timer som er bestilt, men ikke bekreftet.${urgent ? ' Noen av dagene starter snart: purr på leverandørene.' : ''} Klikk for å se over og bekrefte bestillingene.`} onClick={openControl}>
+              {urgent && <i className="need-dot" />}
               <AnswerGlyph waits /> {hoursText(waiting)} t venter på svar
             </button>
           )}

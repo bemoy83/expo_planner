@@ -1,8 +1,8 @@
 import { memo, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { dayText, type ISODate } from '../../domain/dates'
+import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { laneOf, SHIFT_LABELS, shiftTimes, supplierDays, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
+import { isUrgent, laneOf, SHIFT_LABELS, shiftTimes, supplierDays, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { CrewName } from '../bemanning/CrewFrame'
@@ -25,18 +25,27 @@ interface NameProps {
   /** The competence of the brush, whose mark has a ring. */
   focus: string | null
   waits: boolean
+  /** It waits for an answer on a day that starts soon (`isUrgent`). */
+  urgent: boolean
   /** What it is ordered for in the week of the people's in Faste: paid hours, and of them those that wait for an answer. */
   week: { hours: number; waiting: number }
   actions: InnleidActions
 }
 
-function SupplierName({ supplier, competences, focus, waits, actions }: NameProps) {
+function SupplierName({ supplier, competences, focus, waits, urgent, actions }: NameProps) {
   return (
     <CrewName
       name={supplier.name}
       title={`Åpne bestillingen til ${supplier.name}`}
       onOpen={() => actions.openSupplier(supplier.id)}
-      mark={waits && <AnswerGlyph waits size={12} />}
+      mark={
+        waits && (
+          <>
+            <AnswerGlyph waits size={12} />
+            {urgent && <i className="need-dot" title="Venter på svar for dager som starter snart: purr på leverandøren" />}
+          </>
+        )
+      }
       competences={competences}
       has={(competence) => supplier.competences.includes(competence)}
       focus={focus}
@@ -54,10 +63,11 @@ function WeekHours({ supplier, week }: { supplier: Supplier; week: NameProps['we
 }
 
 /** What a supplier is ordered for on a day, under the pointer: the people in all, and per competence. */
-const dayTitle = (supplier: Supplier, date: ISODate, day: SupplierDay, styles: Map<string, CompetenceStyle>): string =>
+const dayTitle = (supplier: Supplier, date: ISODate, day: SupplierDay, styles: Map<string, CompetenceStyle>, today: ISODate): string =>
   [
     `${supplier.name} · ${dayText(date)} · ${hoursText(day.people)} pers.`,
     ...day.parts.map((part) => `${styles.get(part.competence)?.label ?? part.competence}: ${hoursText(part.people)} pers.${part.waiting ? `, ${hoursText(part.waiting)} venter på svar` : ''}`),
+    ...(day.waiting > 0 && isUrgent(date, today) ? ['Starter snart og venter fortsatt på svar: purr på leverandøren'] : []),
   ].join('\n')
 
 interface NameLineProps extends NameProps {
@@ -65,6 +75,8 @@ interface NameLineProps extends NameProps {
   /** By date. */
   days: Map<ISODate, SupplierDay> | undefined
   styles: Map<string, CompetenceStyle>
+  /** Today, for the days that wait for an answer and start soon. */
+  today: ISODate
   folded: boolean
   /** It has no shift at all. */
   empty: boolean
@@ -76,7 +88,7 @@ interface NameLineProps extends NameProps {
  * A supplier's name line: its name, and per day what it is ordered for over its shifts (2026-10-27): a bar in the colours of the
  * competences, as long as each one's people, those that wait for an answer hatched, and the people in all beside it. Its shift lines fold under it.
  */
-const NameLine = memo(function NameLine({ cols, days, styles, folded, empty, dim, onOpenSuppliers, ...name }: NameLineProps) {
+const NameLine = memo(function NameLine({ cols, days, styles, today, folded, empty, dim, onOpenSuppliers, ...name }: NameLineProps) {
   const { supplier, actions } = name
   return (
     <Line
@@ -105,9 +117,10 @@ const NameLine = memo(function NameLine({ cols, days, styles, folded, empty, dim
       cells={(date) => {
         const day = days?.get(date)
         return (
-          <div key={date} className={`${dayClass(cols, date)} cell il-people`} onMouseDown={actions.cellDown} title={day ? dayTitle(supplier, date, day, styles) : undefined}>
+          <div key={date} className={`${dayClass(cols, date)} cell il-people`} onMouseDown={actions.cellDown} title={day ? dayTitle(supplier, date, day, styles, today) : undefined}>
             {day && (
               <>
+                {day.waiting > 0 && isUrgent(date, today) && <i className="need-dot" />}
                 <span className="il-day-bar">
                   {day.parts.flatMap((part) => {
                     const style = { ...competenceColor(styles.get(part.competence)) }
@@ -223,6 +236,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
   const { cols, styles, labelOf, listStyles, week } = useBemanning()
   const { suppliers, stored, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
   const perDay = useMemo(() => supplierDays(stored, wd), [stored, wd])
+  const today = todayIso()
   // Each supplier's week, the same object for as long as its orders and the week are, so a scroll frame draws no line again.
   const weeks = useMemo(() => {
     const sum = (days: Map<ISODate, SupplierDay> | undefined) => week.reduce((all, date) => ({ hours: all.hours + (days?.get(date)?.hours ?? 0), waiting: all.waiting + (days?.get(date)?.waitingHours ?? 0) }), { hours: 0, waiting: 0 })
@@ -254,6 +268,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
           competences: listStyles,
           focus: brush,
           waits: !!days && [...days.values()].some((day) => day.waiting > 0),
+          urgent: !!days && [...days].some(([date, day]) => day.waiting > 0 && isUrgent(date, today)),
           week: weeks.get(supplier.id)!,
           actions,
         }
@@ -267,7 +282,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                 </span>
               </div>
             )}
-            <NameLine {...name} cols={cols} days={days} styles={styles} folded={block.folded} empty={!block.rows.length && !block.folded} dim={block.dim} onOpenSuppliers={onOpenSuppliers} />
+            <NameLine {...name} cols={cols} days={days} styles={styles} today={today} folded={block.folded} empty={!block.rows.length && !block.folded} dim={block.dim} onOpenSuppliers={onOpenSuppliers} />
             {block.rows.map((shift) => {
               const row = shiftRows.indexOf(shift)
               const inStroke = range !== null && stroke?.mode === 'paint' && !offered && row >= range.rowFrom && row <= range.rowTo

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, missingIn, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { laneFrom, laneOf, supplierDays, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, missingIn, isUrgent, urgentWaits, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -69,6 +69,15 @@ describe('coverage of a competence on a day (I1)', () => {
     const fewer = confirmFewer([order('b2', 'k1', 'vegger', '2026-10-08', 4, 4)], ['b2'], 3)
     expect(fewer).toEqual([{ ...order('b2', 'k1', 'vegger', '2026-10-08', 3, 3), asked: 4 }])
     expect(coverFigure(coverage(30, fewer, wd))).toBe(-1)
+  })
+})
+
+describe('answers that are urgent', () => {
+  it('are those that wait on today and the next two days, never on a day gone by', () => {
+    expect(['2026-10-07', '2026-10-08', '2026-10-10', '2026-10-11'].map((date) => isUrgent(date, '2026-10-08'))).toEqual([false, true, true, false])
+    expect(urgentWaits([order('a', 'k1', 'vegger', '2026-10-09', 2, 2)], '2026-10-08')).toBe(false)
+    expect(urgentWaits([order('a', 'k1', 'vegger', '2026-10-09', 2, null)], '2026-10-08')).toBe(true)
+    expect(urgentWaits([order('a', 'k1', 'vegger', '2026-10-12', 2, null)], '2026-10-08')).toBe(false)
   })
 })
 

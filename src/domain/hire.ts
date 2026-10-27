@@ -1,4 +1,4 @@
-import { dayText, type ISODate } from './dates'
+import { daysBetween, dayText, type ISODate } from './dates'
 import { projectTag, sameProject, SHIFT_IDS, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type WorkdaySettings, type Workspace } from './types'
 import { pushTo } from './collections'
 import { dayType } from './holidays'
@@ -52,6 +52,18 @@ export const hireHours = (times: Interval, wd: WorkdaySettings): number => {
 }
 
 export const isWaiting = (order: HireOrder): boolean => order.conf === null
+
+/** How many days ahead, today counted, a day that waits for an answer is urgent (2026-10-27): the supplier should be asked again. */
+export const URGENT_DAYS = 3
+
+/** A day that is today or among the next days of `URGENT_DAYS`, where an order that still waits for an answer is urgent. */
+export const isUrgent = (date: ISODate, today: ISODate): boolean => {
+  const ahead = daysBetween(today, date)
+  return ahead >= 0 && ahead < URGENT_DAYS
+}
+
+/** Whether any of the orders waits for an answer on an urgent day. */
+export const urgentWaits = (orders: HireOrder[], today: ISODate): boolean => orders.some((order) => isWaiting(order) && isUrgent(order.date, today))
 
 type CoverState = 'none' | 'short' | 'ok' | 'over'
 

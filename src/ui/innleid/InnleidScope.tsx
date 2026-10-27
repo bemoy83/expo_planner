@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { dayText, type ISODate } from '../../domain/dates'
+import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
-import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, missingIn, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
+import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, missingIn, urgentWaits, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
 import { NO_PROJECT, projectsWithWork } from '../../domain/staffing/projectBalance'
 import { numberKey } from '../../domain/projects'
@@ -548,7 +548,7 @@ function useInnleidState(active: boolean, counted: boolean) {
   }, [stroke, plan, brush, brushProject, people, stored, wd])
 
   return {
-    board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), suppliers, orders, stored, wd, view,
+    board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), urgent: useMemo(() => urgentWaits(stored, todayIso()), [stored]), suppliers, orders, stored, wd, view,
     tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, isOffered,
     panel, setPanel, openControl: () => setPanel({ kind: 'control' }), openNextUnder, showOrder,
     projectLines, projectName, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
