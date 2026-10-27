@@ -380,6 +380,8 @@ describe('orders painted on the suppliers\' lines', () => {
     expect(days.get('k1')?.get(MON)).toEqual({ people: 3, waiting: 1, hours: 2 * dag + kveld, waitingHours: kveld, parts: [{ competence: 'vegger', people: 2, waiting: 0 }, { competence: 'tepper', people: 1, waiting: 1 }] })
     expect(days.get('k1')?.get(TUE)).toEqual({ people: 1, waiting: 1, hours: dag, waitingHours: dag, parts: [{ competence: 'vegger', people: 1, waiting: 1 }] })
     expect(days.get('k3')?.get(MON)).toEqual({ people: 3, waiting: 0, hours: 3 * dag, waitingHours: 0, parts: [{ competence: 'vegger', people: 3, waiting: 0 }] })
+    // In the order of the list of competences, whatever was ordered first.
+    expect(supplierDays([on('k1', 'dag', MON, 2, 2), on('k1', 'kveld', MON, 1, null, 'tepper')], wd, ['tepper', 'vegger']).get('k1')?.get(MON)?.parts.map((part) => part.competence)).toEqual(['tepper', 'vegger'])
     expect([1, 2, 3].map(partName)).toEqual(['label', 'short', null])
     // The week of the name line, and the marks after the name: what waits, and whether it is urgent.
     expect(supplierWeek(days.get('k1'), [MON, TUE])).toEqual({ hours: 3 * dag + kveld, waiting: dag + kveld })

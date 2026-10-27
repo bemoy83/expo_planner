@@ -239,7 +239,8 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
 export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, styles, labelOf, listStyles, week } = useBemanning()
   const { suppliers, stored, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
-  const perDay = useMemo(() => supplierDays(stored, wd), [stored, wd])
+  const order = useMemo(() => listStyles.map((style) => style.key), [listStyles])
+  const perDay = useMemo(() => supplierDays(stored, wd, order), [stored, wd, order])
   const today = todayIso()
   // Each supplier's week, the same object for as long as its orders and the week are, so a scroll frame draws no line again.
   const weeks = useMemo(() => new Map(suppliers.map((supplier) => [supplier.id, supplierWeek(perDay.get(supplier.id), week)])), [suppliers, perDay, week])

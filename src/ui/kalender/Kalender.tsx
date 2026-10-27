@@ -211,6 +211,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     scrollRef,
     dates,
     range,
+    focus: planningFocus?.date,
     zoom,
     viewport,
     zoomFrom,
