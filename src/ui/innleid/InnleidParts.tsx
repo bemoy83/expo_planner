@@ -1,13 +1,12 @@
-import { Fragment, memo, useMemo, type ReactNode } from 'react'
+import { memo, useMemo, type ReactNode } from 'react'
 import { CircleHelp, Minus, Plus, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
 import { coverFigure, dayKey, HOURS_NOISE, isWaiting, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { PanelToggle } from '../common'
 import { count } from '../dom'
-import { useBemanning } from '../bemanning/BemanningScope'
-import { DensityToggle } from '../bemanning/DensityToggle'
-import { SectionLine } from '../kalender/GridRows'
+import { useBemanning, type DemandRow } from '../bemanning/BemanningScope'
+import { CompetenceList } from '../bemanning/DemandRows'
 import type { Columns } from '../kalender/gridTypes'
 import { LinePick, NeedRow } from '../bemanning/NeedLabel'
 import { numberKey } from '../../domain/projects'
@@ -44,8 +43,8 @@ export const InnleidTop = () => <CrewTop demand={<HireDemandRows />} />
 
 /** The planning bar in Innleid, as Faste's: the mode and the part, undo, the tools with the brush and its people, and what is still to do. */
 export function InnleidToolbar(bar: CrewBarProps) {
-  const { styles, projectName } = useBemanning()
-  const { board, rows, waiting, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
+  const { styles, projectName, lastKey } = useBemanning()
+  const { board, waiting, openNextUnder, openControl, tool, pickTool, brush, brushProject, people, stepCount, panel, setPanel } = useInnleid()
   const under = board.underDays.length
   const tools = crewTools(brush ? styles.get(brush) : undefined, brushProject && projectName(brushProject), {
     select: 'Velg dager på leverandørenes linjer: klikk en dag, eller dra over flere (V).',
@@ -60,7 +59,7 @@ export function InnleidToolbar(bar: CrewBarProps) {
       tool={tool}
       tools={tools}
       pickTool={pickTool}
-      pickKeys={brush || !rows.length ? null : Math.min(9, rows.length)}
+      pickKeys={brush ? null : lastKey}
       before={
         <>
           {waiting > HOURS_NOISE && (
@@ -136,8 +135,13 @@ interface RowProps {
   missing: number
   /** The key that picks it as the brush, 1 to 9, or 0. */
   pickKey: number
-  /** The line is the brush. */
+  /** A supplier offers the competence: a line none does is greyed, and its key picks nothing. */
+  able: boolean
+  /** The line is the brush, or holds it where `held`: a project's line under it is. */
   on: boolean
+  held?: boolean
+  /** The line has lines under it, which show its days: as an open level of the plan, it shows no sums of its own. */
+  summed?: boolean
   /** Compact: one line high, with the label as a thin line. */
   compact: boolean
   actions: InnleidActions
@@ -150,7 +154,7 @@ interface RowProps {
 }
 
 /** One competence, or a line under the brush's: its name with what is missing in the days in view, and per day its label. A click on either makes it the brush. */
-const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf, suppliers, wd, projectName, missing, pickKey, on, compact, actions, project, dim = false, last = false }: RowProps) {
+const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf, suppliers, wd, projectName, missing, pickKey, able, on, held = false, summed = false, compact, actions, project, dim = false, last = false }: RowProps) {
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
   const coverOf = (date: ISODate) => (project ? project.cover(date) : board.cover(style.key, date))
   const label = project ? `${style.label} · ${project.name}` : style.label
@@ -159,7 +163,7 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
       style={style}
       cols={cols}
       compact={compact}
-      className={`${project ? 'bm-demand-project' : ''} ${on ? 'on' : ''} ${dim ? 'dim' : ''}`}
+      className={`${project ? 'bm-demand-project' : ''} ${on ? 'on' : ''} ${held ? 'held' : ''} ${dim ? 'dim' : ''} ${summed ? 'summed' : ''}`}
       label={
         project ? (
           <LinePick
@@ -174,11 +178,22 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
             onClick={() => actions.pickProject(project.projectNo)}
           />
         ) : (
-          <LinePick name={style.label} hours={missing} compact={compact} kbd={pickKey > 0 && !compact && <kbd>{pickKey}</kbd>} pressed={on} title={on ? 'Legg bort penselen (Esc)' : `Bestill ${style.label} med penselen${pickKey ? ` (${pickKey})` : ''}`} onClick={() => actions.pickFromDemand(style.key)} />
+          <LinePick
+            name={style.label}
+            hours={missing}
+            compact={compact}
+            kbd={able && pickKey > 0 && !compact && <kbd>{pickKey}</kbd>}
+            pressed={on}
+            disabled={!able && !on}
+            outer={summed ? 'start' : undefined}
+            title={on ? 'Legg bort penselen (Esc)' : able ? `Bestill ${style.label} med penselen${pickKey ? ` (${pickKey})` : ''}` : `Ingen leverandør tilbyr ${style.label}`}
+            onClick={() => actions.pickFromDemand(style.key)}
+          />
         )
       }
       onDay={(date, event) => actions.pickDay(style.key, project?.projectNo, date, event)}
       day={(date) => {
+        if (summed) return null
         const orders = ordersOf(date)
         const cover = coverOf(date)
         return { parts: cover.state === 'none' ? null : orderedLabel(cover, orders, wd, suppliers), title: coverTitle(label, date, cover, orders, nameOf, projectName, wd) }
@@ -187,71 +202,67 @@ const CompetenceRow = memo(function CompetenceRow({ style, cols, board, ordersOf
   )
 })
 
-/** The demand of Innleid, as Faste's (`DemandRows`): a line per competence with hours that remain after the permanent staff, or with orders, and under the brush's its projects. */
+/** The demand of Innleid, Faste's list of competences (`CompetenceList`): a line per competence with what remains after the permanent staff and how far the orders cover it, and under the brush's its projects. */
 function HireDemandRows() {
-  const { cols, dates, viewFrom, viewTo } = useBemanning()
-  const { board, rows, suppliers, orders, wd, actions, brush, brushProject, density, setDensity, projectLines, projectName } = useInnleid()
+  const { cols, dates, viewFrom, viewTo, demandRows, demandDensity } = useBemanning()
+  const { board, suppliers, orders, wd, actions, brush, brushProject, projectLines, projectName, offered } = useInnleid()
   const view = dates.slice(viewFrom, viewTo + 1)
   const missing = (key: string) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
-  const compact = density === 'compact'
+  const compact = demandDensity === 'compact'
   // One function per competence for as long as the orders are the same, so a scroll frame draws no line again.
   const ordersOf = useMemo(() => {
     const byDay = ordersByDay(orders)
-    return new Map(rows.map((style) => [style.key, (date: ISODate) => byDay.get(dayKey(style.key, date)) ?? NO_ORDERS]))
-  }, [orders, rows])
-  return (
-    <div className={`top-section bm-demand-section open ${compact ? 'compact' : ''}`}>
-      <SectionLine>
-        Kompetanse
-        <DensityToggle compact={compact} onChange={(next) => setDensity(next ? 'compact' : 'detail')} />
-        <span className="section-meta section-meta-end" title="Timer som mangler i dagene som vises">
-          {count(rows.length, 'med restbehov', 'med restbehov')} · timer mangler
-        </span>
-      </SectionLine>
-      {rows.map((style, at) => {
-        const mine = brush === style.key
-        return (
-          <Fragment key={style.key}>
+    return new Map(demandRows.map(({ style }) => [style.key, (date: ISODate) => byDay.get(dayKey(style.key, date)) ?? NO_ORDERS]))
+  }, [orders, demandRows])
+  const line = ({ style, key }: DemandRow) => {
+    const mine = brush === style.key
+    // The competence of the brush with lines under it leaves its days to them, as an open level of the plan.
+    const opened = mine && projectLines.length > 0
+    return (
+      <>
+        <CompetenceRow
+          style={style}
+          cols={cols}
+          board={board}
+          ordersOf={ordersOf.get(style.key)!}
+          suppliers={suppliers}
+          wd={wd}
+          projectName={projectName}
+          missing={missing(style.key)}
+          pickKey={key}
+          able={offered.has(style.key)}
+          on={mine}
+          held={mine && !!brushProject}
+          summed={opened}
+          // As in Faste, the other competences shrink to their thin line while one is the brush.
+          compact={compact || (!!brush && !mine)}
+          actions={actions}
+          dim={!!brush && !mine}
+        />
+        {mine &&
+          projectLines.map((project, i) => (
             <CompetenceRow
+              key={project.projectNo || 'rest'}
               style={style}
               cols={cols}
               board={board}
-              ordersOf={ordersOf.get(style.key)!}
+              ordersOf={project.orders}
               suppliers={suppliers}
               wd={wd}
               projectName={projectName}
-              missing={missing(style.key)}
-              pickKey={at < 9 ? at + 1 : 0}
-              on={mine && !brushProject}
-              // As in Faste, the other competences shrink to their thin line while one is the brush.
-              compact={compact || (!!brush && !mine)}
+              missing={project.missing}
+              pickKey={0}
+              able
+              on={!project.rest && !!brushProject && numberKey(project.projectNo) === numberKey(brushProject)}
+              compact={compact}
               actions={actions}
-              dim={!!brush && !mine}
+              project={project}
+              last={i === projectLines.length - 1}
             />
-            {mine &&
-              projectLines.map((project, i) => (
-                <CompetenceRow
-                  key={project.projectNo || 'rest'}
-                  style={style}
-                  cols={cols}
-                  board={board}
-                  ordersOf={project.orders}
-                  suppliers={suppliers}
-                  wd={wd}
-                  projectName={projectName}
-                  missing={project.missing}
-                  pickKey={0}
-                  on={!project.rest && !!brushProject && numberKey(project.projectNo) === numberKey(brushProject)}
-                  compact={compact}
-                  actions={actions}
-                  project={project}
-                  last={i === projectLines.length - 1}
-                />
-              ))}
-          </Fragment>
-        )
-      })}
-      {rows.length === 0 && <p className="empty-rows">Ingen restbehov i perioden: de faste dekker det som er planlagt, eller ingenting er planlagt ennå.</p>}
-    </div>
-  )
+          ))}
+      </>
+    )
+  }
+  // A competence with nothing left after the permanent staff and no orders in the period is set aside under «Uten behov».
+  return <CompetenceList busy={(competence) => board.competences.includes(competence)} line={line} />
 }

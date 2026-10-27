@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import type { ISODate } from '../../domain/dates'
 import { deleteBlock, type Clipboard, type DayCell as Day } from '../../domain/staffing/edit'
-import type { AllocationRow, CompetenceStyle, VenuePhase } from '../../domain/types'
+import type { AllocationRow, VenuePhase } from '../../domain/types'
 import { usePref } from '../../store/prefs'
 import { useWorkspace } from '../../store/workspaceStore'
 import type { Columns } from '../kalender/gridTypes'
@@ -13,7 +13,7 @@ import type { AbsenceDraft } from './PersonPanel'
 import type { ProjectSpan } from './projectsInView'
 import type { CrossMove } from './TimeTrack'
 import type { Rect } from './tools'
-import { LAST_KEY, useBemanningBalance } from './useBemanningBalance'
+import { LAST_KEY, pickKeys, useBemanningBalance } from './useBemanningBalance'
 import { useBemanningKeys } from './useBemanningKeys'
 import { useBrush } from './useBrush'
 import { usePeopleLines } from './usePeopleLines'
@@ -204,7 +204,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
     closePanel: () => setPanel(null),
     fold: () => setUnfolded(null),
     pickTool,
-    brushKeys: staffed.map((style) => style.key),
+    brushKeys: pickKeys(view.demandRows, (competence) => staffed.some((style) => style.key === competence)),
     pickBrush,
     toggleHours: () => {
       const personId = selected?.personId ?? unfolded
@@ -227,7 +227,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
 
   return {
     ws, dates, cols, scrollRef, room: view.room, viewFrom: view.viewFrom, viewTo: view.viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
-    persons, staffed, styles, keyOf: view.keyOf, lastKey: Math.min(staffed.length, LAST_KEY),
+    persons, staffed, styles, keyOf: view.keyOf, lastKey: Math.min(view.demandRows.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, brushProject: activeProject, brushHall: activeHall, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand: brush.pickFromDemand, pickProject: brush.pickProject, pickPlace: brush.pickPlace,
     balance, shownBalance: preview.shownBalance, shownRemaining: preview.shownRemaining, totals: view.totals, remainingOf, demandRows: view.demandRows, uncoverable: view.uncoverable, projectLines, projectShown: preview.projectShown, restShown: preview.restShown, placeLines, placeShown: preview.placeShown, projectName: brush.projectName, projectBalance, kalenderProjects: brush.kalenderProjects,
     lines, listed, listedAble, able: people.able, week, isOk: people.isOk, isOpen: people.isOpen, ghost: preview.ghost, info: preview.info, refused: preview.refused, stroke, stretch: preview.stretch, paintReach: preview.paintReach, selected, selection, clip, setClip,
@@ -243,7 +243,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
 type BemanningState = ReturnType<typeof useBemanningState>
 /** What the days of a person's line tell the grid; the handlers keep their identity (see `useStableActions`). */
 export type PersonActions = BemanningState['actions']
-export type DemandRow = { style: CompetenceStyle; key: number }
+export type { DemandRow } from './useBemanningBalance'
 
 const BemanningContext = createContext<BemanningState | null>(null)
 

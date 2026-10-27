@@ -8,7 +8,8 @@ import { numberKey } from '../../domain/projects'
 import { pushTo } from '../../domain/collections'
 import { sameProject, type CompetenceKey, type CompetenceStyle, type HireOrder, type ShiftId, type Supplier } from '../../domain/types'
 import { usePref } from '../../store/prefs'
-import { useBemanning, type Density } from '../bemanning/BemanningScope'
+import { useBemanning } from '../bemanning/BemanningScope'
+import { pickKeys } from '../bemanning/useBemanningBalance'
 import { projectDays, restDays } from '../bemanning/lineBalances'
 import { DIVIDER_H, shiftLine } from '../bemanning/layout'
 import { strokeRange, type Rect, type Stroke } from '../bemanning/tools'
@@ -25,7 +26,6 @@ import { hoursText } from '../format'
 type InnleidPanel = { kind: 'control' } | { kind: 'supplier'; id: string } | { kind: 'help' }
 
 /** Innleid opens on the compact lines, where a competence is one line high. */
-const cleanDensity = (stored: unknown): Density => (stored === 'detail' ? 'detail' : 'compact')
 const cleanFolded = (stored: unknown): string[] => (Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [])
 const cleanCounts = (stored: unknown): Record<string, number> =>
   stored && typeof stored === 'object' ? Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] >= 1)) : {}
@@ -123,7 +123,6 @@ function useInnleidState(active: boolean, counted: boolean) {
 
   // ---- the brush: a competence, and under it maybe a project, with a count of people ------------------------------------------
   const [counts, setCounts] = usePref<Record<string, number>>('innleidCounts', {}, cleanCounts)
-  const [density, setDensity] = usePref<Density>('innleidDensity', 'compact', cleanDensity)
   const [folded, setFolded] = usePref<string[]>('innleidFolded', [], cleanFolded)
   const [storedPanel, setPanel] = useState<InnleidPanel | null>(null)
   // A supplier that is removed has no panel.
@@ -183,14 +182,16 @@ function useInnleidState(active: boolean, counted: boolean) {
   )
 
   // ---- the brush, as Faste's (`useBrushPick`): a competence, and under it maybe a project, with a count of people ---------------
-  const brushKeys = useMemo(() => rows.map((style) => style.key), [rows])
+  // The competences a supplier offers: the others cannot be the brush, and their lines are greyed.
+  const offered = useMemo(() => new Set(suppliers.flatMap((supplier) => supplier.competences)), [suppliers])
+  const brushKeys = useMemo(() => bm.demandRows.map(({ style }) => style.key).filter((key) => offered.has(key)), [bm.demandRows, offered])
   const pick = useBrushPick({
     keys: brushKeys,
     linesOf: useCallback((competence: CompetenceKey) => projectLinesOf(competence, stored), [projectLinesOf, stored]),
     // R14: with no brush, Pensel takes the competence with the most missing in the days in view.
     fallback: () => {
       const missing = (key: CompetenceKey) => view.reduce((sum, date) => sum + Math.max(0, board.cover(key, date).remaining), 0)
-      return [...rows].sort((a, b) => missing(b.key) - missing(a.key))[0]?.key ?? null
+      return [...rows].filter((style) => offered.has(style.key)).sort((a, b) => missing(b.key) - missing(a.key))[0]?.key ?? null
     },
     noneText: 'Ingen kompetanse har restbehov i perioden.',
     toast,
@@ -207,7 +208,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     if (active && bm.brush) pick.take(bm.brush, bm.brushProject)
   }
   useEffect(() => {
-    if (active || !brush || brush === bm.brush || !bm.keyOf.has(brush)) return
+    if (active || !brush || brush === bm.brush || !bm.staffed.some((style) => style.key === brush)) return
     bm.pickBrush(brush)
     if (activeTool !== 'paint') bm.pickTool('select')
   }, [active]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -522,7 +523,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     closePanel: () => setPanel(null),
     fold: () => {},
     pickTool,
-    brushKeys: rows.map((style) => style.key),
+    brushKeys: pickKeys(bm.demandRows, (competence) => offered.has(competence)),
     pickBrush,
     stepCount,
     canStepLines: brush !== null && projectLines.some((line) => !line.rest),
@@ -549,7 +550,7 @@ function useInnleidState(active: boolean, counted: boolean) {
 
   return {
     board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), suppliers, orders, stored, wd, view,
-    tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, density, setDensity,
+    tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, offered,
     panel, setPanel, openControl: () => setPanel({ kind: 'control' }), openNextUnder, showOrder,
     projectLines, projectName, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
     clip, orderPop, setOrderPop, demandPop, setDemandPop, projectsFor, pickProject,

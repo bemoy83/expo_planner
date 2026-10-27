@@ -4,7 +4,7 @@ import type { ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
 import { balanceTotals, buildBalance, uncoverable as uncoverableHours, type Balance, type WeekTotals } from '../../domain/staffing/balance'
 import { buildProjectBalance, type ProjectBalance } from '../../domain/staffing/projectBalance'
-import type { AllocationRow, Workspace } from '../../domain/types'
+import type { AllocationRow, CompetenceStyle, Workspace } from '../../domain/types'
 import type { Columns } from '../kalender/gridTypes'
 import { LEFT_W } from '../kalender/layout'
 import { PANEL_W } from '../cssVars'
@@ -38,7 +38,6 @@ export function useBemanningBalance({ active, ws, dates, cols, viewport, planned
   const { colW } = cols
   const staffed = useMemo(() => (active ? staffedCompetences(ws) : []), [active, ws])
   const styles = useMemo(() => new Map((active ? competenceStyles(ws) : []).map((style) => [style.key, style])), [active, ws])
-  const keyOf = useMemo(() => new Map(staffed.slice(0, LAST_KEY).map((style, index) => [style.key, index + 1])), [staffed])
 
   // ---- the balance of the whole period, worked out once per change ---------------------------------
   const balance = useMemo<Balance>(() => buildBalance(planned === ws.allocations ? ws : { ...ws, allocations: planned }, active ? dates : []), [active, ws, planned, dates])
@@ -56,11 +55,14 @@ export function useBemanningBalance({ active, ws, dates, cols, viewport, planned
   const totals = useMemo<WeekTotals>(() => balanceTotals(balance, viewDates), [balance, viewDates])
   /** Per competence: the hours that remain in the days in view. A competence with neither demand nor assigned hours in the period is not in it. */
   const remainingOf = useMemo(() => remainingIn(balance, viewDates), [balance, viewDates])
-  // The demand lists the competences people have, and any other with demand or assigned hours in the period.
-  const demandRows = useMemo(() => {
-    const held = new Set(staffed.map((style) => style.key))
-    return [...styles.values()].filter((style) => held.has(style.key) || remainingOf.has(style.key)).map((style) => ({ style, key: keyOf.get(style.key) ?? 0 }))
-  }, [staffed, styles, remainingOf, keyOf])
+  // The demand lists the competences people have, any other with demand or assigned hours in the period, and any ordered from a supplier:
+  // the same list in Faste and in Innleid, in the order of Kompetanser, so the keys 1 to 9 pick the same competence in both (2026-10-27).
+  const hireOrders = ws.hireOrders
+  const demandRows = useMemo<DemandRow[]>(() => {
+    const held = new Set([...staffed.map((style) => style.key), ...(hireOrders ?? []).map((order) => order.competence)])
+    return [...styles.values()].filter((style) => held.has(style.key) || remainingOf.has(style.key)).map((style, at) => ({ style, key: at < LAST_KEY ? at + 1 : 0 }))
+  }, [staffed, hireOrders, styles, remainingOf])
+  const keyOf = useMemo(() => new Map(demandRows.filter((row) => row.key).map((row) => [row.style.key, row.key])), [demandRows])
 
   const firstWorkday = useMemo(() => {
     for (let col = Math.min(dates.length - 1, Math.ceil(viewport.left / colW)); col < dates.length; col++) if (dayType(dates[col]) === 'arbeidsdag') return dates[col]
@@ -86,3 +88,9 @@ export function useBemanningBalance({ active, ws, dates, cols, viewport, planned
 
   return { staffed, styles, keyOf, balance, projectBalance, room, viewFrom, viewTo, viewDates, totals, remainingOf, demandRows, firstWorkday, weekStart, week, uncoverable }
 }
+
+/** A competence's line of the demand, with the key 1 to 9 that picks it, or 0. */
+export type DemandRow = { style: CompetenceStyle; key: number }
+
+/** What the keys 1 to 9 pick in a part: the competence of the line with the key, where the part can paint it (`able`), else nothing. */
+export const pickKeys = (rows: DemandRow[], able: (competence: string) => boolean): string[] => rows.filter((row) => row.key).map((row) => (able(row.style.key) ? row.style.key : ''))
