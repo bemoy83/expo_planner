@@ -442,7 +442,7 @@ export interface SupplierPart {
   waiting: number
 }
 
-/** What a supplier is ordered for on a day, over its shifts and competences: people and paid hours, in all, and of them what waits for an answer; and the people per competence, in the order they were first ordered. */
+/** What a supplier is ordered for on a day, over its shifts and competences: people and paid hours, in all, and of them what waits for an answer; and the people per competence, in the order of the list of competences. */
 export interface SupplierDay {
   people: number
   waiting: number
@@ -451,8 +451,11 @@ export interface SupplierDay {
   parts: SupplierPart[]
 }
 
-/** What each supplier is ordered for per day, for its name line and its week: by supplier, then by date. */
-export const supplierDays = (orders: HireOrder[], wd: WorkdaySettings): Map<string, Map<ISODate, SupplierDay>> => {
+/**
+ * What each supplier is ordered for per day, for its name line and its week: by supplier, then by date. The pieces
+ * of a day are in the order of `competences` (Kompetanser's), so a colour keeps its place from day to day.
+ */
+export const supplierDays = (orders: HireOrder[], wd: WorkdaySettings, competences: CompetenceKey[] = []): Map<string, Map<ISODate, SupplierDay>> => {
   const map = new Map<string, Map<ISODate, SupplierDay>>()
   for (const order of orders) {
     const days = map.get(order.supplierId) ?? new Map<ISODate, SupplierDay>()
@@ -464,8 +467,13 @@ export const supplierDays = (orders: HireOrder[], wd: WorkdaySettings): Map<stri
     days.set(order.date, { people: day.people + order.fte, waiting: day.waiting + waiting, hours: day.hours + hours, waitingHours: day.waitingHours + (waiting ? hours : 0), parts })
     map.set(order.supplierId, days)
   }
+  const rank = (competence: CompetenceKey) => (competences.indexOf(competence) + competences.length + 1) % (competences.length + 1)
+  for (const days of map.values()) for (const day of days.values()) day.parts.sort((a, b) => rank(a.competence) - rank(b.competence))
   return map
 }
+
+/** What a competence's piece of a supplier's day is named (2026-10-27): its full name where it is the day's only one, its short name beside one more, and none among more, where the colour says it. */
+export const partName = (parts: number): 'label' | 'short' | null => (parts === 1 ? 'label' : parts === 2 ? 'short' : null)
 
 /** What a supplier is ordered for in a week, as Faste counts a person's (`week` of `BemanningScope`): paid hours, and of them those that wait for an answer. */
 export const supplierWeek = (days: Map<ISODate, SupplierDay> | undefined, week: ISODate[]): { hours: number; waiting: number } =>

@@ -24,8 +24,40 @@ export interface DaySpan {
   end: ISODate
 }
 
-/** The column width at which `days` fill a grid `room` pixels wide (R18). */
-export const fitWidth = (days: number, room: number): number => Math.min(BEMANNING_MAX_W, Math.max(BEMANNING_MIN_W, Math.floor(room / Math.max(1, days))))
+/**
+ * Innleid draws a day this much wider than Faste, for the marks and the names on a supplier's day, so the switch
+ * between the parts zooms (2026-10-27). The width kept is Faste's; Innleid's follows from it.
+ */
+const HIRE_SCALE = 1.5
+
+/** The width of a day in a part of Bemanning, from Faste's. */
+export const partWidth = (width: number, part: CrewPart): number => (part === 'innleid' ? Math.round(width * HIRE_SCALE) : width)
+
+/**
+ * Faste's column width at which `days` fill a grid `room` pixels wide in `part` (R18): in Innleid the days
+ * are fitted at its own width, and Faste's is what that is drawn from.
+ */
+export const fitWidth = (days: number, room: number, part: CrewPart = 'faste'): number => {
+  const scale = part === 'innleid' ? HIRE_SCALE : 1
+  const fitted = Math.min(BEMANNING_MAX_W * scale, Math.max(BEMANNING_MIN_W * scale, Math.floor(room / Math.max(1, days))))
+  return Math.round(fitted / scale)
+}
+
+/**
+ * Where the left edge goes, among the days, when the width of a day changes from `from` to `colW` and the
+ * day `anchor` (a position among the days) keeps its place on screen: the day in focus, or the middle of the
+ * view. Never before the first day, nor so far that the last leaves the right edge.
+ */
+export const anchoredLeft = (from: ZoomPoint & { room: number }, colW: number, anchor: number, days: number): number => {
+  const left = anchor - ((anchor - from.left) * from.colW) / colW
+  return Math.max(0, Math.min(left, days - from.room / colW))
+}
+
+/** The day that keeps its place when the width changes: the day in focus where it is in view, else the middle of the view. */
+export const zoomAnchor = (from: ZoomPoint & { room: number }, focus: number): number => {
+  const shown = from.room / from.colW
+  return focus >= 0 && focus >= from.left - 0.5 && focus + 1 <= from.left + shown + 0.5 ? focus + 0.5 : from.left + shown / 2
+}
 
 /** What the date header writes at a column width: letters for the weekdays in narrow columns, the hall calendar's split days in wide ones. */
 export const zoomOf = (colW: number): Zoom => (colW < (ZOOM_WIDTHS.compact + ZOOM_WIDTHS.normal) / 2 ? 'compact' : colW < (ZOOM_WIDTHS.normal + ZOOM_WIDTHS.wide) / 2 ? 'normal' : 'wide')
@@ -44,7 +76,7 @@ interface Opening {
 /**
  * The days a page that opens in Bemanning opens on: those last seen there, else ten days from `leftEdge`.
  * Days remembered for another period are forgotten. A switch from the plan does not ask: the two modes
- * share the timeline, so Bemanning starts on the day at the plan's left edge.
+ * share the timeline, so Bemanning opens on the days around the plan's day in focus (`zoomAnchor`).
  */
 export const enterSpan = ({ period, stored, leftEdge }: Opening): DaySpan => {
   const picked = stored && stored.start <= stored.end && stored.start >= period.start && stored.start <= period.end ? stored : daysFrom(leftEdge)

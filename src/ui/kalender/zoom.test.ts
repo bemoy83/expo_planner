@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanPlanMode, enterSpan, fitWidth, heldColumns, zoomFrame, zoomOf } from './zoom'
+import { anchoredLeft, cleanPlanMode, enterSpan, fitWidth, heldColumns, partWidth, zoomAnchor, zoomFrame, zoomOf } from './zoom'
 
 const period = { start: '2026-09-01', end: '2026-12-31' }
 
@@ -12,6 +12,35 @@ describe('fitWidth (R18)', () => {
     expect(fitWidth(40, 1200)).toBe(80)
     expect(fitWidth(3, 1200)).toBe(160)
     expect(fitWidth(0, 1200)).toBe(160)
+  })
+})
+
+describe('the widths of the parts of Bemanning', () => {
+  it('draws Innleid a step wider than Faste', () => {
+    expect(partWidth(80, 'faste')).toBe(80)
+    expect(partWidth(80, 'innleid')).toBe(120)
+  })
+  it("fits the days at Innleid's width there, and gives Faste's width back", () => {
+    expect(fitWidth(10, 1200, 'innleid')).toBe(80)
+    expect(fitWidth(40, 1200, 'innleid')).toBe(80)
+    expect(fitWidth(3, 1200, 'innleid')).toBe(160)
+  })
+})
+
+describe('the day a zoom keeps in place', () => {
+  const from = { colW: 80, left: 10, room: 800 }
+  it('is the day in focus where it is in view, else the middle of the view', () => {
+    expect(zoomAnchor(from, 14)).toBe(14.5)
+    expect(zoomAnchor(from, 40)).toBe(15)
+    expect(zoomAnchor(from, -1)).toBe(15)
+  })
+  it('stays where it was on screen at the new width', () => {
+    const left = anchoredLeft(from, 120, 14.5, 100)
+    expect((14.5 - left) * 120).toBeCloseTo((14.5 - 10) * 80)
+  })
+  it('never goes before the first day or past the last', () => {
+    expect(anchoredLeft({ colW: 120, left: 1, room: 800 }, 40, 10, 100)).toBe(0)
+    expect(anchoredLeft({ colW: 80, left: 90, room: 800 }, 40, 99.5, 100)).toBe(80)
   })
 })
 

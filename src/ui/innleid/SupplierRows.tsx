@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { isUrgent, laneOf, SHIFT_LABELS, shiftTimes, supplierDays, supplierWaits, supplierWeek, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
+import { isUrgent, laneOf, partName, SHIFT_LABELS, shiftTimes, supplierDays, supplierWaits, supplierWeek, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { CrewName } from '../bemanning/CrewFrame'
@@ -122,13 +122,17 @@ const NameLine = memo(function NameLine({ cols, days, styles, today, folded, emp
               <>
                 {day.waiting > 0 && isUrgent(date, today) && <i className="need-dot" />}
                 <span className="il-day-bar">
-                  {day.parts.flatMap((part) => {
-                    const style = competenceColor(styles.get(part.competence))
-                    const other = name.focus && name.focus !== part.competence ? 'other' : ''
-                    return [
-                      part.people > part.waiting && <i key={part.competence} className={other} style={{ ...style, flexGrow: part.people - part.waiting }} />,
-                      part.waiting > 0 && <i key={`${part.competence}|waits`} className={`waits ${other}`} style={{ ...style, flexGrow: part.waiting }} />,
-                    ]
+                  {day.parts.map((part, _, parts) => {
+                    const style = styles.get(part.competence)
+                    const named = partName(parts.length)
+                    const text = named && (named === 'label' ? style?.label : style?.shortLabel || style?.label)
+                    return (
+                      <span key={part.competence} className={`il-day-part ${name.focus && name.focus !== part.competence ? 'other' : ''} ${part.waiting === part.people ? 'waits' : ''}`} style={{ ...competenceColor(style), flexGrow: part.people }}>
+                        {part.people > part.waiting && <i style={{ flexGrow: part.people - part.waiting }} />}
+                        {part.waiting > 0 && <i className="waits" style={{ flexGrow: part.waiting }} />}
+                        {text && <b className={named === 'short' ? 'short' : ''}>{text}</b>}
+                      </span>
+                    )
                   })}
                 </span>
                 <b>{hoursText(day.people)}</b>
@@ -235,7 +239,8 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
 export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, styles, labelOf, listStyles, week } = useBemanning()
   const { suppliers, stored, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
-  const perDay = useMemo(() => supplierDays(stored, wd), [stored, wd])
+  const order = useMemo(() => listStyles.map((style) => style.key), [listStyles])
+  const perDay = useMemo(() => supplierDays(stored, wd, order), [stored, wd, order])
   const today = todayIso()
   // Each supplier's week, the same object for as long as its orders and the week are, so a scroll frame draws no line again.
   const weeks = useMemo(() => new Map(suppliers.map((supplier) => [supplier.id, supplierWeek(perDay.get(supplier.id), week)])), [suppliers, perDay, week])
