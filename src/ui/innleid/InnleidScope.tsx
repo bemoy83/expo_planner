@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
-import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, missingIn, urgentWaits, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
+import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, peopleMissingIn, urgentWaits, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
 import { NO_PROJECT, projectsWithWork } from '../../domain/staffing/projectBalance'
 import { numberKey } from '../../domain/projects'
@@ -169,7 +169,7 @@ function useInnleidState(active: boolean, counted: boolean) {
         const ordersOf = (date: ISODate) => sharedOn(date)[at]
         const cover = (date: ISODate) => coverage(line.restOf(date), ordersOf(date), wd)
         const rest = line.projectNo === undefined
-        return { projectNo: line.projectNo ?? NO_PROJECT, name: rest ? 'Uten prosjekt' : projectName(line.projectNo!), rest, orders: ordersOf, cover, missing: missingIn(cover, view) }
+        return { projectNo: line.projectNo ?? NO_PROJECT, name: rest ? 'Uten prosjekt' : projectName(line.projectNo!), rest, orders: ordersOf, cover, missing: peopleMissingIn(cover, view) }
       })
       const projects = all.filter((line) => !line.rest)
       const rest = all.find((line) => line.rest)!
@@ -188,7 +188,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     linesOf: useCallback((competence: CompetenceKey) => projectLinesOf(competence, stored), [projectLinesOf, stored]),
     // R14: with no brush, Pensel takes the competence with the most missing in the days in view.
     fallback: () => {
-      const missing = (key: CompetenceKey) => missingIn((date) => board.cover(key, date), view)
+      const missing = (key: CompetenceKey) => peopleMissingIn((date) => board.cover(key, date), view)
       return [...rows].filter((style) => isOffered(style.key)).sort((a, b) => missing(b.key) - missing(a.key))[0]?.key ?? null
     },
     noneText: 'Ingen kompetanse har restbehov i perioden.',

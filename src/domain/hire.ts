@@ -54,7 +54,7 @@ export const hireHours = (times: Interval, wd: WorkdaySettings): number => {
 export const isWaiting = (order: HireOrder): boolean => order.conf === null
 
 /** How many days ahead, today counted, a day that waits for an answer is urgent (2026-10-27): the supplier should be asked again. */
-export const URGENT_DAYS = 3
+const URGENT_DAYS = 3
 
 /** A day that is today or among the next days of `URGENT_DAYS`, where an order that still waits for an answer is urgent. */
 export const isUrgent = (date: ISODate, today: ISODate): boolean => {
@@ -126,13 +126,13 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
 }
 
 /** The hours a person gives on a normal day, the shift «Dag»: what Innleid counts the hours that remain in. */
-export const personDay = (wd: WorkdaySettings): number => hireHours(shiftTimes('dag', wd), wd)
+const personDay = (wd: WorkdaySettings): number => hireHours(shiftTimes('dag', wd), wd)
 
 /** The figure a cover is shown with: the people missing as a negative number, those over as a positive one, `null` where neither. */
 export const coverFigure = (cover: Coverage): number | null => (cover.people !== cover.need ? cover.people - cover.need : null)
 
 /** The people missing over some days, where a day with more ordered than it needs makes up for none of another: what a line of Innleid shows in its label column. */
-export const missingIn = (cover: (date: ISODate) => Coverage, days: ISODate[]): number => days.reduce((sum, date) => sum + Math.max(0, cover(date).need - cover(date).people), 0)
+export const peopleMissingIn = (cover: (date: ISODate) => Coverage, days: ISODate[]): number => days.reduce((sum, date) => sum + Math.max(0, cover(date).need - cover(date).people), 0)
 
 /** A rule between two orders is dropped where any order is this thin a share of the label: it would hide it. */
 const THIN_SHARE = 0.04
@@ -465,6 +465,16 @@ export const supplierDays = (orders: HireOrder[], wd: WorkdaySettings): Map<stri
     map.set(order.supplierId, days)
   }
   return map
+}
+
+/** What a supplier is ordered for in a week, as Faste counts a person's (`week` of `BemanningScope`): paid hours, and of them those that wait for an answer. */
+export const supplierWeek = (days: Map<ISODate, SupplierDay> | undefined, week: ISODate[]): { hours: number; waiting: number } =>
+  week.reduce((sum, date) => ({ hours: sum.hours + (days?.get(date)?.hours ?? 0), waiting: sum.waiting + (days?.get(date)?.waitingHours ?? 0) }), { hours: 0, waiting: 0 })
+
+/** Whether a supplier has orders that wait for an answer on any day, and on an urgent one (`isUrgent`): the marks after its name. */
+export const supplierWaits = (days: Map<ISODate, SupplierDay> | undefined, today: ISODate): { waits: boolean; urgent: boolean } => {
+  const waiting = [...(days ?? [])].filter(([, day]) => day.waiting > 0)
+  return { waits: waiting.length > 0, urgent: waiting.some(([date]) => isUrgent(date, today)) }
 }
 
 /** A line of a supplier: one of its shifts. */

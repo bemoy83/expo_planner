@@ -1,7 +1,7 @@
 import { memo, useMemo, type ReactNode } from 'react'
 import { CircleHelp, Minus, Plus, TriangleAlert } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { coverFigure, dayKey, HOURS_NOISE, isWaiting, missingIn, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
+import { coverFigure, dayKey, HOURS_NOISE, isWaiting, peopleMissingIn, orderedLabel, ordersByDay, shiftText, type Coverage, type HireBoard } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { PanelToggle } from '../common'
 import { count } from '../dom'
@@ -210,7 +210,7 @@ function HireDemandRows() {
   const { cols, dates, viewFrom, viewTo, demandRows, demandDensity } = useBemanning()
   const { board, suppliers, orders, wd, actions, brush, brushProject, projectLines, projectName, isOffered } = useInnleid()
   const view = dates.slice(viewFrom, viewTo + 1)
-  const missing = (key: string) => missingIn((date) => board.cover(key, date), view)
+  const missing = (key: string) => peopleMissingIn((date) => board.cover(key, date), view)
   const compact = demandDensity === 'compact'
   // One function per competence for as long as the orders are the same, so a scroll frame draws no line again.
   const ordersOf = useMemo(() => {

@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { isUrgent, laneOf, SHIFT_LABELS, shiftTimes, supplierDays, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
+import { isUrgent, laneOf, SHIFT_LABELS, shiftTimes, supplierDays, supplierWaits, supplierWeek, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { CrewName } from '../bemanning/CrewFrame'
@@ -27,7 +27,7 @@ interface NameProps {
   waits: boolean
   /** It waits for an answer on a day that starts soon (`isUrgent`). */
   urgent: boolean
-  /** What it is ordered for in the week of the people's in Faste: paid hours, and of them those that wait for an answer. */
+  /** What it is ordered for in the week of the people's in Faste (`supplierWeek`). */
   week: { hours: number; waiting: number }
   actions: InnleidActions
 }
@@ -123,7 +123,7 @@ const NameLine = memo(function NameLine({ cols, days, styles, today, folded, emp
                 {day.waiting > 0 && isUrgent(date, today) && <i className="need-dot" />}
                 <span className="il-day-bar">
                   {day.parts.flatMap((part) => {
-                    const style = { ...competenceColor(styles.get(part.competence)) }
+                    const style = competenceColor(styles.get(part.competence))
                     const other = name.focus && name.focus !== part.competence ? 'other' : ''
                     return [
                       part.people > part.waiting && <i key={part.competence} className={other} style={{ ...style, flexGrow: part.people - part.waiting }} />,
@@ -238,10 +238,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
   const perDay = useMemo(() => supplierDays(stored, wd), [stored, wd])
   const today = todayIso()
   // Each supplier's week, the same object for as long as its orders and the week are, so a scroll frame draws no line again.
-  const weeks = useMemo(() => {
-    const sum = (days: Map<ISODate, SupplierDay> | undefined) => week.reduce((all, date) => ({ hours: all.hours + (days?.get(date)?.hours ?? 0), waiting: all.waiting + (days?.get(date)?.waitingHours ?? 0) }), { hours: 0, waiting: 0 })
-    return new Map(suppliers.map((supplier) => [supplier.id, sum(perDay.get(supplier.id))]))
-  }, [suppliers, perDay, week])
+  const weeks = useMemo(() => new Map(suppliers.map((supplier) => [supplier.id, supplierWeek(perDay.get(supplier.id), week)])), [suppliers, perDay, week])
   if (!suppliers.length)
     return (
       <div className="bm-empty">
@@ -267,8 +264,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
           supplier,
           competences: listStyles,
           focus: brush,
-          waits: !!days && [...days.values()].some((day) => day.waiting > 0),
-          urgent: !!days && [...days].some(([date, day]) => day.waiting > 0 && isUrgent(date, today)),
+          ...supplierWaits(days, today),
           week: weeks.get(supplier.id)!,
           actions,
         }
