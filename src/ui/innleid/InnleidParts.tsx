@@ -234,8 +234,8 @@ function HireDemandRows() {
           on={mine}
           held={mine && !!brushProject}
           summed={opened}
-          // As in Faste, the other competences shrink to their thin line while one is the brush.
-          compact={compact || (!!brush && !mine)}
+          // As in Faste, the brush's competence and its lines are drawn in full, and the others shrink to their thin line.
+          compact={!mine && (compact || !!brush)}
           actions={actions}
           dim={!!brush && !mine}
         />
@@ -254,7 +254,7 @@ function HireDemandRows() {
               pickKey={0}
               able
               on={!project.rest && !!brushProject && numberKey(project.projectNo) === numberKey(brushProject)}
-              compact={compact}
+              compact={false}
               actions={actions}
               project={project}
               last={i === projectLines.length - 1}
