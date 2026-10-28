@@ -112,8 +112,10 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   })
 
   // ---- the rows -------------------------------------------------------------------------------
+  /** The day at the left edge of what is seen, as the viewport has it. */
+  const edgeCol = Math.floor(viewport.left / colW)
   // While the switch between the modes zooms, the days in view are held, see `heldWindow`.
-  const winFrom = heldWindow?.start ?? dates[Math.max(0, Math.floor(viewport.left / colW))]
+  const winFrom = heldWindow?.start ?? dates[Math.max(0, edgeCol)]
   const winTo = heldWindow?.end ?? dates[Math.max(0, Math.min(dates.length - 1, Math.floor((viewport.left + viewport.width - LEFT_W) / colW)))]
   const inView = useMemo(() => ({ from: winFrom, to: winTo }), [winFrom, winTo])
   const plan = usePlanRows({ ws, range, demandIndex, locatedDemand, settings, wide: zoom === 'wide', hallFilter, filter, grouping, collapsed, onlyInView, inView, detailId: inspectorOpen ? detailId : null })
@@ -124,11 +126,11 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // While the switch between the modes zooms, the days it passes are held drawn, in whole weeks too.
   const periodWeekList = useMemo(() => periodWeeks(dates), [dates])
   const overscan = overscanCols(colW)
-  const w0 = weekAt(periodWeekList, Math.max(0, (held ? held.from : Math.floor(viewport.left / colW)) - overscan))
+  const w0 = weekAt(periodWeekList, Math.max(0, (held ? held.from : edgeCol) - overscan))
   const w1 = weekAt(periodWeekList, Math.min(dates.length - 1, (held ? held.to : Math.ceil((viewport.left + viewport.width - LEFT_W) / colW)) + overscan))
   const drawnWeeks = useMemo(() => periodWeekList.slice(w0, w1 + 1), [periodWeekList, w0, w1])
-  const c0 = drawnWeeks[0]?.from ?? 0
-  const visibleDates = useMemo(() => drawnWeeks.flatMap((week) => week.dates), [drawnWeeks])
+  // The day at the left edge goes to the few lines that hold a name there, not in `cols`, which would change with every day scrolled.
+  const leftCol = held ? held.left : edgeCol
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
   const rowTops = useMemo(() => lineTops(items), [items])
   // A top level's line stays at the top of the rows while the lines under it scroll past, and is pushed out by the next one.
@@ -162,8 +164,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     }
     return classes
   }, [dates, today, overbooked, heat])
-  const leftCol = held ? held.left : Math.floor(viewport.left / colW)
-  const cols = useMemo<Columns>(() => ({ dates: visibleDates, weeks: drawnWeeks, c0, colW, classes: dayClasses }), [visibleDates, drawnWeeks, c0, colW, dayClasses])
+  const cols = useMemo<Columns>(() => ({ dates: drawnWeeks.flatMap((week) => week.dates), weeks: drawnWeeks, c0: drawnWeeks[0]?.from ?? 0, colW, classes: dayClasses }), [drawnWeeks, colW, dayClasses])
 
   const toggled = (prev: Set<string>, key: string) => {
     const next = new Set(prev)

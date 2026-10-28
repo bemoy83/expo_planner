@@ -4,7 +4,7 @@ import { addDays, weekdayShort, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
-import { dayClass, weekInputs, type CellEdit, type Columns, type DayWeek, type GridActions } from './gridTypes'
+import { dayClass, inDrawn, weekInputs, type CellEdit, type Columns, type DayWeek, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { daysWide, HALL_COMPACT_H, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, type HeatKind } from './heat'
@@ -222,11 +222,10 @@ interface HallRowProps {
  * The day cells under the bars are empty, so a line costs a handful of bars however many days it shows.
  */
 export const HallRow = memo(function HallRow({ hall, bars, runs, projects, compact = false, cols, first }: HallRowProps) {
-  const { c0, colW } = cols
-  const c1 = c0 + cols.dates.length - 1
+  const { colW } = cols
   // Names of the events in or near the visible dates, each with the width it may take.
   const labels = (compact ? [] : (runs ?? []))
-    .filter((run) => run.col <= c1 && run.col + Math.max(run.span, Math.min(run.room, HALL_LABEL_MAX_COLS)) > c0)
+    .filter((run) => inDrawn(cols, run.col, Math.max(run.span, Math.min(run.room, HALL_LABEL_MAX_COLS))))
     .map((run) => {
       const width = Math.min(run.room * colW, Math.max(run.span * colW, HALL_LABEL_MAX_W)) - 2
       // Roughly the columns the text covers, so the phase letters under it can be left out.
@@ -238,7 +237,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, compa
       const maxWidth = `calc(${Number.isFinite(run.room) ? `min(${daysWide(run.room)}, ${widest})` : widest} - 2px)`
       return { ...run, maxWidth, covered, at }
     })
-  const visible = (bars ?? []).filter((bar) => bar.col <= c1 && bar.col + bar.span > c0)
+  const visible = (bars ?? []).filter((bar) => inDrawn(cols, bar.col, bar.span))
   return (
     <Line
       className="hall-row"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { weekInputs, type Columns } from './gridTypes'
+import { inDrawn, weekInputs, type Columns } from './gridTypes'
 
 describe('weekInputs', () => {
   const week = { from: 7, dates: ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18'] }
@@ -20,5 +20,14 @@ describe('weekInputs', () => {
 
   it('leaves out what the label alone reads', () => {
     expect(weekInputs({ cols, week: { hours: 7 }, lane: 1 }, ['week'])(week)).not.toHaveProperty('week')
+  })
+})
+
+describe('inDrawn', () => {
+  const dates = ['2026-10-12', '2026-10-13', '2026-10-14']
+  const cols: Columns = { dates, weeks: [{ from: 7, dates }], c0: 7, colW: 36, classes: new Map() }
+
+  it('tells whether a span of days reaches into the drawn days', () => {
+    expect([[5, 2], [5, 3], [9, 1], [10, 1], [7, 0]].map(([col, span]) => inDrawn(cols, col, span))).toEqual([false, true, true, false, false])
   })
 })

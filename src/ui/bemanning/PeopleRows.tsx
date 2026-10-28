@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { daysBetween, type ISODate } from '../../domain/dates'
 import { paidHours } from '../../domain/staffing/intervals'
@@ -68,7 +68,7 @@ interface LineProps {
 const PersonLine = memo(function PersonLine(props: LineProps) {
   const { person, assignments, absence, week, cols, first, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, projectName, painting, strokeFrom, strokeTo, erasing, cut, movingCol, refusedCol, ghost, actions } = props
   const day = { start: workday.dayStart, end: workday.dayEnd }
-  const blocksOn: BlocksOn = (date) => assignments?.get(date)
+  const blocksOn = useCallback<BlocksOn>((date) => assignments?.get(date), [assignments])
   const previewsOn: PiecesOn = (date) => ghost?.get(date)
   // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
   // Worked out when the drawn days change, not with every day scrolled; only the mark of a run begun before the left edge follows that.
@@ -84,7 +84,7 @@ const PersonLine = memo(function PersonLine(props: LineProps) {
       if (!text) return []
       return [{ key: block.id, from, length, text, style, other: brush !== null && brush !== run.competence, hatched: !isOk(block) }]
     }),
-  ), [cols, assignments, workday, styles, names, brush, isOk]) // eslint-disable-line react-hooks/exhaustive-deps
+  ), [cols, assignments, blocksOn, workday, styles, names, brush, isOk])
   return (
     <Line
       className={`bm-person ${dim ? 'dim' : ''}`}

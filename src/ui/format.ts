@@ -36,7 +36,7 @@ export const signedHours = (value: number): string => signed(hoursShort(value))
 export const wholeHours = (value: number) => formatOf(0).format(Math.round(value))
 
 /** A share as a percentage: «10 %», «12,5 %». */
-export const percentText = (share: number): string => `${(Math.round(share * 1000) / 10).toLocaleString('nb-NO')} %`
+export const percentText = (share: number): string => `${formatFte(Math.round(share * 1000) / 10)} %`
 
 /** Hours with their sign, as an Avvik is written: «+12,5», «−9,5». Nothing where there is no budget, or nothing to say. */
 export const deviationText = (deviation: number | null): string => {

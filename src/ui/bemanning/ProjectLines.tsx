@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { PHASE_CODES, PHASE_LABELS } from '../../domain/venue'
 import { Twisty } from '../common'
 import { Line, SectionLine } from '../kalender/GridRows'
-import { dayClass } from '../kalender/gridTypes'
+import { dayClass, inDrawn } from '../kalender/gridTypes'
 import { daysWide, LEFT_W } from '../kalender/layout'
 import { PhaseLegend } from '../kalender/TopSections'
 import { useBemanning } from './BemanningScope'
@@ -19,8 +19,7 @@ export function ProjectLines() {
   const { projects, phases, chosenProject, cols, dates, viewFrom, viewTo, room, projectsOpen: open, setProjectsOpen, projectDensity, setProjectDensity } = useBemanning()
   const compact = projectDensity === 'compact'
   const rowH = compact ? PROJECT_COMPACT_H : PROJECT_H
-  const { colW, c0 } = cols
-  const c1 = c0 + cols.dates.length - 1
+  const { colW } = cols
 
   // A project that is listed stays until it is two days out of view, so the list is told what it held.
   const [listedKeys, setListedKeys] = useState<string[]>([])
@@ -53,7 +52,7 @@ export function ProjectLines() {
         <span className="bm-project-halls">{project.halls.join(' · ')}</span>
       </div>
       {(bars.get(project.key) ?? [])
-        .filter((bar) => bar.col <= c1 && bar.col + bar.span > c0)
+        .filter((bar) => inDrawn(cols, bar.col, bar.span))
         .map((bar) => {
           const width = bar.span * colW - 2
           // The event's bar carries the project's name; the others their phase, in full where there is room.

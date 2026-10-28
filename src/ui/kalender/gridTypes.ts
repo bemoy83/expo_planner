@@ -80,6 +80,9 @@ export interface GridActions {
   clearRow: (row: AllocationRow) => void
 }
 
+/** Whether `span` days from the column `col` reach into the drawn days: what a line need not draw when they do not. */
+export const inDrawn = (cols: Columns, col: number, span: number): boolean => col < cols.c0 + cols.dates.length && col + span > cols.c0
+
 /**
  * What a week of a line's cells is drawn from: the line's own props, which are all its cells read, with the width of a day
  * and the classes of the days for `cols`, and the selection and the cell in focus cut to the week, so the weeks they are
