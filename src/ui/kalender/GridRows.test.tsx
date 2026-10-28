@@ -5,6 +5,7 @@ import { buildDemandIndex, rowTotals } from '../../domain/calc'
 import type { HallSegment } from '../../domain/venue'
 import { AllocRow, GroupRow, HallRow } from './GridRows'
 import type { CellEdit, Columns, GridActions } from './gridTypes'
+import { periodWeeks } from './layout'
 import type { GroupItem, RowItem } from './rows'
 import { useStableActions } from './useStableActions'
 
@@ -22,7 +23,7 @@ const row: AllocationRow = {
 }
 const item = { kind: 'row', row, totals: rowTotals(buildDemandIndex([]), row, DEFAULT_SETTINGS), project: { key: '26970' }, depth: 0 } as RowItem
 const dates = ['2026-10-05', '2026-10-06', '2026-10-07']
-const cols: Columns = { dates, c0: 0, first: 0, colW: 36, classes: new Map(dates.map((date) => [date, 'day'])) }
+const cols: Columns = { dates, weeks: periodWeeks(dates), c0: 0, colW: 36, classes: new Map(dates.map((date) => [date, 'day'])) }
 const idle: CellEdit = { selFrom: -1, selTo: -1, focusCol: -1, draft: null, ghost: undefined, livePlanned: undefined }
 const noActions = new Proxy({}, { get: () => () => {} }) as GridActions
 const rowDimensions = ['competence' as const]
@@ -122,7 +123,7 @@ describe('AllocRow', () => {
 
 describe('HallRow', () => {
   const bar = (phase: HallSegment['phase'], col: number, span: number): HallSegment => ({ eventName: 'VVS 2026', phase, col, span, shared: span < 1, title: '' })
-  const letters = (colW: number, bars: HallSegment[]) => [...render(<HallRow hall="C" bars={bars} runs={undefined} projects={undefined} cols={{ ...cols, colW }} />).container.querySelectorAll('.hall-bar')].map((el) => el.textContent)
+  const letters = (colW: number, bars: HallSegment[]) => [...render(<HallRow hall="C" bars={bars} runs={undefined} projects={undefined} cols={{ ...cols, colW }} first={0} />).container.querySelectorAll('.hall-bar')].map((el) => el.textContent)
 
   it('writes the phase letters on a bar of a single day, in the narrowest columns too', () => {
     expect(letters(26, [bar('assembly', 0, 1), bar('movingIn', 1, 1), bar('dismantle', 2, 1)])).toEqual(['A', 'MI', 'D'])
@@ -134,7 +135,7 @@ describe('HallRow', () => {
   })
 
   it('draws the bars alone when compact, without letters or names', () => {
-    const { container } = render(<HallRow hall="C" bars={[bar('assembly', 0, 3)]} runs={[{ eventName: 'VVS 2026', col: 0, span: 3, room: Infinity, project: undefined }]} projects={undefined} compact cols={{ ...cols, colW: 52 }} />)
+    const { container } = render(<HallRow hall="C" bars={[bar('assembly', 0, 3)]} runs={[{ eventName: 'VVS 2026', col: 0, span: 3, room: Infinity, project: undefined }]} projects={undefined} compact cols={{ ...cols, colW: 52 }} first={0} />)
     expect(container.querySelector('.hall-bar')?.textContent).toBe('')
     expect(container.querySelector('.hall-label')).toBeNull()
   })

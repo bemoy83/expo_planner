@@ -1,4 +1,6 @@
+import { weekdayIndex, type ISODate } from '../../domain/dates'
 import { parseDecimal } from '../../domain/numbers'
+import type { DayWeek } from './gridTypes'
 
 /** The height of a line of the grid, as in the design mockup. */
 export const ROW_H = 28
@@ -20,6 +22,28 @@ const OVERSCAN_MAX_COLS = 6
  */
 export const overscanCols = (colW: number): number => Math.min(OVERSCAN_MAX_COLS, Math.max(2, Math.ceil(OVERSCAN_PX / colW)))
 export const OVERSCAN_ROWS = 8
+
+/** The period's days in weeks, Monday to Sunday, the first and last cut at the period's ends. */
+export const periodWeeks = (dates: ISODate[]): DayWeek[] => {
+  const weeks: DayWeek[] = []
+  dates.forEach((date, col) => {
+    if (col === 0 || weekdayIndex(date) === 0) weeks.push({ from: col, dates: [] })
+    weeks[weeks.length - 1].dates.push(date)
+  })
+  return weeks
+}
+
+/** The week a column is in: the last that starts at or before it. */
+export const weekAt = (weeks: DayWeek[], col: number): number => {
+  let lo = 0
+  let hi = weeks.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (weeks[mid].from <= col) lo = mid
+    else hi = mid - 1
+  }
+  return lo
+}
 
 /**
  * A length of `days` day columns and `px` pixels more, for a style. A day is as wide as the grid's

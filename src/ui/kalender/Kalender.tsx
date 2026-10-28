@@ -33,7 +33,7 @@ import type { Columns, GridActions } from './gridTypes'
 import { heatScale } from './heat'
 import { KalenderBar, KalenderHead } from './KalenderBar'
 import { rowTitle } from './labels'
-import { daysWide, fitSpan, LEFT_W, OVERSCAN_ROWS, overscanCols, type Zoom } from './layout'
+import { daysWide, fitSpan, LEFT_W, OVERSCAN_ROWS, overscanCols, periodWeeks, weekAt, type Zoom } from './layout'
 import { PlanRows } from './PlanRows'
 import { RowInspector } from './RowInspector'
 import { cleanGrouping, DEFAULT_GROUPING, EMPTY_FILTER, foldedTo, groupItems, headOver, levelSections, lineAt, lineTops, pathKeys, projectIndex, projectKey, shownLevels, type Dimension, type RowFilter } from './rows'
@@ -120,10 +120,15 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const { hallCalendar, rows, filtered, shownGroups, items, allocLanes, laneOfRow, allGroups, windowOf, need } = plan
 
   // ---- virtualization ------------------------------------------------------------------------
+  // Whole weeks are drawn, so that what is drawn changes only when a week comes in or goes out, and a line then draws that week alone (`DayChunk`).
+  // While the switch between the modes zooms, the days it passes are held drawn, in whole weeks too.
+  const periodWeekList = useMemo(() => periodWeeks(dates), [dates])
   const overscan = overscanCols(colW)
-  const c0 = Math.max(0, (held ? held.from : Math.floor(viewport.left / colW)) - overscan)
-  const c1 = Math.min(dates.length - 1, (held ? held.to : Math.ceil((viewport.left + viewport.width - LEFT_W) / colW)) + overscan)
-  const visibleDates = useMemo(() => dates.slice(c0, c1 + 1), [dates, c0, c1])
+  const w0 = weekAt(periodWeekList, Math.max(0, (held ? held.from : Math.floor(viewport.left / colW)) - overscan))
+  const w1 = weekAt(periodWeekList, Math.min(dates.length - 1, (held ? held.to : Math.ceil((viewport.left + viewport.width - LEFT_W) / colW)) + overscan))
+  const drawnWeeks = useMemo(() => periodWeekList.slice(w0, w1 + 1), [periodWeekList, w0, w1])
+  const c0 = drawnWeeks[0]?.from ?? 0
+  const visibleDates = useMemo(() => drawnWeeks.flatMap((week) => week.dates), [drawnWeeks])
   const firstVisibleCol = Math.min(dates.length - 1, Math.ceil(viewport.left / colW))
   const rowTops = useMemo(() => lineTops(items), [items])
   // A top level's line stays at the top of the rows while the lines under it scroll past, and is pushed out by the next one.
@@ -158,7 +163,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
     return classes
   }, [dates, today, overbooked, heat])
   const leftCol = held ? held.left : Math.floor(viewport.left / colW)
-  const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, first: leftCol, colW, classes: dayClasses }), [visibleDates, c0, leftCol, colW, dayClasses])
+  const cols = useMemo<Columns>(() => ({ dates: visibleDates, weeks: drawnWeeks, c0, colW, classes: dayClasses }), [visibleDates, drawnWeeks, c0, colW, dayClasses])
 
   const toggled = (prev: Set<string>, key: string) => {
     const next = new Set(prev)
@@ -301,7 +306,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   const places = <AreaMenu tree={hallCalendar.hallTree} statuses={hallCalendar.statuses} filter={hallFilter} onChange={setHallFilter} />
   return (
     <div className={`kalender ${bemanning ? 'bemanning-mode' : pull ? 'pulling' : activeTool === 'select' ? '' : activeTool}`} data-mode={planMode} data-part={planMode === 'bemanning' ? crewPart : undefined}>
-      <BemanningScope active={bemanning} innleid={innleid} dates={dates} cols={cols} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={plan.planned} phases={plan.phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
+      <BemanningScope active={bemanning} innleid={innleid} dates={dates} cols={cols} first={leftCol} viewport={viewport} scrollRef={scrollRef} focusDate={planningFocus?.date} onFocusDate={focusDay} projects={projectSpans} planned={plan.planned} phases={plan.phasesOfProject} chosenProject={filter.project} unfolded={unfolded} setUnfolded={setUnfolded} onShowDate={showDate} blockNames={blockNames} overtimeLimit={overtimeLimit}>
       <InnleidScope active={innleid} counted={bemanning}>
       {innleid ? <InnleidHead places={places} onDayPlan={() => openDayPlan(dayPlanDate())} /> : bemanning ? <BemanningHead places={places} onDayPlan={() => openDayPlan(dayPlanDate())} /> : <KalenderHead
         places={places}
@@ -336,7 +341,7 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
             {dayHover}
             {todayLine}
             {innleid ? <InnleidTop /> : bemanning ? <BemanningTop /> : <>
-            <HallSection dayHover={dayHover} todayLine={todayLine} open={hallsOpen} onOpen={setHallsOpen} compact={hallsCompact} onCompact={setHallsCompact} empty={ws.venue.length === 0} pinTop={headHeight} halls={hallCalendar.halls} hallCount={hallCalendar.hallCount} hallBars={hallCalendar.hallBars} hallLabels={hallCalendar.hallLabels} hallProjectLists={hallCalendar.hallProjectLists} cols={cols} />
+            <HallSection dayHover={dayHover} todayLine={todayLine} open={hallsOpen} onOpen={setHallsOpen} compact={hallsCompact} onCompact={setHallsCompact} empty={ws.venue.length === 0} pinTop={headHeight} halls={hallCalendar.halls} hallCount={hallCalendar.hallCount} hallBars={hallCalendar.hallBars} hallLabels={hallCalendar.hallLabels} hallProjectLists={hallCalendar.hallProjectLists} cols={cols} first={leftCol} />
             <StaffingSection
               open={staffingOpen}
               onOpen={setStaffingOpen}

@@ -3,13 +3,24 @@ import type { ISODate } from '../../domain/dates'
 import type { AllocationRow } from '../../domain/types'
 import type { GroupNode } from './rows'
 
-/** The day columns that are drawn: the visible ones and a few to each side. */
+/** A week of the period, Monday to Sunday, or the part of one at the period's ends: the days a line draws as one piece, see `DayChunk`. */
+export interface DayWeek {
+  /** Position of its first day in the whole period. */
+  from: number
+  dates: ISODate[]
+}
+
+/**
+ * The day columns that are drawn: whole weeks over the visible ones and a few to each side, so that what is drawn changes only
+ * when a week comes in or goes out. The day at the left edge of what is seen is not here: it changes with every day scrolled,
+ * and is handed to the few lines that need it.
+ */
 export interface Columns {
   dates: ISODate[]
+  /** The weeks the dates are in, each the same object for the life of the period. */
+  weeks: DayWeek[]
   /** Position of the first drawn day in the whole period. */
   c0: number
-  /** Position of the day at the left edge of what is seen. */
-  first: number
   colW: number
   /** The classes every cell of a day shares (weekend, today, overbooked …). */
   classes: Map<ISODate, string>
@@ -68,3 +79,26 @@ export interface GridActions {
   /** Removes all FTE from a row. */
   clearRow: (row: AllocationRow) => void
 }
+
+/**
+ * What a week of a line's cells is drawn from: the line's own props, which are all its cells read, with the width of a day
+ * and the classes of the days for `cols`, and the selection and the cell in focus cut to the week, so the weeks they are
+ * not in stay as they are. The day at the left edge (`first`) is the label's and the overlay's, never a cell's, and so are
+ * the props named in `labelOnly`: what changes there is not drawn again in the cells.
+ */
+export const weekInputs =
+  <P extends { cols: Columns; first?: number }>({ cols, first: _first, ...rest }: P, labelOnly: (keyof P)[] = []) =>
+  (week: DayWeek): Record<string, unknown> => {
+    const props: Record<string, unknown> = rest
+    const inputs: Record<string, unknown> = { ...props, colW: cols.colW, classes: cols.classes }
+    for (const key of labelOnly) delete inputs[key as string]
+    if (typeof props.selFrom === 'number' && typeof props.selTo === 'number' && typeof props.focusCol === 'number') {
+      const to = week.from + week.dates.length - 1
+      const from = Math.max(props.selFrom, week.from)
+      const until = Math.min(props.selTo, to)
+      const selected = props.selFrom >= 0 && from <= until
+      const focus = props.focusCol >= week.from && props.focusCol <= to
+      Object.assign(inputs, { selFrom: selected ? from : -1, selTo: selected ? until : -1, focusCol: focus ? props.focusCol : -1, draft: focus ? props.draft : null })
+    }
+    return inputs
+  }

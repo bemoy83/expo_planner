@@ -4,7 +4,7 @@ import { addDays, weekdayShort, type ISODate } from '../../domain/dates'
 import { dayType, holidayName } from '../../domain/holidays'
 import type { CapacityLine, DayValues, Settings, VenuePhase } from '../../domain/types'
 import { PHASE_CODES, type HallSegment } from '../../domain/venue'
-import { dayClass, type CellEdit, type Columns, type GridActions } from './gridTypes'
+import { dayClass, weekInputs, type CellEdit, type Columns, type DayWeek, type GridActions } from './gridTypes'
 import { deltaClass, describeRow, fmtDate, headLabel } from './labels'
 import { daysWide, HALL_COMPACT_H, HALL_ROW_H, HEAT_ROW_H, LEFT_W, ROW_H, TOP_ROW_H, type Zoom } from './layout'
 import { HEAT_LABELS, heatFigure, heatTile, OK_UP_TO, type HeatKind } from './heat'
@@ -30,8 +30,31 @@ const INDENT = 14
 
 const ALL_DIMENSIONS: Dimension[] = ['project', 'competence', 'hall', 'avdeling']
 
-/** One line of the grid: the label column, then a cell per drawn day. */
-export function Line({ className = '', label, cols, cells, overlay, height = ROW_H, minHeight, style, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: (date: ISODate, col: number) => ReactNode; overlay?: ReactNode; height?: number; /** A line whose height follows what is in it, at least this; `height` is then not used. */ minHeight?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** On a hall's line: its projects, for the hover cue, see `useProjectHover` and `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
+type Cells = (date: ISODate, col: number) => ReactNode
+
+/** Whether two sets of inputs are the same, key by key, as `memo` compares props. */
+const sameInputs = (a: Record<string, unknown>, b: Record<string, unknown>): boolean => {
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every((key) => Object.is(a[key], b[key]))
+}
+
+/**
+ * A week of a line's days, as cells side by side in the line, with no element of its own. It is drawn again only when
+ * the week or what its cells are drawn from (`inputs`) changes, so a line whose drawn weeks move draws the week that comes
+ * in and no other. `cell` is not compared: everything it reads must be in `inputs`, see `weekInputs`.
+ */
+const DayChunk = memo(
+  function DayChunk({ week, cell }: { week: DayWeek; inputs: Record<string, unknown>; cell: Cells }) {
+    return <>{week.dates.map((date, i) => cell(date, week.from + i))}</>
+  },
+  (a, b) => a.week === b.week && sameInputs(a.inputs, b.inputs),
+)
+
+/**
+ * One line of the grid: the label column, then a cell per drawn day. A line that gives `inputs` draws its days a week at a
+ * time (`DayChunk`), each drawn again only when its inputs change; one that does not draws every day each time.
+ */
+export function Line({ className = '', label, cols, cells, inputs, overlay, height = ROW_H, minHeight, style, projects, onLabelClick }: { className?: string; label: ReactNode; cols: Columns; cells: Cells; /** What a week of the cells is drawn from, see `weekInputs`. */ inputs?: (week: DayWeek) => Record<string, unknown>; overlay?: ReactNode; height?: number; /** A line whose height follows what is in it, at least this; `height` is then not used. */ minHeight?: number; /** Style variables for the line, such as the colour of its competence. */ style?: CSSProperties; /** On a hall's line: its projects, for the hover cue, see `useProjectHover` and `projectList`. */ projects?: string; onLabelClick?: (e: MouseEvent) => void }) {
   const size = minHeight === undefined ? { height } : { minHeight }
   return (
     <div className={`grid-row ${className}`} style={{ ...style, ...size }} data-projects={projects}>
@@ -39,7 +62,7 @@ export function Line({ className = '', label, cols, cells, overlay, height = ROW
         {label}
       </div>
       <div className="grid-spacer" style={{ width: daysWide(cols.c0) }} />
-      {cols.dates.map((date, i) => cells(date, cols.c0 + i))}
+      {inputs ? cols.weeks.map((week) => <DayChunk key={week.from} week={week} inputs={inputs(week)} cell={cells} />) : cols.dates.map((date, i) => cells(date, cols.c0 + i))}
       {overlay}
     </div>
   )
@@ -190,13 +213,15 @@ interface HallRowProps {
   /** The compact hall calendar: a thin bar per phase, with neither letters nor names. */
   compact?: boolean
   cols: Columns
+  /** The day at the left edge of what is seen, where an event's name that started before it is held. */
+  first: number
 }
 
 /**
  * One hall of the hall calendar: a bar per phase of each event, with the events' names laid over them.
  * The day cells under the bars are empty, so a line costs a handful of bars however many days it shows.
  */
-export const HallRow = memo(function HallRow({ hall, bars, runs, projects, compact = false, cols }: HallRowProps) {
+export const HallRow = memo(function HallRow({ hall, bars, runs, projects, compact = false, cols, first }: HallRowProps) {
   const { c0, colW } = cols
   const c1 = c0 + cols.dates.length - 1
   // Names of the events in or near the visible dates, each with the width it may take.
@@ -207,7 +232,7 @@ export const HallRow = memo(function HallRow({ hall, bars, runs, projects, compa
       // Roughly the columns the text covers, so the phase letters under it can be left out.
       const covered = Math.ceil(Math.min(width, run.eventName.length * BAR_CHAR_W + 6) / colW)
       // Where the name is now: on its first day, or held at the left edge of the days, at most to the end of the stretch it may move in.
-      const at = Math.min(Math.max(run.col, cols.first), run.col + Math.max(run.span, Math.ceil(width / colW)) - covered)
+      const at = Math.min(Math.max(run.col, first), run.col + Math.max(run.span, Math.ceil(width / colW)) - covered)
       // The same width for the page, which follows the width of a day through a zoom.
       const widest = `max(${daysWide(run.span)}, ${HALL_LABEL_MAX_W}px)`
       const maxWidth = `calc(${Number.isFinite(run.room) ? `min(${daysWide(run.room)}, ${widest})` : widest} - 2px)`
@@ -393,7 +418,8 @@ interface GroupRowProps extends CellEdit {
  * drawn as spans and pulled by their ends as a row's are, and what a day gets is shared out over the rows under it. A folded
  * project only sums, on its hall-phase strip: without its work phases there is nothing to share FTE out by.
  */
-export const GroupRow = memo(function GroupRow({ item, lane, phases, window, cols, actions, ...edit }: GroupRowProps) {
+export const GroupRow = memo(function GroupRow(props: GroupRowProps) {
+  const { item, lane, phases, window, cols, actions, ...edit } = props
   const { node } = item
   const project = node.project
   // While an end of one of the level's spans is pulled, its figures count what the pull would leave.
@@ -421,6 +447,7 @@ export const GroupRow = memo(function GroupRow({ item, lane, phases, window, col
       className={`group-row depth-${Math.min(node.depth, 3)} ${node.rows.length ? '' : 'empty-group'} ${item.entry ? 'entry-level' : ''}`}
       height={node.depth === 0 ? TOP_ROW_H : ROW_H}
       cols={cols}
+      inputs={weekInputs(props)}
       label={
         <>
           <Twisty open={!item.collapsed} show="Vis rader" hide="Skjul rader" style={{ marginLeft: node.depth * INDENT }} onToggle={() => actions.toggleGroup(node.key)} />
@@ -498,7 +525,8 @@ interface AllocRowProps extends CellEdit {
 }
 
 /** A planning row: what it is, its figures, and FTE per day. */
-export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensions, cols, actions, ...edit }: AllocRowProps) {
+export const AllocRow = memo(function AllocRow(props: AllocRowProps) {
+  const { item, lane, window, rowDimensions, cols, actions, ...edit } = props
   const { row: r, totals } = item
   const phaseDays = r.phase === 'Demontering' ? 'demonteringsdagene' : 'monteringsdagene'
   const description = [item.lead, describeRow(r, rowDimensions)].filter(Boolean).join(' · ')
@@ -515,6 +543,7 @@ export const AllocRow = memo(function AllocRow({ item, lane, window, rowDimensio
         if (!(e.target instanceof Element && e.target.closest('button'))) actions.selectRow(lane)
       }}
       cols={cols}
+      inputs={weekInputs(props)}
       label={
         <>
           <PhaseMark phase={r.phase} indent={18 + item.depth * INDENT} />

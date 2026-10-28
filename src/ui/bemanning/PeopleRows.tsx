@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { daysBetween, type ISODate } from '../../domain/dates'
 import { paidHours } from '../../domain/staffing/intervals'
@@ -6,7 +6,7 @@ import type { Assignment, CompetenceStyle, Person, Unavailability, WorkdaySettin
 import type { PersonWeek } from '../../domain/staffing/time'
 import { competenceColor, count, modKey } from '../dom'
 import { Line } from '../kalender/GridRows'
-import { dayClass, type Columns } from '../kalender/gridTypes'
+import { dayClass, weekInputs, type Columns } from '../kalender/gridTypes'
 import { daysWide, LEFT_W } from '../kalender/layout'
 import { CrewHeading, CrewName } from './CrewFrame'
 import { useBemanning, type PersonActions, type StretchPlan } from './BemanningScope'
@@ -29,6 +29,8 @@ interface LineProps {
   absence: Map<ISODate, Unavailability[]> | undefined
   week: PersonWeek
   cols: Columns
+  /** The day at the left edge of what is seen: a run that started before it says so on its name. */
+  first: number
   workday: WorkdaySettings
   /** The competences of the list, in order: one mark each in the label. */
   competences: CompetenceStyle[]
@@ -63,12 +65,14 @@ interface LineProps {
 }
 
 /** One person's days, folded: a label with their competences and the week's hours, and a small timeline per day. */
-const PersonLine = memo(function PersonLine({ person, assignments, absence, week, cols, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, projectName, painting, strokeFrom, strokeTo, erasing, cut, movingCol, refusedCol, ghost, actions }: LineProps) {
+const PersonLine = memo(function PersonLine(props: LineProps) {
+  const { person, assignments, absence, week, cols, first, workday, competences, styles, isOk, isOpen, brush, dim, overLimit, names, projectName, painting, strokeFrom, strokeTo, erasing, cut, movingCol, refusedCol, ghost, actions } = props
   const day = { start: workday.dayStart, end: workday.dayEnd }
   const blocksOn: BlocksOn = (date) => assignments?.get(date)
   const previewsOn: PiecesOn = (date) => ghost?.get(date)
   // A run of days has one name, on the run: where it starts, or at the first day drawn when it started before it.
-  const runs = cols.dates.flatMap((date, i) =>
+  // Worked out when the drawn days change, not with every day scrolled; only the mark of a run begun before the left edge follows that.
+  const runs = useMemo(() => cols.dates.flatMap((date, i) =>
     (assignments?.get(date) ?? NO_ASSIGNMENTS).flatMap((block) => {
       const link = runLink(blocksOn, date, block, workday)
       if (!link.next || (link.prev && i > 0)) return []
@@ -78,9 +82,9 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
       const length = run.days - 1 + run.endShare - run.startShare
       const text = runLabel(length * cols.colW - 2 * DAY_INSET, style?.label ?? run.competence, style?.shortLabel ?? '', names, run.days)
       if (!text) return []
-      return [{ key: block.id, from, length, text: `${from < cols.first ? '‹ ' : ''}${text}`, style, other: brush !== null && brush !== run.competence, hatched: !isOk(block) }]
+      return [{ key: block.id, from, length, text, style, other: brush !== null && brush !== run.competence, hatched: !isOk(block) }]
     }),
-  )
+  ), [cols, assignments, workday, styles, names, brush, isOk]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Line
       className={`bm-person ${dim ? 'dim' : ''}`}
@@ -95,6 +99,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         </>
       }
       cols={cols}
+      inputs={weekInputs(props, ['week', 'overLimit', 'competences'])}
       cells={(date, col) => {
         const blocks = assignments?.get(date) ?? NO_ASSIGNMENTS
         const cell = dayCell(date, blocks, absence?.get(date) ?? NO_ABSENCE, isOk, workday, isOpen)
@@ -144,7 +149,7 @@ const PersonLine = memo(function PersonLine({ person, assignments, absence, week
         // As the name of an event in the hall calendar: it starts with its run and stays at the left edge of the days while the run is in view.
         <span key={run.key} className={`bm-run ${run.hatched ? 'hatched' : ''}`} style={{ left: daysWide(run.from, LEFT_W + DAY_INSET), width: daysWide(run.length, -2 * DAY_INSET), ...competenceColor(run.style) }}>
           <span className={`bm-run-name ${run.other ? 'other' : ''}`} style={{ left: LEFT_W + DAY_INSET }}>
-            {run.text}
+            {run.from < first ? `‹ ${run.text}` : run.text}
           </span>
         </span>
       ))}
@@ -211,6 +216,7 @@ export function PeopleRows({ onOpenPersonell }: { onOpenPersonell: () => void })
               absence={absence}
               week={week}
               cols={cols}
+              first={bm.first}
               workday={ws.settings.workday}
               competences={listStyles}
               styles={styles}

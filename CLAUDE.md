@@ -30,7 +30,7 @@ Sources read from files: the Venyou export, Visma exports, and optionally `Prosj
 
 - The width of a day is the style variable `--col-w`; lay out by it (`daysWide` in `kalender/layout.ts`), never by a width in pixels from `colW`, or the zoom has to draw every line again on each frame.
 - What a component of Innleid shows is worked out in `domain/hire.ts` and tested there; the components only draw it. The same holds for the rules of Bemanning (`domain/staffing/`) and of the plan (`domain/spread.ts`, `kalender/strokes.ts`).
-- The lines of the Kalender's grid get the selection as plain values per line and their handlers through `useStableActions` (see below), so a scroll frame draws no line again.
+- The lines of the Kalender's grid get the selection as plain values per line and their handlers through `useStableActions` (see below), so a scroll frame draws no line again. The days drawn are whole weeks (`Columns.weeks`, `periodWeeks`), and a line whose cells are costly draws them a week at a time (`inputs={weekInputs(props)}` on `Line`, a `DayChunk` per week), so a week coming into view draws that week alone: everything such a line's cells read must come from its props, and the day at the left edge (`first`) is handed only to the lines whose label or overlay need it.
 
 ## How it fits together
 

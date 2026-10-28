@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { fitSpan, overscanCols, ZOOM_WIDTHS } from './layout'
+import { dateRange } from '../../domain/dates'
+import { fitSpan, overscanCols, periodWeeks, weekAt, ZOOM_WIDTHS } from './layout'
 
 describe('fitSpan', () => {
   it('centres a span that fits and keeps the column width', () => {
@@ -34,5 +35,22 @@ describe('overscanCols', () => {
     expect(overscanCols(80)).toBe(4)
     expect(overscanCols(160)).toBe(2)
     expect(overscanCols(400)).toBe(2)
+  })
+})
+
+describe('periodWeeks', () => {
+  // Thursday 1 October to Tuesday 13 October 2026.
+  const weeks = periodWeeks(dateRange('2026-10-01', '2026-10-13'))
+
+  it('cuts the period in weeks from Monday, the first and last cut at its ends', () => {
+    expect(weeks.map((week) => [week.from, week.dates[0], week.dates.length])).toEqual([
+      [0, '2026-10-01', 4],
+      [4, '2026-10-05', 7],
+      [11, '2026-10-12', 2],
+    ])
+  })
+
+  it('finds the week a column is in', () => {
+    expect([0, 3, 4, 10, 11, 12].map((col) => weekAt(weeks, col))).toEqual([0, 0, 1, 1, 2, 2])
   })
 })

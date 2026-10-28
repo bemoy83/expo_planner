@@ -41,13 +41,15 @@ interface HallSectionProps extends Pick<HallCalendar, 'halls' | 'hallCount' | 'h
   /** The tint of the day under the pointer, laid in the section as the today line is, since the section covers what is under it. */
   dayHover: ReactNode
   cols: Columns
+  /** The day at the left edge of what is seen. */
+  first: number
 }
 
 /**
  * The hall calendar opens with a tinted heading, which is all that is left of it when folded. Open, the heading carries the legend.
  * It stays under the date header whatever the height of the top block: where the block has to give way, the staffing lines slide in under it.
  */
-export function HallSection({ open, onOpen, compact, onCompact, empty, pinTop, todayLine, dayHover, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols }: HallSectionProps) {
+export function HallSection({ open, onOpen, compact, onCompact, empty, pinTop, todayLine, dayHover, halls, hallCount, hallBars, hallLabels, hallProjectLists, cols, first }: HallSectionProps) {
   return (
     <div className={`top-section halls ${open ? 'open' : ''} ${compact ? 'compact' : ''}`} style={{ top: pinTop }}>
       <SectionLine>
@@ -69,7 +71,7 @@ export function HallSection({ open, onOpen, compact, onCompact, empty, pinTop, t
       )}
       {dayHover}
       {todayLine}
-      {open && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} compact={compact} cols={cols} />)}
+      {open && halls.map((hall) => <HallRow key={`hall:${hall}`} hall={hall} bars={hallBars.get(hall)} runs={hallLabels.get(hall)} projects={hallProjectLists.get(hall)} compact={compact} cols={cols} first={first} />)}
     </div>
   )
 }

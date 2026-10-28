@@ -53,6 +53,19 @@ describe('the planning grid', () => {
     expect(focused(container)).toBe(colOf('2026-10-05'))
   })
 
+  it('moves the focus and the selection over the edge of a week, where the days are drawn a week at a time', async () => {
+    const { container } = await renderKalender()
+    click(container, '2026-10-11')
+    key(container, 'ArrowRight')
+    expect(focused(container)).toBe(colOf('2026-10-12'))
+    key(container, 'ArrowLeft', { shiftKey: true })
+    key(container, 'ArrowLeft', { shiftKey: true })
+    expect(selected(container)).toEqual([colOf('2026-10-11'), colOf('2026-10-12')])
+    expect(focused(container)).toBe(colOf('2026-10-10'))
+    type(container, '3')
+    expect(['2026-10-10', '2026-10-11', '2026-10-12'].map((date) => cellOf(container, date).textContent)).toEqual(['3', '3', '3'])
+  })
+
   it('picks a day by a click on its date, and lets go of the cells', async () => {
     const { container } = await renderKalender()
     const dateHead = (date: ISODate) => container.querySelectorAll<HTMLElement>('.grid-head .day-head')[colOf(date)]

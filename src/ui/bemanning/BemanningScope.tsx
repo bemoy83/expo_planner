@@ -37,6 +37,8 @@ interface Props {
   /** Every day of the period. */
   dates: ISODate[]
   cols: Columns
+  /** The day at the left edge of what is seen, where the name of a run that started before it is held. */
+  first: number
   viewport: { left: number; width: number }
   scrollRef: RefObject<HTMLDivElement | null>
   /** The day in focus, shared with the plan. */
@@ -66,7 +68,7 @@ interface Props {
  * brush (`useBrush`), the people's lines (`usePeopleLines`), what a stroke would do (`useStrokePreview`), what the tools write
  * (`useStaffingEdits`), the stroke from the press to the let-go (`useStrokeInput`) and the keys (`useBemanningKeys`).
  */
-function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
+function useBemanningState({ active, innleid, dates, cols, first, viewport, scrollRef, focusDate, onFocusDate, projects, planned, phases, chosenProject, unfolded, setUnfolded, onShowDate, blockNames, overtimeLimit }: Omit<Props, 'children'>) {
   const { workspace, updateStaffing, undo } = useWorkspace()
   const ws = workspace!
   /** The days selected with «Velg», as lines and columns of the people shown, and what was copied from them. */
@@ -229,7 +231,7 @@ function useBemanningState({ active, innleid, dates, cols, viewport, scrollRef, 
   })
 
   return {
-    ws, dates, cols, scrollRef, room: view.room, viewFrom: view.viewFrom, viewTo: view.viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
+    ws, dates, cols, first, scrollRef, room: view.room, viewFrom: view.viewFrom, viewTo: view.viewTo, bodyRef, onFocusDate, projects, phases, chosenProject,
     persons, staffed, isStaffed, styles, keyOf: view.keyOf, lastKey: Math.min(view.demandRows.length, LAST_KEY),
     tool: activeTool, brush: activeBrush, brushProject: activeProject, brushHall: activeHall, brushWork, pickTool, pickBrush, clearBrush, pickFromDemand: brush.pickFromDemand, pickProject: brush.pickProject, pickPlace: brush.pickPlace,
     balance, shownBalance: preview.shownBalance, shownRemaining: preview.shownRemaining, totals: view.totals, remainingOf, demandRows: view.demandRows, listStyles: view.listStyles, uncoverable: view.uncoverable, projectLines, projectShown: preview.projectShown, restShown: preview.restShown, placeLines, placeShown: preview.placeShown, projectName: brush.projectName, projectBalance, kalenderProjects: brush.kalenderProjects,
