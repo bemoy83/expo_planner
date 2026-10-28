@@ -15,7 +15,7 @@ import { OrderPopover, peopleText } from './OrderPopovers'
 export function InnleidOverlays() {
   const bm = useBemanning()
   const { styles, labelOf, toasts, dismissToast } = bm
-  const { stored, suppliers, wd, board, tool, brush, brushProject, projectLines, projectName, projectsFor, orderPop, setOrderPop, demandPop, setDemandPop, pickBrush, pickProject, edits } = useInnleid()
+  const { stored, suppliers, wd, board, tool, brush, brushProject, projectLines, projectName, projectsFor, rank, orderPop, setOrderPop, demandPop, setDemandPop, pickBrush, pickProject, edits } = useInnleid()
   const nameOf = (id: string) => suppliers.find((supplier) => supplier.id === id)?.name ?? 'Ukjent leverandør'
 
   const popOrders = orderPop ? stored.filter((order) => orderPop.ids.includes(order.id)) : []
@@ -24,8 +24,7 @@ export function InnleidOverlays() {
   const work = (order: { competence: string; projectNo?: string }) => `${labelOf(order.competence)}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}`
   // One shared person, or the same parts on every day (slice 6): its parts together, and what each person does.
   // The parts in the order of the competences, as the line draws them; the store keeps no order.
-  const rank = (order: HireOrder) => [...styles.keys()].indexOf(order.competence)
-  const inOrder = (parts: HireOrder[]) => [...parts].sort((a, b) => rank(a) - rank(b) || work(a).localeCompare(work(b)))
+  const inOrder = (parts: HireOrder[]) => [...parts].sort((a, b) => rank(a.competence) - rank(b.competence) || work(a).localeCompare(work(b)))
   const shared = units.length > 0 && units.every((unit) => unit.orders[0].person) ? inOrder(units[0].orders) : null
   const sameParts = shared !== null && units.every((unit) => inOrder(unit.orders).map(work).join('+') === shared.map(work).join('+'))
   const popTitle = () => {

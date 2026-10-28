@@ -309,18 +309,15 @@ export const orderUnits = (orders: HireOrder[]): OrderUnit[] => {
   }
   for (const unit of units)
     if (unit.orders[0].person) {
-      unit.people = Math.round(unit.people)
-      unit.asked = Math.round(unit.asked)
+      unit.people = wholePeople(unit.people)
+      unit.asked = wholePeople(unit.asked)
     }
   return units
 }
 
-/** The whole people of each shared person among the orders, by its id. */
-const peopleOf = (orders: HireOrder[]): Map<string, number> => {
-  const sums = new Map<string, number>()
-  for (const order of orders) if (order.person) sums.set(personKey(order), (sums.get(personKey(order)) ?? 0) + order.fte)
-  return new Map([...sums].map(([key, sum]) => [key, wholePeople(sum)]))
-}
+/** Each shared person among the orders as people (`orderUnits`), by where it is (`personKey`). */
+const personUnits = (orders: HireOrder[]): Map<string, OrderUnit> =>
+  new Map(orderUnits(orders).filter((unit) => unit.orders[0].person).map((unit) => [personKey(unit.orders[0]), unit]))
 
 /** A line of a competence that orders are made for: a project, or with no project the hours that are on none of the project lines. */
 export interface HireLine {
@@ -351,11 +348,10 @@ export const confirmOrders = (orders: HireOrder[], ids: string[]): HireOrder[] =
  * counted whole, and each part keeps its share of them.
  */
 export const confirmFewer = (orders: HireOrder[], ids: string[], people: number): HireOrder[] => {
-  const asks = new Map<string, number>()
-  for (const unit of orderUnits(orders)) if (unit.orders[0].person) asks.set(personKey(unit.orders[0]), unit.asked)
+  const persons = personUnits(orders)
   return patch(orders, withPerson(orders, ids), (order) => {
     const asked = order.asked ?? order.fte
-    const all = order.person ? asks.get(personKey(order))! : asked
+    const all = order.person ? persons.get(personKey(order))!.asked : asked
     const to = Math.min(all, Math.max(1, Math.round(people)))
     const fte = (asked * to) / all
     return to === all ? { ...withoutAsked(order), fte: asked, conf: asked } : { ...order, asked, fte, conf: fte }
@@ -367,9 +363,9 @@ export const confirmFewer = (orders: HireOrder[], ids: string[], people: number)
  * confirmed. A shared person is more or fewer people whole, each part keeping its share.
  */
 export const changeCount = (orders: HireOrder[], ids: string[], by: number): HireOrder[] => {
-  const people = peopleOf(orders)
+  const persons = personUnits(orders)
   return patch(orders, withPerson(orders, ids), (order) => {
-    const now = order.person ? people.get(personKey(order))! : order.fte
+    const now = order.person ? persons.get(personKey(order))!.people : order.fte
     const to = Math.max(1, now + by)
     if (to === now) return order
     const fte = (order.fte * to) / now
@@ -826,16 +822,12 @@ export const laneFrom = (lane: string): Pick<HireOrder, 'competence' | 'projectN
 export interface OrderRun {
   /** The run's lane on its line, from the top: one per competence and project ordered on the line. */
   lane: number
-  /** The lane as text (`laneOf`), which Tøm takes. */
-  key: string
   competence: CompetenceKey
   projectNo?: string
   /** People: of a part of a shared person, its share, which is drawn as hours. */
   fte: number
   /** A part of a shared person: the people it is ordered with work on another competence too. */
   shared?: boolean
-  /** What was asked for, where fewer were confirmed. */
-  asked?: number
   start: Minute
   end: Minute
   waits: boolean
@@ -922,12 +914,10 @@ export const orderRuns = (lineOrders: HireOrder[], dates: ISODate[], rank: (comp
         }
         run = {
           lane: at,
-          key: laneOf(order),
           competence: order.competence,
           ...projectTag(order),
           fte: order.fte,
           ...(order.person && { shared: true }),
-          ...(order.asked !== undefined && order.asked !== order.fte && { asked: order.asked }),
           start: order.start,
           end: order.end,
           waits: isWaiting(order),
@@ -1035,7 +1025,6 @@ const lackOf = (orders: HireOrder[], lane: Pick<HireOrder, 'competence' | 'proje
 
 /** One shared person (or a few) the orders of a line on a day could be: the lanes with what each lacks, and the people. */
 interface Sharing {
-  orders: HireOrder[]
   lanes: { competence: CompetenceKey; projectNo?: string; lack: number }[]
   /** The whole people of the shift the lanes lack together. */
   people: number
@@ -1056,7 +1045,7 @@ const sharingOf = (all: HireOrder[], picked: HireOrder[], need: NeedOf, wd: Work
   const lacking = [...lanes.values()].map((lane) => ({ ...lane, lack: lackOf(all, lane, date, need(lane.competence, lane.projectNo, date), wd, (order) => !ids.has(order.id)) }))
   if (lacking.some((lane) => lane.lack <= HOURS_NOISE)) return null
   const total = lacking.reduce((sum, lane) => sum + lane.lack, 0)
-  return { orders: picked, lanes: lacking, people: Math.max(1, Math.ceil(total / hireHours(picked[0], wd) - HOURS_NOISE)), now: orderUnits(picked).reduce((sum, unit) => sum + unit.people, 0) }
+  return { lanes: lacking, people: Math.max(1, Math.ceil(total / hireHours(picked[0], wd) - HOURS_NOISE)), now: orderUnits(picked).reduce((sum, unit) => sum + unit.people, 0) }
 }
 
 /** The orders with the ids, with the other parts of their shared people, by line and day. */

@@ -141,9 +141,8 @@ function Control({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
  */
 function Merging({ supplier }: { supplier: Supplier }) {
   const { styles, projectName } = useBemanning()
-  const { stored, wd, edits } = useInnleid()
+  const { stored, wd, edits, rank } = useInnleid()
   const offers = edits.sharings(supplier.id)
-  const rank = (competence: string) => [...styles.keys()].indexOf(competence)
   const shared = orderUnits(stored.filter((order) => order.supplierId === supplier.id && order.person))
     .map((unit) => [...unit.orders].sort((a, b) => rank(a.competence) - rank(b.competence)))
     .sort((a, b) => a[0].date.localeCompare(b[0].date) || SHIFT_IDS.indexOf(a[0].shift) - SHIFT_IDS.indexOf(b[0].shift))

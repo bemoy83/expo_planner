@@ -235,6 +235,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     const line = brushProject ? baseProjectLines.find((one) => !one.rest && numberKey(one.projectNo) === numberKey(brushProject)) : undefined
     return (line ? line.cover(date) : board.cover(brush, date)).remaining
   }
+  /** A competence's place in the planner's order, as the lanes and the parts of a shared person go. */
   const rank = useMemo(() => {
     const order = new Map([...styles.keys()].map((key, at) => [key, at]))
     return (competence: string) => order.get(competence) ?? order.size
@@ -563,7 +564,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), urgent: useMemo(() => urgentWaits(stored, todayIso()), [stored]), suppliers, orders, stored, wd, view,
     tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, isOffered,
     panel, setPanel, openControl: () => setPanel({ kind: 'control' }), openNextUnder, showOrder,
-    projectLines, projectName, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
+    projectLines, projectName, rank, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
     clip, orderPop, setOrderPop, demandPop, setDemandPop, projectsFor, pickProject,
   }
 }

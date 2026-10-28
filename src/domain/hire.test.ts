@@ -686,7 +686,7 @@ describe('one hired person on several competences (slice 6)', () => {
       ['tepper', 2, MON, TUE, 2],
     ])
     expect(parts.map((run) => run.fte * dag)).toEqual([expect.closeTo(3.5), expect.closeTo(4)])
-    expect(runs.find((run) => !run.shared)).toMatchObject({ lane: 0, fte: 2, key: laneOf({ competence: 'vegger' }) })
+    expect(runs.find((run) => !run.shared)).toMatchObject({ lane: 0, fte: 2 })
   })
 
   it('writes a shared person on one line of the order, with the hours of each part', () => {
