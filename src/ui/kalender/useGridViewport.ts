@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { daysBetween, type ISODate } from '../../domain/dates'
+import { PANEL_W } from '../cssVars'
 import { fitSpan, LEFT_W, ROW_H, type Zoom } from './layout'
 
 interface Options {
@@ -16,6 +17,27 @@ interface Options {
   onScrolled: () => void
   /** Called when the period grows at the start, so the columns count from another day. Must keep its identity. */
   onPeriodMoved: () => void
+}
+
+/**
+ * Where the right edge of the days is read from, less these many pixels: the edge itself, its last pixel,
+ * and the last pixel beside an open side panel (`useBemanningBalance`).
+ */
+const RIGHT_INSETS = [0, 1, PANEL_W + 1]
+
+/** The days at the edges of what is seen, every way the grid counts them: whole days at the left edge rounded down, up and to the nearest, and at the right edge rounded down and up. */
+const edgeDays = (left: number, width: number, colW: number): number[] => [
+  Math.floor(left / colW),
+  Math.ceil(left / colW),
+  Math.round(left / colW),
+  ...RIGHT_INSETS.flatMap((inset) => [Math.floor((left + width - LEFT_W - inset) / colW), Math.ceil((left + width - LEFT_W - inset) / colW)]),
+]
+
+/** Whether two places of the left edge show the same days, however they are counted: then nothing laid out by days changes between them. */
+export const sameDays = (a: number, b: number, width: number, colW: number): boolean => {
+  if (Math.abs(a - b) < 1) return true
+  const from = edgeDays(a, width, colW)
+  return edgeDays(b, width, colW).every((day, i) => day === from[i])
 }
 
 /**
@@ -44,12 +66,19 @@ export function useGridViewport({ start, end, openOn, zoom, colW, reserve = 0, o
   const placed = useRef<number | null>(null)
   const [placings, setPlacings] = useState(0)
 
-  // Scroll events already arrive once per frame, so the viewport can be read directly.
+  // Scroll events already arrive once per frame, so the viewport can be read directly. A scroll sideways is
+  // told only when it brings another day to an edge of the days, see `sameDays`: the grid is laid out by days,
+  // and to tell every pixel would draw the whole page again on each frame for nothing.
   const onScroll = useCallback(() => {
     const el = scrollRef.current
     // A scroll that follows a placing of the left edge tells nothing new, and draws nothing again.
     // Nor does a frame of a zoom: what is in view is told when it ends.
-    if (el && !zooming.current) setViewport((v) => (Math.abs(v.left - el.scrollLeft) < 1 && v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight ? v : { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight }))
+    if (el && !zooming.current)
+      setViewport((v) =>
+        v.top === el.scrollTop && v.width === el.clientWidth && v.height === el.clientHeight && sameDays(v.left, el.scrollLeft, v.width, liveColW.current)
+          ? v
+          : { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight },
+      )
     onScrolled()
   }, [onScrolled])
 

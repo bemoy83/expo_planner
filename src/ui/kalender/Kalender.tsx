@@ -147,15 +147,16 @@ export function Kalender({ hints = true, heat = true, blockNames = 'full', overt
   // Days planned above the available crew. Without the heat map they are tinted down the whole grid; with it,
   // the Avvik line alone carries them. A pencil stroke in progress counts, so the clash shows while it is being drawn.
   const overbooked = useMemo(() => overbookedDays(need, written, getValue, capacity, settings), [need, written, getValue, capacity, settings])
-  // Every cell of a day shares these classes; they are worked out once per day, not once per cell.
+  // Every cell of a day shares these classes; they are worked out once per day of the period, not once per cell,
+  // and not again as the days are scrolled.
   const dayClasses = useMemo(() => {
     const classes = new Map<ISODate, string>()
-    for (const date of visibleDates) {
+    for (const date of dates) {
       const type = dayType(date)
       classes.set(date, `day ${type !== 'arbeidsdag' ? type : ''} ${date === today ? 'today' : ''} ${date.endsWith('-01') ? 'month-start' : ''} ${!heat && overbooked.has(date) ? 'overbooked' : ''}`)
     }
     return classes
-  }, [visibleDates, today, overbooked, heat])
+  }, [dates, today, overbooked, heat])
   const leftCol = held ? held.left : Math.floor(viewport.left / colW)
   const cols = useMemo<Columns>(() => ({ dates: visibleDates, c0, first: leftCol, colW, classes: dayClasses }), [visibleDates, c0, leftCol, colW, dayClasses])
 

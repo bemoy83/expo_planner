@@ -2,9 +2,17 @@ import type { Minute } from '../domain/types'
 
 /** How the app writes figures, hours and times of day: every page writes them with these. */
 
+// A formatter per number of decimals, made once: `toLocaleString` with options makes one on every call, which a
+// grid of a thousand figures redrawn as it scrolls cannot afford.
+const formats = new Map<number, Intl.NumberFormat>()
+const formatOf = (digits: number) => {
+  let format = formats.get(digits)
+  if (!format) formats.set(digits, (format = new Intl.NumberFormat('nb-NO', { maximumFractionDigits: digits, minimumFractionDigits: 0 })))
+  return format
+}
+
 /** A figure with a decimal comma and at most `digits` decimals; nothing for none. */
-export const formatFte = (value: number | null | undefined, digits = 1): string =>
-  value === null || value === undefined || !Number.isFinite(value) ? '' : value.toLocaleString('nb-NO', { maximumFractionDigits: digits, minimumFractionDigits: 0 })
+export const formatFte = (value: number | null | undefined, digits = 1): string => (value === null || value === undefined || !Number.isFinite(value) ? '' : formatOf(digits).format(value))
 
 /** A figure with its sign: «−» for what is missing, «+» for what is over, and nothing for zero, where the colour says it. */
 export const signed = (figure: string): string => (/[1-9]/.test(figure) ? (figure.startsWith('−') || figure.startsWith('-') ? figure : `+${figure}`) : '')
@@ -25,7 +33,7 @@ export const hoursShort = (value: number): string => formatFte(Math.round(value 
 export const signedHours = (value: number): string => signed(hoursShort(value))
 
 /** Whole hours, «1 250». */
-export const wholeHours = (value: number) => Math.round(value).toLocaleString('nb-NO')
+export const wholeHours = (value: number) => formatOf(0).format(Math.round(value))
 
 /** A share as a percentage: «10 %», «12,5 %». */
 export const percentText = (share: number): string => `${(Math.round(share * 1000) / 10).toLocaleString('nb-NO')} %`
