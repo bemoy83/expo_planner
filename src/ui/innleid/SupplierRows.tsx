@@ -166,9 +166,9 @@ interface ShiftLineProps {
   actions: InnleidActions
 }
 
-/** A supplier's shift, as a person's line in Faste: its orders as runs over the days, a lane in height for each competence and project. */
+/** A supplier's shift, as a person's line in Faste: its orders as runs over the days, sharing the height only where they share days. */
 const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions }: ShiftLineProps) {
-  const geometry = shiftLine(runs.lanes.length)
+  const geometry = shiftLine(runs.depth)
   const times = timesText(shiftTimes(line.shift, wd))
   return (
     <Line
@@ -198,7 +198,7 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
         // Its own times where they are not the shift's, without the minutes of a whole hour: «10–18».
         const own = timesText(run) === times ? null : timesText(run).replace(/:00/g, '')
         const stale = line.stale.includes(run.competence)
-        const lane = geometry.lane(run.lane)
+        const lane = geometry.lane(run.band, run.bands)
         const at = cols.c0 + cols.dates.indexOf(run.from)
         const days = cols.dates.indexOf(run.to) - cols.dates.indexOf(run.from) + 1
         const state = coming && run.orders.some(coming) ? 'coming' : going && run.orders.some(going) ? 'going' : ''

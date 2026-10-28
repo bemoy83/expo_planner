@@ -843,6 +843,12 @@ export interface OrderRun {
   to: ISODate
   /** The orders of the run, one a day. */
   orders: HireOrder[]
+  /**
+   * Its place in height on the line, of `bands`: runs that share days with others of other lanes, directly or through
+   * one another, divide the line between their lanes; a run with none fills it (`bands` 1).
+   */
+  band: number
+  bands: number
 }
 
 /** A lane of a line: a competence and a project. */
@@ -860,6 +866,8 @@ export interface LineRuns {
   runs: OrderRun[]
   /** The runs as an end is taken hold of and pulled: only an empty working day breaks one (`overOffDays` in Faste). */
   grips: OrderRun[]
+  /** The most lanes the runs divide the line between anywhere: the line's height. 0 with no runs. */
+  depth: number
 }
 
 const laneKey = (order: Pick<HireOrder, 'competence' | 'projectNo'>) => `${order.competence}|${(order.projectNo ?? '').trim().toLowerCase()}`
@@ -926,13 +934,42 @@ export const orderRuns = (lineOrders: HireOrder[], dates: ISODate[], rank: (comp
           from: date,
           to: date,
           orders: [order],
+          band: 0,
+          bands: 1,
         }
         runs.push(run)
       }
     })
     return runs
   }
-  return { lanes, runs: walk(false), grips: walk(true) }
+  const runs = walk(false)
+  return { lanes, runs, grips: walk(true), depth: placeBands(runs) }
+}
+
+/**
+ * The runs of a line in height: those whose days meet, directly or through one another, are a cluster, and divide the
+ * line between the lanes of the cluster in the order of the lanes, so two of them never lie over each other; a run alone
+ * on its days fills the line. Returns the most lanes of a cluster.
+ */
+const placeBands = (runs: OrderRun[]): number => {
+  let depth = 0
+  const place = (cluster: OrderRun[]) => {
+    const lanes = [...new Set(cluster.map((run) => run.lane))].sort((a, b) => a - b)
+    for (const run of cluster) Object.assign(run, { band: lanes.indexOf(run.lane), bands: lanes.length })
+    depth = Math.max(depth, lanes.length)
+  }
+  let cluster: OrderRun[] = []
+  let end = ''
+  for (const run of [...runs].sort((a, b) => a.from.localeCompare(b.from))) {
+    if (cluster.length && run.from > end) {
+      place(cluster)
+      cluster = []
+    }
+    cluster.push(run)
+    if (run.to > end || cluster.length === 1) end = run.to
+  }
+  if (cluster.length) place(cluster)
+  return depth
 }
 
 /**

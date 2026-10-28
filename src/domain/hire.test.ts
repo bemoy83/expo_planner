@@ -418,6 +418,21 @@ describe('orders painted on the suppliers\' lines', () => {
     ])
   })
 
+  it('lets a run fill the line where it is alone on its days, and divides it only where runs of other lanes meet', () => {
+    // Walls Monday to Tuesday, carpets Tuesday: they meet, and share the height. Walls on Friday and carpets the Monday after stand alone.
+    const orders = [on('k1', 'dag', MON, 2, 2), on('k1', 'dag', TUE, 2, 2), on('k1', 'dag', TUE, 1, null, 'tepper'), on('k1', 'dag', FRI, 2, null), on('k1', 'dag', NEXT, 1, null, 'tepper')]
+    const { runs, depth } = orderRuns(orders, WEEK, (competence) => ['tepper', 'vegger'].indexOf(competence))
+    expect(runs.map(({ competence, from, band, bands }) => [competence, from, band, bands])).toEqual([
+      ['tepper', TUE, 0, 2],
+      ['tepper', NEXT, 0, 1],
+      ['vegger', MON, 1, 2],
+      ['vegger', FRI, 0, 1],
+    ])
+    expect(depth).toBe(2)
+    expect(orderRuns([on('k1', 'dag', MON, 2, 2), on('k1', 'dag', TUE, 1, null, 'tepper')], WEEK, () => 0).depth).toBe(1)
+    expect(orderRuns([], WEEK, () => 0).depth).toBe(0)
+  })
+
   it('stretches a run outward over working days, waiting, and inward to the day at the other end at most', () => {
     const run = orderRuns([on('k1', 'dag', MON, 2, 2), on('k1', 'dag', TUE, 2, 2)], WEEK, () => 0).grips[0]
     const out = stretchOrders(run.orders, run, 'end', NEXT, WEEK, suppliers, id)

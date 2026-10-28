@@ -322,7 +322,7 @@ function useInnleidState(active: boolean, counted: boolean) {
       if (!isFolded)
         for (const line of lines) {
           const runs = orderRuns(byLine.get(line.key) ?? NO_ORDERS, drawn, rank)
-          const height = shiftLine(runs.lanes.length).height
+          const height = shiftLine(runs.depth).height
           block.rows.push({ line, runs, top, height })
           top += height
         }
