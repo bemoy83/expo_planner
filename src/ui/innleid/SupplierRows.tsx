@@ -1,8 +1,8 @@
 import { memo, useMemo } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Link2 } from 'lucide-react'
 import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { isUrgent, laneOf, partName, SHIFT_LABELS, shiftTimes, supplierDays, supplierWaits, supplierWeek, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
+import { hireHours, isUrgent, laneOf, partName, SHIFT_LABELS, shiftTimes, supplierDays, supplierWaits, supplierWeek, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { CrewName } from '../bemanning/CrewFrame'
@@ -166,9 +166,9 @@ interface ShiftLineProps {
   actions: InnleidActions
 }
 
-/** A supplier's shift, as a person's line in Faste: its orders as runs over the days, a lane in height for each competence and project. */
+/** A supplier's shift, as a person's line in Faste: its orders as runs over the days, sharing the height only where they share days. */
 const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions }: ShiftLineProps) {
-  const geometry = shiftLine(runs.lanes.length)
+  const geometry = shiftLine(runs.depth)
   const times = timesText(shiftTimes(line.shift, wd))
   return (
     <Line
@@ -193,11 +193,12 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
         const style = styles.get(run.competence)
         const label = `${style?.label ?? run.competence}${run.projectNo ? ` · ${projectName(run.projectNo)}` : ''}`
         const order = run.orders[0]
-        const people = order.asked && !run.waits ? `${hoursText(run.fte)}/${hoursText(order.asked)}` : hoursText(run.fte)
+        // A part of a shared person (slice 6) is its share of the person in hours, with a link: «FOGA 5,6 t».
+        const people = run.shared ? `${hoursText(run.fte * hireHours(run, wd))} t` : order.asked && !run.waits ? `${hoursText(run.fte)}/${hoursText(order.asked)}` : hoursText(run.fte)
         // Its own times where they are not the shift's, without the minutes of a whole hour: «10–18».
         const own = timesText(run) === times ? null : timesText(run).replace(/:00/g, '')
         const stale = line.stale.includes(run.competence)
-        const lane = geometry.lane(run.lane)
+        const lane = geometry.lane(run.band, run.bands)
         const at = cols.c0 + cols.dates.indexOf(run.from)
         const days = cols.dates.indexOf(run.to) - cols.dates.indexOf(run.from) + 1
         const state = coming && run.orders.some(coming) ? 'coming' : going && run.orders.some(going) ? 'going' : ''
@@ -213,10 +214,11 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
             data-ids={run.orders.map((one) => one.id).join(' ')}
             style={{ left: daysWide(at, LEFT_W + DAY_INSET), width: daysWide(days, -2 * DAY_INSET), top: lane.top, height: lane.height, ...competenceColor(style) }}
             onMouseDown={actions.cellDown}
-            title={`${label} · ${supplier.name} · ${SHIFT_LABELS[line.shift]}\n${dayText(run.from)}${run.to === run.from ? '' : ` – ${dayText(run.to)}`} · ${people} pers. · ${run.waits ? 'venter på svar' : 'bekreftet'}${own ? `\nEgne tider ${own}` : ''}${run.projectNo ? '' : '\nUten prosjekt: fordeles på prosjektene'}${stale ? `\n${supplier.name} tilbyr ikke ${style?.label ?? run.competence} lenger` : ''}`}
+            title={`${label} · ${supplier.name} · ${SHIFT_LABELS[line.shift]}\n${dayText(run.from)}${run.to === run.from ? '' : ` – ${dayText(run.to)}`} · ${run.shared ? `${people} av en delt person` : `${people} pers.`} · ${run.waits ? 'venter på svar' : 'bekreftet'}${run.shared ? '\nPersonen deler timene med en annen kompetanse. «Del opp» i leverandørpanelet.' : ''}${own ? `\nEgne tider ${own}` : ''}${run.projectNo ? '' : '\nUten prosjekt: fordeles på prosjektene'}${stale ? `\n${supplier.name} tilbyr ikke ${style?.label ?? run.competence} lenger` : ''}`}
           >
             <span className="il-run-name" style={{ left: LEFT_W + DAY_INSET }}>
               {stale && <i className="need-dot" />}
+              {run.shared && <Link2 className="il-shared" size={12} aria-hidden />}
               {label}
               <b>{people}</b>
               {own && <small>{own}</small>}

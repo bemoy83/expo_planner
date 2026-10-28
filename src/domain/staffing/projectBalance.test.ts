@@ -157,7 +157,7 @@ describe('the project on an order', () => {
   })
 
   it('names the project in the text to the supplier', () => {
-    expect(orderText(supplier, [order(MON, 2, FIRST)], [{ key: 'vegger', label: 'Vegger' }], (no) => `Prosjekt ${no}`)).toContain(`Vegger · Prosjekt ${FIRST}: 2 pers. Dag`)
+    expect(orderText(supplier, [order(MON, 2, FIRST)], [{ key: 'vegger', label: 'Vegger' }], DEFAULT_WORKDAY, (no) => `Prosjekt ${no}`)).toContain(`Vegger · Prosjekt ${FIRST}: 2 pers. Dag`)
   })
 })
 

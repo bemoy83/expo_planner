@@ -379,6 +379,11 @@ export interface HireOrder {
   asked?: number
   /** The project the people are for, as on a block. */
   projectNo?: string
+  /**
+   * One hired person on several competences or projects (slice 6, 2026-10-28): the orders of a person on a day share this id,
+   * each with its share of the person as `fte`, and their `fte` add up to whole people. They are answered, moved and removed as one.
+   */
+  person?: string
   /** A draft of the planning engine's, in the plan it hands back alone: never stored. */
   engine?: true
 }

@@ -228,7 +228,8 @@ export const buildDayPlan = (ws: Workspace, date: ISODate): DayPlan => {
     hiredRows.push({
       supplierId: o.supplierId,
       name: suppliers.get(o.supplierId)?.name ?? o.supplierId,
-      people: o.conf ?? o.fte,
+      // A part of a shared person (slice 6) is its share of the person, written with a decimal.
+      people: Math.round((o.conf ?? o.fte) * 10) / 10,
       competence: o.competence,
       start: o.start,
       end: o.end,

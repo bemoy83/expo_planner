@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, Copy } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { HOURS_NOISE, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
+import { HOURS_NOISE, hireHours, isWaiting, orderText, orderUnits, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
 import { SHIFT_IDS, type HireOrder, type Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { Segmented, SidePanel } from '../common'
-import { competenceColor } from '../dom'
+import { competenceColor, count } from '../dom'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 import { pushTo } from '../../domain/collections'
@@ -17,14 +17,14 @@ const COPIED_MS = 1600
 /** A supplier's order copied as text to send: the supplier whose order was just copied, for «Kopiert» to stand a moment, and the copying. */
 function useCopyOrder() {
   const { styles, projectName } = useBemanning()
-  const { orders } = useInnleid()
+  const { orders, wd } = useInnleid()
   const [copied, setCopied] = useState<string | null>(null)
   useEffect(() => {
     if (!copied) return
     const timer = setTimeout(() => setCopied(null), COPIED_MS)
     return () => clearTimeout(timer)
   }, [copied])
-  const copy = (supplier: Supplier) => navigator.clipboard.writeText(orderText(supplier, orders, [...styles.values()], projectName)).then(() => setCopied(supplier.id))
+  const copy = (supplier: Supplier) => navigator.clipboard.writeText(orderText(supplier, orders, [...styles.values()], wd, projectName)).then(() => setCopied(supplier.id))
   return { copied, copy }
 }
 
@@ -54,8 +54,8 @@ function OrderDays({ orders }: { orders: HireOrder[] }) {
                   </span>
                   <em>{shiftText(order, wd)}</em>
                 </button>
-                <b>{order.fte}</b>
-                {order.asked !== undefined && <em>av {order.asked}</em>}
+                {order.person ? <b title="Del av en delt person">{hoursText(order.fte * hireHours(order, wd))} t</b> : <b>{order.fte}</b>}
+                {order.asked !== undefined && !order.person && <em>av {order.asked}</em>}
                 <button className={`il-status ${isWaiting(order) ? 'waits' : ''}`} title={isWaiting(order) ? 'Sett til bekreftet' : 'Sett til venter'} onClick={() => edits.toggleAnswer(order)}>
                   <AnswerGlyph waits={isWaiting(order)} />
                   {isWaiting(order) ? 'Venter' : 'Bekreftet'}
@@ -135,6 +135,48 @@ function Control({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   )
 }
 
+/**
+ * «Slå sammen» and «Del opp» (slice 6): the days of the supplier's lines where its orders of several competences can be
+ * fewer people as shared ones, and the shared people it has, each to split into orders of their own again.
+ */
+function Merging({ supplier }: { supplier: Supplier }) {
+  const { styles, projectName } = useBemanning()
+  const { stored, wd, edits, rank } = useInnleid()
+  const offers = edits.sharings(supplier.id)
+  const shared = orderUnits(stored.filter((order) => order.supplierId === supplier.id && order.person))
+    .map((unit) => [...unit.orders].sort((a, b) => rank(a.competence) - rank(b.competence)))
+    .sort((a, b) => a[0].date.localeCompare(b[0].date) || SHIFT_IDS.indexOf(a[0].shift) - SHIFT_IDS.indexOf(b[0].shift))
+  if (!offers.length && !shared.length) return null
+  const work = (part: Pick<HireOrder, 'competence' | 'projectNo'>) => `${styles.get(part.competence)?.label ?? part.competence}${part.projectNo ? ` · ${projectName(part.projectNo)}` : ''}`
+  const when = (order: Pick<HireOrder, 'date' | 'shift'>) => `${dayText(order.date)}${supplier.shifts.length > 1 || order.shift !== 'dag' ? ` · ${SHIFT_LABELS[order.shift]}` : ''}`
+  return (
+    <section className="insp-sec">
+      <h3 className="insp-h">Én person på flere kompetanser</h3>
+      {offers.map((offer) => (
+        <div key={`${offer.date}|${offer.shift}`} className="il-merge">
+          <span>
+            <b>{when(offer)}</b> {offer.lanes.map((lane) => `${hoursText(lane.people)} ${work(lane)}`).join(' + ')} <em>kan bli {count(offer.people, 'person', 'personer')}</em>
+          </span>
+          <button className="link small" title="Del personene på kompetansene etter det hver mangler" onClick={() => edits.share(offer.ids)}>
+            Slå sammen
+          </button>
+        </div>
+      ))}
+      {shared.map((parts) => (
+        <div key={parts[0].id} className="il-merge">
+          <span>
+            <b>{when(parts[0])}</b> {count(Math.round(parts.reduce((sum, part) => sum + part.fte, 0)), 'person', 'personer')}: {parts.map((part) => `${hoursText(part.fte * hireHours(part, wd))} t ${work(part)}`).join(' + ')}
+          </span>
+          <button className="link small" title="Gjør den delte personen til egne bestillinger per kompetanse" onClick={() => edits.split(parts.map((part) => part.id))}>
+            Del opp
+          </button>
+        </div>
+      ))}
+      <p className="insp-note">Begge blir en ny forespørsel, som venter på svar.</p>
+    </section>
+  )
+}
+
 /** A supplier's order: what it is ordered for per day, with the answer of each, a text of it to send, and what it offers. */
 function SupplierOrder({ supplier }: { supplier: Supplier }) {
   const { styles } = useBemanning()
@@ -193,6 +235,7 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
         )}
         <OrderDays orders={own} />
       </section>
+      <Merging supplier={supplier} />
       <section className="insp-sec">
         <details className="il-offer">
           <summary className="insp-h">Kompetanser og skift</summary>
@@ -224,7 +267,7 @@ function Help() {
         <h3 className="insp-h">Tallene</h3>
         <dl>
           <dt>−2</dt>
-          <dd>Underbemannet: personer som mangler (rødt). Timene som gjenstår regnes om til hele personer på en vanlig dag, rundet opp; timene står i tooltip.</dd>
+          <dd>Underbemannet: personer som mangler (rødt). Timene som gjenstår regnes om til hele personer på en vanlig dag, rundet opp; timene står i tooltip. «x/y» er personene timene som er bestilt dekker, av dem som trengs.</dd>
           <dt>+1</dt>
           <dd>Overbemannet: personer over behovet (oker)</dd>
           <dt>Grønt</dt>
@@ -257,7 +300,7 @@ function Help() {
           <dt>Dra i enden</dt>
           <dd>Flere eller færre dager i et løp</dd>
           <dt>Klikk en blokk</dt>
-          <dd>Svar, antall, tider, prosjekt og Fjern for løpet, eller for alt i markeringen du klikker inni</dd>
+          <dd>Svar, antall, tider, prosjekt og Fjern for løpet, eller for alt i markeringen du klikker inni.</dd>
           <dt>Esc</dt>
           <dd>Avbryt strøket, fjern markeringen, legg bort penselen, lukk panelet</dd>
         </dl>
@@ -269,6 +312,7 @@ function Help() {
           <li>Fra sumlinjen bestilles uten prosjekt, og bestillingen fordeles på prosjektene. Fra en prosjektlinje bestilles for prosjektet.</li>
           <li>Alt starter som «Venter». Registrer svaret i blokken: stiller de færre, justerer du antallet, og resten blir udekket igjen.</li>
           <li>Egne tider settes i blokken, for hele løpet eller en markering på én gang. Bestillingen blir på skiftlinjen sin.</li>
+          <li>Én person kan dekke flere kompetanser samme dag. Der to kompetanser på samme leverandørlinje og dag hver mangler litt, foreslår leverandørens panel «Slå sammen»: timene deles etter det hver kompetanse mangler, og blokkene viser timer med et lenkemerke. Personen svares, flyttes og fjernes som én. «Del opp» gjør den til egne bestillinger igjen.</li>
           <li>Bare bekreftede bestillinger teller i «Tilgjengelig» i planen.</li>
           <li>Leverandørkontrollen viser det som venter på svar. Bekreft der, og kopier bestillingen du sender.</li>
         </ol>

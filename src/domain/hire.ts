@@ -1,6 +1,7 @@
 import { daysBetween, dayText, type ISODate } from './dates'
 import { projectTag, sameProject, SHIFT_IDS, type CapacityLine, type CompetenceKey, type DayValues, type HireOrder, type Interval, type Minute, type ShiftId, type Supplier, type WorkdaySettings, type Workspace } from './types'
 import { pushTo } from './collections'
+import { decimalText } from './numbers'
 import { dayType } from './holidays'
 import type { NeedLabelParts, NeedSegment } from './needLabel'
 
@@ -81,7 +82,12 @@ export interface Coverage {
   left: number
   /** As `state`, by the confirmed orders alone. */
   firm: CoverState
-  /** What Innleid shows (2026-10-27): the whole people of a normal day the hours that remain ask for, rounded up, and the people ordered, answered or not. */
+  /**
+   * What Innleid shows (2026-10-27): the whole people of a normal day the hours that remain ask for, rounded up; and the
+   * people of a normal day the orders cover, answered or not (2026-10-28): `need` less the hours missing in such people,
+   * rounded up, or plus the hours over, rounded down. For whole people of the day shift it is the people ordered; a share
+   * of a person (`HireOrder.person`) covers what its hours cover.
+   */
   need: number
   people: number
 }
@@ -101,17 +107,18 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
   let least = Infinity
   let leastConfirmed = Infinity
   let anyConfirmed = false
-  let people = 0
   for (const order of orders) {
     const hours = hireHours(order, wd)
     planned += order.fte * hours
-    people += order.fte
     least = Math.min(least, hours)
     if (isWaiting(order)) continue
     confirmed += order.fte * hours
     leastConfirmed = Math.min(leastConfirmed, hours)
     anyConfirmed = true
   }
+  const day = personDay(wd)
+  const people = need > HOURS_NOISE ? Math.ceil(need / day - HOURS_NOISE) : 0
+  const figure = need - planned > HOURS_NOISE ? -Math.ceil((need - planned) / day - HOURS_NOISE) : Math.floor((planned - need + HOURS_NOISE) / day)
   return {
     rest: need,
     planned,
@@ -120,8 +127,8 @@ export const coverage = (rest: number, orders: HireOrder[], wd: WorkdaySettings)
     state: coverState(need, planned, orders.length > 0, least),
     left: need - confirmed,
     firm: coverState(need, confirmed, anyConfirmed, leastConfirmed),
-    need: need > HOURS_NOISE ? Math.ceil(need / personDay(wd) - HOURS_NOISE) : 0,
-    people,
+    need: people,
+    people: Math.max(0, people + figure),
   }
 }
 
@@ -193,9 +200,12 @@ export const deviation = (covers: Coverage[]): Deviation => {
 
 const newId = () => `hire-${crypto.randomUUID()}`
 
-/** What tells orders apart: a supplier's line (its shift), a competence, a project and a day. Times are not part of it, so new times leave an order on its line. */
-type OrderKey = Pick<HireOrder, 'supplierId' | 'shift' | 'competence' | 'date' | 'projectNo'>
-const sameOrder = (a: OrderKey, b: OrderKey) => a.supplierId === b.supplierId && a.shift === b.shift && a.competence === b.competence && a.date === b.date && sameProject(a, b)
+/**
+ * What tells orders apart: a supplier's line (its shift), a competence, a project and a day, and the shared person it is a part
+ * of. Times are not part of it, so new times leave an order on its line.
+ */
+type OrderKey = Pick<HireOrder, 'supplierId' | 'shift' | 'competence' | 'date' | 'projectNo' | 'person'>
+const sameOrder = (a: OrderKey, b: OrderKey) => a.supplierId === b.supplierId && a.shift === b.shift && a.competence === b.competence && a.date === b.date && sameProject(a, b) && (a.person ?? '') === (b.person ?? '')
 
 /** I5: orders of the same supplier, shift, competence, project and day are one: their people add up, and it waits while one of them does. The first one's times stand. */
 export const mergeOrders = (orders: HireOrder[]): HireOrder[] => {
@@ -210,8 +220,104 @@ export const mergeOrders = (orders: HireOrder[]): HireOrder[] => {
       merged[index] = { ...rest, fte: first.fte + order.fte, conf: isWaiting(first) || isWaiting(order) ? null : first.fte + order.fte, ...(asked === undefined ? {} : { asked }) }
     }
   }
-  return merged.length === orders.length ? orders : merged
+  return normalizePersons(merged.length === orders.length ? orders : merged)
 }
+
+/*
+ * One hired person on several competences or projects (slice 6, the Claude Doc «Innleid skive 6: én person på flere
+ * kompetanser», 2026-10-28): an order per competence and project, each with its share of the person as `fte`, joined by
+ * `person`. Every rule that changes orders takes a shared person whole, and `normalizePersons` keeps it whole after any change.
+ */
+
+/** A difference in people this small is rounding of the shares. */
+const PEOPLE_NOISE = 1e-6
+
+/** Where a shared person is: its id on one line and one day. Parts that have come apart from the first are another person. */
+const personKey = (order: HireOrder): string => `${order.person}|${lineKey(order.supplierId, order.shift)}|${order.date}`
+
+/** The whole people the shares of a person add up to. */
+const wholePeople = (fte: number): number => Math.max(1, Math.round(fte))
+
+/**
+ * The shared people as they must be: the parts of one on one line and day, with the first part's times; waiting while one
+ * of them does; their shares adding up to whole people; and one left alone an order of its own, its people rounded up
+ * (waiting again where that is more, I7). Returns the orders themselves where they are as they must be.
+ */
+export const normalizePersons = (orders: HireOrder[]): HireOrder[] => {
+  const groups = new Map<string, HireOrder[]>()
+  for (const order of orders) if (order.person) pushTo(groups, personKey(order), order)
+  if (!groups.size) return orders
+  const ids = new Map<string, string>()
+  const fixed = new Map<HireOrder, HireOrder>()
+  for (const [key, parts] of groups) {
+    const [first] = parts
+    if (parts.length === 1) {
+      const { person: _person, ...rest } = first
+      const fte = Math.max(1, Math.ceil(first.fte - PEOPLE_NOISE))
+      fixed.set(first, fte === first.fte ? rest : { ...withoutAsked(rest), fte, conf: null })
+      continue
+    }
+    // A person whose parts have come apart keeps its id on the line and day it is first found on.
+    const person = ids.has(first.person!) ? `${first.person}:${key}` : first.person!
+    ids.set(first.person!, person)
+    const total = parts.reduce((sum, part) => sum + part.fte, 0)
+    const scale = Math.abs(total - wholePeople(total)) > PEOPLE_NOISE ? wholePeople(total) / total : 1
+    const waits = parts.some(isWaiting)
+    for (const part of parts) {
+      const fte = part.fte * scale
+      const next = { ...part, person, fte, start: first.start, end: first.end, conf: waits ? null : fte }
+      const same = next.person === part.person && next.fte === part.fte && next.start === part.start && next.end === part.end && next.conf === part.conf
+      if (!same) fixed.set(part, next)
+    }
+  }
+  return fixed.size ? orders.map((order) => fixed.get(order) ?? order) : orders
+}
+
+/** The ids with those of every other part of the shared people they are parts of. */
+export const withPerson = (orders: HireOrder[], ids: string[]): string[] => {
+  const picked = new Set(ids)
+  const persons = new Set(orders.filter((order) => order.person && picked.has(order.id)).map(personKey))
+  return persons.size ? orders.filter((order) => picked.has(order.id) || (order.person && persons.has(personKey(order)))).map((order) => order.id) : ids
+}
+
+/** People as they are counted: an order of its own, or the parts of a shared person together. */
+export interface OrderUnit {
+  orders: HireOrder[]
+  /** Whole people for a shared person, `fte` for an order of its own. */
+  people: number
+  /** What was asked for, where fewer were confirmed: the people asked for in all. */
+  asked: number
+  waits: boolean
+}
+
+/** The orders as people: each order of its own, and the parts of a shared person as one, in the order the first of each comes. */
+export const orderUnits = (orders: HireOrder[]): OrderUnit[] => {
+  const units: OrderUnit[] = []
+  const persons = new Map<string, OrderUnit>()
+  for (const order of orders) {
+    const unit = order.person ? persons.get(personKey(order)) : undefined
+    if (unit) {
+      unit.orders.push(order)
+      unit.people += order.fte
+      unit.asked += order.asked ?? order.fte
+      unit.waits ||= isWaiting(order)
+      continue
+    }
+    const made = { orders: [order], people: order.fte, asked: order.asked ?? order.fte, waits: isWaiting(order) }
+    units.push(made)
+    if (order.person) persons.set(personKey(order), made)
+  }
+  for (const unit of units)
+    if (unit.orders[0].person) {
+      unit.people = wholePeople(unit.people)
+      unit.asked = wholePeople(unit.asked)
+    }
+  return units
+}
+
+/** Each shared person among the orders as people (`orderUnits`), by where it is (`personKey`). */
+const personUnits = (orders: HireOrder[]): Map<string, OrderUnit> =>
+  new Map(orderUnits(orders).filter((unit) => unit.orders[0].person).map((unit) => [personKey(unit.orders[0]), unit]))
 
 /** A line of a competence that orders are made for: a project, or with no project the hours that are on none of the project lines. */
 export interface HireLine {
@@ -230,39 +336,58 @@ const patch = (orders: HireOrder[], ids: string[], change: (order: HireOrder) =>
 
 const withoutAsked = ({ asked: _asked, ...order }: HireOrder): HireOrder => order
 
-/** I6: the supplier has not answered. */
-export const setWaiting = (orders: HireOrder[], ids: string[]): HireOrder[] => patch(orders, ids, (order) => (isWaiting(order) ? order : { ...order, conf: null }))
+/** I6: the supplier has not answered. A shared person waits whole. */
+export const setWaiting = (orders: HireOrder[], ids: string[]): HireOrder[] => patch(orders, withPerson(orders, ids), (order) => (isWaiting(order) ? order : { ...order, conf: null }))
 
-/** I6: the supplier sends the people asked for. */
-export const confirmOrders = (orders: HireOrder[], ids: string[]): HireOrder[] => patch(orders, ids, (order) => (order.conf === order.fte ? order : { ...order, conf: order.fte }))
+/** I6: the supplier sends the people asked for. A shared person is confirmed whole. */
+export const confirmOrders = (orders: HireOrder[], ids: string[]): HireOrder[] => patch(orders, withPerson(orders, ids), (order) => (order.conf === order.fte ? order : { ...order, conf: order.fte }))
 
 /**
  * I6: the supplier sends `people`, at most what was asked for. The order is confirmed with that many, what was asked
- * is kept beside it, and the hours of the rest are missing again. There is no half answer.
+ * is kept beside it, and the hours of the rest are missing again. There is no half answer. A shared person's people are
+ * counted whole, and each part keeps its share of them.
  */
-export const confirmFewer = (orders: HireOrder[], ids: string[], people: number): HireOrder[] =>
-  patch(orders, ids, (order) => {
+export const confirmFewer = (orders: HireOrder[], ids: string[], people: number): HireOrder[] => {
+  const persons = personUnits(orders)
+  return patch(orders, withPerson(orders, ids), (order) => {
     const asked = order.asked ?? order.fte
-    const fte = Math.min(asked, Math.max(1, Math.round(people)))
-    return fte === asked ? { ...withoutAsked(order), fte, conf: fte } : { ...order, asked, fte, conf: fte }
+    const all = order.person ? persons.get(personKey(order))!.asked : asked
+    const to = Math.min(all, Math.max(1, Math.round(people)))
+    const fte = (asked * to) / all
+    return to === all ? { ...withoutAsked(order), fte: asked, conf: asked } : { ...order, asked, fte, conf: fte }
   })
+}
 
-/** I7: more or fewer people. More is a new question to the supplier, so the order waits again; fewer keeps a confirmed order confirmed. */
-export const changeCount = (orders: HireOrder[], ids: string[], by: number): HireOrder[] =>
-  patch(orders, ids, (order) => {
-    const fte = Math.max(1, order.fte + by)
-    if (fte === order.fte) return order
+/**
+ * I7: more or fewer people. More is a new question to the supplier, so the order waits again; fewer keeps a confirmed order
+ * confirmed. A shared person is more or fewer people whole, each part keeping its share.
+ */
+export const changeCount = (orders: HireOrder[], ids: string[], by: number): HireOrder[] => {
+  const persons = personUnits(orders)
+  return patch(orders, withPerson(orders, ids), (order) => {
+    const now = order.person ? persons.get(personKey(order))!.people : order.fte
+    const to = Math.max(1, now + by)
+    if (to === now) return order
+    const fte = (order.fte * to) / now
     return by > 0 ? { ...withoutAsked(order), fte, conf: null } : { ...order, fte, conf: isWaiting(order) ? null : fte }
   })
+}
 
-/** Another supplier, or other times, for some orders. They wait for an answer again: it is another question. */
-export const changeOrders = (orders: HireOrder[], ids: string[], to: Partial<Pick<HireOrder, 'supplierId' | 'start' | 'end'>>): HireOrder[] =>
-  patch(orders, ids, (order) => {
+/**
+ * Another supplier, or other times, for some orders. They wait for an answer again: it is another question. A shared
+ * person changes whole; with `suppliers`, a person or an order stays where the new supplier does not offer all it does.
+ */
+export const changeOrders = (orders: HireOrder[], ids: string[], to: Partial<Pick<HireOrder, 'supplierId' | 'start' | 'end'>>, suppliers?: Supplier[]): HireOrder[] => {
+  const offers = (order: HireOrder) => !to.supplierId || !suppliers || !!suppliers.find((supplier) => supplier.id === to.supplierId)?.competences.includes(order.competence)
+  const refused = new Set(orders.filter((order) => !offers(order)).map((order) => (order.person ? personKey(order) : order.id)))
+  return patch(orders, withPerson(orders, ids), (order) => {
+    if (refused.has(order.person ? personKey(order) : order.id)) return order
     const next = { ...order, ...to }
     return next.supplierId === order.supplierId && next.start === order.start && next.end === order.end ? order : { ...withoutAsked(next), conf: null }
   })
+}
 
-/** Other work for some orders: the project they are for, or none. The supplier's answer stands: the people are the same. */
+/** Other work for some orders: the project they are for, or none. The supplier's answer stands: the people are the same. A part of a shared person changes alone, as its project is its own. */
 export const tagOrders = (orders: HireOrder[], ids: string[], projectNo: string | null): HireOrder[] =>
   patch(orders, ids, (order) => {
     if (sameProject(order, { projectNo: projectNo ?? undefined })) return order
@@ -270,8 +395,9 @@ export const tagOrders = (orders: HireOrder[], ids: string[], projectNo: string 
     return projectNo ? { ...rest, projectNo } : rest
   })
 
+/** The orders without those with the ids, and a shared person goes whole. */
 export const removeOrders = (orders: HireOrder[], ids: string[]): HireOrder[] => {
-  const picked = new Set(ids)
+  const picked = new Set(withPerson(orders, ids))
   return orders.some((order) => picked.has(order.id)) ? orders.filter((order) => !picked.has(order.id)) : orders
 }
 
@@ -286,17 +412,29 @@ export const supplierOrders = (supplier: Supplier, orders: HireOrder[], competen
 
 /**
  * I9: a supplier's order as text, to send: a heading per day, and under it a line per competence and time, with the
- * project the people are for, which tells the supplier where they meet. `competences` are the competences in the
- * planner's order, with their names; `projectName` names a project by its number.
+ * project the people are for, which tells the supplier where they meet; a shared person on one line, with the hours of
+ * each part. `competences` are the competences in the planner's order, with their names; `projectName` names a project by its number.
  */
-export const orderText = (supplier: Supplier, orders: HireOrder[], competences: { key: CompetenceKey; label: string }[], projectName: (projectNo: string) => string = (projectNo) => projectNo): string => {
+export const orderText = (supplier: Supplier, orders: HireOrder[], competences: { key: CompetenceKey; label: string }[], wd: WorkdaySettings, projectName: (projectNo: string) => string = (projectNo) => projectNo): string => {
   const lines = [`Bestilling – ${supplier.name}`]
   let day = ''
-  for (const order of supplierOrders(supplier, orders, competences)) {
+  const label = (key: CompetenceKey) => competences.find((competence) => competence.key === key)?.label ?? key
+  const work = (order: HireOrder) => `${label(order.competence)}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}`
+  for (const unit of orderUnits(supplierOrders(supplier, orders, competences))) {
+    const [order] = unit.orders
     if (order.date !== day) lines.push(dayText(order.date))
     day = order.date
-    const label = competences.find((competence) => competence.key === order.competence)?.label ?? order.competence
-    lines.push(`  ${label}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}: ${order.fte} pers. ${SHIFT_LABELS[order.shift]} ${timesText(order)}`)
+    const when = `${unit.people} pers. ${SHIFT_LABELS[order.shift]} ${timesText(order)}`
+    if (!order.person) {
+      lines.push(`  ${work(order)}: ${when}`)
+      continue
+    }
+    // A shared person: what each person does, the competences together and their projects, and the hours of each.
+    const byCompetence = new Map<CompetenceKey, string[]>()
+    for (const part of unit.orders) pushTo(byCompetence, part.competence, part.projectNo ? projectName(part.projectNo) : '')
+    const what = [...byCompetence].map(([key, projects]) => `${label(key)}${projects.some(Boolean) ? ` (${projects.filter(Boolean).join(' og ')})` : ''}`).join(' og ')
+    const hours = unit.orders.map((part) => `${decimalText(Math.round(((part.fte / unit.people) * hireHours(part, wd)) * 10) / 10)} t ${work(part)}`).join(', ')
+    lines.push(`  ${what}: ${when}, hver med ${hours}`)
   }
   return lines.join('\n')
 }
@@ -553,8 +691,7 @@ export const paintOrders = (orders: HireOrder[], paint: Paint, suppliers: Suppli
   // of the line's shift, rounded up; lines painted before in the stroke count, so the first takes what is missing and the rest none.
   const peopleFor = (key: OrderKey, next: HireOrder[]) => {
     if (paint.count !== 'auto') return fixed
-    const others = next.filter((order) => order.competence === key.competence && order.date === key.date && (!paint.projectNo || sameProject(order, paint)) && !sameOrder(order, key))
-    const left = (paint.need?.(key.date) ?? 0) - others.reduce((sum, order) => sum + order.fte * hireHours(order, wd), 0)
+    const left = lackOf(next, { competence: key.competence, ...projectTag(paint) }, key.date, paint.need?.(key.date) ?? 0, wd, (order) => !sameOrder(order, key))
     return left > HOURS_NOISE ? Math.ceil(left / hireHours(shiftTimes(key.shift, wd), wd) - HOURS_NOISE) : 0
   }
   const next = [...orders]
@@ -580,31 +717,49 @@ export const paintOrders = (orders: HireOrder[], paint: Paint, suppliers: Suppli
 }
 
 /**
- * The orders without those on the days of the lines: with `only`, of that competence and project alone, as a stroke of
- * Tøm that starts on its lane and Delete on a chosen run take; without, all of them, as a stroke with Shift, one from an
- * empty place, and Alt take, which empty the days as Faste's do (`clearDays`).
+ * The orders without those on the days of the lines: with `lane` (`laneOf`), of that lane alone, as a stroke of Tøm that
+ * starts on it and Delete on a chosen run take; without, all of them, as a stroke with Shift, one from an empty place,
+ * and Alt take, which empty the days as Faste's do (`clearDays`). A part of a shared person takes the whole person.
  */
-export const clearOrders = (orders: HireOrder[], cells: LineDay[], only?: Pick<HireOrder, 'competence' | 'projectNo'>): HireOrder[] => {
+export const clearOrders = (orders: HireOrder[], cells: LineDay[], lane?: string): HireOrder[] => {
   const keys = new Set(cells.map((cell) => `${lineKey(cell.supplierId, cell.shift)}|${cell.date}`))
-  const gone = (order: HireOrder) =>
-    keys.has(`${lineKey(order.supplierId, order.shift)}|${order.date}`) && (!only || (order.competence === only.competence && sameProject(order, only)))
-  return orders.some(gone) ? orders.filter((order) => !gone(order)) : orders
+  const only = lane ? laneFrom(lane) : null
+  const inLane = (order: HireOrder) => !only || (order.competence === only.competence && sameProject(order, only))
+  const gone = orders.filter((order) => keys.has(`${lineKey(order.supplierId, order.shift)}|${order.date}`) && inLane(order)).map((order) => order.id)
+  return removeOrders(orders, gone)
 }
 
 /** An order to put somewhere: what it is, without the answer, which a placed order waits for. */
 type Placing = Omit<HireOrder, 'id' | 'conf' | 'asked' | 'engine'>
 
+/** Where a part of a shared person lands: its person, and the line and day. */
+const landing = (item: Placing): string | null => (item.person ? `${item.person}|${lineKey(item.supplierId, item.shift)}|${item.date}` : null)
+
 /**
- * Orders put on lines by a paste or a move: each takes the place of what is on its key, and waits. One for a competence
- * its supplier does not offer is skipped. Returns which were placed, by their place in `items`.
+ * Orders put on lines by a paste, a move or a pull: each takes the place of what is on its key, and waits. One for a
+ * competence its supplier does not offer is skipped, and a shared person is placed whole or not at all, as a new person
+ * wherever it lands. Returns which were placed, by their place in `items`.
  */
 const placeOrders = (orders: HireOrder[], items: Placing[], suppliers: Supplier[], makeId: () => string): { orders: HireOrder[]; placed: boolean[] } => {
-  const placed = items.map((item) => !!suppliers.find((supplier) => supplier.id === item.supplierId)?.competences.includes(item.competence))
+  const offers = (item: Placing) => !!suppliers.find((supplier) => supplier.id === item.supplierId)?.competences.includes(item.competence)
+  const refused = new Set(items.filter((item) => !offers(item)).map(landing))
+  const placed = items.map((item) => offers(item) && !(item.person && refused.has(landing(item))))
   const put = items.filter((_, i) => placed[i])
   if (!put.length) return { orders, placed }
-  const kept = orders.filter((order) => !put.some((item) => sameOrder(order, item)))
-  return { orders: [...kept, ...put.map((item) => ({ id: makeId(), ...item, conf: null }))], placed }
+  const persons = new Map<string, string>()
+  const personFor = (item: Placing) => {
+    const key = landing(item)
+    if (!key) return {}
+    if (!persons.has(key)) persons.set(key, makeId())
+    return { person: persons.get(key)! }
+  }
+  const kept = orders.filter((order) => !put.some((item) => !item.person && sameOrder(order, item)))
+  return { orders: normalizePersons([...kept, ...put.map((item) => ({ id: makeId(), ...item, ...personFor(item), conf: null }))]), placed }
 }
+
+/** How many people of `items` are `placed` or not: an order of its own each, and a shared person once. */
+const unitsPlaced = (items: Placing[], placed: boolean[], want: boolean): number =>
+  items.filter((item, i) => placed[i] === want && !item.person).length + new Set(items.filter((item, i) => placed[i] === want && item.person).map(landing)).size
 
 /**
  * An order on another line: the line's shift, with the order's own times where the shift is the same and the shift's
@@ -636,11 +791,11 @@ export const copyOrders = (orders: HireOrder[], lines: LineRef[], dates: ISODate
  * What lands past the last line or day, or on a supplier that does not offer the competence, is skipped.
  */
 export const pasteOrders = (orders: HireOrder[], clip: OrderClip, lines: LineRef[], dates: ISODate[], suppliers: Supplier[], wd: WorkdaySettings, makeId: () => string = newId): { orders: HireOrder[]; pasted: number; skipped: number } => {
-  const landing = clip.items.filter((item) => lines[item.line] && dates[item.day])
-  const placing = landing.map((item) => onLine(item.order, { ...lines[item.line], date: dates[item.day] }, wd))
+  const lands = clip.items.filter((item) => lines[item.line] && dates[item.day])
+  const placing = lands.map((item) => onLine(item.order, { ...lines[item.line], date: dates[item.day] }, wd))
   const result = placeOrders(orders, placing, suppliers, makeId)
-  const pasted = result.placed.filter(Boolean).length
-  return { orders: result.orders, pasted, skipped: clip.items.length - pasted }
+  const pasted = unitsPlaced(placing, result.placed, true)
+  return { orders: result.orders, pasted, skipped: orderUnits(clip.items.map((item) => item.order)).length - pasted }
 }
 
 /** A day's orders on a line moved to another day or line, or copied with `copy`, as Faste moves a day's blocks (`moveDay`). An order that cannot go stays. */
@@ -649,10 +804,10 @@ export const moveOrders = (orders: HireOrder[], from: LineDay, to: LineDay, copy
   const moving = orders.filter((order) => order.supplierId === from.supplierId && order.shift === from.shift && order.date === from.date)
   if (same || !moving.length) return { orders, moved: 0, skipped: 0 }
   const left = copy ? orders : orders.filter((order) => !moving.includes(order))
-  const result = placeOrders(left, moving.map((order) => onLine(order, to, wd)), suppliers, makeId)
+  const placing = moving.map((order) => onLine(order, to, wd))
+  const result = placeOrders(left, placing, suppliers, makeId)
   const stays = moving.filter((_, i) => !result.placed[i])
-  const moved = moving.length - stays.length
-  return { orders: copy || !stays.length ? result.orders : [...result.orders, ...stays], moved, skipped: stays.length }
+  return { orders: copy || !stays.length ? result.orders : [...result.orders, ...stays], moved: unitsPlaced(placing, result.placed, true), skipped: unitsPlaced(placing, result.placed, false) }
 }
 
 /** The lane of a run on a shift line, as text for a mark on the page: its competence and project. */
@@ -669,51 +824,82 @@ export interface OrderRun {
   lane: number
   competence: CompetenceKey
   projectNo?: string
+  /** People: of a part of a shared person, its share, which is drawn as hours. */
   fte: number
+  /** A part of a shared person: the people it is ordered with work on another competence too. */
+  shared?: boolean
   start: Minute
   end: Minute
   waits: boolean
   from: ISODate
   to: ISODate
-  /** The orders of the run, a day each, in order. */
+  /** The orders of the run, one a day. */
   orders: HireOrder[]
+  /**
+   * Its place in height on the line, of `bands`: runs that share days with others of other lanes, directly or through
+   * one another, divide the line between their lanes; a run with none fills it (`bands` 1).
+   */
+  band: number
+  bands: number
+}
+
+/** A lane of a line: a competence and a project. */
+export interface RunLane {
+  key: string
+  competence: CompetenceKey
+  projectNo?: string
 }
 
 /** A line's orders as runs, each in its lane. */
 export interface LineRuns {
   /** The lanes from the top: competences in the planner's order, then projects. */
-  lanes: { competence: CompetenceKey; projectNo?: string }[]
+  lanes: RunLane[]
   /** The runs as they are drawn: an empty day breaks one, a weekend too. */
   runs: OrderRun[]
   /** The runs as an end is taken hold of and pulled: only an empty working day breaks one (`overOffDays` in Faste). */
   grips: OrderRun[]
+  /** The most lanes the runs divide the line between anywhere: the line's height. 0 with no runs. */
+  depth: number
 }
 
 const laneKey = (order: Pick<HireOrder, 'competence' | 'projectNo'>) => `${order.competence}|${(order.projectNo ?? '').trim().toLowerCase()}`
-const sameRun = (a: HireOrder, b: HireOrder) => a.fte === b.fte && a.start === b.start && a.end === b.end && isWaiting(a) === isWaiting(b) && a.asked === b.asked
+
+/** Whether a day goes on with a run: the same people, times, answer and what was asked, and a part of a shared person or not. */
+const sameRun = (a: HireOrder, b: HireOrder) =>
+  Math.abs(a.fte - b.fte) < PEOPLE_NOISE && (a.asked ?? a.fte) === (b.asked ?? b.fte) && a.start === b.start && a.end === b.end && isWaiting(a) === isWaiting(b) && !a.person === !b.person
 
 /**
  * The orders of one line over the days, as runs in lanes. `rank` places a competence in the planner's order, so that
- * a run keeps its lane from day to day and two competences on a day lie one above the other.
+ * a run keeps its lane from day to day and two competences on a day lie one above the other. A part of a shared person
+ * stands in the lane of its competence as any order; where two orders share a lane on a day, the second gets one of its own.
  */
 export const orderRuns = (lineOrders: HireOrder[], dates: ISODate[], rank: (competence: CompetenceKey) => number): LineRuns => {
   const inView = new Set(dates)
   const byLane = new Map<string, Map<ISODate, HireOrder>>()
-  const lanes: LineRuns['lanes'] = []
-  for (const order of lineOrders) {
-    if (!inView.has(order.date)) continue
-    const key = laneKey(order)
+  const lanes: RunLane[] = []
+  const last = new Map<string, HireOrder>()
+  for (const order of lineOrders.filter((one) => inView.has(one.date)).sort((a, b) => a.date.localeCompare(b.date))) {
+    // Of the lanes of its competence and project free on the day, the one where the day before goes on the same run, else the first.
+    const base = laneKey(order)
+    const free: string[] = []
+    for (let n = 1; ; n++) {
+      const key = n === 1 ? base : `${base}#${n}`
+      if (!byLane.get(key)?.has(order.date)) free.push(key)
+      if (!byLane.has(key)) break
+    }
+    const key = free.find((one) => last.has(one) && sameRun(last.get(one)!, order)) ?? free[0]
+    last.set(key, order)
     if (!byLane.has(key)) {
       byLane.set(key, new Map())
-      lanes.push({ competence: order.competence, ...projectTag(order) })
+      lanes.push({ key, competence: order.competence, ...projectTag(order) })
     }
     byLane.get(key)!.set(order.date, order)
   }
-  lanes.sort((a, b) => rank(a.competence) - rank(b.competence) || (a.projectNo ?? '').localeCompare(b.projectNo ?? ''))
+  lanes.sort((a, b) => rank(a.competence) - rank(b.competence) || (a.projectNo ?? '').localeCompare(b.projectNo ?? '') || a.key.localeCompare(b.key))
   const walk = (overOffDays: boolean): OrderRun[] => {
     const runs: OrderRun[] = []
     lanes.forEach((lane, at) => {
-      const days = byLane.get(laneKey(lane))!
+      const days = byLane.get(lane.key)!
       let run: OrderRun | null = null
       for (const date of dates) {
         const order = days.get(date)
@@ -721,18 +907,59 @@ export const orderRuns = (lineOrders: HireOrder[], dates: ISODate[], rank: (comp
           if (!(overOffDays && dayType(date) !== 'arbeidsdag')) run = null
           continue
         }
-        if (run && sameRun(run.orders[0], order)) {
+        if (run && sameRun(run.orders[run.orders.length - 1], order)) {
           run.orders.push(order)
           run.to = date
           continue
         }
-        run = { lane: at, competence: order.competence, ...projectTag(order), fte: order.fte, start: order.start, end: order.end, waits: isWaiting(order), from: date, to: date, orders: [order] }
+        run = {
+          lane: at,
+          competence: order.competence,
+          ...projectTag(order),
+          fte: order.fte,
+          ...(order.person && { shared: true }),
+          start: order.start,
+          end: order.end,
+          waits: isWaiting(order),
+          from: date,
+          to: date,
+          orders: [order],
+          band: 0,
+          bands: 1,
+        }
         runs.push(run)
       }
     })
     return runs
   }
-  return { lanes, runs: walk(false), grips: walk(true) }
+  const runs = walk(false)
+  return { lanes, runs, grips: walk(true), depth: placeBands(runs) }
+}
+
+/**
+ * The runs of a line in height: those whose days meet, directly or through one another, are a cluster, and divide the
+ * line between the lanes of the cluster in the order of the lanes, so two of them never lie over each other; a run alone
+ * on its days fills the line. Returns the most lanes of a cluster.
+ */
+const placeBands = (runs: OrderRun[]): number => {
+  let depth = 0
+  const place = (cluster: OrderRun[]) => {
+    const lanes = [...new Set(cluster.map((run) => run.lane))].sort((a, b) => a - b)
+    for (const run of cluster) Object.assign(run, { band: lanes.indexOf(run.lane), bands: lanes.length })
+    depth = Math.max(depth, lanes.length)
+  }
+  let cluster: OrderRun[] = []
+  let end = ''
+  for (const run of [...runs].sort((a, b) => a.from.localeCompare(b.from))) {
+    if (cluster.length && run.from > end) {
+      place(cluster)
+      cluster = []
+    }
+    cluster.push(run)
+    if (run.to > end || cluster.length === 1) end = run.to
+  }
+  if (cluster.length) place(cluster)
+  return depth
 }
 
 /**
@@ -743,13 +970,13 @@ export const stretchOrders = (orders: HireOrder[], run: OrderRun, edge: 'start' 
   const outward = edge === 'end' ? to > run.to : to < run.from
   if (outward) {
     const added = dates.filter((date) => (edge === 'end' ? date > run.to && date <= to : date >= to && date < run.from))
-    const template = run.orders[0]
-    const { id: _id, conf: _conf, asked: _asked, engine: _engine, ...rest } = template
-    return placeOrders(orders, strokeDays(added).map((date) => ({ ...rest, date })), suppliers, makeId).orders
+    // The run's first order, with the other parts of a shared person: each new day gets a person of its own.
+    const first = new Set(withPerson(orders, [run.orders[0].id]))
+    const template = orders.filter((order) => first.has(order.id)).map(({ id: _id, conf: _conf, asked: _asked, engine: _engine, ...rest }) => rest)
+    return placeOrders(orders, strokeDays(added).flatMap((date) => template.map((rest) => ({ ...rest, date }))), suppliers, makeId).orders
   }
   const keep = (order: HireOrder) => (edge === 'end' ? order.date <= (to < run.from ? run.from : to) : order.date >= (to > run.to ? run.to : to))
-  const gone = new Set(run.orders.filter((order) => !keep(order)).map((order) => order.id))
-  return gone.size ? orders.filter((order) => !gone.has(order.id)) : orders
+  return removeOrders(orders, run.orders.filter((order) => !keep(order)).map((order) => order.id))
 }
 
 /** A line of a competence's demand in Innleid: a project, or with none the hours on none of them, which comes last. */
@@ -784,4 +1011,128 @@ export const shareOrders = (lines: ShareLine[], orders: HireOrder[], wd: Workday
     }
   }
   return shares.map((list, i) => [...list, ...[...given[i]].map(([order, fte]) => (fte === order.fte ? order : { ...order, fte }))])
+}
+
+/** The hours a competence needs on a day after the permanent staff: of a project, where one is given, else of all of it. */
+export type NeedOf = (competence: CompetenceKey, projectNo: string | undefined, date: ISODate) => number
+
+/**
+ * What a lane lacks on a day (Auto's rule, `paintOrders`): the hours its competence needs after the permanent staff, of its
+ * project where it has one, less those of the other orders of it, waiting or not; `besides` says which orders count.
+ */
+const lackOf = (orders: HireOrder[], lane: Pick<HireOrder, 'competence' | 'projectNo'>, date: ISODate, need: number, wd: WorkdaySettings, besides: (order: HireOrder) => boolean): number =>
+  need - orders.reduce((sum, order) => (order.competence === lane.competence && order.date === date && (!lane.projectNo?.trim() || sameProject(order, lane)) && besides(order) ? sum + order.fte * hireHours(order, wd) : sum), 0)
+
+/** One shared person (or a few) the orders of a line on a day could be: the lanes with what each lacks, and the people. */
+interface Sharing {
+  lanes: { competence: CompetenceKey; projectNo?: string; lack: number }[]
+  /** The whole people of the shift the lanes lack together. */
+  people: number
+  /** The people the orders are now. */
+  now: number
+}
+
+/**
+ * Whether orders of one line and day could be one shared person (slice 6): they are in two lanes or more, and each lane
+ * lacks hours without them. Then the people are what the lanes lack together, in whole people of the orders' shift.
+ */
+const sharingOf = (all: HireOrder[], picked: HireOrder[], need: NeedOf, wd: WorkdaySettings): Sharing | null => {
+  const ids = new Set(picked.map((order) => order.id))
+  const lanes = new Map<string, Pick<HireOrder, 'competence' | 'projectNo'>>()
+  for (const order of picked) lanes.set(laneKey(order), { competence: order.competence, ...projectTag(order) })
+  if (lanes.size < 2) return null
+  const { date } = picked[0]
+  const lacking = [...lanes.values()].map((lane) => ({ ...lane, lack: lackOf(all, lane, date, need(lane.competence, lane.projectNo, date), wd, (order) => !ids.has(order.id)) }))
+  if (lacking.some((lane) => lane.lack <= HOURS_NOISE)) return null
+  const total = lacking.reduce((sum, lane) => sum + lane.lack, 0)
+  return { lanes: lacking, people: Math.max(1, Math.ceil(total / hireHours(picked[0], wd) - HOURS_NOISE)), now: orderUnits(picked).reduce((sum, unit) => sum + unit.people, 0) }
+}
+
+/** The orders with the ids, with the other parts of their shared people, by line and day. */
+const pickedDays = (orders: HireOrder[], ids: string[]): HireOrder[][] => {
+  const picked = new Set(withPerson(orders, ids))
+  const days = new Map<string, HireOrder[]>()
+  for (const order of orders) if (picked.has(order.id)) pushTo(days, `${lineKey(order.supplierId, order.shift)}|${order.date}`, order)
+  return [...days.values()]
+}
+
+/**
+ * «Slå sammen» (slice 6): on each day of their lines, the orders with the ids (and the other parts of their shared people)
+ * become one shared person, or as few as the lanes lack together: a part per lane, each with a share of the people as its
+ * lane lacks of the hours, with the first order's times. It is a new question, so it waits. A day whose lanes do not
+ * each lack hours is left as it is, and counted.
+ */
+export const sharePerson = (orders: HireOrder[], ids: string[], need: NeedOf, wd: WorkdaySettings, makeId: () => string = newId): { orders: HireOrder[]; shared: number; skipped: number } => {
+  let next = orders
+  let shared = 0
+  let skipped = 0
+  for (const picked of pickedDays(orders, ids)) {
+    const sharing = sharingOf(orders, picked, need, wd)
+    if (!sharing) {
+      skipped++
+      continue
+    }
+    const [first] = picked
+    const person = makeId()
+    const total = sharing.lanes.reduce((sum, lane) => sum + lane.lack, 0)
+    let given = 0
+    const parts = sharing.lanes.map((lane, i): HireOrder => {
+      const fte = i === sharing.lanes.length - 1 ? sharing.people - given : (sharing.people * lane.lack) / total
+      given += fte
+      return { id: makeId(), supplierId: first.supplierId, shift: first.shift, competence: lane.competence, ...projectTag(lane), date: first.date, fte, start: first.start, end: first.end, conf: null, person }
+    })
+    const gone = new Set(picked)
+    next = [...next.filter((order) => !gone.has(order)), ...parts]
+    shared++
+  }
+  return { orders: shared ? mergeOrders(next) : orders, shared, skipped }
+}
+
+/** «Del opp»: the shared people of the orders with the ids become an order per part, its people rounded up, waiting: it is a new question. */
+export const splitPerson = (orders: HireOrder[], ids: string[]): HireOrder[] => {
+  const picked = new Set(withPerson(orders, ids))
+  if (!orders.some((order) => order.person && picked.has(order.id))) return orders
+  return mergeOrders(
+    orders.map((order) => {
+      if (!order.person || !picked.has(order.id)) return order
+      const { person: _person, ...rest } = withoutAsked(order)
+      return { ...rest, fte: Math.max(1, Math.ceil(order.fte - PEOPLE_NOISE)), conf: null }
+    }),
+  )
+}
+
+/** A day of a supplier's line where its orders could be fewer people as shared ones (slice 6), offered in its panel as «Slå sammen». */
+export interface SharingOffer {
+  shift: ShiftId
+  date: ISODate
+  /** The orders of the line and day, which `sharePerson` takes. */
+  ids: string[]
+  /** What is ordered now per competence and project, in people. */
+  lanes: (Pick<HireOrder, 'competence' | 'projectNo'> & { people: number })[]
+  /** The people they would be together. */
+  people: number
+}
+
+/**
+ * The days of a supplier's lines where the orders there could be fewer people as shared ones: two lanes or more on the
+ * line and day, each lacking hours without its orders, and fewer people for what they lack together. By day and shift.
+ */
+export const sharingOffers = (orders: HireOrder[], supplierId: string, need: NeedOf, wd: WorkdaySettings): SharingOffer[] => {
+  const byDay = new Map<string, HireOrder[]>()
+  for (const order of orders) if (order.supplierId === supplierId) pushTo(byDay, `${order.date}|${SHIFT_IDS.indexOf(order.shift)}`, order)
+  const offers: SharingOffer[] = []
+  for (const key of [...byDay.keys()].sort()) {
+    const picked = byDay.get(key)!
+    const sharing = picked.length > 1 ? sharingOf(orders, picked, need, wd) : null
+    if (!sharing || sharing.people >= sharing.now) continue
+    const lanes = new Map<string, SharingOffer['lanes'][number]>()
+    for (const order of picked) {
+      const lane = lanes.get(laneKey(order)) ?? { competence: order.competence, ...projectTag(order), people: 0 }
+      lane.people += order.fte
+      lanes.set(laneKey(order), lane)
+    }
+    const [first] = picked
+    offers.push({ shift: first.shift, date: first.date, ids: picked.map((order) => order.id), lanes: [...lanes.values()], people: sharing.people })
+  }
+  return offers
 }

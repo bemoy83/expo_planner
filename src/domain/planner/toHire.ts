@@ -25,6 +25,8 @@ export interface HireNeed {
   competence: CompetenceKey
   label: string
   supplier: string
+  /** The other competences some of them go on to, by name (slice 6): «også Innredning». They are listed under the one they are hired for. */
+  also: string[]
   /** The days of work of all of them together. */
   personDays: number
   spans: HireSpan[]
@@ -40,8 +42,9 @@ export const toHire = (ws: Workspace, hired: HiredRun[], projectNos: string[]): 
     if (!run.projectNos.some((p) => wanted.has(numberKey(p)))) continue
     const competence = run.competences[0]
     const key = `${competence}|${run.supplierId}`
-    const need = needs.get(key) ?? { competence, label: labels.get(competence) ?? competence, supplier: names.get(run.supplierId) ?? run.supplierId, personDays: 0, spans: [] }
+    const need = needs.get(key) ?? { competence, label: labels.get(competence) ?? competence, supplier: names.get(run.supplierId) ?? run.supplierId, also: [], personDays: 0, spans: [] }
     needs.set(key, need)
+    for (const other of run.competences.slice(1)) if (!need.also.includes(labels.get(other) ?? other)) need.also.push(labels.get(other) ?? other)
     need.personDays += run.dates.length
     const [from, to] = [run.dates[0], run.dates.at(-1)!]
     const span = need.spans.find((s) => s.from === from && s.to === to)
