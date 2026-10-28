@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, Copy } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { HOURS_NOISE, hireHours, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
+import { HOURS_NOISE, hireHours, isWaiting, orderText, orderUnits, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
 import { SHIFT_IDS, type HireOrder, type Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { Segmented, SidePanel } from '../common'
-import { competenceColor } from '../dom'
+import { competenceColor, count } from '../dom'
 import { useInnleid } from './InnleidScope'
 import { AnswerGlyph } from './OrderPopovers'
 import { pushTo } from '../../domain/collections'
@@ -135,6 +135,49 @@ function Control({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   )
 }
 
+/**
+ * «Slå sammen» and «Del opp» (slice 6): the days of the supplier's lines where its orders of several competences can be
+ * fewer people as shared ones, and the shared people it has, each to split into orders of their own again.
+ */
+function Merging({ supplier }: { supplier: Supplier }) {
+  const { styles, projectName } = useBemanning()
+  const { stored, wd, edits } = useInnleid()
+  const offers = edits.sharings(supplier.id)
+  const rank = (competence: string) => [...styles.keys()].indexOf(competence)
+  const shared = orderUnits(stored.filter((order) => order.supplierId === supplier.id && order.person))
+    .map((unit) => [...unit.orders].sort((a, b) => rank(a.competence) - rank(b.competence)))
+    .sort((a, b) => a[0].date.localeCompare(b[0].date) || SHIFT_IDS.indexOf(a[0].shift) - SHIFT_IDS.indexOf(b[0].shift))
+  if (!offers.length && !shared.length) return null
+  const work = (part: Pick<HireOrder, 'competence' | 'projectNo'>) => `${styles.get(part.competence)?.label ?? part.competence}${part.projectNo ? ` · ${projectName(part.projectNo)}` : ''}`
+  const when = (order: Pick<HireOrder, 'date' | 'shift'>) => `${dayText(order.date)}${supplier.shifts.length > 1 || order.shift !== 'dag' ? ` · ${SHIFT_LABELS[order.shift]}` : ''}`
+  return (
+    <section className="insp-sec">
+      <h3 className="insp-h">Én person på flere kompetanser</h3>
+      {offers.map((offer) => (
+        <div key={`${offer.date}|${offer.shift}`} className="il-merge">
+          <span>
+            <b>{when(offer)}</b> {offer.lanes.map((lane) => `${hoursText(lane.people)} ${work(lane)}`).join(' + ')} <em>kan bli {count(offer.people, 'person', 'personer')}</em>
+          </span>
+          <button className="link small" title="Del personene på kompetansene etter det hver mangler" onClick={() => edits.share(offer.ids)}>
+            Slå sammen
+          </button>
+        </div>
+      ))}
+      {shared.map((parts) => (
+        <div key={parts[0].id} className="il-merge">
+          <span>
+            <b>{when(parts[0])}</b> {count(Math.round(parts.reduce((sum, part) => sum + part.fte, 0)), 'person', 'personer')}: {parts.map((part) => `${hoursText(part.fte * hireHours(part, wd))} t ${work(part)}`).join(' + ')}
+          </span>
+          <button className="link small" title="Gjør den delte personen til egne bestillinger per kompetanse" onClick={() => edits.split(parts.map((part) => part.id))}>
+            Del opp
+          </button>
+        </div>
+      ))}
+      <p className="insp-note">Begge blir en ny forespørsel, som venter på svar.</p>
+    </section>
+  )
+}
+
 /** A supplier's order: what it is ordered for per day, with the answer of each, a text of it to send, and what it offers. */
 function SupplierOrder({ supplier }: { supplier: Supplier }) {
   const { styles } = useBemanning()
@@ -193,6 +236,7 @@ function SupplierOrder({ supplier }: { supplier: Supplier }) {
         )}
         <OrderDays orders={own} />
       </section>
+      <Merging supplier={supplier} />
       <section className="insp-sec">
         <details className="il-offer">
           <summary className="insp-h">Kompetanser og skift</summary>
@@ -257,7 +301,7 @@ function Help() {
           <dt>Dra i enden</dt>
           <dd>Flere eller færre dager i et løp</dd>
           <dt>Klikk en blokk</dt>
-          <dd>Svar, antall, tider, prosjekt og Fjern for løpet, eller for alt i markeringen du klikker inni. «Én person» der to kompetanser på samme linje og dag hver mangler litt.</dd>
+          <dd>Svar, antall, tider, prosjekt og Fjern for løpet, eller for alt i markeringen du klikker inni.</dd>
           <dt>Esc</dt>
           <dd>Avbryt strøket, fjern markeringen, legg bort penselen, lukk panelet</dd>
         </dl>
@@ -269,7 +313,7 @@ function Help() {
           <li>Fra sumlinjen bestilles uten prosjekt, og bestillingen fordeles på prosjektene. Fra en prosjektlinje bestilles for prosjektet.</li>
           <li>Alt starter som «Venter». Registrer svaret i blokken: stiller de færre, justerer du antallet, og resten blir udekket igjen.</li>
           <li>Egne tider settes i blokken, for hele løpet eller en markering på én gang. Bestillingen blir på skiftlinjen sin.</li>
-          <li>Én person kan dekke flere kompetanser samme dag: marker blokkene på samme leverandørlinje og dag, klikk inni og velg «Én person». Timene deles etter det hver kompetanse mangler, blokken får begge fargene, og den svares, flyttes og fjernes som én. En prikk på dagen viser hvor det sparer en person. «Del opp» gjør den til egne bestillinger igjen.</li>
+          <li>Én person kan dekke flere kompetanser samme dag. Der to kompetanser på samme leverandørlinje og dag hver mangler litt, foreslår leverandørens panel «Slå sammen»: timene deles etter det hver kompetanse mangler, og blokkene viser timer med et lenkemerke. Personen svares, flyttes og fjernes som én. «Del opp» gjør den til egne bestillinger igjen.</li>
           <li>Bare bekreftede bestillinger teller i «Tilgjengelig» i planen.</li>
           <li>Leverandørkontrollen viser det som venter på svar. Bekreft der, og kopier bestillingen du sender.</li>
         </ol>

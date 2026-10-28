@@ -79,10 +79,6 @@ export interface OrderEdits {
   times: (ids: string[], times: Interval) => void
   tag: (ids: string[], projectNo: string | null) => void
   remove: (ids: string[]) => void
-  /** «Én person» (slice 6), and what it would save; «Del opp». */
-  share: (ids: string[]) => void
-  saving: (ids: string[]) => { days: number; saves: number }
-  split: (ids: string[]) => void
 }
 
 interface OrderProps {
@@ -121,8 +117,6 @@ export function OrderPopover({ at, orders, date, title, parts, wd, projects, pro
   const units = orderUnits(shown)
   const fte = alike(units.map((unit) => unit.people))
   const of = alike(units.map((unit) => unit.asked))
-  const sharedPerson = shown.some((order) => order.person)
-  const saving = edits.saving(ids)
   const start = alike(shown.map((order) => order.start))
   const end = alike(shown.map((order) => order.end))
   const shift = alike(shown.map((order) => order.shift))
@@ -207,23 +201,7 @@ export function OrderPopover({ at, orders, date, title, parts, wd, projects, pro
           </>
         )}
       </div>
-      {parts && <p className="il-pop-note">Hver person: {parts}</p>}
-      {(saving.days > 0 || sharedPerson) && (
-        <div className="il-pop-share">
-          {saving.days > 0 && (
-            <button className="link small" onClick={() => edits.share(ids)}>
-              {sharedPerson ? 'Del på nytt etter det som mangler' : 'Én person'}
-              {saving.saves > 0 && ` · sparer ${count(saving.saves, 'person', 'personer')}`}
-            </button>
-          )}
-          {sharedPerson && (
-            <button className="link small" onClick={() => edits.split(ids)}>
-              Del opp
-            </button>
-          )}
-          <span className="il-pop-note">Blir en ny forespørsel</span>
-        </div>
-      )}
+      {parts && <p className="il-pop-note">Hver person: {parts}. «Del opp» i leverandørpanelet.</p>}
       <label className="il-pop-field">
         <span>Prosjekt</span>
         <select value={projectNo ?? ''} onChange={(e) => edits.tag(ids, e.target.value || null)}>

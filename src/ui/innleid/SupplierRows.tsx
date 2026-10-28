@@ -1,8 +1,8 @@
 import { memo, useMemo } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Link2 } from 'lucide-react'
 import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { dayType } from '../../domain/holidays'
-import { hireHours, isUrgent, partName, SHIFT_LABELS, shiftTimes, supplierDays, supplierWaits, supplierWeek, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
+import { hireHours, isUrgent, laneOf, partName, SHIFT_LABELS, shiftTimes, supplierDays, supplierWaits, supplierWeek, timesText, type LineRuns, type SupplierDay, type SupplierLine } from '../../domain/hire'
 import type { CompetenceStyle, HireOrder, Supplier, WorkdaySettings } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { CrewName } from '../bemanning/CrewFrame'
@@ -160,8 +160,6 @@ interface ShiftLineProps {
   /** The columns of the line a brush stroke covers where the supplier does not offer its competence, hatched: the stroke passes it by. */
   refusedFrom: number
   refusedTo: number
-  /** The days in view, space-separated, where the line's orders could be fewer people as one shared (slice 6): a dot in ink. */
-  hinted: string | undefined
   /** The orders a stroke under way adds or changes, or takes away. Plain functions of the scope, the same while no stroke is drawn. */
   coming: ((order: HireOrder) => boolean) | undefined
   going: ((order: HireOrder) => boolean) | undefined
@@ -169,11 +167,9 @@ interface ShiftLineProps {
 }
 
 /** A supplier's shift, as a person's line in Faste: its orders as runs over the days, a lane in height for each competence and project. */
-const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, hinted, coming, going, actions }: ShiftLineProps) {
+const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, wd, projectName, focus, dim, refusedFrom, refusedTo, coming, going, actions }: ShiftLineProps) {
   const geometry = shiftLine(runs.lanes.length)
   const times = timesText(shiftTimes(line.shift, wd))
-  const hints = hinted ? hinted.split(' ').filter((date) => cols.dates.includes(date)) : []
-  const nameOf = (part: { competence: string; projectNo?: string }) => `${styles.get(part.competence)?.label ?? part.competence}${part.projectNo ? ` · ${projectName(part.projectNo)}` : ''}`
   return (
     <Line
       className={`il-line ${dim ? 'dim' : ''}`}
@@ -193,17 +189,15 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
       }
       cols={cols}
       cells={(date, col) => <div key={date} className={`${dayClass(cols, date)} cell bm-cell ${dayType(date) === 'arbeidsdag' ? '' : 'off-day'} ${col >= refusedFrom && col <= refusedTo ? 'refused' : ''}`} onMouseDown={actions.cellDown} />}
-      overlay={[...runs.runs.map((run) => {
+      overlay={runs.runs.map((run) => {
         const style = styles.get(run.competence)
-        // A shared person (slice 6): its parts named together, and drawn in their colours, a band each as high as its share.
-        const label = run.parts ? run.parts.map(nameOf).join(' + ') : nameOf(run)
+        const label = `${style?.label ?? run.competence}${run.projectNo ? ` · ${projectName(run.projectNo)}` : ''}`
         const order = run.orders[0]
-        const people = run.asked !== undefined && !run.waits ? `${hoursText(run.fte)}/${hoursText(run.asked)}` : hoursText(run.fte)
-        const shares = run.parts ? `\nHver person: ${run.parts.map((part) => `${hoursText(part.share * hireHours(run, wd))} t ${nameOf(part)}`).join(', ')}` : ''
+        // A part of a shared person (slice 6) is its share of the person in hours, with a link: «FOGA 5,6 t».
+        const people = run.shared ? `${hoursText(run.fte * hireHours(run, wd))} t` : order.asked && !run.waits ? `${hoursText(run.fte)}/${hoursText(order.asked)}` : hoursText(run.fte)
         // Its own times where they are not the shift's, without the minutes of a whole hour: «10–18».
         const own = timesText(run) === times ? null : timesText(run).replace(/:00/g, '')
-        const stale = (run.parts ?? [run]).some((part) => line.stale.includes(part.competence))
-        const other = focus !== null && !(run.parts ?? [run]).some((part) => part.competence === focus)
+        const stale = line.stale.includes(run.competence)
         const lane = geometry.lane(run.lane)
         const at = cols.c0 + cols.dates.indexOf(run.from)
         const days = cols.dates.indexOf(run.to) - cols.dates.indexOf(run.from) + 1
@@ -215,22 +209,16 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
         return (
           <span
             key={`${run.lane}|${run.from}`}
-            className={`il-run ${run.waits ? 'waits' : ''} ${state} ${lane.height < 20 ? 'sm' : ''} ${other ? 'other' : ''}`}
-            data-lane={run.key}
+            className={`il-run ${run.waits ? 'waits' : ''} ${state} ${lane.height < 20 ? 'sm' : ''} ${focus && focus !== run.competence ? 'other' : ''}`}
+            data-lane={laneOf(run)}
             data-ids={run.orders.map((one) => one.id).join(' ')}
-            style={{ left: daysWide(at, LEFT_W + DAY_INSET), width: daysWide(days, -2 * DAY_INSET), top: lane.top, height: lane.height, ...(run.parts ? {} : competenceColor(style)) }}
+            style={{ left: daysWide(at, LEFT_W + DAY_INSET), width: daysWide(days, -2 * DAY_INSET), top: lane.top, height: lane.height, ...competenceColor(style) }}
             onMouseDown={actions.cellDown}
-            title={`${label} · ${supplier.name} · ${SHIFT_LABELS[line.shift]}\n${dayText(run.from)}${run.to === run.from ? '' : ` – ${dayText(run.to)}`} · ${people} pers. · ${run.waits ? 'venter på svar' : 'bekreftet'}${shares}${own ? `\nEgne tider ${own}` : ''}${run.parts || run.projectNo ? '' : '\nUten prosjekt: fordeles på prosjektene'}${stale ? `\n${supplier.name} tilbyr ikke alle kompetansene lenger` : ''}`}
+            title={`${label} · ${supplier.name} · ${SHIFT_LABELS[line.shift]}\n${dayText(run.from)}${run.to === run.from ? '' : ` – ${dayText(run.to)}`} · ${run.shared ? `${people} av en delt person` : `${people} pers.`} · ${run.waits ? 'venter på svar' : 'bekreftet'}${run.shared ? '\nPersonen deler timene med en annen kompetanse. «Del opp» i leverandørpanelet.' : ''}${own ? `\nEgne tider ${own}` : ''}${run.projectNo ? '' : '\nUten prosjekt: fordeles på prosjektene'}${stale ? `\n${supplier.name} tilbyr ikke ${style?.label ?? run.competence} lenger` : ''}`}
           >
-            {run.parts && (
-              <span className="il-run-parts">
-                {run.parts.map((part) => (
-                  <i key={`${part.competence}|${part.projectNo ?? ''}`} className={`${run.waits ? 'waits' : ''} ${state}`} style={{ ...competenceColor(styles.get(part.competence)), flexGrow: part.share }} />
-                ))}
-              </span>
-            )}
             <span className="il-run-name" style={{ left: LEFT_W + DAY_INSET }}>
               {stale && <i className="need-dot" />}
+              {run.shared && <Link2 className="il-shared" size={12} aria-hidden />}
               {label}
               <b>{people}</b>
               {own && <small>{own}</small>}
@@ -239,10 +227,7 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
             {atEnd && <i className="bm-edge end" data-edge="end" data-block={grip!.orders[grip!.orders.length - 1].id} />}
           </span>
         )
-      }),
-      ...hints.map((date) => (
-        <i key={`hint|${date}`} className="il-hint" style={{ left: daysWide(cols.c0 + cols.dates.indexOf(date) + 1, LEFT_W - DAY_INSET) }} title="Bestillingene her kan bli færre personer som én delt person: velg dem og «Én person»" />
-      ))]}
+      })}
     />
   )
 })
@@ -255,7 +240,7 @@ const ShiftLine = memo(function ShiftLine({ supplier, line, runs, cols, styles, 
  */
 export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void }) {
   const { cols, styles, labelOf, listStyles, week } = useBemanning()
-  const { suppliers, stored, brush, tool, blocks, shiftRows, hints, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
+  const { suppliers, stored, brush, tool, blocks, shiftRows, able, bodyRef, stroke, selection, marked, pill, wd, projectName, actions } = useInnleid()
   const order = useMemo(() => listStyles.map((style) => style.key), [listStyles])
   const perDay = useMemo(() => supplierDays(stored, wd, order), [stored, wd, order])
   const today = todayIso()
@@ -318,7 +303,6 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
                   dim={block.dim}
                   refusedFrom={inStroke ? range.colFrom : -1}
                   refusedTo={inStroke ? range.colTo : -1}
-                  hinted={hints.get(shift.line.key)}
                   coming={marked?.coming}
                   going={marked?.going}
                   actions={actions}
@@ -335,7 +319,7 @@ export function SupplierRows({ onOpenSuppliers }: { onOpenSuppliers: () => void 
             <b>
               {pill.competence ? (
                 <>
-                  Tøm <i className="swatch" /> {pill.parts ? pill.parts.map((part) => labelOf(part.competence)).join(' + ') : labelOf(pill.competence)}
+                  Tøm <i className="swatch" /> {labelOf(pill.competence)}
                   {pill.projectNo ? ` · ${projectName(pill.projectNo)}` : ''}
                 </>
               ) : (

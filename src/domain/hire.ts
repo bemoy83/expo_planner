@@ -274,7 +274,7 @@ export const normalizePersons = (orders: HireOrder[]): HireOrder[] => {
 }
 
 /** The ids with those of every other part of the shared people they are parts of. */
-const withPerson = (orders: HireOrder[], ids: string[]): string[] => {
+export const withPerson = (orders: HireOrder[], ids: string[]): string[] => {
   const picked = new Set(ids)
   const persons = new Set(orders.filter((order) => order.person && picked.has(order.id)).map(personKey))
   return persons.size ? orders.filter((order) => picked.has(order.id) || (order.person && persons.has(personKey(order)))).map((order) => order.id) : ids
@@ -721,15 +721,14 @@ export const paintOrders = (orders: HireOrder[], paint: Paint, suppliers: Suppli
 }
 
 /**
- * The orders without those on the days of the lines: with `lane` (`laneOf`, or a shared person's `laneOfPerson`), of that
- * lane alone, as a stroke of Tøm that starts on it and Delete on a chosen run take; without, all of them, as a stroke with
- * Shift, one from an empty place, and Alt take, which empty the days as Faste's do (`clearDays`). A shared person goes whole.
+ * The orders without those on the days of the lines: with `lane` (`laneOf`), of that lane alone, as a stroke of Tøm that
+ * starts on it and Delete on a chosen run take; without, all of them, as a stroke with Shift, one from an empty place,
+ * and Alt take, which empty the days as Faste's do (`clearDays`). A part of a shared person takes the whole person.
  */
 export const clearOrders = (orders: HireOrder[], cells: LineDay[], lane?: string): HireOrder[] => {
   const keys = new Set(cells.map((cell) => `${lineKey(cell.supplierId, cell.shift)}|${cell.date}`))
-  const only = lane && !isPersonLane(lane) ? laneFrom(lane) : null
-  const lanes = lane && isPersonLane(lane) ? personLanes(orders) : null
-  const inLane = (order: HireOrder) => !lane || (lanes ? lanes.get(order) === lane : !order.person && order.competence === only!.competence && sameProject(order, only!))
+  const only = lane ? laneFrom(lane) : null
+  const inLane = (order: HireOrder) => !only || (order.competence === only.competence && sameProject(order, only))
   const gone = orders.filter((order) => keys.has(`${lineKey(order.supplierId, order.shift)}|${order.date}`) && inLane(order)).map((order) => order.id)
   return removeOrders(orders, gone)
 }
@@ -823,39 +822,18 @@ export const laneFrom = (lane: string): Pick<HireOrder, 'competence' | 'projectN
   return { competence, ...(projectNo && { projectNo }) }
 }
 
-/** The lane of a shared person, as text: the lanes of its parts, in a fixed order. A person of the same parts keeps it from day to day. */
-const laneOfPerson = (parts: Pick<HireOrder, 'competence' | 'projectNo'>[]): string => `*${[...new Set(parts.map(laneOf))].sort().join('+')}`
-const isPersonLane = (lane: string): boolean => lane.startsWith('*')
-/** The competences and projects of a lane, one for an order's own and the parts' for a shared person's. */
-export const laneParts = (lane: string): Pick<HireOrder, 'competence' | 'projectNo'>[] => (isPersonLane(lane) ? lane.slice(1).split('+').map(laneFrom) : [laneFrom(lane)])
-
-/** The lane of each part of a shared person among the orders. */
-const personLanes = (orders: HireOrder[]): Map<HireOrder, string> => {
-  const lanes = new Map<HireOrder, string>()
-  for (const unit of orderUnits(orders)) if (unit.orders[0].person) for (const part of unit.orders) lanes.set(part, laneOfPerson(unit.orders))
-  return lanes
-}
-
-/** A part of a shared person's run: its competence and project, and its share of each person (the shares add up to one). */
-export interface RunPart {
-  competence: CompetenceKey
-  projectNo?: string
-  share: number
-}
-
 /** Days in a row on a line with one order of the same competence, project, people, times and answer: drawn as one, «Snekker · 3 pers. · 4 d». */
 export interface OrderRun {
-  /** The run's lane on its line, from the top: one per competence and project ordered on the line, then one per shared person's parts. */
+  /** The run's lane on its line, from the top: one per competence and project ordered on the line. */
   lane: number
-  /** The lane as text (`laneOf`, or a shared person's), which Tøm takes. */
+  /** The lane as text (`laneOf`), which Tøm takes. */
   key: string
-  /** Of a shared person, its first competence. */
   competence: CompetenceKey
   projectNo?: string
-  /** A shared person's parts; an order of its own has none. */
-  parts?: RunPart[]
-  /** People: a shared person's whole people. */
+  /** People: of a part of a shared person, its share, which is drawn as hours. */
   fte: number
+  /** A part of a shared person: the people it is ordered with work on another competence too. */
+  shared?: boolean
   /** What was asked for, where fewer were confirmed. */
   asked?: number
   start: Minute
@@ -863,21 +841,20 @@ export interface OrderRun {
   waits: boolean
   from: ISODate
   to: ISODate
-  /** The orders of the run, in order of the days: one a day, or all of a shared person's parts. */
+  /** The orders of the run, one a day. */
   orders: HireOrder[]
 }
 
-/** A lane of a line: a competence and a project, or the parts of a shared person. */
+/** A lane of a line: a competence and a project. */
 export interface RunLane {
   key: string
   competence: CompetenceKey
   projectNo?: string
-  parts?: Pick<HireOrder, 'competence' | 'projectNo'>[]
 }
 
 /** A line's orders as runs, each in its lane. */
 export interface LineRuns {
-  /** The lanes from the top: competences in the planner's order, then projects; then the shared people's. */
+  /** The lanes from the top: competences in the planner's order, then projects. */
   lanes: RunLane[]
   /** The runs as they are drawn: an empty day breaks one, a weekend too. */
   runs: OrderRun[]
@@ -887,79 +864,69 @@ export interface LineRuns {
 
 const laneKey = (order: Pick<HireOrder, 'competence' | 'projectNo'>) => `${order.competence}|${(order.projectNo ?? '').trim().toLowerCase()}`
 
-/** What a day of a lane holds, as a run is made of: an order, or a shared person with its parts in the lane's order. */
-interface LaneDay {
-  orders: HireOrder[]
-  people: number
-  asked: number
-  shares: number[]
-}
-
-/** Whether a day goes on with a run: the same people, shares, times, answer and what was asked. */
-const sameRun = (a: LaneDay, b: LaneDay) => {
-  const [x, y] = [a.orders[0], b.orders[0]]
-  return a.people === b.people && a.asked === b.asked && x.start === y.start && x.end === y.end && isWaiting(x) === isWaiting(y) && a.shares.length === b.shares.length && a.shares.every((share, i) => Math.abs(share - b.shares[i]) < PEOPLE_NOISE)
-}
+/** Whether a day goes on with a run: the same people, times, answer and what was asked, and a part of a shared person or not. */
+const sameRun = (a: HireOrder, b: HireOrder) =>
+  Math.abs(a.fte - b.fte) < PEOPLE_NOISE && (a.asked ?? a.fte) === (b.asked ?? b.fte) && a.start === b.start && a.end === b.end && isWaiting(a) === isWaiting(b) && !a.person === !b.person
 
 /**
  * The orders of one line over the days, as runs in lanes. `rank` places a competence in the planner's order, so that
- * a run keeps its lane from day to day and two competences on a day lie one above the other. A shared person has a lane
- * of its own for its parts, under those of the orders of their own; two of the same parts on a day go in two lanes.
+ * a run keeps its lane from day to day and two competences on a day lie one above the other. A part of a shared person
+ * stands in the lane of its competence as any order; where two orders share a lane on a day, the second gets one of its own.
  */
 export const orderRuns = (lineOrders: HireOrder[], dates: ISODate[], rank: (competence: CompetenceKey) => number): LineRuns => {
   const inView = new Set(dates)
-  const byLane = new Map<string, Map<ISODate, LaneDay>>()
+  const byLane = new Map<string, Map<ISODate, HireOrder>>()
   const lanes: RunLane[] = []
-  const byPart = (a: Pick<HireOrder, 'competence' | 'projectNo'>, b: Pick<HireOrder, 'competence' | 'projectNo'>) => rank(a.competence) - rank(b.competence) || (a.projectNo ?? '').localeCompare(b.projectNo ?? '')
-  for (const unit of orderUnits(lineOrders.filter((order) => inView.has(order.date)))) {
-    const [first] = unit.orders
-    const shared = !!first.person
-    const orders = shared ? [...unit.orders].sort(byPart) : unit.orders
-    const day: LaneDay = { orders, people: unit.people, asked: unit.asked, shares: shared ? orders.map((part) => part.fte / unit.people) : [] }
-    const base = shared ? laneOfPerson(orders) : laneKey(first)
-    let key = base
-    for (let n = 2; byLane.get(key)?.has(first.date); n++) key = `${base}#${n}`
+  const last = new Map<string, HireOrder>()
+  for (const order of lineOrders.filter((one) => inView.has(one.date)).sort((a, b) => a.date.localeCompare(b.date))) {
+    // Of the lanes of its competence and project free on the day, the one where the day before goes on the same run, else the first.
+    const base = laneKey(order)
+    const free: string[] = []
+    for (let n = 1; ; n++) {
+      const key = n === 1 ? base : `${base}#${n}`
+      if (!byLane.get(key)?.has(order.date)) free.push(key)
+      if (!byLane.has(key)) break
+    }
+    const key = free.find((one) => last.has(one) && sameRun(last.get(one)!, order)) ?? free[0]
+    last.set(key, order)
     if (!byLane.has(key)) {
       byLane.set(key, new Map())
-      lanes.push(shared ? { key, competence: orders[0].competence, ...projectTag(orders[0]), parts: orders.map((part) => ({ competence: part.competence, ...projectTag(part) })) } : { key, competence: first.competence, ...projectTag(first) })
+      lanes.push({ key, competence: order.competence, ...projectTag(order) })
     }
-    byLane.get(key)!.set(first.date, day)
+    byLane.get(key)!.set(order.date, order)
   }
-  lanes.sort((a, b) => Number(!!a.parts) - Number(!!b.parts) || byPart(a, b) || a.key.localeCompare(b.key))
+  lanes.sort((a, b) => rank(a.competence) - rank(b.competence) || (a.projectNo ?? '').localeCompare(b.projectNo ?? '') || a.key.localeCompare(b.key))
   const walk = (overOffDays: boolean): OrderRun[] => {
     const runs: OrderRun[] = []
     lanes.forEach((lane, at) => {
       const days = byLane.get(lane.key)!
       let run: OrderRun | null = null
-      let last: LaneDay | null = null
       for (const date of dates) {
-        const day = days.get(date)
-        if (!day) {
+        const order = days.get(date)
+        if (!order) {
           if (!(overOffDays && dayType(date) !== 'arbeidsdag')) run = null
           continue
         }
-        if (run && last && sameRun(last, day)) {
-          run.orders.push(...day.orders)
+        if (run && sameRun(run.orders[run.orders.length - 1], order)) {
+          run.orders.push(order)
           run.to = date
           continue
         }
-        const [first] = day.orders
         run = {
           lane: at,
-          key: lane.parts ? laneOfPerson(day.orders) : laneOf(first),
-          competence: first.competence,
-          ...projectTag(first),
-          ...(lane.parts && { parts: day.orders.map((part, i) => ({ competence: part.competence, ...projectTag(part), share: day.shares[i] })) }),
-          fte: day.people,
-          ...(day.asked !== day.people && { asked: day.asked }),
-          start: first.start,
-          end: first.end,
-          waits: isWaiting(first),
+          key: laneOf(order),
+          competence: order.competence,
+          ...projectTag(order),
+          fte: order.fte,
+          ...(order.person && { shared: true }),
+          ...(order.asked !== undefined && order.asked !== order.fte && { asked: order.asked }),
+          start: order.start,
+          end: order.end,
+          waits: isWaiting(order),
           from: date,
           to: date,
-          orders: [...day.orders],
+          orders: [order],
         }
-        last = day
         runs.push(run)
       }
     })
@@ -976,8 +943,9 @@ export const stretchOrders = (orders: HireOrder[], run: OrderRun, edge: 'start' 
   const outward = edge === 'end' ? to > run.to : to < run.from
   if (outward) {
     const added = dates.filter((date) => (edge === 'end' ? date > run.to && date <= to : date >= to && date < run.from))
-    // The orders of the run's first day, all the parts of a shared person: each new day gets a person of its own.
-    const template = run.orders.filter((order) => order.date === run.orders[0].date).map(({ id: _id, conf: _conf, asked: _asked, engine: _engine, ...rest }) => rest)
+    // The run's first order, with the other parts of a shared person: each new day gets a person of its own.
+    const first = new Set(withPerson(orders, [run.orders[0].id]))
+    const template = orders.filter((order) => first.has(order.id)).map(({ id: _id, conf: _conf, asked: _asked, engine: _engine, ...rest }) => rest)
     return placeOrders(orders, strokeDays(added).flatMap((date) => template.map((rest) => ({ ...rest, date }))), suppliers, makeId).orders
   }
   const keep = (order: HireOrder) => (edge === 'end' ? order.date <= (to < run.from ? run.from : to) : order.date >= (to > run.to ? run.to : to))
@@ -1062,18 +1030,8 @@ const pickedDays = (orders: HireOrder[], ids: string[]): HireOrder[][] => {
   return [...days.values()]
 }
 
-/** What «Én person» would do with the orders with the ids: on how many days of their lines they can be shared, and how many people fewer that is. */
-export const personSaving = (orders: HireOrder[], ids: string[], need: NeedOf, wd: WorkdaySettings): { days: number; saves: number } =>
-  pickedDays(orders, ids).reduce(
-    (sum, picked) => {
-      const sharing = sharingOf(orders, picked, need, wd)
-      return sharing ? { days: sum.days + 1, saves: sum.saves + Math.max(0, sharing.now - sharing.people) } : sum
-    },
-    { days: 0, saves: 0 },
-  )
-
 /**
- * «Én person» (slice 6): on each day of their lines, the orders with the ids (and the other parts of their shared people)
+ * «Slå sammen» (slice 6): on each day of their lines, the orders with the ids (and the other parts of their shared people)
  * become one shared person, or as few as the lanes lack together: a part per lane, each with a share of the people as its
  * lane lacks of the hours, with the first order's times. It is a new question, so it waits. A day whose lanes do not
  * each lack hours is left as it is, and counted.
@@ -1117,18 +1075,38 @@ export const splitPerson = (orders: HireOrder[], ids: string[]): HireOrder[] => 
   )
 }
 
+/** A day of a supplier's line where its orders could be fewer people as shared ones (slice 6), offered in its panel as «Slå sammen». */
+export interface SharingOffer {
+  shift: ShiftId
+  date: ISODate
+  /** The orders of the line and day, which `sharePerson` takes. */
+  ids: string[]
+  /** What is ordered now per competence and project, in people. */
+  lanes: (Pick<HireOrder, 'competence' | 'projectNo'> & { people: number })[]
+  /** The people they would be together. */
+  people: number
+}
+
 /**
- * The days of the suppliers' lines where the orders there could be fewer people as shared ones (the hint of slice 6): by
- * `lineKey` and day, `|`-joined. Only the days given are looked at.
+ * The days of a supplier's lines where the orders there could be fewer people as shared ones: two lanes or more on the
+ * line and day, each lacking hours without its orders, and fewer people for what they lack together. By day and shift.
  */
-export const sharingHints = (orders: HireOrder[], dates: ISODate[], need: NeedOf, wd: WorkdaySettings): Set<string> => {
-  const days = new Set(dates)
+export const sharingOffers = (orders: HireOrder[], supplierId: string, need: NeedOf, wd: WorkdaySettings): SharingOffer[] => {
   const byDay = new Map<string, HireOrder[]>()
-  for (const order of orders) if (days.has(order.date)) pushTo(byDay, `${lineKey(order.supplierId, order.shift)}|${order.date}`, order)
-  const hints = new Set<string>()
-  for (const [key, picked] of byDay) {
+  for (const order of orders) if (order.supplierId === supplierId) pushTo(byDay, `${order.date}|${SHIFT_IDS.indexOf(order.shift)}`, order)
+  const offers: SharingOffer[] = []
+  for (const key of [...byDay.keys()].sort()) {
+    const picked = byDay.get(key)!
     const sharing = picked.length > 1 ? sharingOf(orders, picked, need, wd) : null
-    if (sharing && sharing.people < sharing.now) hints.add(key)
+    if (!sharing || sharing.people >= sharing.now) continue
+    const lanes = new Map<string, SharingOffer['lanes'][number]>()
+    for (const order of picked) {
+      const lane = lanes.get(laneKey(order)) ?? { competence: order.competence, ...projectTag(order), people: 0 }
+      lane.people += order.fte
+      lanes.set(laneKey(order), lane)
+    }
+    const [first] = picked
+    offers.push({ shift: first.shift, date: first.date, ids: picked.map((order) => order.id), lanes: [...lanes.values()], people: sharing.people })
   }
-  return hints
+  return offers
 }
