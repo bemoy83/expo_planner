@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Minus, Plus, Trash2 } from 'lucide-react'
-import { hireHours, isWaiting, SHIFT_LABELS, shiftTimes } from '../../domain/hire'
+import { hireHours, isWaiting, orderUnits, SHIFT_LABELS, shiftTimes } from '../../domain/hire'
 import type { HireOrder, Interval, WorkdaySettings } from '../../domain/types'
 import { clockMinutes } from '../bemanning/week'
 import { Segmented } from '../common'
@@ -19,6 +19,10 @@ export function AnswerGlyph({ waits, size = 14 }: { waits: boolean; size?: numbe
     </svg>
   )
 }
+
+/** An order's people as a line of Innleid lists them: a share of a shared person (slice 6) in its hours. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const peopleText = (order: HireOrder, wd: WorkdaySettings): string => (order.person ? `${hoursText(order.fte * hireHours(order, wd))} t av delt person` : `${hoursText(order.fte)} pers.`)
 
 /** People, fewer or more. */
 function Stepper({ value, min = 1, max = Infinity, label, onStep }: { value: number; min?: number; max?: number; label: string; onStep: (by: number) => void }) {
@@ -75,6 +79,10 @@ export interface OrderEdits {
   times: (ids: string[], times: Interval) => void
   tag: (ids: string[], projectNo: string | null) => void
   remove: (ids: string[]) => void
+  /** «Én person» (slice 6), and what it would save; «Del opp». */
+  share: (ids: string[]) => void
+  saving: (ids: string[]) => { days: number; saves: number }
+  split: (ids: string[]) => void
 }
 
 interface OrderProps {
@@ -84,6 +92,8 @@ interface OrderProps {
   /** The day clicked, which «Bare denne dagen» narrows them to. */
   date: ISODate
   title: string
+  /** For a shared person, what each person does: «3,5 t Vegger, 4 t Tepper». */
+  parts: string | null
   wd: WorkdaySettings
   /** The projects the orders can be for. */
   projects: string[]
@@ -99,7 +109,7 @@ const alike = <T,>(values: T[]): T | null => (values.every((value) => value === 
  * What a click on a run of a supplier's line opens, or on a run inside days selected: the answer of the supplier, the people,
  * the times, the project and «Fjern», for all of the orders, or with «Bare denne dagen» for those of the day clicked.
  */
-export function OrderPopover({ at, orders, date, title, wd, projects, projectName, edits, onClose }: OrderProps) {
+export function OrderPopover({ at, orders, date, title, parts, wd, projects, projectName, edits, onClose }: OrderProps) {
   const [oneDay, setOneDay] = useState(false)
   const [draft, setDraft] = useState<Interval | null>(null)
   const days = new Set(orders.map((order) => order.date)).size
@@ -107,9 +117,12 @@ export function OrderPopover({ at, orders, date, title, wd, projects, projectNam
   const ids = shown.map((order) => order.id)
   if (!shown.length) return null
   const waits = shown.some(isWaiting)
-  const asked = (order: HireOrder) => order.asked ?? order.fte
-  const fte = alike(shown.map((order) => order.fte))
-  const of = alike(shown.map(asked))
+  // People are counted as people: a shared person's parts together (slice 6).
+  const units = orderUnits(shown)
+  const fte = alike(units.map((unit) => unit.people))
+  const of = alike(units.map((unit) => unit.asked))
+  const sharedPerson = shown.some((order) => order.person)
+  const saving = edits.saving(ids)
   const start = alike(shown.map((order) => order.start))
   const end = alike(shown.map((order) => order.end))
   const shift = alike(shown.map((order) => order.shift))
@@ -194,6 +207,23 @@ export function OrderPopover({ at, orders, date, title, wd, projects, projectNam
           </>
         )}
       </div>
+      {parts && <p className="il-pop-note">Hver person: {parts}</p>}
+      {(saving.days > 0 || sharedPerson) && (
+        <div className="il-pop-share">
+          {saving.days > 0 && (
+            <button className="link small" onClick={() => edits.share(ids)}>
+              {sharedPerson ? 'Del på nytt etter det som mangler' : 'Én person'}
+              {saving.saves > 0 && ` · sparer ${count(saving.saves, 'person', 'personer')}`}
+            </button>
+          )}
+          {sharedPerson && (
+            <button className="link small" onClick={() => edits.split(ids)}>
+              Del opp
+            </button>
+          )}
+          <span className="il-pop-note">Blir en ny forespørsel</span>
+        </div>
+      )}
       <label className="il-pop-field">
         <span>Prosjekt</span>
         <select value={projectNo ?? ''} onChange={(e) => edits.tag(ids, e.target.value || null)}>
@@ -207,7 +237,7 @@ export function OrderPopover({ at, orders, date, title, wd, projects, projectNam
         </select>
       </label>
       <button className="il-remove" onClick={() => edits.remove(ids)}>
-        <Trash2 size={14} aria-hidden /> Fjern {count(shown.length, 'bestilling', 'bestillinger')}
+        <Trash2 size={14} aria-hidden /> Fjern {count(units.length, 'bestilling', 'bestillinger')}
       </button>
       <PopFoot onClose={onClose} />
     </Popover>

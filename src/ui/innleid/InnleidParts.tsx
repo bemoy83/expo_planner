@@ -11,7 +11,7 @@ import type { Columns } from '../kalender/gridTypes'
 import { LinePick, NeedRow } from '../bemanning/NeedLabel'
 import { numberKey } from '../../domain/projects'
 import { useInnleid, type HireProjectLine, type InnleidActions } from './InnleidScope'
-import { AnswerGlyph } from './OrderPopovers'
+import { AnswerGlyph, peopleText } from './OrderPopovers'
 import { hoursText } from '../format'
 import { CrewBar, CrewHead, CrewHeading, CrewTop, type CrewBarProps } from '../bemanning/CrewFrame'
 import { crewTools } from '../bemanning/crewTools'
@@ -117,9 +117,9 @@ const coverTitle = (label: string, date: ISODate, cover: Coverage, orders: HireO
   if (cover.state === 'none') return `${label} · ${dayText(date)}\nIngen restbehov`
   const figure = coverFigure(cover)
   return (
-    `${label} · ${dayText(date)}\nRestbehov ${count(cover.need, 'person', 'personer')} (${hoursText(cover.rest)} t) · bestilt ${hoursText(cover.people)} pers. (${hoursText(cover.planned)} t), bekreftet ${hoursText(cover.confirmed)} t` +
+    `${label} · ${dayText(date)}\nRestbehov ${count(cover.need, 'person', 'personer')} (${hoursText(cover.rest)} t) · bestilt ${hoursText(cover.planned)} t, dekker ${count(cover.people, 'person', 'personer')}, bekreftet ${hoursText(cover.confirmed)} t` +
     (figure === null ? '' : figure < 0 ? `\n${count(-figure, 'person', 'personer')} mangler` : `\n${count(figure, 'person', 'personer')} over`) +
-    orders.map((order) => `\n${hoursText(order.fte)} pers. ${nameOf(order.supplierId)} · ${order.projectNo ? projectName(order.projectNo) : 'Uten prosjekt'} · ${shiftText(order, wd)}${isWaiting(order) ? ' · venter på svar' : order.asked ? `, ${order.fte} av ${order.asked}` : ''}`).join('')
+    orders.map((order) => `\n${peopleText(order, wd)} ${nameOf(order.supplierId)} · ${order.projectNo ? projectName(order.projectNo) : 'Uten prosjekt'} · ${shiftText(order, wd)}${isWaiting(order) ? ' · venter på svar' : order.asked ? `, ${order.fte} av ${order.asked}` : ''}`).join('')
   )
 }
 

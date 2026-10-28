@@ -209,7 +209,8 @@ export function EngineDialog({ ws, rows, required, hoursByWork, windowOf, nearby
             <ul>
               {hires.map((need) => (
                 <li key={`${need.competence}|${need.supplier}`}>
-                  <b>{need.label}</b> · {need.supplier}:{' '}
+                  <b>{need.label}</b>
+                  {need.also.length > 0 && `, også ${need.also.join(' og ')}`} · {need.supplier}:{' '}
                   {need.spans.map((span, i) => (
                     <span key={i} title={span.projectNos.map((p) => lines.find((line) => numberKey(line.projectNo) === numberKey(p))?.name ?? p).join(', ')}>
                       {i > 0 && ', '}

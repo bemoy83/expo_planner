@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laneFrom, laneOf, partName, supplierDays, supplierWaits, supplierWeek, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, peopleMissingIn, isUrgent, urgentWaits, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
+import { laneFrom, laneOf, laneParts, normalizePersons, orderUnits, personSaving, sharePerson, sharingHints, splitPerson, tagOrders, removeOrders, partName, supplierDays, supplierWaits, supplierWeek, clearOrders, copyOrders, lineKey, moveOrders, orderRuns, paintOrders, pasteOrders, shareOrders, stretchOrders, strokeDays, supplierLines, changeCount, changeOrders, confirmFewer, confirmOrders, coverage, coverFigure, peopleMissingIn, isUrgent, urgentWaits, orderedLabel, deviation,  hireBoard, hiredFte, hoursChange, hiredLine, hireHours, mergeOrders, orderText, ordersByDay, setWaiting, shiftOf, shiftText, shiftTimes, supplierOrders, supplierReview, supplierTotals, timesText, waitingHours } from './hire'
 import { capacityForDate } from './calc'
 import { DEFAULT_SETTINGS, DEFAULT_WORKDAY, type HireOrder, type Supplier } from './types'
 
@@ -202,7 +202,7 @@ describe('the order to send and what waits (I9, I10)', () => {
       { key: 'vegger', label: 'Vegger' },
       { key: 'tepper', label: 'Tepper' },
     ]
-    expect(orderText(manpower, orders, competences)).toBe(
+    expect(orderText(manpower, orders, competences, wd)).toBe(
       ['Bestilling – Manpower', 'tor 8. okt', '  Vegger: 4 pers. Dag 07:00–15:00', 'fre 9. okt', '  Vegger: 3 pers. Dag 07:00–15:00', '  Vegger: 1 pers. Kveld 15:00–23:00', '  Tepper: 2 pers. Dag 07:00–15:00'].join('\n'),
     )
   })
@@ -394,8 +394,8 @@ describe('orders painted on the suppliers\' lines', () => {
     const orders = [on('k1', 'dag', MON, 1, null), on('k1', 'dag', MON, 1, null, 'tepper'), on('k1', 'kveld', MON, 1, null), on('k1', 'dag', TUE, 1, null)]
     expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }])).toEqual(orders.slice(2))
     expect(clearOrders(orders, [{ supplierId: 'k3', shift: 'dag', date: MON }])).toBe(orders)
-    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], { competence: 'tepper' })).toEqual([orders[0], ...orders.slice(2)])
-    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], { competence: 'tepper', projectNo: '26101' })).toBe(orders)
+    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], laneOf({ competence: 'tepper' }))).toEqual([orders[0], ...orders.slice(2)])
+    expect(clearOrders(orders, [{ supplierId: 'k1', shift: 'dag', date: MON }], laneOf({ competence: 'tepper', projectNo: '26101' }))).toBe(orders)
   })
 
   it('draws runs in lanes by the competences\' order, broken by a change or a weekend, and pulled over an empty weekend', () => {
@@ -500,5 +500,187 @@ describe('the hours a change orders', () => {
     expect(hoursChange([a], [a, b], wd)).toBe(7.5)
     expect(hoursChange([a, b], [more, b], wd)).toBe(7.5)
     expect(hoursChange([a, b], [b], wd)).toBe(-15)
+  })
+})
+
+describe('one hired person on several competences (slice 6)', () => {
+  const MON = '2026-10-12'
+  const TUE = '2026-10-13'
+  const WED = '2026-10-14'
+  const suppliers = [manpower, nordic]
+  let n = 0
+  const id = () => `p${n++}`
+  const dag = hireHours(DAG, wd)
+  const plain = (key: string, competence: string, fte = 1, conf: number | null = 1, date = MON, projectNo?: string): HireOrder => ({ id: key, supplierId: 'k1', shift: 'dag', competence, date, fte, ...DAG, conf, ...(projectNo && { projectNo }) })
+  // Monday lacks 3.5 hours of walls and 4 of carpets: one person of the day shift between them.
+  const need = (competence: string, _projectNo: string | undefined, date: string) => (date !== MON ? 0 : competence === 'vegger' ? 3.5 : competence === 'tepper' ? 4 : 0)
+  const shared = () => sharePerson([plain('v', 'vegger'), plain('t', 'tepper')], ['v', 't'], need, wd, id).orders
+
+  /** What must hold of every shared person after any rule: its parts on one line, day and time, answered together, adding up to whole people. */
+  const isWhole = (orders: HireOrder[]) => {
+    const persons = new Map<string, HireOrder[]>()
+    for (const order of orders) if (order.person) persons.set(order.person, [...(persons.get(order.person) ?? []), order])
+    for (const parts of persons.values()) {
+      expect(parts.length).toBeGreaterThan(1)
+      const [first] = parts
+      for (const part of parts) expect([part.supplierId, part.shift, part.date, part.start, part.end, part.conf === null]).toEqual([first.supplierId, first.shift, first.date, first.start, first.end, first.conf === null])
+      const total = parts.reduce((sum, part) => sum + part.fte, 0)
+      expect(Math.abs(total - Math.round(total))).toBeLessThan(1e-9)
+      expect(new Set(parts.map(laneOf)).size).toBe(parts.length)
+    }
+    expect(new Set(orders.map((order) => order.id)).size).toBe(orders.length)
+  }
+
+  it('makes one person of two orders, shared as each competence lacks, unrounded, and waiting', () => {
+    const orders = shared()
+    isWhole(orders)
+    expect(orders).toHaveLength(2)
+    const [walls, carpets] = orders
+    expect(walls.person).toBe(carpets.person)
+    expect(walls.fte + carpets.fte).toBe(1)
+    expect(walls.fte * dag).toBeCloseTo(3.5)
+    expect([walls.conf, carpets.conf]).toEqual([null, null])
+    // Each competence is covered by its share: 3.5 + 4 hours is one person, and neither shows one missing.
+    expect(coverage(3.5, [walls], wd)).toMatchObject({ state: 'ok', need: 1, people: 1 })
+    expect(coverage(4, [carpets], wd)).toMatchObject({ state: 'ok', need: 1, people: 1 })
+    expect(coverFigure(coverage(4, [carpets], wd))).toBeNull()
+    expect(orderUnits(orders).map((unit) => unit.people)).toEqual([1])
+    expect(supplierTotals(manpower, orders, wd).people).toBe(1)
+    expect(hiredFte({ hireOrders: orders, settings: DEFAULT_SETTINGS }).waiting[MON]).toBeCloseTo((dag / DEFAULT_SETTINGS.hoursPerDay))
+  })
+
+  it('says what it saves, and offers it only where each lane lacks hours without the orders', () => {
+    const orders = [plain('v', 'vegger'), plain('t', 'tepper')]
+    expect(personSaving(orders, ['v', 't'], need, wd)).toEqual({ days: 1, saves: 1 })
+    expect(sharingHints(orders, [MON], need, wd)).toEqual(new Set([`${lineKey('k1', 'dag')}|${MON}`]))
+    const covered = (competence: string, projectNo: string | undefined, date: string) => (competence === 'vegger' ? 0 : need(competence, projectNo, date))
+    expect(personSaving(orders, ['v'], covered, wd)).toEqual({ days: 0, saves: 0 })
+    expect(sharePerson(orders, ['v'], covered, wd, id)).toMatchObject({ orders, shared: 0, skipped: 1 })
+    // Another supplier's order of walls is counted: walls lack nothing then.
+    expect(personSaving([...orders, { ...plain('x', 'vegger'), supplierId: 'k3' }], ['v'], need, wd).days).toBe(0)
+  })
+
+  it('takes as many people as the lanes lack together', () => {
+    const more = (competence: string) => (competence === 'vegger' ? 10 : 4)
+    const orders = sharePerson([plain('v', 'vegger', 2), plain('t', 'tepper')], ['v', 't'], more, wd, id).orders
+    isWhole(orders)
+    expect(orders.reduce((sum, order) => sum + order.fte, 0)).toBe(2)
+    expect(orders[0].fte * dag).toBeCloseTo(15 * (10 / 14))
+  })
+
+  it('answers, counts and times a shared person whole', () => {
+    const orders = shared()
+    const [walls, carpets] = orders
+    const confirmed = confirmOrders(orders, [walls.id])
+    isWhole(confirmed)
+    expect(confirmed.every((order) => order.conf === order.fte)).toBe(true)
+    isWhole(setWaiting(confirmed, [carpets.id]))
+    expect(setWaiting(confirmed, [carpets.id]).every((order) => order.conf === null)).toBe(true)
+    const two = changeCount(confirmed, [carpets.id], 1)
+    isWhole(two)
+    expect(two.map((order) => order.fte)).toEqual([walls.fte * 2, carpets.fte * 2])
+    expect(two.every((order) => order.conf === null)).toBe(true)
+    // Two confirmed, then one sent: each part keeps its share, and what was asked is two.
+    const fewer = confirmFewer(confirmOrders(two, [walls.id]), [walls.id], 1)
+    isWhole(fewer)
+    expect(fewer.map((order) => order.fte)).toEqual([walls.fte, carpets.fte])
+    expect(orderUnits(fewer)[0]).toMatchObject({ people: 1, asked: 2, waits: false })
+    const timed = changeOrders(orders, [walls.id], { start: 480, end: 960 })
+    isWhole(timed)
+    expect(timed.every((order) => order.start === 480)).toBe(true)
+    // A supplier that does not offer carpets takes neither part.
+    expect(changeOrders(orders, [walls.id], { supplierId: 'k3' }, suppliers)).toEqual(orders)
+  })
+
+  it('removes, clears, splits and tags a shared person without breaking it', () => {
+    const orders = [plain('o', 'vegger', 1, 1, TUE), ...shared()]
+    const [, walls, carpets] = orders
+    expect(removeOrders(orders, [carpets.id])).toEqual([orders[0]])
+    const cell = [{ supplierId: 'k1', shift: 'dag' as const, date: MON }]
+    // Tøm from the walls' own lane leaves the person; from the person's lane, or with no lane, it goes whole.
+    expect(clearOrders(orders, cell, laneOf({ competence: 'vegger' }))).toBe(orders)
+    const lane = orderRuns(orders, [MON, TUE], () => 0).runs.find((run) => run.parts)!.key
+    expect(laneParts(lane)).toEqual([{ competence: 'tepper' }, { competence: 'vegger' }])
+    expect(clearOrders(orders, cell, lane)).toEqual([orders[0]])
+    expect(clearOrders(orders, cell)).toEqual([orders[0]])
+    const split = splitPerson(orders, [walls.id])
+    isWhole(split)
+    expect(split.map((order) => [order.competence, order.fte, order.conf, order.person])).toEqual([
+      ['vegger', 1, 1, undefined],
+      ['vegger', 1, null, undefined],
+      ['tepper', 1, null, undefined],
+    ])
+    // A part's project is its own; two parts of one competence and project are one, and a person of one part is an order of its own.
+    const tagged = tagOrders(orders, [carpets.id], '26101')
+    isWhole(tagged)
+    expect(tagged.find((order) => order.competence === 'tepper')?.projectNo).toBe('26101')
+  })
+
+  it('makes a lone part an order of its own, rounded up and waiting where that is more', () => {
+    const sameLane = sharePerson([plain('a', 'vegger', 1, 1, MON, 'A'), plain('b', 'vegger', 1, 1, MON, 'B')], ['a', 'b'], () => 3, wd, id).orders
+    isWhole(sameLane)
+    const merged = tagOrders(sameLane, [sameLane[1].id], 'A')
+    isWhole(merged)
+    expect(merged.map((order) => [order.projectNo, order.fte, order.person])).toEqual([['A', 1, undefined]])
+    expect(normalizePersons([{ ...plain('x', 'vegger', 0.4, 0.4), person: 'gone' }])).toEqual([{ ...plain('x', 'vegger', 1, null) }])
+  })
+
+  it('moves, copies, pastes and pulls a shared person whole, as a person of its own wherever it lands', () => {
+    const orders = shared()
+    const from = { supplierId: 'k1', shift: 'dag' as const, date: MON }
+    const moved = moveOrders(orders, from, { ...from, date: TUE }, false, suppliers, wd, id)
+    isWhole(moved.orders)
+    expect([moved.moved, moved.skipped]).toEqual([1, 0])
+    expect(moved.orders.every((order) => order.date === TUE && order.person !== orders[0].person)).toBe(true)
+    // Nordic Crew has no carpets: the person stays, counted once.
+    const refused = moveOrders(orders, from, { supplierId: 'k3', shift: 'dag', date: MON }, false, suppliers, wd, id)
+    expect([refused.orders, refused.moved, refused.skipped]).toEqual([orders, 0, 1])
+    // Alt-copied to the evening of the same day: two people, each with an id of its own.
+    const copied = moveOrders(orders, from, { ...from, shift: 'kveld' }, true, suppliers, wd, id).orders
+    isWhole(copied)
+    expect(new Set(copied.map((order) => order.person)).size).toBe(2)
+    const clip = copyOrders(orders, [{ supplierId: 'k1', shift: 'dag' }], [MON])!
+    const pasted = pasteOrders(orders, clip, [{ supplierId: 'k1', shift: 'dag' }], [TUE], suppliers, wd, id)
+    isWhole(pasted.orders)
+    expect([pasted.pasted, pasted.skipped]).toEqual([1, 0])
+    const run = orderRuns(orders, [MON, TUE, WED], () => 0).grips[0]
+    const pulled = stretchOrders(orders, run, 'end', WED, [MON, TUE, WED], suppliers, id)
+    isWhole(pulled)
+    expect(new Set(pulled.map((order) => order.person)).size).toBe(3)
+    expect(stretchOrders(pulled, orderRuns(pulled, [MON, TUE, WED], () => 0).grips[0], 'end', MON, [MON, TUE, WED], suppliers, id)).toEqual(orders)
+  })
+
+  it('leaves a shared person to the brush, which paints beside it what is still missing', () => {
+    const orders = shared()
+    const painted = paintOrders(orders, { lines: [{ supplierId: 'k1', shift: 'dag' }], competence: 'vegger', dates: [MON], count: 'auto', need: () => 3.5 + dag }, suppliers, wd, id).orders
+    isWhole(painted)
+    expect(painted.slice(0, 2)).toEqual(orders)
+    expect(painted[2]).toMatchObject({ competence: 'vegger', fte: 1 })
+    expect(painted[2].person).toBeUndefined()
+  })
+
+  it('draws a shared person in a lane of its own, under the others, a run over days with the same shares', () => {
+    const monday = shared()
+    const orders = [plain('o', 'vegger', 2, 2), ...monday, ...moveOrders(monday, { supplierId: 'k1', shift: 'dag', date: MON }, { supplierId: 'k1', shift: 'dag', date: TUE }, true, suppliers, wd, id).orders.slice(2)]
+    const { lanes, runs } = orderRuns(orders, [MON, TUE], (competence) => ['vegger', 'tepper'].indexOf(competence))
+    expect(lanes.map((lane) => lane.parts?.map((part) => part.competence) ?? lane.competence)).toEqual(['vegger', ['vegger', 'tepper']])
+    const run = runs.find((one) => one.parts)!
+    expect([run.from, run.to, run.fte, run.orders.length]).toEqual([MON, TUE, 1, 4])
+    expect(run.parts!.map((part) => part.share * dag)).toEqual([expect.closeTo(3.5), expect.closeTo(4)])
+  })
+
+  it('writes a shared person on one line of the order, with the hours of each part', () => {
+    const competences = [
+      { key: 'vegger', label: 'Vegger' },
+      { key: 'tepper', label: 'Tepper' },
+    ]
+    expect(orderText(manpower, shared(), competences, wd).split('\n')[2]).toBe('  Vegger og Tepper: 1 pers. Dag 07:00–15:00, hver med 3,5 t Vegger, 4 t Tepper')
+  })
+
+  it('counts people from the hours for every order, where shorter times than the day shift cover less', () => {
+    const short = (key: string) => ({ ...plain(key, 'vegger', 1, 1), start: 420, end: 660 })
+    // Two people of four hours against two days' work: one person of the day shift is still missing.
+    const cover = coverage(2 * dag, [short('a'), short('b')], wd)
+    expect([cover.need, cover.people, coverFigure(cover)]).toEqual([2, 1, -1])
   })
 })

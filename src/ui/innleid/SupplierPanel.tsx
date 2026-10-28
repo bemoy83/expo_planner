@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, Copy } from 'lucide-react'
 import { dayText, type ISODate } from '../../domain/dates'
-import { HOURS_NOISE, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
+import { HOURS_NOISE, hireHours, isWaiting, orderText, shiftText, SHIFT_LABELS, supplierOrders, supplierReview, supplierTotals } from '../../domain/hire'
 import { SHIFT_IDS, type HireOrder, type Supplier } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { Segmented, SidePanel } from '../common'
@@ -17,14 +17,14 @@ const COPIED_MS = 1600
 /** A supplier's order copied as text to send: the supplier whose order was just copied, for «Kopiert» to stand a moment, and the copying. */
 function useCopyOrder() {
   const { styles, projectName } = useBemanning()
-  const { orders } = useInnleid()
+  const { orders, wd } = useInnleid()
   const [copied, setCopied] = useState<string | null>(null)
   useEffect(() => {
     if (!copied) return
     const timer = setTimeout(() => setCopied(null), COPIED_MS)
     return () => clearTimeout(timer)
   }, [copied])
-  const copy = (supplier: Supplier) => navigator.clipboard.writeText(orderText(supplier, orders, [...styles.values()], projectName)).then(() => setCopied(supplier.id))
+  const copy = (supplier: Supplier) => navigator.clipboard.writeText(orderText(supplier, orders, [...styles.values()], wd, projectName)).then(() => setCopied(supplier.id))
   return { copied, copy }
 }
 
@@ -54,8 +54,8 @@ function OrderDays({ orders }: { orders: HireOrder[] }) {
                   </span>
                   <em>{shiftText(order, wd)}</em>
                 </button>
-                <b>{order.fte}</b>
-                {order.asked !== undefined && <em>av {order.asked}</em>}
+                {order.person ? <b title="Del av en delt person">{hoursText(order.fte * hireHours(order, wd))} t</b> : <b>{order.fte}</b>}
+                {order.asked !== undefined && !order.person && <em>av {order.asked}</em>}
                 <button className={`il-status ${isWaiting(order) ? 'waits' : ''}`} title={isWaiting(order) ? 'Sett til bekreftet' : 'Sett til venter'} onClick={() => edits.toggleAnswer(order)}>
                   <AnswerGlyph waits={isWaiting(order)} />
                   {isWaiting(order) ? 'Venter' : 'Bekreftet'}
@@ -224,7 +224,7 @@ function Help() {
         <h3 className="insp-h">Tallene</h3>
         <dl>
           <dt>−2</dt>
-          <dd>Underbemannet: personer som mangler (rødt). Timene som gjenstår regnes om til hele personer på en vanlig dag, rundet opp; timene står i tooltip.</dd>
+          <dd>Underbemannet: personer som mangler (rødt). Timene som gjenstår regnes om til hele personer på en vanlig dag, rundet opp; timene står i tooltip. «x/y» er personene timene som er bestilt dekker, av dem som trengs.</dd>
           <dt>+1</dt>
           <dd>Overbemannet: personer over behovet (oker)</dd>
           <dt>Grønt</dt>
@@ -257,7 +257,7 @@ function Help() {
           <dt>Dra i enden</dt>
           <dd>Flere eller færre dager i et løp</dd>
           <dt>Klikk en blokk</dt>
-          <dd>Svar, antall, tider, prosjekt og Fjern for løpet, eller for alt i markeringen du klikker inni</dd>
+          <dd>Svar, antall, tider, prosjekt og Fjern for løpet, eller for alt i markeringen du klikker inni. «Én person» der to kompetanser på samme linje og dag hver mangler litt.</dd>
           <dt>Esc</dt>
           <dd>Avbryt strøket, fjern markeringen, legg bort penselen, lukk panelet</dd>
         </dl>
@@ -269,6 +269,7 @@ function Help() {
           <li>Fra sumlinjen bestilles uten prosjekt, og bestillingen fordeles på prosjektene. Fra en prosjektlinje bestilles for prosjektet.</li>
           <li>Alt starter som «Venter». Registrer svaret i blokken: stiller de færre, justerer du antallet, og resten blir udekket igjen.</li>
           <li>Egne tider settes i blokken, for hele løpet eller en markering på én gang. Bestillingen blir på skiftlinjen sin.</li>
+          <li>Én person kan dekke flere kompetanser samme dag: marker blokkene på samme leverandørlinje og dag, klikk inni og velg «Én person». Timene deles etter det hver kompetanse mangler, blokken får begge fargene, og den svares, flyttes og fjernes som én. En prikk på dagen viser hvor det sparer en person. «Del opp» gjør den til egne bestillinger igjen.</li>
           <li>Bare bekreftede bestillinger teller i «Tilgjengelig» i planen.</li>
           <li>Leverandørkontrollen viser det som venter på svar. Bekreft der, og kopier bestillingen du sender.</li>
         </ol>

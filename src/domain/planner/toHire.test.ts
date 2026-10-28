@@ -52,6 +52,7 @@ describe('«Til innleie»', () => {
         competence: 'foga',
         label: 'foga',
         supplier: 'Messehjelp AS',
+        also: [],
         personDays: 5,
         spans: [
           { from: MON, to: TUE, people: 2, projectNos: ['26001', '26002'] },
@@ -59,5 +60,10 @@ describe('«Til innleie»', () => {
         ],
       },
     ])
+  })
+
+  it('lists a person who goes on to another competence under the one hired for, with «også» the other', () => {
+    const hired = [{ supplierId: 's2', competences: ['foga', 'snekker'], dates: [MON], projectNos: ['26001'] }]
+    expect(toHire(ws([]), hired, ['26001'])).toMatchObject([{ competence: 'foga', supplier: 'Snekkerverkstedet', also: ['snekker'] }])
   })
 })

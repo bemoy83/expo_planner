@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { dayText, todayIso, type ISODate } from '../../domain/dates'
 import { useWorkspace } from '../../store/workspaceStore'
-import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, removeOrders, setWaiting, shareOrders, stretchOrders, supplierLines, tagOrders, waitingHours, peopleMissingIn, urgentWaits, type Coverage, type HireBoard, type HireLine, laneFrom, type LineDay, type LineRuns, type OrderClip, type SupplierLine } from '../../domain/hire'
+import { HOURS_NOISE, hoursChange, strokeDays, changeCount, changeOrders, clearOrders, confirmFewer, confirmOrders, copyOrders, coverage, dayKey, hireBoard, isWaiting, lineKey, moveOrders, orderRuns, ordersByDay, paintOrders, pasteOrders, personSaving, removeOrders, setWaiting, sharePerson, shareOrders, sharingHints, splitPerson, stretchOrders, supplierLines, tagOrders, waitingHours, peopleMissingIn, urgentWaits, type Coverage, type HireBoard, type HireLine, laneParts, type LineDay, type LineRuns, type NeedOf, type OrderClip, type SupplierLine } from '../../domain/hire'
 import { toggleSupplierCompetence, toggleSupplierShift } from '../../domain/suppliers'
 import { NO_PROJECT, projectsWithWork } from '../../domain/staffing/projectBalance'
 import { numberKey } from '../../domain/projects'
@@ -115,6 +115,8 @@ function useInnleidState(active: boolean, counted: boolean) {
     (competence: CompetenceKey, date: ISODate, projectNo?: string) => Math.max(0, projectNo ? projectBalance.of(competence, date, projectNo).remaining : balance.get(competence, date).remaining),
     [balance, projectBalance],
   )
+  /** What a lane of orders needs on a day after the permanent staff: what «Én person» shares a person by (slice 6). */
+  const needOf = useCallback<NeedOf>((competence, projectNo, date) => restOf(competence, date, projectNo), [restOf])
   const board = useMemo<HireBoard>(() => hireBoard(counted ? [...styles.keys()] : [], dates, restOf, stored, wd), [counted, styles, dates, restOf, stored, wd])
   const rows = useMemo<CompetenceStyle[]>(() => board.competences.map((key) => styles.get(key)!), [board, styles])
 
@@ -271,7 +273,7 @@ function useInnleidState(active: boolean, counted: boolean) {
       return moved.orders === orders ? null : { orders: moved.orders, skipped: moved.skipped, days: 1 }
     }
     const { lines, days } = cellsOf(s)
-    if (s.mode === 'erase') return { orders: clearOrders(orders, lines.flatMap((line) => days.map((date) => ({ supplierId: line.supplierId, shift: line.shift, date })) satisfies LineDay[]), s.lane ? laneFrom(s.lane) : undefined), skipped: 0, days: days.length }
+    if (s.mode === 'erase') return { orders: clearOrders(orders, lines.flatMap((line) => days.map((date) => ({ supplierId: line.supplierId, shift: line.shift, date })) satisfies LineDay[]), s.lane), skipped: 0, days: days.length }
     if (s.mode !== 'paint' || !brush) return null
     // Shift: the stroke goes no further than the last day the brush's line lacks hours on.
     const forward = s.col1 >= s.col0
@@ -328,6 +330,17 @@ function useInnleidState(active: boolean, counted: boolean) {
     })
   }, [listed, able, stored, drawnOrders, folded, drawn, rank])
   const shiftRows = useMemo(() => blocks.flatMap((block) => block.rows), [blocks])
+  /** The days in view where a supplier's orders on a line could be fewer people as one shared (slice 6), as text per line, so a line is drawn again only when its days change. */
+  const hints = useMemo(() => {
+    const byLine = new Map<string, string>()
+    if (!active) return byLine
+    for (const hint of sharingHints(stored, view, needOf, wd)) {
+      const at = hint.lastIndexOf('|')
+      const line = hint.slice(0, at)
+      byLine.set(line, `${byLine.get(line) ?? ''} ${hint.slice(at + 1)}`.trim())
+    }
+    return byLine
+  }, [active, stored, view, needOf, wd])
   /** The line under a point: the first that ends below it, so a point on a name line or the divider is the line under it. */
   const rowAt = (y: number) => {
     if (!shiftRows.length) return null
@@ -466,6 +479,20 @@ function useInnleidState(active: boolean, counted: boolean) {
     waits: (ids: string[]) => setOrders((list) => setWaiting(list, ids)),
     confirm: (ids: string[]) => setOrders((list) => confirmOrders(list, ids)),
     tag: (ids: string[], projectNo: string | null) => setOrders((list) => tagOrders(list, ids, projectNo)),
+    /** «Én person»: the orders, a day at a time, one shared person, or as few as their lanes lack together. */
+    share: (ids: string[]) => {
+      const done = sharePerson(stored, ids, needOf, wd)
+      if (!done.shared) return toast('Hver kompetanse må mangle timer uten disse bestillingene for å deles på én person.')
+      setOrders((list) => sharePerson(list, ids, needOf, wd).orders)
+      setOrderPop(null)
+      if (done.skipped) toast(`${count(done.shared, 'dag', 'dager')} delt · ${count(done.skipped, 'dag', 'dager')} ble stående: der mangler ikke hver kompetanse timer`)
+    },
+    split: (ids: string[]) => {
+      setOrders((list) => splitPerson(list, ids))
+      setOrderPop(null)
+    },
+    /** What «Én person» would save on the orders. */
+    saving: (ids: string[]) => personSaving(stored, ids, needOf, wd),
     remove: (ids: string[]) => {
       setOrders((list) => removeOrders(list, ids))
       setOrderPop(null)
@@ -540,10 +567,11 @@ function useInnleidState(active: boolean, counted: boolean) {
     const change = plan ? hoursChange(stored, plan.orders, wd) : 0
     const hours = Math.abs(change) > HOURS_NOISE ? [`${change > 0 ? '+' : '−'}${hoursText(Math.abs(change))} t`] : []
     if (stroke.mode === 'erase') {
-      const only = stroke.lane ? laneFrom(stroke.lane) : null
-      return { mode: 'erase' as const, competence: only?.competence, projectNo: only?.projectNo, text: [count(colTo - colFrom + 1, 'dag', 'dager'), lines, ...hours, ...(only ? ['Shift: alt'] : [])] }
+      const parts = stroke.lane ? laneParts(stroke.lane) : null
+      const only = parts?.length === 1 ? parts[0] : null
+      return { mode: 'erase' as const, competence: parts?.[0].competence, projectNo: only?.projectNo, parts: parts && parts.length > 1 ? parts : undefined, text: [count(colTo - colFrom + 1, 'dag', 'dager'), lines, ...hours, ...(parts ? ['Shift: alt'] : [])] }
     }
-    if (stroke.mode === 'paint' && plan && brush) return { mode: 'paint' as const, competence: brush, projectNo: brushProject ?? undefined, text: [`${count(plan.days, 'dag', 'dager')} × ${lines}`, people ? `${people} pers.` : 'Auto: det som mangler', ...hours, ...(plan.skipped ? [`${plan.skipped} hoppes over`] : []), ...(stroke.toDemand ? ['til behovet er dekket'] : [])] }
+    if (stroke.mode === 'paint' && plan && brush) return { mode: 'paint' as const, competence: brush, projectNo: brushProject ?? undefined, parts: undefined, text: [`${count(plan.days, 'dag', 'dager')} × ${lines}`, people ? `${people} pers.` : 'Auto: det som mangler', ...hours, ...(plan.skipped ? [`${plan.skipped} hoppes over`] : []), ...(stroke.toDemand ? ['til behovet er dekket'] : [])] }
     return null
   }, [stroke, plan, brush, brushProject, people, stored, wd])
 
@@ -551,7 +579,7 @@ function useInnleidState(active: boolean, counted: boolean) {
     board: shownBoard, rows, waiting: useMemo(() => waitingHours(stored, wd), [stored, wd]), urgent: useMemo(() => urgentWaits(stored, todayIso()), [stored]), suppliers, orders, stored, wd, view,
     tool: activeTool, pickTool, brush, brushProject, people, stepCount, clearBrush, pickBrush, isOffered,
     panel, setPanel, openControl: () => setPanel({ kind: 'control' }), openNextUnder, showOrder,
-    projectLines, projectName, blocks, shiftRows, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
+    projectLines, projectName, blocks, shiftRows, hints, lineRefs, able, bodyRef, stroke, selection, marked, pill, edits, actions,
     clip, orderPop, setOrderPop, demandPop, setDemandPop, projectsFor, pickProject,
   }
 }

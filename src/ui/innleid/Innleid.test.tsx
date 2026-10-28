@@ -2,7 +2,7 @@ import { act, fireEvent, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ISODate } from '../../domain/dates'
 import type { HireOrder, Supplier } from '../../domain/types'
-import { cleanupKalender, renderKalender, store, workspaceOf } from '../test/kalenderHarness'
+import { cleanupKalender, renderKalender, ROW, store, workspaceOf } from '../test/kalenderHarness'
 import { LEFT_W, ROW_H } from '../kalender/layout'
 import { DIVIDER_H, PERSON_H } from '../bemanning/layout'
 
@@ -261,5 +261,43 @@ describe('Innleid', () => {
     await settle()
     expect(container.querySelectorAll('.il-run.coming')).toHaveLength(1)
     expect(ordersOf()).toEqual([])
+  })
+
+  it('makes one person of the orders of two competences selected on a day, draws it in both colours, and splits it again, each in one undo step', async () => {
+    // Rigg AS offers both. The day lacks 11.25 hours of FOGA and 3.75 of Elektro: two people, where three are ordered.
+    const both: Supplier[] = [{ id: 's1', name: 'Rigg AS', order: 0, competences: ['foga', 'elektro'], shifts: ['dag'] }]
+    const rows = [{ ...ROW, fte: { '2026-10-06': 1.5 } }, { ...ROW, id: 'row-b', competence: 'Elektro', fte: { '2026-10-06': 0.5 } }]
+    const orders = [order('dag', '2026-10-06', 2), { ...order('dag', '2026-10-06', 1), id: 'el', competence: 'elektro' }]
+    const { container, getByRole } = await renderKalender(workspaceOf({ suppliers: both, allocations: rows, hireOrders: orders }), PREFS)
+    expect(container.querySelectorAll('.il-hint')).toHaveLength(1)
+    press(container, 0, '2026-10-06')
+    moveTo(container, 0, '2026-10-07')
+    letGo()
+    pressOn(runOf(container, 'el'), container, 0, '2026-10-06')
+    letGo()
+    await settle()
+    fireEvent.click(within(getByRole('dialog')).getByRole('button', { name: /Én person · sparer 1 person/ }))
+    await settle()
+    const shared = store.workspace?.hireOrders ?? []
+    expect(shared.map((one) => [one.competence, Math.round(one.fte * 7.5 * 100) / 100, one.conf])).toEqual([
+      ['foga', 11.25, null],
+      ['elektro', 3.75, null],
+    ])
+    expect(new Set(shared.map((one) => one.person)).size).toBe(1)
+    expect(container.querySelectorAll('.il-run-parts i')).toHaveLength(2)
+    expect(container.querySelectorAll('.il-hint')).toHaveLength(0)
+    await act(async () => store.undo())
+    expect(store.workspace?.hireOrders).toEqual(orders)
+    await act(async () => store.redo())
+    await settle()
+    pressOn(container.querySelector('.il-run')!, container, 0, '2026-10-06')
+    letGo()
+    await settle()
+    fireEvent.click(within(getByRole('dialog')).getByRole('button', { name: 'Del opp' }))
+    await settle()
+    expect(ordersOf()).toEqual([
+      ['s1', 'dag', '2026-10-06', 1],
+      ['s1', 'dag', '2026-10-06', 2],
+    ])
   })
 })
