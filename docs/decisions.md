@@ -241,7 +241,7 @@ The planner's answers (2026-10-24), the recommended ones:
 
 - The sum row's demand per day is the plan's FTE per day (`plannedByDay`, `seasonDays`), the only demand the app has by day; Behov holds totals.
 - Over the budget, and over the staff in the sum row, is `--res-over`, which is `--neg`; the plan is a neutral grey and the actual hours graphite (`--res-plan`, `--res-actual`).
-- Montering and Demontering keep their names; the handoff's Opprigg and Nedrigg are for the whole app to decide.
+- Montering and Demontering keep their names; the handoff's Opprigg and Nedrigg are for the whole app to decide. In the docs they are settled (2026-10-28): Montering and Demontering are hall phases, build-up (opprigg) and tear-down (nedrigg) the work ([Phases and work](features/README.md#phases-and-work)); the UI is still open.
 - «Steder» is gone from Resultat: it chose the hall columns, which are gone.
 
 Where the build differs from the handoff, to reuse what the app has:
