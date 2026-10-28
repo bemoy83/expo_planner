@@ -355,6 +355,8 @@ button.bm-need:hover{background-image:linear-gradient(var(--wash),var(--wash))}
 .il-sends{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
 .il-sends-day{flex:1;color:var(--muted)}
 .il-times{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* «Én person» and «Del opp» (slice 6), with what they lead to beside them */
+.il-pop-share{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
 .il-times input{width:92px;font:600 var(--fs-md) var(--font-num)}
 .il-times .il-pop-note{flex-basis:100%}
 .il-pop-foot{display:flex;align-items:center;gap:8px;margin:0 -12px -12px;padding:8px 12px;border-top:1px solid var(--line);font-size:var(--fs-xs);color:var(--faint)}

@@ -2,7 +2,7 @@ import { dayText } from '../../domain/dates'
 import { hireHours, isWaiting, orderUnits, SHIFT_LABELS } from '../../domain/hire'
 import { NO_PROJECT } from '../../domain/staffing/projectBalance'
 import { numberKey } from '../../domain/projects'
-import { sameProject } from '../../domain/types'
+import { sameProject, type HireOrder } from '../../domain/types'
 import { useBemanning } from '../bemanning/BemanningScope'
 import { DemandPopover } from '../bemanning/Popovers'
 import { count } from '../dom'
@@ -23,8 +23,11 @@ export function InnleidOverlays() {
   /** The work of an order: its competence, and its project. */
   const work = (order: { competence: string; projectNo?: string }) => `${labelOf(order.competence)}${order.projectNo ? ` · ${projectName(order.projectNo)}` : ''}`
   // One shared person, or the same parts on every day (slice 6): its parts together, and what each person does.
-  const shared = units.length > 0 && units.every((unit) => unit.orders[0].person) ? units[0].orders : null
-  const sameParts = shared !== null && units.every((unit) => unit.orders.map(work).join('+') === shared.map(work).join('+'))
+  // The parts in the order of the competences, as the line draws them; the store keeps no order.
+  const rank = (order: HireOrder) => [...styles.keys()].indexOf(order.competence)
+  const inOrder = (parts: HireOrder[]) => [...parts].sort((a, b) => rank(a) - rank(b) || work(a).localeCompare(work(b)))
+  const shared = units.length > 0 && units.every((unit) => unit.orders[0].person) ? inOrder(units[0].orders) : null
+  const sameParts = shared !== null && units.every((unit) => inOrder(unit.orders).map(work).join('+') === shared.map(work).join('+'))
   const popTitle = () => {
     const [first] = popOrders
     const sameLine = popOrders.every((order) => order.supplierId === first.supplierId && order.shift === first.shift)
